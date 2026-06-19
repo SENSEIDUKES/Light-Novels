@@ -1,58 +1,44 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import { routeTextGeneration, routeImageGeneration, ROUTER_PRESETS } from "./aiRouter";
 
 dotenv.config();
 
 const app = express();
+
+// Helper to extract custom API credentials/configurations passed securely by the client from standard headers
+function getCustomKeys(req: express.Request) {
+  return {
+    geminiApiKey: (req.header("x-gemini-key") as string) || undefined,
+    openrouterApiKey: (req.header("x-openrouter-key") as string) || undefined,
+    ollamaHost: (req.header("x-ollama-host") as string) || undefined,
+  };
+}
 const PORT = 3000;
 
 // Increase payload sizes
 app.use(express.json({ limit: "20mb" }));
 
-// Initialize Gemini SDK lazily to avoid crashing if API key is missing
-let aiClient: GoogleGenAI | null = null;
-function getAIClient() {
-  if (!aiClient) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
-      throw new Error("GEMINI_API_KEY environment variable is not configured or holds a placeholder.");
-    }
-    aiClient = new GoogleGenAI({ apiKey });
-  }
-  return aiClient;
-}
-
 // ==========================================
 // API ROUTES
 // ==========================================
 
-// Helper: robust parsing to avoid crashing if JSON response starts with ```json
-function cleanAndParseJSON(rawText: string) {
-  let cleaned = rawText.trim();
-  if (cleaned.startsWith("```json")) {
-    cleaned = cleaned.substring(7);
-  } else if (cleaned.startsWith("```")) {
-    cleaned = cleaned.substring(3);
-  }
-  if (cleaned.endsWith("```")) {
-    cleaned = cleaned.substring(0, cleaned.length - 3);
-  }
-  return JSON.parse(cleaned.trim());
-}
+// 0. Get available router presets
+app.get("/api/router-presets", (req, res) => {
+  res.json(ROUTER_PRESETS);
+});
 
 // 1. Initial story arc generation
 app.post("/api/generate-initial-arc", async (req, res) => {
   try {
-    const { mcName, genre, customPremise, chapterCount } = req.body;
+    const { mcName, genre, customPremise, chapterCount, routingConfig } = req.body;
     
     if (!mcName || !genre || !customPremise) {
       return res.status(400).json({ error: "Missing required fields: mcName, genre, customPremise" });
     }
 
-    const ai = getAIClient();
     const count = Math.min(parseInt(chapterCount) || 10, 10);
 
     const systemInstruction = `You are a legendary grandmaster editor and creative author specializing in Chinese Web Novels (Xianxia, Xuanhuan, Cultivation, LitRPG, and System novels). 
@@ -97,21 +83,14 @@ You must return a JSON object with the following fields:
 
 Ensure the story pacing is structured so that key breakthroughs happen periodically, and major climaxes occur near chapters 5 and 10! Use creative Chinese light novel tropes. Maintain the SEIHouse aesthetic where artistic cultivation and poetic/profound elements play a significant role. Do not add any text before or after the JSON.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: userPrompt,
-      config: {
-        systemInstruction,
-        responseMimeType: "application/json",
-        temperature: 1.0,
-      }
-    });
-
-    if (!response.text) {
-      throw new Error("No response received from Gemini.");
-    }
-
-    const data = cleanAndParseJSON(response.text);
+    const data = await routeTextGeneration(
+      "storyMaker",
+      systemInstruction,
+      userPrompt,
+      "generate-initial-arc",
+      routingConfig,
+      getCustomKeys(req)
+    );
     return res.json(data);
   } catch (error: any) {
     console.error("Error generating initial arc:", error);
@@ -128,14 +107,13 @@ app.post("/api/generate-chapter", async (req, res) => {
       customPremise, 
       memory, 
       pastSummaries, 
-      currentChapter 
+      currentChapter,
+      routingConfig
     } = req.body;
 
     if (!mcName || !currentChapter || !memory) {
       return res.status(400).json({ error: "Missing required fields for chapter generation" });
     }
-
-    const ai = getAIClient();
 
     const systemInstruction = `You are an elite fantasy web-novel author specializing in Chinese light novels (Wuxia, Xianxia, Xuanhuan, Divine Systems). 
 Your writing must be highly descriptive, immersive, and emotionally impactful, utilizing the "Reading/archive" font tone. Write using rich metaphors, profound dialogue, high cultivation chants, and grand scene setting. 
@@ -240,21 +218,14 @@ You must return a JSON object with the following fields:
 
 Do not add any text before or after the JSON.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: userPrompt,
-      config: {
-        systemInstruction,
-        responseMimeType: "application/json",
-        temperature: 0.9,
-      }
-    });
-
-    if (!response.text) {
-      throw new Error("No response received from Gemini for chapter generation.");
-    }
-
-    const data = cleanAndParseJSON(response.text);
+    const data = await routeTextGeneration(
+      "storyMaker",
+      systemInstruction,
+      userPrompt,
+      "generate-chapter",
+      routingConfig,
+      getCustomKeys(req)
+    );
     return res.json(data);
   } catch (error: any) {
     console.error("Error generating chapter:", error);
@@ -273,14 +244,14 @@ app.post("/api/steer-arc", async (req, res) => {
       pastSummaries, 
       currentArcCount,
       steerDirection, // e.g. "darker", "romance", "action", "twist", "new location", "continue"
-      userCustomDirections
+      userCustomDirections,
+      routingConfig
     } = req.body;
 
     if (!mcName || !memory || !steerDirection) {
       return res.status(400).json({ error: "Missing required steering fields" });
     }
 
-    const ai = getAIClient();
     const count = 10; // Generate next 10 chapters max to maintain excellent quality and prevent drift
 
     const systemInstruction = `You are a visionary series consultant and lead author for bestselling serialized Chinese web-novels. 
@@ -344,115 +315,41 @@ JSON fields required:
 
 Make sure the tone perfectly incorporates the selected direction (e.g., if "darker", the plot includes demonic techniques, betrayals, and extreme cold cultivator mentalities; if "romance", dynamic emotional bonds, double cultivation sects, or tragic sacrifices; if "twist", key allies being revealed as secret masterminds or the system having dark origins). Keep descriptions profound. Do not add any text before or after the JSON.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: userPrompt,
-      config: {
-        systemInstruction,
-        responseMimeType: "application/json",
-        temperature: 0.95,
-      }
-    });
-
-    if (!response.text) {
-      throw new Error("No response received from Gemini for steering.");
-    }
-
-    const data = cleanAndParseJSON(response.text);
+    const data = await routeTextGeneration(
+      "storyMaker",
+      systemInstruction,
+      userPrompt,
+      "steer-arc",
+      routingConfig,
+      getCustomKeys(req)
+    );
     return res.json(data);
   } catch (error: any) {
     console.error("Error steering arc:", error);
     return res.status(500).json({ error: error.message || "Internal server error" });
   }
-})// Aetherial Companion Helper: Generate Portrait or Scenery Card Illustration
+});
+
+// 4. Generate Portrait or Scenery Card Illustration
 app.post("/api/generate-card-image", async (req, res) => {
-  const { prompt, type } = req.body;
+  const { prompt, type, routingConfig } = req.body;
   try {
     if (!prompt) {
       return res.status(400).json({ error: "Missing prompt parameter for image generation" });
     }
-
-    const ai = getAIClient();
-    const styleEnhancer = type === "location" 
-      ? "mystical landscape, fantasy environment concept art, high-energy light novel scenery, dramatic lighting, celestial aura, beautiful composition, vibrant colors"
-      : "professional anime character portrait, fantasy webnovel cover design, intricate details, sharp focus, celestial backlighting, clean high contrast colors";
-    
-    const rawPrompt = `${prompt}. Style: ${styleEnhancer}. Solo subject, centered, no borders, no text.`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image",
-      contents: rawPrompt,
-      config: {
-        imageConfig: {
-          aspectRatio: "1:1"
-        }
-      }
-    });
-
-    if (!response.candidates?.[0]?.content?.parts) {
-      throw new Error("No image data generated from client.");
-    }
-
-    let base64Data: string | null = null;
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData?.data) {
-        base64Data = part.inlineData.data;
-        break;
-      }
-    }
-
-    if (!base64Data) {
-      throw new Error("Could not extract image byte frames from Gemini candidate.");
-    }
-
-    return res.json({ imageUrl: `data:image/png;base64,${base64Data}` });
+    const result = await routeImageGeneration(prompt, type, routingConfig, getCustomKeys(req));
+    return res.json(result);
   } catch (error: any) {
-    console.warn("Card image generation failed, serving celestial fallback stream:", error);
-    
-    // Select stunning context-paired Unsplash stock images matching the SEIHouse visual lore
-    let fallbackUrl = "";
-    const seedIndex = prompt ? String(prompt).split("").reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) : Math.floor(Math.random() * 100);
-    
-    if (type === "location") {
-      const locationSeeds = [
-        "https://images.unsplash.com/photo-1542224566-6e85f2e6772f?w=600&auto=format&fit=crop&q=80", // Misty mountain forest pagoda path
-        "https://images.unsplash.com/photo-1508193638397-1c4234db14d8?w=600&auto=format&fit=crop&q=80", // Ancient mystical glowing woods
-        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&auto=format&fit=crop&q=80", // Deep azure celestial shoreline
-        "https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=600&auto=format&fit=crop&q=80"  // Cosmic space aura starry clouds
-      ];
-      fallbackUrl = locationSeeds[seedIndex % locationSeeds.length];
-    } else if (type === "artifact") {
-      const artifactSeeds = [
-        "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80", // Radiant geometric light crystal
-        "https://images.unsplash.com/photo-1515516969-d4008cc6241a?w=600&auto=format&fit=crop&q=80", // Leather bounded ancient master lorebook
-        "https://images.unsplash.com/photo-1534067783941-51c9c23eccfd?w=600&auto=format&fit=crop&q=80", // Sunstruck glowing blade shrine
-        "https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=600&auto=format&fit=crop&q=80"  // Swirling hyper-dimensional neon flow
-      ];
-      fallbackUrl = artifactSeeds[seedIndex % artifactSeeds.length];
-    } else {
-      const characterSeeds = [
-        "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&auto=format&fit=crop&q=80", // High contrast light novel anime watercolor portrait
-        "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=600&auto=format&fit=crop&q=80", // Celestial backlighting fantasy character silhouette
-        "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80", // Midnight swordmaster starry outline
-        "https://images.unsplash.com/photo-1560942485-b2a11cc13456?w=600&auto=format&fit=crop&q=80"  // Dynamic anime blade focus backdrop
-      ];
-      fallbackUrl = characterSeeds[seedIndex % characterSeeds.length];
-    }
-
-    return res.json({ 
-      imageUrl: fallbackUrl, 
-      note: "Projected via celestial echo stream (API quota reserve limit reached).",
-      isFallback: true 
-    });
+    console.error("Error generating card image:", error);
+    return res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
 
-// Aetherial Companion Helper: Generate Story-Specific Glossary terms and lore definitions
+// 5. Generate Story-Specific Glossary terms and lore definitions
 app.post("/api/generate-custom-glossary", async (req, res) => {
-  const { storyTitle, mcName, genre, customPremise, characterNames, factionNames } = req.body;
+  const { storyTitle, mcName, genre, customPremise, characterNames, factionNames, routingConfig } = req.body;
   try {
-    const ai = getAIClient();
-    const systemInstruction = "You are a keeper of light novel archives and deep scholar of cultivation universes. Return strictly. JSON matching the requested structure. Create 4 to 6 incredibly unique and immersive terms matching the active story logic, summarizing magical items, ancient herbs, high arrays, secret cultivation stances, or spatial techniques referenced in current premise bounds.";
+    const systemInstruction = "You are a keeper of light novel archives and deep scholar of cultivation universes. Return strictly JSON matching the requested structure. Create 4 to 6 incredibly unique and immersive terms matching the active story logic, summarizing magical items, ancient herbs, high arrays, secret cultivation stances, or spatial techniques referenced in current premise bounds.";
 
     const promptText = `Analyze this active Chinese Web Novel and extract 4 to 6 immersive, story-specific glossary terms:
 - Story Title: ${storyTitle}
@@ -475,21 +372,14 @@ Return strictly a JSON object with this shape:
 }
 Do not add any markup before or after the JSON.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: promptText,
-      config: {
-        systemInstruction,
-        responseMimeType: "application/json",
-        temperature: 0.9
-      }
-    });
-
-    if (!response.text) {
-      throw new Error("Empty response from matrix interpreter.");
-    }
-
-    const data = cleanAndParseJSON(response.text);
+    const data = await routeTextGeneration(
+      "storyMaker",
+      systemInstruction,
+      promptText,
+      "generate-custom-glossary",
+      routingConfig,
+      getCustomKeys(req)
+    );
     return res.json(data);
   } catch (error: any) {
     console.warn("Glossary generation failed, serving celestial fallback glossary:", error);
@@ -520,7 +410,7 @@ Do not add any markup before or after the JSON.`;
     return res.json({ 
       terms: fallbackTerms, 
       isFallback: true,
-      note: "Projected via celestial scribe memory (API quota reserve limit reached)." 
+      note: "Projected via celestial scribe memory: " + error.message 
     });
   }
 });

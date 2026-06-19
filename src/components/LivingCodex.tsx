@@ -5,7 +5,7 @@ import {
   Check, Eye, RefreshCcw, Search, Compass, Award, Image, 
   BookMarked, ArrowRight, ArrowLeftRight, Activity
 } from 'lucide-react';
-import { StoryMemory, Character, Faction, Location, Artifact, StoryArc } from '../types';
+import { StoryMemory, Character, Faction, Location, Artifact, StoryArc, StoryWorld, CharacterRelationship, KarmaFateNode } from '../types';
 
 interface LivingCodexProps {
   memory: StoryMemory;
@@ -14,6 +14,9 @@ interface LivingCodexProps {
   mcName: string;
   onJumpToChapter?: (chapterNumber: number) => void;
   onSwitchTab?: (tab: 'reader' | 'codex' | 'memory') => void;
+  activeStory: StoryWorld;
+  onUpdateStory: (updatedStory: StoryWorld) => void;
+  routingConfig?: any;
 }
 
 // 1. Static high-fidelity Chinese cultivation vocabulary (Glossary defaults)
@@ -61,7 +64,10 @@ export default function LivingCodex({
   onUpdateMemory, 
   mcName, 
   onJumpToChapter, 
-  onSwitchTab 
+  onSwitchTab,
+  activeStory,
+  onUpdateStory,
+  routingConfig
 }: LivingCodexProps) {
   const [activePage, setActivePage] = useState<'characters' | 'relations' | 'power' | 'factions' | 'artifacts' | 'timeline' | 'mysteries' | 'glossary'>('characters');
   
@@ -75,6 +81,110 @@ export default function LivingCodex({
   const [customGlossary, setCustomGlossary] = useState<Array<{term: string, category: string, definition: string}>>([]);
   const [isExtractingGlossary, setIsExtractingGlossary] = useState(false);
   const [glossaryError, setGlossaryError] = useState<string | null>(null);
+
+  // --- CUSTOM COMPONENT BINDING STATES (LOCAL-FIRST PERSISTENT MATRIX) ---
+  const [bondSourceId, setBondSourceId] = useState('');
+  const [bondTargetId, setBondTargetId] = useState('');
+  const [bondAffinity, setBondAffinity] = useState<number>(0);
+  const [bondDesc, setBondDesc] = useState('');
+
+  const [fateSource, setFateSource] = useState('');
+  const [fateTarget, setFateTarget] = useState('');
+  const [fateSeverity, setFateSeverity] = useState<'Minor' | 'Major' | 'Cosmic'>('Minor');
+  const [fateType, setFateType] = useState<'Debt' | 'Boon' | 'Enmity' | 'Destiny'>('Debt');
+  const [fateDesc, setFateDesc] = useState('');
+
+  const handleAddCustomRelationship = () => {
+    if (!bondSourceId || !bondTargetId) {
+      alert("Two sovereign characters are required to bind a causal relation.");
+      return;
+    }
+    if (bondSourceId === bondTargetId) {
+      alert("A cultivator cannot bond with their own split soul.");
+      return;
+    }
+    const sourceChar = memory.characters.find(c => c.id === bondSourceId);
+    const targetChar = memory.characters.find(c => c.id === bondTargetId);
+    if (!sourceChar || !targetChar) return;
+
+    const newRelationship: CharacterRelationship = {
+      id: `bond_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      sourceCharId: bondSourceId,
+      sourceCharName: sourceChar.name,
+      targetCharId: bondTargetId,
+      targetCharName: targetChar.name,
+      affinity: bondAffinity,
+      description: bondDesc || `${sourceChar.name} and ${targetChar.name} are bound through shared tribulation.`,
+      updatedAt: new Date().toISOString()
+    };
+
+    const currentBonds = activeStory.relationships || [];
+    onUpdateStory({
+      ...activeStory,
+      relationships: [newRelationship, ...currentBonds]
+    });
+
+    setBondSourceId('');
+    setBondTargetId('');
+    setBondDesc('');
+    setBondAffinity(0);
+    alert(`Successfully bound a karma link between ${sourceChar.name} and ${targetChar.name}!`);
+  };
+
+  const handleDeleteCustomRelationship = (bondId: string) => {
+    const currentBonds = activeStory.relationships || [];
+    onUpdateStory({
+      ...activeStory,
+      relationships: currentBonds.filter(b => b.id !== bondId)
+    });
+  };
+
+  const handleAddCustomFateNode = () => {
+    if (!fateSource || !fateTarget || !fateDesc) {
+      alert("All decree fields (Source, Target, Description) are required to engrave karma fate nodes.");
+      return;
+    }
+
+    const newFateNode: KarmaFateNode = {
+      id: `fate_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      sourceId: `src_${Date.now()}`,
+      sourceName: fateSource,
+      targetId: `tgt_${Date.now()}`,
+      targetName: fateTarget,
+      description: fateDesc,
+      severity: fateSeverity,
+      type: fateType,
+      status: 'active',
+      createdAt: new Date().toISOString()
+    };
+
+    const currentNodes = activeStory.karmaNodes || [];
+    onUpdateStory({
+      ...activeStory,
+      karmaNodes: [newFateNode, ...currentNodes]
+    });
+
+    setFateSource('');
+    setFateTarget('');
+    setFateDesc('');
+    alert("Fate decree successfully engraved into the Akasha tablet!");
+  };
+
+  const handleToggleFateNodeStatus = (fateId: string) => {
+    const currentNodes = activeStory.karmaNodes || [];
+    onUpdateStory({
+      ...activeStory,
+      karmaNodes: currentNodes.map(n => n.id === fateId ? { ...n, status: n.status === 'active' ? 'resolved' : 'active' } : n)
+    });
+  };
+
+  const handleDeleteFateNode = (fateId: string) => {
+    const currentNodes = activeStory.karmaNodes || [];
+    onUpdateStory({
+      ...activeStory,
+      karmaNodes: currentNodes.filter(n => n.id !== fateId)
+    });
+  };
 
   // Active sub-navigation for Characters ("Detailed list" vs "Illustrated Canvas Cards")
   const [charViewStyle, setCharViewStyle] = useState<'cards' | 'profiles'>('cards');
@@ -176,10 +286,18 @@ export default function LivingCodex({
       : `The glowing physical form of the ancient alchemical weapon relic ${name}. Description: ${description}`;
 
     try {
+      const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      const gemini = localStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = localStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = localStorage.getItem('@seihouse/api-key-ollama-host');
+      if (gemini) apiHeaders['x-gemini-key'] = gemini;
+      if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
+      if (ollama) apiHeaders['x-ollama-host'] = ollama;
+
       const res = await fetch('/api/generate-card-image', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: targetPrompt, type })
+        headers: apiHeaders,
+        body: JSON.stringify({ prompt: targetPrompt, type, routingConfig })
       });
 
       const data = await res.json();
@@ -218,16 +336,25 @@ export default function LivingCodex({
       const characterNames = memory.characters.map(c => c.name);
       const factionNames = (memory.factions || []).map(f => f.name);
 
+      const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      const gemini = localStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = localStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = localStorage.getItem('@seihouse/api-key-ollama-host');
+      if (gemini) apiHeaders['x-gemini-key'] = gemini;
+      if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
+      if (ollama) apiHeaders['x-ollama-host'] = ollama;
+
       const res = await fetch('/api/generate-custom-glossary', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders,
         body: JSON.stringify({
           storyTitle: arcs[0]?.title || "Active Light Novel Matrix",
           mcName,
           genre: "Sovereign Cultivation path",
           customPremise: memory.powerSystem,
           characterNames,
-          factionNames
+          factionNames,
+          routingConfig
         })
       });
 
@@ -411,127 +538,140 @@ export default function LivingCodex({
       <div className="absolute top-0 inset-x-0 h-[3px] bg-gradient-to-r from-portal via-human to-portal"></div>
 
       {/* SIDEBAR NAVIGATION PAGES */}
-      <div className="w-full md:w-60 flex-shrink-0 flex flex-col space-y-1.5 border-b md:border-b-0 md:border-r border-neutral-900 pb-4 md:pb-0 md:pr-4" id="codex-side-nav">
-        <div className="mb-4">
+      <div className="w-full md:w-60 flex-shrink-0 flex flex-col border-b md:border-b-0 md:border-r border-neutral-900 pb-2 md:pb-0 md:pr-4" id="codex-side-nav">
+        <div className="mb-2 md:mb-4">
           <span className="text-[9px] text-portal uppercase font-bold tracking-[0.2em] font-sc block">Divine Registry</span>
-          <h2 className="font-display font-medium text-xl text-signal tracking-wider mt-0.5 flex items-center space-x-2">
+          <h2 className="font-display font-medium text-lg md:text-xl text-signal tracking-wider mt-0.5 flex items-center space-x-2">
             <span>The Living Codex</span>
           </h2>
-          <p className="text-[10px] text-neutral-500 font-sans tracking-tight mt-1 leading-relaxed">
+          <p className="text-[10px] text-neutral-500 font-sans tracking-tight mt-1 leading-relaxed hidden md:block">
             Distilling structural power-charts, fate karma, spatial domains, and relational trees.
           </p>
         </div>
 
-        {/* Character/Location Profiles Link */}
-        <button
-          onClick={() => setActivePage('characters')}
-          className={`flex items-center space-x-3 px-3 py-2.5 rounded text-[11px] tracking-wider transition-all font-sc uppercase ${
-            activePage === 'characters' 
-              ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
-              : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
-          }`}
-        >
-          <Users size={13} className={activePage === 'characters' ? 'text-human' : ''} />
-          <span>Sovereign Portrals</span>
-        </button>
+        {/* HORIZONTAL TABS ON MOBILE / VERTICAL SIDEBAR ON DESKTOP */}
+        <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 gap-1.5 md:gap-1.5 md:space-y-1.5 scrollbar-none whitespace-nowrap select-none w-full" id="codex-tab-scroller">
+          {/* Character/Location Profiles Link */}
+          <button
+            onClick={() => setActivePage('characters')}
+            className={`flex items-center space-x-1.5 md:space-x-3 px-3 py-1.5 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
+              activePage === 'characters' 
+                ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
+                : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
+            }`}
+          >
+            <Users size={12} className={activePage === 'characters' ? 'text-human' : ''} />
+            <span>Sovereign Portals</span>
+          </button>
 
-        {/* Relationship Map Link */}
-        <button
-          onClick={() => {
-            setActivePage('relations');
-            setSelectedNodeChar(null);
-          }}
-          className={`flex items-center space-x-3 px-3 py-2.5 rounded text-[11px] tracking-wider transition-all font-sc uppercase ${
-            activePage === 'relations' 
-              ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
-              : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
-          }`}
-        >
-          <Network size={13} className={activePage === 'relations' ? 'text-portal' : ''} />
-          <span>Karma Web</span>
-        </button>
+          {/* Relationship Map Link */}
+          <button
+            onClick={() => {
+              setActivePage('relations');
+              setSelectedNodeChar(null);
+            }}
+            className={`flex items-center space-x-1.5 md:space-x-3 px-3 py-1.5 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
+              activePage === 'relations' 
+                ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
+                : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
+            }`}
+          >
+            <Network size={12} className={activePage === 'relations' ? 'text-portal' : ''} />
+            <span>Karma Web</span>
+          </button>
 
-        {/* Power ranking chart System Link */}
-        <button
-          onClick={() => setActivePage('power')}
-          className={`flex items-center space-x-3 px-3 py-2.5 rounded text-[11px] tracking-wider transition-all font-sc uppercase ${
-            activePage === 'power' 
-              ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
-              : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
-          }`}
-        >
-          <Zap size={13} className={activePage === 'power' ? 'text-yellow-500' : ''} />
-          <span>Power Rankings</span>
-        </button>
+          {/* Power ranking chart System Link */}
+          <button
+            onClick={() => setActivePage('power')}
+            className={`flex items-center space-x-1.5 md:space-x-3 px-3 py-1.5 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
+              activePage === 'power' 
+                ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
+                : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
+            }`}
+          >
+            <Zap size={12} className={activePage === 'power' ? 'text-yellow-500' : ''} />
+            <span>Power Rankings</span>
+          </button>
 
-        {/* Factions & hierarchy Link */}
-        <button
-          onClick={() => setActivePage('factions')}
-          className={`flex items-center space-x-3 px-3 py-2.5 rounded text-[11px] tracking-wider transition-all font-sc uppercase ${
-            activePage === 'factions' 
-              ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
-              : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
-          }`}
-        >
-          <Shield size={13} className={activePage === 'factions' ? 'text-green-500' : ''} />
-          <span>Faction Hierarchy</span>
-        </button>
+          {/* Factions & hierarchy Link */}
+          <button
+            onClick={() => setActivePage('factions')}
+            className={`flex items-center space-x-1.5 md:space-x-3 px-3 py-1.5 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
+              activePage === 'factions' 
+                ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
+                : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
+            }`}
+          >
+            <Shield size={12} className={activePage === 'factions' ? 'text-green-500' : ''} />
+            <span>Faction Hierarchy</span>
+          </button>
 
-        {/* Artifacts Gallery Link */}
-        <button
-          onClick={() => setActivePage('artifacts')}
-          className={`flex items-center space-x-3 px-3 py-2.5 rounded text-[11px] tracking-wider transition-all font-sc uppercase ${
-            activePage === 'artifacts' 
-              ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
-              : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
-          }`}
-        >
-          <Sword size={13} className={activePage === 'artifacts' ? 'text-orange-500' : ''} />
-          <span>Divine Relics</span>
-        </button>
+          {/* Artifacts Gallery Link */}
+          <button
+            onClick={() => setActivePage('artifacts')}
+            className={`flex items-center space-x-1.5 md:space-x-3 px-3 py-1.5 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
+              activePage === 'artifacts' 
+                ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
+                : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
+            }`}
+          >
+            <Sword size={12} className={activePage === 'artifacts' ? 'text-orange-500' : ''} />
+            <span>Divine Relics</span>
+          </button>
 
-        {/* Timeline Scroll Link */}
-        <button
-          onClick={() => setActivePage('timeline')}
-          className={`flex items-center space-x-3 px-3 py-2.5 rounded text-[11px] tracking-wider transition-all font-sc uppercase ${
-            activePage === 'timeline' 
-              ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
-              : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
-          }`}
-        >
-          <Clock size={13} className={activePage === 'timeline' ? 'text-neutral-300' : ''} />
-          <span>Chronicle Recaps</span>
-        </button>
+          {/* Timeline Scroll Link */}
+          <button
+            onClick={() => setActivePage('timeline')}
+            className={`flex items-center space-x-1.5 md:space-x-3 px-3 py-1.5 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
+              activePage === 'timeline' 
+                ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
+                : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
+            }`}
+          >
+            <Clock size={12} className={activePage === 'timeline' ? 'text-neutral-300' : ''} />
+            <span>Chronicle Recaps</span>
+          </button>
 
-        {/* Unresolved Mysteries Link */}
-        <button
-          onClick={() => setActivePage('mysteries')}
-          className={`flex items-center space-x-3 px-3 py-2.5 rounded text-[11px] tracking-wider transition-all font-sc uppercase ${
-            activePage === 'mysteries' 
-              ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
-              : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
-          }`}
-        >
-          <HelpCircle size={13} className={activePage === 'mysteries' ? 'text-cyan-400' : ''} />
-          <span>Karma Threads</span>
-        </button>
+          {/* Unresolved Mysteries Link */}
+          <button
+            onClick={() => setActivePage('mysteries')}
+            className={`flex items-center space-x-1.5 md:space-x-3 px-3 py-1.5 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
+              activePage === 'mysteries' 
+                ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
+                : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
+            }`}
+          >
+            <HelpCircle size={12} className={activePage === 'mysteries' ? 'text-cyan-400' : ''} />
+            <span>Karma Threads</span>
+          </button>
 
-        {/* Glossary Link (Newly integrated!) */}
-        <button
-          onClick={() => setActivePage('glossary')}
-          className={`flex items-center space-x-3 px-3 py-2.5 rounded text-[11px] tracking-wider transition-all font-sc uppercase ${
-            activePage === 'glossary' 
-              ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
-              : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
-          }`}
-        >
-          <BookMarked size={13} className={activePage === 'glossary' ? 'text-purple-400' : ''} />
-          <span>Sovereign Glossary</span>
-        </button>
+          {/* Glossary Link (Newly integrated!) */}
+          <button
+            onClick={() => setActivePage('glossary')}
+            className={`flex items-center space-x-1.5 md:space-x-3 px-3 py-1.5 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
+              activePage === 'glossary' 
+                ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
+                : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
+            }`}
+          >
+            <BookMarked size={12} className={activePage === 'glossary' ? 'text-purple-400' : ''} />
+            <span>Sovereign Glossary</span>
+          </button>
 
-        {/* Back navigation shortcut to active script reading */}
+          {/* Back navigation shortcut in horizontal list on mobile */}
+          {onSwitchTab && onJumpToChapter && (
+            <button
+              onClick={() => onSwitchTab('reader')}
+              className="flex sm:hidden items-center space-x-1.5 px-3 py-1.5 rounded text-[10px] tracking-wider font-mono uppercase bg-void text-portal border border-portal/20 flex-shrink-0"
+            >
+              <span>← Reader</span>
+            </button>
+          )}
+        </div>
+
+        {/* Back navigation shortcut to active script reading (Desktop Only) */}
         {onSwitchTab && onJumpToChapter && (
-          <div className="pt-4 border-t border-neutral-900 mt-4">
+          <div className="pt-4 border-t border-neutral-900 mt-4 hidden sm:block">
             <button
               onClick={() => {
                 onSwitchTab('reader');
@@ -1121,8 +1261,144 @@ export default function LivingCodex({
 
               </div>
             )}
-          </div>
-        )}
+
+            {/* Custom Interactive Karma Bonds Panel */}
+              <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 pt-8 border-t border-neutral-900 bg-void/50 p-6 rounded-lg border border-neutral-900">
+                
+                {/* Form to Create Custom Bond */}
+                <div className="md:col-span-1 space-y-4">
+                  <div>
+                    <h4 className="font-sc font-bold text-portal text-xs uppercase tracking-widest flex items-center space-x-1.5">
+                      <ArrowLeftRight size={14} />
+                      <span>Engrave Karma Bond Link</span>
+                    </h4>
+                    <p className="text-[10px] text-neutral-500 font-sans mt-1">
+                      Forge a manual fate thread linking two sovereign souls together in the persistent cosmic matrix.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1">Source Character</label>
+                      <select
+                        value={bondSourceId}
+                        onChange={(e) => setBondSourceId(e.target.value)}
+                        className="w-full bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none"
+                      >
+                        <option value="">-- Choose Soul --</option>
+                        {memory.characters.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1">Target Character</label>
+                      <select
+                        value={bondTargetId}
+                        onChange={(e) => setBondTargetId(e.target.value)}
+                        className="w-full bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none"
+                      >
+                        <option value="">-- Choose Soul --</option>
+                        {memory.characters.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">Affinity Score</label>
+                        <span className={`text-[10px] font-mono font-bold ${bondAffinity < 0 ? 'text-human' : bondAffinity > 0 ? 'text-portal' : 'text-neutral-500'}`}>
+                          {bondAffinity > 0 ? `+${bondAffinity}` : bondAffinity}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-100"
+                        max="100"
+                        value={bondAffinity}
+                        onChange={(e) => setBondAffinity(parseInt(e.target.value))}
+                        className="w-full text-portal bg-neutral-900 rounded"
+                      />
+                      <div className="flex justify-between text-[8px] text-neutral-600 font-mono">
+                        <span>Deadly Enemy (-100)</span>
+                        <span>Neutral</span>
+                        <span>Eternal Mirror (+100)</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1">Causal Narrative / Link Description</label>
+                      <textarea
+                        placeholder="e.g. Sworn companion, linked by the blood of the Azure Wyrm..."
+                        value={bondDesc}
+                        onChange={(e) => setBondDesc(e.target.value)}
+                        className="w-full h-16 bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none resize-none font-serif"
+                      />
+                    </div>
+
+                    <button
+                      onClick={handleAddCustomRelationship}
+                      className="w-full py-2 bg-portal text-void text-[10px] uppercase font-sc font-bold tracking-widest rounded hover:brightness-115 transition-all"
+                    >
+                      Bind Thread
+                    </button>
+                  </div>
+                </div>
+
+                {/* Display Active Relationships Ledger */}
+                <div className="md:col-span-2 space-y-4">
+                  <div className="flex justify-between items-center border-b border-neutral-900 pb-2">
+                    <h4 className="font-sc font-bold text-signal text-xs uppercase tracking-widest flex items-center space-x-1.5">
+                      <Network size={14} />
+                      <span>Active Custom Bonds Ledger</span>
+                    </h4>
+                    <span className="text-[10px] font-mono text-neutral-500">{(activeStory.relationships || []).length} registered threads</span>
+                  </div>
+
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                    {(activeStory.relationships || []).length === 0 ? (
+                      <div className="h-full py-16 flex flex-col items-center justify-center text-center border border-dashed border-neutral-900 rounded">
+                        <p className="font-serif italic text-neutral-500 text-xs">"No custom karma strands recorded. Link cultivators on your left."</p>
+                      </div>
+                    ) : (
+                      activeStory.relationships?.map(bond => (
+                        <div key={bond.id} className="p-3 bg-neutral-950 border border-neutral-900 rounded flex justify-between items-start gap-4">
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="text-xs font-sc font-bold text-signal">{bond.sourceCharName}</span>
+                              <span className="text-[9px] font-mono text-neutral-600">to</span>
+                              <span className="text-xs font-sc font-bold text-signal">{bond.targetCharName}</span>
+                              <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-mono uppercase ${
+                                bond.affinity < -40 ? 'bg-[#8B0000]/10 border border-[#8B0000]/25 text-human' : 
+                                bond.affinity > 40 ? 'bg-portal/10 border border-portal/25 text-portal' :
+                                'bg-neutral-900 border border-neutral-800 text-neutral-400'
+                              }`}>
+                                Affinity: {bond.affinity > 0 ? `+${bond.affinity}` : bond.affinity}%
+                              </span>
+                            </div>
+                            <p className="text-[11px] font-serif text-neutral-400 italic">
+                              "{bond.description}"
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteCustomRelationship(bond.id)}
+                            className="p-1 px-1.5 text-neutral-500 hover:text-human hover:bg-neutral-900 rounded transition-colors"
+                            title="Purge link"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+          )}
 
         {/* PAGE 3: Power system (Sovereign Cultivation Power-Ranking Chart) */}
         {activePage === 'power' && (
@@ -1706,6 +1982,163 @@ export default function LivingCodex({
               </div>
 
             </div>
+
+            {/* Custom Interactive Karma Fate Decree Ledger */}
+            <div className="mt-8 border-t border-neutral-900 pt-8 grid grid-cols-1 md:grid-cols-3 gap-6 bg-void/50 p-6 rounded-lg border border-neutral-900">
+              
+              {/* Form to Create Custom Fate Decree */}
+              <div className="md:col-span-1 space-y-4">
+                <div>
+                  <h4 className="font-sc font-bold text-portal text-xs uppercase tracking-widest flex items-center space-x-1.5">
+                    <Activity size={14} />
+                    <span>Engrave Fate Decree</span>
+                  </h4>
+                  <p className="text-[10px] text-neutral-500 font-sans mt-1">
+                    Proclaim a cosmic causal event node ("A owes B life-debt", "Sect targets character") to shape future arc generation.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1">Causal Source (Entity / Sect)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Master Han Feng"
+                      value={fateSource}
+                      onChange={(e) => setFateSource(e.target.value)}
+                      className="w-full bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1">Causal Target (Subject / Goal)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Golden Crow Sect Gate"
+                      value={fateTarget}
+                      onChange={(e) => setFateTarget(e.target.value)}
+                      className="w-full bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1">Severity</label>
+                      <select
+                        value={fateSeverity}
+                        onChange={(e) => setFateSeverity(e.target.value as any)}
+                        className="w-full bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none"
+                      >
+                        <option value="Minor">Minor</option>
+                        <option value="Major">Major</option>
+                        <option value="Cosmic">Cosmic</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1">Fate Type</label>
+                      <select
+                        value={fateType}
+                        onChange={(e) => setFateType(e.target.value as any)}
+                        className="w-full bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none"
+                      >
+                        <option value="Debt">Debt</option>
+                        <option value="Boon">Boon</option>
+                        <option value="Enmity">Enmity</option>
+                        <option value="Destiny">Destiny</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1">Desc. or Karma Oath</label>
+                    <textarea
+                      placeholder="e.g. Bound by blood pact after defense of Cloud Peak. Han Feng cannot yield."
+                      value={fateDesc}
+                      onChange={(e) => setFateDesc(e.target.value)}
+                      className="w-full h-16 bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none resize-none font-serif"
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleAddCustomFateNode}
+                    className="w-full py-2 bg-portal text-void text-[10px] uppercase font-sc font-bold tracking-widest rounded hover:brightness-115 transition-all"
+                  >
+                    Engrave Fate Decree
+                  </button>
+                </div>
+              </div>
+
+              {/* Display Active Fate Ledger */}
+              <div className="md:col-span-2 space-y-4">
+                <div className="flex justify-between items-center border-b border-neutral-900 pb-2">
+                  <h4 className="font-sc font-bold text-signal text-xs uppercase tracking-widest flex items-center space-x-1.5">
+                    <Compass size={14} />
+                    <span>Engraved Karma Fate Table</span>
+                  </h4>
+                  <span className="text-[10px] font-mono text-neutral-500">{(activeStory.karmaNodes || []).length} engraved decrees</span>
+                </div>
+
+                <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                  {(activeStory.karmaNodes || []).length === 0 ? (
+                    <div className="h-full py-16 flex flex-col items-center justify-center text-center border border-dashed border-neutral-900 rounded">
+                      <p className="font-serif italic text-neutral-500 text-xs">"Slate of Karma Tablets is pristine. Engrave destiny decrees on your left."</p>
+                    </div>
+                  ) : (
+                    activeStory.karmaNodes?.map(node => (
+                      <div key={node.id} className={`p-3 border rounded flex justify-between items-start gap-4 transition-all ${
+                        node.status === 'resolved' 
+                          ? 'bg-neutral-900/30 border-neutral-950 opacity-55' 
+                          : 'bg-neutral-950 border-neutral-900'
+                      }`}>
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-xs font-sc font-bold text-signal">{node.sourceName}</span>
+                            <span className="text-[9px] font-mono text-neutral-600">⇄</span>
+                            <span className="text-xs font-sc font-bold text-signal">{node.targetName}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-mono uppercase ${
+                              node.severity === 'Cosmic' ? 'bg-[#8B0000]/10 border border-[#8B0000]/25 text-human font-bold animate-pulse' : 
+                              node.severity === 'Major' ? 'bg-amber-500/10 border border-amber-500/25 text-yellow-500' :
+                              'bg-neutral-900 border border-neutral-800 text-neutral-400'
+                            }`}>
+                              {node.severity}
+                            </span>
+                            <span className="text-[9px] font-mono text-neutral-500 uppercase px-1 bg-void border border-[#8B0000]/20 rounded text-human">
+                              {node.type}
+                            </span>
+                          </div>
+                          <p className={`text-[11px] font-serif hover:text-signal transition-colors leading-relaxed ${
+                            node.status === 'resolved' ? 'line-through text-neutral-500 italic' : 'text-neutral-400'
+                          }`}>
+                            "{node.description}"
+                          </p>
+                        </div>
+                        <div className="flex items-center space-x-1 flex-shrink-0">
+                          <button
+                            onClick={() => handleToggleFateNodeStatus(node.id)}
+                            className={`p-1 px-1.5 rounded text-[9px] font-sc uppercase tracking-wider text-neutral-400 hover:text-signal transition-all border border-neutral-800 ${
+                              node.status === 'resolved' ? 'bg-green-950/10 text-green-500 border-green-950/40' : 'bg-void'
+                            }`}
+                            title={node.status === 'resolved' ? 'Undo resolution' : 'Mark as severed'}
+                          >
+                            {node.status === 'resolved' ? 'Severed' : 'Sever Link'}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteFateNode(node.id)}
+                            className="p-1 px-1.5 text-neutral-500 hover:text-human hover:bg-neutral-900 rounded transition-colors border border-transparent"
+                            title="Purge decree"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+            </div>
+
           </div>
         )}
 

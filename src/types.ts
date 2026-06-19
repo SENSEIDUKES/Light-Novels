@@ -69,7 +69,39 @@ export interface StoryArc {
   isCompleted: boolean;
 }
 
-export interface Story {
+export interface ReaderPreferences {
+  fontSize: 'xs' | 'sm' | 'base' | 'lg' | 'xl';
+  fontFamily: 'serif' | 'sans' | 'mono';
+  lineHeight: 'snug' | 'normal' | 'relaxed' | 'loose';
+  paragraphSpacing: 'normal' | 'wide' | 'double';
+  themeOverride?: 'void' | 'crimson' | 'abyss' | 'sepia' | 'emerald';
+}
+
+export interface KarmaFateNode {
+  id: string;
+  sourceId: string; // ID of character, location, or thread
+  sourceName: string;
+  targetId: string; // ID of character, location, or thread
+  targetName: string;
+  description: string;
+  severity: 'Minor' | 'Major' | 'Cosmic';
+  type: 'Debt' | 'Boon' | 'Enmity' | 'Destiny';
+  status: 'active' | 'resolved';
+  createdAt: string;
+}
+
+export interface CharacterRelationship {
+  id: string;
+  sourceCharId: string;
+  sourceCharName: string;
+  targetCharId: string;
+  targetCharName: string;
+  affinity: number; // -100 to +100
+  description: string;
+  updatedAt: string;
+}
+
+export interface StoryWorld {
   id: string;
   title: string;
   genre: string;
@@ -81,4 +113,22 @@ export interface Story {
   arcs: StoryArc[];
   currentChapterNumber: number;
   imageUrl?: string;
+  
+  // Local-first persistent storage properties
+  relationships?: CharacterRelationship[];
+  karmaNodes?: KarmaFateNode[];
+  readerPreferences?: ReaderPreferences;
 }
+
+export type Story = StoryWorld;
+
+export interface RouteConfig {
+  provider: 'gemini' | 'openrouter' | 'ollama';
+  model: string;
+}
+
+export interface MultiModelRouting {
+  storyMaker: RouteConfig;
+  imageGenerator: RouteConfig;
+}
+

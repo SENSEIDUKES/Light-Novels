@@ -2,15 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { 
   BookOpen, Sparkles, FolderHeart, User, Globe, 
   Award, Trash2, Plus, LogOut, BookCheck, ShieldAlert,
-  ArrowLeft, Zap
+  ArrowLeft, Zap, Download, Upload, Database, Sliders, FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Story, StoryMemory, Chapter, StoryArc } from './types';
+import { Story, StoryMemory, Chapter, StoryArc, StoryWorld, ReaderPreferences, KarmaFateNode, CharacterRelationship, MultiModelRouting, RouteConfig } from './types';
 import CreationPortal from './components/CreationPortal';
 import AkashaRecord from './components/AkashaRecord';
 import ReaderChamber from './components/ReaderChamber';
 import SteerPortal from './components/SteerPortal';
 import LivingCodex from './components/LivingCodex';
+import { storyStorage } from './lib/storage';
 
 const STORAGE_KEY = '@seihouse/fiction-generator-stories-v2';
 
@@ -110,26 +111,227 @@ export default function App() {
   const [selectedChapterNum, setSelectedChapterNum] = useState<number>(1);
   const [nexusTab, setNexusTab] = useState<'reader'|'codex'|'memory'>('reader');
 
-  // Load saved lists
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        setStories(JSON.parse(saved));
-      } else {
-        setStories(INITIAL_DEMO_STORIES);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_DEMO_STORIES));
-      }
-    } catch (e) {
-      console.error("Local storage decode error:", e);
-      setStories(INITIAL_DEMO_STORIES);
+  // Local-first persistent storage driver indicator
+  const [storageType, setStorageType] = useState<string>('Initializing...');
+
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [routingPresets, setRoutingPresets] = useState<any>(null);
+
+  const [routingConfig, setRoutingConfig] = useState<MultiModelRouting>(() => {
+    const saved = localStorage.getItem('@seihouse/ai-routing-config');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
     }
+    return {
+      storyMaker: {
+        provider: 'gemini',
+        model: 'gemini-3.5-flash',
+      },
+      imageGenerator: {
+        provider: 'gemini',
+        model: 'gemini-2.5-flash-image',
+      }
+    };
+  });
+
+  const [localGeminiKey, setLocalGeminiKey] = useState(() => localStorage.getItem('@seihouse/api-key-gemini') || '');
+  const [localOpenrouterKey, setLocalOpenrouterKey] = useState(() => localStorage.getItem('@seihouse/api-key-openrouter') || '');
+  const [localOllamaHost, setLocalOllamaHost] = useState(() => localStorage.getItem('@seihouse/api-key-ollama-host') || '');
+
+  const DEFAULT_PRESETS = {
+    storyMaker: {
+      gemini: ["gemini-3.5-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"],
+      openrouter: [
+        "meta-llama/llama-3-8b-instruct:free",
+        "mistralai/mistral-7b-instruct:free",
+        "google/gemma-2-9b-it:free",
+        "google/gemini-2.5-flash",
+        "openai/gpt-3.5-turbo"
+      ],
+      ollama: ["llama3", "gemma2", "mistral", "phi3"]
+    },
+    imageGenerator: {
+      gemini: ["gemini-2.5-flash-image", "gemini-3.1-flash-image"],
+      openrouter: ["stable-diffusion-xl", "playgroundai/playground-v2.5", "shuttle-ai/shuttle-3-diffusion"],
+      ollama: ["local-sd-mortal", "local-sd-celestial"]
+    }
+  };
+
+  useEffect(() => {
+    localStorage.setItem('@seihouse/ai-routing-config', JSON.stringify(routingConfig));
+  }, [routingConfig]);
+
+  useEffect(() => {
+    const fetchPresets = async () => {
+      try {
+        const res = await fetch('/api/router-presets');
+        if (res.ok) {
+          const data = await res.json();
+          setRoutingPresets(data);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch router presets:", err);
+      }
+    };
+    fetchPresets();
   }, []);
 
-  // Save stories helper
-  const saveStories = (updated: Story[]) => {
+  const handleUpdateProvider = (route: 'storyMaker' | 'imageGenerator', provider: 'gemini' | 'openrouter' | 'ollama') => {
+    const presets = routingPresets || DEFAULT_PRESETS;
+    const availableModels = presets[route][provider] || [];
+    const model = availableModels[0] || '';
+    
+    setRoutingConfig(prev => ({
+      ...prev,
+      [route]: {
+        provider,
+        model
+      }
+    }));
+  };
+
+  const handleUpdateModel = (route: 'storyMaker' | 'imageGenerator', model: string) => {
+    setRoutingConfig(prev => ({
+      ...prev,
+      [route]: {
+        ...prev[route],
+        model
+      }
+    }));
+  };
+
+  // Load saved lists
+  useEffect(() => {
+    const initAndLoad = async () => {
+      try {
+        await storyStorage.init();
+        setStorageType(storyStorage.getActiveAdapterName());
+        const loaded = await storyStorage.getStories();
+        if (loaded && loaded.length > 0) {
+          setStories(loaded);
+        } else {
+          // Initialize DB with demo stories
+          for (const s of INITIAL_DEMO_STORIES) {
+            await storyStorage.saveStory(s);
+          }
+          setStories(INITIAL_DEMO_STORIES);
+        }
+      } catch (e) {
+        console.error("Persistent story memory failed to initialize, reverting to local fallback:", e);
+        setStorageType('LocalStorage (Fallback)');
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            setStories(JSON.parse(saved));
+          } else {
+            setStories(INITIAL_DEMO_STORIES);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_DEMO_STORIES));
+          }
+        } catch (innerErr) {
+          setStories(INITIAL_DEMO_STORIES);
+        }
+      }
+    };
+    initAndLoad();
+  }, []);
+
+  // Save stories helper (replaces pure localStorage with storage API manager)
+  const saveStories = async (updated: Story[]) => {
     setStories(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    try {
+      // Reconcile deleted entries
+      const storedStories = await storyStorage.getStories();
+      for (const st of storedStories) {
+        if (!updated.some(u => u.id === st.id)) {
+          await storyStorage.deleteStory(st.id);
+        }
+      }
+      // Put updated stories
+      for (const s of updated) {
+        await storyStorage.saveStory(s);
+      }
+    } catch (e) {
+      console.error("Celestial local disk write breached, reverting to standard storage cache:", e);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    }
+  };
+
+  // --- LOCAL-FIRST EXPORT/IMPORT MECHANISMS ---
+
+  // Export any story world as a standalone JSON file
+  const handleExportSingleStory = (story: Story) => {
+    try {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(story, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `story_world_${story.title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    } catch (err: any) {
+      alert("Failed to transcribe story ledger to outward scrolls: " + err.message);
+    }
+  };
+
+  // Export full celestial library collection as a single backup file
+  const handleExportLibrary = () => {
+    try {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(stories, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `seihouse_story_library_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    } catch (err: any) {
+      alert("Failed to package the library matrix: " + err.message);
+    }
+  };
+
+  // Import one or multiple story worlds from a file
+  const handleImportLibrary = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+
+    const fileReader = new FileReader();
+    fileReader.onload = (event) => {
+      try {
+        const fileContent = event.target?.result as string;
+        const parsedData = JSON.parse(fileContent);
+
+        let mergedList = [...stories];
+        let importSuccessCount = 0;
+
+        const mergeSingleStory = (storyObj: any) => {
+          if (!storyObj || !storyObj.id || !storyObj.title || !storyObj.memory) {
+            throw new Error(`The provided package does not comply with the StoryWorld structural framework.`);
+          }
+          // Check for conflicts
+          const existingIdx = mergedList.findIndex(s => s.id === storyObj.id);
+          if (existingIdx > -1) {
+            mergedList[existingIdx] = storyObj;
+          } else {
+            mergedList = [storyObj, ...mergedList];
+          }
+          importSuccessCount++;
+        };
+
+        if (Array.isArray(parsedData)) {
+          parsedData.forEach(story => mergeSingleStory(story));
+        } else {
+          mergeSingleStory(parsedData);
+        }
+
+        saveStories(mergedList);
+        alert(`Successfully synchronized ${importSuccessCount} Story World memories into your local ${storageType} database!`);
+        e.target.value = ''; // Reset file prompt
+      } catch (err: any) {
+        alert("The import portal cracked. Validation failed: " + err.message);
+      }
+    };
+    fileReader.readAsText(fileList[0]);
   };
 
   const activeStory = stories.find(s => s.id === activeStoryId);
@@ -140,10 +342,18 @@ export default function App() {
     setAppError(null);
 
     try {
+      const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      const gemini = localStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = localStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = localStorage.getItem('@seihouse/api-key-ollama-host');
+      if (gemini) apiHeaders['x-gemini-key'] = gemini;
+      if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
+      if (ollama) apiHeaders['x-ollama-host'] = ollama;
+
       const response = await fetch('/api/generate-initial-arc', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mcName, genre, customPremise: premise, chapterCount })
+        headers: apiHeaders,
+        body: JSON.stringify({ mcName, genre, customPremise: premise, chapterCount, routingConfig: routingConfig.storyMaker })
       });
 
       if (!response.ok) {
@@ -228,9 +438,17 @@ export default function App() {
     });
 
     try {
+      const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      const gemini = localStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = localStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = localStorage.getItem('@seihouse/api-key-ollama-host');
+      if (gemini) apiHeaders['x-gemini-key'] = gemini;
+      if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
+      if (ollama) apiHeaders['x-ollama-host'] = ollama;
+
       const response = await fetch('/api/generate-chapter', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders,
         body: JSON.stringify({
           mcName: activeStory.mcName,
           genre: activeStory.genre,
@@ -241,7 +459,8 @@ export default function App() {
             number: targetChapter.number,
             title: targetChapter.title,
             premise: targetChapter.premise
-          }
+          },
+          routingConfig: routingConfig.storyMaker
         })
       });
 
@@ -442,9 +661,17 @@ export default function App() {
     });
 
     try {
+      const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      const gemini = localStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = localStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = localStorage.getItem('@seihouse/api-key-ollama-host');
+      if (gemini) apiHeaders['x-gemini-key'] = gemini;
+      if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
+      if (ollama) apiHeaders['x-ollama-host'] = ollama;
+
       const response = await fetch('/api/steer-arc', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders,
         body: JSON.stringify({
           mcName: activeStory.mcName,
           genre: activeStory.genre,
@@ -453,7 +680,8 @@ export default function App() {
           pastSummaries,
           currentArcCount: totalPreviousChapters,
           steerDirection: direction,
-          userCustomDirections: customPrompt
+          userCustomDirections: customPrompt,
+          routingConfig: routingConfig.storyMaker
         })
       });
 
@@ -532,6 +760,12 @@ export default function App() {
     saveStories(updated);
   };
 
+  // Helper: update entire story world with deep properties (relationships, karmaNodes, readerPreferences)
+  const handleUpdateStoryDirect = (updatedStory: StoryWorld) => {
+    const updated = stories.map(s => s.id === updatedStory.id ? updatedStory : s);
+    saveStories(updated);
+  };
+
   // Helper: toggle manual completed status
   const handleToggleRead = (charNum: number) => {
     if (!activeStory) return;
@@ -582,49 +816,64 @@ export default function App() {
       <div className="fixed top-0 inset-x-0 h-[3px] bg-gradient-to-r from-portal via-human to-portal z-50"></div>
 
       {/* HEADER BAR */}
-      <header className="border-b border-neutral-900 bg-black/90 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => { setCurrentScreen('home'); setActiveStoryId(null); }}>
-            {/* Logo Sphere representing portal */}
-            <div className="h-9 w-9 rounded-full bg-void border border-portal flex items-center justify-center relative shadow-[0_0_12px_rgba(4,172,255,0.4)]">
-              <span className="font-sc font-bold text-portal text-sm tracking-wide">SEI</span>
-              <div className="absolute inset-0 rounded-full border border-human/30 animate-pulse scale-110"></div>
-            </div>
-            <div>
-              <span className="font-sc text-gold-accent text-[10px] tracking-[0.25em] font-semibold block uppercase">SEIHouse Appellation</span>
-              <h1 className="font-display font-bold text-lg text-signal tracking-wide">Celestial Scroll Library</h1>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-3">
-            {activeStory && (
-              <div className="hidden md:flex items-center space-x-2 bg-neutral-900/60 px-3 py-1.5 rounded border border-neutral-850">
-                <User size={12} className="text-jade-accent" />
-                <span className="text-xs text-neutral-300 font-medium font-mono">{activeStory.mcName}</span>
-                <span className="text-[10px] text-neutral-500 font-semibold uppercase">({activeStory.genre})</span>
+      {(currentScreen !== 'reader' && currentScreen !== 'codex') && (
+        <header className="border-b border-neutral-900 bg-black/90 backdrop-blur-md sticky top-0 z-40 py-1.5 sm:py-3 animate-fadeIn">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+            <div className="flex items-center space-x-2 sm:space-x-3 cursor-pointer select-none" onClick={() => { setCurrentScreen('home'); setActiveStoryId(null); }}>
+              {/* Real corporate SEIHouse SEA Logo */}
+              <img 
+                src="https://images.seihouse.org/SEA%20LOGO/SEA%20LOGO.png" 
+                alt="SEIHouse SEA Logo" 
+                className="h-8 sm:h-10 w-auto object-contain brightness-110 filter drop-shadow-[0_0_8px_rgba(4,172,255,0.3)]"
+                referrerPolicy="no-referrer"
+              />
+              <div>
+                <span className="font-sc text-gold-accent text-[8px] sm:text-[10px] tracking-[0.25em] font-semibold block uppercase">SEIHouse Appellation</span>
+                <h1 className="font-display font-bold text-sm sm:text-base md:text-lg text-signal tracking-wide leading-tight">Celestial Scroll Library</h1>
               </div>
-            )}
+            </div>
 
-            {currentScreen !== 'home' ? (
+            <div className="flex items-center space-x-2 sm:space-x-3">
               <button
-                onClick={() => { setCurrentScreen('home'); setActiveStoryId(null); }}
-                className="px-4 py-2 bg-void border border-neutral-850 hover:border-gold-accent text-xs text-neutral-400 hover:text-gold-accent transition-all rounded font-sc uppercase tracking-wider flex items-center space-x-1.5"
+                onClick={() => setIsSettingsOpen(true)}
+                className="px-2.5 py-1.5 sm:px-3.5 sm:py-2 bg-void border border-neutral-850 hover:border-portal text-neutral-400 hover:text-portal transition-all rounded font-sc text-[10px] sm:text-xs flex items-center space-x-1.5 font-bold"
+                title="Aether Router"
               >
-                <LogOut size={13} />
-                <span>Return to Library</span>
+                <Sliders size={12} className="text-portal font-semibold" />
+                <span className="hidden sm:inline uppercase tracking-widest text-[9px] font-semibold">Router</span>
               </button>
-            ) : (
-              <button
-                onClick={() => setCurrentScreen('creator')}
-                className="px-4 py-2 bg-void border border-human text-human hover:bg-human hover:text-signal transition-all shadow-[0_0_12px_rgba(139,0,0,0.2)] rounded font-sc uppercase text-xs tracking-wider flex items-center space-x-1.5 font-bold"
-              >
-                <Plus size={14} />
-                <span>Manifest Scroll</span>
-              </button>
-            )}
+
+              {activeStory && (
+                <div className="hidden md:flex items-center space-x-2 bg-neutral-900/60 px-3 py-1.5 rounded border border-neutral-850">
+                  <User size={12} className="text-jade-accent" />
+                  <span className="text-xs text-neutral-300 font-medium font-mono">{activeStory.mcName}</span>
+                  <span className="text-[10px] text-neutral-500 font-semibold uppercase">({activeStory.genre})</span>
+                </div>
+              )}
+
+              {currentScreen !== 'home' ? (
+                <button
+                  onClick={() => { setCurrentScreen('home'); setActiveStoryId(null); }}
+                  className="px-2.5 py-1.5 sm:px-4 sm:py-2 bg-void border border-neutral-850 hover:border-gold-accent text-[10px] sm:text-xs text-neutral-400 hover:text-gold-accent transition-all rounded font-sc uppercase tracking-wider flex items-center space-x-1.5 font-bold"
+                >
+                  <LogOut size={12} />
+                  <span className="hidden xs:inline">Return to Library</span>
+                  <span className="inline xs:hidden">Library</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => setCurrentScreen('creator')}
+                  className="px-2.5 py-1.5 sm:px-4 sm:py-2 bg-void border border-human text-human hover:bg-human hover:text-signal transition-all shadow-[0_0_12px_rgba(139,0,0,0.2)] rounded font-sc uppercase text-[10px] sm:text-xs tracking-wider flex items-center space-x-1.5 font-bold animate-pulse"
+                >
+                  <Plus size={12} />
+                  <span className="hidden xs:inline">Manifest Scroll</span>
+                  <span className="inline xs:hidden">Manifest</span>
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       {/* MAIN SCREEN BOX */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10">
@@ -641,29 +890,29 @@ export default function App() {
               className="space-y-12 pb-10"
             >
               {/* Dark Fantasy Webnovel Hero Banner */}
-              <div className="relative rounded-xl border border-neutral-900 overflow-hidden shadow-2xl h-80 flex items-end">
+              <div className="relative rounded-xl border border-neutral-900 overflow-hidden shadow-2xl h-60 sm:h-80 flex items-end">
                 <img 
                   src="https://images.unsplash.com/photo-1605371924599-2d0365da26f5?auto=format&fit=crop&q=80" 
                   alt="Fantasy Landscape" 
-                  className="absolute inset-0 w-full h-full object-cover opacity-60"
+                  className="absolute inset-0 w-full h-full object-cover opacity-50 sm:opacity-60"
                 />
                 <div className="absolute inset-0 ink-gradient"></div>
-                <div className="relative z-10 p-8 sm:p-12 w-full flex justify-between items-end">
-                  <div className="max-w-2xl space-y-3">
-                    <span className="font-sc text-gold-accent font-bold uppercase tracking-[0.25em] text-xs">Featured Ascension</span>
-                    <h2 className="font-display font-bold text-4xl sm:text-5xl text-signal leading-tight tracking-tight drop-shadow-lg">
+                <div className="relative z-10 p-5 sm:p-12 w-full flex justify-between items-end">
+                  <div className="max-w-2xl space-y-2 sm:space-y-3">
+                    <span className="font-sc text-gold-accent font-bold uppercase tracking-[0.25em] text-[10px] sm:text-xs">Featured Ascension</span>
+                    <h2 className="font-display font-bold text-2xl sm:text-4xl md:text-5xl text-signal leading-tight tracking-tight drop-shadow-lg">
                       Defying the Heavens
                     </h2>
-                    <p className="text-neutral-300 font-serif text-sm leading-relaxed max-w-xl shadow-black drop-shadow-md">
+                    <p className="text-neutral-300 font-serif text-xs sm:text-sm leading-relaxed max-w-xl shadow-black drop-shadow-md hidden xs:block">
                       A mortal rises. The sects tremble. Write your own destiny and shatter the 
                       limitations of the mortal coil in your customized light novel universe.
                     </p>
-                    <div className="pt-4 flex flex-wrap gap-4">
+                    <div className="pt-2 sm:pt-4 flex flex-wrap gap-4">
                       <button
                         onClick={() => setCurrentScreen('creator')}
-                        className="px-6 py-2.5 bg-human border border-human text-signal text-sm font-sc font-bold uppercase tracking-wider rounded shadow-[0_0_15px_rgba(139,0,0,0.5)] hover:bg-void hover:text-human transition-all flex items-center space-x-2"
+                        className="px-4 py-2 sm:px-6 sm:py-2.5 bg-human border border-human text-signal text-xs sm:text-sm font-sc font-bold uppercase tracking-wider rounded shadow-[0_0_15px_rgba(139,0,0,0.5)] hover:bg-void hover:text-human transition-all flex items-center space-x-1.5 sm:space-x-2"
                       >
-                        <Sparkles size={16} />
+                        <Sparkles size={14} />
                         <span>Carve New Destiny</span>
                       </button>
                     </div>
@@ -673,6 +922,50 @@ export default function App() {
 
               {/* Saved Stories List - Novel Shelves */}
               <div className="space-y-6" id="saved-matrices-list">
+                
+                {/* Local-First Storage & Archival Desk */}
+                <div className="bg-neutral-950/80 border border-neutral-900 rounded-lg p-5 flex flex-col md:flex-row items-center justify-between gap-6 shadow-[0_4px_30px_rgba(0,0,0,0.8)]" id="vault-desk-panel">
+                  <div className="flex items-start space-x-3.5">
+                    <div className="p-3 bg-portal/10 border border-portal/20 text-portal rounded-full flex-shrink-0">
+                      <Database size={22} className="animate-pulse" />
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <h4 className="font-sc font-bold text-sm text-signal uppercase tracking-wider">Aetherial Memory Sanctum</h4>
+                        <span className="text-[10px] px-2 py-0.25 bg-[#00A86B]/15 border border-[#00A86B]/35 text-[#00A86B] font-mono rounded-full font-bold uppercase tracking-wider animate-fadeIn">
+                          {storageType}
+                        </span>
+                      </div>
+                      <p className="text-xs text-neutral-400 mt-1 max-w-xl leading-relaxed">
+                        Every character bio, relationship map, karma fate node, chapter summary, and reader preference is saved automatically to your local-first client-side database. Your progress can be saved to your physical device or mended instantly below.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3.5 w-full md:w-auto justify-end">
+                    {/* Invisible file input */}
+                    <label className="flex items-center space-x-2 bg-void hover:bg-neutral-900 text-neutral-300 hover:text-signal border border-neutral-800 hover:border-neutral-700 px-4 py-2 rounded text-xs font-sc font-bold uppercase tracking-wider cursor-pointer transition-all">
+                      <Upload size={14} className="text-portal" />
+                      <span>Import World Scroll</span>
+                      <input 
+                        type="file" 
+                        accept=".json" 
+                        onChange={handleImportLibrary} 
+                        className="hidden" 
+                      />
+                    </label>
+
+                    <button
+                      onClick={handleExportLibrary}
+                      disabled={stories.length === 0}
+                      className="flex items-center space-x-2 bg-void hover:bg-neutral-900 text-neutral-350 hover:text-signal border border-neutral-800 hover:border-neutral-700 px-4 py-2 rounded text-xs font-sc font-bold uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    >
+                      <Download size={14} className="text-gold-accent" />
+                      <span>Backup Full Library</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between border-b border-neutral-900 pb-2">
                   <h3 className="font-display font-bold text-2xl text-signal tracking-wide flex items-center space-x-2">
                     <BookOpen size={20} className="text-gold-accent" />
@@ -697,7 +990,7 @@ export default function App() {
                     </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6">
                     {stories.map((story) => {
                       const totalChapters = story.arcs.reduce((sum, a) => sum + a.chapters.length, 0);
                       const generated = story.arcs.reduce((sum, a) => sum + a.chapters.filter(c => !!c.generatedContent).length, 0);
@@ -765,7 +1058,7 @@ export default function App() {
               {/* Top Section: Cover & Metadata */}
               <div className="flex flex-col md:flex-row gap-8 bg-[#0a0a0a] border border-neutral-900 rounded-xl p-6 shadow-2xl">
                 {/* Cover Art */}
-                <div className="w-full md:w-64 flex-shrink-0">
+                <div className="w-full max-w-[180px] mx-auto md:max-w-none md:w-64 flex-shrink-0">
                   <div className="relative aspect-[2/3] rounded-lg overflow-hidden border border-neutral-800 shadow-md">
                     <img 
                       src={activeStory.imageUrl || `https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?auto=format&fit=crop&q=80`}
@@ -843,6 +1136,14 @@ export default function App() {
                       <Sparkles size={16} />
                       <span>Open Codex</span>
                     </button>
+
+                    <button
+                      onClick={() => handleExportSingleStory(activeStory)}
+                      className="px-6 py-2.5 bg-void border border-neutral-800 text-neutral-400 font-sc font-bold uppercase tracking-wider rounded hover:bg-neutral-900 hover:border-neutral-700 hover:text-signal transition-all flex items-center space-x-2 text-xs"
+                    >
+                      <Download size={14} className="text-gold-accent" />
+                      <span>Export World JSON</span>
+                    </button>
                     
                     {isCurrentArcFinished && (
                       <button
@@ -889,22 +1190,22 @@ export default function App() {
               transition={{ duration: 0.3 }}
               className="space-y-6"
             >
-              <div className="flex items-center justify-between bg-black/60 border border-neutral-900 px-4 py-2 rounded shadow-md backdrop-blur-md sticky top-20 z-30">
-                <div className="flex items-center space-x-2">
-                  <button onClick={() => setCurrentScreen('detail')} className="text-neutral-500 hover:text-gold-accent transition-colors">
+              <div className="flex items-center justify-between bg-black/60 border border-neutral-900 px-3 py-1.5 sm:px-4 sm:py-2 rounded shadow-md backdrop-blur-md sticky top-0 z-30">
+                <div className="flex items-center space-x-1.5 sm:space-x-2 min-w-0">
+                  <button onClick={() => setCurrentScreen('detail')} className="text-neutral-500 hover:text-gold-accent transition-colors flex-shrink-0">
                     <ArrowLeft size={18} />
                   </button>
-                  <span className="font-sc uppercase tracking-[0.15em] text-gold-accent font-bold text-xs">{activeStory.genre}</span>
-                  <span className="text-neutral-700 font-mono">•</span>
-                  <span className="text-neutral-400 font-display text-sm">{activeStory.title}</span>
+                  <span className="font-sc uppercase tracking-[0.12em] text-gold-accent font-bold text-[10px] sm:text-xs flex-shrink-0">{activeStory.genre}</span>
+                  <span className="text-neutral-700 font-mono flex-shrink-0">•</span>
+                  <span className="text-neutral-400 font-display text-xs sm:text-sm truncate pr-2">{activeStory.title}</span>
                 </div>
-                <div>
+                <div className="flex-shrink-0">
                    <button
                      onClick={() => setCurrentScreen('codex')}
-                     className="px-4 py-1.5 bg-void border border-portal text-portal font-sc font-bold uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-all flex items-center space-x-2 text-[10px]"
+                     className="px-2.5 py-1 sm:px-4 sm:py-1.5 bg-void border border-portal text-portal font-sc font-bold uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-all flex items-center space-x-1 sm:space-x-2 text-[9px] sm:text-[10px]"
                    >
-                     <Sparkles size={12} />
-                     <span>View Codex</span>
+                     <Sparkles size={11} />
+                     <span>Codex</span>
                    </button>
                 </div>
               </div>
@@ -931,6 +1232,8 @@ export default function App() {
                     onSwitchTab={(tab) => {
                       if (tab === 'codex') setCurrentScreen('codex');
                     }}
+                    activeStory={activeStory}
+                    onUpdateStory={handleUpdateStoryDirect}
                   />
 
                   {activeStory.arcs[activeStory.arcs.length - 1].isCompleted && (
@@ -959,12 +1262,12 @@ export default function App() {
               transition={{ duration: 0.3 }}
               className="space-y-6"
             >
-              <div className="flex items-center space-x-2 bg-black/60 border border-neutral-900 px-4 py-2 rounded shadow-md backdrop-blur-md mb-6 sticky top-20 z-30">
-                <button onClick={() => setCurrentScreen('detail')} className="text-neutral-500 hover:text-portal transition-colors">
+              <div className="flex items-center space-x-2 bg-black/60 border border-neutral-900 px-3 py-1.5 sm:px-4 sm:py-2 rounded shadow-md backdrop-blur-md mb-6 sticky top-0 z-30">
+                <button onClick={() => setCurrentScreen('detail')} className="text-neutral-500 hover:text-portal transition-colors flex-shrink-0">
                   <ArrowLeft size={18} />
                 </button>
-                <span className="text-portal font-display text-lg">{activeStory.title}</span>
-                <span className="text-neutral-600 font-sans text-sm">- Living Codex</span>
+                <span className="text-portal font-display text-sm sm:text-lg font-bold truncate">{activeStory.title}</span>
+                <span className="text-neutral-600 font-sans text-xs sm:text-sm flex-shrink-0">- Living Codex</span>
               </div>
               <div className="max-w-6xl mx-auto">
                 <LivingCodex
@@ -979,6 +1282,9 @@ export default function App() {
                   onSwitchTab={(tab) => {
                     if (tab === 'reader') setCurrentScreen('reader');
                   }}
+                  activeStory={activeStory}
+                  onUpdateStory={handleUpdateStoryDirect}
+                  routingConfig={routingConfig}
                 />
               </div>
             </motion.div>
@@ -998,6 +1304,231 @@ export default function App() {
           </p>
         </div>
       </footer>
+
+      {/* AETHER VECTOR ROUTER MODAL */}
+      <AnimatePresence>
+        {isSettingsOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSettingsOpen(false)}
+              className="absolute inset-0 bg-black/85 backdrop-blur-sm"
+            />
+
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.2 }}
+              className="relative w-full max-w-md bg-neutral-950 border border-neutral-900 rounded p-6 shadow-2xl z-10 overflow-hidden"
+            >
+              {/* Top Accent Lines */}
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-portal via-human to-portal"></div>
+
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-neutral-900 pb-3 mb-5">
+                <div className="flex items-center space-x-2">
+                  <Sliders className="text-portal" size={16} />
+                  <h2 className="font-sc font-bold uppercase tracking-widest text-[#FAFAFA] text-sm">Aether Vector Router</h2>
+                </div>
+                <button
+                  onClick={() => setIsSettingsOpen(false)}
+                  className="text-neutral-500 hover:text-signal transition-colors text-[10px] font-mono uppercase tracking-wider"
+                >
+                  [Close]
+                </button>
+              </div>
+
+              <div className="space-y-5">
+                <div>
+                  <p className="text-xs text-neutral-400 font-sans leading-normal">
+                    Map individual creative tasks to physical AI providers and underlying vector models. All requests proxy through server endpoints to keep keys secure.
+                  </p>
+                </div>
+
+                {/* ROUTE 1: STORY MAKER */}
+                <div className="space-y-2.5 bg-black/40 border border-neutral-900/60 p-3 rounded">
+                  <div className="flex items-center justify-between">
+                    <span className="font-sc text-[11px] tracking-[0.1em] text-portal font-semibold block uppercase">Route: Story Maker</span>
+                    <span className="text-[9px] font-mono text-neutral-500 uppercase">Chapters / Codex</span>
+                  </div>
+
+                  <div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(['gemini', 'openrouter', 'ollama'] as const).map((prov) => (
+                        <button
+                          key={prov}
+                          type="button"
+                          onClick={() => handleUpdateProvider('storyMaker', prov)}
+                          className={`py-1 text-[9px] font-bold uppercase font-sc tracking-wider border rounded transition-all ${
+                            routingConfig.storyMaker.provider === prov
+                              ? 'bg-portal/10 border-portal text-portal'
+                              : 'bg-void border-neutral-900 text-neutral-550 hover:border-neutral-800'
+                          }`}
+                        >
+                          {prov === 'gemini' ? 'Gemini' : prov === 'openrouter' ? 'OpenRouter' : 'Ollama'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <select
+                      value={routingConfig.storyMaker.model}
+                      onChange={(e) => handleUpdateModel('storyMaker', e.target.value)}
+                      className="w-full bg-void text-xs text-neutral-300 border border-neutral-900 focus:border-portal p-1.5 rounded focus:outline-none font-mono"
+                    >
+                      {((routingPresets || DEFAULT_PRESETS).storyMaker[routingConfig.storyMaker.provider] || []).map((mod: string) => (
+                        <option key={mod} value={mod}>{mod}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* ROUTE 2: IMAGE GENERATOR */}
+                <div className="space-y-2.5 bg-black/40 border border-neutral-900/60 p-3 rounded">
+                  <div className="flex items-center justify-between">
+                    <span className="font-sc text-[11px] tracking-[0.1em] text-human font-semibold block uppercase">Route: Image Generator</span>
+                    <span className="text-[9px] font-mono text-neutral-500 uppercase">Illustration / covers</span>
+                  </div>
+
+                  <div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(['gemini', 'openrouter', 'ollama'] as const).map((prov) => (
+                        <button
+                          key={prov}
+                          type="button"
+                          onClick={() => handleUpdateProvider('imageGenerator', prov)}
+                          className={`py-1 text-[9px] font-bold uppercase font-sc tracking-wider border rounded transition-all ${
+                            routingConfig.imageGenerator.provider === prov
+                              ? 'bg-human/10 border-human text-human'
+                              : 'bg-void border-neutral-900 text-neutral-550 hover:border-neutral-800'
+                          }`}
+                        >
+                          {prov === 'gemini' ? 'Gemini' : prov === 'openrouter' ? 'OpenRouter' : 'Ollama'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <select
+                      value={routingConfig.imageGenerator.model}
+                      onChange={(e) => handleUpdateModel('imageGenerator', e.target.value)}
+                      className="w-full bg-void text-xs text-neutral-300 border border-neutral-900 focus:border-human p-1.5 rounded focus:outline-none font-mono"
+                    >
+                      {((routingPresets || DEFAULT_PRESETS).imageGenerator[routingConfig.imageGenerator.provider] || []).map((mod: string) => (
+                        <option key={mod} value={mod}>{mod}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Aetherial Keys Selection override block */}
+                <div className="space-y-4 bg-black/40 border border-neutral-900/60 p-3 rounded text-left">
+                  <div className="flex items-center justify-between border-b border-neutral-900/80 pb-2">
+                    <span className="font-sc text-[11px] tracking-[0.12em] text-portal font-bold uppercase">Dynamic Aether Credentials</span>
+                    <span className="text-[8px] font-mono text-neutral-500 uppercase">Input override</span>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-[10px] font-mono text-neutral-400">Gemini Key Override</label>
+                        {localGeminiKey && <span className="text-[9px] font-mono text-emerald-400">Merged</span>}
+                      </div>
+                      <input
+                        type="password"
+                        placeholder="Paste your Gemini AI key..."
+                        value={localGeminiKey}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setLocalGeminiKey(val);
+                          localStorage.setItem('@seihouse/api-key-gemini', val);
+                        }}
+                        className="w-full bg-void text-xs text-neutral-300 border border-neutral-900 focus:border-portal p-1.5 rounded focus:outline-none font-mono placeholder:text-neutral-700"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-[10px] font-mono text-neutral-400">OpenRouter Key Override</label>
+                        {localOpenrouterKey && <span className="text-[9px] font-mono text-emerald-400">Merged</span>}
+                      </div>
+                      <input
+                        type="password"
+                        placeholder="Paste your OpenRouter key..."
+                        value={localOpenrouterKey}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setLocalOpenrouterKey(val);
+                          localStorage.setItem('@seihouse/api-key-openrouter', val);
+                        }}
+                        className="w-full bg-void text-xs text-neutral-300 border border-neutral-900 focus:border-portal p-1.5 rounded focus:outline-none font-mono placeholder:text-neutral-700"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-[10px] font-mono text-neutral-400">Ollama Host Override</label>
+                        {localOllamaHost && <span className="text-[9px] font-mono text-emerald-400">Merged</span>}
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="e.g. http://localhost:11434"
+                        value={localOllamaHost}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setLocalOllamaHost(val);
+                          localStorage.setItem('@seihouse/api-key-ollama-host', val);
+                        }}
+                        className="w-full bg-void text-xs text-neutral-300 border border-neutral-900 focus:border-portal p-1.5 rounded focus:outline-none font-mono placeholder:text-neutral-700"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status Indicator */}
+                <div className="text-[10px] bg-neutral-950 p-2.5 rounded border border-neutral-900 font-mono text-neutral-500 divide-y divide-neutral-900/40 text-left">
+                  <div className="pb-1 flex justify-between items-center">
+                    <span>Ollama Host Path:</span>
+                    <span className="text-neutral-300 font-semibold">{localOllamaHost || "localhost:11434 (default)"}</span>
+                  </div>
+                  <div className="pt-1 pb-1 flex justify-between items-center">
+                    <span>OpenRouter Key Stream:</span>
+                    {localOpenrouterKey ? (
+                      <span className="text-emerald-400 font-semibold">Custom Key Hooked</span>
+                    ) : (
+                      <span className="text-portal font-semibold">Sovereign Proxy Active</span>
+                    )}
+                  </div>
+                  <div className="pt-1 flex justify-between items-center">
+                    <span>Gemini Meridian Key:</span>
+                    {localGeminiKey ? (
+                      <span className="text-emerald-400 font-semibold">Custom Key Hooked</span>
+                    ) : (
+                      <span className="text-portal font-semibold">Sovereign Native Active</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Confirm button */}
+                <button
+                  type="button"
+                  onClick={() => setIsSettingsOpen(false)}
+                  className="w-full py-2 bg-void border border-portal text-portal font-sc font-bold uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-all text-xs"
+                >
+                  Align Router Meridian
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

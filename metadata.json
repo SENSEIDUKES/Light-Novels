@@ -1,6 +1,6 @@
 {
-  "name": "Private AI Fiction Generator",
-  "description": "A private AI-powered serialized story generator inspired by Chinese Light Novels with persistent narrative memory and interactive progression steering.",
+  "name": "SEIHOUSE - Light Novels",
+  "description": "A premium AI-powered webnovel/light novel reader inspired by Wuxiaworld and Qidian cultivation fantasy with persistent lore memory and arc steering.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
