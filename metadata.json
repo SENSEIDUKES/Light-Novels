@@ -1,0 +1,8 @@
+{
+  "name": "Private AI Fiction Generator",
+  "description": "A private AI-powered serialized story generator inspired by Chinese Light Novels with persistent narrative memory and interactive progression steering.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

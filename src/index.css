@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,500;0,700;1,500;1,700&family=Alegreya+SC:wght@500;700&family=Noto+Serif:ital,wght@0,200;0,400;1,200;1,400&family=Rubik:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&display=swap');
+
+@theme {
+  --font-sans: "Rubik", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Noto Serif", ui-serif, Georgia, serif;
+  --font-display: "Alegreya", serif;
+  --font-sc: "Alegreya SC", serif;
+  
+  --color-void: #000000;
+  --color-signal: #FAFAFA;
+  --color-human: #8B0000;
+  --color-portal: #04ACFF;
+}
+
+/* Custom scrollbar for an immersive feeling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0d0d0d;
+}
+::-webkit-scrollbar-thumb {
+  background: #8b0000;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a30000;
+}
+
+/* Aesthetic light-novel reading view styling */
+.light-novel-reader {
+  font-family: var(--font-serif);
+  line-height: 1.8;
+  letter-spacing: 0.0125em;
+  color: #dfd8cf;
+  background-color: #111111;
+}
+
+.ink-gradient {
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.85) 50%, rgba(0,0,0,1) 100%);
+}
+
+.gold-accent {
+  color: #D4AF37;
+}
+
+.jade-accent {
+  color: #00A86B;
+}
