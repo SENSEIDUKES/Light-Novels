@@ -101,6 +101,67 @@ export interface CharacterRelationship {
   updatedAt: string;
 }
 
+export interface IntakeData {
+  // 1. Core Seed
+  novelTitle?: string;
+  mcName?: string;
+  genrePath?: string;
+  corePremise?: string;
+  desiredPlotDirection?: string;
+
+  // 2. World Setting
+  worldType?: string;
+  startingLocation?: string;
+  societyStructure?: string;
+  dangerLevel?: string;
+  generalAtmosphere?: string;
+
+  // 3. Main Character Setup
+  startingIdentity?: string;
+  personality?: string;
+  mainFlaw?: string;
+  secretAdvantage?: string;
+  startingWeakness?: string;
+  moralAlignment?: string;
+
+  // 4. Power System Seed
+  startingPowerConcept?: string;
+  powerFlavor?: string;
+  powerPace?: string;
+  knownRanks?: string;
+  uniquePath?: string;
+
+  // 5. Plot & Trope Control
+  longTermGoal?: string;
+  firstMajorConflict?: string;
+  mainAntagonistPressure?: string;
+  romanceLevel?: string;
+  faceSlappingLevel?: string;
+  comedyLevel?: string;
+  tournamentArcPreference?: string;
+  haremPreference?: string;
+  betrayalLevel?: string;
+  thingsToAvoid?: string;
+  mustIncludeElements?: string;
+}
+
+export interface WorldBlueprint {
+  title: string;
+  logline: string;
+  worldOverview: string;
+  startingLocation: string;
+  societyStructure: string;
+  powerSystemOutline: string;
+  mcProfile: string;
+  majorFactions: string[];
+  initialCharacters: string[];
+  majorMysteries: string[];
+  firstArcPromise: string;
+  tropeRules: string;
+  styleBible: string;
+  unresolvedPlotThreads: string[];
+}
+
 export interface StoryWorld {
   id: string;
   title: string;
@@ -113,6 +174,8 @@ export interface StoryWorld {
   arcs: StoryArc[];
   currentChapterNumber: number;
   imageUrl?: string;
+  intake?: IntakeData;
+  blueprint?: WorldBlueprint;
   
   // Local-first persistent storage properties
   relationships?: CharacterRelationship[];

@@ -30,13 +30,65 @@ app.get("/api/router-presets", (req, res) => {
   res.json(ROUTER_PRESETS);
 });
 
+// 0.5. Generate World Blueprint
+app.post("/api/generate-blueprint", async (req, res) => {
+  try {
+    const { intake, routingConfig } = req.body;
+    
+    if (!intake) {
+      return res.status(400).json({ error: "Missing required fields: intake" });
+    }
+
+    const systemInstruction = `You are a legendary grandmaster editor and creator specializing in Chinese Web Novels (Xianxia, Xuanhuan, Cultivation, LitRPG, and System novels). 
+Your task is to take a Story Seed Intake and generate a comprehensive World Blueprint / Story Bible.
+You must output strictly raw JSON matching the requested structure.
+If the intake leaves certain fields blank or sparse, smartly extrapolate them using standard light novel tropes and logic.`;
+
+    const userPrompt = `Story Seed Intake Data:
+${JSON.stringify(intake, null, 2)}
+
+Based on the provided intake, generate the World Blueprint.
+Return a JSON object strictly following this structure:
+{
+  "title": "Novel Title",
+  "logline": "A punchy one-sentence summary",
+  "worldOverview": "Deep dive into the world setting and history...",
+  "startingLocation": "Where the story begins",
+  "societyStructure": "Hierarchy, sects, royal families etc.",
+  "powerSystemOutline": "Detailed hierarchy of power levels and concepts",
+  "mcProfile": "Name, personality, flaws, cheats, alignments",
+  "majorFactions": ["Faction 1", "Faction 2"],
+  "initialCharacters": ["Char 1 description", "Char 2 description"],
+  "majorMysteries": ["Mystery 1", "Mystery 2"],
+  "firstArcPromise": "What readers can expect in the first 10 chapters",
+  "tropeRules": "Specific tropes to include or avoid",
+  "styleBible": "Tone, themes, and stylistic notes",
+  "unresolvedPlotThreads": ["Plot 1", "Plot 2"]
+}
+Do not add any text before or after the JSON.`;
+
+    const data = await routeTextGeneration(
+      "storyMaker",
+      systemInstruction,
+      userPrompt,
+      "generate-blueprint",
+      routingConfig,
+      getCustomKeys(req)
+    );
+    return res.json(data);
+  } catch (error: any) {
+    console.error("Error generating blueprint:", error);
+    return res.status(500).json({ error: error.message || "Internal server error" });
+  }
+});
+
 // 1. Initial story arc generation
 app.post("/api/generate-initial-arc", async (req, res) => {
   try {
-    const { mcName, genre, customPremise, chapterCount, routingConfig } = req.body;
+    const { intake, blueprint, chapterCount, routingConfig } = req.body;
     
-    if (!mcName || !genre || !customPremise) {
-      return res.status(400).json({ error: "Missing required fields: mcName, genre, customPremise" });
+    if (!intake || !blueprint) {
+      return res.status(400).json({ error: "Missing required fields: intake, blueprint" });
     }
 
     const count = Math.min(parseInt(chapterCount) || 10, 10);
@@ -45,18 +97,18 @@ app.post("/api/generate-initial-arc", async (req, res) => {
 Your task is to craft high-energy initial serialized story structures. 
 You must output strictly raw JSON matching the requested structure. Keep descriptions immersive, keeping true to the tropes of light novels — level progressions, face-slapping, arrogant young masters, mysterious elders, rare medicinal pills, jade treasures, ancient inheritances, or glowing holographic LitRPG system status screens.`;
 
-    const userPrompt = `Create a brand new Chinese Light Novel inspired Story Arc (comprising exactly ${count} chapters) for:
-Main Character Name: ${mcName}
-Genre Category: ${genre}
-Core Premise / Secret Catalyst: ${customPremise}
+    const userPrompt = `Create a brand new Chinese Light Novel inspired Story Arc (comprising exactly ${count} chapters) based on the following authenticated World Blueprint:
+
+World Blueprint:
+${JSON.stringify(blueprint, null, 2)}
 
 You must return a JSON object with the following fields:
 {
   "title": "A grand, poetic Volume / Arc title (e.g. 'Volume 1: Awakening the Sky-Shattering Cauldron')",
-  "powerSystem": "A concise paragraph outlining the cultivation ranks/tiers in this universe (e.g., Qi Condensation, Foundation Establishment, Core Formation, Nascent Soul, Soul Transformation)",
-  "currentPowerStage": "The lowest starting level for the MC (e.g., 'Mortal', 'Qi Condensation Tier 1 (Crippled Meridians)', 'F-Rank Human')",
+  "powerSystem": "A concise paragraph outlining the cultivation ranks/tiers in this universe, extracted from the outline: ${JSON.stringify(blueprint.powerSystemOutline)}",
+  "currentPowerStage": "The lowest starting level for the MC, matching the blueprint.",
   "worldRules": [
-    "At least 4 crucial rules of this savage cultivator world (e.g., 'Strength is absolute; the weak have no human rights.', 'The Law of the Jungle applies: treasures belong to those with the fist to hold them.')"
+    "At least 4 crucial rules of this savage cultivator world based on the blueprint"
   ],
   "characters": [
     {
@@ -68,14 +120,14 @@ You must return a JSON object with the following fields:
     }
   ],
   "unresolvedPlotThreads": [
-    "At least 3 initial mysteries or goals (e.g., 'Discover who poisoned the MC's spiritual root', 'Unlock the second tier of the supreme jade pendant', 'Avenge the mockery at the clan tournament')"
+    ${JSON.stringify(blueprint.unresolvedPlotThreads)} // Ensure this is serialized properly into the list
   ],
   "chapters": [
     // Create exactly ${count} chapters. The indices must range from 1 to ${count}.
     {
       "number": 1,
-      "title": "A dramatic title (e.g. 'Meridians Destroyed, A Mockery in the Main Hall')",
-      "premise": "A brief, exciting operational goal/premise for this chapter (e.g., MC's fiancé breaks off the engagement; MC accidentally drops blood on the rusty ring, awakening a primordial saint master.)"
+      "title": "A dramatic title matching the blueprint's start",
+      "premise": "A brief, exciting operational goal/premise for this chapter"
     }
     // ... complete up to chapter ${count}
   ]

@@ -1,49 +1,21 @@
 import React, { useState } from 'react';
-import { Sparkles, ArrowRight, ShieldAlert, Award } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Sparkles, ArrowRight, ShieldAlert, ChevronDown, ChevronUp, BookOpen, Layers, Target, Users, Zap, CheckCircle2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { IntakeData, WorldBlueprint } from '../types';
 
 interface CreationPortalProps {
-  onStartStory: (mcName: string, genre: string, premise: string, chapterCount: number) => Promise<void>;
+  onStartStory: (intake: IntakeData, blueprint: WorldBlueprint, chapterCount: number) => Promise<void>;
+  onGenerateBlueprint: (intake: IntakeData) => Promise<WorldBlueprint>;
   isGenerating: boolean;
   error: string | null;
 }
 
 const GENRE_PRESETS = [
-  {
-    id: 'Xianxia',
-    name: 'Xianxia (Immortal Cultivation)',
-    concept: 'Grand celestial laws, Dao seeking, flying swords, Core Formation, and overcoming the merciless Heavenly Tribulation.',
-    icon: '⚔️',
-    motto: '“My life is mine to control, not heaven’s!”'
-  },
-  {
-    id: 'Xuanhuan',
-    name: 'Xuanhuan (Mystic Fantasy)',
-    concept: 'Savage martial paths, awakened bloodlines, supreme refining cauldrons, face-slapping arrogant heirs, and sovereign ascensions.',
-    icon: '🔥',
-    motto: '“If the Gods block me, I shall slaughter the Gods!”'
-  },
-  {
-    id: 'LitRPG / System',
-    name: 'System / Cultivation Interface',
-    concept: 'A neon-glowing holographic system panel grants stats, inventory slots, skill points, and quest alerts in a cruel world.',
-    icon: '⚡',
-    motto: '“[System Alert: You have slain the Primeval Viper. EXP +500,000!]”'
-  },
-  {
-    id: 'Regression',
-    name: 'Regression / Reborn Sovereign',
-    concept: 'Reborn in your younger, crippled body with 10,000 years of future memories. Front-load rare treasures, take revenge early.',
-    icon: '⏳',
-    motto: '“In my past life, you ruined me. In this life, I am your apocalypse.”'
-  },
-  {
-    id: 'Urban Cultivation',
-    name: 'Urban Cultivation Sage',
-    concept: 'Ancient secret sects hiding in neon modern skyscrapers. Wealthy CEOs bowing to high school students who are secret sages.',
-    icon: '🌃',
-    motto: '“You may have billions of dollars, but I can shatter mountains with a flick.”'
-  }
+  { id: 'Xianxia', name: 'Xianxia', icon: '⚔️' },
+  { id: 'Xuanhuan', name: 'Xuanhuan', icon: '🔥' },
+  { id: 'LitRPG / System', name: 'System', icon: '⚡' },
+  { id: 'Regression', name: 'Regression', icon: '⏳' },
+  { id: 'Urban Cultivation', name: 'Urban Cultivation', icon: '🌃' }
 ];
 
 const PREMISE_SUGGESTIONS = [
@@ -54,61 +26,350 @@ const PREMISE_SUGGESTIONS = [
   "Being the cripple son of a great General who finds out his 'broken' meridians are actually the legendary ancient Dragon-Phoenix Meridian body."
 ];
 
-export default function CreationPortal({ onStartStory, isGenerating, error }: CreationPortalProps) {
-  const [mcName, setMcName] = useState('Han Feng');
-  const [selectedGenre, setSelectedGenre] = useState('Xianxia');
-  const [customPremise, setCustomPremise] = useState(PREMISE_SUGGESTIONS[0]);
-  const [chapterCount, setChapterCount] = useState(10);
+export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGenerating, error }: CreationPortalProps) {
+  const [stage, setStage] = useState<'intake' | 'blueprint'>('intake');
+  const [blueprint, setBlueprint] = useState<WorldBlueprint | null>(null);
+  
+  const [intake, setIntake] = useState<IntakeData>({
+    novelTitle: '',
+    mcName: 'Han Feng',
+    genrePath: 'Xianxia',
+    corePremise: PREMISE_SUGGESTIONS[0],
+    desiredPlotDirection: '',
+    worldType: '',
+    startingLocation: '',
+    societyStructure: '',
+    dangerLevel: '',
+    generalAtmosphere: '',
+    startingIdentity: '',
+    personality: '',
+    mainFlaw: '',
+    secretAdvantage: '',
+    startingWeakness: '',
+    moralAlignment: '',
+    startingPowerConcept: '',
+    powerFlavor: '',
+    powerPace: '',
+    knownRanks: '',
+    uniquePath: '',
+    longTermGoal: '',
+    firstMajorConflict: '',
+    mainAntagonistPressure: '',
+    romanceLevel: '',
+    faceSlappingLevel: '',
+    comedyLevel: '',
+    tournamentArcPreference: '',
+    haremPreference: '',
+    betrayalLevel: '',
+    thingsToAvoid: '',
+    mustIncludeElements: '',
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!mcName.trim() || !customPremise.trim()) return;
-    onStartStory(mcName.trim(), selectedGenre, customPremise.trim(), chapterCount);
+  const [chapterCount, setChapterCount] = useState(10);
+  const [activeSection, setActiveSection] = useState<'core' | 'world' | 'mc' | 'power' | 'plot'>('core');
+
+  const updateIntake = (field: keyof IntakeData, value: string) => {
+    setIntake(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleGenerateBlueprintClick = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!intake.corePremise?.trim() || !intake.genrePath) return;
+    try {
+      const bp = await onGenerateBlueprint(intake);
+      setBlueprint(bp);
+      setStage('blueprint');
+    } catch (err) {
+      // Error is handled in parent and passed as prop
+    }
+  };
+
+  const handleStartStoryClick = async () => {
+    if (!blueprint) return;
+    await onStartStory(intake, blueprint, chapterCount);
+  };
+
+  const FormSection = ({ id, title, icon, children }: { id: typeof activeSection, title: string, icon: React.ReactNode, children: React.ReactNode }) => {
+    const isActive = activeSection === id;
+    return (
+      <div className="border border-neutral-900 rounded-lg overflow-hidden bg-void transition-colors mb-4">
+        <button
+          type="button"
+          onClick={() => setActiveSection(isActive ? id : id)}
+          className={`w-full flex items-center justify-between p-4 px-6 text-left transition-colors ${isActive ? 'bg-neutral-900/50 text-signal border-b border-neutral-900' : 'bg-void text-neutral-400 hover:bg-neutral-950 hover:text-neutral-200'}`}
+        >
+          <div className="flex items-center space-x-3">
+            <span className={isActive ? 'text-portal' : 'text-neutral-500'}>{icon}</span>
+            <span className="font-sc font-bold uppercase tracking-widest text-sm">{title}</span>
+          </div>
+          {isActive ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+        </button>
+        <AnimatePresence>
+          {isActive && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="p-6 space-y-6"
+            >
+              {children}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  };
+
+  if (stage === 'blueprint' && blueprint) {
+    return (
+      <div className="max-w-4xl mx-auto pb-20" id="creation-portal-root">
+        <div className="text-center mb-10">
+          <span className="font-sc text-portal tracking-[0.2em] text-sm uppercase block mb-2">World Blueprint Generated</span>
+          <h1 className="font-display font-bold text-3xl sm:text-4xl text-signal tracking-tight mb-4">
+            {blueprint.title}
+          </h1>
+          <p className="font-sans font-light text-neutral-400 text-sm max-w-xl mx-auto leading-relaxed">
+            {blueprint.logline}
+          </p>
+        </div>
+
+        <div className="bg-neutral-950/80 border border-portal/30 p-6 sm:p-10 rounded-lg shadow-[0_0_30px_rgba(4,172,255,0.05)] relative space-y-8">
+          <div>
+            <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm mb-2">World Overview</h3>
+            <p className="text-neutral-300 font-sans text-sm leading-relaxed">{blueprint.worldOverview}</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+              <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm mb-2 flex items-center space-x-2"><Layers size={14} className="text-portal"/><span>Society & Factions</span></h3>
+              <p className="text-neutral-400 font-sans text-xs mb-3">{blueprint.societyStructure}</p>
+              <ul className="space-y-2">
+                {blueprint.majorFactions?.map((f, i) => (
+                  <li key={i} className="text-neutral-300 text-xs font-sans bg-void border border-neutral-800 p-2 rounded">{f}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm mb-2 flex items-center space-x-2"><Zap size={14} className="text-portal"/><span>Power System</span></h3>
+              <p className="text-neutral-300 font-sans text-sm leading-relaxed whitespace-pre-wrap">{blueprint.powerSystemOutline}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+              <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm mb-2 flex items-center space-x-2"><Users size={14} className="text-portal"/><span>Main Character</span></h3>
+              <p className="text-neutral-300 font-sans text-sm leading-relaxed whitespace-pre-wrap">{blueprint.mcProfile}</p>
+            </div>
+            <div>
+              <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm mb-2 flex items-center space-x-2"><Target size={14} className="text-portal"/><span>First Arc Promise</span></h3>
+              <p className="text-neutral-300 font-sans text-sm leading-relaxed">{blueprint.firstArcPromise}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between pt-6 border-t border-neutral-900 gap-4">
+            <button
+              type="button"
+              onClick={() => setStage('intake')}
+              disabled={isGenerating}
+              className="text-neutral-400 hover:text-signal text-xs font-sc uppercase tracking-widest"
+            >
+              ← Refine Details
+            </button>
+
+            <button
+              type="button"
+              onClick={handleStartStoryClick}
+              disabled={isGenerating}
+              className="w-full sm:w-auto font-sc px-6 py-3 rounded text-sm uppercase tracking-widest font-bold flex items-center justify-center space-x-2 bg-human text-signal border border-human hover:bg-void hover:text-human hover:border-human shadow-[0_0_15px_rgba(139,0,0,0.3)] transition-all"
+            >
+              {isGenerating ? (
+                <>
+                  <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }} className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full" />
+                  <span>Generating...</span>
+                </>
+              ) : (
+                <><span>Accept Blueprint & Start Matrix</span><ArrowRight size={16} /></>
+              )}
+            </button>
+          </div>
+          {error && (
+            <div className="p-4 bg-human/10 border border-human/30 rounded text-xs text-neutral-300 font-sans mt-4">
+              <strong>Error:</strong> {error}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-4xl mx-auto" id="creation-portal-root">
-      {/* Header section (Alegreya) */}
+    <div className="max-w-4xl mx-auto pb-20" id="creation-portal-root">
+      {/* Header section */}
       <div className="text-center mb-10">
         <span className="font-sc text-human tracking-[0.2em] text-sm uppercase block mb-2">SEIHouse Archive Matrix</span>
         <h1 className="font-display font-bold text-4xl sm:text-5xl text-signal tracking-tight mb-4">
-          Aetherial Narrative Portal
+          Story Seed Intake
         </h1>
         <p className="font-sans font-light text-neutral-400 text-sm max-w-xl mx-auto leading-relaxed">
-          Create a private, deeply serialized story matrix. Your narrative state is persistently bound into your own consciousness, powered by real-time LLM genesis.
+          Provide as much or as little detail as you want. Empty fields will be intelligently extrapolated using Chinese light-novel logic. We will first generate a World Blueprint for your review.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-8 bg-void border border-neutral-900 p-6 sm:p-10 rounded-lg shadow-2xl relative">
-        {/* Glow Element */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-72 h-1 bg-gradient-to-r from-transparent via-portal/50 to-transparent"></div>
-
-        {/* MC Name & Chapter Count */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <form onSubmit={handleGenerateBlueprintClick} className="space-y-4">
+        
+        <FormSection id="core" title="1. Core Seed" icon={<BookOpen size={18} />}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Optional Novel Title</label>
+              <input type="text" value={intake.novelTitle} onChange={(e) => updateIntake('novelTitle', e.target.value)} placeholder="Will be generated if empty" className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded px-4 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Main Character Name</label>
+              <input type="text" value={intake.mcName} onChange={(e) => updateIntake('mcName', e.target.value)} placeholder="e.g., Lin Fan" className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded px-4 py-2 text-sm" />
+            </div>
+          </div>
+          
           <div>
-            <label htmlFor="mc-name" className="block font-sc text-sm text-neutral-300 uppercase tracking-widest mb-2">
-              Main Character Name
-            </label>
-            <input
-              id="mc-name"
-              type="text"
-              value={mcName}
-              onChange={(e) => setMcName(e.target.value)}
-              placeholder="e.g., Lin Fan"
-              disabled={isGenerating}
-              className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded px-4 py-3 text-base transition-all"
-              required
-            />
-            <p className="text-xs text-neutral-500 mt-2 font-sans">
-              Choose a brave cultivator name. They will bear the burden of ascension.
-            </p>
+            <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Genre Path</label>
+            <div className="flex flex-wrap gap-2">
+              {GENRE_PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => updateIntake('genrePath', p.id)}
+                  className={`px-3 py-1.5 rounded border text-xs font-sans transition-colors ${intake.genrePath === p.id ? 'bg-neutral-900 border-portal text-signal' : 'bg-transparent border-neutral-800 text-neutral-500 hover:text-neutral-300'}`}
+                >
+                  {p.icon} {p.name}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
-            <label htmlFor="chapter-count" className="block font-sc text-sm text-neutral-300 uppercase tracking-widest mb-2">
-              Story Arc Chapters (5 - 10)
-            </label>
-            <div className="flex items-center space-x-4">
+            <div className="flex justify-between items-end mb-2">
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest">Core Premise / Secret Catalyst *</label>
+              <div className="flex gap-1">
+                {PREMISE_SUGGESTIONS.map((_, idx) => (
+                  <button key={idx} type="button" onClick={() => updateIntake('corePremise', PREMISE_SUGGESTIONS[idx])} className="bg-neutral-900 hover:bg-neutral-800 text-[10px] text-neutral-400 px-1.5 py-0.5 rounded font-mono">#{idx + 1}</button>
+                ))}
+              </div>
+            </div>
+            <textarea required value={intake.corePremise} onChange={(e) => updateIntake('corePremise', e.target.value)} rows={3} placeholder="The main hook or cheat..." className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm resize-none" />
+          </div>
+
+          <div>
+            <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Desired General Plot Direction (Optional)</label>
+            <textarea value={intake.desiredPlotDirection} onChange={(e) => updateIntake('desiredPlotDirection', e.target.value)} rows={2} placeholder="e.g. Revenge focused, slow sect building, kingdom conquering..." className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm resize-none" />
+          </div>
+        </FormSection>
+
+        <FormSection id="world" title="2. World Setting" icon={<Layers size={18} />}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">World Type</label>
+              <input type="text" value={intake.worldType} onChange={(e) => updateIntake('worldType', e.target.value)} placeholder="e.g., Ancient sect world, tower system..." className="w-full bg-neutral-950 border border-neutral-800 text-signal text-sm rounded px-3 py-2" />
+            </div>
+            <div>
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Starting Location</label>
+              <input type="text" value={intake.startingLocation} onChange={(e) => updateIntake('startingLocation', e.target.value)} placeholder="e.g., Outer sect labor camp, mortal city slum..." className="w-full bg-neutral-950 border border-neutral-800 text-signal text-sm rounded px-3 py-2" />
+            </div>
+            <div>
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Society Structure</label>
+              <input type="text" value={intake.societyStructure} onChange={(e) => updateIntake('societyStructure', e.target.value)} placeholder="e.g., Sect-led, feudal, corporate..." className="w-full bg-neutral-950 border border-neutral-800 text-signal text-sm rounded px-3 py-2" />
+            </div>
+            <div>
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Danger Level & Atmosphere</label>
+              <input type="text" value={intake.dangerLevel} onChange={(e) => updateIntake('dangerLevel', e.target.value)} placeholder="e.g., Cutthroat, grimdark, mystical..." className="w-full bg-neutral-950 border border-neutral-800 text-signal text-sm rounded px-3 py-2" />
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection id="mc" title="3. Main Character Setup" icon={<Users size={18} />}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Starting Identity</label>
+              <input type="text" value={intake.startingIdentity} onChange={(e) => updateIntake('startingIdentity', e.target.value)} placeholder="e.g., Crippled young master, modern transmigrator..." className="w-full bg-neutral-950 border border-neutral-800 text-signal text-sm rounded px-3 py-2" />
+            </div>
+            <div>
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Personality & Alignment</label>
+              <input type="text" value={intake.personality} onChange={(e) => updateIntake('personality', e.target.value)} placeholder="e.g., Ruthless but protective, chaotic neutral..." className="w-full bg-neutral-950 border border-neutral-800 text-signal text-sm rounded px-3 py-2" />
+            </div>
+            <div>
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Secret Advantage / Cheat</label>
+              <input type="text" value={intake.secretAdvantage} onChange={(e) => updateIntake('secretAdvantage', e.target.value)} placeholder="e.g., System interface, primeval bloodline..." className="w-full bg-neutral-950 border border-neutral-800 text-signal text-sm rounded px-3 py-2" />
+            </div>
+            <div>
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Main Flaw / Starting Weakness</label>
+              <input type="text" value={intake.startingWeakness} onChange={(e) => updateIntake('startingWeakness', e.target.value)} placeholder="e.g., Destroyed meridians, demonic curse..." className="w-full bg-neutral-950 border border-neutral-800 text-signal text-sm rounded px-3 py-2" />
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection id="power" title="4. Power System Seed" icon={<Zap size={18} />}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Starting Power Concept</label>
+              <input type="text" value={intake.startingPowerConcept} onChange={(e) => updateIntake('startingPowerConcept', e.target.value)} placeholder="e.g., Qi Condensation Tier 1, Feng Shui Level 1..." className="w-full bg-neutral-950 border border-neutral-800 text-signal text-sm rounded px-3 py-2" />
+            </div>
+            <div>
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Power Flavor</label>
+              <input type="text" value={intake.powerFlavor} onChange={(e) => updateIntake('powerFlavor', e.target.value)} placeholder="e.g., Martial arts, Daoist, Demonic, Sword..." className="w-full bg-neutral-950 border border-neutral-800 text-signal text-sm rounded px-3 py-2" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Known Ranks & Unique Path</label>
+              <textarea value={intake.knownRanks} onChange={(e) => updateIntake('knownRanks', e.target.value)} rows={2} placeholder="Optional. If partial, AI will extrapolate a full wuxia/xianxia ladder." className="w-full bg-neutral-950 border border-neutral-800 text-signal text-sm rounded px-3 py-2 resize-none" />
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection id="plot" title="5. Plot & Trope Control" icon={<Target size={18} />}>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+             <div>
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-1">Face-Slapping</label>
+              <select value={intake.faceSlappingLevel} onChange={e => updateIntake('faceSlappingLevel', e.target.value)} className="w-full bg-void border border-neutral-800 text-signal text-sm rounded px-2 py-1.5 focus:outline-none">
+                <option value="">AI Default</option><option value="High">High</option><option value="Moderate">Moderate</option><option value="Low">Low</option>
+              </select>
+            </div>
+             <div>
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-1">Romance / Harem</label>
+              <select value={intake.romanceLevel} onChange={e => updateIntake('romanceLevel', e.target.value)} className="w-full bg-void border border-neutral-800 text-signal text-sm rounded px-2 py-1.5 focus:outline-none">
+                <option value="">AI Default</option><option value="None">None</option><option value="Single">Single Heroine/Hero</option><option value="Harem">Harem</option>
+              </select>
+            </div>
+             <div>
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-1">Pacing</label>
+              <select value={intake.powerPace} onChange={e => updateIntake('powerPace', e.target.value)} className="w-full bg-void border border-neutral-800 text-signal text-sm rounded px-2 py-1.5 focus:outline-none">
+                <option value="">AI Default</option><option value="Fast">Fast</option><option value="Balanced">Balanced</option><option value="Slow">Slow</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Long-term Goal</label>
+              <input type="text" value={intake.longTermGoal} onChange={(e) => updateIntake('longTermGoal', e.target.value)} placeholder="e.g., Shatter the heavens..." className="w-full bg-neutral-950 border border-neutral-800 text-signal text-sm rounded px-3 py-2" />
+            </div>
+            <div>
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">First Major Conflict</label>
+              <input type="text" value={intake.firstMajorConflict} onChange={(e) => updateIntake('firstMajorConflict', e.target.value)} placeholder="e.g., Sect tournament..." className="w-full bg-neutral-950 border border-neutral-800 text-signal text-sm rounded px-3 py-2" />
+            </div>
+            <div>
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Must-Include Elements</label>
+              <input type="text" value={intake.mustIncludeElements} onChange={(e) => updateIntake('mustIncludeElements', e.target.value)} placeholder="e.g., Hidden auction halls..." className="w-full bg-neutral-950 border border-neutral-800 text-signal text-sm rounded px-3 py-2" />
+            </div>
+            <div>
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Things to Avoid</label>
+              <input type="text" value={intake.thingsToAvoid} onChange={(e) => updateIntake('thingsToAvoid', e.target.value)} placeholder="e.g., No sci-fi logic..." className="w-full bg-neutral-950 border border-neutral-800 text-signal text-sm rounded px-3 py-2" />
+            </div>
+          </div>
+        </FormSection>
+
+        {/* Generate Button */}
+        <div className="pt-6 mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center space-x-4">
+             <div className="flex flex-col">
+              <label htmlFor="chapter-count" className="block font-sc text-[10px] text-neutral-500 uppercase tracking-widest mb-1">
+                First Arc Chapters ({chapterCount})
+              </label>
               <input
                 id="chapter-count"
                 type="range"
@@ -117,102 +378,12 @@ export default function CreationPortal({ onStartStory, isGenerating, error }: Cr
                 value={chapterCount}
                 onChange={(e) => setChapterCount(Number(e.target.value))}
                 disabled={isGenerating}
-                className="w-full accent-portal bg-neutral-900 h-1 rounded-lg"
+                className="w-32 accent-portal bg-neutral-900 h-1 rounded-lg"
               />
-              <span className="font-mono text-portal text-lg bg-neutral-950 px-3 py-1 rounded border border-neutral-850 font-bold min-w-14 text-center">
-                {chapterCount}
-              </span>
             </div>
-            <p className="text-xs text-neutral-500 mt-2 font-sans">
-              Determines the length and pacing depth of the generated chronicle.
-            </p>
-          </div>
-        </div>
-
-        {/* Genre Selection Grid */}
-        <div id="genre-grid-selection">
-          <label className="block font-sc text-sm text-neutral-300 uppercase tracking-widest mb-4">
-            Select Narrative Genesis Genre
-          </label>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {GENRE_PRESETS.map((preset) => {
-              const belongs = preset.id === selectedGenre;
-              return (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => setSelectedGenre(preset.id)}
-                  disabled={isGenerating}
-                  className={`text-left p-4 rounded border transition-all relative overflow-hidden group ${
-                    belongs 
-                      ? 'bg-neutral-950 border-portal text-signal shadow-[0_0_12px_rgba(4,172,255,0.15)]' 
-                      : 'bg-neutral-950/20 border-neutral-900 text-neutral-400 hover:border-neutral-800 hover:text-neutral-200'
-                  }`}
-                >
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="text-xl">{preset.icon}</span>
-                    <span className="font-sans font-medium text-sm text-signal group-hover:text-portal transition-colors">
-                      {preset.name}
-                    </span>
-                  </div>
-                  <p className="text-xs line-clamp-2 leading-relaxed text-neutral-400 font-sans font-light">
-                    {preset.concept}
-                  </p>
-                  <div className="mt-2 text-[10px] italic text-human font-sans uppercase font-medium">
-                    {preset.motto}
-                  </div>
-                  {belongs && (
-                    <div className="absolute right-1 bottom-1 w-2 h-2 rounded-full bg-portal"></div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Premise Selection & Input */}
-        <div>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-            <label htmlFor="premise-input" className="block font-sc text-sm text-neutral-300 uppercase tracking-widest">
-              Core Premise & Secret Catalysts
-            </label>
-            <div className="flex flex-wrap gap-1">
-              <span className="text-[10px] text-neutral-500 font-sans self-center mr-1">Suggestions:</span>
-              {PREMISE_SUGGESTIONS.map((_, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setCustomPremise(PREMISE_SUGGESTIONS[idx])}
-                  disabled={isGenerating}
-                  className="bg-neutral-900 hover:bg-neutral-800 text-[10px] text-neutral-300 px-2 py-0.5 rounded transition-all font-mono"
-                >
-                  #{idx + 1}
-                </button>
-              ))}
+            <div className="hidden sm:block text-[10px] uppercase text-neutral-500 max-w-[200px] leading-tight">
+              A deeper intake yields richer generated universes.
             </div>
-          </div>
-          <textarea
-            id="premise-input"
-            rows={4}
-            value={customPremise}
-            onChange={(e) => setCustomPremise(e.target.value)}
-            disabled={isGenerating}
-            placeholder="Type your unique cheat item, cultivation secret, tragedy, or cosmic blessing..."
-            className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-4 text-sm leading-relaxed transition-all resize-none"
-            required
-          />
-          <p className="text-xs text-neutral-500 mt-2 font-sans font-light">
-            Keep it focused on light novel tropes. It serves as the primary seed prompt for generating your characters, world building, and the 20-30 chapter summaries.
-          </p>
-        </div>
-
-        {/* Generate / Action Button */}
-        <div className="pt-4 border-t border-neutral-950 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center space-x-2 text-xs text-neutral-400 font-sans max-w-sm">
-            <ShieldAlert size={16} className="text-human flex-shrink-0" />
-            <span>
-              This is a private storyteller. Built for the reader's pure personal art immersion, strictly respecting human authors.
-            </span>
           </div>
 
           <button
@@ -226,29 +397,19 @@ export default function CreationPortal({ onStartStory, isGenerating, error }: Cr
           >
             {isGenerating ? (
               <>
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-                  className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full"
-                />
-                <span>Aligning Cosmic Meridians...</span>
+                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }} className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full" />
+                <span>Weaving Destiny...</span>
               </>
             ) : (
-              <>
-                <span>Awaken Chronicle Matrix</span>
-                <ArrowRight size={16} />
-              </>
+              <><span>Generate World Blueprint</span><ArrowRight size={16} /></>
             )}
           </button>
         </div>
 
         {error && (
-          <div className="p-4 bg-human/10 border border-human/30 rounded text-xs text-neutral-300 font-sans flex items-center space-x-3 mt-4">
-            <span className="text-lg">⚠️</span>
-            <div className="flex-1">
-              <strong className="text-human block mb-0.5">Heavenly Detonation Warning:</strong>
-              {error}
-            </div>
+          <div className="p-4 bg-human/10 border border-human/30 rounded text-xs text-neutral-300 font-sans mt-4">
+            <span className="text-lg mr-2">⚠️</span>
+            <strong className="text-human">Heavenly Detonation:</strong> {error}
           </div>
         )}
       </form>

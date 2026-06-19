@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   BookOpen, Sparkles, FolderHeart, User, Globe, 
   Award, Trash2, Plus, LogOut, BookCheck, ShieldAlert,
-  ArrowLeft, Zap, Download, Upload, Database, Sliders, FileText
+  ArrowLeft, Zap, Download, Upload, Database, Sliders, FileText,
+  Play, ChevronRight, BarChart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Story, StoryMemory, Chapter, StoryArc, StoryWorld, ReaderPreferences, KarmaFateNode, CharacterRelationship, MultiModelRouting, RouteConfig } from './types';
+import { Story, StoryMemory, Chapter, StoryArc, StoryWorld, ReaderPreferences, KarmaFateNode, CharacterRelationship, MultiModelRouting, RouteConfig, IntakeData, WorldBlueprint } from './types';
 import CreationPortal from './components/CreationPortal';
 import AkashaRecord from './components/AkashaRecord';
 import ReaderChamber from './components/ReaderChamber';
@@ -336,8 +337,41 @@ export default function App() {
 
   const activeStory = stories.find(s => s.id === activeStoryId);
 
+  // 0.5. Generate Blueprint
+  const handleGenerateBlueprint = async (intake: IntakeData): Promise<WorldBlueprint> => {
+    setIsGenerating(true);
+    setAppError(null);
+    try {
+      const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      const gemini = localStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = localStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = localStorage.getItem('@seihouse/api-key-ollama-host');
+      if (gemini) apiHeaders['x-gemini-key'] = gemini;
+      if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
+      if (ollama) apiHeaders['x-ollama-host'] = ollama;
+
+      const response = await fetch('/api/generate-blueprint', {
+        method: 'POST',
+        headers: apiHeaders,
+        body: JSON.stringify({ intake, routingConfig: routingConfig.storyMaker })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Blueprint generation failed: ${response.status}`);
+      }
+      return await response.json();
+    } catch (err: any) {
+      console.error(err);
+      setAppError(err.message || "Failed to generate world blueprint.");
+      throw err;
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   // 1. Trigger the Generation of the Initial Story
-  const handleStartStory = async (mcName: string, genre: string, premise: string, chapterCount: number) => {
+  const handleStartStory = async (intake: IntakeData, blueprint: WorldBlueprint, chapterCount: number) => {
     setIsGenerating(true);
     setAppError(null);
 
@@ -353,7 +387,7 @@ export default function App() {
       const response = await fetch('/api/generate-initial-arc', {
         method: 'POST',
         headers: apiHeaders,
-        body: JSON.stringify({ mcName, genre, customPremise: premise, chapterCount, routingConfig: routingConfig.storyMaker })
+        body: JSON.stringify({ intake, blueprint, chapterCount, routingConfig: routingConfig.storyMaker })
       });
 
       if (!response.ok) {
@@ -373,15 +407,17 @@ export default function App() {
 
       const newStory: Story = {
         id: `story-${Date.now()}`,
-        title: responseData.title || `The Ascension Chronicles of ${mcName}`,
-        genre,
-        mcName,
-        customPremise: premise,
+        title: responseData.title || blueprint.title || 'The Ascension Chronicles',
+        genre: intake.genrePath || 'Xianxia',
+        mcName: intake.mcName || 'Unknown',
+        customPremise: intake.corePremise || blueprint.logline || '',
+        intake: intake,
+        blueprint: blueprint,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         currentChapterNumber: 1,
         memory: {
-          powerSystem: responseData.powerSystem || 'Qi Refining Levels (Stage 1-9)',
+          powerSystem: responseData.powerSystem || blueprint.powerSystemOutline,
           currentPowerStage: responseData.currentPowerStage || 'Novice stage',
           worldRules: responseData.worldRules || ['Survival of the fittest'],
           characters: responseData.characters?.map((c: any) => ({
@@ -407,7 +443,7 @@ export default function App() {
       setCurrentScreen('detail');
     } catch (err: any) {
       console.error(err);
-      setAppError(err.message || "Failed to align celestial gates. Ensure your GEMINI_API_KEY is configured.");
+      setAppError(err.message || "Failed to align celestial gates.");
     } finally {
       setIsGenerating(false);
     }
@@ -809,6 +845,23 @@ export default function App() {
   // Calculate stats for current active story
   const isCurrentArcFinished = activeStory && activeStory.arcs[activeStory.arcs.length - 1].isCompleted;
 
+  const handleResumeReading = (story: Story) => {
+    setActiveStoryId(story.id);
+    let resumeChapterNum = 1;
+    const flatChapters = story.arcs.flatMap(arc => arc.chapters).sort((a,b) => a.number - b.number);
+    const unreadChapter = flatChapters.find(c => c.status !== 'read');
+    if (unreadChapter) {
+      resumeChapterNum = unreadChapter.number;
+    } else if (flatChapters.length > 0) {
+      resumeChapterNum = flatChapters[flatChapters.length - 1].number;
+    }
+    setSelectedChapterNum(resumeChapterNum);
+    setCurrentScreen('reader');
+  };
+
+  const sortedStoriesByDate = [...stories].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  const mostRecentStory = sortedStoriesByDate.length > 0 ? sortedStoriesByDate[0] : null;
+
   return (
     <div className="min-h-screen bg-void text-signal font-sans selection:bg-human/80 select-none pb-20">
       
@@ -924,6 +977,62 @@ export default function App() {
               {/* Saved Stories List - Novel Shelves */}
               <div className="space-y-6" id="saved-matrices-list">
                 
+                {mostRecentStory && (
+                  <div className="bg-neutral-950/40 border border-neutral-900 rounded-lg p-5 flex flex-col md:flex-row items-center gap-6 shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
+                    <div className="relative w-full md:w-48 h-32 rounded-md overflow-hidden flex-shrink-0 border border-neutral-800">
+                      <img 
+                        src={mostRecentStory.imageUrl || `https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?auto=format&fit=crop&q=80`} 
+                        alt={mostRecentStory.title}
+                        className="w-full h-full object-cover opacity-80"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-90"></div>
+                      <div className="absolute bottom-2 left-2 right-2">
+                        <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-gold-accent px-1.5 py-0.5 bg-black/80 border border-neutral-800 rounded inline-block">
+                          Continue Reading
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex-1 space-y-3 p-1">
+                      <div>
+                        <h4 className="font-display font-bold text-xl sm:text-2xl text-signal leading-tight line-clamp-1">
+                          {mostRecentStory.title}
+                        </h4>
+                        <p className="text-xs text-neutral-400 font-sans truncate mt-1">
+                          MC: {mostRecentStory.mcName} • {mostRecentStory.memory.currentPowerStage}
+                        </p>
+                      </div>
+                      
+                      {(() => {
+                        const totalChapters = mostRecentStory.arcs.reduce((sum, a) => sum + a.chapters.length, 0);
+                        const readChapters = mostRecentStory.arcs.reduce((sum, a) => sum + a.chapters.filter(c => c.status === 'read').length, 0);
+                        const progressPercent = totalChapters > 0 ? Math.round((readChapters / totalChapters) * 100) : 0;
+                        return (
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between items-center text-[10px] uppercase font-mono tracking-widest text-neutral-500">
+                              <span>{readChapters} / {totalChapters} Chapters</span>
+                              <span>{progressPercent}% Complete</span>
+                            </div>
+                            <div className="w-full bg-void h-1.5 rounded-full overflow-hidden border border-neutral-800">
+                              <div className="bg-portal h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%` }}></div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    
+                    <div className="w-full md:w-auto flex-shrink-0 flex items-center justify-end">
+                      <button
+                        onClick={() => handleResumeReading(mostRecentStory)}
+                        className="w-full md:w-auto px-6 py-3 bg-human border border-human text-signal text-sm font-sc font-bold uppercase tracking-wider rounded transition-all flex items-center justify-center space-x-2 shadow-[0_0_15px_rgba(139,0,0,0.5)] hover:bg-void hover:text-human"
+                      >
+                        <Play size={16} />
+                        <span>Quick Resume</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Local-First Storage & Archival Desk */}
                 <div className="bg-neutral-950/80 border border-neutral-900 rounded-lg p-5 flex flex-col md:flex-row items-center justify-between gap-6 shadow-[0_4px_30px_rgba(0,0,0,0.8)]" id="vault-desk-panel">
                   <div className="flex items-start space-x-3.5">
@@ -1037,6 +1146,22 @@ export default function App() {
                             <p className="text-[10px] text-neutral-500 font-sans truncate">
                               MC: {story.mcName} • {story.memory.currentPowerStage}
                             </p>
+                            
+                            {(() => {
+                              const readChapters = story.arcs.reduce((sum, a) => sum + a.chapters.filter(c => c.status === 'read').length, 0);
+                              const progressPercent = totalChapters > 0 ? Math.round((readChapters / totalChapters) * 100) : 0;
+                              return (
+                                <div className="pt-1">
+                                  <div className="flex justify-between items-center text-[9px] uppercase font-mono tracking-widest text-neutral-500 mb-1">
+                                    <span>Read {readChapters} / {totalChapters}</span>
+                                    <span>{progressPercent}%</span>
+                                  </div>
+                                  <div className="w-full bg-void h-1 rounded-full overflow-hidden border border-neutral-800">
+                                    <div className="bg-portal h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%` }}></div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       );
@@ -1177,6 +1302,7 @@ export default function App() {
             >
               <CreationPortal
                 onStartStory={handleStartStory}
+                onGenerateBlueprint={handleGenerateBlueprint}
                 isGenerating={isGenerating}
                 error={appError}
               />
