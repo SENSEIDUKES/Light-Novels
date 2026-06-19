@@ -36,10 +36,23 @@ At its core, **SEIHOUSE** exists to make a better time capsule and translator of
 *   **Chant Vocalizer (TTS)**: Fully integrated vocal synthesizer with granular speed transmission controls, custom voice engines, and play/pause functionality embedded inside the bottom overlay HUD layer.
 *   **Ancient HUD Console**: Fast-access anchors for **Realms (Cultivation levels)**, **Codex (Factions/Artifacts)**, and **Bonds (Character Karma)**.
 
-### 4. The Infinite Codex
+### 4. The Destiny Steering & Next Direction Chamber
+*   **Predictive Destiny suggestions**: The system reviews current story milestones, characters, unresolved plot threads, and core canon memory to generate 4–6 creative and compelling potential direction options.
+*   **Ascension Type Cards**: Suggestions are categorized into highly thematic light-novel paths such as *Demonic Path (darker)*, *Sect Warfare (action)*, *Jade Companions (romance)*, *Cosmic Shift (twist)*, and *Realm Ascension (new location)*.
+*   **Editable Destiny Script**: Select any card to instantly load its narrative outline into a fully editable Prompt Box. Tweak, edit, or fuse multiple directions before committing to generate the next 10-chapter arc.
+
+### 5. The Infinite Codex
 *   **Power Rankings & Realms**: Follow the MC's breakthroughs from *Qi Condensation* through *Nascent Soul* realms.
 *   **Character Bond Matrix**: Review active companion and adversary lists, tracking individual karma states.
 *   **Faction Lore & Relics**: Catalog sect structures, sacred cultivation lineages, and divine tools.
+
+---
+
+## 📱 Mobile Polish & Responsiveness
+
+*   **Compact Vocal Player Navigation**: The Scripture bottom-HUD reorganizes on mobile layout to offer a sleek, lightweight control row for TTS, rate toggle, and direct navigation buttons without clutter.
+*   **Scrollable Codex Sidebar**: Horizontal responsive swipe navigation tabs for Sovereign Portals, Karma Web, Power Rankings, Hierarchy, and Glossary ensure rapid access in single-hand touch zones.
+*   **Responsive Media Integrity**: Adjusted layout constraints on story posters and custom-rendered cards to guarantee perfect image scaling regardless of viewports.
 
 ---
 

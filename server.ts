@@ -233,6 +233,104 @@ Do not add any text before or after the JSON.`;
   }
 });
 
+// 2.5 Generate Next Story Directions based on memories
+app.post("/api/generate-next-directions", async (req, res) => {
+  const { 
+    mcName, 
+    genre, 
+    customPremise, 
+    memory, 
+    pastSummaries, 
+    routingConfig 
+  } = req.body;
+
+  try {
+    if (!mcName || !memory) {
+      return res.status(400).json({ error: "Missing required fields for directions generation" });
+    }
+
+    const systemInstruction = `You are a visionary series consultant and master of fate for bestselling serialized Chinese web-novels. 
+Your task is to analyze the current state of a light novel's lore, characters, power levels, and history, and generate 4 to 6 highly creative and compelling next-step plot direction options for the upcoming Volume/Arc. 
+You must output strictly raw JSON matching the requested structure. Keep proposals immersive, keeping true to the tropes of light novels — level progressions, face-slapping, double cultivation, or glowing system holographic screens.`;
+
+    const userPrompt = `Analyze the current state of the light novel and write exactly 4 to 6 potential sequential plot directions.
+
+STORY PROGRESS DETAILS:
+- MC Name: ${mcName}
+- Genre/Style: ${genre}
+- Core Premise: ${customPremise}
+
+CURRENT STORY MEMORY (You must ensure deep lore continuity with these):
+- MC Current Level: ${memory.currentPowerStage}
+- Power System: ${memory.powerSystem}
+- Living Characters: ${JSON.stringify(memory.characters)}
+- Unresolved Plots: ${JSON.stringify(memory.unresolvedPlotThreads)}
+- World Rules: ${JSON.stringify(memory.worldRules)}
+
+CHRONOLOGY / PAST STORY CONTEXT SUMMARY:
+${pastSummaries && pastSummaries.length > 0 ? pastSummaries.join("\n") : "Starting fresh in the immortal matrix."}
+
+Create exactly 4 to 6 potential direction options. Each option must have:
+1. "title": A poetic, high-energy light novel style volume/arc title (e.g., 'Return of the Frost King', 'Unveiled System: The Golden Meridian Chamber', 'Ascension to the Obsidian Hellfire Planet').
+2. "directionType": Must be exactly one of: 'action' | 'darker' | 'romance' | 'twist' | 'new location' | 'continue'.
+3. "description": A short, intriguing 1-2 sentence overview/hint of what might happen, referencing existing characters/rules/factions where applicable to maintain deep lore coherence (e.g., '${mcName} must venture into the Frost Forest using the newly mastered pills, but discovers that the Phoenix Sect has set up a demonic blockade.').
+
+Return strictly a JSON object with this shape:
+{
+  "directions": [
+    {
+      "title": "Title of this Direction",
+      "directionType": "one of the type strings",
+      "description": "Vivid light novel plot preview"
+    }
+  ]
+}
+
+Do not add any text before or after the JSON.`;
+
+    const data = await routeTextGeneration(
+      "storyMaker",
+      systemInstruction,
+      userPrompt,
+      "generate-next-directions",
+      routingConfig,
+      getCustomKeys(req)
+    );
+    return res.json(data);
+  } catch (error: any) {
+    console.warn("Directions generation failed. Serving celestial fallback directions:", error);
+    const mc = mcName || "Han Feng";
+    const fallbackDirections = [
+      {
+        title: "Demonic Ascension Clash",
+        directionType: "darker",
+        description: `${mc} is lured into an ancient blood trap by a rival sect. To survive, they must embrace a dark, taboo demonic mantra, threatening their humanity for supreme martial might.`
+      },
+      {
+        title: "The Celestial Alchemist Tournament",
+        directionType: "action",
+        description: `A grand gathering of master refinery sects is announced. ${mc} enters with their unique crucible to slap down arrogant young masters and claim the Primordial Heart Pill.`
+      },
+      {
+        title: "Jade Beauty of the Snow Pavilions",
+        directionType: "romance",
+        description: `An ancient promise binds ${mc} to the cold-hearted Snow Sect Princess. To break her curse, they must cultivate yin-yang fusion, sparking bitter enmity with her family's chosen son.`
+      },
+      {
+        title: "The System Glitch: Shattered Rules",
+        directionType: "twist",
+        description: `Under a cosmic eclipse, the LitRPG status window begins printing corrupt alerts, revealing an ancient sentient entity hiding within the core code of ${mc}'s system.`
+      },
+      {
+        title: "Shattering Upper Plane Barriers",
+        directionType: "new location",
+        description: `${mc} triggers a spatial ascension portal, leaving the mortal realm behind and entering a lethal higher-tier celestial court where their relative power scales are reset.`
+      }
+    ];
+    return res.json({ directions: fallbackDirections, isFallback: true });
+  }
+});
+
 // 3. Steer a finished story arc into a new Direction / Volume
 app.post("/api/steer-arc", async (req, res) => {
   try {

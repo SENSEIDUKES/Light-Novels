@@ -895,6 +895,7 @@ export default function App() {
                   src="https://images.unsplash.com/photo-1605371924599-2d0365da26f5?auto=format&fit=crop&q=80" 
                   alt="Fantasy Landscape" 
                   className="absolute inset-0 w-full h-full object-cover opacity-50 sm:opacity-60"
+                  referrerPolicy="no-referrer"
                 />
                 <div className="absolute inset-0 ink-gradient"></div>
                 <div className="relative z-10 p-5 sm:p-12 w-full flex justify-between items-end">
@@ -1009,6 +1010,7 @@ export default function App() {
                               src={story.imageUrl || `https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?auto=format&fit=crop&q=80`} 
                               alt={story.title}
                               className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                              referrerPolicy="no-referrer"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
                             <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm border border-neutral-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-signal tracking-wider font-sc">
@@ -1064,6 +1066,7 @@ export default function App() {
                       src={activeStory.imageUrl || `https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?auto=format&fit=crop&q=80`}
                       alt={activeStory.title}
                       className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
                     />
                   </div>
                 </div>
@@ -1216,6 +1219,8 @@ export default function App() {
                     isSteering={isGenerating}
                     onSteerArc={handleSteerArc}
                     currentArcIndex={activeStory.arcs.length}
+                    activeStory={activeStory}
+                    routingConfig={routingConfig}
                   />
                 </div>
               ) : (
