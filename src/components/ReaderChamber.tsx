@@ -4,12 +4,14 @@ import {
   Download, ArrowLeft, ArrowRight, Zap, ListMusic, 
   Award, ShieldAlert, CheckCircle, RefreshCcw,
   Play, Pause, Square, Volume2, VolumeX, Sliders,
-  Bookmark as BookmarkIcon, Trash2, Plus
+  Bookmark as BookmarkIcon, Trash2, Plus, Globe, Loader2
 } from 'lucide-react';
 import { Chapter, StoryMemory, StoryWorld, ReaderPreferences, Bookmark } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { VirtualizedList } from './VirtualizedList';
+import { ParticleSystem } from './ParticleSystem';
 import { dispatchNarrativeCue, NarrativeCueEventType } from '../lib/narrativeCues';
+import { useChapterTranslation } from '../hooks/useChapterTranslation';
 
 interface ReaderChamberProps {
   chapters: Chapter[];
@@ -41,6 +43,33 @@ export default function ReaderChamber({
   const [filter, setFilter] = useState<'all' | 'unlocked' | 'locked'>('all');
   const readerRef = useRef<HTMLDivElement>(null);
 
+  // --- Translation States ---
+  const { translateChapter, isTranslating, translationError } = useChapterTranslation();
+  const [preferredLang, setPreferredLang] = useState('en');
+  const [activeTranslationContent, setActiveTranslationContent] = useState<string | null>(null);
+
+  const selectedChapter = chapters.find(c => c.number === selectedChapterNum) || chapters[0];
+
+  useEffect(() => {
+    if (preferredLang === 'en') {
+      setActiveTranslationContent(null);
+      return;
+    }
+    
+    const doTranslation = async () => {
+      if (!selectedChapter.generatedContent) return;
+      if (selectedChapter.translations?.[preferredLang]) {
+        setActiveTranslationContent(selectedChapter.translations[preferredLang].content);
+        return;
+      }
+      const result = await translateChapter(activeStory.id, selectedChapter.number, selectedChapter.generatedContent, preferredLang);
+      if (result) {
+        setActiveTranslationContent(result);
+      }
+    };
+    doTranslation();
+  }, [preferredLang, selectedChapter.number, selectedChapter.generatedContent, selectedChapter.translations]);
+
   // --- Theme & Reader Typography Customizer States ---
   const [showReaderPreferences, setShowReaderPreferences] = useState(false);
 
@@ -67,11 +96,11 @@ export default function ReaderChamber({
 
   const getThemeClasses = () => {
     const t = currentPrefs.themeOverride || 'void';
-    if (t === 'crimson') return 'bg-[#080202] text-[#fad4d4] border-t border-human/25';
-    if (t === 'abyss') return 'bg-black text-slate-100';
-    if (t === 'sepia') return 'bg-[#1a140f] text-[#ecd8bd] border-t border-amber-950/30';
-    if (t === 'emerald') return 'bg-[#020c08] text-[#cbfbe1] border-t border-emerald-950/25';
-    return 'bg-[#111111] text-[#dfd8cf]'; // default void style
+    if (t === 'crimson') return 'bg-[#0f0404] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1d0a0a] to-[#0a0202] text-[#e0cfcf] border-t border-[#8B0000]/30 shadow-[inset_0_0_120px_rgba(139,0,0,0.08)] ring-1 ring-[#8B0000]/10 selection:bg-[#8B0000]/40 selection:text-white';
+    if (t === 'abyss') return 'bg-[#05080f] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0a1222] to-[#020408] text-[#ccd4e0] border-t border-[#04ACFF]/20 shadow-[inset_0_0_120px_rgba(4,172,255,0.06)] ring-1 ring-[#04ACFF]/10 selection:bg-[#04ACFF]/40 selection:text-white';
+    if (t === 'sepia') return 'bg-[#1a1614] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#2a2420] to-[#14100e] text-[#d6c5b3] border-t border-[#8b5a2b]/30 shadow-[inset_0_0_120px_rgba(139,90,43,0.08)] ring-1 ring-[#8b5a2b]/10 selection:bg-[#8b5a2b]/40 selection:text-white';
+    if (t === 'emerald') return 'bg-[#050f0a] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0a1c12] to-[#020805] text-[#b9d6c1] border-t border-[#0f5132]/40 shadow-[inset_0_0_120px_rgba(15,81,50,0.1)] ring-1 ring-[#0f5132]/20 selection:bg-[#0f5132]/40 selection:text-white';
+    return 'bg-[#0a0a0a] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#141414] to-[#050505] text-[#e8e8e8] border-t border-neutral-800/60 shadow-[inset_0_0_120px_rgba(255,255,255,0.02)] ring-1 ring-white/5 selection:bg-neutral-700 selection:text-white'; // default void style
   };
 
   // --- Text-to-Speech (TTS) Engine States ---
@@ -240,8 +269,6 @@ export default function ReaderChamber({
     }
   };
 
-  const selectedChapter = chapters.find(c => c.number === selectedChapterNum) || chapters[0];
-
   // --- Cosmic Bookmarking System States & Handlers ---
   const [showBookmarksPanel, setShowBookmarksPanel] = useState(false);
   const [editingBookmarkParagraphIndex, setEditingBookmarkParagraphIndex] = useState<number | null>(null);
@@ -249,30 +276,39 @@ export default function ReaderChamber({
   const [pendingScrollToParagraph, setPendingScrollToParagraph] = useState<number | null>(null);
 
   // --- Swipe Navigation States ---
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [touchEndY, setTouchEndY] = useState<number | null>(null);
 
   const minSwipeDistance = 50;
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
+    setTouchEndX(null);
+    setTouchEndY(null);
+    setTouchStartX(e.targetTouches[0].clientX);
+    setTouchStartY(e.targetTouches[0].clientY);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
+    setTouchEndX(e.targetTouches[0].clientX);
+    setTouchEndY(e.targetTouches[0].clientY);
   };
 
   const handleTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
+    if (!touchStartX || !touchEndX || !touchStartY || !touchEndY) return;
+    const distanceX = touchStartX - touchEndX;
+    const distanceY = touchStartY - touchEndY;
+    const isLeftSwipe = distanceX > minSwipeDistance;
+    const isRightSwipe = distanceX < -minSwipeDistance;
     
-    if (isLeftSwipe) {
-      if (selectedChapterNum < chapters.length) navigateNext();
-    } else if (isRightSwipe) {
-      if (selectedChapterNum > 1) navigatePrev();
+    // Only trigger horizontal swipe if vertical movement is small
+    if (Math.abs(distanceY) < 40) {
+      if (isLeftSwipe) {
+        if (selectedChapterNum < chapters.length) navigateNext();
+      } else if (isRightSwipe) {
+        if (selectedChapterNum > 1) navigatePrev();
+      }
     }
   };
 
@@ -434,8 +470,27 @@ export default function ReaderChamber({
     return true;
   });
 
+  const getParticleColor = () => {
+    const t = currentPrefs.themeOverride || 'void';
+    if (t === 'crimson') return 'bg-[#ff4444]';
+    if (t === 'abyss') return 'bg-[#04ACFF]';
+    if (t === 'sepia') return 'bg-[#d2a679]';
+    if (t === 'emerald') return 'bg-[#10b981]';
+    return 'bg-[#d4af37]'; // default gold for void
+  };
+
+  const getHeaderThemeClasses = () => {
+    const t = currentPrefs.themeOverride || 'void';
+    if (t === 'crimson') return 'bg-[#1a0808]/80 border-[#8B0000]/30';
+    if (t === 'abyss') return 'bg-[#0a1222]/80 border-[#04ACFF]/20';
+    if (t === 'sepia') return 'bg-[#2a2420]/80 border-[#8b5a2b]/30';
+    if (t === 'emerald') return 'bg-[#0a1c12]/80 border-[#0f5132]/30';
+    return 'bg-[#111111]/80 border-neutral-800/60';
+  };
+
   return (
-    <div className={`flex flex-col min-h-[85vh] rounded-t-xl transition-colors duration-300 ${getThemeClasses()}`} id="reader-chamber-root">
+    <div className={`flex flex-col min-h-[85vh] rounded-t-xl transition-colors duration-500 relative overflow-hidden ${getThemeClasses()}`} id="reader-chamber-root">
+      <ParticleSystem count={40} className="opacity-20 pointer-events-none mix-blend-screen z-0 transition-colors duration-500" color={getParticleColor()} />
       
       {/* HEADER: Readability & Chapter Title */}
       <div 
@@ -443,7 +498,7 @@ export default function ReaderChamber({
         data-cue-id={`chapter-enter-${selectedChapter.number}`}
         data-cue-once="true"
         data-cue-value={selectedChapter.cuePayload ? JSON.stringify(selectedChapter.cuePayload) : undefined}
-        className="narrative-trigger sticky top-[38px] sm:top-[44px] z-20 bg-[#111111]/90 backdrop-blur-md px-4 py-2 sm:py-3 flex items-center justify-between border-b border-neutral-900"
+        className={`narrative-trigger sticky top-[38px] sm:top-[44px] z-20 backdrop-blur-md px-4 py-2 sm:py-3 flex items-center justify-between border-b transition-colors duration-500 ${getHeaderThemeClasses()}`}
       >
         <div className="min-w-0">
           <span className="font-sc font-semibold text-[10px] text-jade-accent tracking-[0.2em] uppercase block">
@@ -496,7 +551,24 @@ export default function ReaderChamber({
               )}
             </button>
 
-            <div className="hidden sm:flex relative top-0 z-50">
+            <div className="hidden sm:flex relative top-0 z-50 items-center space-x-2">
+                <div className="flex items-center gap-1.5 bg-void border border-neutral-800 py-1 px-2.5 rounded text-xs text-neutral-400 font-sans transition-colors hover:border-neutral-700">
+                  <Globe size={12} className={isTranslating ? "animate-spin text-portal" : "text-neutral-500"} />
+                  <select 
+                      value={preferredLang} 
+                      onChange={(e) => setPreferredLang(e.target.value)}
+                      disabled={isTranslating}
+                      className="bg-transparent text-xs text-neutral-400 cursor-pointer focus:outline-none disabled:opacity-50 appearance-none outline-none py-0.5"
+                  >
+                      <option value="en">English (Dao)</option>
+                      <option value="es">Español</option>
+                      <option value="fr">Français</option>
+                      <option value="pt-BR">Português (BR)</option>
+                      <option value="de">Deutsch</option>
+                      <option value="ja">日本語</option>
+                  </select>
+                </div>
+
                 <select 
                     value={selectedChapterNum} 
                     onChange={(e) => setSelectedChapterNum(parseInt(e.target.value))}
@@ -704,9 +776,23 @@ export default function ReaderChamber({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {selectedChapter.generatedContent ? (
-          <div className="max-w-2xl mx-auto">
-             <div className={`${
+        {isTranslating ? (
+          <div className="flex flex-col items-center justify-center h-full py-32 space-y-4">
+             <Loader2 className="animate-spin text-portal w-10 h-10" />
+             <p className="text-signal font-serif italic text-lg opacity-80 mt-4">Translating the Heavenly Dao...</p>
+          </div>
+        ) : selectedChapter.generatedContent ? (
+          <>
+            <AnimatePresence mode="wait">
+              <motion.div 
+                 key={`${selectedChapter.number}-${preferredLang}`}
+                 initial={{ opacity: 0, y: 15 }}
+                 animate={{ opacity: 1, y: 0 }}
+                 exit={{ opacity: 0, y: -15 }}
+                 transition={{ duration: 0.5, ease: "easeOut" }}
+                 className="max-w-2xl mx-auto"
+              >
+               <div className={`${
                currentPrefs.fontSize === 'xs' ? 'text-xs' :
                currentPrefs.fontSize === 'sm' ? 'text-sm' :
                currentPrefs.fontSize === 'base' ? 'text-base' :
@@ -722,11 +808,57 @@ export default function ReaderChamber({
                currentPrefs.lineHeight === 'relaxed' ? 'leading-relaxed' :
                'leading-loose'
              } max-w-2xl mx-auto select-text`}>
-               {selectedChapter.blocks ? selectedChapter.blocks.map((block, index) => {
+               {activeTranslationContent ? activeTranslationContent.split('\n\n').map((paragraph, index) => {
+                 if (!paragraph.trim()) return null;
+                 const isSystemLine = paragraph.startsWith('[') && paragraph.endsWith(']');
+                 if (isSystemLine) {
+                   const getSystemThemeClasses = () => {
+                     const t = currentPrefs.themeOverride || 'void';
+                     if (t === 'crimson') return 'border-[#8B0000]/30 text-[#ff4444] shadow-[0_0_15px_rgba(139,0,0,0.1)]';
+                     if (t === 'abyss') return 'border-[#04ACFF]/30 text-[#04ACFF] shadow-[0_0_15px_rgba(4,172,255,0.1)]';
+                     if (t === 'sepia') return 'border-[#8b5a2b]/30 text-[#d2a679] shadow-[0_0_15px_rgba(139,90,43,0.1)]';
+                     if (t === 'emerald') return 'border-[#0f5132]/30 text-[#10b981] shadow-[0_0_15px_rgba(16,185,129,0.1)]';
+                     return 'border-portal/15 text-gold-accent shadow-[0_0_15px_rgba(212,175,55,0.05)]';
+                   };
+
+                   return (
+                     <div 
+                       key={index} 
+                       className={`my-8 p-6 bg-black/50 border font-mono text-xs rounded text-center tracking-widest leading-relaxed transition-colors duration-500 ${getSystemThemeClasses()}`}
+                     >
+                       {paragraph.replace('[', '').replace(']', '')}
+                     </div>
+                   );
+                 }
+
+                 return (
+                   <div 
+                     key={index} 
+                     className="group relative transition-all duration-300 border border-transparent rounded-lg p-2.5 -mx-2.5 mb-2"
+                   >
+                     <div className="flex items-start">
+                       <div className="flex-1 min-w-0 font-serif leading-relaxed">
+                         <p className={`text-justify indent-8 ${currentPrefs.paragraphSpacing === 'normal' ? 'mb-0' : currentPrefs.paragraphSpacing === 'wide' ? 'mb-2' : 'mb-4'}`}>
+                           {paragraph}
+                         </p>
+                       </div>
+                     </div>
+                   </div>
+                 );
+               }) : selectedChapter.blocks ? selectedChapter.blocks.map((block, index) => {
                  if (!block.text.trim()) return null;
                  const isSystemLine = block.text.startsWith('[') && block.text.endsWith(']');
                  
                  if (isSystemLine) {
+                   const getSystemThemeClasses = () => {
+                     const t = currentPrefs.themeOverride || 'void';
+                     if (t === 'crimson') return 'border-[#8B0000]/30 text-[#ff4444] shadow-[0_0_15px_rgba(139,0,0,0.1)]';
+                     if (t === 'abyss') return 'border-[#04ACFF]/30 text-[#04ACFF] shadow-[0_0_15px_rgba(4,172,255,0.1)]';
+                     if (t === 'sepia') return 'border-[#8b5a2b]/30 text-[#d2a679] shadow-[0_0_15px_rgba(139,90,43,0.1)]';
+                     if (t === 'emerald') return 'border-[#0f5132]/30 text-[#10b981] shadow-[0_0_15px_rgba(16,185,129,0.1)]';
+                     return 'border-portal/15 text-gold-accent shadow-[0_0_15px_rgba(212,175,55,0.05)]';
+                   };
+
                    return (
                      <div 
                        key={block.id || `para-${index}`} 
@@ -734,7 +866,7 @@ export default function ReaderChamber({
                        data-cue-id={block.id || `system-line-${selectedChapter.number}-${index}`}
                        data-cue-metadata={block.metadata ? JSON.stringify(block.metadata) : undefined}
                        data-cue-once="true"
-                       className={`narrative-trigger my-8 p-6 bg-black border border-portal/15 font-mono text-xs text-portal rounded shadow-[0_0_15px_rgba(4,172,255,0.05)] text-center tracking-widest leading-relaxed ${block.metadata ? 'metadata-block' : ''}`}
+                       className={`narrative-trigger my-8 p-6 bg-black/50 border font-mono text-xs rounded text-center tracking-widest leading-relaxed transition-colors duration-500 ${getSystemThemeClasses()} ${block.metadata ? 'metadata-block' : ''}`}
                      >
                        {block.text.replace('[', '').replace(']', '')}
                      </div>
@@ -754,25 +886,22 @@ export default function ReaderChamber({
                       data-cue-once="true"
                       className={`relative group paragraph-block transition-colors duration-200 mb-6 ${existingBookmark ? 'custom-bookmark-bg' : ''} ${block.metadata ? 'narrative-trigger metadata-block' : ''}`}
                    >
-                     {/* Floating bookmark button */}
-                     <div className="absolute -left-12 top-0 bottom-0 w-10 flex items-start justify-end pt-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none md:pointer-events-auto">
+                     <p className="text-justify indent-8 relative">
+                        {block.text}
                         <button 
                           onClick={() => {
                              if (existingBookmark) {
                                handleRemoveBookmark(selectedChapter.number, index);
                              } else {
                                setEditingBookmarkParagraphIndex(index);
-                               setBookmarkNoteText('');
+                               setBookmarkNoteText(existingBookmark ? (existingBookmark.note || '') : '');
                              }
                           }}
-                          className={`pointer-events-auto p-1.5 rounded transition-all hover:bg-neutral-800 ${existingBookmark ? 'text-gold-accent' : 'text-neutral-500 hover:text-signal'}`}
-                          title="Bookmark this position"
+                          className={`inline-block ml-3 align-baseline transition-opacity ${existingBookmark ? 'text-gold-accent opacity-100' : 'text-neutral-500 opacity-20 md:opacity-0 hover:opacity-100 group-hover:opacity-100'}`}
+                          title={existingBookmark ? "Remove bookmark" : "Bookmark this position"}
                         >
                            <BookmarkIcon size={14} className={existingBookmark ? 'fill-current' : ''} />
                         </button>
-                     </div>
-                     <p className="text-justify indent-8">
-                        {block.text}
                      </p>
                      
                      {/* Inline Bookmark Editor */}
@@ -815,12 +944,21 @@ export default function ReaderChamber({
                  if (!paragraph.trim()) return null;
                  const isSystemLine = paragraph.startsWith('[') && paragraph.endsWith(']');
                  if (isSystemLine) {
+                   const getSystemThemeClasses = () => {
+                     const t = currentPrefs.themeOverride || 'void';
+                     if (t === 'crimson') return 'border-[#8B0000]/30 text-[#ff4444] shadow-[0_0_15px_rgba(139,0,0,0.1)]';
+                     if (t === 'abyss') return 'border-[#04ACFF]/30 text-[#04ACFF] shadow-[0_0_15px_rgba(4,172,255,0.1)]';
+                     if (t === 'sepia') return 'border-[#8b5a2b]/30 text-[#d2a679] shadow-[0_0_15px_rgba(139,90,43,0.1)]';
+                     if (t === 'emerald') return 'border-[#0f5132]/30 text-[#10b981] shadow-[0_0_15px_rgba(16,185,129,0.1)]';
+                     return 'border-portal/15 text-gold-accent shadow-[0_0_15px_rgba(212,175,55,0.05)]';
+                   };
+
                    return (
                      <div 
                        key={index} 
                        data-cue-type="narrative.metadata.signature"
                        data-cue-id={`system-line-${selectedChapter.number}-${index}`}
-                       className="narrative-trigger my-8 p-6 bg-black border border-portal/15 font-mono text-xs text-portal rounded shadow-[0_0_15px_rgba(4,172,255,0.05)] text-center tracking-widest leading-relaxed"
+                       className={`narrative-trigger my-8 p-6 bg-black/50 border font-mono text-xs rounded text-center tracking-widest leading-relaxed transition-colors duration-500 ${getSystemThemeClasses()}`}
                      >
                        {paragraph.replace('[', '').replace(']', '')}
                      </div>
@@ -859,7 +997,7 @@ export default function ReaderChamber({
                                setEditingBookmarkParagraphIndex(index);
                                setBookmarkNoteText('');
                              }}
-                             className="opacity-0 group-hover:opacity-100 text-neutral-600 hover:text-portal transition-all p-1"
+                             className="opacity-20 md:opacity-0 group-hover:opacity-100 text-neutral-600 hover:text-portal transition-all p-1"
                              title="Affix Anchor"
                            >
                              <Plus size={12} />
@@ -890,7 +1028,7 @@ export default function ReaderChamber({
                          </span>
                          <button
                            onClick={() => handleRemoveBookmark(selectedChapter.number, index)}
-                           className="text-neutral-550 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                           className="text-neutral-550 hover:text-red-500 p-1 opacity-40 md:opacity-0 group-hover:opacity-100 transition-opacity"
                            title="Release Anchor"
                          >
                            <Trash2 size={11} />
@@ -950,6 +1088,8 @@ export default function ReaderChamber({
                  );
                })}
              </div>
+            </motion.div>
+          </AnimatePresence>
 
             {/* Navigation links at bottom of chapter */}
             <div className="flex items-center justify-between border-t border-neutral-900 pt-8 mt-16 pb-8">
@@ -970,7 +1110,7 @@ export default function ReaderChamber({
                 <ArrowRight size={14} />
               </button>
             </div>
-          </div>
+          </>
         ) : isGenerating ? (
            <div className="max-w-2xl mx-auto py-12 animate-pulse space-y-6">
              <div className="space-y-4">

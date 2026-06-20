@@ -4,7 +4,16 @@ import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { routeTextGeneration, routeImageGeneration, routeTextGenerationStream, ROUTER_PRESETS } from "./aiRouter";
 
+import * as deepl from "deepl-node";
+
 dotenv.config();
+
+// DeepL Setup
+let translator: deepl.Translator | null = null;
+const DEEPL_AUTH_KEY = process.env.DEEPL_AUTH_KEY;
+if (DEEPL_AUTH_KEY) {
+  translator = new deepl.Translator(DEEPL_AUTH_KEY);
+}
 
 function validateEnvironmentOnStartup() {
   const geminiKey = process.env.GEMINI_API_KEY;
@@ -151,6 +160,54 @@ function cleanInitialArc(arc: any): any {
     });
   }
 
+  if ("chapters" in cleaned && Array.isArray(cleaned.chapters)) {
+    cleaned.chapters = cleaned.chapters.map((c: any) => {
+      if (!c || typeof c !== "object") return c;
+      return {
+        number: Number(c.number) || 0,
+        title: ensureString(c.title),
+        premise: ensureString(c.premise)
+      };
+    });
+  }
+
+  return cleaned;
+}
+
+function cleanSteerArc(resp: any): any {
+  if (!resp || typeof resp !== "object") return resp;
+  const cleaned: any = { ...resp };
+  
+  if ("title" in cleaned) cleaned.title = ensureString(cleaned.title);
+  
+  if ("chapters" in cleaned && Array.isArray(cleaned.chapters)) {
+    cleaned.chapters = cleaned.chapters.map((c: any) => {
+      if (!c || typeof c !== "object") return c;
+      return {
+        number: Number(c.number) || 0,
+        title: ensureString(c.title),
+        premise: ensureString(c.premise)
+      };
+    });
+  }
+
+  if ("newCharacters" in cleaned && Array.isArray(cleaned.newCharacters)) {
+    cleaned.newCharacters = cleaned.newCharacters.map((c: any) => {
+      if (!c || typeof c !== "object") return c;
+      const cleanChar = { ...c };
+      if ("name" in cleanChar) cleanChar.name = ensureString(cleanChar.name);
+      if ("role" in cleanChar) cleanChar.role = ensureString(cleanChar.role);
+      if ("description" in cleanChar) cleanChar.description = ensureString(cleanChar.description);
+      if ("relationshipToMC" in cleanChar) cleanChar.relationshipToMC = ensureString(cleanChar.relationshipToMC);
+      if ("status" in cleanChar) cleanChar.status = ensureString(cleanChar.status);
+      return cleanChar;
+    });
+  }
+
+  if ("newUnresolvedPlotThreads" in cleaned && Array.isArray(cleaned.newUnresolvedPlotThreads)) {
+    cleaned.newUnresolvedPlotThreads = cleaned.newUnresolvedPlotThreads.map((i: any) => ensureString(i));
+  }
+
   return cleaned;
 }
 
@@ -164,15 +221,22 @@ function cleanChapterResponse(resp: any): any {
   if (cleaned.memoryUpdates && typeof cleaned.memoryUpdates === "object") {
     const mu = cleaned.memoryUpdates;
     if ("currentPowerStage" in mu) mu.currentPowerStage = ensureString(mu.currentPowerStage);
-    if ("newUnresolvedPlotThreads" in mu && Array.isArray(mu.newUnresolvedPlotThreads)) {
-      mu.newUnresolvedPlotThreads = mu.newUnresolvedPlotThreads.map((i: any) => ensureString(i));
-    }
-    if ("resolvedPlotThreads" in mu && Array.isArray(mu.resolvedPlotThreads)) {
-      mu.resolvedPlotThreads = mu.resolvedPlotThreads.map((i: any) => ensureString(i));
-    }
-    if ("newMCAbilities" in mu && Array.isArray(mu.newMCAbilities)) {
-      mu.newMCAbilities = mu.newMCAbilities.map((i: any) => ensureString(i));
-    }
+    
+    // Arrays of strings
+    const stringArrayFields = ["newUnresolvedPlotThreads", "resolvedPlotThreads", "newMCAbilities"];
+    stringArrayFields.forEach(field => {
+      if (field in mu && Array.isArray(mu[field])) {
+        mu[field] = mu[field].map((i: any) => ensureString(i));
+      }
+    });
+
+    // Arrays of objects
+    const objArrayFields = ["newCharacters", "characterStatusUpdates", "newFactions", "factionUpdates", "newLocations", "locationUpdates", "newArtifacts", "artifactUpdates"];
+    objArrayFields.forEach(field => {
+      if (field in mu && Array.isArray(mu[field])) {
+        mu[field] = mu[field].filter((i: any) => i && typeof i === "object");
+      }
+    });
   }
   return cleaned;
 }
@@ -367,9 +431,7 @@ You must return a JSON object with the following fields:
       "status": "alive"
     }
   ],
-  "unresolvedPlotThreads": [
-    ${JSON.stringify(blueprint.unresolvedPlotThreads)} // Ensure this is serialized properly into the list
-  ],
+  "unresolvedPlotThreads": ${JSON.stringify(blueprint.unresolvedPlotThreads || [])},
   "chapters": [
     // Create exactly ${count} chapters. The indices must range from 1 to ${count}.
     {
@@ -422,7 +484,7 @@ Ensure the chapter contains rich elements of Chinese Light Novels: face-slapping
 CRITICAL ANTI-DRIFT MANDATE (COHERENCE PROTOCOL):
 1. STABILITY OF THE VOID: You must NEVER contradict, neglect, or rewrite any facts established in the current story memory (MC power stage, living/dead characters, world rules, unresolved threads) or previous summaries. The current story memory and past summaries are absolute cosmic law.
 2. CONTINUITY LOCK: Acknowledge the immediate climax, physical position, or conversation from the LAST paragraph of the previous chapter summary in PAST SUMMARY CONTEXT. There can be zero unexplained timeskips, spatial transitions, or sudden narrative jumps.
-3. CHARACTER ACCORD: Never create a new character that conflicts with or duplicates the name of an existing one. Respect historical character relationships and status.
+3. CHARACTER ACCORD: Never create a new character that conflicts with or duplicates the name of an existing one. If a character from the 'Living/Met Characters' list appears, treat them as fully known to the MC and the reader. DO NOT re-introduce them or describe them as a stranger. Respect historical character relationships and status.
 4. SEQUENTIAL ASCENSION: If the character advances in their cultivation rank, it must crawl logically from the current stage to the next sequential stage defined in the Power System ranks; skipping ranks is forbidden.
 5. CLEAN MEMORY SECTIONS: List true logical deltas (introducing actual newly met characters with distinct names, moving unresolved plot threads to resolved only if they are fully completed in the text, and changing statuses on existing characters based on the physical events in this chapter).
 
@@ -454,7 +516,7 @@ CURRENT STORY MEMORY (Ensure complete consistency with these):
 - Power System: ${memory.powerSystem}
 - MC Current Level: ${memory.currentPowerStage}
 - World Rules: ${JSON.stringify(memory.worldRules)}
-- Living/Met Characters: ${JSON.stringify(memory.characters)}
+- Living/Met Characters (THESE CHARACTERS ARE ALREADY KNOWN TO THE READER. NEVER treat them as strangers or re-introduce them!): ${JSON.stringify(memory.characters)}
 - Unresolved Plots: ${JSON.stringify(memory.unresolvedPlotThreads)}
 
 PAST SUMMARY CONTEXT (What happened in previous chapters to prevent plot holes):
@@ -493,7 +555,8 @@ The JSON metadata part must contain:
         "newStatus": "deceased/alive/unknown/ascended",
         "newRelationship": "Updated attitude toward MC if it changed, otherwise same",
         "newPowerLevel": "Optional. Updated power of the character if they progressed",
-        "newAbilities": ["Optional. Any new techniques they revealed/gained in this chapter"]
+        "newAbilities": ["Optional. Any new techniques they revealed/gained in this chapter"],
+        "descriptionAppend": "Optional. New facts or secrets revealed about them to append to their codex entry"
       }
     ],
     "newUnresolvedPlotThreads": [
@@ -511,6 +574,13 @@ The JSON metadata part must contain:
         "status": "Active / Destroyed / Fractured"
       }
     ],
+    "factionUpdates": [
+      {
+        "name": "Faction Name",
+        "statusOverride": "Optional. If their status changed (e.g. Destroyed)",
+        "descriptionAppend": "Optional. New secrets/history revealed about the sect"
+      }
+    ],
     "newLocations": [
       {
         "name": "Name of newly introduced area, realm, pavilion, or planet",
@@ -519,12 +589,26 @@ The JSON metadata part must contain:
         "safetyLevel": "Safe / Dangerous / Lethal"
       }
     ],
+    "locationUpdates": [
+      {
+        "name": "Location Name",
+        "safetyLevelOverride": "Optional. If safety changed",
+        "descriptionAppend": "Optional. New geographic secrets revealed"
+      }
+    ],
     "newArtifacts": [
       {
         "name": "Name of the magical treasure, pill, array, or weapon",
         "description": "Magical properties and size/appearance",
         "tier": "Mortal / Earth / Heaven / Primordial",
         "currentOwner": "Who holds this artifact now (e.g. MC, Elder Zhao)"
+      }
+    ],
+    "artifactUpdates": [
+      {
+        "name": "Artifact Name",
+        "newOwner": "Optional. If the artifact changed hands",
+        "descriptionAppend": "Optional. New hidden powers or lore revealed about the artifact"
       }
     ],
     "newMCAbilities": [
@@ -587,7 +671,7 @@ Ensure the chapter contains rich elements of Chinese Light Novels: face-slapping
 CRITICAL ANTI-DRIFT MANDATE (COHERENCE PROTOCOL):
 1. STABILITY OF THE VOID: You must NEVER contradict, neglect, or rewrite any facts established in the current story memory (MC power stage, living/dead characters, world rules, unresolved threads) or previous summaries. The current story memory and past summaries are absolute cosmic law.
 2. CONTINUITY LOCK: Acknowledge the immediate climax, physical position, or conversation from the LAST paragraph of the previous chapter summary in PAST SUMMARY CONTEXT. There can be zero unexplained timeskips, spatial transitions, or sudden narrative jumps.
-3. CHARACTER ACCORD: Never create a new character that conflicts with or duplicates the name of an existing one. Respect historical character relationships and status.
+3. CHARACTER ACCORD: Never create a new character that conflicts with or duplicates the name of an existing one. If a character from the 'Living/Met Characters' list appears, treat them as fully known to the MC and the reader. DO NOT re-introduce them or describe them as a stranger. Respect historical character relationships and status.
 4. SEQUENTIAL ASCENSION: If the character advances in their cultivation rank, it must crawl logically from the current stage to the next sequential stage defined in the Power System ranks; skipping ranks is forbidden.
 5. CLEAN MEMORY SECTIONS: The "memoryUpdates" field must contain true logical deltas (introducing actual newly met characters with distinct names, moving unresolved plot threads to resolved only if they are fully completed in the text, and changing statuses on existing characters based on the physical events in this chapter).
 
@@ -605,7 +689,7 @@ CURRENT STORY MEMORY (Ensure complete consistency with these):
 - Power System: ${memory.powerSystem}
 - MC Current Level: ${memory.currentPowerStage}
 - World Rules: ${JSON.stringify(memory.worldRules)}
-- Living/Met Characters: ${JSON.stringify(memory.characters)}
+- Living/Met Characters (THESE CHARACTERS ARE ALREADY KNOWN TO THE READER. NEVER treat them as strangers or re-introduce them!): ${JSON.stringify(memory.characters)}
 - Unresolved Plots: ${JSON.stringify(memory.unresolvedPlotThreads)}
 
 PAST SUMMARY CONTEXT (What happened in previous chapters to prevent plot holes):
@@ -660,7 +744,8 @@ You must return a JSON object with the following fields:
         "newStatus": "deceased/alive/unknown/ascended",
         "newRelationship": "Updated attitude toward MC if it changed, otherwise same",
         "newPowerLevel": "Optional. Updated power of the character if they progressed",
-        "newAbilities": ["Optional. Any new techniques they revealed/gained in this chapter"]
+        "newAbilities": ["Optional. Any new techniques they revealed/gained in this chapter"],
+        "descriptionAppend": "Optional. New facts or secrets revealed about them to append to their codex entry"
       }
     ],
     "newUnresolvedPlotThreads": [
@@ -678,6 +763,13 @@ You must return a JSON object with the following fields:
         "status": "Active / Destroyed / Fractured"
       }
     ],
+    "factionUpdates": [
+      {
+        "name": "Faction Name",
+        "statusOverride": "Optional. If their status changed (e.g. Destroyed)",
+        "descriptionAppend": "Optional. New secrets/history revealed about the sect"
+      }
+    ],
     "newLocations": [
       {
         "name": "Name of newly introduced area, realm, pavilion, or planet",
@@ -686,12 +778,26 @@ You must return a JSON object with the following fields:
         "safetyLevel": "Safe / Dangerous / Lethal"
       }
     ],
+    "locationUpdates": [
+      {
+        "name": "Location Name",
+        "safetyLevelOverride": "Optional. If safety changed",
+        "descriptionAppend": "Optional. New geographic secrets revealed"
+      }
+    ],
     "newArtifacts": [
       {
         "name": "Name of the magical treasure, pill, array, or weapon",
         "description": "Magical properties and size/appearance",
         "tier": "Mortal / Earth / Heaven / Primordial",
         "currentOwner": "Who holds this artifact now (e.g. MC, Elder Zhao)"
+      }
+    ],
+    "artifactUpdates": [
+      {
+        "name": "Artifact Name",
+        "newOwner": "Optional. If the artifact changed hands",
+        "descriptionAppend": "Optional. New hidden powers or lore revealed about the artifact"
       }
     ],
     "newMCAbilities": [
@@ -860,7 +966,7 @@ ${userCustomDirections ? `- User Specific Guidance: "${userCustomDirections}"` :
 CURRENT COMPREHENSIVE STORY MEMORY:
 - MC Cultivation Stage: ${memory.currentPowerStage}
 - Power System Rules: ${memory.powerSystem}
-- Living Characters: ${JSON.stringify(memory.characters)}
+- Living Characters (THESE CHARACTERS ARE ALREADY KNOWN. DO NOT Treat them as strangers in the new chapter premises!): ${JSON.stringify(memory.characters)}
 - Unresolved Plots from previous arcs: ${JSON.stringify(memory.unresolvedPlotThreads)}
 - Resolved Plots: ${JSON.stringify(memory.resolvedPlotThreads)}
 
@@ -905,7 +1011,7 @@ Make sure the tone perfectly incorporates the selected direction (e.g., if "dark
       routingConfig,
       getCustomKeys(req)
     );
-    return res.json(data);
+    return res.json(cleanSteerArc(data));
   } catch (error: any) {
     console.error("Error steering arc:", error);
     return res.status(500).json({ error: error.message || "Internal server error" });
@@ -994,6 +1100,37 @@ Do not add any markup before or after the JSON.`;
       isFallback: true,
       note: "Projected via celestial scribe memory: " + error.message 
     });
+  }
+});
+
+
+// 6. Translate Chapter
+app.post("/api/translate-chapter", async (req, res) => {
+  try {
+    const { chapterId, targetLang, englishText, glossaryId } = req.body;
+
+    if (!englishText || !targetLang) {
+      return res.status(400).json({ error: "Missing required fields: targetLang, englishText" });
+    }
+
+    if (!translator) {
+      return res.status(503).json({ error: "DeepL translation is not configured on the server." });
+    }
+
+    // You can optionally pass glossaryId in the real implementation.
+    // For now, we will perform standard translation if no valid glossary is provided.
+    // Ensure targetLang is valid for DeepL (e.g., 'ES', 'FR', 'PT-BR')
+    const result = await translator.translateText(englishText, null, targetLang as deepl.TargetLanguageCode);
+    const finalTranslatedText = Array.isArray(result) ? result[0].text : result.text;
+
+    return res.json({
+      translatedText: finalTranslatedText,
+      targetLang,
+      chapterId
+    });
+  } catch (error: any) {
+    console.error("Error translating chapter:", error);
+    return res.status(500).json({ error: error.message || "Failed to translate chapter" });
   }
 });
 

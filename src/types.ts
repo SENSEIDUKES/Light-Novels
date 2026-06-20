@@ -104,6 +104,13 @@ export interface ChapterContent {
     element?: string;
     signature?: string;
   };
+  translations?: {
+    [langCode: string]: {
+      title: string;
+      content: string;
+      translatedAt: number;
+    };
+  };
 }
 
 export interface Chapter {
@@ -117,6 +124,13 @@ export interface Chapter {
   summary?: string; // Optional
   statsChangeMessage?: string;
   cuePayload?: any;
+  translations?: {
+    [langCode: string]: {
+      title: string;
+      content: string;
+      translatedAt: number;
+    };
+  };
 }
 
 export interface StoryArc {

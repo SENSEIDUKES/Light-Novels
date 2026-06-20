@@ -114,6 +114,7 @@ export async function* routeTextGenerationStream(
           systemInstruction,
           temperature: 0.95,
           responseMimeType: "text/plain",
+          maxOutputTokens: 8192,
         }
       });
 
@@ -124,6 +125,25 @@ export async function* routeTextGenerationStream(
       }
     } catch (error: any) {
       console.error("[aiRouter] Gemini provider encountered error during stream:", error);
+      if (error.status === 429 || (error.message && error.message.includes("429"))) {
+        const apiKey = customKeys?.openrouterApiKey || process.env.OPENROUTER_API_KEY;
+        if (apiKey && apiKey !== "MY_OPENROUTER_API_KEY") {
+          console.warn("[aiRouter] Rate limit hit. Applying graceful fallback: Switching from Gemini to OpenRouter.");
+          const fallbackModel = route === "storyMaker" ? ROUTER_PRESETS.storyMaker.openrouter[0] : "meta-llama/llama-3-8b-instruct:free";
+          
+          yield* routeTextGenerationStream(
+            route, 
+            systemInstruction, 
+            userPrompt, 
+            routeKey + "_fallback", 
+            { provider: "openrouter", model: fallbackModel }, 
+            customKeys
+          );
+          return;
+        }
+
+        throw new Error(`Rate limit exceeded [429]. The model '${model}' is currently busy or rate-limited. Please try again soon, or switch to a different model in the routing configuration.`);
+      }
       throw error;
     }
   } else if (provider === "openrouter") {
@@ -139,7 +159,8 @@ export async function* routeTextGenerationStream(
           { role: "system", content: systemInstruction },
           { role: "user", content: userPrompt }
         ],
-        stream: true
+        stream: true,
+        max_tokens: 8192
       };
 
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -155,6 +176,9 @@ export async function* routeTextGenerationStream(
 
       if (!response.ok) {
         const errText = await response.text();
+        if (response.status === 429) {
+          throw new Error(`Rate limit exceeded [429]. The model '${config.model}' is currently busy or rate-limited. Please try again soon, or switch to a different model in the routing configuration.`);
+        }
         throw new Error(`OpenRouter gateway error [${response.status}]: ${errText}`);
       }
 
@@ -200,7 +224,8 @@ export async function* routeTextGenerationStream(
           model: model || "llama3",
           system: systemInstruction,
           prompt: userPrompt,
-          stream: true
+          stream: true,
+          options: { num_predict: 8192 }
         })
       });
 
@@ -271,6 +296,7 @@ export async function routeTextGeneration(
           systemInstruction,
           responseMimeType: "application/json",
           temperature: 0.95,
+          maxOutputTokens: 8192,
         }
       });
 
@@ -281,6 +307,25 @@ export async function routeTextGeneration(
       return cleanAndParseJSON(response.text);
     } catch (error: any) {
       console.error("[aiRouter] Gemini provider encountered error:", error);
+      if (error.status === 429 || (error.message && error.message.includes("429"))) {
+        const apiKey = customKeys?.openrouterApiKey || process.env.OPENROUTER_API_KEY;
+        if (apiKey && apiKey !== "MY_OPENROUTER_API_KEY") {
+          console.warn("[aiRouter] Rate limit hit. Applying graceful fallback: Switching from Gemini to OpenRouter.");
+          const fallbackModel = route === "storyMaker" ? ROUTER_PRESETS.storyMaker.openrouter[0] : "meta-llama/llama-3-8b-instruct:free";
+          
+          return routeTextGeneration(
+            route, 
+            systemInstruction, 
+            userPrompt, 
+            routeKey + "_fallback", 
+            { provider: "openrouter", model: fallbackModel }, 
+            customKeys,
+            jsonMode
+          );
+        }
+
+        throw new Error(`Rate limit exceeded [429]. The model '${model}' is currently busy or rate-limited. Please try again soon, or switch to a different model in the routing configuration.`);
+      }
       throw error;
     }
   } else if (provider === "openrouter") {
@@ -299,7 +344,8 @@ export async function routeTextGeneration(
           { role: "system", content: systemInstruction },
           { role: "user", content: userPrompt }
         ],
-        response_format: { type: "json_object" }
+        response_format: { type: "json_object" },
+        max_tokens: 8192
       };
 
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -315,6 +361,9 @@ export async function routeTextGeneration(
 
       if (!response.ok) {
         const errText = await response.text();
+        if (response.status === 429) {
+          throw new Error(`Rate limit exceeded [429]. The model '${config.model}' is currently busy or rate-limited. Please try again soon, or switch to a different model in the routing configuration.`);
+        }
         throw new Error(`OpenRouter gateway error [${response.status}]: ${errText}`);
       }
 
@@ -345,7 +394,8 @@ export async function routeTextGeneration(
           system: systemInstruction,
           prompt: userPrompt,
           stream: false,
-          format: "json"
+          format: "json",
+          options: { num_predict: 8192 }
         })
       });
 

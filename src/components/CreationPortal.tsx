@@ -232,11 +232,6 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
               )}
             </button>
           </div>
-          {error && (
-            <div className="p-4 bg-human/10 border border-human/30 rounded text-xs text-neutral-300 font-sans mt-4">
-              <strong>Error:</strong> {error}
-            </div>
-          )}
         </div>
       </div>
     );
@@ -445,13 +440,6 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
             )}
           </button>
         </div>
-
-        {error && (
-          <div className="p-4 bg-human/10 border border-human/30 rounded text-xs text-neutral-300 font-sans mt-4">
-            <span className="text-lg mr-2">⚠️</span>
-            <strong className="text-human">Heavenly Detonation:</strong> {error}
-          </div>
-        )}
       </form>
     </div>
   );

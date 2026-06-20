@@ -3,7 +3,8 @@ import {
   BookOpen, Sparkles, FolderHeart, User, Globe, 
   Award, Trash2, Plus, LogOut, BookCheck, ShieldAlert,
   ArrowLeft, Zap, Download, Upload, Database, Sliders, FileText,
-  Play, ChevronRight, BarChart, Cloud, CloudOff, RefreshCw, MoreHorizontal
+  Play, ChevronRight, BarChart, Cloud, CloudOff, RefreshCw, MoreHorizontal,
+  AlertCircle, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Story, StoryMemory, Chapter, StoryArc, StoryWorld, ReaderPreferences, KarmaFateNode, CharacterRelationship, MultiModelRouting, RouteConfig, IntakeData, WorldBlueprint, StoryBlock } from './types';
@@ -14,6 +15,7 @@ import SteerPortal from './components/SteerPortal';
 import LivingCodex from './components/LivingCodex';
 import UserProfile from './components/UserProfile';
 import { AtmosphericAudio } from './components/AtmosphericAudio';
+import { ParticleSystem } from './components/ParticleSystem';
 import { storyStorage, SyncStatus } from './lib/storage';
 import { secureStorage } from './lib/encryption';
 import { auth } from './lib/firebase';
@@ -113,9 +115,20 @@ const SearchableModelSelector: React.FC<SearchableModelSelectorProps> = ({
           placeholder={`Type or select a model ID (e.g., ${presets[0] || 'gemini-1.5-flash'})`}
           value={search}
           onChange={(e) => {
-            const val = e.target.value;
-            setSearch(val);
-            onChange(val);
+            setSearch(e.target.value);
+            // We no longer trigger onChange immediately while typing to avoid cursor jumps
+            // and let the user explicitly select or press Enter.
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && search.trim()) {
+              onChange(search.trim());
+              setIsOpen(false);
+            }
+          }}
+          onBlur={() => {
+            if (search.trim() && search.trim() !== value) {
+               onChange(search.trim());
+            }
           }}
           onFocus={() => setIsOpen(true)}
           className={`w-full bg-void text-xs text-neutral-300 border border-neutral-900 ${borderFocusClass} p-1.5 pr-8 rounded focus:outline-none font-mono placeholder:text-neutral-700`}
@@ -143,6 +156,21 @@ const SearchableModelSelector: React.FC<SearchableModelSelectorProps> = ({
               [close]
             </button>
           </div>
+          
+          {search && search.trim() !== '' && !filteredModels.includes(search.trim()) && (
+            <div
+              onClick={() => {
+                onChange(search.trim());
+                setSearch(search.trim());
+                setIsOpen(false);
+              }}
+              className="p-2 hover:bg-neutral-800 hover:text-[#FAFAFA] cursor-pointer font-mono text-[10px] text-portal flex items-center justify-between transition-colors bg-neutral-900"
+            >
+              <span className="truncate pr-2 font-bold tracking-wide">Use custom: {search.trim()}</span>
+              <span className={`text-[8px] bg-neutral-950 border ${bgBadgeClass} px-1 rounded font-sans shrink-0`}>CUSTOM</span>
+            </div>
+          )}
+
           {filteredModels.length === 0 ? (
             <div className="p-2.5 text-center text-[10px] font-mono text-neutral-600 italic">
               No matching model string found. Type your custom string above to use directly.
@@ -1147,8 +1175,15 @@ export default function App() {
                 const mergedAbilities = rule.newAbilities 
                   ? Array.from(new Set([...nextAbilities, ...rule.newAbilities]))
                   : nextAbilities;
+                
+                let newDesc = char.description;
+                if (rule.descriptionAppend) {
+                  newDesc = newDesc ? `${newDesc} ${rule.descriptionAppend}` : rule.descriptionAppend;
+                }
+
                 return {
                   ...char,
+                  description: newDesc,
                   status: rule.newStatus || char.status,
                   relationshipToMC: rule.newRelationship || char.relationshipToMC,
                   powerLevel: rule.newPowerLevel || char.powerLevel,
@@ -1156,6 +1191,63 @@ export default function App() {
                 };
               }
               return char;
+            });
+          }
+
+          // Extended Codex Updates: Factions
+          if (memoryUpdates.factionUpdates && memoryUpdates.factionUpdates.length > 0) {
+            nextMemory.factions = (nextMemory.factions || []).map(f => {
+              const rule = memoryUpdates.factionUpdates.find((u: any) => u.name?.toLowerCase() === f.name?.toLowerCase());
+              if (rule) {
+                let newDesc = f.description;
+                if (rule.descriptionAppend) {
+                  newDesc = newDesc ? `${newDesc} ${rule.descriptionAppend}` : rule.descriptionAppend;
+                }
+                return {
+                  ...f,
+                  description: newDesc,
+                  status: rule.statusOverride || f.status
+                };
+              }
+              return f;
+            });
+          }
+
+          // Extended Codex Updates: Locations
+          if (memoryUpdates.locationUpdates && memoryUpdates.locationUpdates.length > 0) {
+            nextMemory.locations = (nextMemory.locations || []).map(l => {
+              const rule = memoryUpdates.locationUpdates.find((u: any) => u.name?.toLowerCase() === l.name?.toLowerCase());
+              if (rule) {
+                let newDesc = l.description;
+                if (rule.descriptionAppend) {
+                  newDesc = newDesc ? `${newDesc} ${rule.descriptionAppend}` : rule.descriptionAppend;
+                }
+                return {
+                  ...l,
+                  description: newDesc,
+                  safetyLevel: rule.safetyLevelOverride || l.safetyLevel
+                };
+              }
+              return l;
+            });
+          }
+
+          // Extended Codex Updates: Artifacts
+          if (memoryUpdates.artifactUpdates && memoryUpdates.artifactUpdates.length > 0) {
+            nextMemory.artifacts = (nextMemory.artifacts || []).map(a => {
+              const rule = memoryUpdates.artifactUpdates.find((u: any) => u.name?.toLowerCase() === a.name?.toLowerCase());
+              if (rule) {
+                let newDesc = a.description;
+                if (rule.descriptionAppend) {
+                  newDesc = newDesc ? `${newDesc} ${rule.descriptionAppend}` : rule.descriptionAppend;
+                }
+                return {
+                  ...a,
+                  description: newDesc,
+                  currentOwner: rule.newOwner || a.currentOwner
+                };
+              }
+              return a;
             });
           }
 
@@ -1783,6 +1875,7 @@ export default function App() {
             >
               {/* Dark Fantasy Webnovel Hero Banner */}
               <div className="relative rounded-xl border border-neutral-900 overflow-hidden shadow-2xl h-60 sm:h-80 flex items-end bg-black">
+                <ParticleSystem count={25} className="opacity-40 mix-blend-screen z-0" color="bg-cyan-100" />
                 <AnimatePresence initial={false}>
                   <motion.div
                     key={currentVideoIdx}
@@ -2699,6 +2792,39 @@ export default function App() {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {appError && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-neutral-900 border border-human/60 border-b-2 border-b-human shadow-2xl p-4 pr-12 rounded z-[100] max-w-lg w-[calc(100%-2rem)] md:w-full overflow-hidden"
+          >
+            <div className="flex items-start">
+              <div className="pt-1 pr-3 text-human">
+                <AlertCircle size={20} />
+              </div>
+              <div>
+                <h4 className="font-sc font-bold text-human tracking-[0.1em] text-xs uppercase mb-1 drop-shadow-md">
+                  Celestial Disruption
+                </h4>
+                <p className="font-mono text-[11px] leading-relaxed text-neutral-300">
+                  {appError}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setAppError(null)}
+              className="absolute top-4 right-4 text-neutral-500 hover:text-signal transition-colors p-1 bg-black/20 rounded backdrop-blur"
+              aria-label="Dismiss error"
+            >
+              <X size={16} />
+            </button>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-human/5 rounded-full blur-3xl pointer-events-none" />
+          </motion.div>
         )}
       </AnimatePresence>
 
