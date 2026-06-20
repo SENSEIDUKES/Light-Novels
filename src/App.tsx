@@ -20,6 +20,7 @@ import { storyStorage, SyncStatus } from './lib/storage';
 import { secureStorage } from './lib/encryption';
 import { auth } from './lib/firebase';
 import { signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { retrieveRelevantContext, generateEmbedding } from './lib/rag';
 
 const STORAGE_KEY = '@seihouse/fiction-generator-stories-v2';
 
@@ -956,16 +957,6 @@ export default function App() {
     const targetChapter = currentArc.chapters.find(c => c.number === chapterNumber);
     if (!targetChapter) return;
 
-    // Collect summaries from past chapters to maintain plot-lock
-    const pastSummaries: string[] = [];
-    activeStory.arcs.forEach(arc => {
-      arc.chapters.forEach(ch => {
-        if (ch.number < chapterNumber && ch.summary) {
-          pastSummaries.push(`Chapter ${ch.number}: ${ch.summary}`);
-        }
-      });
-    });
-
     try {
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
       const gemini = secureStorage.getItem('@seihouse/api-key-gemini');
@@ -974,6 +965,15 @@ export default function App() {
       if (gemini) apiHeaders['x-gemini-key'] = gemini;
       if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
       if (ollama) apiHeaders['x-ollama-host'] = ollama;
+
+      // Use RAG to collect and semantically filter summaries of past chapters to maintain plot-lock within token limits
+      const pastSummaries = await retrieveRelevantContext(
+        targetChapter.premise || activeStory.customPremise,
+        chapterNumber,
+        activeStory,
+        apiHeaders,
+        5 // Top 5 most relevant chapters + the immediate previous chapter
+      );
 
       const response = await fetch('/api/generate-chapter-stream', {
         method: 'POST',
@@ -1077,8 +1077,20 @@ export default function App() {
           const jsonStr = accumulatedRaw.substring(accumulatedRaw.indexOf(jsonHeader) + jsonHeader.length).trim();
           try {
              // Clean markdown code blocks from json if model hallucinated them
-             const cleanJson = jsonStr.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
-             const parsedMeta = JSON.parse(cleanJson);
+             let cleanJson = jsonStr.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+             // Clean <think> blocks
+             cleanJson = cleanJson.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+             let parsedMeta;
+             try {
+               parsedMeta = JSON.parse(cleanJson);
+             } catch(err) {
+               const objectMatch = cleanJson.match(/\{[\s\S]*\}/);
+               if (objectMatch) {
+                 parsedMeta = JSON.parse(objectMatch[0]);
+               } else {
+                 throw err;
+               }
+             }
              data = { ...data, ...parsedMeta };
           } catch(e) {
             console.warn("Failed to parse streamed JSON meta", e);
@@ -1101,6 +1113,12 @@ export default function App() {
       } else {
         // Fallback if formatting was ignored
         data.chapterText = accumulatedRaw;
+      }
+
+      // 0. Generate Vector Embedding for RAG continuity searches
+      let newChapterEmbedding;
+      if (data.summary) {
+        newChapterEmbedding = await generateEmbedding(data.summary, apiHeaders);
       }
 
       // Formulate state updates using latest state (fetching carefully)
@@ -1127,6 +1145,7 @@ export default function App() {
                 generatedContent: data.chapterText,
                 blocks: data.blocks,
                 summary: data.summary,
+                embedding: newChapterEmbedding,
                 statsChangeMessage: data.statsChangeMessage !== 'None' ? data.statsChangeMessage : undefined,
                 cuePayload: data.cuePayload,
                 status: 'read' as const
@@ -1357,24 +1376,27 @@ export default function App() {
     // Sum chapters count in all previous arcs
     const totalPreviousChapters = activeStory.arcs.reduce((acc, arc) => acc + arc.chapters.length, 0);
 
-    // Gather past summary context
-    const pastSummaries: string[] = [];
-    activeStory.arcs.forEach(arc => {
-      arc.chapters.forEach(ch => {
-        if (ch.summary) {
-          pastSummaries.push(`Chapter ${ch.number} Summary: ${ch.summary}`);
-        }
-      });
-    });
+    // Use Vector RAG memory retrieval to grab the most relevant past milestones for steering
+    const queryIntent = `Overall Arc Direction: ${direction}. Extra Context: ${customPrompt || ''}`;
+    const nextChapterNumber = totalPreviousChapters + 1;
+    
+    const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+    const gemini = secureStorage.getItem('@seihouse/api-key-gemini');
+    const openrouter = secureStorage.getItem('@seihouse/api-key-openrouter');
+    const ollama = secureStorage.getItem('@seihouse/api-key-ollama-host');
+    if (gemini) apiHeaders['x-gemini-key'] = gemini;
+    if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
+    if (ollama) apiHeaders['x-ollama-host'] = ollama;
+
+    const pastSummaries = await retrieveRelevantContext(
+      queryIntent,
+      nextChapterNumber,
+      activeStory,
+      apiHeaders,
+      10 // Grab top 10 most relevant historical milestones for outlining a new arc
+    );
 
     try {
-      const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-      const gemini = secureStorage.getItem('@seihouse/api-key-gemini');
-      const openrouter = secureStorage.getItem('@seihouse/api-key-openrouter');
-      const ollama = secureStorage.getItem('@seihouse/api-key-ollama-host');
-      if (gemini) apiHeaders['x-gemini-key'] = gemini;
-      if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
-      if (ollama) apiHeaders['x-ollama-host'] = ollama;
 
       const response = await fetch('/api/steer-arc', {
         method: 'POST',

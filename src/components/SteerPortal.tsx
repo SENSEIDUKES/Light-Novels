@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { secureStorage } from '../lib/encryption';
+import { retrieveRelevantContext } from '../lib/rag';
 
 interface SteerPortalProps {
   onSteerArc: (direction: string, customPrompt: string) => Promise<void>;
@@ -94,15 +95,6 @@ export default function SteerPortal({
 
     const totalPreviousChapters = activeStory.arcs.reduce((acc: number, arc: any) => acc + arc.chapters.length, 0);
 
-    const pastSummaries: string[] = [];
-    activeStory.arcs.forEach((arc: any) => {
-      arc.chapters.forEach((ch: any) => {
-        if (ch.summary) {
-          pastSummaries.push(`Chapter ${ch.number} Summary: ${ch.summary}`);
-        }
-      });
-    });
-
     try {
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
       const gemini = secureStorage.getItem('@seihouse/api-key-gemini');
@@ -111,6 +103,16 @@ export default function SteerPortal({
       if (gemini) apiHeaders['x-gemini-key'] = gemini;
       if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
       if (ollama) apiHeaders['x-ollama-host'] = ollama;
+
+      // Extract context dynamically using RAG
+      const nextChapterNumber = totalPreviousChapters + 1;
+      const pastSummaries = await retrieveRelevantContext(
+        `Focus: Brainstorm new arc directions. Outline overarching macro events based on unresolved plot threads.`,
+        nextChapterNumber,
+        activeStory,
+        apiHeaders,
+        8 // Evaluate top 8 historical narrative beats
+      );
 
       const response = await fetch('/api/generate-next-directions', {
         method: 'POST',

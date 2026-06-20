@@ -122,6 +122,7 @@ export interface Chapter {
   blocks?: StoryBlock[];
   hasContent?: boolean; // Indicates if the content was generated and stored
   summary?: string; // Optional
+  embedding?: number[]; // Optional vector embedding for RAG continuity searches
   statsChangeMessage?: string;
   cuePayload?: any;
   translations?: {
