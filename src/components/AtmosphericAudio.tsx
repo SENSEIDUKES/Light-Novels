@@ -159,6 +159,46 @@ export function AtmosphericAudio() {
     }, 10000);
   };
 
+  const initAudioCtx = () => {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    if (audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume();
+    }
+    return audioCtxRef.current;
+  };
+
+  const triggerChime = (ctx: AudioContext) => {
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime); 
+    
+    const gainNode = ctx.createGain();
+    gainNode.gain.setValueAtTime(0, ctx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.05);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5); 
+
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 1.5);
+  };
+
+  useEffect(() => {
+    const handleCue = (e: any) => {
+      const cue = e.detail;
+      if (cue.type === 'narrative.metadata.signature') {
+        const ctx = initAudioCtx();
+        triggerChime(ctx);
+      }
+    };
+    
+    window.addEventListener('narrative-cue', handleCue);
+    return () => window.removeEventListener('narrative-cue', handleCue);
+  }, []);
+
   return (
     <div className="fixed bottom-6 right-6 z-50 flex items-center bg-black/80 border border-neutral-900 rounded-full px-2 py-1 shadow-lg backdrop-blur-md">
       <button 

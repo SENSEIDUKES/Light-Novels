@@ -614,7 +614,7 @@ export default function App() {
       if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
       if (ollama) apiHeaders['x-ollama-host'] = ollama;
 
-      const response = await fetch('/api/generate-chapter', {
+      const response = await fetch('/api/generate-chapter-stream', {
         method: 'POST',
         headers: apiHeaders,
         body: JSON.stringify({
@@ -637,10 +637,103 @@ export default function App() {
         throw new Error(errorData.error || `Meridian clash in chapter generation. Status: ${response.status}`);
       }
 
-      const data = await response.json();
+      if (!response.body) throw new Error("No streaming body available.");
 
-      // Formulate state updates
-      const updatedStories = stories.map(s => {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let accumulatedRaw = "";
+      let buffer = "";
+
+      const textHeader = "---CHAPTER_TEXT---";
+      const jsonHeader = "---JSON_META---";
+
+      while(true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        
+        let lines = buffer.split('\n');
+        buffer = lines.pop() || "";
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+            try {
+              const parsed = JSON.parse(line.substring(6));
+              if (parsed.error) throw new Error(parsed.error);
+              if (parsed.chunk) {
+                accumulatedRaw += parsed.chunk;
+                
+                let currentChapterText = accumulatedRaw;
+                if (accumulatedRaw.includes(textHeader)) {
+                  const startIndex = accumulatedRaw.indexOf(textHeader) + textHeader.length;
+                  if (accumulatedRaw.includes(jsonHeader)) {
+                    currentChapterText = accumulatedRaw.substring(startIndex, accumulatedRaw.indexOf(jsonHeader)).trim();
+                  } else {
+                    currentChapterText = accumulatedRaw.substring(startIndex).trim();
+                  }
+                }
+
+                // Incrementally update UI
+                setStories(prev => prev.map(s => {
+                  if (s.id !== activeStory.id) return s;
+                  const cloned = { ...s };
+                  cloned.arcs = cloned.arcs.map((arc, aIdx) => {
+                    if (aIdx !== selectedArcIndex) return arc;
+                    return {
+                      ...arc,
+                      chapters: arc.chapters.map(ch => {
+                        if (ch.number !== chapterNumber) return ch;
+                        return {
+                          ...ch,
+                          generatedContent: currentChapterText || "Condensing celestial aura...",
+                          status: 'read' as const
+                        };
+                      })
+                    };
+                  });
+                  return cloned;
+                }));
+              }
+            } catch (e: any) {
+              if (e.message && e.message !== "Unexpected end of JSON input") {
+                console.error("Stream parse error:", e);
+              }
+            }
+          }
+        }
+      }
+
+      // Finish generation, extract metadata
+      let data: any = { chapterText: "", summary: "An ethereal mist obscures the historical records.", statsChangeMessage: "None", memoryUpdates: {} };
+      
+      if (accumulatedRaw.includes(textHeader)) {
+        const startIndex = accumulatedRaw.indexOf(textHeader) + textHeader.length;
+        if (accumulatedRaw.includes(jsonHeader)) {
+          data.chapterText = accumulatedRaw.substring(startIndex, accumulatedRaw.indexOf(jsonHeader)).trim();
+          
+          const jsonStr = accumulatedRaw.substring(accumulatedRaw.indexOf(jsonHeader) + jsonHeader.length).trim();
+          try {
+             // Clean markdown code blocks from json if model hallucinated them
+             const cleanJson = jsonStr.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+             const parsedMeta = JSON.parse(cleanJson);
+             data = { ...data, ...parsedMeta };
+          } catch(e) {
+            console.warn("Failed to parse streamed JSON meta", e);
+          }
+        } else {
+          data.chapterText = accumulatedRaw.substring(startIndex).trim();
+        }
+      } else {
+        // Fallback if formatting was ignored
+        data.chapterText = accumulatedRaw;
+      }
+
+      // Formulate state updates using latest state (fetching carefully)
+      // Since 'stories' might be stale, we rely on the component re-rendering during streaming.
+      // But we can just use the latest 'stories' from the React state by capturing it if possible,
+      // actually, local storage 'saveStories' is better done by fetching latest from storage.
+      const freshStories = await storyStorage.getStories();
+      const updatedStories = freshStories.map((s: Story) => {
         if (s.id !== activeStory.id) return s;
 
         // Clone story
@@ -801,6 +894,7 @@ export default function App() {
       });
 
       saveStories(updatedStories);
+
     } catch (err: any) {
       console.error(err);
       setAppError(err.message || "Celestial feedback received. Chapter generation failed.");

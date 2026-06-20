@@ -2,7 +2,7 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
-import { routeTextGeneration, routeImageGeneration, ROUTER_PRESETS } from "./aiRouter";
+import { routeTextGeneration, routeImageGeneration, routeTextGenerationStream, ROUTER_PRESETS } from "./aiRouter";
 
 dotenv.config();
 
@@ -194,6 +194,171 @@ Ensure the story pacing is structured so that key breakthroughs happen periodica
   } catch (error: any) {
     console.error("Error generating initial arc:", error);
     return res.status(500).json({ error: error.message || "Internal server error" });
+  }
+});
+
+// 2. Generate a single chapter scenically with streaming output
+app.post("/api/generate-chapter-stream", async (req, res) => {
+  try {
+    const { 
+      mcName, 
+      genre, 
+      customPremise, 
+      memory, 
+      pastSummaries, 
+      currentChapter,
+      routingConfig
+    } = req.body;
+
+    if (!mcName || !currentChapter || !memory) {
+      return res.status(400).json({ error: "Missing required fields for chapter generation" });
+    }
+
+    const systemInstruction = `You are an elite fantasy web-novel author specializing in Chinese light novels (Wuxia, Xianxia, Xuanhuan, Divine Systems). 
+Your writing must be highly descriptive, immersive, and emotionally impactful, utilizing the "Reading/archive" font tone. Write using rich metaphors, profound dialogue, high cultivation chants, and grand scene setting. 
+Ensure the chapter contains rich elements of Chinese Light Novels: face-slapping of arrogant bullies, grand descriptions of celestial arrays, internal alchemy processes, power stats, or spiritual qi tempests.
+
+CRITICAL ANTI-DRIFT MANDATE (COHERENCE PROTOCOL):
+1. STABILITY OF THE VOID: You must NEVER contradict, neglect, or rewrite any facts established in the current story memory (MC power stage, living/dead characters, world rules, unresolved threads) or previous summaries. The current story memory and past summaries are absolute cosmic law.
+2. CONTINUITY LOCK: Acknowledge the immediate climax, physical position, or conversation from the LAST paragraph of the previous chapter summary in PAST SUMMARY CONTEXT. There can be zero unexplained timeskips, spatial transitions, or sudden narrative jumps.
+3. CHARACTER ACCORD: Never create a new character that conflicts with or duplicates the name of an existing one. Respect historical character relationships and status.
+4. SEQUENTIAL ASCENSION: If the character advances in their cultivation rank, it must crawl logically from the current stage to the next sequential stage defined in the Power System ranks; skipping ranks is forbidden.
+5. CLEAN MEMORY SECTIONS: List true logical deltas (introducing actual newly met characters with distinct names, moving unresolved plot threads to resolved only if they are fully completed in the text, and changing statuses on existing characters based on the physical events in this chapter).
+
+OUTPUT FORMAT TARGET:
+You MUST output the response in two distinct parts:
+First, output the chapter text. Start it with ---CHAPTER_TEXT--- on a new line, and put the entire chapter content there.
+Second, output the metadata. Start it with ---JSON_META--- on a new line, followed strictly by a valid JSON object matching the metadata schema.
+
+Example:
+---CHAPTER_TEXT---
+The winds of the astral plane roared...
+(rest of the chapter)
+---JSON_META---
+{
+  "summary": "...",
+  "statsChangeMessage": "None",
+  "memoryUpdates": { ... }
+}`;
+
+    const userPrompt = `Write the full chapter text for Chapter ${currentChapter.number}: "${currentChapter.title}".
+Goal of this chapter: ${currentChapter.premise}
+
+STORY BACKGROUND DETAILS:
+- Main Character: ${mcName}
+- Genre/Style: ${genre}
+- Core Premise: ${customPremise}
+
+CURRENT STORY MEMORY (Ensure complete consistency with these):
+- Power System: ${memory.powerSystem}
+- MC Current Level: ${memory.currentPowerStage}
+- World Rules: ${JSON.stringify(memory.worldRules)}
+- Living/Met Characters: ${JSON.stringify(memory.characters)}
+- Unresolved Plots: ${JSON.stringify(memory.unresolvedPlotThreads)}
+
+PAST SUMMARY CONTEXT (What happened in previous chapters to prevent plot holes):
+${pastSummaries && pastSummaries.length > 0 ? pastSummaries.join("\n") : "This is the very first chapter of the story arc! Set the scene dramatically."}
+
+CHAPTER LENGTH & PACING DIRECTIVES:
+- Default Target Length: 2,200 words.
+- Allowed Range: 1,800 to 2,600 words.
+- Absolute Minimum: 1,500 words.
+- Avoid rambling or overly repetitive internal monologues. Instead, natively reach the word count through dynamic dialogue, deeply immersive sensory descriptions, engaging combat choreography, detailed cultivation revelations, and world-building that advances the plot.
+
+Write a fully fleshed-out chapter following the length directives. Split it into multiple beautiful paragraphs with plenty of dialogue, combat choreography or cultivation breakthroughs where descriptive details make it feel real. 
+If the novel is a "System" or "LitRPG" style, include a beautiful neon/cybernetic Cultivation System panel in the story text (formatted cleanly using mono-spaced block grids or brackets like: [System Alert: Qi +100!]).
+
+The JSON metadata part must contain:
+{
+  "summary": "A 2-sentence highly concise summary of what transpired in this chapter to store in our historical archive.",
+  "statsChangeMessage": "A short status upgrade notification (e.g. '[System Breakthrough: Qi Condensation Rank 2 reached. Meridians purified!]', or 'None')",
+  "memoryUpdates": {
+    "currentPowerStage": "Updated MC power level if they broke through, otherwise the same as before.",
+    "newCharacters": [
+      {
+        "name": "Full name of any secondary character introduced/met",
+        "role": "e.g., Arrogant Disciple, Tavern Owner, Rogue Cultivator",
+        "description": "Quick description",
+        "relationshipToMC": "e.g., Neutral, Ally, Hateful",
+        "status": "alive",
+        "powerLevel": "e.g., Qi Condensation Tier 9, Core Formation, or unknown",
+        "abilities": ["Optional array of known unique techniques/skills"],
+        "faction": "Optional. Name of the faction they associate with"
+      }
+    ],
+    "characterStatusUpdates": [
+      {
+        "name": "Character Name",
+        "newStatus": "deceased/alive/unknown/ascended",
+        "newRelationship": "Updated attitude toward MC if it changed, otherwise same",
+        "newPowerLevel": "Optional. Updated power of the character if they progressed",
+        "newAbilities": ["Optional. Any new techniques they revealed/gained in this chapter"]
+      }
+    ],
+    "newUnresolvedPlotThreads": [
+      "Any new mysteries or immediate promises/goals that started in this chapter"
+    ],
+    "resolvedPlotThreads": [
+      "The exact string of any unresolved plot thread that was successfully closed or completed in this chapter. Each list entry must be a strict exact match of an existing unresolved plot thread."
+    ],
+    "newFactions": [
+      {
+        "name": "Name of newly introduced faction, sect, or school",
+        "description": "Short explanation of their standing & beliefs",
+        "alignment": "Righteous / Demonic / Neutral / Mysterious",
+        "headquarters": "Primary location or temple",
+        "status": "Active / Destroyed / Fractured"
+      }
+    ],
+    "newLocations": [
+      {
+        "name": "Name of newly introduced area, realm, pavilion, or planet",
+        "description": "Atmosphere and key landmarks",
+        "realm": "The broader realm (e.g. Mortal Realm, Celestial Domain)",
+        "safetyLevel": "Safe / Dangerous / Lethal"
+      }
+    ],
+    "newArtifacts": [
+      {
+        "name": "Name of the magical treasure, pill, array, or weapon",
+        "description": "Magical properties and size/appearance",
+        "tier": "Mortal / Earth / Heaven / Primordial",
+        "currentOwner": "Who holds this artifact now (e.g. MC, Elder Zhao)"
+      }
+    ],
+    "newMCAbilities": [
+      "Any newly mastered skill, spell, fist technique, or sword form learned by the MC"
+    ]
+  }
+}
+
+Do not add any text before or after the requested format sections.`;
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    const stream = await routeTextGenerationStream(
+      "storyMaker",
+      systemInstruction,
+      userPrompt,
+      "generate-chapter-stream",
+      routingConfig,
+      getCustomKeys(req)
+    );
+
+    for await (const chunk of stream) {
+      if (chunk) {
+        res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+      }
+    }
+    res.write("data: [DONE]\n\n");
+    res.end();
+  } catch (error: any) {
+    console.error("Error generating chapter stream:", error);
+    res.write(`data: ${JSON.stringify({ error: error.message || "Internal server error" })}\n\n`);
+    res.write("data: [DONE]\n\n");
+    res.end();
   }
 });
 

@@ -87,6 +87,160 @@ export function cleanAndParseJSON(rawText: string) {
   }
 }
 
+// Master function to route and execute text generation (Streaming mode)
+export async function* routeTextGenerationStream(
+  route: "storyMaker",
+  systemInstruction: string,
+  userPrompt: string,
+  routeKey: string, // e.g., "generate-chapter"
+  routingConfig?: RouteConfig,
+  customKeys?: { geminiApiKey?: string; openrouterApiKey?: string; ollamaHost?: string; }
+): AsyncGenerator<string, void, unknown> {
+  const activeConfig: RouteConfig = routingConfig || {
+    provider: "gemini",
+    model: "gemini-3.5-flash"
+  };
+
+  const { provider, model } = activeConfig;
+  console.log(`[aiRouter] Streaming task '${routeKey}' via Route '${route}' -> Provider: '${provider}', Model: '${model}'`);
+
+  if (provider === "gemini") {
+    const ai = getAIClient(customKeys?.geminiApiKey);
+    try {
+      const responseStream = await ai.models.generateContentStream({
+        model: model || "gemini-3.5-flash",
+        contents: userPrompt,
+        config: {
+          systemInstruction,
+          temperature: 0.95,
+          responseMimeType: "text/plain",
+        }
+      });
+
+      for await (const chunk of responseStream) {
+        if (chunk.text) {
+          yield chunk.text;
+        }
+      }
+    } catch (error: any) {
+      console.error("[aiRouter] Gemini provider encountered error during stream:", error);
+      throw error;
+    }
+  } else if (provider === "openrouter") {
+    const apiKey = customKeys?.openrouterApiKey || process.env.OPENROUTER_API_KEY;
+    if (!apiKey || apiKey === "MY_OPENROUTER_API_KEY") {
+      throw new Error("OpenRouter API key is missing.");
+    }
+
+    try {
+      const payload = {
+        model: model || "meta-llama/llama-3-8b-instruct:free",
+        messages: [
+          { role: "system", content: systemInstruction },
+          { role: "user", content: userPrompt }
+        ],
+        stream: true
+      };
+
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+          "HTTP-Referer": "https://ai.studio/build",
+          "X-Title": "SEIHouse Celestial Scroll"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`OpenRouter gateway error [${response.status}]: ${errText}`);
+      }
+
+      if (!response.body) throw new Error("No response body.");
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      
+      let buffer = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        
+        let breakIndex = buffer.indexOf("\n");
+        while (breakIndex !== -1) {
+          const line = buffer.substring(0, breakIndex).trim();
+          buffer = buffer.substring(breakIndex + 1);
+          breakIndex = buffer.indexOf("\n");
+
+          if (line.startsWith("data: ") && line !== "data: [DONE]") {
+            try {
+              const data = JSON.parse(line.substring(6));
+              const content = data.choices?.[0]?.delta?.content;
+              if (content) yield content;
+            } catch (e) {
+              // ignore parse errors for partial chunks
+            }
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error("[aiRouter] OpenRouter provider encountered error during stream:", error);
+      throw error;
+    }
+  } else if (provider === "ollama") {
+    const host = customKeys?.ollamaHost || process.env.OLLAMA_HOST || "http://localhost:11434";
+    try {
+      const response = await fetch(`${host}/api/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: model || "llama3",
+          system: systemInstruction,
+          prompt: userPrompt,
+          stream: true
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Local Ollama gateway responded with status: ${response.status}`);
+      }
+
+      if (!response.body) throw new Error("No response body");
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let breakIndex = buffer.indexOf("\n");
+        while (breakIndex !== -1) {
+          const line = buffer.substring(0, breakIndex).trim();
+          buffer = buffer.substring(breakIndex + 1);
+          breakIndex = buffer.indexOf("\n");
+
+          if (line) {
+            try {
+              const data = JSON.parse(line);
+              if (data.response) yield data.response;
+            } catch (e) {
+              // ignore
+            }
+          }
+        }
+      }
+    } catch (error: any) {
+      throw new Error(`Ollama server stream failed: ${error.message}`);
+    }
+  } else {
+    throw new Error(`Unsupported routing provider: '${provider}'`);
+  }
+}
+
 // Master function to route and execute text generation
 export async function routeTextGeneration(
   route: "storyMaker",

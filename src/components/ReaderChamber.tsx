@@ -9,6 +9,7 @@ import {
 import { Chapter, StoryMemory, StoryWorld, ReaderPreferences, Bookmark } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { VirtualizedList } from './VirtualizedList';
+import { dispatchNarrativeCue, NarrativeCueEventType } from '../lib/narrativeCues';
 
 interface ReaderChamberProps {
   chapters: Chapter[];
@@ -219,6 +220,33 @@ export default function ReaderChamber({
     }
   };
 
+  // IntersectionObserver for narrative cues
+  useEffect(() => {
+    const targets = document.querySelectorAll('.narrative-trigger');
+    const observer = new window.IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const type = entry.target.getAttribute('data-cue-type') as NarrativeCueEventType;
+            const cueId = entry.target.getAttribute('data-cue-id');
+            if (type && cueId) {
+              dispatchNarrativeCue({
+                id: cueId,
+                type,
+                once: !!entry.target.getAttribute('data-cue-once'),
+                value: entry.target.getAttribute('data-cue-value') || undefined
+              });
+            }
+          }
+        });
+      },
+      { threshold: 0.5 }
+    );
+    
+    targets.forEach(t => observer.observe(t));
+    return () => observer.disconnect();
+  }, [selectedChapterNum, activeStory.currentChapterNumber]);
+
   // Scroll to paragraph effect
   useEffect(() => {
     if (pendingScrollToParagraph !== null && selectedChapter.generatedContent) {
@@ -333,7 +361,12 @@ export default function ReaderChamber({
     <div className={`flex flex-col min-h-[85vh] rounded-t-xl transition-colors duration-300 ${getThemeClasses()}`} id="reader-chamber-root">
       
       {/* HEADER: Readability & Chapter Title */}
-      <div className="sticky top-[38px] sm:top-[44px] z-20 bg-[#111111]/90 backdrop-blur-md px-4 py-2 sm:py-3 flex items-center justify-between border-b border-neutral-900">
+      <div 
+        data-cue-type="narrative.chapter.enter"
+        data-cue-id={`chapter-enter-${selectedChapter.number}`}
+        data-cue-once="true"
+        className="narrative-trigger sticky top-[38px] sm:top-[44px] z-20 bg-[#111111]/90 backdrop-blur-md px-4 py-2 sm:py-3 flex items-center justify-between border-b border-neutral-900"
+      >
         <div className="min-w-0">
           <span className="font-sc font-semibold text-[10px] text-jade-accent tracking-[0.2em] uppercase block">
             {arcTitle} • Chapter {selectedChapter.number}
@@ -553,7 +586,12 @@ export default function ReaderChamber({
                  const isSystemLine = paragraph.startsWith('[') && paragraph.endsWith(']');
                  if (isSystemLine) {
                    return (
-                     <div key={index} className="my-8 p-6 bg-black border border-portal/15 font-mono text-xs text-portal rounded shadow-[0_0_15px_rgba(4,172,255,0.05)] text-center tracking-widest leading-relaxed">
+                     <div 
+                       key={index} 
+                       data-cue-type="narrative.metadata.signature"
+                       data-cue-id={`system-line-${selectedChapter.number}-${index}`}
+                       className="narrative-trigger my-8 p-6 bg-black border border-portal/15 font-mono text-xs text-portal rounded shadow-[0_0_15px_rgba(4,172,255,0.05)] text-center tracking-widest leading-relaxed"
+                     >
                        {paragraph.replace('[', '').replace(']', '')}
                      </div>
                    );
@@ -566,7 +604,10 @@ export default function ReaderChamber({
                    <div 
                      key={index} 
                      id={`para-${index}`}
-                     className="group relative transition-all duration-300 border border-transparent hover:bg-neutral-900/5 hover:border-neutral-900/10 rounded-lg p-2.5 -mx-2.5 mb-2"
+                     data-cue-type="narrative.paragraph.enter"
+                     data-cue-id={`para-${selectedChapter.number}-${index}`}
+                     data-cue-once="true"
+                     className="narrative-trigger group relative transition-all duration-300 border border-transparent hover:bg-neutral-900/5 hover:border-neutral-900/10 rounded-lg p-2.5 -mx-2.5 mb-2"
                    >
                      <div className="flex items-start">
                        {/* Interactive Left Margin Anchor Rail */}
