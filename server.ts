@@ -6,6 +6,43 @@ import { routeTextGeneration, routeImageGeneration, ROUTER_PRESETS } from "./aiR
 
 dotenv.config();
 
+function validateEnvironmentOnStartup() {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  const openrouterKey = process.env.OPENROUTER_API_KEY;
+  
+  console.log("\n==================================================");
+  console.log("   S E I H O U S E   A P I   V A L I D A T I O N  ");
+  console.log("==================================================");
+  
+  let valid = true;
+  if (!geminiKey) {
+    console.warn("⚠️  [Server Alert] GEMINI_API_KEY environment variable is missing.");
+    valid = false;
+  } else if (geminiKey === "MY_GEMINI_API_KEY" || geminiKey.trim() === "") {
+    console.warn("⚠️  [Server Alert] GEMINI_API_KEY is currently set to an empty/placeholder value.");
+    valid = false;
+  } else {
+    console.log("✅ [Server] GEMINI_API_KEY environment variable is detected and ready.");
+  }
+
+  if (!openrouterKey) {
+    console.log("ℹ️  [Server] OPENROUTER_API_KEY is not defined. (Custom front-end headers or fallback Ollama still functions)");
+  } else if (openrouterKey === "MY_OPENROUTER_API_KEY" || openrouterKey.trim() === "") {
+    console.log("ℹ️  [Server] OPENROUTER_API_KEY is set to a placeholder.");
+  } else {
+    console.log("✅ [Server] OPENROUTER_API_KEY environment variable is detected.");
+  }
+  
+  if (!valid) {
+    console.warn("\n⚠️  [Server Status] RUNNING IN TEMPORARY 'KEYS-PENDING' STATUS.");
+    console.warn("    To activate default server-side generation, configure your credentials");
+    console.warn("    in Settings > Secrets panel OR enter overriding keys in the application's configuration UI.");
+  } else {
+    console.log("\n🟢 [Server Status] CORE GENERATION ENGINE ACTIVE AND SECURED.");
+  }
+  console.log("==================================================\n");
+}
+
 const app = express();
 
 // Helper to extract custom API credentials/configurations passed securely by the client from standard headers
@@ -28,6 +65,16 @@ app.use(express.json({ limit: "20mb" }));
 // 0. Get available router presets
 app.get("/api/router-presets", (req, res) => {
   res.json(ROUTER_PRESETS);
+});
+
+// 0.1. Get API configuration status (safety flags check, no key content is leaked)
+app.get("/api/config-status", (req, res) => {
+  const hasServerGemini = !!(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "MY_GEMINI_API_KEY" && process.env.GEMINI_API_KEY.trim() !== "");
+  const hasServerOpenRouter = !!(process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_API_KEY !== "MY_OPENROUTER_API_KEY" && process.env.OPENROUTER_API_KEY.trim() !== "");
+  res.json({
+    hasServerGemini,
+    hasServerOpenRouter,
+  });
 });
 
 // 0.5. Generate World Blueprint
@@ -198,7 +245,13 @@ CURRENT STORY MEMORY (Ensure complete consistency with these):
 PAST SUMMARY CONTEXT (What happened in previous chapters to prevent plot holes):
 ${pastSummaries && pastSummaries.length > 0 ? pastSummaries.join("\n") : "This is the very first chapter of the story arc! Set the scene dramatically."}
 
-Write a fully fleshed-out chapter of approximately 800 to 1400 words. Split it into multiple beautiful paragraphs with plenty of dialogue, combat choreography or cultivation breakthroughs where descriptive details make it feel real. 
+CHAPTER LENGTH & PACING DIRECTIVES:
+- Default Target Length: 2,200 words.
+- Allowed Range: 1,800 to 2,600 words.
+- Absolute Minimum: 1,500 words.
+- Avoid rambling or overly repetitive internal monologues. Instead, natively reach the word count through dynamic dialogue, deeply immersive sensory descriptions, engaging combat choreography, detailed cultivation revelations, and world-building that advances the plot.
+
+Write a fully fleshed-out chapter following the length directives. Split it into multiple beautiful paragraphs with plenty of dialogue, combat choreography or cultivation breakthroughs where descriptive details make it feel real. 
 If the novel is a "System" or "LitRPG" style, include a beautiful neon/cybernetic Cultivation System panel in the story text (formatted cleanly using mono-spaced block grids or brackets like: [System Alert: Qi +100!]).
 
 Also, analyze the events of this chapter and provide list updates/modifications to the permanent story memory so we can track newly met characters, dead characters, relationship updates, unresolved issues, or potential MC advancement.
@@ -571,6 +624,9 @@ Do not add any markup before or after the JSON.`;
 // ==========================================
 
 async function startServer() {
+  // Validate standard environment keys on startup
+  validateEnvironmentOnStartup();
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },

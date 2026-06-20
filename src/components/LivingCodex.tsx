@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Users, Network, Zap, Shield, Sparkles, Sword, HelpCircle, 
   MapPin, Plus, Trash2, Heart, ShieldAlert, BookOpen, Clock, 
@@ -6,6 +6,8 @@ import {
   BookMarked, ArrowRight, ArrowLeftRight, Activity
 } from 'lucide-react';
 import { StoryMemory, Character, Faction, Location, Artifact, StoryArc, StoryWorld, CharacterRelationship, KarmaFateNode } from '../types';
+import { secureStorage } from '../lib/encryption';
+import { VirtualizedList } from './VirtualizedList';
 
 interface LivingCodexProps {
   memory: StoryMemory;
@@ -93,14 +95,45 @@ export default function LivingCodex({
   const [fateSeverity, setFateSeverity] = useState<'Minor' | 'Major' | 'Cosmic'>('Minor');
   const [fateType, setFateType] = useState<'Debt' | 'Boon' | 'Enmity' | 'Destiny'>('Debt');
   const [fateDesc, setFateDesc] = useState('');
+  
+  const [codexNotification, setCodexNotification] = useState<string | null>(null);
+  
+  // Flatten written chapters with arc details for virtualized listing
+  const flatChapters = useMemo(() => {
+    const list: Array<{
+      chapter: any;
+      arcTitle: string;
+      arcIndex: number;
+      isFirstInArc: boolean;
+    }> = [];
+    
+    arcs.forEach((arc, aIdx) => {
+      const written = arc.chapters.filter(ch => !!ch.generatedContent);
+      written.forEach((ch, cIndex) => {
+        list.push({
+          chapter: ch,
+          arcTitle: arc.title || `Arc Vol ${aIdx + 1}`,
+          arcIndex: aIdx,
+          isFirstInArc: cIndex === 0,
+        });
+      });
+    });
+    
+    return list;
+  }, [arcs]);
+  
+  const pushNotification = (msg: string) => {
+    setCodexNotification(msg);
+    setTimeout(() => setCodexNotification(null), 3000);
+  };
 
   const handleAddCustomRelationship = () => {
     if (!bondSourceId || !bondTargetId) {
-      alert("Two sovereign characters are required to bind a causal relation.");
+      pushNotification("Two sovereign characters are required to bind a causal relation.");
       return;
     }
     if (bondSourceId === bondTargetId) {
-      alert("A cultivator cannot bond with their own split soul.");
+      pushNotification("A cultivator cannot bond with their own split soul.");
       return;
     }
     const sourceChar = memory.characters.find(c => c.id === bondSourceId);
@@ -128,7 +161,7 @@ export default function LivingCodex({
     setBondTargetId('');
     setBondDesc('');
     setBondAffinity(0);
-    alert(`Successfully bound a karma link between ${sourceChar.name} and ${targetChar.name}!`);
+    pushNotification(`Successfully bound a karma link between ${sourceChar.name} and ${targetChar.name}!`);
   };
 
   const handleDeleteCustomRelationship = (bondId: string) => {
@@ -141,7 +174,7 @@ export default function LivingCodex({
 
   const handleAddCustomFateNode = () => {
     if (!fateSource || !fateTarget || !fateDesc) {
-      alert("All decree fields (Source, Target, Description) are required to engrave karma fate nodes.");
+      pushNotification("All decree fields (Source, Target, Description) are required to engrave karma fate nodes.");
       return;
     }
 
@@ -167,7 +200,7 @@ export default function LivingCodex({
     setFateSource('');
     setFateTarget('');
     setFateDesc('');
-    alert("Fate decree successfully engraved into the Akasha tablet!");
+    pushNotification("Fate decree successfully engraved into the Akasha tablet!");
   };
 
   const handleToggleFateNodeStatus = (fateId: string) => {
@@ -287,9 +320,9 @@ export default function LivingCodex({
 
     try {
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-      const gemini = localStorage.getItem('@seihouse/api-key-gemini');
-      const openrouter = localStorage.getItem('@seihouse/api-key-openrouter');
-      const ollama = localStorage.getItem('@seihouse/api-key-ollama-host');
+      const gemini = secureStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = secureStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = secureStorage.getItem('@seihouse/api-key-ollama-host');
       if (gemini) apiHeaders['x-gemini-key'] = gemini;
       if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
       if (ollama) apiHeaders['x-ollama-host'] = ollama;
@@ -337,9 +370,9 @@ export default function LivingCodex({
       const factionNames = (memory.factions || []).map(f => f.name);
 
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-      const gemini = localStorage.getItem('@seihouse/api-key-gemini');
-      const openrouter = localStorage.getItem('@seihouse/api-key-openrouter');
-      const ollama = localStorage.getItem('@seihouse/api-key-ollama-host');
+      const gemini = secureStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = secureStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = secureStorage.getItem('@seihouse/api-key-ollama-host');
       if (gemini) apiHeaders['x-gemini-key'] = gemini;
       if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
       if (ollama) apiHeaders['x-ollama-host'] = ollama;
@@ -537,6 +570,12 @@ export default function LivingCodex({
       {/* Dynamic Portal aura line */}
       <div className="absolute top-0 inset-x-0 h-[3px] bg-gradient-to-r from-portal via-human to-portal"></div>
 
+      {codexNotification && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 bg-neutral-900 border border-portal text-portal px-4 py-2 rounded shadow-2xl font-sc text-xs animate-fadeIn">
+          {codexNotification}
+        </div>
+      )}
+
       {/* SIDEBAR NAVIGATION PAGES */}
       <div className="w-full md:w-60 flex-shrink-0 flex flex-col border-b md:border-b-0 md:border-r border-neutral-900 pb-2 md:pb-0 md:pr-4" id="codex-side-nav">
         <div className="mb-2 md:mb-4">
@@ -554,13 +593,13 @@ export default function LivingCodex({
           {/* Character/Location Profiles Link */}
           <button
             onClick={() => setActivePage('characters')}
-            className={`flex items-center space-x-1.5 md:space-x-3 px-3 py-1.5 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
+            className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
               activePage === 'characters' 
                 ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
                 : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
             }`}
           >
-            <Users size={12} className={activePage === 'characters' ? 'text-human' : ''} />
+            <Users size={14} className={activePage === 'characters' ? 'text-human' : ''} />
             <span>Sovereign Portals</span>
           </button>
 
@@ -570,72 +609,72 @@ export default function LivingCodex({
               setActivePage('relations');
               setSelectedNodeChar(null);
             }}
-            className={`flex items-center space-x-1.5 md:space-x-3 px-3 py-1.5 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
+            className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
               activePage === 'relations' 
                 ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
                 : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
             }`}
           >
-            <Network size={12} className={activePage === 'relations' ? 'text-portal' : ''} />
+            <Network size={14} className={activePage === 'relations' ? 'text-portal' : ''} />
             <span>Karma Web</span>
           </button>
 
           {/* Power ranking chart System Link */}
           <button
             onClick={() => setActivePage('power')}
-            className={`flex items-center space-x-1.5 md:space-x-3 px-3 py-1.5 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
+            className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
               activePage === 'power' 
                 ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
                 : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
             }`}
           >
-            <Zap size={12} className={activePage === 'power' ? 'text-yellow-500' : ''} />
+            <Zap size={14} className={activePage === 'power' ? 'text-yellow-500' : ''} />
             <span>Power Rankings</span>
           </button>
 
           {/* Factions & hierarchy Link */}
           <button
             onClick={() => setActivePage('factions')}
-            className={`flex items-center space-x-1.5 md:space-x-3 px-3 py-1.5 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
+            className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
               activePage === 'factions' 
                 ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
                 : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
             }`}
           >
-            <Shield size={12} className={activePage === 'factions' ? 'text-green-500' : ''} />
+            <Shield size={14} className={activePage === 'factions' ? 'text-green-500' : ''} />
             <span>Faction Hierarchy</span>
           </button>
 
           {/* Artifacts Gallery Link */}
           <button
             onClick={() => setActivePage('artifacts')}
-            className={`flex items-center space-x-1.5 md:space-x-3 px-3 py-1.5 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
+            className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
               activePage === 'artifacts' 
                 ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
                 : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
             }`}
           >
-            <Sword size={12} className={activePage === 'artifacts' ? 'text-orange-500' : ''} />
+            <Sword size={14} className={activePage === 'artifacts' ? 'text-orange-500' : ''} />
             <span>Divine Relics</span>
           </button>
 
           {/* Timeline Scroll Link */}
           <button
             onClick={() => setActivePage('timeline')}
-            className={`flex items-center space-x-1.5 md:space-x-3 px-3 py-1.5 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
+            className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
               activePage === 'timeline' 
                 ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
                 : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
             }`}
           >
-            <Clock size={12} className={activePage === 'timeline' ? 'text-neutral-300' : ''} />
+            <Clock size={14} className={activePage === 'timeline' ? 'text-neutral-300' : ''} />
             <span>Chronicle Recaps</span>
           </button>
 
           {/* Unresolved Mysteries Link */}
           <button
             onClick={() => setActivePage('mysteries')}
-            className={`flex items-center space-x-1.5 md:space-x-3 px-3 py-1.5 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
+            className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
               activePage === 'mysteries' 
                 ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
                 : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
@@ -1357,42 +1396,45 @@ export default function LivingCodex({
                     <span className="text-[10px] font-mono text-neutral-500">{(activeStory.relationships || []).length} registered threads</span>
                   </div>
 
-                  <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                    {(activeStory.relationships || []).length === 0 ? (
+                  <VirtualizedList
+                    items={activeStory.relationships || []}
+                    itemHeight={80} // Estimated height of each relationship bond card inside the grid list
+                    containerHeight={300}
+                    className="pr-2"
+                    emptyPlaceholder={
                       <div className="h-full py-16 flex flex-col items-center justify-center text-center border border-dashed border-neutral-900 rounded">
                         <p className="font-serif italic text-neutral-500 text-xs">"No custom karma strands recorded. Link cultivators on your left."</p>
                       </div>
-                    ) : (
-                      activeStory.relationships?.map(bond => (
-                        <div key={bond.id} className="p-3 bg-neutral-950 border border-neutral-900 rounded flex justify-between items-start gap-4">
-                          <div className="min-w-0 space-y-1">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="text-xs font-sc font-bold text-signal">{bond.sourceCharName}</span>
-                              <span className="text-[9px] font-mono text-neutral-600">to</span>
-                              <span className="text-xs font-sc font-bold text-signal">{bond.targetCharName}</span>
-                              <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-mono uppercase ${
-                                bond.affinity < -40 ? 'bg-[#8B0000]/10 border border-[#8B0000]/25 text-human' : 
-                                bond.affinity > 40 ? 'bg-portal/10 border border-portal/25 text-portal' :
-                                'bg-neutral-900 border border-neutral-800 text-neutral-400'
-                              }`}>
-                                Affinity: {bond.affinity > 0 ? `+${bond.affinity}` : bond.affinity}%
-                              </span>
-                            </div>
-                            <p className="text-[11px] font-serif text-neutral-400 italic">
-                              "{bond.description}"
-                            </p>
+                    }
+                    renderItem={(bond) => (
+                      <div key={bond.id} className="p-3 bg-neutral-950 border border-neutral-900 rounded flex justify-between items-start gap-4">
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-xs font-sc font-bold text-signal">{bond.sourceCharName}</span>
+                            <span className="text-[9px] font-mono text-neutral-600">to</span>
+                            <span className="text-xs font-sc font-bold text-signal">{bond.targetCharName}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-mono uppercase ${
+                              bond.affinity < -40 ? 'bg-[#8B0000]/10 border border-[#8B0000]/25 text-human' : 
+                              bond.affinity > 40 ? 'bg-portal/10 border border-portal/25 text-portal' :
+                              'bg-neutral-900 border border-neutral-800 text-neutral-400'
+                            }`}>
+                              Affinity: {bond.affinity > 0 ? `+${bond.affinity}` : bond.affinity}%
+                            </span>
                           </div>
-                          <button
-                            onClick={() => handleDeleteCustomRelationship(bond.id)}
-                            className="p-1 px-1.5 text-neutral-500 hover:text-human hover:bg-neutral-900 rounded transition-colors"
-                            title="Purge link"
-                          >
-                            <Trash2 size={12} />
-                          </button>
+                          <p className="text-[11px] font-serif text-neutral-400 italic">
+                            "{bond.description}"
+                          </p>
                         </div>
-                      ))
+                        <button
+                          onClick={() => handleDeleteCustomRelationship(bond.id)}
+                          className="p-1 px-1.5 text-neutral-500 hover:text-human hover:bg-neutral-900 rounded transition-colors"
+                          title="Purge link"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
                     )}
-                  </div>
+                  />
                 </div>
 
               </div>
@@ -1835,7 +1877,6 @@ export default function LivingCodex({
                 })
               )}
             </div>
-
           </div>
         )}
 
@@ -1849,76 +1890,78 @@ export default function LivingCodex({
               </div>
             </div>
 
-            <div className="space-y-6 pl-4 relative before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[1.5px] before:bg-neutral-900 before:content-['']">
-              {arcs.map((arc, aIdx) => {
-                const writtenChapters = arc.chapters.filter(ch => !!ch.generatedContent);
-                if (writtenChapters.length === 0) return null;
+            <div className="pl-4">
+              <VirtualizedList
+                items={flatChapters}
+                itemHeight={220} // Estimated average item height including margins and headings
+                containerHeight={525}
+                timelineLine={true}
+                className="pr-2"
+                emptyPlaceholder={
+                  <div className="text-center py-12 border border-dashed border-neutral-900 rounded bg-neutral-950/20 text-xs text-neutral-500 italic">
+                    Chronology empty. Generate and read your very first chapter to construct the causal timeline!
+                  </div>
+                }
+                renderItem={(item, index) => {
+                  const ch = item.chapter;
+                  return (
+                    <div key={ch.number} className="relative pb-2">
+                      {/* Arc Title Node */}
+                      {item.isFirstInArc && (
+                        <div className="relative flex items-center mb-3 mt-4 select-none">
+                          <span className="absolute -left-[14px] w-3 h-3 bg-human border-2 border-black rounded-full shadow-red animate-pulse"></span>
+                          <h4 className="font-sc text-[10px] sm:text-xs text-human uppercase tracking-widest font-extrabold ml-1.5 leading-normal">
+                            {item.arcTitle}
+                          </h4>
+                        </div>
+                      )}
 
-                return (
-                  <div key={aIdx} className="space-y-4">
-                    {/* Arc Title Node */}
-                    <div className="relative flex items-center mb-2">
-                      <span className="absolute -left-[14px] w-3 h-3 bg-human border-2 border-black rounded-full shadow-red animate-pulse"></span>
-                      <h4 className="font-sc text-xs text-human uppercase tracking-widest font-extrabold ml-1 leading-normal">
-                        {arc.title || `Arc Vol ${aIdx + 1}`}
-                      </h4>
-                    </div>
-
-                    {/* Chapters chronological layout with custom recap page values */}
-                    <div className="space-y-4">
-                      {writtenChapters.map((ch) => (
-                        <div key={ch.number} className="relative pl-4 space-y-1.5 p-3.5 bg-neutral-950 border border-neutral-900 rounded-lg hover:border-neutral-800 transition-all">
-                          {/* Inner chapter dot */}
-                          <span className="absolute -left-[13px] top-6 w-2.5 h-2.5 bg-portal rounded-full border-2 border-black shadow"></span>
-                          
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-900 pb-2">
-                            <span className="font-sans font-bold text-xs text-signal">
-                              Chapter {ch.number}: "{ch.title}"
-                            </span>
-                            <div className="flex items-center gap-2">
-                              {ch.statsChangeMessage && ch.statsChangeMessage !== 'None' && (
-                                <span className="text-[8.5px] px-1.5 py-0.25 bg-amber-950/25 border border-amber-950 font-mono text-yellow-500 rounded">
-                                  {ch.statsChangeMessage}
-                                </span>
-                              )}
-                              {onJumpToChapter && (
-                                <button
-                                  onClick={() => onJumpToChapter(ch.number)}
-                                  className="px-2 py-0.5 bg-portal/10 text-portal rounded text-[8px] uppercase tracking-wider font-mono hover:bg-portal hover:text-void transition-all"
-                                >
-                                  Read Scene Text
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="font-serif italic leading-relaxed text-[11px] text-neutral-300">
-                            {ch.summary || "Chapter compiled successfully. View full text inside workspace script chambers."}
-                          </div>
-
-                          {/* Dynamic detailed highlights reconstructed from chapter contents */}
-                          <div className="pt-2 grid grid-cols-2 gap-3 text-[9.5px]">
-                            <div className="p-1 px-2.5 bg-void border border-neutral-900 rounded">
-                              <span className="text-neutral-500 block font-mono font-bold">Resonance Breakthrough:</span>
-                              <span className="text-neutral-300 italic">{ch.statsChangeMessage || 'Internal cultivation locked.'}</span>
-                            </div>
-                            <div className="p-1 px-2.5 bg-void border border-neutral-900 rounded">
-                              <span className="text-neutral-500 block font-mono font-bold">Operational Catalyst:</span>
-                              <span className="text-neutral-300 truncate block">{ch.premise}</span>
-                            </div>
+                      {/* Chapter Item */}
+                      <div className="relative pl-4 space-y-1.5 p-3.5 bg-neutral-950 border border-neutral-900 rounded-lg hover:border-neutral-800 transition-all">
+                        {/* Inner chapter dot */}
+                        <span className="absolute -left-[13px] top-6.5 w-2.5 h-2.5 bg-portal rounded-full border-2 border-black shadow"></span>
+                        
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-900 pb-2">
+                          <span className="font-sans font-bold text-xs text-signal">
+                            Chapter {ch.number}: "{ch.title}"
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {ch.statsChangeMessage && ch.statsChangeMessage !== 'None' && (
+                              <span className="text-[8.5px] px-1.5 py-0.25 bg-amber-950/25 border border-amber-950 font-mono text-yellow-500 rounded">
+                                {ch.statsChangeMessage}
+                              </span>
+                            )}
+                            {onJumpToChapter && (
+                              <button
+                                onClick={() => onJumpToChapter(ch.number)}
+                                className="px-2 py-0.5 bg-portal/10 text-portal rounded text-[8px] uppercase tracking-wider font-mono hover:bg-portal hover:text-void transition-all"
+                              >
+                                Read Scene Text
+                              </button>
+                            )}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
 
-              {arcs.every(arc => arc.chapters.filter(ch => !!ch.generatedContent).length === 0) && (
-                <div className="text-center py-12 border border-dashed border-neutral-900 rounded bg-neutral-950/20 text-xs text-neutral-500 italic">
-                  Chronology empty. Generate and read your very first chapter to construct the causal timeline!
-                </div>
-              )}
+                        <div className="font-serif italic leading-relaxed text-[11px] text-neutral-300">
+                          {ch.summary || "Chapter compiled successfully. View full text inside workspace script chambers."}
+                        </div>
+
+                        {/* Dynamic detailed highlights reconstructed from chapter contents */}
+                        <div className="pt-2 grid grid-cols-2 gap-3 text-[9.5px]">
+                          <div className="p-1 px-2.5 bg-void border border-neutral-900 rounded">
+                            <span className="text-neutral-500 block font-mono font-bold">Resonance Breakthrough:</span>
+                            <span className="text-neutral-300 italic">{ch.statsChangeMessage || 'Internal cultivation locked.'}</span>
+                          </div>
+                          <div className="p-1 px-2.5 bg-void border border-neutral-900 rounded">
+                            <span className="text-neutral-500 block font-mono font-bold">Operational Catalyst:</span>
+                            <span className="text-neutral-300 truncate block">{ch.premise}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }}
+              />
             </div>
           </div>
         )}

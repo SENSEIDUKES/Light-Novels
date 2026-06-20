@@ -1,3 +1,17 @@
+export interface UserProfile {
+  uid: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string;
+  preferredLanguage: string;
+  defaultTranslationLanguage: string;
+  savedStoryCount: number;
+  activeStories: string[];
+  inactiveStories: string[];
+  joinedDate: string;
+  updatedAt: string;
+}
+
 export interface Character {
   id: string;
   name: string;
@@ -163,6 +177,7 @@ export interface WorldBlueprint {
 }
 
 export interface StoryWorld {
+  userId?: string;
   id: string;
   title: string;
   genre: string;
@@ -181,6 +196,16 @@ export interface StoryWorld {
   relationships?: CharacterRelationship[];
   karmaNodes?: KarmaFateNode[];
   readerPreferences?: ReaderPreferences;
+  bookmarks?: Bookmark[];
+}
+
+export interface Bookmark {
+  id: string;
+  chapterNumber: number;
+  paragraphIndex: number;
+  paragraphExcerpt: string;
+  note?: string;
+  createdAt: string;
 }
 
 export type Story = StoryWorld;

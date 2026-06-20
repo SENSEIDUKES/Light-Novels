@@ -1,0 +1,83 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "username": { "type": "string" },
+        "displayName": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "preferredLanguage": { "type": "string" },
+        "defaultTranslationLanguage": { "type": "string" },
+        "savedStoryCount": { "type": "number" },
+        "activeStories": { "type": "array" },
+        "inactiveStories": { "type": "array" },
+        "joinedDate": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "username", "joinedDate", "updatedAt"]
+    },
+    "StoryWorld": {
+      "title": "Story World",
+      "description": "A novel's story world, containing chapters, memory, and settings. Belongs to a specific user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The user ID of the author." },
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "genre": { "type": "string" },
+        "mcName": { "type": "string" },
+        "customPremise": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "memory": { "$ref": "#/entities/StoryMemory" },
+        "arcs": { "$ref": "#/entities/StoryArcs" },
+        "currentChapterNumber": { "type": "number" },
+        "imageUrl": { "type": "string" },
+        "intake": { "$ref": "#/entities/IntakeData" },
+        "blueprint": { "$ref": "#/entities/WorldBlueprint" },
+        "relationships": { "type": "array" },
+        "karmaNodes": { "type": "array" },
+        "readerPreferences": { "type": "object" },
+        "bookmarks": { "type": "array" }
+      },
+      "required": ["userId", "id", "title", "genre", "mcName", "customPremise", "createdAt", "updatedAt", "currentChapterNumber"]
+    },
+    "StoryMemory": {
+      "title": "Story Memory",
+      "description": "Story state tracking",
+      "type": "object",
+      "properties": {}
+    },
+    "StoryArcs": {
+      "title": "Story Arcs List",
+      "description": "Array of story arcs",
+      "type": "array",
+      "properties": {}
+    },
+    "IntakeData": {
+      "title": "Intake Data",
+      "description": "Intake forms",
+      "type": "object",
+      "properties": {}
+    },
+    "WorldBlueprint": {
+      "title": "World Blueprint",
+      "description": "World building",
+      "type": "object",
+      "properties": {}
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "#/entities/UserProfile",
+      "description": "User profiles containing public and preference data."
+    },
+    "stories/{storyId}": {
+      "schema": "#/entities/StoryWorld",
+      "description": "Stories belonging to users."
+    }
+  }
+}

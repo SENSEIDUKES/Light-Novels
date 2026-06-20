@@ -3,7 +3,7 @@ import {
   BookOpen, Sparkles, FolderHeart, User, Globe, 
   Award, Trash2, Plus, LogOut, BookCheck, ShieldAlert,
   ArrowLeft, Zap, Download, Upload, Database, Sliders, FileText,
-  Play, ChevronRight, BarChart
+  Play, ChevronRight, BarChart, Cloud, CloudOff, RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Story, StoryMemory, Chapter, StoryArc, StoryWorld, ReaderPreferences, KarmaFateNode, CharacterRelationship, MultiModelRouting, RouteConfig, IntakeData, WorldBlueprint } from './types';
@@ -12,7 +12,12 @@ import AkashaRecord from './components/AkashaRecord';
 import ReaderChamber from './components/ReaderChamber';
 import SteerPortal from './components/SteerPortal';
 import LivingCodex from './components/LivingCodex';
-import { storyStorage } from './lib/storage';
+import UserProfile from './components/UserProfile';
+import { AtmosphericAudio } from './components/AtmosphericAudio';
+import { storyStorage, SyncStatus } from './lib/storage';
+import { secureStorage } from './lib/encryption';
+import { auth } from './lib/firebase';
+import { signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 
 const STORAGE_KEY = '@seihouse/fiction-generator-stories-v2';
 
@@ -23,6 +28,7 @@ const INITIAL_DEMO_STORIES: Story[] = [
   {
     id: 'demo-matrix-1',
     title: 'Immortal Calamity: Echoes of the Cauldron',
+
     genre: 'Xianxia',
     mcName: 'Ye Fan',
     customPremise: 'Awakening a mysterious black tripod cauldron inside the family trash heap that grinds low-grade herbs into peerless elixirs.',
@@ -102,11 +108,129 @@ const INITIAL_DEMO_STORIES: Story[] = [
 export default function App() {
   const [stories, setStories] = useState<Story[]>([]);
   const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'detail' | 'reader' | 'codex' | 'creator'>('home');
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'detail' | 'reader' | 'codex' | 'creator' | 'profile'>('home');
+  const [storyToDelete, setStoryToDelete] = useState<string | null>(null);
   
   // Generation triggers
   const [isGenerating, setIsGenerating] = useState(false);
   const [appError, setAppError] = useState<string | null>(null);
+  const [generationPhase, setGenerationPhase] = useState<'blueprint' | 'initial-arc' | 'chapter' | 'steer' | 'cover' | null>(null);
+  const [generationProgressMessage, setGenerationProgressMessage] = useState<string>('');
+  const [estimatedSecondsRemaining, setEstimatedSecondsRemaining] = useState<number | null>(null);
+
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('offline');
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
+
+  useEffect(() => {
+    const unsubAuth = auth.onAuthStateChanged(user => {
+      setCurrentUser(user);
+    });
+    
+    const unsubSync = storyStorage.subscribe((status) => {
+      setSyncStatus(status);
+      if (status === 'synced') {
+        // Refresh local view if synced
+        storyStorage.getStories().then(loaded => {
+          if (loaded && loaded.length > 0) setStories(loaded);
+        });
+      }
+    });
+
+    return () => {
+      unsubAuth();
+      unsubSync();
+    };
+  }, []);
+
+  const handleLogin = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Login failed", error);
+    }
+  };
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    setCurrentScreen('home');
+  };
+
+  useEffect(() => {
+    let timer: any;
+    let elapsed = 0;
+
+    if (isGenerating && generationPhase) {
+      let initialDuration = 20; // default estimate
+      if (generationPhase === 'blueprint') initialDuration = 15;
+      else if (generationPhase === 'initial-arc') initialDuration = 25;
+      else if (generationPhase === 'chapter') initialDuration = 20;
+      else if (generationPhase === 'steer') initialDuration = 25;
+      else if (generationPhase === 'cover') initialDuration = 15;
+
+      setEstimatedSecondsRemaining(initialDuration);
+
+      const getProgressMessage = (sec: number) => {
+        if (generationPhase === 'blueprint') {
+          if (sec < 3) return "Interrogating intake seed parameters...";
+          if (sec < 6) return "Calculating world lay-lines and dimensional laws...";
+          if (sec < 10) return "Synthesizing cultivation pathways and power level ladders...";
+          if (sec < 13) return "Structuring character destiny alignments and initial relationships...";
+          return "Condensing divine layout and resolving mysteries...";
+        } else if (generationPhase === 'initial-arc') {
+          if (sec < 4) return "Aligning cosmic gateways with World Blueprint...";
+          if (sec < 8) return "Manifesting ancestral factions and character profiles...";
+          if (sec < 11) return "Connecting thread arrays... (Writing chapter 1/10)";
+          if (sec < 13) return "Threading divine milestones... (Writing chapter 3/10)";
+          if (sec < 15) return "Calculating high-energy trope weights... (Writing chapter 5/10)";
+          if (sec < 18) return "Weaving catastrophic face-slapping events... (Writing chapter 7/10)";
+          if (sec < 21) return "Polishing climax chapter premises... (Writing chapter 9/10)";
+          if (sec < 23) return "Structuring volume outcome predictions... (Writing chapter 10/10)";
+          return "Engaging Akasha scroll serialization...";
+        } else if (generationPhase === 'chapter') {
+          if (sec < 3) return "Connecting divine mind to character memory crystals...";
+          if (sec < 6) return "Referencing historical summaries for absolute continuity...";
+          if (sec < 10) return "Weaving high-stakes drama and arrogant young master prompts...";
+          if (sec < 14) return "Brewing spiritual sentences and formatting system status popups...";
+          if (sec < 17) return "Assimilating character cultivation level upgrades and stat gains...";
+          return "Engraving final paragraphs into jade slips...";
+        } else if (generationPhase === 'steer') {
+          if (sec < 4) return "Shattering previous volume narrative boundary shields...";
+          if (sec < 8) return "Summoning accumulated historical memory summaries...";
+          if (sec < 12) return "Gathering custom fate directions and spatial ascension metrics...";
+          if (sec < 16) return "Formatting new major goals and character status migrations...";
+          if (sec < 21) return "Weaving the next 10 chapters according to sovereign will...";
+          return "Engraving permanent destiny lines into a new volume...";
+        } else if (generationPhase === 'cover') {
+          if (sec < 4) return "Extracting visual indices from the primeval premise...";
+          if (sec < 8) return "Blending vibrant color pigment vectors and ambient lightning themes...";
+          if (sec < 12) return "Sculpting protagonist portrait layer coordinates...";
+          return "Polishing aesthetic elements and final image export...";
+        }
+        return "Transcribing celestial logic...";
+      };
+
+      setGenerationProgressMessage(getProgressMessage(0));
+
+      timer = setInterval(() => {
+        elapsed += 1;
+        setEstimatedSecondsRemaining(prev => {
+          if (prev === null) return null;
+          if (prev <= 1) return 1; // pause at 1s until request finishes
+          return prev - 1;
+        });
+        setGenerationProgressMessage(getProgressMessage(elapsed));
+      }, 1000);
+    } else {
+      setEstimatedSecondsRemaining(null);
+      setGenerationProgressMessage('');
+    }
+
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isGenerating, generationPhase]);
   
   // Selector state for chapters inside a story
   const [selectedChapterNum, setSelectedChapterNum] = useState<number>(1);
@@ -116,6 +240,7 @@ export default function App() {
   const [storageType, setStorageType] = useState<string>('Initializing...');
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isCodexSheetOpen, setIsCodexSheetOpen] = useState(false);
   const [routingPresets, setRoutingPresets] = useState<any>(null);
 
   const [routingConfig, setRoutingConfig] = useState<MultiModelRouting>(() => {
@@ -137,9 +262,9 @@ export default function App() {
     };
   });
 
-  const [localGeminiKey, setLocalGeminiKey] = useState(() => localStorage.getItem('@seihouse/api-key-gemini') || '');
-  const [localOpenrouterKey, setLocalOpenrouterKey] = useState(() => localStorage.getItem('@seihouse/api-key-openrouter') || '');
-  const [localOllamaHost, setLocalOllamaHost] = useState(() => localStorage.getItem('@seihouse/api-key-ollama-host') || '');
+  const [localGeminiKey, setLocalGeminiKey] = useState(() => secureStorage.getItem('@seihouse/api-key-gemini') || '');
+  const [localOpenrouterKey, setLocalOpenrouterKey] = useState(() => secureStorage.getItem('@seihouse/api-key-openrouter') || '');
+  const [localOllamaHost, setLocalOllamaHost] = useState(() => secureStorage.getItem('@seihouse/api-key-ollama-host') || '');
 
   const DEFAULT_PRESETS = {
     storyMaker: {
@@ -253,9 +378,11 @@ export default function App() {
       for (const s of updated) {
         await storyStorage.saveStory(s);
       }
+      setLastSavedTime(new Date());
     } catch (e) {
       console.error("Celestial local disk write breached, reverting to standard storage cache:", e);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      setLastSavedTime(new Date());
     }
   };
 
@@ -272,7 +399,7 @@ export default function App() {
       downloadAnchor.click();
       downloadAnchor.remove();
     } catch (err: any) {
-      alert("Failed to transcribe story ledger to outward scrolls: " + err.message);
+      setAppError("Failed to transcribe story ledger to outward scrolls: " + err.message);
     }
   };
 
@@ -287,7 +414,7 @@ export default function App() {
       downloadAnchor.click();
       downloadAnchor.remove();
     } catch (err: any) {
-      alert("Failed to package the library matrix: " + err.message);
+      setAppError("Failed to package the library matrix: " + err.message);
     }
   };
 
@@ -326,10 +453,10 @@ export default function App() {
         }
 
         saveStories(mergedList);
-        alert(`Successfully synchronized ${importSuccessCount} Story World memories into your local ${storageType} database!`);
+        console.log(`Successfully synchronized ${importSuccessCount} Story World memories into your local ${storageType} database!`);
         e.target.value = ''; // Reset file prompt
       } catch (err: any) {
-        alert("The import portal cracked. Validation failed: " + err.message);
+        setAppError("The import portal cracked. Validation failed: " + err.message);
       }
     };
     fileReader.readAsText(fileList[0]);
@@ -339,13 +466,14 @@ export default function App() {
 
   // 0.5. Generate Blueprint
   const handleGenerateBlueprint = async (intake: IntakeData): Promise<WorldBlueprint> => {
+    setGenerationPhase('blueprint');
     setIsGenerating(true);
     setAppError(null);
     try {
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-      const gemini = localStorage.getItem('@seihouse/api-key-gemini');
-      const openrouter = localStorage.getItem('@seihouse/api-key-openrouter');
-      const ollama = localStorage.getItem('@seihouse/api-key-ollama-host');
+      const gemini = secureStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = secureStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = secureStorage.getItem('@seihouse/api-key-ollama-host');
       if (gemini) apiHeaders['x-gemini-key'] = gemini;
       if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
       if (ollama) apiHeaders['x-ollama-host'] = ollama;
@@ -367,19 +495,21 @@ export default function App() {
       throw err;
     } finally {
       setIsGenerating(false);
+      setGenerationPhase(null);
     }
   };
 
   // 1. Trigger the Generation of the Initial Story
   const handleStartStory = async (intake: IntakeData, blueprint: WorldBlueprint, chapterCount: number) => {
+    setGenerationPhase('initial-arc');
     setIsGenerating(true);
     setAppError(null);
 
     try {
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-      const gemini = localStorage.getItem('@seihouse/api-key-gemini');
-      const openrouter = localStorage.getItem('@seihouse/api-key-openrouter');
-      const ollama = localStorage.getItem('@seihouse/api-key-ollama-host');
+      const gemini = secureStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = secureStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = secureStorage.getItem('@seihouse/api-key-ollama-host');
       if (gemini) apiHeaders['x-gemini-key'] = gemini;
       if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
       if (ollama) apiHeaders['x-ollama-host'] = ollama;
@@ -446,12 +576,14 @@ export default function App() {
       setAppError(err.message || "Failed to align celestial gates.");
     } finally {
       setIsGenerating(false);
+      setGenerationPhase(null);
     }
   };
 
   // 2. Trigger Generation of a Single Chapter
   const handleGenerateChapter = async (chapterNumber: number) => {
     if (!activeStory) return;
+    setGenerationPhase('chapter');
     setIsGenerating(true);
     setAppError(null);
 
@@ -475,9 +607,9 @@ export default function App() {
 
     try {
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-      const gemini = localStorage.getItem('@seihouse/api-key-gemini');
-      const openrouter = localStorage.getItem('@seihouse/api-key-openrouter');
-      const ollama = localStorage.getItem('@seihouse/api-key-ollama-host');
+      const gemini = secureStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = secureStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = secureStorage.getItem('@seihouse/api-key-ollama-host');
       if (gemini) apiHeaders['x-gemini-key'] = gemini;
       if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
       if (ollama) apiHeaders['x-ollama-host'] = ollama;
@@ -674,12 +806,14 @@ export default function App() {
       setAppError(err.message || "Celestial feedback received. Chapter generation failed.");
     } finally {
       setIsGenerating(false);
+      setGenerationPhase(null);
     }
   };
 
   // 3. Trigger Steering into a Brand New Story Arc
   const handleSteerArc = async (direction: string, customPrompt: string) => {
     if (!activeStory) return;
+    setGenerationPhase('steer');
     setIsGenerating(true);
     setAppError(null);
 
@@ -698,9 +832,9 @@ export default function App() {
 
     try {
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-      const gemini = localStorage.getItem('@seihouse/api-key-gemini');
-      const openrouter = localStorage.getItem('@seihouse/api-key-openrouter');
-      const ollama = localStorage.getItem('@seihouse/api-key-ollama-host');
+      const gemini = secureStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = secureStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = secureStorage.getItem('@seihouse/api-key-ollama-host');
       if (gemini) apiHeaders['x-gemini-key'] = gemini;
       if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
       if (ollama) apiHeaders['x-ollama-host'] = ollama;
@@ -777,6 +911,7 @@ export default function App() {
       setAppError(err.message || "Failed to steer next story arc successfully.");
     } finally {
       setIsGenerating(false);
+      setGenerationPhase(null);
     }
   };
 
@@ -815,7 +950,7 @@ export default function App() {
               if (ch.number === charNum) {
                 return {
                   ...ch,
-                  status: ch.status === 'read' ? 'unread' : 'read'
+                  status: (ch.status === 'read' ? 'unread' : 'read') as 'unread' | 'read'
                 };
               }
               return ch;
@@ -832,14 +967,23 @@ export default function App() {
   // Delete individual story archive
   const handleDeleteStory = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm("Are you certain you wish to purge this serialized light novel matrix forever? This severed karma cannot be mended.")) {
-      const updated = stories.filter(s => s.id !== id);
+    setStoryToDelete(id);
+  };
+
+  const confirmDeleteStory = () => {
+    if (storyToDelete) {
+      const updated = stories.filter(s => s.id !== storyToDelete);
       saveStories(updated);
-      if (activeStoryId === id) {
+      if (activeStoryId === storyToDelete) {
         setActiveStoryId(null);
         setCurrentScreen('home');
       }
+      setStoryToDelete(null);
     }
+  };
+
+  const cancelDeleteStory = () => {
+    setStoryToDelete(null);
   };
 
   // Calculate stats for current active story
@@ -848,13 +992,14 @@ export default function App() {
   const handleGenerateCover = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!activeStory) return;
+    setGenerationPhase('cover');
     setIsGenerating(true);
     setAppError(null);
     try {
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-      const gemini = localStorage.getItem('@seihouse/api-key-gemini');
-      const openrouter = localStorage.getItem('@seihouse/api-key-openrouter');
-      const ollama = localStorage.getItem('@seihouse/api-key-ollama-host');
+      const gemini = secureStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = secureStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = secureStorage.getItem('@seihouse/api-key-ollama-host');
       if (gemini) apiHeaders['x-gemini-key'] = gemini;
       if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
       if (ollama) apiHeaders['x-ollama-host'] = ollama;
@@ -878,6 +1023,7 @@ export default function App() {
       setAppError(err.message || "Failed to forge new cover.");
     } finally {
       setIsGenerating(false);
+      setGenerationPhase(null);
     }
   };
 
@@ -968,6 +1114,115 @@ export default function App() {
   return (
     <div className="min-h-screen bg-void text-signal font-sans selection:bg-human/80 select-none pb-20">
       
+      {/* GLOBAL MOUNT/TRANSMUTATION LOADING VEIL */}
+      <AnimatePresence>
+        {isGenerating && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-void/95 backdrop-blur-md z-[9999] flex flex-col items-center justify-center p-6 text-center select-none"
+          >
+            {/* Ambient Cosmic Background Core */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 w-[420px] h-[420px] rounded-full bg-radial-gradient from-portal/10 via-human/5 to-transparent blur-3xl pointer-events-none"></div>
+
+            {/* Main Portal Ring Loader */}
+            <div className="relative w-40 h-40 mb-10 flex items-center justify-center">
+              {/* Outer Spin Ring: Human Bloodline */}
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
+                className="absolute inset-0 rounded-full border border-dashed border-human/60 border-t-human scale-110"
+              />
+              
+              {/* Inner Reverse Spin Ring: Portal Resonance */}
+              <motion.div
+                animate={{ rotate: -360 }}
+                transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }}
+                className="absolute inset-2 rounded-full border border-dotted border-portal/80 border-b-portal"
+              />
+              
+              {/* Third layer: Pulsing Core */}
+              <motion.div
+                animate={{ scale: [1, 1.08, 1], opacity: [0.3, 0.6, 0.3] }}
+                transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                className="absolute inset-6 rounded-full bg-gradient-to-tr from-human/20 to-portal/20 blur-sm"
+              />
+
+              {/* Center Logo or Spark icon */}
+              <div className="relative z-10 text-signal animate-pulse flex flex-col items-center justify-center">
+                <Sparkles size={36} className="text-portal drop-shadow-[0_0_12px_rgba(4,172,255,0.7)]" />
+              </div>
+            </div>
+
+            {/* Operation Meta Badge */}
+            <div className="mb-4">
+              <span className="font-sc text-[10px] tracking-[0.25em] font-bold uppercase text-portal/90 bg-portal/5 px-3 py-1.5 border border-portal/20 rounded shadow-[0_0_12px_rgba(4,172,255,0.1)]">
+                {generationPhase === 'blueprint' && "Aetherial Mapping"}
+                {generationPhase === 'initial-arc' && "Scripture Initiation"}
+                {generationPhase === 'chapter' && "Crystallizing Chapter Link"}
+                {generationPhase === 'steer' && "Sovereign Shift"}
+                {generationPhase === 'cover' && "Cover Reforging"}
+                {!generationPhase && "Consciousness Sync"}
+              </span>
+            </div>
+
+            {/* Active Realtime Step Text */}
+            <h3 className="font-display font-medium text-xl sm:text-2xl text-signal max-w-lg leading-snug tracking-wide mb-3">
+              {generationProgressMessage || "Manifesting spiritual matrices..."}
+            </h3>
+
+            {/* Narrative Context Description */}
+            <p className="font-serif italic text-xs text-neutral-450 max-w-md leading-relaxed mb-8">
+              {generationPhase === 'blueprint' && "Establishing foundational laws, power limitations, and planetary properties."}
+              {generationPhase === 'initial-arc' && "Transcribing the grand volume ledger, compiling chapter milestones and character templates."}
+              {generationPhase === 'chapter' && "Aligning previous subplots, executing cultivation updates, and transcribing sentences."}
+              {generationPhase === 'steer' && "Merging your custom instructions with fate timelines to trigger the subsequent 10 chapters."}
+              {generationPhase === 'cover' && "Translating core premise variables into bespoke high-fidelity digital art scrolls."}
+              {!generationPhase && "Interfacing with the SEIHouse deep narrative engine."}
+            </p>
+
+            {/* Estimated Countdown Timer Container */}
+            {estimatedSecondsRemaining !== null && (
+              <div className="w-full max-w-xs space-y-3 font-sans">
+                {/* Micro metrics display */}
+                <div className="flex justify-between items-center text-[10px] tracking-wider uppercase text-neutral-500 font-medium">
+                  <span className="font-mono">TEMPORAL CONVERGENCE</span>
+                  <span className="font-mono text-portal font-semibold">
+                    ~{estimatedSecondsRemaining}S REMAINING
+                  </span>
+                </div>
+                
+                {/* Smooth Animated Progress Bar */}
+                <div className="w-full h-1.5 bg-neutral-950 border border-neutral-905 rounded-full overflow-hidden shadow-inner relative">
+                  {(() => {
+                    const totalDuration = generationPhase === 'blueprint' ? 15 
+                      : generationPhase === 'initial-arc' ? 25 
+                      : generationPhase === 'chapter' ? 20 
+                      : generationPhase === 'steer' ? 25 
+                      : generationPhase === 'cover' ? 15 
+                      : 20;
+                    
+                    const pct = Math.max(2, Math.min(98, Math.round(((totalDuration - estimatedSecondsRemaining) / totalDuration) * 100)));
+                    return (
+                      <div 
+                        className="h-full bg-gradient-to-r from-human via-portal to-portal shadow-[0_0_8px_rgba(4,172,255,0.5)] transition-all duration-1000 ease-out rounded-full" 
+                        style={{ width: `${pct}%` }} 
+                      />
+                    );
+                  })()}
+                </div>
+
+                <div className="text-[9px] uppercase tracking-widest text-neutral-600 font-mono">
+                  DO NOT PURGE CONNECTION • PRESERVING CONTEXT LOCK
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* GLOBAL GLOW RAILS */}
       <div className="fixed top-0 inset-x-0 h-[3px] bg-gradient-to-r from-portal via-human to-portal z-50"></div>
 
@@ -990,6 +1245,38 @@ export default function App() {
             </div>
 
             <div className="flex items-center space-x-2 sm:space-x-3">
+              
+              {/* Cloud Sync & Auth Widget */}
+              <div className="flex flex-col items-end space-y-0.5">
+                <div className="flex items-center space-x-2 border border-neutral-850 px-2 sm:px-3 py-1.5 rounded bg-void/50">
+                  {syncStatus === 'offline' ? (
+                    <button onClick={() => storyStorage.performSync()} title="Offline / Local Only. Click to sync" className="flex hover:text-portal transition-colors"><CloudOff size={14} className="text-neutral-500" /></button>
+                  ) : syncStatus === 'syncing' ? (
+                    <span title="Syncing..." className="flex"><RefreshCw size={14} className="text-portal animate-spin" /></span>
+                  ) : syncStatus === 'error' ? (
+                    <button onClick={() => storyStorage.performSync()} title="Sync Error. Click to retry" className="flex hover:text-portal transition-colors"><CloudOff size={14} className="text-human" /></button>
+                  ) : (
+                    <button onClick={() => storyStorage.performSync()} title="Synced to Firebase. Click to force sync" className="flex hover:text-portal transition-colors"><Cloud size={14} className="text-[#00A86B]" /></button>
+                  )}
+                  
+                  {currentUser ? (
+                    <button onClick={() => setCurrentScreen('profile')} className="text-[9px] sm:text-[10px] font-mono uppercase tracking-widest text-neutral-400 hover:text-portal flex items-center space-x-1 border border-neutral-800 bg-void px-2 py-1 rounded transition-colors">
+                      <User size={10} className="text-portal" />
+                      <span className="hidden xs:inline truncate max-w-[100px] font-medium">{currentUser.email?.split('@')[0]}</span>
+                    </button>
+                  ) : (
+                    <button onClick={handleLogin} className="text-[9px] sm:text-[10px] font-sc font-bold uppercase tracking-widest text-portal hover:text-signal shadow-[0_0_8px_rgba(4,172,255,0.2)]">
+                      Link Cloud
+                    </button>
+                  )}
+                </div>
+                {lastSavedTime && (
+                  <span className="text-[8px] sm:text-[9px] font-mono text-neutral-600 block pr-1">
+                    Auto-saved: {lastSavedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
+                )}
+              </div>
+
               <button
                 onClick={() => setIsSettingsOpen(true)}
                 className="px-2.5 py-1.5 sm:px-3.5 sm:py-2 bg-void border border-neutral-850 hover:border-portal text-neutral-400 hover:text-portal transition-all rounded font-sc text-[10px] sm:text-xs flex items-center space-x-1.5 font-bold"
@@ -1372,7 +1659,7 @@ export default function App() {
                     </button>
 
                     <button
-                      onClick={() => setCurrentScreen('codex')}
+                      onClick={() => setIsCodexSheetOpen(true)}
                       className="px-6 py-2.5 bg-void border border-portal text-portal font-sc font-bold uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-all flex items-center space-x-2 text-xs"
                     >
                       <Sparkles size={16} />
@@ -1393,6 +1680,13 @@ export default function App() {
                     >
                       <Download size={14} className="text-gold-accent" />
                       <span>JSON Metadata</span>
+                    </button>
+                    <button
+                      onClick={(e) => handleDeleteStory(activeStory.id, e)}
+                      className="px-6 py-2.5 bg-void border border-neutral-800 text-neutral-400 font-sc font-bold uppercase tracking-wider rounded hover:bg-neutral-900 hover:border-red-900 hover:text-red-500 transition-all flex items-center space-x-2 text-xs"
+                    >
+                      <Trash2 size={14} />
+                      <span>Delete Matrix</span>
                     </button>
                     
                     {isCurrentArcFinished && (
@@ -1431,6 +1725,24 @@ export default function App() {
             </motion.div>
           )}
 
+          {/* SCREEN Profile: User Profile */}
+          {currentScreen === 'profile' && (
+            <motion.div
+              key="profile-screen"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.3 }}
+            >
+              <UserProfile
+                currentUser={currentUser}
+                stories={stories}
+                onLogout={handleLogout}
+                onNavigateHome={() => setCurrentScreen('home')}
+              />
+            </motion.div>
+          )}
+
           {/* SCREEN 3: Reader */}
           {currentScreen === 'reader' && activeStory && (
             <motion.div
@@ -1452,7 +1764,7 @@ export default function App() {
                 </div>
                 <div className="flex-shrink-0">
                    <button
-                     onClick={() => setCurrentScreen('codex')}
+                     onClick={() => setIsCodexSheetOpen(true)}
                      className="px-2.5 py-1 sm:px-4 sm:py-1.5 bg-void border border-portal text-portal font-sc font-bold uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-all flex items-center space-x-1 sm:space-x-2 text-[9px] sm:text-[10px]"
                    >
                      <Sparkles size={11} />
@@ -1483,7 +1795,7 @@ export default function App() {
                     setSelectedChapterNum={setSelectedChapterNum}
                     onToggleRead={handleToggleRead}
                     onSwitchTab={(tab) => {
-                      if (tab === 'codex') setCurrentScreen('codex');
+                      if (tab === 'codex') setIsCodexSheetOpen(true);
                     }}
                     activeStory={activeStory}
                     onUpdateStory={handleUpdateStoryDirect}
@@ -1505,46 +1817,65 @@ export default function App() {
             </motion.div>
           )}
 
-          {/* SCREEN 4: Codex */}
-          {currentScreen === 'codex' && activeStory && (
+        </AnimatePresence>
+      </main>
+
+      {/* CODEX SHEET OVERLAY */}
+      <AnimatePresence>
+        {isCodexSheetOpen && activeStory && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-none">
+            {/* Backdrop */}
             <motion.div
-              key="codex-screen"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="space-y-6"
+              onClick={() => setIsCodexSheetOpen(false)}
+              className="absolute inset-0 bg-black/90 sm:backdrop-blur-sm pointer-events-auto"
+            />
+            
+            {/* Sheet / Modal */}
+            <motion.div
+              initial={{ opacity: 0, y: "100%" }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: "100%" }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="relative w-full sm:w-[95vw] lg:w-[90vw] sm:max-h-[90vh] h-[95vh] sm:h-auto bg-[#0a0a0a] border border-neutral-900 rounded-t-3xl sm:rounded-xl shadow-2xl pointer-events-auto flex flex-col pt-2 sm:pt-0"
             >
-              <div className="flex items-center space-x-2 bg-black/60 border border-neutral-900 px-3 py-1.5 sm:px-4 sm:py-2 rounded shadow-md backdrop-blur-md mb-6 sticky top-0 z-30">
-                <button onClick={() => setCurrentScreen('detail')} className="text-neutral-500 hover:text-portal transition-colors flex-shrink-0">
+              <div className="w-12 h-1.5 bg-neutral-800 rounded-full mx-auto my-2 sm:hidden flex-shrink-0" />
+              
+              <div className="flex items-center space-x-2 bg-black/60 border border-neutral-900 px-3 py-3 sm:px-4 sm:py-2 rounded shadow-md backdrop-blur-md mb-2 sm:mb-6 sticky top-0 z-30 mx-4 mt-2 sm:mt-6 shrink-0">
+                <button onClick={() => setIsCodexSheetOpen(false)} className="text-neutral-500 hover:text-portal transition-colors flex-shrink-0">
                   <ArrowLeft size={18} />
                 </button>
                 <span className="text-portal font-display text-sm sm:text-lg font-bold truncate">{activeStory.title}</span>
                 <span className="text-neutral-600 font-sans text-xs sm:text-sm flex-shrink-0">- Living Codex</span>
               </div>
-              <div className="max-w-6xl mx-auto">
-                <LivingCodex
-                  memory={activeStory.memory}
-                  arcs={activeStory.arcs}
-                  onUpdateMemory={handleUpdateMemoryManual}
-                  mcName={activeStory.mcName}
-                  onJumpToChapter={(num) => {
-                    setSelectedChapterNum(num);
-                    setCurrentScreen('reader');
-                  }}
-                  onSwitchTab={(tab) => {
-                    if (tab === 'reader') setCurrentScreen('reader');
-                  }}
-                  activeStory={activeStory}
-                  onUpdateStory={handleUpdateStoryDirect}
-                  routingConfig={routingConfig}
-                />
+              
+              <div className="flex-1 overflow-y-auto px-4 pb-12 custom-scrollbar">
+                <div className="max-w-6xl mx-auto">
+                  <LivingCodex
+                    memory={activeStory.memory}
+                    arcs={activeStory.arcs}
+                    onUpdateMemory={handleUpdateMemoryManual}
+                    mcName={activeStory.mcName}
+                    onJumpToChapter={(num) => {
+                      setSelectedChapterNum(num);
+                      setCurrentScreen('reader');
+                      setIsCodexSheetOpen(false);
+                    }}
+                    onSwitchTab={(tab) => {
+                      if (tab === 'reader') setIsCodexSheetOpen(false);
+                    }}
+                    activeStory={activeStory}
+                    onUpdateStory={handleUpdateStoryDirect}
+                    routingConfig={routingConfig}
+                  />
+                </div>
               </div>
             </motion.div>
-          )}
-
-        </AnimatePresence>
-      </main>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* FOOTER */}
       <footer className="border-t border-neutral-950 bg-black/60 pt-10 pb-16 mt-20 text-[10px] text-neutral-600 font-sans">
@@ -1701,7 +2032,7 @@ export default function App() {
                         onChange={(e) => {
                           const val = e.target.value;
                           setLocalGeminiKey(val);
-                          localStorage.setItem('@seihouse/api-key-gemini', val);
+                          secureStorage.setItem('@seihouse/api-key-gemini', val);
                         }}
                         className="w-full bg-void text-xs text-neutral-300 border border-neutral-900 focus:border-portal p-1.5 rounded focus:outline-none font-mono placeholder:text-neutral-700"
                       />
@@ -1719,7 +2050,7 @@ export default function App() {
                         onChange={(e) => {
                           const val = e.target.value;
                           setLocalOpenrouterKey(val);
-                          localStorage.setItem('@seihouse/api-key-openrouter', val);
+                          secureStorage.setItem('@seihouse/api-key-openrouter', val);
                         }}
                         className="w-full bg-void text-xs text-neutral-300 border border-neutral-900 focus:border-portal p-1.5 rounded focus:outline-none font-mono placeholder:text-neutral-700"
                       />
@@ -1737,7 +2068,7 @@ export default function App() {
                         onChange={(e) => {
                           const val = e.target.value;
                           setLocalOllamaHost(val);
-                          localStorage.setItem('@seihouse/api-key-ollama-host', val);
+                          secureStorage.setItem('@seihouse/api-key-ollama-host', val);
                         }}
                         className="w-full bg-void text-xs text-neutral-300 border border-neutral-900 focus:border-portal p-1.5 rounded focus:outline-none font-mono placeholder:text-neutral-700"
                       />
@@ -1782,6 +2113,40 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {storyToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl relative"
+            >
+              <h3 className="text-xl font-display font-bold text-signal mb-2">Purge Novel Matrix</h3>
+              <p className="text-sm text-neutral-400 mb-6 font-serif">
+                Are you certain you wish to purge this serialized light novel matrix forever? This severed karma cannot be mended.
+              </p>
+              <div className="flex justify-end space-x-3 mt-4">
+                <button
+                  onClick={cancelDeleteStory}
+                  className="px-4 py-2 bg-void border border-neutral-700 text-neutral-300 rounded font-sc text-xs hover:bg-neutral-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteStory}
+                  className="px-4 py-2 bg-red-900 border border-red-700 text-white rounded font-sc font-bold text-xs hover:bg-red-800 transition-colors"
+                >
+                  Sever Karma
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AtmosphericAudio />
     </div>
   );
 }
