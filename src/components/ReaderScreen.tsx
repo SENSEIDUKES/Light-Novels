@@ -15,7 +15,7 @@ export const ReaderScreen: React.FC<{
 }> = ({
   handleSteerArc, handleGenerateChapter, handleToggleRead, handleUpdateStoryDirect, setIsCodexSheetOpen
 }) => {
-  const { currentScreen, setCurrentScreen, activeStoryId, stories, selectedChapterNum, setSelectedChapterNum, isGenerating, routingConfig, streamingChapter } = useAppStore();
+  const { currentScreen, setCurrentScreen, activeStoryId, stories, selectedChapterNum, setSelectedChapterNum, isGenerating, routingConfig, streamingChapter, isReaderFullscreen } = useAppStore();
 
   if (currentScreen !== 'reader') return null;
 
@@ -29,27 +29,29 @@ export const ReaderScreen: React.FC<{
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
-      className="space-y-6"
+      className={`space-y-6 ${isReaderFullscreen ? '!space-y-0 relative' : ''}`}
     >
-      <div className="flex items-center justify-between bg-black/60 border border-neutral-900 px-3 py-1.5 sm:px-4 sm:py-2 rounded shadow-md backdrop-blur-md sticky top-0 z-30">
-        <div className="flex items-center space-x-1.5 sm:space-x-2 min-w-0">
-          <button onClick={() => setCurrentScreen('detail')} className="text-neutral-500 hover:text-gold-accent transition-colors flex-shrink-0">
-            <ArrowLeft size={18} />
-          </button>
-          <span className="font-sc uppercase tracking-[0.12em] text-gold-accent font-bold text-[10px] sm:text-xs flex-shrink-0">{activeStory.genre}</span>
-          <span className="text-neutral-700 font-mono flex-shrink-0">•</span>
-          <span className="text-neutral-400 font-display text-xs sm:text-sm truncate pr-2">{activeStory.title}</span>
+      {!isReaderFullscreen && (
+        <div className="flex items-center justify-between bg-black/60 border border-neutral-900 px-3 py-1.5 sm:px-4 sm:py-2 rounded shadow-md backdrop-blur-md sticky top-0 z-30">
+          <div className="flex items-center space-x-1.5 sm:space-x-2 min-w-0">
+            <button onClick={() => setCurrentScreen('detail')} className="text-neutral-500 hover:text-gold-accent transition-colors flex-shrink-0">
+              <ArrowLeft size={18} />
+            </button>
+            <span className="font-sc uppercase tracking-[0.12em] text-gold-accent font-bold text-[10px] sm:text-xs flex-shrink-0">{activeStory.genre}</span>
+            <span className="text-neutral-700 font-mono flex-shrink-0">•</span>
+            <span className="text-neutral-400 font-display text-xs sm:text-sm truncate pr-2">{activeStory.title}</span>
+          </div>
+          <div className="flex-shrink-0">
+             <button
+               onClick={() => setIsCodexSheetOpen(true)}
+               className="px-2.5 py-1 sm:px-4 sm:py-1.5 bg-void border border-portal text-portal font-sc font-bold uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-all flex items-center space-x-1 sm:space-x-2 text-[9px] sm:text-[10px]"
+             >
+               <Sparkles size={11} />
+               <span>Codex</span>
+             </button>
+          </div>
         </div>
-        <div className="flex-shrink-0">
-           <button
-             onClick={() => setIsCodexSheetOpen(true)}
-             className="px-2.5 py-1 sm:px-4 sm:py-1.5 bg-void border border-portal text-portal font-sc font-bold uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-all flex items-center space-x-1 sm:space-x-2 text-[9px] sm:text-[10px]"
-           >
-             <Sparkles size={11} />
-             <span>Codex</span>
-           </button>
-        </div>
-      </div>
+      )}
 
       {selectedChapterNum === -1 ? (
         <div className="animate-fadeIn max-w-4xl mx-auto shadow-2xl">

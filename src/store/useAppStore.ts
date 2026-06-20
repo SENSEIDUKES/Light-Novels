@@ -29,6 +29,7 @@ interface AppState {
   // Settings
   isSettingsOpen: boolean;
   isCodexSheetOpen: boolean;
+  isReaderFullscreen: boolean;
   routingConfig: MultiModelRouting;
   localGeminiKey: string;
   localOpenrouterKey: string;
@@ -53,6 +54,7 @@ interface AppState {
   setNexusTab: (tab: 'reader'|'codex'|'memory') => void;
   setIsSettingsOpen: (isOpen: boolean) => void;
   setIsCodexSheetOpen: (isOpen: boolean) => void;
+  setIsReaderFullscreen: (isFull: boolean) => void;
   setRoutingConfig: (config: MultiModelRouting) => void;
 
   // Complex Actions
@@ -171,6 +173,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   isSettingsOpen: false,
   isCodexSheetOpen: false,
+  isReaderFullscreen: false,
   routingConfig: {
     storyMaker: { provider: 'gemini', model: 'gemini-3.5-flash' },
     imageGenerator: { provider: 'gemini', model: 'gemini-2.5-flash-image' }
@@ -197,6 +200,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setNexusTab: (nexusTab) => set({ nexusTab }),
   setIsSettingsOpen: (isSettingsOpen) => set({ isSettingsOpen }),
   setIsCodexSheetOpen: (isCodexSheetOpen) => set({ isCodexSheetOpen }),
+  setIsReaderFullscreen: (isReaderFullscreen) => set({ isReaderFullscreen }),
   setRoutingConfig: (routingConfig) => set({ routingConfig }),
 
   saveStories: async (updated: Story[]) => {

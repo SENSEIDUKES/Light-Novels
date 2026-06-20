@@ -13,6 +13,7 @@ import { ParticleSystem } from './ParticleSystem';
 import { AudioWidget } from './AudioWidget';
 import { dispatchNarrativeCue, NarrativeCueEventType } from '../lib/narrativeCues';
 import { useChapterTranslation } from '../hooks/useChapterTranslation';
+import { useAppStore } from '../store/useAppStore';
 
 const extractSFXCues = (text: string) => {
   const sfxList: string[] = [];
@@ -57,6 +58,10 @@ export default function ReaderChamber({
   const { translateChapter, isTranslating, translationError } = useChapterTranslation();
   const [preferredLang, setPreferredLang] = useState('en');
   const [activeTranslationContent, setActiveTranslationContent] = useState<string | null>(null);
+
+  // --- atmospheric audio (just reference, no actual addition needed here) 
+  const isReaderFullscreen = useAppStore(state => state.isReaderFullscreen);
+  const setIsReaderFullscreen = useAppStore(state => state.setIsReaderFullscreen);
 
   const selectedChapter = chapters.find(c => c.number === selectedChapterNum) || chapters[0];
 
@@ -340,20 +345,30 @@ export default function ReaderChamber({
   };
 
   const handleTouchEnd = () => {
-    if (!touchStartX || !touchEndX || !touchStartY || !touchEndY) return;
-    const distanceX = touchStartX - touchEndX;
-    const distanceY = touchStartY - touchEndY;
+    if (!touchStartX || !touchStartY) return;
+    const currentEndX = touchEndX !== null ? touchEndX : touchStartX;
+    const currentEndY = touchEndY !== null ? touchEndY : touchStartY;
+
+    const distanceX = touchStartX - currentEndX;
+    const distanceY = touchStartY - currentEndY;
     const isLeftSwipe = distanceX > minSwipeDistance;
     const isRightSwipe = distanceX < -minSwipeDistance;
-    
-    // Only trigger horizontal swipe if vertical movement is small
-    if (Math.abs(distanceY) < 40) {
+
+    // Trigger horizontal swipe only if distanceX is significantly larger than distanceY
+    // This prevents accidental chapter navigation while scrolling down
+    if (Math.abs(distanceX) > Math.abs(distanceY) * 2 && Math.abs(distanceX) > minSwipeDistance) {
       if (isLeftSwipe) {
         if (selectedChapterNum < chapters.length) navigateNext();
       } else if (isRightSwipe) {
         if (selectedChapterNum > 1) navigatePrev();
       }
     }
+  };
+
+  const handleTextClick = (e: React.MouseEvent | React.TouchEvent) => {
+     if ((e.target as HTMLElement).closest('button, select, input, a')) return;
+     if (window.getSelection()?.toString().length) return; // Prevent toggle when user is just selecting text
+     setIsReaderFullscreen(!isReaderFullscreen);
   };
 
   // IntersectionObserver for narrative cues
@@ -537,13 +552,14 @@ export default function ReaderChamber({
       <ParticleSystem count={40} className="opacity-20 pointer-events-none mix-blend-screen z-0 transition-colors duration-500" color={getParticleColor()} />
       
       {/* HEADER: Readability & Chapter Title */}
-      <div 
-        data-cue-type="narrative.chapter.enter"
-        data-cue-id={`chapter-enter-${selectedChapter.number}`}
-        data-cue-once="true"
-        data-cue-value={selectedChapter.cuePayload ? JSON.stringify(selectedChapter.cuePayload) : undefined}
-        className={`narrative-trigger sticky top-[38px] sm:top-[44px] z-20 backdrop-blur-md px-4 py-2 sm:py-3 flex items-center justify-between border-b transition-colors duration-500 ${getHeaderThemeClasses()}`}
-      >
+      {!isReaderFullscreen && (
+        <div 
+          data-cue-type="narrative.chapter.enter"
+          data-cue-id={`chapter-enter-${selectedChapter.number}`}
+          data-cue-once="true"
+          data-cue-value={selectedChapter.cuePayload ? JSON.stringify(selectedChapter.cuePayload) : undefined}
+          className={`narrative-trigger sticky top-[0px] z-20 backdrop-blur-md px-4 py-2 sm:py-3 flex items-center justify-between border-b transition-colors duration-500 ${getHeaderThemeClasses()}`}
+        >
         <div className="min-w-0">
           <span className="font-sc font-semibold text-[10px] text-jade-accent tracking-[0.2em] uppercase block">
             {arcTitle} • Chapter {selectedChapter.number}
@@ -628,6 +644,7 @@ export default function ReaderChamber({
             </div>
         </div>
       </div>
+      )}
 
       {/* Dynamic Collapsible Reader Preferences Panel */}
       <AnimatePresence>
@@ -816,10 +833,11 @@ export default function ReaderChamber({
       {/* READING VIEWPORT */}
       <div 
         ref={readerRef} 
-        className="flex-1 overflow-y-auto px-4 sm:px-12 md:px-24 py-8 mb-24 custom-scrollbar relative"
+        className={`flex-1 overflow-y-auto px-4 sm:px-12 md:px-24 py-8 relative ${isReaderFullscreen ? 'mb-4 no-scrollbar' : 'mb-24 custom-scrollbar'}`}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onClick={handleTextClick}
       >
         {isTranslating ? (
           <div className="flex flex-col items-center justify-center h-full py-32 space-y-4">

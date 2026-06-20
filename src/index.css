@@ -50,3 +50,12 @@
 .jade-accent {
   color: #00A86B;
 }
+
+/* Hide scrollbar for fullscreen view */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}

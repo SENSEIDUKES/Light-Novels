@@ -45,6 +45,12 @@ service cloud.firestore {
         && data.userId == request.auth.uid;
     }
 
+    function isValidChapter(data) {
+      return data.keys().hasAll(['storyId', 'chapterNumber'])
+        && data.storyId is string && data.storyId.size() <= 128
+        && data.chapterNumber is number;
+    }
+
     match /users/{userId} {
       allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
       allow create: if isSignedIn() 
@@ -88,6 +94,26 @@ service cloud.firestore {
         && (!('updatedAt' in incoming().diff(existing()).affectedKeys()) || (incoming().updatedAt is string && incoming().updatedAt.size() <= 40));
 
       allow delete: if isSignedIn() && isValidId(storyId) && existing().userId == request.auth.uid;
+
+      match /chapters/{chapterId} {
+        allow read: if isSignedIn() && get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid;
+        
+        allow create: if isSignedIn()
+          && isValidId(chapterId)
+          && get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid
+          && isValidChapter(incoming())
+          && incoming().storyId == storyId;
+          
+        allow update: if isSignedIn()
+          && isValidId(chapterId)
+          && get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid
+          && incoming().storyId == existing().storyId
+          && incoming().chapterNumber == existing().chapterNumber
+          && (isValidChapter(incoming()))
+          && incoming().diff(existing()).affectedKeys().hasAny(['generatedContent', 'blocks', 'summary', 'statsChangeMessage', 'cuePayload', 'translations']);
+          
+        allow delete: if isSignedIn() && isValidId(chapterId) && get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid;
+      }
     }
   }
 }
