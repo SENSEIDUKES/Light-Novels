@@ -1,3 +1,9 @@
+export interface StreamingChapter {
+  number: number;
+  content: string;
+  blocks?: any[];
+}
+
 export interface UserProfile {
   uid: string;
   username: string;

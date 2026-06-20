@@ -3,15 +3,25 @@ import {
   Sparkles, ChevronRight, Check, Eye, EyeOff, 
   Download, ArrowLeft, ArrowRight, Zap, ListMusic, 
   Award, ShieldAlert, CheckCircle, RefreshCcw,
-  Play, Pause, Square, Volume2, VolumeX, Sliders,
+  Play, Pause, Square, Volume2, VolumeX, Sliders, Settings,
   Bookmark as BookmarkIcon, Trash2, Plus, Globe, Loader2
 } from 'lucide-react';
 import { Chapter, StoryMemory, StoryWorld, ReaderPreferences, Bookmark } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { VirtualizedList } from './VirtualizedList';
 import { ParticleSystem } from './ParticleSystem';
+import { AudioWidget } from './AudioWidget';
 import { dispatchNarrativeCue, NarrativeCueEventType } from '../lib/narrativeCues';
 import { useChapterTranslation } from '../hooks/useChapterTranslation';
+
+const extractSFXCues = (text: string) => {
+  const sfxList: string[] = [];
+  const cleanText = text.replace(/\[(?:SFX|Audio|Sound):\s*([^\]]+)\]/gi, (match, sfx) => {
+      sfxList.push(sfx.trim().toLowerCase());
+      return '';
+  });
+  return { cleanText: cleanText.trim(), sfxList };
+}
 
 interface ReaderChamberProps {
   chapters: Chapter[];
@@ -194,14 +204,32 @@ export default function ReaderChamber({
     }
   }, []);
 
+  // Track utterance queue
+  const utteranceQueueRef = useRef<SpeechSynthesisUtterance[]>([]);
+  const currentUtteranceIndexRef = useRef<number>(0);
+
   // Stop speech if chapter changes or on unmount
   useEffect(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
+      utteranceQueueRef.current = [];
       setIsPlayingText(false);
       setIsPausedText(false);
     }
   }, [selectedChapterNum]);
+
+  const speakNextSentence = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    
+    if (currentUtteranceIndexRef.current < utteranceQueueRef.current.length) {
+      const nextUtterance = utteranceQueueRef.current[currentUtteranceIndexRef.current];
+      window.speechSynthesis.speak(nextUtterance);
+    } else {
+      setIsPlayingText(false);
+      setIsPausedText(false);
+      utteranceQueueRef.current = [];
+    }
+  };
 
   const handleSpeak = () => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -222,48 +250,64 @@ export default function ReaderChamber({
     }
 
     synth.cancel();
+    utteranceQueueRef.current = [];
+    currentUtteranceIndexRef.current = 0;
 
     if (!selectedChapter || !selectedChapter.generatedContent) return;
 
     // Clean text of UI markup blocks like system alert blocks for fluent stream
     const cleanText = selectedChapter.generatedContent
       .replace(/\[System Alert:[^\]]+\]/gi, '')
-      .replace(/\[Aura[^\]]+\]/gi, '');
+      .replace(/\[Aura[^\]]+\]/gi, '')
+      .replace(/\[(?:SFX|Audio|Sound):\s*([^\]]+)\]/gi, '');
 
-    const textToSpeak = `Chapter ${selectedChapter.number}. ${selectedChapter.title}. ${cleanText}`;
+    // Split text into chunks (sentences or paragraphs) to avoid the 14-second cutoff bug in some browsers
+    const chunks = `Chapter ${selectedChapter.number}. ${selectedChapter.title}. \n\n ${cleanText}`
+      .match(/[^.!?\n]+[.!?\n]+/g) || [cleanText];
 
-    const utterance = new SpeechSynthesisUtterance(textToSpeak);
-    
-    if (selectedVoiceURI) {
-      const matchedVoice = availableVoices.find(v => v.voiceURI === selectedVoiceURI);
-      if (matchedVoice) {
-        utterance.voice = matchedVoice;
-      }
+    const voice = selectedVoiceURI 
+      ? availableVoices.find(v => v.voiceURI === selectedVoiceURI) 
+      : null;
+
+    chunks.forEach((chunk, index) => {
+      const text = chunk.trim();
+      if (!text) return;
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      if (voice) utterance.voice = voice;
+      utterance.rate = speechRate;
+      utterance.pitch = speechPitch;
+      utterance.volume = speechVolume;
+
+      utterance.onend = () => {
+        currentUtteranceIndexRef.current += 1;
+        speakNextSentence();
+      };
+
+      utterance.onerror = (e) => {
+        console.warn("Aetherial speech synthesis interrupted:", e);
+        // Only stop if not just a boundary interruption
+        if (e.error !== 'interrupted' && e.error !== 'canceled') {
+           setIsPlayingText(false);
+           setIsPausedText(false);
+           utteranceQueueRef.current = [];
+        }
+      };
+
+      utteranceQueueRef.current.push(utterance);
+    });
+
+    if (utteranceQueueRef.current.length > 0) {
+      setIsPlayingText(true);
+      setIsPausedText(false);
+      speakNextSentence();
     }
-
-    utterance.rate = speechRate;
-    utterance.pitch = speechPitch;
-    utterance.volume = speechVolume;
-
-    utterance.onend = () => {
-      setIsPlayingText(false);
-      setIsPausedText(false);
-    };
-
-    utterance.onerror = (e) => {
-      console.warn("Aetherial speech synthesis interrupted:", e);
-      setIsPlayingText(false);
-      setIsPausedText(false);
-    };
-
-    setIsPlayingText(true);
-    setIsPausedText(false);
-    synth.speak(utterance);
   };
 
   const handleStopSpeaking = () => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
+      utteranceQueueRef.current = [];
       setIsPlayingText(false);
       setIsPausedText(false);
     }
@@ -508,7 +552,8 @@ export default function ReaderChamber({
             {selectedChapter.title}
           </h2>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex space-x-2 items-center shrink-0">
+            <AudioWidget />
             <button
               onClick={() => onToggleRead(selectedChapter.number)}
               className={`p-2 rounded-full border flex items-center justify-center transition-all ${
@@ -810,7 +855,8 @@ export default function ReaderChamber({
              } max-w-2xl mx-auto select-text`}>
                {activeTranslationContent ? activeTranslationContent.split('\n\n').map((paragraph, index) => {
                  if (!paragraph.trim()) return null;
-                 const isSystemLine = paragraph.startsWith('[') && paragraph.endsWith(']');
+                 const { cleanText, sfxList } = extractSFXCues(paragraph);
+                 const isSystemLine = cleanText.startsWith('[') && cleanText.endsWith(']');
                  if (isSystemLine) {
                    const getSystemThemeClasses = () => {
                      const t = currentPrefs.themeOverride || 'void';
@@ -838,8 +884,19 @@ export default function ReaderChamber({
                    >
                      <div className="flex items-start">
                        <div className="flex-1 min-w-0 font-serif leading-relaxed">
+                         {sfxList.map((sfx, i) => (
+                           <span 
+                             key={`sfx-${index}-${i}`}
+                             className="narrative-trigger hidden"
+                             aria-hidden="true"
+                             data-cue-type="narrative.fx.play"
+                             data-cue-id={`sfx-trans-${selectedChapter.number}-${index}-${i}`}
+                             data-cue-value={sfx}
+                             data-cue-once="true"
+                           />
+                         ))}
                          <p className={`text-justify indent-8 ${currentPrefs.paragraphSpacing === 'normal' ? 'mb-0' : currentPrefs.paragraphSpacing === 'wide' ? 'mb-2' : 'mb-4'}`}>
-                           {paragraph}
+                           {cleanText}
                          </p>
                        </div>
                      </div>
@@ -847,7 +904,8 @@ export default function ReaderChamber({
                  );
                }) : selectedChapter.blocks ? selectedChapter.blocks.map((block, index) => {
                  if (!block.text.trim()) return null;
-                 const isSystemLine = block.text.startsWith('[') && block.text.endsWith(']');
+                 const { cleanText, sfxList } = extractSFXCues(block.text);
+                 const isSystemLine = cleanText.startsWith('[') && cleanText.endsWith(']');
                  
                  if (isSystemLine) {
                    const getSystemThemeClasses = () => {
@@ -886,8 +944,19 @@ export default function ReaderChamber({
                       data-cue-once="true"
                       className={`relative group paragraph-block transition-colors duration-200 mb-6 ${existingBookmark ? 'custom-bookmark-bg' : ''} ${block.metadata ? 'narrative-trigger metadata-block' : ''}`}
                    >
+                     {sfxList.map((sfx, i) => (
+                       <span 
+                         key={`sfx-${index}-${i}`}
+                         className="narrative-trigger hidden"
+                         aria-hidden="true"
+                         data-cue-type="narrative.fx.play"
+                         data-cue-id={`sfx-block-${selectedChapter.number}-${index}-${i}`}
+                         data-cue-value={sfx}
+                         data-cue-once="true"
+                       />
+                     ))}
                      <p className="text-justify indent-8 relative">
-                        {block.text}
+                        {cleanText}
                         <button 
                           onClick={() => {
                              if (existingBookmark) {
@@ -942,7 +1011,8 @@ export default function ReaderChamber({
                  );
                }) : (selectedChapter.generatedContent || '').split('\n\n').map((paragraph, index) => {
                  if (!paragraph.trim()) return null;
-                 const isSystemLine = paragraph.startsWith('[') && paragraph.endsWith(']');
+                 const { cleanText, sfxList } = extractSFXCues(paragraph);
+                 const isSystemLine = cleanText.startsWith('[') && cleanText.endsWith(']');
                  if (isSystemLine) {
                    const getSystemThemeClasses = () => {
                      const t = currentPrefs.themeOverride || 'void';
@@ -1007,6 +1077,17 @@ export default function ReaderChamber({
 
                        {/* Paragraph text */}
                        <div className="flex-1 min-w-0 font-serif leading-relaxed">
+                         {sfxList.map((sfx, i) => (
+                           <span 
+                             key={`sfx-${index}-${i}`}
+                             className="narrative-trigger hidden"
+                             aria-hidden="true"
+                             data-cue-type="narrative.fx.play"
+                             data-cue-id={`sfx-text-${selectedChapter.number}-${index}-${i}`}
+                             data-cue-value={sfx}
+                             data-cue-once="true"
+                           />
+                         ))}
                          <p 
                            className={`text-justify indent-8 ${
                              currentPrefs.paragraphSpacing === 'normal' ? 'mb-0' :
@@ -1014,7 +1095,7 @@ export default function ReaderChamber({
                              'mb-4'
                            }`}
                          >
-                           {paragraph}
+                           {cleanText}
                          </p>
                        </div>
                      </div>
@@ -1204,7 +1285,7 @@ export default function ReaderChamber({
                </div>
 
                {/* Central Play/Pause RECITER bubble */}
-               <div className="flex items-center space-x-2">
+               <div className="flex items-center space-x-2 relative">
                   <button
                      onClick={handleSpeak}
                      disabled={!selectedChapter.generatedContent}
@@ -1220,6 +1301,57 @@ export default function ReaderChamber({
                   >
                      {speechRate.toFixed(1)}x
                   </button>
+                  <button 
+                    onClick={() => setShowTtsControls(!showTtsControls)} 
+                    className={`p-1.5 border rounded transition-colors ${showTtsControls ? 'bg-neutral-800 border-neutral-700 text-signal' : 'bg-void border-neutral-800 hover:text-signal hover:bg-neutral-900 text-neutral-400'}`}
+                  >
+                     <Settings size={14} />
+                  </button>
+
+                  {/* Mobile Settings Tooltip */}
+                  {showTtsControls && (
+                     <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-[280px] bg-black border border-neutral-800 rounded-lg shadow-xl p-3 z-50">
+                        <h4 className="text-[10px] uppercase font-sc text-neutral-500 mb-2 tracking-wider text-center">Voice Synthesis Engine</h4>
+                        
+                        <div className="space-y-3">
+                           <div>
+                             <label className="block text-[10px] text-neutral-400 mb-1">Voice Signature</label>
+                             <select 
+                                value={selectedVoiceURI} 
+                                onChange={e => setSelectedVoiceURI(e.target.value)}
+                                className="w-full bg-void border border-neutral-800 rounded text-[11px] p-1.5 focus:border-portal focus:outline-none"
+                             >
+                                {availableVoices.map(v => (
+                                  <option key={v.voiceURI} value={v.voiceURI}>
+                                    {v.name} ({v.lang})
+                                  </option>
+                                ))}
+                             </select>
+                           </div>
+                           
+                           <div className="grid grid-cols-2 gap-2">
+                             <div>
+                                <label className="block text-[10px] text-neutral-400 mb-1">Rate ({speechRate}x)</label>
+                                <input 
+                                  type="range" min="0.5" max="2" step="0.1" 
+                                  value={speechRate} 
+                                  onChange={(e) => setSpeechRate(parseFloat(e.target.value))}
+                                  className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer"
+                                />
+                             </div>
+                             <div>
+                                <label className="block text-[10px] text-neutral-400 mb-1">Pitch ({speechPitch})</label>
+                                <input 
+                                  type="range" min="0.5" max="2" step="0.1" 
+                                  value={speechPitch} 
+                                  onChange={(e) => setSpeechPitch(parseFloat(e.target.value))}
+                                  className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer"
+                                />
+                             </div>
+                           </div>
+                        </div>
+                     </div>
+                  )}
                </div>
 
                {/* Quick Access Icons on Right */}
@@ -1271,11 +1403,62 @@ export default function ReaderChamber({
                        </p>
                    </div>
                    {/* Voice / Speed toggles (Simple) */}
-                   <div className="flex items-center space-x-2 text-neutral-400">
+                   <div className="flex items-center space-x-2 text-neutral-400 relative">
                       <button onClick={() => setSpeechRate(prev => prev >= 2 ? 0.5 : prev + 0.5)} className="text-[10px] font-mono hover:text-signal bg-void border border-neutral-800 px-2 py-1 rounded">
                          {speechRate.toFixed(1)}x
                       </button>
-                      <button onClick={handleExportText} className="text-[10px] font-sc uppercase hover:text-signal bg-void border border-neutral-800 px-2 py-1 rounded">
+                      <button 
+                        onClick={() => setShowTtsControls(!showTtsControls)} 
+                        className={`p-1 border rounded transition-colors ${showTtsControls ? 'bg-neutral-800 border-neutral-700 text-signal' : 'bg-void border-neutral-800 hover:text-signal hover:bg-neutral-900'}`}
+                      >
+                         <Settings size={14} />
+                      </button>
+                      
+                      {showTtsControls && (
+                        <div className="absolute bottom-full mb-3 left-0 w-64 bg-black border border-neutral-800 rounded-lg shadow-xl p-3 z-50">
+                           <h4 className="text-[10px] uppercase font-sc text-neutral-500 mb-2 tracking-wider">Voice Synthesis Engine</h4>
+                           
+                           <div className="space-y-3">
+                              <div>
+                                <label className="block text-[10px] text-neutral-400 mb-1">Voice Signature</label>
+                                <select 
+                                   value={selectedVoiceURI} 
+                                   onChange={e => setSelectedVoiceURI(e.target.value)}
+                                   className="w-full bg-void border border-neutral-800 rounded text-[11px] p-1.5 focus:border-portal focus:outline-none"
+                                >
+                                   {availableVoices.map(v => (
+                                     <option key={v.voiceURI} value={v.voiceURI}>
+                                       {v.name} ({v.lang})
+                                     </option>
+                                   ))}
+                                </select>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                   <label className="block text-[10px] text-neutral-400 mb-1">Rate ({speechRate}x)</label>
+                                   <input 
+                                     type="range" min="0.5" max="2" step="0.1" 
+                                     value={speechRate} 
+                                     onChange={(e) => setSpeechRate(parseFloat(e.target.value))}
+                                     className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer"
+                                   />
+                                </div>
+                                <div>
+                                   <label className="block text-[10px] text-neutral-400 mb-1">Pitch ({speechPitch})</label>
+                                   <input 
+                                     type="range" min="0.5" max="2" step="0.1" 
+                                     value={speechPitch} 
+                                     onChange={(e) => setSpeechPitch(parseFloat(e.target.value))}
+                                     className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer"
+                                   />
+                                </div>
+                              </div>
+                           </div>
+                        </div>
+                      )}
+
+                      <button onClick={handleExportText} className="text-[10px] font-sc uppercase hover:text-signal bg-void border border-neutral-800 px-2 py-1 rounded ml-2">
                          Download
                       </button>
                     </div>

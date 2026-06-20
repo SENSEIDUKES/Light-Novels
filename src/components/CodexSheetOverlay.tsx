@@ -1,0 +1,71 @@
+import React from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ArrowLeft } from 'lucide-react';
+import { useAppStore } from '../store/useAppStore';
+import LivingCodex from './LivingCodex';
+import { Story } from '../types';
+
+export const CodexSheetOverlay: React.FC<{
+  handleUpdateMemoryManual: (updated: any) => void,
+  handleUpdateStoryDirect: (story: Story) => void
+}> = ({ handleUpdateMemoryManual, handleUpdateStoryDirect }) => {
+
+  const { isCodexSheetOpen, setIsCodexSheetOpen, stories, activeStoryId, setCurrentScreen, setSelectedChapterNum, routingConfig } = useAppStore();
+  const activeStory = stories.find(s => s.id === activeStoryId);
+
+  return (
+    <AnimatePresence>
+      {isCodexSheetOpen && activeStory && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-none">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsCodexSheetOpen(false)}
+            className="absolute inset-0 bg-black/90 sm:backdrop-blur-sm pointer-events-auto"
+          />
+          
+          <motion.div
+            initial={{ opacity: 0, y: "100%" }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: "100%" }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="relative w-full sm:w-[95vw] lg:w-[90vw] sm:max-h-[90vh] h-[95vh] sm:h-auto bg-[#0a0a0a] border border-neutral-900 rounded-t-3xl sm:rounded-xl shadow-2xl pointer-events-auto flex flex-col pt-2 sm:pt-0"
+          >
+            <div className="w-12 h-1.5 bg-neutral-800 rounded-full mx-auto my-2 sm:hidden flex-shrink-0" />
+            
+            <div className="flex items-center space-x-2 bg-black/60 border border-neutral-900 px-3 py-3 sm:px-4 sm:py-2 rounded shadow-md backdrop-blur-md mb-2 sm:mb-6 sticky top-0 z-30 mx-4 mt-2 sm:mt-6 shrink-0">
+              <button onClick={() => setIsCodexSheetOpen(false)} className="text-neutral-500 hover:text-portal transition-colors flex-shrink-0">
+                <ArrowLeft size={18} />
+              </button>
+              <span className="text-portal font-display text-sm sm:text-lg font-bold truncate">{activeStory.title}</span>
+              <span className="text-neutral-600 font-sans text-xs sm:text-sm flex-shrink-0">- Living Codex</span>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto px-4 pb-12 custom-scrollbar">
+              <div className="max-w-6xl mx-auto">
+                <LivingCodex
+                  memory={activeStory.memory}
+                  arcs={activeStory.arcs}
+                  onUpdateMemory={handleUpdateMemoryManual}
+                  mcName={activeStory.mcName}
+                  onJumpToChapter={(num) => {
+                    setSelectedChapterNum(num);
+                    setCurrentScreen('reader');
+                    setIsCodexSheetOpen(false);
+                  }}
+                  onSwitchTab={(tab) => {
+                    if (tab === 'reader') setIsCodexSheetOpen(false);
+                  }}
+                  activeStory={activeStory}
+                  onUpdateStory={handleUpdateStoryDirect}
+                  routingConfig={routingConfig}
+                />
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+};

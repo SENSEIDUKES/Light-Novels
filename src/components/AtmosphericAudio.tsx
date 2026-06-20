@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-type AtmosphereType = 'none' | 'wind' | 'rain' | 'temple';
+type AtmosphereType = 'none' | 'wind' | 'rain' | 'temple' | 'crowd' | 'combat';
+type FXType = 'footsteps' | 'footsteps_snow' | 'footsteps_wood' | 'footsteps_stone' | 'creature' | 'system_alert' | 'combat_hit';
 
 export function AtmosphericAudio() {
   const [isMuted, setIsMuted] = useState(() => {
@@ -15,9 +16,8 @@ export function AtmosphericAudio() {
   });
 
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const windNodesRef = useRef<any>(null);
-  const rainNodesRef = useRef<any>(null);
-  const bellIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const activeSourcesRef = useRef<AudioScheduledSourceNode[]>([]);
+  const activeIntervalsRef = useRef<NodeJS.Timeout[]>([]);
 
   // Sync state changes with localStorage and dispatch state event to UI
   useEffect(() => {
@@ -76,6 +76,10 @@ export function AtmosphericAudio() {
     } else if (atmosphere === 'temple') {
       playWind(ctx); // Wind as background
       playTempleBells(ctx);
+    } else if (atmosphere === 'crowd') {
+      playCrowd(ctx);
+    } else if (atmosphere === 'combat') {
+      playCombatAmbience(ctx);
     }
 
     return () => {
@@ -84,24 +88,24 @@ export function AtmosphericAudio() {
   }, [isMuted, atmosphere, volume]);
 
   const stopAll = () => {
-    if (windNodesRef.current) {
+    activeSourcesRef.current.forEach(source => {
       try {
-        windNodesRef.current.source.stop();
-        windNodesRef.current.source.disconnect();
+        source.stop();
+        source.disconnect();
       } catch (e) {}
-      windNodesRef.current = null;
-    }
-    if (rainNodesRef.current) {
-      try {
-        rainNodesRef.current.source.stop();
-        rainNodesRef.current.source.disconnect();
-      } catch (e) {}
-      rainNodesRef.current = null;
-    }
-    if (bellIntervalRef.current) {
-      clearInterval(bellIntervalRef.current);
-      bellIntervalRef.current = null;
-    }
+    });
+    activeSourcesRef.current = [];
+
+    activeIntervalsRef.current.forEach(interval => clearInterval(interval));
+    activeIntervalsRef.current = [];
+  };
+
+  const registerSource = (source: AudioScheduledSourceNode) => {
+    activeSourcesRef.current.push(source);
+  };
+
+  const registerInterval = (interval: NodeJS.Timeout) => {
+    activeIntervalsRef.current.push(interval);
   };
 
   const createNoiseBuffer = (ctx: AudioContext, type: 'white' | 'pink') => {
@@ -144,7 +148,8 @@ export function AtmosphericAudio() {
     masterGain.connect(ctx.destination);
 
     source.start();
-    windNodesRef.current = { source, lfo, filter };
+    registerSource(source);
+    registerSource(lfo);
   };
 
   const playRain = (ctx: AudioContext) => {
@@ -165,7 +170,68 @@ export function AtmosphericAudio() {
     masterGain.connect(ctx.destination);
 
     source.start();
-    rainNodesRef.current = { source, filter };
+    registerSource(source);
+  };
+
+  const playCrowd = (ctx: AudioContext) => {
+    const buffer = createNoiseBuffer(ctx, 'pink');
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 500;
+    filter.Q.value = 0.5;
+
+    const lfo = ctx.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.value = 1.5;
+
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 100;
+    lfo.connect(lfoGain);
+    lfoGain.connect(filter.frequency);
+    lfo.start();
+
+    const masterGain = ctx.createGain();
+    masterGain.gain.value = volume * 0.2;
+
+    source.connect(filter);
+    filter.connect(masterGain);
+    masterGain.connect(ctx.destination);
+
+    source.start();
+    registerSource(source);
+    registerSource(lfo);
+  };
+
+  const playCombatAmbience = (ctx: AudioContext) => {
+    const buffer = createNoiseBuffer(ctx, 'pink');
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 300;
+
+    const masterGain = ctx.createGain();
+    masterGain.gain.value = volume * 0.2;
+
+    source.connect(filter);
+    filter.connect(masterGain);
+    masterGain.connect(ctx.destination);
+
+    source.start();
+    registerSource(source);
+
+    const intv = setInterval(() => {
+      if (Math.random() > 0.6) {
+        triggerCombatHit(ctx);
+      }
+    }, 2500);
+    registerInterval(intv);
   };
 
   const triggerBell = (ctx: AudioContext) => {
@@ -197,11 +263,150 @@ export function AtmosphericAudio() {
     // Initial bell
     triggerBell(ctx);
     // Random bell rings
-    bellIntervalRef.current = setInterval(() => {
+    const intv = setInterval(() => {
       if (Math.random() > 0.3) {
           triggerBell(ctx);
       }
     }, 10000);
+    registerInterval(intv);
+  };
+
+  const triggerChime = (ctx: AudioContext) => {
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime); 
+    
+    const gainNode = ctx.createGain();
+    gainNode.gain.setValueAtTime(0, ctx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(volume * 0.2, ctx.currentTime + 0.05);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5); 
+
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 1.5);
+  };
+
+  const triggerSystemAlert = (ctx: AudioContext) => {
+    const osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(800, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
+    
+    const gainNode = ctx.createGain();
+    gainNode.gain.setValueAtTime(0, ctx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(volume * 0.3, ctx.currentTime + 0.05);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.5);
+  };
+
+  const triggerFootstep = (ctx: AudioContext, material: 'generic' | 'snow' | 'wood' | 'stone' = 'generic') => {
+    const bufferSize = ctx.sampleRate * 0.1; 
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const output = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+        output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.05));
+    }
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    
+    if (material === 'snow') {
+        filter.type = 'highpass';
+        filter.frequency.value = 1500;
+        // Snow has a longer crunchy tail
+        for (let i = 0; i < bufferSize; i++) {
+            output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.08));
+        }
+    } else if (material === 'wood') {
+        filter.type = 'lowpass';
+        filter.frequency.value = 300;
+        
+        // Add a low thud for wood
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(60, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.1);
+        
+        const thudGain = ctx.createGain();
+        thudGain.gain.setValueAtTime(volume * 0.5, ctx.currentTime);
+        thudGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+        
+        osc.connect(thudGain);
+        thudGain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.1);
+    } else if (material === 'stone') {
+        filter.type = 'bandpass';
+        filter.frequency.value = 800;
+        filter.Q.value = 2; // slight ringing for stone
+    } else {
+        filter.type = 'lowpass';
+        filter.frequency.value = 400;
+    }
+
+    const gainNode = ctx.createGain();
+    gainNode.gain.value = volume * (material === 'snow' ? 0.3 : 0.6); // snow is a bit quieter
+
+    source.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    source.start();
+  };
+
+  const triggerCreature = (ctx: AudioContext) => {
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(100, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(50, ctx.currentTime + 0.8);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(800, ctx.currentTime);
+    filter.frequency.linearRampToValueAtTime(200, ctx.currentTime + 0.8);
+
+    const gainNode = ctx.createGain();
+    gainNode.gain.setValueAtTime(0, ctx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(volume * 0.5, ctx.currentTime + 0.1);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+
+    osc.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.8);
+  };
+
+  const triggerCombatHit = (ctx: AudioContext) => {
+    const osc = ctx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(300, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.3);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 1000;
+
+    const gainNode = ctx.createGain();
+    gainNode.gain.setValueAtTime(0, ctx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(volume * 0.5, ctx.currentTime + 0.02);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+
+    osc.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.3);
   };
 
   const initAudioCtx = () => {
@@ -214,23 +419,6 @@ export function AtmosphericAudio() {
     return audioCtxRef.current;
   };
 
-  const triggerChime = (ctx: AudioContext) => {
-    const osc = ctx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(880, ctx.currentTime); 
-    
-    const gainNode = ctx.createGain();
-    gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.05);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5); 
-
-    osc.connect(gainNode);
-    gainNode.connect(ctx.destination);
-
-    osc.start();
-    osc.stop(ctx.currentTime + 1.5);
-  };
-
   // Listen to narrative scale triggers and adjust atmosphere/volume dynamically
   useEffect(() => {
     const handleCue = (e: any) => {
@@ -238,9 +426,9 @@ export function AtmosphericAudio() {
       if (isMuted) return;
 
       const cue = e.detail;
+      const ctx = initAudioCtx();
+
       if (cue.type === 'narrative.metadata.signature') {
-        const ctx = initAudioCtx();
-        triggerChime(ctx);
         const meta = cue.metadata || cue.value;
         
         if (meta) {
@@ -248,6 +436,10 @@ export function AtmosphericAudio() {
              setVolume(Math.max(0.1, Math.min(1.0, meta.intensity)));
            }
            
+           if (meta.playChime) {
+             triggerChime(ctx);
+           }
+
            if (meta.environment?.includes('rain') || meta.sceneType === 'travel') {
              setAtmosphere('rain');
            } else if (meta.mysticism && meta.mysticism > 0.5) {
@@ -273,17 +465,39 @@ export function AtmosphericAudio() {
             setAtmosphere('wind');
           } else if (meta.tension && meta.tension > 0.8) {
             setAtmosphere('wind');
+          } else if (meta.theme === 'war' || meta.theme === 'combat' || meta.danger > 0.8) {
+            setAtmosphere('combat');
+          } else if (meta.theme === 'city' || meta.theme === 'festival' || meta.environment === 'city') {
+            setAtmosphere('crowd');
           } else {
             setAtmosphere('none');
           }
         }
+      } else if (cue.type === 'narrative.fx.play') {
+          const fxType = cue.value as FXType;
+          if (fxType === 'footsteps') {
+              triggerFootstep(ctx, 'generic');
+          } else if (fxType === 'footsteps_snow') {
+              triggerFootstep(ctx, 'snow');
+          } else if (fxType === 'footsteps_wood') {
+              triggerFootstep(ctx, 'wood');
+          } else if (fxType === 'footsteps_stone') {
+              triggerFootstep(ctx, 'stone');
+          } else if (fxType === 'creature') {
+              triggerCreature(ctx);
+          } else if (fxType === 'system_alert') {
+              triggerSystemAlert(ctx);
+          } else if (fxType === 'combat_hit') {
+              triggerCombatHit(ctx);
+          }
       }
     };
     
     window.addEventListener('narrative-cue', handleCue);
     return () => window.removeEventListener('narrative-cue', handleCue);
-  }, [isMuted]); // Observe changes to Mute preference directly
+  }, [isMuted, volume]); // Observe changes to Mute preference directly
 
   // Headless rendering to prevent blocking menu options
   return null;
 }
+

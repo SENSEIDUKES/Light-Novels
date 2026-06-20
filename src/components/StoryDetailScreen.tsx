@@ -1,0 +1,207 @@
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Sparkles, BookOpen, MoreHorizontal, BookCheck, Download, Trash2, Zap } from 'lucide-react';
+import { useAppStore } from '../store/useAppStore';
+
+export const StoryDetailScreen: React.FC<{ 
+  handleGenerateCover: () => void,
+  handleExportFullTome: (story: any) => void,
+  handleExportSingleStory: (story: any) => void,
+  handleDeleteStory: (id: string, e: React.MouseEvent) => void,
+  setIsCodexSheetOpen: (open: boolean) => void
+}> = ({
+  handleGenerateCover, handleExportFullTome, handleExportSingleStory, handleDeleteStory, setIsCodexSheetOpen
+}) => {
+  const { currentScreen, setCurrentScreen, activeStoryId, stories, isGenerating, setSelectedChapterNum } = useAppStore();
+  const [isStoryMenuOpen, setIsStoryMenuOpen] = useState(false);
+
+  if (currentScreen !== 'detail') return null;
+
+  const activeStory = stories.find(s => s.id === activeStoryId);
+  if (!activeStory) return null;
+
+  const isCurrentArcFinished = activeStory.arcs.length > 0 && 
+    activeStory.arcs[activeStory.arcs.length - 1].chapters.every(c => c.hasContent || !!c.generatedContent);
+
+  return (
+    <motion.div
+      key="detail-screen"
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -15 }}
+      transition={{ duration: 0.3 }}
+      className="max-w-5xl mx-auto space-y-8"
+    >
+      <div className="flex flex-col md:flex-row gap-8 bg-[#0a0a0a] border border-neutral-900 rounded-xl p-6 shadow-2xl">
+        {/* Cover Art */}
+        <div className="w-full max-w-[180px] mx-auto md:max-w-none md:w-64 flex-shrink-0">
+          <div className="relative group aspect-[2/3] rounded-lg overflow-hidden border border-neutral-800 shadow-md">
+            <img 
+              src={activeStory.imageUrl || `https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?auto=format&fit=crop&q=80`}
+              alt={activeStory.title}
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+            {/* Hover Overlay for Cover Generation */}
+            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+              <button 
+                onClick={handleGenerateCover}
+                disabled={isGenerating}
+                className="px-4 py-2 bg-portal/20 border border-portal/50 text-portal text-[10px] font-bold font-sc uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-colors flex flex-col items-center gap-1.5 shadow-[0_0_15px_rgba(4,172,255,0.4)] disabled:opacity-50"
+              >
+                <Sparkles size={16} />
+                <span>Forge Core Cover</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 space-y-4">
+          <div className="space-y-1">
+            <h2 className="font-display font-bold text-3xl sm:text-4xl text-signal leading-tight">{activeStory.title}</h2>
+            <p className="font-sans text-xs text-neutral-400">Written by <span className="text-gold-accent">Aetherial Resonance</span> • {activeStory.createdAt.split('T')[0]}</p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <span className="bg-void border border-neutral-800 text-jade-accent px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider font-mono">
+              {activeStory.genre}
+            </span>
+            <span className="bg-void border border-neutral-800 text-neutral-400 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider font-mono">
+              Cultivation Rate: Heaven
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-void border border-neutral-800 rounded-lg">
+            <div>
+              <p className="text-[10px] text-neutral-500 font-sc uppercase tracking-wider font-bold">Chapters</p>
+              <p className="font-mono text-signal text-lg">{activeStory.arcs.reduce((sum, a) => sum + a.chapters.length, 0)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-neutral-500 font-sc uppercase tracking-wider font-bold">Current Arc</p>
+              <p className="font-mono text-signal text-sm mt-1 truncate">{activeStory.arcs[activeStory.arcs.length - 1].title}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-neutral-500 font-sc uppercase tracking-wider font-bold">Realm</p>
+              <p className="font-mono text-portal text-sm mt-1 truncate">{activeStory.memory.currentPowerStage}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-neutral-500 font-sc uppercase tracking-wider font-bold">Status</p>
+              <p className="font-mono text-yellow-500 text-sm mt-1">
+                {isCurrentArcFinished ? 'Awaiting Arc' : 'Manifesting'}
+              </p>
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <h3 className="font-sc font-bold text-neutral-300 text-xs uppercase tracking-widest mb-2 border-b border-neutral-800 pb-1">Synopsis</h3>
+            <p className="font-serif text-sm text-neutral-400 leading-relaxed italic">
+              "{activeStory.customPremise}"
+            </p>
+          </div>
+
+          <div className="pt-6 flex flex-wrap gap-3 items-center relative">
+            <button
+              onClick={() => {
+                const lastCh = activeStory.arcs[activeStory.arcs.length - 1].chapters.find(c => !(c.hasContent || !!c.generatedContent))?.number || activeStory.arcs[activeStory.arcs.length - 1].chapters[0].number;
+                setSelectedChapterNum(lastCh);
+                setCurrentScreen('reader');
+              }}
+              className="px-6 py-2.5 bg-human border border-human text-signal font-sc font-bold uppercase tracking-wider rounded shadow-md hover:bg-void hover:text-human transition-all flex items-center space-x-2 text-xs"
+            >
+              <BookOpen size={16} />
+              <span>Start Reading</span>
+            </button>
+
+            <button
+              onClick={() => setIsCodexSheetOpen(true)}
+              className="px-6 py-2.5 bg-void border border-portal text-portal font-sc font-bold uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-all flex items-center space-x-2 text-xs"
+            >
+              <Sparkles size={16} />
+              <span>Open Codex</span>
+            </button>
+
+            <div className="relative">
+              <button
+                onClick={() => setIsStoryMenuOpen(!isStoryMenuOpen)}
+                className="p-2.5 bg-void border border-neutral-800 text-neutral-400 hover:text-signal rounded hover:bg-neutral-900 hover:border-neutral-750 transition-all flex items-center justify-center"
+                title="More options"
+                type="button"
+              >
+                <MoreHorizontal size={18} />
+              </button>
+
+              <AnimatePresence>
+                {isStoryMenuOpen && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setIsStoryMenuOpen(false)} 
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute left-0 mt-2 w-56 rounded bg-neutral-950 border border-neutral-800 shadow-xl z-50 overflow-hidden divide-y divide-neutral-900"
+                    >
+                      <div className="py-1">
+                        <button
+                          onClick={() => {
+                            setIsStoryMenuOpen(false);
+                            handleExportFullTome(activeStory);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-xs text-neutral-300 hover:bg-neutral-900 hover:text-gold-accent transition-colors flex items-center space-x-2 font-sc font-bold uppercase tracking-wider"
+                        >
+                          <BookCheck size={14} className="text-portal" />
+                          <span>Export Full Tome (HTML)</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setIsStoryMenuOpen(false);
+                            handleExportSingleStory(activeStory);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-xs text-neutral-350 hover:bg-neutral-900 hover:text-signal transition-colors flex items-center space-x-2 font-sc font-bold uppercase tracking-wider"
+                        >
+                          <Download size={14} className="text-gold-accent" />
+                          <span>Export JSON Metadata</span>
+                        </button>
+                      </div>
+
+                      <div className="py-1">
+                        <button
+                          onClick={(e) => {
+                            setIsStoryMenuOpen(false);
+                            handleDeleteStory(activeStory.id, e);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-xs text-red-500 hover:bg-red-950/20 hover:text-red-400 transition-colors flex items-center space-x-2 font-sc font-bold uppercase tracking-wider"
+                        >
+                          <Trash2 size={14} />
+                          <span>Delete Matrix</span>
+                        </button>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+            
+            {isCurrentArcFinished && (
+              <button
+                onClick={() => {
+                  setSelectedChapterNum(-1);
+                  setCurrentScreen('reader');
+                }}
+                className="px-6 py-2.5 bg-void border border-gold-accent text-gold-accent font-sc font-bold uppercase tracking-wider rounded hover:bg-gold-accent/10 transition-all flex items-center space-x-2 text-xs ml-auto"
+              >
+                <Zap size={16} />
+                <span>Generate Next Arc</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
