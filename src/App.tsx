@@ -269,6 +269,14 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<'home' | 'detail' | 'reader' | 'codex' | 'creator' | 'profile'>('home');
   const [storyToDelete, setStoryToDelete] = useState<string | null>(null);
   
+  // Hero Video Switcher
+  const HERO_VIDEOS = [
+    "https://video.seihouse.org/LIGHT%20NOVEL/LIGHT_NOVEL_INTRO.mp4",
+    "https://video.seihouse.org/LIGHT%20NOVEL/LIGHT_NOVEL_INTRO2.mp4"
+  ];
+  const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
+  const heroVideoRef = React.useRef<HTMLVideoElement>(null);
+  
   // Generation triggers
   const [isGenerating, setIsGenerating] = useState(false);
   const [appError, setAppError] = useState<string | null>(null);
@@ -1774,25 +1782,47 @@ export default function App() {
               className="space-y-12 pb-10"
             >
               {/* Dark Fantasy Webnovel Hero Banner */}
-              <div className="relative rounded-xl border border-neutral-900 overflow-hidden shadow-2xl h-60 sm:h-80 flex items-end">
-                <video 
-                  ref={(el) => {
-                    if (el) {
-                      el.muted = true;
-                      // Ensure playsInline configuration
-                      el.setAttribute('playsinline', '');
-                      el.play().catch(e => console.log("Autoplay blocked:", e));
-                    }
-                  }}
-                  id="hero-banner-video"
-                  src="https://video.seihouse.org/LIGHT%20NOVEL/LIGHT_NOVEL_INTRO.mp4"
-                  autoPlay 
-                  loop 
-                  muted 
-                  playsInline
-                  className="absolute inset-0 w-full h-full object-cover opacity-50 sm:opacity-60"
-                />
-                <div className="absolute inset-0 ink-gradient"></div>
+              <div className="relative rounded-xl border border-neutral-900 overflow-hidden shadow-2xl h-60 sm:h-80 flex items-end bg-black">
+                <AnimatePresence initial={false}>
+                  <motion.div
+                    key={currentVideoIdx}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 1.2, ease: "easeInOut" }}
+                    className="absolute inset-0 z-0"
+                  >
+                    <video 
+                      ref={heroVideoRef}
+                      id={`hero-banner-video-${currentVideoIdx}`}
+                      src={HERO_VIDEOS[currentVideoIdx]}
+                      autoPlay 
+                      muted 
+                      playsInline
+                      onEnded={() => {
+                        setCurrentVideoIdx((prev) => (prev === 0 ? 1 : 0));
+                      }}
+                      className="w-full h-full object-cover opacity-50 sm:opacity-60"
+                    />
+                  </motion.div>
+                </AnimatePresence>
+                <div className="absolute inset-0 ink-gradient z-10 pointer-events-none"></div>
+                
+                {/* Floating dynamic control dots in bottom-right */}
+                <div className="absolute bottom-4 right-4 z-20 flex space-x-2 bg-black/60 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-neutral-800/80">
+                  {HERO_VIDEOS.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentVideoIdx(idx)}
+                      className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                        currentVideoIdx === idx 
+                          ? 'bg-[#d4af37] scale-125 shadow-[0_0_8px_rgba(212,175,55,0.8)]' 
+                          : 'bg-neutral-600 hover:bg-neutral-400'
+                      }`}
+                      title={`Switch to Cinematic Intro ${idx + 1}`}
+                    />
+                  ))}
+                </div>
                 <div className="relative z-10 p-5 sm:p-12 w-full flex justify-between items-end">
                   <div className="max-w-2xl space-y-2 sm:space-y-3">
                     <span className="font-sc text-gold-accent font-bold uppercase tracking-[0.25em] text-[10px] sm:text-xs">Featured Ascension</span>
