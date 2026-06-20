@@ -30,7 +30,7 @@ export const CodexSheetOverlay: React.FC<{
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: "100%" }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="relative w-full sm:w-[95vw] lg:w-[90vw] sm:max-h-[90vh] h-[95vh] sm:h-auto bg-[#0a0a0a] border border-neutral-900 rounded-t-3xl sm:rounded-xl shadow-2xl pointer-events-auto flex flex-col pt-2 sm:pt-0"
+            className="relative w-full sm:w-[95dvw] lg:w-[90dvw] sm:max-h-[90dvh] h-[95dvh] sm:h-auto bg-[#0a0a0a] border border-neutral-900 rounded-t-3xl sm:rounded-xl shadow-2xl pointer-events-auto flex flex-col pt-2 sm:pt-0"
           >
             <div className="w-12 h-1.5 bg-neutral-800 rounded-full mx-auto my-2 sm:hidden flex-shrink-0" />
             

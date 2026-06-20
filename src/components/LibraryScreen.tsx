@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, BookOpen, Trash2, Play, Upload, Download, Database } from 'lucide-react';
+import { Sparkles, BookOpen, Trash2, Play, Globe, Eye } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { ParticleSystem } from './ParticleSystem';
 import { Story } from '../types';
@@ -10,9 +10,12 @@ const HERO_VIDEOS = [
   "https://video.seihouse.org/LIGHT%20NOVEL/LIGHT_NOVEL_INTRO2.mp4"
 ];
 
+const PUBLISHED_WORLDS: any[] = [];
+
 export const LibraryScreen: React.FC = () => {
-  const { currentScreen, setCurrentScreen, stories, setActiveStoryId, setStoryToDelete, storageType, handleExportLibrary, handleImportLibrary } = useAppStore();
+  const { currentScreen, setCurrentScreen, stories, setActiveStoryId, setStoryToDelete } = useAppStore();
   const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
+  const [activeTab, setActiveTab] = useState<'featured' | 'my-library'>(stories.length === 0 ? 'featured' : 'my-library');
   const heroVideoRef = useRef<HTMLVideoElement>(null);
 
   if (currentScreen !== 'home') return null;
@@ -103,208 +106,239 @@ export const LibraryScreen: React.FC = () => {
             <div className="pt-2 sm:pt-4 flex flex-wrap gap-4">
               <button
                 onClick={() => setCurrentScreen('creator')}
-                className="px-4 py-2 sm:px-6 sm:py-2.5 bg-human border border-human text-signal text-xs sm:text-sm font-sc font-bold uppercase tracking-wider rounded shadow-[0_0_15px_rgba(139,0,0,0.5)] hover:bg-void hover:text-human transition-all flex items-center space-x-1.5 sm:space-x-2"
+                className="group relative px-4 py-2 sm:px-6 sm:py-2.5 bg-void border border-portal text-portal text-xs sm:text-sm font-sc font-bold uppercase tracking-wider rounded shadow-[0_0_20px_rgba(4,172,255,0.4),inset_0_0_15px_rgba(4,172,255,0.2)] hover:shadow-[0_0_30px_rgba(4,172,255,0.6),inset_0_0_25px_rgba(4,172,255,0.4)] hover:bg-portal/10 hover:text-signal transition-all duration-500 overflow-hidden flex items-center space-x-1.5 sm:space-x-2"
               >
-                <Sparkles size={14} />
-                <span>Carve New Destiny</span>
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-portal/20 to-transparent -translate-x-[200%] group-hover:translate-x-[200%] transition-transform duration-1000 ease-in-out" />
+                <Sparkles size={14} className="relative z-10 group-hover:animate-pulse" />
+                <span className="relative z-10 drop-shadow-[0_0_8px_rgba(4,172,255,0.6)]">Carve New Destiny</span>
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="space-y-6" id="saved-matrices-list">
-        
-        {mostRecentStory && (
-          <div className="bg-neutral-950/40 border border-neutral-900 rounded-lg p-5 flex flex-col md:flex-row items-center gap-6 shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
-            <div className="relative w-full md:w-48 h-32 rounded-md overflow-hidden flex-shrink-0 border border-neutral-800">
-              <img 
-                src={mostRecentStory.imageUrl || `https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?auto=format&fit=crop&q=80`} 
-                alt={mostRecentStory.title}
-                className="w-full h-full object-cover opacity-80"
-                referrerPolicy="no-referrer"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-90"></div>
-              <div className="absolute bottom-2 left-2 right-2">
-                <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-gold-accent px-1.5 py-0.5 bg-black/80 border border-neutral-800 rounded inline-block">
-                  Continue Reading
-                </span>
+      <div className="flex space-x-6 border-b border-neutral-900 mt-8 mb-6">
+        <button 
+          onClick={() => setActiveTab('featured')}
+          className={`pb-3 px-1 text-sm font-sc font-bold uppercase tracking-wider border-b-2 transition-all ${
+            activeTab === 'featured' ? 'border-portal text-portal' : 'border-transparent text-neutral-500 hover:text-neutral-300'
+          }`}
+        >
+          SEIHouse Featured Novels
+        </button>
+        <button 
+          onClick={() => setActiveTab('my-library')}
+          className={`pb-3 px-1 text-sm font-sc font-bold uppercase tracking-wider border-b-2 transition-all ml-2 md:ml-4 ${
+            activeTab === 'my-library' ? 'border-gold-accent text-gold-accent' : 'border-transparent text-neutral-500 hover:text-neutral-300'
+          }`}
+        >
+          My Library {stories.length > 0 && `(${stories.length})`}
+        </button>
+      </div>
+
+      {activeTab === 'my-library' && (
+        <div className="space-y-6 animate-fadeIn" id="saved-matrices-list">
+          
+          {mostRecentStory && (
+            <div className="bg-neutral-950/40 border border-neutral-900 rounded-lg p-5 flex flex-col md:flex-row items-center gap-6 shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
+              <div className="relative w-full md:w-48 h-32 rounded-md overflow-hidden flex-shrink-0 border border-neutral-800">
+                <img 
+                  src={mostRecentStory.imageUrl || `https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?auto=format&fit=crop&q=80`} 
+                  alt={mostRecentStory.title}
+                  className="w-full h-full object-cover opacity-80"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-90"></div>
+                <div className="absolute bottom-2 left-2 right-2">
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-gold-accent px-1.5 py-0.5 bg-black/80 border border-neutral-800 rounded inline-block">
+                    Continue Reading
+                  </span>
+                </div>
               </div>
-            </div>
-            <div className="flex-1 space-y-3 p-1">
-              <div>
-                <h4 className="font-display font-bold text-xl sm:text-2xl text-signal leading-tight line-clamp-1">
-                  {mostRecentStory.title}
-                </h4>
-                <p className="text-xs text-neutral-400 font-sans truncate mt-1">
-                  MC: {mostRecentStory.mcName} • {mostRecentStory.memory.currentPowerStage}
-                </p>
+              <div className="flex-1 space-y-3 p-1">
+                <div>
+                  <h4 className="font-display font-bold text-xl sm:text-2xl text-signal leading-tight line-clamp-1">
+                    {mostRecentStory.title}
+                  </h4>
+                  <p className="text-xs text-neutral-400 font-sans truncate mt-1">
+                    MC: {mostRecentStory.mcName} • {mostRecentStory.memory.currentPowerStage}
+                  </p>
+                </div>
+                
+                {(() => {
+                  const totalChapters = mostRecentStory.arcs.reduce((sum, a) => sum + a.chapters.length, 0);
+                  const readChapters = mostRecentStory.arcs.reduce((sum, a) => sum + a.chapters.filter(c => c.status === 'read').length, 0);
+                  const progressPercent = totalChapters > 0 ? Math.round((readChapters / totalChapters) * 100) : 0;
+                  return (
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center text-[10px] uppercase font-mono tracking-widest text-neutral-500">
+                        <span>{readChapters} / {totalChapters} Chapters</span>
+                        <span>{progressPercent}% Complete</span>
+                      </div>
+                      <div className="w-full bg-void h-1.5 rounded-full overflow-hidden border border-neutral-800">
+                        <div className="bg-portal h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%` }}></div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
               
-              {(() => {
-                const totalChapters = mostRecentStory.arcs.reduce((sum, a) => sum + a.chapters.length, 0);
-                const readChapters = mostRecentStory.arcs.reduce((sum, a) => sum + a.chapters.filter(c => c.status === 'read').length, 0);
-                const progressPercent = totalChapters > 0 ? Math.round((readChapters / totalChapters) * 100) : 0;
+              <div className="w-full md:w-auto flex-shrink-0 flex items-center justify-end">
+                <button
+                  onClick={() => handleResumeReading(mostRecentStory)}
+                  className="w-full md:w-auto px-6 py-3 bg-human border border-human text-signal text-sm font-sc font-bold uppercase tracking-wider rounded transition-all flex items-center justify-center space-x-2 shadow-[0_0_15px_rgba(139,0,0,0.5)] hover:bg-void hover:text-human"
+                >
+                  <Play size={16} />
+                  <span>Quick Resume</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {stories.length === 0 ? (
+            <div className="text-center py-20 bg-[#111] border border-neutral-900 rounded-lg max-w-lg mx-auto shadow-inner">
+              <BookOpen size={40} className="text-neutral-800 mx-auto mb-4 animate-bounce" />
+              <h4 className="font-sc font-semibold text-neutral-400 text-sm uppercase tracking-wider mb-1">
+                No Scrolls Found
+              </h4>
+              <p className="text-xs text-neutral-600 max-w-xs mx-auto mb-6">
+                Your cultivation path is empty. Manifest a new realm to begin reading.
+              </p>
+              <button
+                onClick={() => setCurrentScreen('creator')}
+                className="px-4 py-2 bg-void border border-neutral-800 hover:border-gold-accent text-xs text-neutral-300 hover:text-gold-accent rounded transition-all font-sc uppercase tracking-widest"
+              >
+                Manifest Realm
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6">
+              {stories.map((story) => {
+                const totalChapters = story.arcs.reduce((sum, a) => sum + a.chapters.length, 0);
+                const generated = story.arcs.reduce((sum, a) => sum + a.chapters.filter(c => c.hasContent || !!c.generatedContent).length, 0);
+                
                 return (
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center text-[10px] uppercase font-mono tracking-widest text-neutral-500">
-                      <span>{readChapters} / {totalChapters} Chapters</span>
-                      <span>{progressPercent}% Complete</span>
+                  <div
+                    key={story.id}
+                    onClick={() => {
+                      setActiveStoryId(story.id);
+                      setCurrentScreen('detail');
+                    }}
+                    className="group cursor-pointer flex flex-col space-y-3"
+                  >
+                    <div className="relative aspect-[2/3] rounded-md overflow-hidden border border-neutral-800 group-hover:border-gold-accent shadow-lg transition-all duration-300 transform group-hover:-translate-y-1">
+                      <img 
+                        src={story.imageUrl || `https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?auto=format&fit=crop&q=80`} 
+                        alt={story.title}
+                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
+                      <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm border border-neutral-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-signal tracking-wider font-sc">
+                        {generated}/{totalChapters} Ch
+                      </div>
+                      <button
+                         onClick={(e) => handleDeleteStory(story.id, e)}
+                         className="absolute top-2 left-2 p-1.5 text-neutral-400 bg-black/60 border border-neutral-800 backdrop-blur-sm hover:text-red-500 hover:border-red-900 rounded opacity-0 group-hover:opacity-100 transition-all font-sc"
+                         title="Burn Scroll"
+                      >
+                         <Trash2 size={12} />
+                      </button>
+                      <div className="absolute bottom-2 left-2 right-2">
+                        <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-jade-accent px-1.5 py-0.5 bg-black/80 border border-neutral-800 rounded mb-1 inline-block">
+                          {story.genre}
+                        </span>
+                      </div>
                     </div>
-                    <div className="w-full bg-void h-1.5 rounded-full overflow-hidden border border-neutral-800">
-                      <div className="bg-portal h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%` }}></div>
+                    
+                    <div className="space-y-1">
+                      <h4 className="font-display font-bold text-base text-signal group-hover:text-gold-accent transition-colors leading-tight line-clamp-2">
+                        {story.title}
+                      </h4>
+                      <p className="text-[10px] text-neutral-500 font-sans truncate">
+                        MC: {story.mcName} • {story.memory.currentPowerStage}
+                      </p>
+                      
+                      {(() => {
+                        const readChapters = story.arcs.reduce((sum, a) => sum + a.chapters.filter(c => c.status === 'read').length, 0);
+                        const progressPercent = totalChapters > 0 ? Math.round((readChapters / totalChapters) * 100) : 0;
+                        return (
+                          <div className="pt-1">
+                            <div className="flex justify-between items-center text-[9px] uppercase font-mono tracking-widest text-neutral-500 mb-1">
+                              <span>Read {readChapters} / {totalChapters}</span>
+                              <span>{progressPercent}%</span>
+                            </div>
+                            <div className="w-full bg-void h-1 rounded-full overflow-hidden border border-neutral-800">
+                              <div className="bg-portal h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%` }}></div>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 );
-              })()}
+              })}
             </div>
-            
-            <div className="w-full md:w-auto flex-shrink-0 flex items-center justify-end">
-              <button
-                onClick={() => handleResumeReading(mostRecentStory)}
-                className="w-full md:w-auto px-6 py-3 bg-human border border-human text-signal text-sm font-sc font-bold uppercase tracking-wider rounded transition-all flex items-center justify-center space-x-2 shadow-[0_0_15px_rgba(139,0,0,0.5)] hover:bg-void hover:text-human"
-              >
-                <Play size={16} />
-                <span>Quick Resume</span>
-              </button>
-            </div>
-          </div>
-        )}
-        
-        <div className="bg-neutral-950/80 border border-neutral-900 rounded-lg p-5 flex flex-col md:flex-row items-center justify-between gap-6 shadow-[0_4px_30px_rgba(0,0,0,0.8)]" id="vault-desk-panel">
-          <div className="flex items-start space-x-3.5">
-            <div className="p-3 bg-portal/10 border border-portal/20 text-portal rounded-full flex-shrink-0">
-              <Database size={22} className="animate-pulse" />
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h4 className="font-sc font-bold text-sm text-signal uppercase tracking-wider">Aetherial Memory Sanctum</h4>
-                <span className="text-[10px] px-2 py-0.25 bg-[#00A86B]/15 border border-[#00A86B]/35 text-[#00A86B] font-mono rounded-full font-bold uppercase tracking-wider animate-fadeIn">
-                  {storageType}
-                </span>
-              </div>
-              <p className="text-xs text-neutral-400 mt-1 max-w-xl leading-relaxed">
-                Every character bio, relationship map, karma fate node, chapter summary, and reader preference is saved automatically to your local-first client-side database.
+          )}
+        </div>
+      )}
+
+      {activeTab === 'featured' && (
+        <div className="space-y-6 animate-fadeIn" id="published-worlds-list">
+          {PUBLISHED_WORLDS.length === 0 ? (
+            <div className="text-center py-20 bg-[#111] border border-neutral-900 rounded-lg max-w-lg mx-auto shadow-inner">
+              <Globe size={40} className="text-neutral-800 mx-auto mb-4 animate-pulse" />
+              <h4 className="font-sc font-semibold text-neutral-400 text-sm uppercase tracking-wider mb-1">
+                Awaiting Manifestations
+              </h4>
+              <p className="text-xs text-neutral-600 max-w-xs mx-auto mb-6">
+                The cosmic tapestry is currently silent. Curated worlds will be woven here soon.
               </p>
             </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3.5 w-full md:w-auto justify-end">
-            <label className="flex items-center space-x-2 bg-void hover:bg-neutral-900 text-neutral-300 hover:text-signal border border-neutral-800 hover:border-neutral-700 px-4 py-2 rounded text-xs font-sc font-bold uppercase tracking-wider cursor-pointer transition-all">
-              <Upload size={14} className="text-portal" />
-              <span>Import World Scroll</span>
-              <input 
-                type="file" 
-                accept=".json" 
-                onChange={handleImportLibrary} 
-                className="hidden" 
-              />
-            </label>
-
-            <button
-              onClick={handleExportLibrary}
-              disabled={stories.length === 0}
-              className="flex items-center space-x-2 bg-void hover:bg-neutral-900 text-neutral-350 hover:text-signal border border-neutral-800 hover:border-neutral-700 px-4 py-2 rounded text-xs font-sc font-bold uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-            >
-              <Download size={14} className="text-gold-accent" />
-              <span>Backup Full Library</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between border-b border-neutral-900 pb-2">
-          <h3 className="font-display font-bold text-2xl text-signal tracking-wide flex items-center space-x-2">
-            <BookOpen size={20} className="text-gold-accent" />
-            <span>Your Library ({stories.length})</span>
-          </h3>
-        </div>
-
-        {stories.length === 0 ? (
-          <div className="text-center py-20 bg-[#111] border border-neutral-900 rounded-lg max-w-lg mx-auto shadow-inner">
-            <BookOpen size={40} className="text-neutral-800 mx-auto mb-4 animate-bounce" />
-            <h4 className="font-sc font-semibold text-neutral-400 text-sm uppercase tracking-wider mb-1">
-              No Scrolls Found
-            </h4>
-            <p className="text-xs text-neutral-600 max-w-xs mx-auto mb-6">
-              Your cultivation path is empty. Manifest a new realm to begin reading.
-            </p>
-            <button
-              onClick={() => setCurrentScreen('creator')}
-              className="px-4 py-2 bg-void border border-neutral-800 hover:border-gold-accent text-xs text-neutral-300 hover:text-gold-accent rounded transition-all font-sc uppercase tracking-widest"
-            >
-              Manifest Realm
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6">
-            {stories.map((story) => {
-              const totalChapters = story.arcs.reduce((sum, a) => sum + a.chapters.length, 0);
-              const generated = story.arcs.reduce((sum, a) => sum + a.chapters.filter(c => c.hasContent || !!c.generatedContent).length, 0);
-              
-              return (
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6">
+              {PUBLISHED_WORLDS.map((world) => (
                 <div
-                  key={story.id}
-                  onClick={() => {
-                    setActiveStoryId(story.id);
-                    setCurrentScreen('detail');
-                  }}
+                  key={world.id}
                   className="group cursor-pointer flex flex-col space-y-3"
+                  onClick={() => alert("Published Worlds are currently view-only in this realm. Future ascensions will unlock reading.")}
                 >
-                  <div className="relative aspect-[2/3] rounded-md overflow-hidden border border-neutral-800 group-hover:border-gold-accent shadow-lg transition-all duration-300 transform group-hover:-translate-y-1">
+                  <div className="relative aspect-[2/3] rounded-md overflow-hidden border border-neutral-800 group-hover:border-portal shadow-lg transition-all duration-300 transform group-hover:-translate-y-1">
                     <img 
-                      src={story.imageUrl || `https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?auto=format&fit=crop&q=80`} 
-                      alt={story.title}
+                      src={world.imageUrl} 
+                      alt={world.title}
                       className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                       referrerPolicy="no-referrer"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
-                    <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm border border-neutral-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-signal tracking-wider font-sc">
-                      {generated}/{totalChapters} Ch
+                    <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm border border-neutral-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-signal tracking-wider font-sc flex items-center space-x-1">
+                       <Eye size={10} className="text-portal" />
+                       <span>{world.reads}</span>
                     </div>
-                    <button
-                       onClick={(e) => handleDeleteStory(story.id, e)}
-                       className="absolute top-2 left-2 p-1.5 text-neutral-400 bg-black/60 border border-neutral-800 backdrop-blur-sm hover:text-red-500 hover:border-red-900 rounded opacity-0 group-hover:opacity-100 transition-all font-sc"
-                       title="Burn Scroll"
-                    >
-                       <Trash2 size={12} />
-                    </button>
-                    <div className="absolute bottom-2 left-2 right-2">
-                      <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-jade-accent px-1.5 py-0.5 bg-black/80 border border-neutral-800 rounded mb-1 inline-block">
-                        {story.genre}
+                    <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm border border-neutral-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-signal tracking-wider font-sc">
+                      {world.chapterCount} Ch
+                    </div>
+                    <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1">
+                      <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-[#00A86B] px-1.5 py-0.5 bg-black/80 border border-neutral-800 rounded inline-block">
+                        {world.genre}
                       </span>
                     </div>
                   </div>
                   
                   <div className="space-y-1">
-                    <h4 className="font-display font-bold text-base text-signal group-hover:text-gold-accent transition-colors leading-tight line-clamp-2">
-                      {story.title}
+                    <h4 className="font-display font-bold text-base text-signal group-hover:text-portal transition-colors leading-tight line-clamp-2">
+                      {world.title}
                     </h4>
                     <p className="text-[10px] text-neutral-500 font-sans truncate">
-                      MC: {story.mcName} • {story.memory.currentPowerStage}
+                      MC: {world.mcName} • {world.powerStage}
                     </p>
-                    
-                    {(() => {
-                      const readChapters = story.arcs.reduce((sum, a) => sum + a.chapters.filter(c => c.status === 'read').length, 0);
-                      const progressPercent = totalChapters > 0 ? Math.round((readChapters / totalChapters) * 100) : 0;
-                      return (
-                        <div className="pt-1">
-                          <div className="flex justify-between items-center text-[9px] uppercase font-mono tracking-widest text-neutral-500 mb-1">
-                            <span>Read {readChapters} / {totalChapters}</span>
-                            <span>{progressPercent}%</span>
-                          </div>
-                          <div className="w-full bg-void h-1 rounded-full overflow-hidden border border-neutral-800">
-                            <div className="bg-portal h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%` }}></div>
-                          </div>
-                        </div>
-                      );
-                    })()}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </motion.div>
   );
 };

@@ -16,6 +16,8 @@ interface AppState {
   estimatedSecondsRemaining: number | null;
   streamingChapter: StreamingChapter | null;
 
+  activeAgentId: 'versa' | 'scout' | null;
+
   // Sync / Auth
   syncStatus: SyncStatus;
   currentUser: any;
@@ -46,6 +48,7 @@ interface AppState {
   setGenerationProgressMessage: (msg: string) => void;
   setEstimatedSecondsRemaining: (sec: number | null) => void;
   setStreamingChapter: (data: StreamingChapter | null) => void;
+  setActiveAgentId: (id: 'versa' | 'scout' | null) => void;
   setSyncStatus: (status: SyncStatus) => void;
   setCurrentUser: (user: any) => void;
   setLastSavedTime: (time: Date | null) => void;
@@ -162,6 +165,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   generationProgressMessage: '',
   estimatedSecondsRemaining: null,
   streamingChapter: null,
+  activeAgentId: null,
 
   syncStatus: 'offline',
   currentUser: null,
@@ -192,6 +196,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setGenerationProgressMessage: (generationProgressMessage) => set({ generationProgressMessage }),
   setEstimatedSecondsRemaining: (estimatedSecondsRemaining) => set({ estimatedSecondsRemaining }),
   setStreamingChapter: (streamingChapter) => set({ streamingChapter }),
+  setActiveAgentId: (activeAgentId) => set({ activeAgentId }),
   setSyncStatus: (syncStatus) => set({ syncStatus }),
   setCurrentUser: (currentUser) => set({ currentUser }),
   setLastSavedTime: (lastSavedTime) => set({ lastSavedTime }),

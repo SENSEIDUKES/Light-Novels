@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cloud, CloudOff, RefreshCw, User, LogOut, Plus, Sliders } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, User, LogOut, Plus, Sliders, ScrollText, Scroll } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
 import { auth } from '../lib/firebase';
@@ -40,47 +40,35 @@ export const GlobalHeader: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center space-x-1.5 sm:space-x-3 shrink-0">
-          <div className="flex flex-col items-end space-y-0.5 shrink-0">
-            <div className="flex items-center space-x-1.5 sm:space-x-2 border border-neutral-850 px-1.5 sm:px-3 py-1 sm:py-1.5 rounded bg-void/50 shrink-0">
-              {syncStatus === 'offline' ? (
-                <button onClick={() => storyStorage.performSync()} title="Offline / Local Only. Click to sync" className="flex hover:text-portal transition-colors shrink-0"><CloudOff size={14} className="text-neutral-500" /></button>
-              ) : syncStatus === 'syncing' ? (
-                <span title="Syncing..." className="flex shrink-0"><RefreshCw size={14} className="text-portal animate-spin" /></span>
-              ) : syncStatus === 'error' ? (
-                <button onClick={() => storyStorage.performSync()} title="Sync Error. Click to retry" className="flex hover:text-portal transition-colors shrink-0"><CloudOff size={14} className="text-human" /></button>
-              ) : (
-                <button onClick={() => storyStorage.performSync()} title="Synced to Firebase. Click to force sync" className="flex hover:text-portal transition-colors shrink-0"><Cloud size={14} className="text-[#00A86B]" /></button>
-              )}
-              
-              {currentUser ? (
-                <button onClick={() => setCurrentScreen('profile')} className="text-[9px] sm:text-[10px] font-mono uppercase tracking-widest text-neutral-400 hover:text-portal flex items-center space-x-1 border border-neutral-800 bg-void px-2 py-0.5 sm:py-1 rounded transition-colors shrink-0">
-                  <User size={10} className="text-portal" />
-                  <span className="hidden xs:inline truncate max-w-[70px] sm:max-w-[100px] font-medium">{currentUser.email?.split('@')[0]}</span>
-                </button>
-              ) : (
-                <button onClick={handleLogin} className="text-[8px] sm:text-[10px] font-sc font-bold uppercase tracking-widest text-portal hover:text-signal shadow-[0_0_8px_rgba(4,172,255,0.2)] shrink-0 whitespace-nowrap">
-                  Link Cloud
-                </button>
-              )}
-            </div>
-            {lastSavedTime && (
-              <span className="hidden sm:block text-[8px] sm:text-[9px] font-mono text-neutral-600 pr-1">
-                Auto-saved: {new Date(lastSavedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-              </span>
+        <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
+          <div className="flex items-center shrink-0">
+            {currentUser ? (
+              <button 
+                onClick={() => setCurrentScreen('profile')} 
+                className="group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-500 hover:scale-105"
+                title={`Spirit Linked: ${currentUser.email}`}
+              >
+                {/* Qi Cyclone Aurora */}
+                <div className={`absolute inset-[-4px] rounded-full border border-dashed animate-[spin_6s_linear_infinite] transition-colors duration-500 ${currentScreen === 'profile' ? 'border-portal/40' : 'border-human/40 group-hover:border-portal/40'}`} />
+                <div className={`absolute inset-[-8px] rounded-full border border-dotted animate-[spin_10s_linear_infinite_reverse] transition-colors duration-500 ${currentScreen === 'profile' ? 'border-portal/30' : 'border-human/30 group-hover:border-portal/30'}`} />
+                
+                {/* Inner Glow */}
+                <div className={`absolute inset-0 rounded-full blur-md animate-pulse transition-colors duration-500 ${currentScreen === 'profile' ? 'bg-portal/20 shadow-[0_0_20px_rgba(4,172,255,0.5)]' : 'bg-human/20 shadow-[0_0_20px_rgba(139,0,0,0.5)] group-hover:bg-portal/20 group-hover:shadow-[0_0_20px_rgba(4,172,255,0.5)]'}`} />
+                
+                <div className={`relative transition-colors duration-700 ${currentScreen === 'profile' ? 'text-portal' : 'text-human group-hover:text-portal'}`}>
+                  <Cloud size={24} className={currentScreen === 'profile' ? 'drop-shadow-[0_0_8px_rgba(4,172,255,0.8)]' : 'drop-shadow-[0_0_8px_rgba(139,0,0,0.8)] group-hover:drop-shadow-[0_0_8px_rgba(4,172,255,0.8)]'} strokeWidth={1.5} />
+                </div>
+              </button>
+            ) : (
+              <button 
+                onClick={() => setCurrentScreen('profile')} 
+                className={`group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-300 hover:bg-neutral-900 border border-transparent ${currentScreen === 'profile' ? 'text-portal' : 'text-human hover:text-portal'}`}
+                title="Open Celestial Tools"
+              >
+                <Cloud size={24} className="transition-colors" strokeWidth={1.5} />
+              </button>
             )}
           </div>
-
-          <div className="shrink-0"><AudioWidget /></div>
-
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="px-2.5 py-1.5 sm:px-3.5 sm:py-2 bg-void border border-neutral-850 hover:border-portal text-neutral-400 hover:text-portal transition-all rounded font-sc text-[10px] sm:text-xs flex items-center space-x-1.5 font-bold shrink-0"
-            title="Aether Router"
-          >
-            <Sliders size={12} className="text-portal font-semibold" />
-            <span className="hidden sm:inline uppercase tracking-widest text-[9px] font-semibold">Router</span>
-          </button>
 
           {activeStory && (
             <div className="hidden md:flex items-center space-x-2 bg-neutral-900/60 px-3 py-1.5 rounded border border-neutral-850">
@@ -93,20 +81,32 @@ export const GlobalHeader: React.FC = () => {
           {currentScreen !== 'home' ? (
             <button
               onClick={() => { setCurrentScreen('home'); setActiveStoryId(null); }}
-              className="px-2.5 py-1.5 sm:px-4 sm:py-2 bg-void border border-neutral-850 hover:border-gold-accent text-[10px] sm:text-xs text-neutral-400 hover:text-gold-accent transition-all rounded font-sc uppercase tracking-wider flex items-center space-x-1.5 font-bold"
+              className="group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-500 hover:scale-105 ml-2 sm:ml-4"
+              title="Return to Library"
             >
-              <LogOut size={12} />
-              <span className="hidden xs:inline">Return to Library</span>
-              <span className="inline xs:hidden">Library</span>
+              <div className="absolute inset-[-4px] rounded-full border border-dashed border-human/40 group-hover:border-portal/40 animate-[spin_6s_linear_infinite] transition-colors duration-500" />
+              <div className="absolute inset-[-8px] rounded-full border border-dotted border-human/30 group-hover:border-portal/30 animate-[spin_10s_linear_infinite_reverse] transition-colors duration-500" />
+              
+              <div className="absolute inset-0 bg-human/20 group-hover:bg-portal/20 rounded-full blur-md animate-pulse shadow-[0_0_20px_rgba(139,0,0,0.5)] group-hover:shadow-[0_0_20px_rgba(4,172,255,0.5)] transition-colors duration-500" />
+              
+              <div className="relative text-human group-hover:text-portal transition-colors duration-700">
+                <ScrollText size={24} className="drop-shadow-[0_0_8px_rgba(139,0,0,0.8)] group-hover:drop-shadow-[0_0_8px_rgba(4,172,255,0.8)] transition-all duration-500" strokeWidth={1.5} />
+              </div>
             </button>
           ) : (
             <button
               onClick={() => setCurrentScreen('creator')}
-              className="px-2.5 py-1.5 sm:px-4 sm:py-2 bg-void border border-human text-human hover:bg-human hover:text-signal transition-all shadow-[0_0_12px_rgba(139,0,0,0.2)] rounded font-sc uppercase text-[10px] sm:text-xs tracking-wider flex items-center space-x-1.5 font-bold animate-pulse"
+              className="group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-500 hover:scale-105 ml-2 sm:ml-4"
+              title="Create Story"
             >
-              <Plus size={12} />
-              <span className="hidden xs:inline">Manifest Scroll</span>
-              <span className="inline xs:hidden">Manifest</span>
+              <div className="absolute inset-[-4px] rounded-full border border-dashed border-human/40 group-hover:border-portal/40 animate-[spin_6s_linear_infinite] transition-colors duration-500" />
+              <div className="absolute inset-[-8px] rounded-full border border-dotted border-human/30 group-hover:border-portal/30 animate-[spin_10s_linear_infinite_reverse] transition-colors duration-500" />
+              
+              <div className="absolute inset-0 bg-human/20 group-hover:bg-portal/20 rounded-full blur-md animate-pulse shadow-[0_0_20px_rgba(139,0,0,0.5)] group-hover:shadow-[0_0_20px_rgba(4,172,255,0.5)] transition-colors duration-500" />
+              
+              <div className="relative text-human group-hover:text-portal transition-colors duration-700">
+                <Scroll size={24} className="drop-shadow-[0_0_8px_rgba(139,0,0,0.8)] group-hover:drop-shadow-[0_0_8px_rgba(4,172,255,0.8)] transition-all duration-500" strokeWidth={1.5} />
+              </div>
             </button>
           )}
         </div>

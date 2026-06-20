@@ -62,6 +62,7 @@ export default function ReaderChamber({
   // --- atmospheric audio (just reference, no actual addition needed here) 
   const isReaderFullscreen = useAppStore(state => state.isReaderFullscreen);
   const setIsReaderFullscreen = useAppStore(state => state.setIsReaderFullscreen);
+  const activeAgentId = useAppStore(state => state.activeAgentId);
 
   const selectedChapter = chapters.find(c => c.number === selectedChapterNum) || chapters[0];
 
@@ -548,7 +549,7 @@ export default function ReaderChamber({
   };
 
   return (
-    <div className={`flex flex-col min-h-[85vh] rounded-t-xl transition-colors duration-500 relative overflow-hidden ${getThemeClasses()}`} id="reader-chamber-root">
+    <div className={`flex flex-col min-h-[85dvh] rounded-t-xl transition-colors duration-500 relative overflow-hidden ${getThemeClasses()}`} id="reader-chamber-root">
       <ParticleSystem count={40} className="opacity-20 pointer-events-none mix-blend-screen z-0 transition-colors duration-500" color={getParticleColor()} />
       
       {/* HEADER: Readability & Chapter Title */}
@@ -612,28 +613,39 @@ export default function ReaderChamber({
               )}
             </button>
 
-            <div className="hidden sm:flex relative top-0 z-50 items-center space-x-2">
-                <div className="flex items-center gap-1.5 bg-void border border-neutral-800 py-1 px-2.5 rounded text-xs text-neutral-400 font-sans transition-colors hover:border-neutral-700">
-                  <Globe size={12} className={isTranslating ? "animate-spin text-portal" : "text-neutral-500"} />
+            <div className="flex sm:flex relative top-0 z-50 items-center space-x-2">
+                <div className="flex items-center gap-1.5 bg-void border border-neutral-800 py-1 px-1.5 sm:px-2.5 rounded text-xs text-neutral-400 font-sans transition-colors hover:border-neutral-700 max-w-[120px] sm:max-w-none">
+                  <Globe size={12} className={isTranslating ? "animate-spin text-portal shrink-0" : "text-neutral-500 shrink-0"} />
                   <select 
                       value={preferredLang} 
                       onChange={(e) => setPreferredLang(e.target.value)}
                       disabled={isTranslating}
-                      className="bg-transparent text-xs text-neutral-400 cursor-pointer focus:outline-none disabled:opacity-50 appearance-none outline-none py-0.5"
+                      className="bg-transparent text-[10px] sm:text-xs text-neutral-400 cursor-pointer focus:outline-none disabled:opacity-50 appearance-none outline-none py-0.5 w-full truncate"
+                      dir="auto"
                   >
                       <option value="en">English (Dao)</option>
                       <option value="es">Español</option>
                       <option value="fr">Français</option>
                       <option value="pt-BR">Português (BR)</option>
                       <option value="de">Deutsch</option>
+                      <option value="it">Italiano</option>
                       <option value="ja">日本語</option>
+                      <option value="ko">한국어</option>
+                      <option value="zh-CN">简体中文</option>
+                      <option value="zh-TW">繁體中文</option>
+                      <option value="ru">Русский</option>
+                      <option value="vi">Tiếng Việt</option>
+                      <option value="id">Bahasa Indonesia</option>
+                      <option value="th">ไทย</option>
+                      <option value="ar">العربية</option>
+                      <option value="hi">हिन्दी</option>
                   </select>
                 </div>
 
                 <select 
                     value={selectedChapterNum} 
                     onChange={(e) => setSelectedChapterNum(parseInt(e.target.value))}
-                    className="bg-void border border-neutral-800 py-1 px-3 rounded text-xs text-neutral-400 font-sans cursor-pointer focus:outline-none"
+                    className="hidden sm:block bg-void border border-neutral-800 py-1 px-3 rounded text-xs text-neutral-400 font-sans cursor-pointer focus:outline-none"
                     >
                     {chapters.map(ch => (
                         <option key={ch.number} value={ch.number}>
@@ -870,7 +882,7 @@ export default function ReaderChamber({
                currentPrefs.lineHeight === 'normal' ? 'leading-normal' :
                currentPrefs.lineHeight === 'relaxed' ? 'leading-relaxed' :
                'leading-loose'
-             } max-w-2xl mx-auto select-text`}>
+             } max-w-2xl mx-auto select-text`} dir="auto">
                {activeTranslationContent ? activeTranslationContent.split('\n\n').map((paragraph, index) => {
                  if (!paragraph.trim()) return null;
                  const { cleanText, sfxList } = extractSFXCues(paragraph);
@@ -1259,7 +1271,7 @@ export default function ReaderChamber({
                     transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
                     className="w-4 h-4 border-2 border-void border-t-transparent rounded-full"
                   />
-                  <span>Condensing Scroll...</span>
+                  <span>{activeAgentId === 'versa' ? 'VERSA is shaping...' : activeAgentId === 'scout' ? 'SCOUT is scanning...' : 'Condensing Scroll...'}</span>
                 </>
               ) : (
                 <>

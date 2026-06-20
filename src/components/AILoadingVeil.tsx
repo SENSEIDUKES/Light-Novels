@@ -2,9 +2,13 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
+import { AgentBadge } from './AgentBadge';
+import { AGENTS } from '../lib/agents';
 
 export const AILoadingVeil: React.FC = () => {
-  const { isGenerating, generationPhase, generationProgressMessage, estimatedSecondsRemaining } = useAppStore();
+  const { isGenerating, generationPhase, generationProgressMessage, estimatedSecondsRemaining, activeAgentId } = useAppStore();
+
+  const activeAgent = activeAgentId ? AGENTS[activeAgentId === 'versa' ? 'VERSA' : 'SCOUT'] : null;
 
   return (
     <AnimatePresence>
@@ -18,29 +22,35 @@ export const AILoadingVeil: React.FC = () => {
         >
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 w-[420px] h-[420px] rounded-full bg-radial-gradient from-portal/10 via-human/5 to-transparent blur-3xl pointer-events-none"></div>
 
-          <div className="relative w-40 h-40 mb-10 flex items-center justify-center">
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
-              className="absolute inset-0 rounded-full border border-dashed border-human/60 border-t-human scale-110"
-            />
-            
-            <motion.div
-              animate={{ rotate: -360 }}
-              transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }}
-              className="absolute inset-2 rounded-full border border-dotted border-portal/80 border-b-portal"
-            />
-            
-            <motion.div
-              animate={{ scale: [1, 1.08, 1], opacity: [0.3, 0.6, 0.3] }}
-              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-              className="absolute inset-6 rounded-full bg-gradient-to-tr from-human/20 to-portal/20 blur-sm"
-            />
-
-            <div className="relative z-10 text-signal animate-pulse flex flex-col items-center justify-center">
-              <Sparkles size={36} className="text-portal drop-shadow-[0_0_12px_rgba(4,172,255,0.7)]" />
+          {activeAgent ? (
+            <div className="mb-10 w-full flex justify-center">
+              <AgentBadge agent={activeAgent} task={generationProgressMessage || `Active in ${generationPhase} phase...`} isWorking={true} />
             </div>
-          </div>
+          ) : (
+            <div className="relative w-40 h-40 mb-10 flex items-center justify-center">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
+                className="absolute inset-0 rounded-full border border-dashed border-human/60 border-t-human scale-110"
+              />
+              
+              <motion.div
+                animate={{ rotate: -360 }}
+                transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }}
+                className="absolute inset-2 rounded-full border border-dotted border-portal/80 border-b-portal"
+              />
+              
+              <motion.div
+                animate={{ scale: [1, 1.08, 1], opacity: [0.3, 0.6, 0.3] }}
+                transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                className="absolute inset-6 rounded-full bg-gradient-to-tr from-human/20 to-portal/20 blur-sm"
+              />
+
+              <div className="relative z-10 text-signal animate-pulse flex flex-col items-center justify-center">
+                <Sparkles size={36} className="text-portal drop-shadow-[0_0_12px_rgba(4,172,255,0.7)]" />
+              </div>
+            </div>
+          )}
 
           <div className="mb-4">
             <span className="font-sc text-[10px] tracking-[0.25em] font-bold uppercase text-portal/90 bg-portal/5 px-3 py-1.5 border border-portal/20 rounded shadow-[0_0_12px_rgba(4,172,255,0.1)]">
@@ -53,7 +63,9 @@ export const AILoadingVeil: React.FC = () => {
           </div>
 
           <h3 className="font-display font-medium text-xl sm:text-2xl text-signal max-w-lg leading-snug tracking-wide mb-3">
-            {generationProgressMessage || "Manifesting spiritual matrices..."}
+            {generationProgressMessage || (activeAgent ? 
+              (activeAgent.id === 'versa' ? "VERSA is forging the requested timeline..." : "SCOUT is parsing the narrative flow...") : 
+              "Manifesting spiritual matrices...")}
           </h3>
 
           <p className="font-serif italic text-xs text-neutral-450 max-w-md leading-relaxed mb-8">

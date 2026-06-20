@@ -18,6 +18,16 @@ export interface UserProfile {
   updatedAt: string;
 }
 
+export interface BeastSonicProfile {
+  size: 'tiny' | 'human-sized' | 'giant' | 'world-scale';
+  bodyType: 'insect' | 'serpent' | 'bird' | 'mammal' | 'spirit' | 'undead' | 'dragon' | 'cosmic';
+  element: 'lightning' | 'fire' | 'ice' | 'void' | 'blood' | 'wind' | 'poison' | 'none';
+  movement: 'crawling' | 'flying' | 'burrowing' | 'teleporting' | 'stomping' | 'none';
+  intelligence: 'animal' | 'cunning' | 'ancient' | 'divine';
+  threatTier: 'common' | 'elite' | 'boss' | 'calamity' | 'mythic';
+  signatureSound: 'screech' | 'roar' | 'chitter' | 'hum' | 'pulse' | 'chant' | 'silence';
+}
+
 export interface Character {
   id: string;
   name: string;
@@ -29,6 +39,8 @@ export interface Character {
   abilities?: string[];
   faction?: string;
   imageUrl?: string;
+  isBeast?: boolean;
+  beastProfile?: BeastSonicProfile;
 }
 
 export interface Faction {
@@ -109,6 +121,10 @@ export interface ChapterContent {
     mysticism?: number;
     element?: string;
     signature?: string;
+    beastEvent?: {
+      type: 'reveal' | 'power-up' | 'technique' | 'injury' | 'turning-point' | 'death' | 'breakthrough';
+      profile: BeastSonicProfile;
+    };
   };
   translations?: {
     [langCode: string]: {

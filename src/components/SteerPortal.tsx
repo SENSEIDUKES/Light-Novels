@@ -7,6 +7,7 @@ import {
 import { motion } from 'motion/react';
 import { secureStorage } from '../lib/encryption';
 import { retrieveRelevantContext } from '../lib/rag';
+import { useAppStore } from '../store/useAppStore';
 
 interface SteerPortalProps {
   onSteerArc: (direction: string, customPrompt: string) => Promise<void>;
@@ -80,6 +81,7 @@ export default function SteerPortal({
   activeStory, 
   routingConfig 
 }: SteerPortalProps) {
+  const { activeAgentId } = useAppStore();
   const [selectedPreset, setSelectedPreset] = useState('continue');
   const [customDirections, setCustomDirections] = useState('');
   const [directions, setDirections] = useState<DirectionCard[]>([]);
@@ -345,7 +347,7 @@ export default function SteerPortal({
                   transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
                   className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full"
                 />
-                <span>Ascending Realms...</span>
+                <span>{activeAgentId === 'versa' ? 'VERSA is steering...' : activeAgentId === 'scout' ? 'SCOUT is scanning...' : 'Ascending Realms...'}</span>
               </>
             ) : (
               <>

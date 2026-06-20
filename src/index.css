@@ -14,6 +14,30 @@
   --color-portal: #04ACFF;
 }
 
+html, body {
+  overscroll-behavior-y: none;
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  touch-action: manipulation;
+  /* Prevent tap highlight on mobile iOS */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent double tap zoom and enforce readable inputs to avoid iOS auto-zoom */
+@supports (-webkit-touch-callout: none) {
+  input, textarea, select, button {
+    font-size: 16px !important;
+  }
+}
+
+/* Base utility for iOS home bar safe area padding */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
 /* Custom scrollbar for an immersive feeling */
 ::-webkit-scrollbar {
   width: 6px;

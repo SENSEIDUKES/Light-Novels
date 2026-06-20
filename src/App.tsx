@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { auth } from './lib/firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 // Store & Hooks
 import { useAppStore } from './store/useAppStore';
@@ -23,6 +25,7 @@ import { AtmosphericAudio } from './components/AtmosphericAudio';
 import { ParticleSystem } from './components/ParticleSystem';
 import CreationPortal from './components/CreationPortal';
 import { AILoadingVeil } from './components/AILoadingVeil';
+import UserProfile from './components/UserProfile';
 
 function App() {
   const store = useAppStore();
@@ -41,6 +44,19 @@ function App() {
       }
     };
     initAndLoad();
+
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      store.setCurrentUser(user);
+    });
+
+    const unsubSync = storyStorage.subscribe((status) => {
+      store.setSyncStatus(status);
+    });
+
+    return () => {
+      unsubAuth();
+      unsubSync();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -88,7 +104,7 @@ function App() {
 
   if (isInitializing) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#050505]">
+      <div className="flex h-dvh items-center justify-center bg-[#050505]">
         <div className="animate-pulse text-portal font-mono text-sm tracking-widest uppercase">
           Initializing Celestial Matrices...
         </div>
@@ -99,12 +115,12 @@ function App() {
   const activeStory = store.stories.find(s => s.id === store.activeStoryId);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-[#dfd8cf] font-serif overflow-x-hidden selection:bg-human/30">
+    <div className="min-h-dvh bg-[#050505] text-[#dfd8cf] font-serif overflow-x-hidden selection:bg-human/30 pb-safe">
       <ParticleSystem />
 
       <GlobalHeader />
 
-      <main className="relative z-10 w-full min-h-[calc(100vh-140px)]">
+      <main className="relative z-10 w-full min-h-[calc(100dvh-140px)]">
         <AnimatePresence mode="wait">
           {store.currentScreen === 'home' && (
             <motion.div
@@ -173,6 +189,24 @@ function App() {
                   handleUpdateStoryDirect={storyEngine.handleUpdateStoryDirect}
                   setIsCodexSheetOpen={store.setIsCodexSheetOpen}
                />
+            </motion.div>
+          )}
+
+          {store.currentScreen === 'profile' && (
+            <motion.div
+              key="profile"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.3 }}
+              className="w-full"
+            >
+              <UserProfile 
+                currentUser={store.currentUser}
+                stories={store.stories}
+                onLogout={() => { signOut(auth); store.setCurrentUser(null); }}
+                onNavigateHome={() => store.setCurrentScreen('home')}
+              />
             </motion.div>
           )}
         </AnimatePresence>

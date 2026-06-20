@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Sparkles, ArrowRight, ShieldAlert, ChevronDown, ChevronUp, BookOpen, Layers, Target, Users, Zap, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { IntakeData, WorldBlueprint } from '../types';
+import { useAppStore } from '../store/useAppStore';
 
 const renderSafeString = (val: any): React.ReactNode => {
   if (val === undefined || val === null) return '';
@@ -97,8 +98,11 @@ const FormSection = ({ id, title, icon, activeSection, setActiveSection, childre
   );
 };
 
-export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGenerating, error }: CreationPortalProps) {
+export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGenerating: isGeneratingProp, error }: CreationPortalProps) {
+  const { isGenerating: storeIsGenerating, activeAgentId, generationPhase } = useAppStore();
+  const isGenerating = isGeneratingProp || storeIsGenerating;
   const [stage, setStage] = useState<'intake' | 'blueprint'>('intake');
+
   const [blueprint, setBlueprint] = useState<WorldBlueprint | null>(null);
   
   const [intake, setIntake] = useState<IntakeData>({
@@ -225,7 +229,7 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
               {isGenerating ? (
                 <>
                   <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }} className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full" />
-                  <span>Generating...</span>
+                  <span>{activeAgentId === 'versa' ? 'VERSA is writing...' : 'Generating...'}</span>
                 </>
               ) : (
                 <><span>Accept Blueprint & Start Matrix</span><ArrowRight size={16} /></>
@@ -433,7 +437,7 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
             {isGenerating ? (
               <>
                 <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }} className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full" />
-                <span>Weaving Destiny...</span>
+                <span>{activeAgentId === 'versa' ? 'VERSA is forging...' : 'Weaving Destiny...'}</span>
               </>
             ) : (
               <><span>Generate World Blueprint</span><ArrowRight size={16} /></>

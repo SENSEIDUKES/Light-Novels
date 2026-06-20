@@ -78,7 +78,7 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div id="error-boundary-root" className="min-h-screen bg-void text-signal flex items-center justify-center p-6 font-sans">
+        <div id="error-boundary-root" className="min-h-dvh bg-void text-signal flex items-center justify-center p-6 font-sans">
           <div className="max-w-xl w-full bg-void border border-neutral-900 rounded-lg p-8 shadow-2xl relative overflow-hidden">
             {/* Elegant warning indicator bar */}
             <div className="absolute top-0 inset-x-0 h-[3px] bg-human"></div>

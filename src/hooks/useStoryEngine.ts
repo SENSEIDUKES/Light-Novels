@@ -160,6 +160,7 @@ export const useStoryEngine = () => {
 
   const handleGenerateBlueprint = async (intake: IntakeData): Promise<WorldBlueprint> => {
     store.setGenerationPhase('blueprint');
+    store.setActiveAgentId('versa');
     store.setIsGenerating(true);
     store.setAppError(null);
     try {
@@ -182,11 +183,13 @@ export const useStoryEngine = () => {
     } finally {
       store.setIsGenerating(false);
       store.setGenerationPhase(null);
+      store.setActiveAgentId(null);
     }
   };
 
   const handleStartStory = async (intake: IntakeData, blueprint: WorldBlueprint, chapterCount: number) => {
     store.setGenerationPhase('initial-arc');
+    store.setActiveAgentId('versa');
     store.setIsGenerating(true);
     store.setAppError(null);
 
@@ -254,6 +257,7 @@ export const useStoryEngine = () => {
     } finally {
       store.setIsGenerating(false);
       store.setGenerationPhase(null);
+      store.setActiveAgentId(null);
     }
   };
 
@@ -272,6 +276,7 @@ export const useStoryEngine = () => {
     if (!targetChapter) return;
 
     try {
+      store.setActiveAgentId('scout');
       const apiHeaders = getApiHeaders();
 
       const pastSummaries = await retrieveRelevantContext(
@@ -282,6 +287,7 @@ export const useStoryEngine = () => {
         5
       );
 
+      store.setActiveAgentId('versa');
       const response = await fetch('/api/generate-chapter-stream', {
         method: 'POST',
         headers: apiHeaders,
@@ -635,6 +641,7 @@ export const useStoryEngine = () => {
       store.setIsGenerating(false);
       store.setGenerationPhase(null);
       store.setStreamingChapter(null);
+      store.setActiveAgentId(null);
     }
   };
 
@@ -649,17 +656,19 @@ export const useStoryEngine = () => {
     const queryIntent = `Overall Arc Direction: ${direction}. Extra Context: ${customPrompt || ''}`;
     const nextChapterNumber = totalPreviousChapters + 1;
     
-    const apiHeaders = getApiHeaders();
-
-    const pastSummaries = await retrieveRelevantContext(
-      queryIntent,
-      nextChapterNumber,
-      activeStory,
-      apiHeaders,
-      10 
-    );
-
     try {
+      store.setActiveAgentId('scout');
+      const apiHeaders = getApiHeaders();
+
+      const pastSummaries = await retrieveRelevantContext(
+        queryIntent,
+        nextChapterNumber,
+        activeStory,
+        apiHeaders,
+        10 
+      );
+
+      store.setActiveAgentId('versa');
       const response = await fetch('/api/steer-arc', {
         method: 'POST',
         headers: apiHeaders,
@@ -731,6 +740,7 @@ export const useStoryEngine = () => {
     } finally {
       store.setIsGenerating(false);
       store.setGenerationPhase(null);
+      store.setActiveAgentId(null);
     }
   };
 

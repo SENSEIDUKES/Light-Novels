@@ -529,12 +529,15 @@ CRITICAL ANTI-DRIFT MANDATE (COHERENCE PROTOCOL):
 OUTPUT FORMAT TARGET:
 You MUST output the response in two distinct parts:
 First, output the chapter text structured as NDJSON (Newline Delimited JSON). Start it with ---CHAPTER_BLOCKS--- on a new line. Each paragraph of your chapter should be a single JSON object on one line containing an "id" (unique string), "type" (usually "paragraph"), "text" (the paragraph content), and optional "metadata" for audio narrative cues.
+You can include a "beastEvent" object inside the block "metadata" when encountering significant beast moments (reveals, major strikes, deaths, power surges). A beastEvent needs a "type" ("reveal", "power-up", "technique", "injury", "turning-point", "death", "breakthrough") and a "profile" (containing size, bodyType, element, movement, intelligence, threatTier, signatureSound matching the predefined schema). Use this sparingly and only on significant narrative beats.
+
 Second, output the metadata. Start it with ---JSON_META--- on a new line, followed strictly by a valid JSON object matching the metadata schema.
 
 Example:
 ---CHAPTER_BLOCKS---
 {"id": "c1-p1", "type": "paragraph", "text": "Rain crawled down the black stones as Kael climbed higher into the mountain pass...", "metadata": {"sceneType": "travel", "environment": ["mountain", "rain", "night"], "motion": "walking", "emotion": "determined", "intensity": 0.35, "tension": 0.25, "danger": 0.15, "mysticism": 0.4, "audioSignature": "rainy-mountain-walk"}}
-{"id": "c1-p2", "type": "paragraph", "text": "He looked back at the valley below."}
+{"id": "c1-p2", "type": "paragraph", "text": "Suddenly, the sky tore open. The Thunder Roc emerged, completely blotting out the moon.", "metadata": {"tension": 0.9, "beastEvent": {"type": "reveal", "profile": {"size": "giant", "bodyType": "bird", "element": "lightning", "movement": "flying", "intelligence": "ancient", "threatTier": "mythic", "signatureSound": "screech"}}}}
+{"id": "c1-p3", "type": "paragraph", "text": "He looked back at the valley below."}
 ---JSON_META---
 {
   "summary": "...",
@@ -760,7 +763,19 @@ You must return a JSON object with the following fields:
     "mysticism": 0.9,
     "element": "void",
     "relationshipShift": 0,
-    "signature": "celestial_chime"
+    "signature": "celestial_chime",
+    "beastEvent": {
+      "type": "reveal",
+      "profile": {
+        "size": "giant",
+        "bodyType": "dragon",
+        "element": "lightning",
+        "movement": "flying",
+        "intelligence": "divine",
+        "threatTier": "mythic",
+        "signatureSound": "roar"
+      }
+    }
   },
   "memoryUpdates": {
     "currentPowerStage": "Updated MC power level if they broke through, otherwise the same as before.",
@@ -1151,15 +1166,53 @@ app.post("/api/translate-chapter", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields: targetLang, englishText" });
     }
 
-    if (!translator) {
-      return res.status(503).json({ error: "DeepL translation is not configured on the server." });
+    const langMapForDeepL: Record<string, string> = {
+      'zh-CN': 'ZH',
+      'zh-TW': 'ZH',
+      'ko': 'KO',
+      'es': 'ES',
+      'fr': 'FR',
+      'pt-BR': 'PT-BR',
+      'it': 'IT',
+      'de': 'DE',
+      'ja': 'JA',
+      'ru': 'RU',
+      'id': 'ID',
+      'ar': 'AR'
+    };
+
+    let finalTranslatedText = "";
+
+    try {
+      if (translator) {
+        const deeplLangCode = langMapForDeepL[targetLang] || targetLang.toUpperCase();
+        const result = await translator.translateText(englishText, null, deeplLangCode as deepl.TargetLanguageCode);
+        finalTranslatedText = Array.isArray(result) ? result[0].text : result.text;
+      }
+    } catch (deeplError) {
+      console.warn("DeepL translation failed or not supported for this language. Falling back to Gemini...");
     }
 
-    // You can optionally pass glossaryId in the real implementation.
-    // For now, we will perform standard translation if no valid glossary is provided.
-    // Ensure targetLang is valid for DeepL (e.g., 'ES', 'FR', 'PT-BR')
-    const result = await translator.translateText(englishText, null, targetLang as deepl.TargetLanguageCode);
-    const finalTranslatedText = Array.isArray(result) ? result[0].text : result.text;
+    if (!finalTranslatedText) {
+      // Fallback to Gemini
+      const prompt = `You are an expert translator specializing in fantasy, wuxia, and xianxia light novels.
+Translate the following chapter text into the language with language code '${targetLang}'.
+Maintain the literary style, formatting, system tags (e.g., [SFX:...]), and keep paragraph breaks intact.
+
+Text to translate:
+${englishText}
+`;
+      const ai = getAiClient();
+      const model = ai.models.generateContent({
+        model: "gemini-2.5-pro",
+        contents: prompt,
+        config: {
+          temperature: 0.3,
+        }
+      });
+      const response = await model;
+      finalTranslatedText = response.text() || englishText;
+    }
 
     return res.json({
       translatedText: finalTranslatedText,

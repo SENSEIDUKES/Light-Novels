@@ -8,6 +8,8 @@ import {
 import { StoryMemory, Character, Faction, Location, Artifact, StoryArc, StoryWorld, CharacterRelationship, KarmaFateNode } from '../types';
 import { secureStorage } from '../lib/encryption';
 import { VirtualizedList } from './VirtualizedList';
+import { AgentBadge } from './AgentBadge';
+import { AGENTS } from '../lib/agents';
 
 interface LivingCodexProps {
   memory: StoryMemory;
@@ -864,7 +866,7 @@ export default function LivingCodex({
                                 {isGenerating ? (
                                   <>
                                     <RefreshCcw size={10} className="animate-spin text-portal" />
-                                    <span>Awakening Portrait...</span>
+                                    <span>VERSA is working...</span>
                                   </>
                                 ) : (
                                   <>
@@ -1021,8 +1023,17 @@ export default function LivingCodex({
                                   disabled={isGenerating}
                                   className="px-2 py-1 bg-void border border-portal/10 text-portal hover:border-portal rounded text-[8.5px] uppercase font-mono tracking-wider flex items-center space-x-1"
                                 >
-                                  {isGenerating ? <RefreshCcw size={8} className="animate-spin" /> : <Compass size={8} />}
-                                  <span>Awaken Vistas</span>
+                                  {isGenerating ? (
+                                    <>
+                                      <RefreshCcw size={8} className="animate-spin" />
+                                      <span>VERSA working...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Compass size={8} />
+                                      <span>Awaken Vistas</span>
+                                    </>
+                                  )}
                                 </button>
                               </div>
                             </div>
@@ -1861,7 +1872,7 @@ export default function LivingCodex({
                             disabled={isGenerating}
                             className="text-portal hover:underline capitalize"
                           >
-                            {isGenerating ? 'Forging...' : 'Synthesize Art'}
+                            {isGenerating ? 'VERSA working...' : 'Synthesize Art'}
                           </button>
                           <span className="text-neutral-700">|</span>
                           <button
@@ -2205,7 +2216,7 @@ export default function LivingCodex({
                 {isExtractingGlossary ? (
                   <>
                     <RefreshCcw size={10} className="animate-spin text-purple-400" />
-                    <span>Distilling Lore Terms...</span>
+                    <span>SCOUT is scanning...</span>
                   </>
                 ) : (
                   <>

@@ -120,7 +120,7 @@ export const ModalsAndToasts: React.FC = () => {
               onClick={() => setIsSettingsOpen(false)}
             />
             
-            <motion.div className="relative bg-[#050505] border border-neutral-900 rounded-xl shadow-2xl max-w-md w-full p-6 text-center z-10 font-sans max-h-[90vh] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-neutral-800">
+            <motion.div className="relative bg-[#050505] border border-neutral-900 rounded-xl shadow-2xl max-w-md w-full p-6 text-center z-10 font-sans max-h-[90dvh] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-neutral-800">
               <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-human via-portal to-gold-accent opacity-50 rounded-t-xl"></div>
               
               <div className="flex justify-center mb-4">

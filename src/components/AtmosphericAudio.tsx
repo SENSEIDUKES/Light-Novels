@@ -38,6 +38,16 @@ export function AtmosphericAudio() {
       if (customEvent.detail) {
         if (typeof customEvent.detail.isMuted === 'boolean') {
           setIsMuted(customEvent.detail.isMuted);
+          if (!customEvent.detail.isMuted) {
+            try {
+              // Try to initialize/resume the AudioContext synchronously during user interaction
+              // This is crucial for Safari and mobile browsers
+              const ctx = initAudioCtx();
+              if (ctx.state === 'suspended') {
+                 ctx.resume().catch(console.warn);
+              }
+            } catch(e) {}
+          }
         }
         if (customEvent.detail.atmosphere) {
           setAtmosphere(customEvent.detail.atmosphere as AtmosphereType);
@@ -386,6 +396,98 @@ export function AtmosphericAudio() {
     osc.stop(ctx.currentTime + 0.8);
   };
 
+  const triggerBeastEvent = (ctx: AudioContext, event: { type: string, profile: import('../types').BeastSonicProfile }) => {
+    if (!event || !event.profile) return;
+    const { type, profile } = event;
+    const { size = 'human-sized', element = 'none', signatureSound = 'roar', threatTier = 'common' } = profile;
+
+    // Adjust base pitch and volume by size/threat
+    let baseVol = volume * 0.5;
+    let basePitch = 150;
+    let decay = 1.0;
+
+    if (size === 'tiny') { basePitch = 800; baseVol *= 0.3; decay = 0.3; }
+    else if (size === 'giant') { basePitch = 60; baseVol *= 1.5; decay = 2.0; }
+    else if (size === 'world-scale') { basePitch = 30; baseVol *= 2.0; decay = 4.0; }
+
+    if (threatTier === 'boss' || threatTier === 'calamity' || threatTier === 'mythic') {
+      baseVol *= 1.3;
+    }
+
+    baseVol = Math.max(0.001, Math.min(1.5, baseVol)); // Clamp volume to prevent clipping/errors
+    basePitch = Math.max(10, Math.min(10000, basePitch));
+
+    const osc = ctx.createOscillator();
+    const filter = ctx.createBiquadFilter();
+    const gainNode = ctx.createGain();
+
+    // Map signature sound
+    if (signatureSound === 'screech') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(Math.max(10, basePitch * 3), ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(basePitch, ctx.currentTime + decay);
+        filter.type = 'highpass';
+        filter.frequency.value = 1000;
+    } else if (signatureSound === 'roar') {
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(basePitch, ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(Math.max(10, basePitch * 0.5), ctx.currentTime + decay);
+        filter.type = 'lowpass';
+        filter.frequency.value = 600;
+    } else if (signatureSound === 'chitter') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(Math.max(10, basePitch * 4), ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(Math.max(10, basePitch * 3), ctx.currentTime + decay);
+        filter.type = 'bandpass';
+        filter.frequency.value = 2000;
+        decay = 0.2;
+    } else if (signatureSound === 'pulse') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(basePitch, ctx.currentTime);
+        filter.type = 'lowpass';
+        filter.frequency.value = 300;
+        
+        // Add a pulsing LFO
+        const lfo = ctx.createOscillator();
+        lfo.type = 'sine';
+        lfo.frequency.value = 4;
+        const lfoGain = ctx.createGain();
+        lfoGain.gain.value = baseVol * 0.5;
+        try {
+          lfo.connect(lfoGain);
+          lfoGain.connect(gainNode.gain);
+          lfo.start(ctx.currentTime);
+          lfo.stop(ctx.currentTime + decay);
+        } catch (e) {
+          console.error("Audio API warning on pulse mode", e);
+        }
+    } else {
+       // hum, chant, or fallback
+       osc.type = 'sine';
+       osc.frequency.setValueAtTime(basePitch, ctx.currentTime);
+       filter.type = 'lowpass';
+       filter.frequency.value = 800;
+    }
+
+    gainNode.gain.setValueAtTime(0, ctx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(baseVol, ctx.currentTime + 0.1);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + decay);
+
+    osc.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + decay);
+
+    // Element flavor layered on top
+    if (element === 'lightning') {
+        triggerSystemAlert(ctx); // Use system alert as a quick metallic crackle proxy
+    } else if (element === 'ice') {
+        triggerChime(ctx);
+    }
+  };
+
   const triggerCombatHit = (ctx: AudioContext) => {
     const osc = ctx.createOscillator();
     osc.type = 'square';
@@ -405,8 +507,81 @@ export function AtmosphericAudio() {
     filter.connect(gainNode);
     gainNode.connect(ctx.destination);
 
-    osc.start();
+    osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.3);
+  };
+
+  const triggerQiSurge = (ctx: AudioContext) => {
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(50, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 1.5);
+    
+    const gainNode = ctx.createGain();
+    gainNode.gain.setValueAtTime(0, ctx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(volume * 0.6, ctx.currentTime + 1.0);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5);
+    
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 1.5);
+  };
+
+  const triggerMajorHit = (ctx: AudioContext) => {
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(100, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(20, ctx.currentTime + 0.5);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(400, ctx.currentTime);
+    filter.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.5);
+
+    const gainNode = ctx.createGain();
+    gainNode.gain.setValueAtTime(0, ctx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(volume * 0.8, ctx.currentTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+
+    osc.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.5);
+  };
+
+  const triggerFateShift = (ctx: AudioContext) => {
+    const osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(800, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(750, ctx.currentTime + 2.0);
+
+    const lfo = ctx.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.value = 8; // fast wobble
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 50;
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+
+    const gainNode = ctx.createGain();
+    gainNode.gain.setValueAtTime(0, ctx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(volume * 0.3, ctx.currentTime + 1.0);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 2.0);
+
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    try {
+      lfo.start(ctx.currentTime);
+      osc.start(ctx.currentTime);
+      lfo.stop(ctx.currentTime + 2.0);
+      osc.stop(ctx.currentTime + 2.0);
+    } catch (e) {
+      console.error("Audio API warning on fate shift", e);
+    }
   };
 
   const initAudioCtx = () => {
@@ -422,74 +597,86 @@ export function AtmosphericAudio() {
   // Listen to narrative scale triggers and adjust atmosphere/volume dynamically
   useEffect(() => {
     const handleCue = (e: any) => {
-      // If manually muted by user, absolutely do not play or change state!
-      if (isMuted) return;
+      try {
+        // If manually muted by user, absolutely do not play or change state!
+        if (isMuted) return;
 
-      const cue = e.detail;
-      const ctx = initAudioCtx();
+        const cue = e.detail;
+        const ctx = initAudioCtx();
 
-      if (cue.type === 'narrative.metadata.signature') {
-        const meta = cue.metadata || cue.value;
-        
-        if (meta) {
-           if (typeof meta.intensity === 'number') {
-             setVolume(Math.max(0.1, Math.min(1.0, meta.intensity)));
-           }
-           
-           if (meta.playChime) {
-             triggerChime(ctx);
-           }
-
-           if (meta.environment?.includes('rain') || meta.sceneType === 'travel') {
-             setAtmosphere('rain');
-           } else if (meta.mysticism && meta.mysticism > 0.5) {
-             setAtmosphere('temple');
-           } else if (meta.danger && meta.danger > 0.5) {
-             setAtmosphere('wind');
-           } else if (meta.environment?.includes('mountain')) {
-             setAtmosphere('wind');
-           }
-        }
-      } else if (cue.type === 'narrative.chapter.enter') {
-        const meta = cue.value;
-        if (meta) {
-          if (typeof meta.intensity === 'number') {
-            setVolume(Math.max(0.2, Math.min(1.0, meta.intensity)));
-          }
+        if (cue.type === 'narrative.metadata.signature') {
+          const meta = cue.metadata || cue.value;
           
-          if (meta.element === 'water' || meta.emotion === 'sorrow') {
-            setAtmosphere('rain');
-          } else if (meta.mysticism && meta.mysticism > 0.7) {
-            setAtmosphere('temple');
-          } else if (meta.danger && meta.danger > 0.6) {
-            setAtmosphere('wind');
-          } else if (meta.tension && meta.tension > 0.8) {
-            setAtmosphere('wind');
-          } else if (meta.theme === 'war' || meta.theme === 'combat' || meta.danger > 0.8) {
-            setAtmosphere('combat');
-          } else if (meta.theme === 'city' || meta.theme === 'festival' || meta.environment === 'city') {
-            setAtmosphere('crowd');
-          } else {
-            setAtmosphere('none');
+          if (meta) {
+             if (meta.beastEvent && meta.beastEvent.profile) {
+                triggerBeastEvent(ctx, meta.beastEvent);
+             } else if (meta.powerShift && meta.powerShift > 0.6) {
+                triggerQiSurge(ctx);
+             } else if (meta.danger && meta.danger > 0.8 && meta.intensity && meta.intensity > 0.8) {
+                triggerMajorHit(ctx);
+             } else if (meta.tension && meta.tension > 0.8) {
+                triggerFateShift(ctx);
+             } else if (meta.playChime) {
+               triggerChime(ctx);
+             }
+
+             if (typeof meta.intensity === 'number') {
+               setVolume(Math.max(0.1, Math.min(1.0, meta.intensity)));
+             }
+
+             if (meta.environment?.includes('rain') || meta.sceneType === 'travel') {
+               setAtmosphere('rain');
+             } else if (meta.mysticism && meta.mysticism > 0.5) {
+               setAtmosphere('temple');
+             } else if (meta.danger && meta.danger > 0.5) {
+               setAtmosphere('wind');
+             } else if (meta.environment?.includes('mountain')) {
+               setAtmosphere('wind');
+             }
           }
+        } else if (cue.type === 'narrative.chapter.enter') {
+          const meta = cue.value;
+          if (meta) {
+            if (typeof meta.intensity === 'number') {
+              setVolume(Math.max(0.2, Math.min(1.0, meta.intensity)));
+            }
+            
+            if (meta.element === 'water' || meta.emotion === 'sorrow') {
+              setAtmosphere('rain');
+            } else if (meta.mysticism && meta.mysticism > 0.7) {
+              setAtmosphere('temple');
+            } else if (meta.danger && meta.danger > 0.6) {
+              setAtmosphere('wind');
+            } else if (meta.tension && meta.tension > 0.8) {
+              setAtmosphere('wind');
+            } else if (meta.theme === 'war' || meta.theme === 'combat' || meta.danger > 0.8) {
+              setAtmosphere('combat');
+            } else if (meta.theme === 'city' || meta.theme === 'festival' || meta.environment === 'city') {
+              setAtmosphere('crowd');
+            } else {
+              setAtmosphere('none');
+            }
+          }
+        } else if (cue.type === 'narrative.fx.play') {
+            const fxType = cue.value as FXType;
+            if (fxType === 'footsteps') {
+                triggerFootstep(ctx, 'generic');
+            } else if (fxType === 'footsteps_snow') {
+                triggerFootstep(ctx, 'snow');
+            } else if (fxType === 'footsteps_wood') {
+                triggerFootstep(ctx, 'wood');
+            } else if (fxType === 'footsteps_stone') {
+                triggerFootstep(ctx, 'stone');
+            } else if (fxType === 'creature') {
+                triggerCreature(ctx);
+            } else if (fxType === 'system_alert') {
+                triggerSystemAlert(ctx);
+            } else if (fxType === 'combat_hit') {
+                triggerCombatHit(ctx);
+            }
         }
-      } else if (cue.type === 'narrative.fx.play') {
-          const fxType = cue.value as FXType;
-          if (fxType === 'footsteps') {
-              triggerFootstep(ctx, 'generic');
-          } else if (fxType === 'footsteps_snow') {
-              triggerFootstep(ctx, 'snow');
-          } else if (fxType === 'footsteps_wood') {
-              triggerFootstep(ctx, 'wood');
-          } else if (fxType === 'footsteps_stone') {
-              triggerFootstep(ctx, 'stone');
-          } else if (fxType === 'creature') {
-              triggerCreature(ctx);
-          } else if (fxType === 'system_alert') {
-              triggerSystemAlert(ctx);
-          } else if (fxType === 'combat_hit') {
-              triggerCombatHit(ctx);
-          }
+      } catch (err) {
+        console.warn("Audio system error during cue handling (safely caught):", err);
       }
     };
     
