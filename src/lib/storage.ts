@@ -399,16 +399,18 @@ export class PersistentStorageManager implements StorageAdapter {
       for (const arc of strippedStory.arcs) {
         for (const chapter of arc.chapters) {
           if (chapter.generatedContent || (chapter.blocks && chapter.blocks.length > 0)) {
-             const content: ChapterContent = {
-                storyId: story.id,
-                chapterNumber: chapter.number,
-                generatedContent: chapter.generatedContent || "",
-                blocks: chapter.blocks,
-                summary: chapter.summary,
-                statsChangeMessage: chapter.statsChangeMessage,
-                cuePayload: chapter.cuePayload
-             };
-             await this.saveChapterContent(content);
+             if ((chapter as any)._isNewContent) {
+               const content: ChapterContent = {
+                  storyId: story.id,
+                  chapterNumber: chapter.number,
+                  generatedContent: chapter.generatedContent || "",
+                  blocks: chapter.blocks,
+                  summary: chapter.summary,
+                  statsChangeMessage: chapter.statsChangeMessage,
+                  cuePayload: chapter.cuePayload
+               };
+               await this.saveChapterContent(content);
+             }
              
              // Strip from the Story document to save space
              chapter.hasContent = true;
@@ -417,6 +419,7 @@ export class PersistentStorageManager implements StorageAdapter {
              delete chapter.summary;
              delete chapter.statsChangeMessage;
              delete chapter.cuePayload;
+             delete (chapter as any)._isNewContent;
           }
         }
       }

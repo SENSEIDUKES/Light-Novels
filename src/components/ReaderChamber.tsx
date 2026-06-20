@@ -266,11 +266,11 @@ export default function ReaderChamber({
     
     targets.forEach(t => observer.observe(t));
     return () => observer.disconnect();
-  }, [selectedChapterNum, activeStory.currentChapterNumber]);
+  }, [selectedChapterNum, activeStory.currentChapterNumber, selectedChapter.generatedContent, selectedChapter.blocks]);
 
   // Scroll to paragraph effect
   useEffect(() => {
-    if (pendingScrollToParagraph !== null && selectedChapter.generatedContent) {
+    if (pendingScrollToParagraph !== null && (selectedChapter.generatedContent || selectedChapter.blocks)) {
       const timer = setTimeout(() => {
         const element = document.getElementById(`para-${pendingScrollToParagraph}`);
         if (element) {
@@ -372,7 +372,7 @@ export default function ReaderChamber({
   };
 
   const filteredChapters = chapters.filter(c => {
-    const isUnlocked = !!c.generatedContent;
+    const isUnlocked = !!c.generatedContent || !!c.hasContent || (c.blocks && c.blocks.length > 0);
     if (filter === 'unlocked') return isUnlocked;
     if (filter === 'locked') return !isUnlocked;
     return true;
@@ -852,6 +852,28 @@ export default function ReaderChamber({
               </button>
             </div>
           </div>
+        ) : isGenerating ? (
+           <div className="max-w-2xl mx-auto py-12 animate-pulse space-y-6">
+             <div className="space-y-4">
+               <div className="h-3 bg-neutral-800/50 rounded w-[85%]"></div>
+               <div className="h-3 bg-neutral-800/50 rounded w-full"></div>
+               <div className="h-3 bg-neutral-800/50 rounded w-full"></div>
+               <div className="h-3 bg-neutral-800/50 rounded w-[60%]"></div>
+             </div>
+             
+             <div className="pt-8 space-y-4">
+               <div className="h-3 bg-neutral-800/50 rounded w-full"></div>
+               <div className="h-3 bg-neutral-800/50 rounded w-[90%]"></div>
+               <div className="h-3 bg-neutral-800/50 rounded w-full"></div>
+               <div className="h-3 bg-neutral-800/50 rounded w-[75%]"></div>
+             </div>
+             
+             <div className="pt-8 space-y-4">
+               <div className="h-3 bg-neutral-800/50 rounded w-[80%]"></div>
+               <div className="h-3 bg-neutral-800/50 rounded w-full"></div>
+               <div className="h-3 bg-neutral-800/50 rounded w-[70%]"></div>
+             </div>
+           </div>
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto py-24">
             <div className="p-4 bg-void rounded-full border border-gold-accent/30 text-gold-accent mb-4 animate-pulse">
@@ -891,20 +913,6 @@ export default function ReaderChamber({
           </div>
         )}
       </div>
-
-      {/* Absolute Loading Veil */}
-      {isGenerating && (
-        <div className="absolute inset-0 bg-[#0a0a0a]/90 backdrop-blur-sm flex flex-col items-center justify-center text-center z-50 rounded-xl">
-          <div className="flex space-x-2 mb-4">
-             <motion.div animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0 }} className="w-2 h-2 rounded-full bg-gold-accent" />
-             <motion.div animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.15 }} className="w-2 h-2 rounded-full bg-jade-accent" />
-             <motion.div animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.3 }} className="w-2 h-2 rounded-full bg-gold-accent" />
-          </div>
-          <p className="font-sc font-bold text-signal tracking-widest text-[10px] uppercase">
-             Transcribing...
-          </p>
-        </div>
-      )}
 
       {/* BOTTOM AUDIO / PLAYER NAVIGATION BAR */}
       <div className="fixed bottom-0 left-0 right-0 bg-neutral-950/95 backdrop-blur-xl border-t border-neutral-900 z-40 px-4 py-2 sm:py-3 pb-6 sm:pb-4 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">

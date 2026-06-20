@@ -6,7 +6,7 @@ An immersive, premium AI-powered webnovel and light novel reader inspired by Web
 
 ## 🌌 Brand Philosophy & Identity
 
-At its core, **SEIHOUSE** exists to make a better time capsule and translator of artistic expression. We believe in meaning-first creator infrastructure:
+**MISSION**: *"SEIHouse exists to make a better time capsule and translator of artistic expression. A meaning-first creator infrastructure company."*
 
 *   **Foundation / Void & Depth** (`#000000`): The dark, ink/charcoal backdrop of infinite narrative possibilities.
 *   **Signal / Clarity** (`#FAFAFA`): Pure narrative transmission read on parchment-inspired high-contrast text layers.
@@ -30,23 +30,25 @@ At its core, **SEIHOUSE** exists to make a better time capsule and translator of
 ### 2. Scroll Ledger (Novel Detail View)
 *   **Grand Scroll Specs**: View high-contrast cover illustrations, full-bodied synopsis, current volume/arc name, MC cultivation progress, and total chapter count.
 *   **System Action Relics**: Easily access three powerful avenues: **Start Reading**, **Open Codex**, and **Generate Next Arc** once prior volumes are finalized.
+*   **Cover Forging**: Real-time generation of custom cover art using the Imagen 3 models to visually anchor the novel's essence.
 
-### 3. Scripture Meridian chamber (The Reader)
+### 3. Scripture Meridian Chamber (The Reader)
 *   **Focus-Mode Viewport**: An ancient system interface designed for extreme legibility with deep spacing, styled blockquotes for system notifications, and elegant mobile-first margins.
 *   **Chant Vocalizer (TTS)**: Fully integrated vocal synthesizer with granular speed transmission controls, custom voice engines, and play/pause functionality embedded inside the bottom overlay HUD layer.
-*   **Ambient Atmospheric Audio**: Immersive background environmental sounds (Howling Wind, Heavy Rain, Temple Bells) with a dedicated audio control widget.
+*   **Ambient Atmospheric Audio & Narrative Cues**: Immersive background environmental sounds (Howling Wind, Heavy Rain, Temple Bells) that dynamically react to real-time metadata cues injected within the text stream.
+*   **Resonance Anchors (Rich Bookmarks)**: Floating, interactive bookmarks that allow users to select paragraphs, add contemplation notes, and save timeline anchors to their memory codex.
 *   **Mobile-First Controls**: Seamless left/right horizontal swipe gestures for intuitive and fast chapter navigation on touch devices.
 
 ### 4. The Infinite Codex
-*   **Virtualized Performance**: Highly optimized list virtualization ensures butter-smooth scrolling through hundreds of timeline chapters, relationships, and artifacts without DOM lag or performance degradation.
 *   **Responsive Bottom Sheet Modal**: Fluid, spring-loaded swipe-up sheet for mobile, allowing users to consult character lore and cultivation stats without severing their current reading context.
 *   **Timeline Recaps**: A chronological causal timeline detailing breakthroughs and summaries of every single chapter generated.
 *   **Karma Web & Power Rankings**: Relationship webs and breakthrough tiers updated dynamically based on story progression.
 
-### 5. The Destiny Steering & Multi-Model Chamber
-*   **Multi-Model Router**: Tailor your generation strategy by swapping between speed tiers (Lightning), standard storytelling (Core), or high-intelligence deep logic (Reasoning) AI modes.
+### 5. Destiny Steering & Consciousness Sync
+*   **Multi-Model Router**: Tailor your generation strategy by swapping between model providers and speed tiers (Google Gemini, OpenRouter, and Ollama Local Support).
 *   **Predictive Destiny Suggestions**: The system examines the active `StoryWorld` memory block, calculating the most compelling paths forward (e.g., *Demonic Path*, *Sect Warfare*, *Jade Companions*).
 *   **Editable Destiny Script**: Combine auto-generated paths or craft custom directives in an advanced Prompt Box before triggering the next arc injection. 
+*   **Fluid Transmutation Loading**: Immersive shivering skeleton states and progress overlays keeping the user anchored while the AI synthesizes worlds in the background.
 
 ---
 
@@ -55,7 +57,6 @@ At its core, **SEIHOUSE** exists to make a better time capsule and translator of
 ### 📱 Mobile Polish & Responsiveness
 *   **Compact HUD Navigation**: The scripture bottom-HUD reorganizes on mobile layout to offer a lightweight control row for TTS, rate toggle, and navigation buttons.
 *   **Swipe Architecture**: Integrated touch event observers mapping to chapter traversal logic.
-*   **Windowing / Virtualization**: Lists in the Codex and reader bookmarks use custom windowing functions to slice DOM renders, keeping device memory footprints tiny.
 
 ### 🚀 Technical Stack
 *   **Frontend Ecosystem**: React 18+ with Vite, leveraging Tailwind CSS utility classes and `lucide-react` for iconography.
@@ -63,7 +64,7 @@ At its core, **SEIHOUSE** exists to make a better time capsule and translator of
 *   **Backend & Cloud Services**: 
     *   Node.js Express Server proxying requests.
     *   **Firebase Authentication** & **Firestore Database** enabling multi-device sync, persistent codex states, and secure role-based rules.
-*   **Generative AI**: Powered by Google’s latest Gemini models (integrating `gemini-2.5-flash`, `gemini-2.5-pro`, and `gemini-2.5-pro-reasoning`) via the `@google/genai` TypeScript SDK.
+*   **Generative AI Ecosystem**: Full integration with the `@google/genai` TypeScript SDK (streaming chunks and function calling) as well as broad multi-provider support.
 
 ---
 

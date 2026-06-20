@@ -391,9 +391,30 @@ export default function App() {
   // --- LOCAL-FIRST EXPORT/IMPORT MECHANISMS ---
 
   // Export any story world as a standalone JSON file
-  const handleExportSingleStory = (story: Story) => {
+  const handleExportSingleStory = async (story: Story) => {
     try {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(story, null, 2));
+      // Build a comprehensive deep copy
+      const exportData = JSON.parse(JSON.stringify(story));
+      
+      // Inject missing chapter contents from DB to the export payload
+      if (exportData.arcs) {
+        for (const arc of exportData.arcs) {
+          for (const chapter of arc.chapters) {
+            if (chapter.hasContent && (!chapter.generatedContent && (!chapter.blocks || chapter.blocks.length === 0))) {
+               const content = await storyStorage.getChapterContent(story.id, chapter.number);
+               if (content) {
+                 chapter.generatedContent = content.generatedContent;
+                 chapter.blocks = content.blocks;
+                 chapter.summary = content.summary;
+                 chapter.statsChangeMessage = content.statsChangeMessage;
+                 chapter.cuePayload = content.cuePayload;
+               }
+            }
+          }
+        }
+      }
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
       const downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute("href", dataStr);
       downloadAnchor.setAttribute("download", `story_world_${story.title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.json`);
@@ -406,9 +427,31 @@ export default function App() {
   };
 
   // Export full celestial library collection as a single backup file
-  const handleExportLibrary = () => {
+  const handleExportLibrary = async () => {
     try {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(stories, null, 2));
+      const exportLibrary = [];
+      for (const story of stories) {
+        const exportData = JSON.parse(JSON.stringify(story));
+        if (exportData.arcs) {
+          for (const arc of exportData.arcs) {
+            for (const chapter of arc.chapters) {
+              if (chapter.hasContent && (!chapter.generatedContent && (!chapter.blocks || chapter.blocks.length === 0))) {
+                 const content = await storyStorage.getChapterContent(story.id, chapter.number);
+                 if (content) {
+                   chapter.generatedContent = content.generatedContent;
+                   chapter.blocks = content.blocks;
+                   chapter.summary = content.summary;
+                   chapter.statsChangeMessage = content.statsChangeMessage;
+                   chapter.cuePayload = content.cuePayload;
+                 }
+              }
+            }
+          }
+        }
+        exportLibrary.push(exportData);
+      }
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportLibrary, null, 2));
       const downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute("href", dataStr);
       downloadAnchor.setAttribute("download", `seihouse_story_library_${new Date().toISOString().split('T')[0]}.json`);
@@ -438,6 +481,17 @@ export default function App() {
           if (!storyObj || !storyObj.id || !storyObj.title || !storyObj.memory) {
             throw new Error(`The provided package does not comply with the StoryWorld structural framework.`);
           }
+          // Set _isNewContent for imported physical texts so they get written to DB
+          if (storyObj.arcs) {
+             storyObj.arcs.forEach((arc: any) => {
+               arc.chapters.forEach((ch: any) => {
+                 if (ch.generatedContent || (ch.blocks && ch.blocks.length > 0)) {
+                    ch._isNewContent = true;
+                 }
+               });
+             });
+          }
+          
           // Check for conflicts
           const existingIdx = mergedList.findIndex(s => s.id === storyObj.id);
           if (existingIdx > -1) {
@@ -477,7 +531,7 @@ export default function App() {
         storyStorage.getChapterContent(activeStory.id, selectedChapterNum).then(content => {
           if (content) {
             // Integrate content back into React state
-            const updatedStories = stories.map(s => {
+            setStories(prevStories => prevStories.map(s => {
               if (s.id === activeStory.id) {
                 return {
                   ...s,
@@ -500,9 +554,7 @@ export default function App() {
                 };
               }
               return s;
-            });
-            // ONLY update React state. No need to trigger a full re-save or it will infinitely save/strip!
-            setStories(updatedStories);
+            }));
           }
         });
       }
@@ -807,6 +859,7 @@ export default function App() {
               if (ch.number !== chapterNumber) return ch;
               return {
                 ...ch,
+                _isNewContent: true,
                 generatedContent: data.chapterText,
                 blocks: data.blocks,
                 summary: data.summary,
@@ -1279,7 +1332,7 @@ export default function App() {
       
       {/* GLOBAL MOUNT/TRANSMUTATION LOADING VEIL */}
       <AnimatePresence>
-        {isGenerating && (
+        {(isGenerating && generationPhase !== 'chapter') && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1324,7 +1377,6 @@ export default function App() {
               <span className="font-sc text-[10px] tracking-[0.25em] font-bold uppercase text-portal/90 bg-portal/5 px-3 py-1.5 border border-portal/20 rounded shadow-[0_0_12px_rgba(4,172,255,0.1)]">
                 {generationPhase === 'blueprint' && "Aetherial Mapping"}
                 {generationPhase === 'initial-arc' && "Scripture Initiation"}
-                {generationPhase === 'chapter' && "Crystallizing Chapter Link"}
                 {generationPhase === 'steer' && "Sovereign Shift"}
                 {generationPhase === 'cover' && "Cover Reforging"}
                 {!generationPhase && "Consciousness Sync"}
@@ -1340,7 +1392,6 @@ export default function App() {
             <p className="font-serif italic text-xs text-neutral-450 max-w-md leading-relaxed mb-8">
               {generationPhase === 'blueprint' && "Establishing foundational laws, power limitations, and planetary properties."}
               {generationPhase === 'initial-arc' && "Transcribing the grand volume ledger, compiling chapter milestones and character templates."}
-              {generationPhase === 'chapter' && "Aligning previous subplots, executing cultivation updates, and transcribing sentences."}
               {generationPhase === 'steer' && "Merging your custom instructions with fate timelines to trigger the subsequent 10 chapters."}
               {generationPhase === 'cover' && "Translating core premise variables into bespoke high-fidelity digital art scrolls."}
               {!generationPhase && "Interfacing with the SEIHouse deep narrative engine."}
@@ -1362,7 +1413,6 @@ export default function App() {
                   {(() => {
                     const totalDuration = generationPhase === 'blueprint' ? 15 
                       : generationPhase === 'initial-arc' ? 25 
-                      : generationPhase === 'chapter' ? 20 
                       : generationPhase === 'steer' ? 25 
                       : generationPhase === 'cover' ? 15 
                       : 20;
