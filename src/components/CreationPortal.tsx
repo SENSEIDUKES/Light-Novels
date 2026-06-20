@@ -26,6 +26,46 @@ const PREMISE_SUGGESTIONS = [
   "Being the cripple son of a great General who finds out his 'broken' meridians are actually the legendary ancient Dragon-Phoenix Meridian body."
 ];
 
+interface FormSectionProps {
+  id: 'core' | 'world' | 'mc' | 'power' | 'plot';
+  title: string;
+  icon: React.ReactNode;
+  activeSection: 'core' | 'world' | 'mc' | 'power' | 'plot';
+  setActiveSection: (id: 'core' | 'world' | 'mc' | 'power' | 'plot') => void;
+  children: React.ReactNode;
+}
+
+const FormSection = ({ id, title, icon, activeSection, setActiveSection, children }: FormSectionProps) => {
+  const isActive = activeSection === id;
+  return (
+    <div className="border border-neutral-900 rounded-lg overflow-hidden bg-void transition-colors mb-4">
+      <button
+        type="button"
+        onClick={() => setActiveSection(isActive ? id : id)}
+        className={`w-full flex items-center justify-between p-4 px-6 text-left transition-colors ${isActive ? 'bg-neutral-900/50 text-signal border-b border-neutral-900' : 'bg-void text-neutral-400 hover:bg-neutral-950 hover:text-neutral-200'}`}
+      >
+        <div className="flex items-center space-x-3">
+          <span className={isActive ? 'text-portal' : 'text-neutral-500'}>{icon}</span>
+          <span className="font-sc font-bold uppercase tracking-widest text-sm">{title}</span>
+        </div>
+        {isActive ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+      </button>
+      <AnimatePresence>
+        {isActive && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="p-6 space-y-6"
+          >
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGenerating, error }: CreationPortalProps) {
   const [stage, setStage] = useState<'intake' | 'blueprint'>('intake');
   const [blueprint, setBlueprint] = useState<WorldBlueprint | null>(null);
@@ -87,37 +127,6 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
   const handleStartStoryClick = async () => {
     if (!blueprint) return;
     await onStartStory(intake, blueprint, chapterCount);
-  };
-
-  const FormSection = ({ id, title, icon, children }: { id: typeof activeSection, title: string, icon: React.ReactNode, children: React.ReactNode }) => {
-    const isActive = activeSection === id;
-    return (
-      <div className="border border-neutral-900 rounded-lg overflow-hidden bg-void transition-colors mb-4">
-        <button
-          type="button"
-          onClick={() => setActiveSection(isActive ? id : id)}
-          className={`w-full flex items-center justify-between p-4 px-6 text-left transition-colors ${isActive ? 'bg-neutral-900/50 text-signal border-b border-neutral-900' : 'bg-void text-neutral-400 hover:bg-neutral-950 hover:text-neutral-200'}`}
-        >
-          <div className="flex items-center space-x-3">
-            <span className={isActive ? 'text-portal' : 'text-neutral-500'}>{icon}</span>
-            <span className="font-sc font-bold uppercase tracking-widest text-sm">{title}</span>
-          </div>
-          {isActive ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-        </button>
-        <AnimatePresence>
-          {isActive && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="p-6 space-y-6"
-            >
-              {children}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    );
   };
 
   if (stage === 'blueprint' && blueprint) {
@@ -217,7 +226,7 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
 
       <form onSubmit={handleGenerateBlueprintClick} className="space-y-4">
         
-        <FormSection id="core" title="1. Core Seed" icon={<BookOpen size={18} />}>
+        <FormSection id="core" title="1. Core Seed" icon={<BookOpen size={18} />} activeSection={activeSection} setActiveSection={setActiveSection}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Optional Novel Title</label>
@@ -263,7 +272,7 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
           </div>
         </FormSection>
 
-        <FormSection id="world" title="2. World Setting" icon={<Layers size={18} />}>
+        <FormSection id="world" title="2. World Setting" icon={<Layers size={18} />} activeSection={activeSection} setActiveSection={setActiveSection}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">World Type</label>
@@ -284,7 +293,7 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
           </div>
         </FormSection>
 
-        <FormSection id="mc" title="3. Main Character Setup" icon={<Users size={18} />}>
+        <FormSection id="mc" title="3. Main Character Setup" icon={<Users size={18} />} activeSection={activeSection} setActiveSection={setActiveSection}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Starting Identity</label>
@@ -305,7 +314,7 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
           </div>
         </FormSection>
 
-        <FormSection id="power" title="4. Power System Seed" icon={<Zap size={18} />}>
+        <FormSection id="power" title="4. Power System Seed" icon={<Zap size={18} />} activeSection={activeSection} setActiveSection={setActiveSection}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Starting Power Concept</label>
@@ -322,7 +331,7 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
           </div>
         </FormSection>
 
-        <FormSection id="plot" title="5. Plot & Trope Control" icon={<Target size={18} />}>
+        <FormSection id="plot" title="5. Plot & Trope Control" icon={<Target size={18} />} activeSection={activeSection} setActiveSection={setActiveSection}>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
              <div>
               <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-1">Face-Slapping</label>

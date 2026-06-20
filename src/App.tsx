@@ -3,7 +3,7 @@ import {
   BookOpen, Sparkles, FolderHeart, User, Globe, 
   Award, Trash2, Plus, LogOut, BookCheck, ShieldAlert,
   ArrowLeft, Zap, Download, Upload, Database, Sliders, FileText,
-  Play, ChevronRight, BarChart, Cloud, CloudOff, RefreshCw
+  Play, ChevronRight, BarChart, Cloud, CloudOff, RefreshCw, MoreHorizontal
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Story, StoryMemory, Chapter, StoryArc, StoryWorld, ReaderPreferences, KarmaFateNode, CharacterRelationship, MultiModelRouting, RouteConfig, IntakeData, WorldBlueprint, StoryBlock } from './types';
@@ -108,6 +108,7 @@ const INITIAL_DEMO_STORIES: Story[] = [
 export default function App() {
   const [stories, setStories] = useState<Story[]>([]);
   const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
+  const [isStoryMenuOpen, setIsStoryMenuOpen] = useState(false);
   const [currentScreen, setCurrentScreen] = useState<'home' | 'detail' | 'reader' | 'codex' | 'creator' | 'profile'>('home');
   const [storyToDelete, setStoryToDelete] = useState<string | null>(null);
   
@@ -1328,7 +1329,7 @@ export default function App() {
   const mostRecentStory = sortedStoriesByDate.length > 0 ? sortedStoriesByDate[0] : null;
 
   return (
-    <div className="min-h-screen bg-void text-signal font-sans selection:bg-human/80 select-none pb-20">
+    <div className="min-h-screen bg-void text-signal font-sans selection:bg-human/80 pb-20">
       
       {/* GLOBAL MOUNT/TRANSMUTATION LOADING VEIL */}
       <AnimatePresence>
@@ -1338,7 +1339,7 @@ export default function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-void/95 backdrop-blur-md z-[9999] flex flex-col items-center justify-center p-6 text-center select-none"
+            className="fixed inset-0 bg-void/95 backdrop-blur-md z-[9999] flex flex-col items-center justify-center p-6 text-center"
           >
             {/* Ambient Cosmic Background Core */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 w-[420px] h-[420px] rounded-full bg-radial-gradient from-portal/10 via-human/5 to-transparent blur-3xl pointer-events-none"></div>
@@ -1443,7 +1444,7 @@ export default function App() {
       {(currentScreen !== 'reader' && currentScreen !== 'codex') && (
         <header className="border-b border-neutral-900 bg-black/90 backdrop-blur-md sticky top-0 z-40 py-1.5 sm:py-3 animate-fadeIn">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-            <div className="flex items-center space-x-2 sm:space-x-3 cursor-pointer select-none" onClick={() => { setCurrentScreen('home'); setActiveStoryId(null); }}>
+            <div className="flex items-center space-x-2 sm:space-x-3 cursor-pointer" onClick={() => { setCurrentScreen('home'); setActiveStoryId(null); }}>
               {/* Real corporate SEIHouse SEA Logo */}
               <img 
                 src="https://images.seihouse.org/SEA%20LOGO/SEA%20LOGO.png" 
@@ -1484,7 +1485,7 @@ export default function App() {
                   )}
                 </div>
                 {lastSavedTime && (
-                  <span className="text-[8px] sm:text-[9px] font-mono text-neutral-600 block pr-1">
+                  <span className="hidden sm:block text-[8px] sm:text-[9px] font-mono text-neutral-600 pr-1">
                     Auto-saved: {lastSavedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                   </span>
                 )}
@@ -1858,7 +1859,7 @@ export default function App() {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="pt-6 flex flex-wrap gap-3">
+                  <div className="pt-6 flex flex-wrap gap-3 items-center relative">
                     <button
                       onClick={() => {
                         const lastCh = activeStory.arcs[activeStory.arcs.length - 1].chapters.find(c => !(c.hasContent || !!c.generatedContent))?.number || activeStory.arcs[activeStory.arcs.length - 1].chapters[0].number;
@@ -1879,28 +1880,71 @@ export default function App() {
                       <span>Open Codex</span>
                     </button>
 
-                    <button
-                      onClick={() => handleExportFullTome(activeStory)}
-                      className="px-6 py-2.5 bg-void border border-neutral-800 text-neutral-300 font-sc font-bold uppercase tracking-wider rounded hover:bg-neutral-900 hover:border-gold-accent hover:text-gold-accent transition-all flex items-center space-x-2 text-xs shadow-md"
-                    >
-                      <BookCheck size={16} />
-                      <span>Export Full Tome (HTML)</span>
-                    </button>
+                    <div className="relative">
+                      <button
+                        onClick={() => setIsStoryMenuOpen(!isStoryMenuOpen)}
+                        className="p-2.5 bg-void border border-neutral-800 text-neutral-400 hover:text-signal rounded hover:bg-neutral-900 hover:border-neutral-750 transition-all flex items-center justify-center"
+                        title="More options"
+                        type="button"
+                      >
+                        <MoreHorizontal size={18} />
+                      </button>
 
-                    <button
-                      onClick={() => handleExportSingleStory(activeStory)}
-                      className="px-6 py-2.5 bg-void border border-neutral-800 text-neutral-400 font-sc font-bold uppercase tracking-wider rounded hover:bg-neutral-900 hover:border-neutral-700 hover:text-signal transition-all flex items-center space-x-2 text-xs"
-                    >
-                      <Download size={14} className="text-gold-accent" />
-                      <span>JSON Metadata</span>
-                    </button>
-                    <button
-                      onClick={(e) => handleDeleteStory(activeStory.id, e)}
-                      className="px-6 py-2.5 bg-void border border-neutral-800 text-neutral-400 font-sc font-bold uppercase tracking-wider rounded hover:bg-neutral-900 hover:border-red-900 hover:text-red-500 transition-all flex items-center space-x-2 text-xs"
-                    >
-                      <Trash2 size={14} />
-                      <span>Delete Matrix</span>
-                    </button>
+                      <AnimatePresence>
+                        {isStoryMenuOpen && (
+                          <>
+                            <div 
+                              className="fixed inset-0 z-40" 
+                              onClick={() => setIsStoryMenuOpen(false)} 
+                            />
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                              transition={{ duration: 0.15 }}
+                              className="absolute left-0 mt-2 w-56 rounded bg-neutral-950 border border-neutral-800 shadow-xl z-50 overflow-hidden divide-y divide-neutral-900"
+                            >
+                              <div className="py-1">
+                                <button
+                                  onClick={() => {
+                                    setIsStoryMenuOpen(false);
+                                    handleExportFullTome(activeStory);
+                                  }}
+                                  className="w-full text-left px-4 py-2.5 text-xs text-neutral-300 hover:bg-neutral-900 hover:text-gold-accent transition-colors flex items-center space-x-2 font-sc font-bold uppercase tracking-wider"
+                                >
+                                  <BookCheck size={14} className="text-portal" />
+                                  <span>Export Full Tome (HTML)</span>
+                                </button>
+
+                                <button
+                                  onClick={() => {
+                                    setIsStoryMenuOpen(false);
+                                    handleExportSingleStory(activeStory);
+                                  }}
+                                  className="w-full text-left px-4 py-2.5 text-xs text-neutral-350 hover:bg-neutral-900 hover:text-signal transition-colors flex items-center space-x-2 font-sc font-bold uppercase tracking-wider"
+                                >
+                                  <Download size={14} className="text-gold-accent" />
+                                  <span>Export JSON Metadata</span>
+                                </button>
+                              </div>
+
+                              <div className="py-1">
+                                <button
+                                  onClick={(e) => {
+                                    setIsStoryMenuOpen(false);
+                                    handleDeleteStory(activeStory.id, e);
+                                  }}
+                                  className="w-full text-left px-4 py-2.5 text-xs text-red-500 hover:bg-red-950/20 hover:text-red-400 transition-colors flex items-center space-x-2 font-sc font-bold uppercase tracking-wider"
+                                >
+                                  <Trash2 size={14} />
+                                  <span>Delete Matrix</span>
+                                </button>
+                              </div>
+                            </motion.div>
+                          </>
+                        )}
+                      </AnimatePresence>
+                    </div>
                     
                     {isCurrentArcFinished && (
                       <button

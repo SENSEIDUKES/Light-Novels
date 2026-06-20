@@ -566,7 +566,7 @@ export default function LivingCodex({
   );
 
   return (
-    <div className="bg-black border border-neutral-900 rounded-lg p-4 sm:p-6 shadow-2xl flex flex-col md:flex-row gap-6 relative min-h-[690px] overflow-hidden select-none" id="living-codex-container">
+    <div className="bg-black border border-neutral-900 rounded-lg p-4 sm:p-6 shadow-2xl flex flex-col md:flex-row gap-6 relative min-h-[690px] overflow-hidden" id="living-codex-container">
       {/* Dynamic Portal aura line */}
       <div className="absolute top-0 inset-x-0 h-[3px] bg-gradient-to-r from-portal via-human to-portal"></div>
 
@@ -589,7 +589,7 @@ export default function LivingCodex({
         </div>
 
         {/* HORIZONTAL TABS ON MOBILE / VERTICAL SIDEBAR ON DESKTOP */}
-        <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 gap-1.5 md:gap-1.5 md:space-y-1.5 scrollbar-none whitespace-nowrap select-none w-full" id="codex-tab-scroller">
+        <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 gap-1.5 md:gap-1.5 md:space-y-1.5 scrollbar-none whitespace-nowrap w-full" id="codex-tab-scroller">
           {/* Character/Location Profiles Link */}
           <button
             onClick={() => setActivePage('characters')}
