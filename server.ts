@@ -58,6 +58,125 @@ const PORT = 3000;
 // Increase payload sizes
 app.use(express.json({ limit: "20mb" }));
 
+function ensureString(val: any): string {
+  if (val === undefined || val === null) return "";
+  if (typeof val === "string") return val;
+  if (typeof val === "object") {
+    if (Array.isArray(val)) {
+      return val.map(item => typeof item === "object" ? JSON.stringify(item) : String(item)).join("\n");
+    }
+    // Convert object to a nice readable string
+    return Object.entries(val)
+      .map(([k, v]) => {
+        const formattedKey = k.replace(/([A-Z])/g, " $1").trim().replace(/^\w/, c => c.toUpperCase());
+        const formattedVal = typeof v === "object" ? JSON.stringify(v) : String(v);
+        return `${formattedKey}: ${formattedVal}`;
+      })
+      .join("\n");
+  }
+  return String(val);
+}
+
+function cleanBlueprint(bp: any): any {
+  if (!bp || typeof bp !== "object") return bp;
+  
+  const stringFields = [
+    "title", "logline", "worldOverview", "startingLocation", 
+    "societyStructure", "powerSystemOutline", "mcProfile", 
+    "firstArcPromise", "tropeRules", "styleBible"
+  ];
+  const arrayFields = [
+    "majorFactions", "initialCharacters", "majorMysteries", "unresolvedPlotThreads"
+  ];
+
+  const cleaned: any = {};
+  
+  for (const field of stringFields) {
+    if (field in bp) {
+      cleaned[field] = ensureString(bp[field]);
+    } else {
+      cleaned[field] = "";
+    }
+  }
+
+  for (const field of arrayFields) {
+    if (field in bp) {
+      if (Array.isArray(bp[field])) {
+        cleaned[field] = bp[field].map((item: any) => ensureString(item));
+      } else {
+        cleaned[field] = [ensureString(bp[field])];
+      }
+    } else {
+      cleaned[field] = [];
+    }
+  }
+
+  return cleaned;
+}
+
+function cleanInitialArc(arc: any): any {
+  if (!arc || typeof arc !== "object") return arc;
+  const cleaned: any = { ...arc };
+  
+  if ("title" in cleaned) cleaned.title = ensureString(cleaned.title);
+  if ("powerSystem" in cleaned) cleaned.powerSystem = ensureString(cleaned.powerSystem);
+  if ("currentPowerStage" in cleaned) cleaned.currentPowerStage = ensureString(cleaned.currentPowerStage);
+  
+  if ("worldRules" in cleaned) {
+    if (Array.isArray(cleaned.worldRules)) {
+      cleaned.worldRules = cleaned.worldRules.map((item: any) => ensureString(item));
+    } else {
+      cleaned.worldRules = [ensureString(cleaned.worldRules)];
+    }
+  }
+  
+  if ("unresolvedPlotThreads" in cleaned) {
+    if (Array.isArray(cleaned.unresolvedPlotThreads)) {
+      cleaned.unresolvedPlotThreads = cleaned.unresolvedPlotThreads.map((item: any) => ensureString(item));
+    } else {
+      cleaned.unresolvedPlotThreads = [ensureString(cleaned.unresolvedPlotThreads)];
+    }
+  }
+
+  if ("characters" in cleaned && Array.isArray(cleaned.characters)) {
+    cleaned.characters = cleaned.characters.map((c: any) => {
+      if (!c || typeof c !== "object") return c;
+      const cleanChar = { ...c };
+      if ("name" in cleanChar) cleanChar.name = ensureString(cleanChar.name);
+      if ("role" in cleanChar) cleanChar.role = ensureString(cleanChar.role);
+      if ("description" in cleanChar) cleanChar.description = ensureString(cleanChar.description);
+      if ("relationshipToMC" in cleanChar) cleanChar.relationshipToMC = ensureString(cleanChar.relationshipToMC);
+      if ("status" in cleanChar) cleanChar.status = ensureString(cleanChar.status);
+      return cleanChar;
+    });
+  }
+
+  return cleaned;
+}
+
+function cleanChapterResponse(resp: any): any {
+  if (!resp || typeof resp !== "object") return resp;
+  const cleaned = { ...resp };
+  if ("chapterText" in cleaned) cleaned.chapterText = ensureString(cleaned.chapterText);
+  if ("summary" in cleaned) cleaned.summary = ensureString(cleaned.summary);
+  if ("statsChangeMessage" in cleaned) cleaned.statsChangeMessage = ensureString(cleaned.statsChangeMessage);
+  
+  if (cleaned.memoryUpdates && typeof cleaned.memoryUpdates === "object") {
+    const mu = cleaned.memoryUpdates;
+    if ("currentPowerStage" in mu) mu.currentPowerStage = ensureString(mu.currentPowerStage);
+    if ("newUnresolvedPlotThreads" in mu && Array.isArray(mu.newUnresolvedPlotThreads)) {
+      mu.newUnresolvedPlotThreads = mu.newUnresolvedPlotThreads.map((i: any) => ensureString(i));
+    }
+    if ("resolvedPlotThreads" in mu && Array.isArray(mu.resolvedPlotThreads)) {
+      mu.resolvedPlotThreads = mu.resolvedPlotThreads.map((i: any) => ensureString(i));
+    }
+    if ("newMCAbilities" in mu && Array.isArray(mu.newMCAbilities)) {
+      mu.newMCAbilities = mu.newMCAbilities.map((i: any) => ensureString(i));
+    }
+  }
+  return cleaned;
+}
+
 // ==========================================
 // API ROUTES
 // ==========================================
@@ -65,6 +184,88 @@ app.use(express.json({ limit: "20mb" }));
 // 0. Get available router presets
 app.get("/api/router-presets", (req, res) => {
   res.json(ROUTER_PRESETS);
+});
+
+// 0.2. Fetch dynamic list of models from providers (OpenRouter, Ollama, Gemini)
+app.post("/api/models", async (req, res) => {
+  const { provider, host, key } = req.body;
+  try {
+    if (provider === "openrouter") {
+      const resp = await fetch("https://openrouter.ai/api/v1/models");
+      if (!resp.ok) {
+        throw new Error(`OpenRouter returned status ${resp.status}`);
+      }
+      const json: any = await resp.json();
+      if (json && Array.isArray(json.data)) {
+        const ids = json.data.map((m: any) => m.id);
+        return res.json({ models: ids });
+      }
+      throw new Error("Invalid response format from OpenRouter");
+    }
+    
+    if (provider === "ollama") {
+      const ollamaHost = host || process.env.OLLAMA_HOST || "http://localhost:11434";
+      const resp = await fetch(`${ollamaHost}/api/tags`);
+      if (!resp.ok) {
+        throw new Error(`Ollama returned status ${resp.status}`);
+      }
+      const json: any = await resp.json();
+      if (json && Array.isArray(json.models)) {
+        const names = json.models.map((m: any) => m.name);
+        return res.json({ models: names });
+      }
+      throw new Error("Invalid response format from Ollama");
+    }
+
+    if (provider === "gemini") {
+      const apiKey = key || process.env.GEMINI_API_KEY;
+      if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
+        return res.json({
+          models: [
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
+            "gemini-2.0-flash",
+            "gemini-2.0-flash-lite",
+            "gemini-2.0-pro-exp",
+            "gemini-2.0-flash-thinking-exp",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+            "gemini-1.5-flash-8b",
+            "gemini-1.0-pro",
+            "gemini-3.5-flash",
+            "gemini-3.1-pro-preview",
+            "gemini-3.1-flash-lite"
+          ]
+        });
+      }
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+      if (!resp.ok) {
+        throw new Error(`Gemini API returned status ${resp.status}`);
+      }
+      const json: any = await resp.json();
+      if (json && Array.isArray(json.models)) {
+        const names = json.models
+          .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
+          .map((m: any) => m.name.replace(/^models\//, ""));
+        return res.json({ models: names });
+      }
+      throw new Error("Invalid response format from Gemini");
+    }
+
+    return res.status(400).json({ error: "Unsupported provider" });
+  } catch (error: any) {
+    console.error(`Error fetching dynamic models for ${provider}:`, error);
+    // Graceful fallback to static pre-defined lists
+    let fallback: string[] = [];
+    if (provider === "openrouter") {
+      fallback = ROUTER_PRESETS.storyMaker.openrouter;
+    } else if (provider === "ollama") {
+      fallback = ROUTER_PRESETS.storyMaker.ollama;
+    } else {
+      fallback = ROUTER_PRESETS.storyMaker.gemini;
+    }
+    return res.json({ models: fallback, isFallback: true, error: error.message });
+  }
 });
 
 // 0.1. Get API configuration status (safety flags check, no key content is leaked)
@@ -122,7 +323,7 @@ Do not add any text before or after the JSON.`;
       routingConfig,
       getCustomKeys(req)
     );
-    return res.json(data);
+    return res.json(cleanBlueprint(data));
   } catch (error: any) {
     console.error("Error generating blueprint:", error);
     return res.status(500).json({ error: error.message || "Internal server error" });
@@ -190,7 +391,7 @@ Ensure the story pacing is structured so that key breakthroughs happen periodica
       routingConfig,
       getCustomKeys(req)
     );
-    return res.json(data);
+    return res.json(cleanInitialArc(data));
   } catch (error: any) {
     console.error("Error generating initial arc:", error);
     return res.status(500).json({ error: error.message || "Internal server error" });
@@ -509,7 +710,7 @@ Do not add any text before or after the JSON.`;
       routingConfig,
       getCustomKeys(req)
     );
-    return res.json(data);
+    return res.json(cleanChapterResponse(data));
   } catch (error: any) {
     console.error("Error generating chapter:", error);
     return res.status(500).json({ error: error.message || "Internal server error" });

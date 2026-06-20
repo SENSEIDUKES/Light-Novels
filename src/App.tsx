@@ -22,6 +22,163 @@ import { signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 const STORAGE_KEY = '@seihouse/fiction-generator-stories-v2';
 
 // -------------------------------------------------------------
+// SEARCHABLE MODEL SELECTOR FOR EXTRA STRENGTH & ALL STRINGS
+// -------------------------------------------------------------
+interface SearchableModelSelectorProps {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  provider: 'gemini' | 'openrouter' | 'ollama';
+  route: 'storyMaker' | 'imageGenerator';
+  presets: string[];
+  dynamicModelsList: string[];
+  isLoading: boolean;
+  onRefresh: () => void;
+  accentColorClass: string; // 'portal' or 'human'
+}
+
+const SearchableModelSelector: React.FC<SearchableModelSelectorProps> = ({
+  label,
+  value,
+  onChange,
+  provider,
+  route,
+  presets,
+  dynamicModelsList,
+  isLoading,
+  onRefresh,
+  accentColorClass
+}) => {
+  const [search, setSearch] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  // Combine presets and dynamic list, removing duplicates
+  const allAvailableModels = React.useMemo(() => {
+    const list = [...presets];
+    for (const m of dynamicModelsList) {
+      if (m && !list.includes(m)) {
+        list.push(m);
+      }
+    }
+    return list;
+  }, [presets, dynamicModelsList]);
+
+  // Filter available models by search query
+  const filteredModels = React.useMemo(() => {
+    const query = search.toLowerCase().trim();
+    if (!query) return allAvailableModels;
+    return allAvailableModels.filter(m => m.toLowerCase().includes(query));
+  }, [search, allAvailableModels]);
+
+  // Sync search input with parent value initially or on change
+  useEffect(() => {
+    setSearch(value);
+  }, [value]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const borderFocusClass = accentColorClass === 'portal' ? 'focus:border-portal' : 'focus:border-human';
+  const textThemeClass = accentColorClass === 'portal' ? 'text-portal font-semibold' : 'text-human font-semibold';
+  const bgBadgeClass = accentColorClass === 'portal' ? 'bg-portal/10 text-portal border-portal/30' : 'bg-human/10 text-human border-human/30';
+
+  return (
+    <div className="relative mt-2" ref={dropdownRef}>
+      <div className="flex items-center justify-between mb-1">
+        <label className="text-[10px] font-mono text-neutral-400 capitalize">{label}</label>
+        <div className="flex items-center space-x-2">
+          {isLoading && <span className="text-[9px] font-mono text-neutral-500 animate-pulse">Syncing...</span>}
+          <button
+            type="button"
+            onClick={onRefresh}
+            title="Refresh list of models from servers"
+            className={`text-[9px] font-mono text-neutral-500 hover:${accentColorClass === 'portal' ? 'text-portal' : 'text-human'} transition-colors uppercase`}
+          >
+            [Sync]
+          </button>
+        </div>
+      </div>
+
+      <div className="relative">
+        <input
+          type="text"
+          placeholder={`Type or select a model ID (e.g., ${presets[0] || 'gemini-1.5-flash'})`}
+          value={search}
+          onChange={(e) => {
+            const val = e.target.value;
+            setSearch(val);
+            onChange(val);
+          }}
+          onFocus={() => setIsOpen(true)}
+          className={`w-full bg-void text-xs text-neutral-300 border border-neutral-900 ${borderFocusClass} p-1.5 pr-8 rounded focus:outline-none font-mono placeholder:text-neutral-700`}
+        />
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className="absolute right-1 text-neutral-600 hover:text-neutral-450 top-1/2 -translate-y-1/2 p-1 focus:outline-none"
+        >
+          <Sliders size={12} className={isOpen ? (accentColorClass === 'portal' ? 'text-portal' : 'text-human') : ''} />
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 mt-1 max-h-52 overflow-y-auto bg-neutral-950 border border-neutral-900 rounded shadow-2xl z-50 divide-y divide-neutral-900/40 select-none scrollbar-thin scrollbar-thumb-neutral-800">
+          <div className="p-1 px-2 bg-black/60 sticky top-0 flex justify-between items-center z-10 border-b border-neutral-900">
+            <span className="text-[9px] font-mono text-neutral-500 pl-1">
+              {filteredModels.length} models of {provider.toUpperCase()}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="text-[9px] font-mono text-neutral-500 hover:text-neutral-300 px-1"
+            >
+              [close]
+            </button>
+          </div>
+          {filteredModels.length === 0 ? (
+            <div className="p-2.5 text-center text-[10px] font-mono text-neutral-600 italic">
+              No matching model string found. Type your custom string above to use directly.
+            </div>
+          ) : (
+            filteredModels.map((model) => {
+              const isPreset = presets.includes(model);
+              return (
+                <div
+                  key={model}
+                  onClick={() => {
+                    onChange(model);
+                    setSearch(model);
+                    setIsOpen(false);
+                  }}
+                  className={`p-2 hover:bg-neutral-900 hover:text-[#FAFAFA] cursor-pointer font-mono text-[10px] text-neutral-400 flex items-center justify-between transition-colors ${
+                    value === model ? 'bg-neutral-900 text-signal font-semibold' : ''
+                  }`}
+                >
+                  <span className="truncate pr-2">{model}</span>
+                  {isPreset ? (
+                    <span className="text-[8px] bg-neutral-900/50 text-neutral-500 px-1 rounded font-sans shrink-0 border border-neutral-850">Preset</span>
+                  ) : (
+                    <span className={`text-[8px] border ${bgBadgeClass} px-1 rounded font-sans shrink-0`}>API</span>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// -------------------------------------------------------------
 // SEIHouse Mock Preset Stories (Initial load if empty)
 // -------------------------------------------------------------
 const INITIAL_DEMO_STORIES: Story[] = [
@@ -243,8 +400,63 @@ export default function App() {
   const [storageType, setStorageType] = useState<string>('Initializing...');
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [useCustomStoryMaker, setUseCustomStoryMaker] = useState(false);
+  const [useCustomImageGenerator, setUseCustomImageGenerator] = useState(false);
   const [isCodexSheetOpen, setIsCodexSheetOpen] = useState(false);
   const [routingPresets, setRoutingPresets] = useState<any>(null);
+
+  const [localGeminiKey, setLocalGeminiKey] = useState(() => secureStorage.getItem('@seihouse/api-key-gemini') || '');
+  const [localOpenrouterKey, setLocalOpenrouterKey] = useState(() => secureStorage.getItem('@seihouse/api-key-openrouter') || '');
+  const [localOllamaHost, setLocalOllamaHost] = useState(() => secureStorage.getItem('@seihouse/api-key-ollama-host') || '');
+
+  const [dynamicModels, setDynamicModels] = useState<{
+    storyMaker: { gemini: string[]; openrouter: string[]; ollama: string[] };
+    imageGenerator: { gemini: string[]; openrouter: string[]; ollama: string[] };
+  }>({
+    storyMaker: { gemini: [], openrouter: [], ollama: [] },
+    imageGenerator: { gemini: [], openrouter: [], ollama: [] }
+  });
+  const [loadingModels, setLoadingModels] = useState<Record<string, boolean>>({});
+
+  const fetchDynamicModels = async (route: 'storyMaker' | 'imageGenerator', provider: 'gemini' | 'openrouter' | 'ollama') => {
+    const key = `${route}-${provider}`;
+    setLoadingModels(prev => ({ ...prev, [key]: true }));
+    try {
+      let reqKey = '';
+      if (provider === 'gemini') {
+        reqKey = localGeminiKey;
+      } else if (provider === 'openrouter') {
+        reqKey = localOpenrouterKey;
+      }
+      
+      const res = await fetch('/api/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider,
+          host: provider === 'ollama' ? localOllamaHost : undefined,
+          key: reqKey || undefined
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.models)) {
+          setDynamicModels(prev => ({
+            ...prev,
+            [route]: {
+              ...prev[route],
+              [provider]: data.models
+            }
+          }));
+        }
+      }
+    } catch (err) {
+      console.error(`Failed to fetch dynamic models for ${route}/${provider}:`, err);
+    } finally {
+      setLoadingModels(prev => ({ ...prev, [key]: false }));
+    }
+  };
 
   const [routingConfig, setRoutingConfig] = useState<MultiModelRouting>(() => {
     const saved = localStorage.getItem('@seihouse/ai-routing-config');
@@ -264,10 +476,6 @@ export default function App() {
       }
     };
   });
-
-  const [localGeminiKey, setLocalGeminiKey] = useState(() => secureStorage.getItem('@seihouse/api-key-gemini') || '');
-  const [localOpenrouterKey, setLocalOpenrouterKey] = useState(() => secureStorage.getItem('@seihouse/api-key-openrouter') || '');
-  const [localOllamaHost, setLocalOllamaHost] = useState(() => secureStorage.getItem('@seihouse/api-key-ollama-host') || '');
 
   const DEFAULT_PRESETS = {
     storyMaker: {
@@ -291,6 +499,19 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('@seihouse/ai-routing-config', JSON.stringify(routingConfig));
   }, [routingConfig]);
+
+  useEffect(() => {
+    if (isSettingsOpen) {
+      const presets = routingPresets || DEFAULT_PRESETS;
+      const smModel = routingConfig.storyMaker.model;
+      const smPresets = presets.storyMaker[routingConfig.storyMaker.provider] || [];
+      setUseCustomStoryMaker(!smPresets.includes(smModel));
+
+      const igModel = routingConfig.imageGenerator.model;
+      const igPresets = presets.imageGenerator[routingConfig.imageGenerator.provider] || [];
+      setUseCustomImageGenerator(!igPresets.includes(igModel));
+    }
+  }, [isSettingsOpen]);
 
   useEffect(() => {
     const fetchPresets = async () => {
@@ -319,6 +540,12 @@ export default function App() {
         model
       }
     }));
+
+    if (route === 'storyMaker') {
+      setUseCustomStoryMaker(false);
+    } else {
+      setUseCustomImageGenerator(false);
+    }
   };
 
   const handleUpdateModel = (route: 'storyMaker' | 'imageGenerator', model: string) => {
@@ -1548,11 +1775,22 @@ export default function App() {
             >
               {/* Dark Fantasy Webnovel Hero Banner */}
               <div className="relative rounded-xl border border-neutral-900 overflow-hidden shadow-2xl h-60 sm:h-80 flex items-end">
-                <img 
-                  src="https://images.unsplash.com/photo-1605371924599-2d0365da26f5?auto=format&fit=crop&q=80" 
-                  alt="Fantasy Landscape" 
+                <video 
+                  ref={(el) => {
+                    if (el) {
+                      el.muted = true;
+                      // Ensure playsInline configuration
+                      el.setAttribute('playsinline', '');
+                      el.play().catch(e => console.log("Autoplay blocked:", e));
+                    }
+                  }}
+                  id="hero-banner-video"
+                  src="https://video.seihouse.org/LIGHT%20NOVEL/LIGHT_NOVEL_INTRO.mp4"
+                  autoPlay 
+                  loop 
+                  muted 
+                  playsInline
                   className="absolute inset-0 w-full h-full object-cover opacity-50 sm:opacity-60"
-                  referrerPolicy="no-referrer"
                 />
                 <div className="absolute inset-0 ink-gradient"></div>
                 <div className="relative z-10 p-5 sm:p-12 w-full flex justify-between items-end">
@@ -2081,6 +2319,31 @@ export default function App() {
         </AnimatePresence>
       </main>
 
+      {/* ALL RIGHTS RESERVED LICENSE FOOTER */}
+      <footer className="border-t border-neutral-900 bg-black/20 py-8 mt-12 animate-fadeIn relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center space-x-3">
+            <img 
+              src="https://images.seihouse.org/SEA%20LOGO/SEA%20LOGO.png" 
+              alt="SEIHOUSE PRODUCTIONS LLC Logo" 
+              className="h-6 w-auto object-contain brightness-90 opacity-60 filter drop-shadow-[0_0_6px_rgba(4,172,255,0.15)]"
+              referrerPolicy="no-referrer"
+            />
+            <span className="font-sc text-[10px] tracking-[0.15em] font-bold text-neutral-500 uppercase">
+              SEIHOUSE APPELLATION • Celestial Scroll Library
+            </span>
+          </div>
+          <div className="text-center md:text-right space-y-1">
+            <p className="font-sc text-[11px] tracking-wider text-neutral-400 font-bold uppercase">
+              © {new Date().getFullYear()} SEIHOUSE PRODUCTIONS LLC. All Rights Reserved.
+            </p>
+            <p className="font-mono text-[9px] text-neutral-600 uppercase">
+              Unauthorized replication, transmutation, or extraction of light novel scrolls is strictly forbidden.
+            </p>
+          </div>
+        </div>
+      </footer>
+
       {/* CODEX SHEET OVERLAY */}
       <AnimatePresence>
         {isCodexSheetOpen && activeStory && (
@@ -2221,17 +2484,18 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div>
-                    <select
-                      value={routingConfig.storyMaker.model}
-                      onChange={(e) => handleUpdateModel('storyMaker', e.target.value)}
-                      className="w-full bg-void text-xs text-neutral-300 border border-neutral-900 focus:border-portal p-1.5 rounded focus:outline-none font-mono"
-                    >
-                      {((routingPresets || DEFAULT_PRESETS).storyMaker[routingConfig.storyMaker.provider] || []).map((mod: string) => (
-                        <option key={mod} value={mod}>{mod}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <SearchableModelSelector
+                    label="Story Maker Model Selection"
+                    value={routingConfig.storyMaker.model}
+                    onChange={(val) => handleUpdateModel('storyMaker', val)}
+                    provider={routingConfig.storyMaker.provider as any}
+                    route="storyMaker"
+                    presets={(routingPresets || DEFAULT_PRESETS).storyMaker[routingConfig.storyMaker.provider] || []}
+                    dynamicModelsList={dynamicModels.storyMaker[routingConfig.storyMaker.provider as any] || []}
+                    isLoading={!!loadingModels[`storyMaker-${routingConfig.storyMaker.provider}`]}
+                    onRefresh={() => fetchDynamicModels('storyMaker', routingConfig.storyMaker.provider as any)}
+                    accentColorClass="portal"
+                  />
                 </div>
 
                 {/* ROUTE 2: IMAGE GENERATOR */}
@@ -2260,17 +2524,18 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div>
-                    <select
-                      value={routingConfig.imageGenerator.model}
-                      onChange={(e) => handleUpdateModel('imageGenerator', e.target.value)}
-                      className="w-full bg-void text-xs text-neutral-300 border border-neutral-900 focus:border-human p-1.5 rounded focus:outline-none font-mono"
-                    >
-                      {((routingPresets || DEFAULT_PRESETS).imageGenerator[routingConfig.imageGenerator.provider] || []).map((mod: string) => (
-                        <option key={mod} value={mod}>{mod}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <SearchableModelSelector
+                    label="Image Generator Model Selection"
+                    value={routingConfig.imageGenerator.model}
+                    onChange={(val) => handleUpdateModel('imageGenerator', val)}
+                    provider={routingConfig.imageGenerator.provider as any}
+                    route="imageGenerator"
+                    presets={(routingPresets || DEFAULT_PRESETS).imageGenerator[routingConfig.imageGenerator.provider] || []}
+                    dynamicModelsList={dynamicModels.imageGenerator[routingConfig.imageGenerator.provider as any] || []}
+                    isLoading={!!loadingModels[`imageGenerator-${routingConfig.imageGenerator.provider}`]}
+                    onRefresh={() => fetchDynamicModels('imageGenerator', routingConfig.imageGenerator.provider as any)}
+                    accentColorClass="human"
+                  />
                 </div>
 
                 {/* Aetherial Keys Selection override block */}

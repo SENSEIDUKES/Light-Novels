@@ -84,6 +84,62 @@ export default function ReaderChamber({
   const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>('');
   const [showTtsControls, setShowTtsControls] = useState<boolean>(false);
 
+  // --- Atmospheric Audio Sync States ---
+  const [isMuted, setIsMuted] = useState(() => {
+    return localStorage.getItem('seihouse-audio-muted') === 'true';
+  });
+  const [atmosphere, setAtmosphere] = useState(() => {
+    return localStorage.getItem('seihouse-audio-atmosphere') || 'none';
+  });
+  const [volume, setVolume] = useState(() => {
+    const saved = localStorage.getItem('seihouse-audio-volume');
+    return saved ? parseFloat(saved) : 0.5;
+  });
+
+  // Track state changes from the actual background audio engine
+  useEffect(() => {
+    const handleEvents = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        if (typeof customEvent.detail.isMuted === 'boolean') {
+          setIsMuted(customEvent.detail.isMuted);
+        }
+        if (customEvent.detail.atmosphere) {
+          setAtmosphere(customEvent.detail.atmosphere);
+        }
+        if (typeof customEvent.detail.volume === 'number') {
+          setVolume(customEvent.detail.volume);
+        }
+      }
+    };
+    window.addEventListener('seihouse-audio-state', handleEvents);
+    return () => window.removeEventListener('seihouse-audio-state', handleEvents);
+  }, []);
+
+  const handleMuteToggle = (mutedVal: boolean) => {
+    setIsMuted(mutedVal);
+    localStorage.setItem('seihouse-audio-muted', String(mutedVal));
+    window.dispatchEvent(new CustomEvent('seihouse-audio-control', {
+      detail: { isMuted: mutedVal }
+    }));
+  };
+
+  const handleAtmosphereChange = (atmosVal: string) => {
+    setAtmosphere(atmosVal);
+    localStorage.setItem('seihouse-audio-atmosphere', atmosVal);
+    window.dispatchEvent(new CustomEvent('seihouse-audio-control', {
+      detail: { atmosphere: atmosVal }
+    }));
+  };
+
+  const handleVolumeChange = (volVal: number) => {
+    setVolume(volVal);
+    localStorage.setItem('seihouse-audio-volume', String(volVal));
+    window.dispatchEvent(new CustomEvent('seihouse-audio-control', {
+      detail: { volume: volVal }
+    }));
+  };
+
   // Load SpeechSynthesis voices
   useEffect(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -573,6 +629,69 @@ export default function ReaderChamber({
               </div>
 
             </div>
+
+            {/* Atmospheric Synthesizer Controls */}
+            <div className="border-t border-neutral-900/60 mt-5 pt-4 max-w-2xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="text-center md:text-left">
+                <span className="text-[10px] font-sc text-portal uppercase tracking-wider font-bold flex items-center justify-center md:justify-start gap-1.5">
+                  <Sliders size={11} className="text-portal" />
+                  Atmospheric Synthesis
+                </span>
+                <p className="text-[9px] text-neutral-500 mt-0.5">
+                  Generates generative background elements. Soundscapes evolve dynamically to reflect dramatic narrative spikes.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {/* Mute button */}
+                <button
+                  onClick={() => handleMuteToggle(!isMuted)}
+                  className={`px-3 py-1.5 text-[10px] rounded border flex items-center gap-1.5 transition-all uppercase font-sc font-bold tracking-wider ${
+                    isMuted
+                      ? 'bg-red-950/20 border-red-900/40 text-red-500 hover:bg-neutral-900'
+                      : 'bg-portal/10 border-portal text-portal hover:brightness-110'
+                  }`}
+                  title={isMuted ? "Unmute sound synthesis" : "Mute sound synthesis"}
+                >
+                  {isMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}
+                  <span>{isMuted ? 'Muted' : 'Sound Active'}</span>
+                </button>
+
+                {/* Atmosphere selection */}
+                <div className="flex items-center gap-1.5 bg-void border border-neutral-850 px-2 py-1 rounded">
+                  <span className="text-[9px] font-mono text-neutral-500 uppercase">Ambience:</span>
+                  <select
+                    value={atmosphere}
+                    disabled={isMuted}
+                    onChange={(e) => handleAtmosphereChange(e.target.value)}
+                    className="bg-transparent text-[10px] text-neutral-300 font-mono focus:outline-none focus:text-signal cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <option value="none" className="bg-void">Silence</option>
+                    <option value="wind" className="bg-void">Howling Wind</option>
+                    <option value="rain" className="bg-void">Heavy Rain</option>
+                    <option value="temple" className="bg-void">Temple Bells</option>
+                  </select>
+                </div>
+
+                {/* Volume slider */}
+                <div className="flex items-center gap-2 bg-void border border-neutral-850 px-2 py-1 rounded">
+                  <span className="text-[9px] font-mono text-neutral-500 uppercase">Vol:</span>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="1.0"
+                    step="0.05"
+                    value={volume}
+                    disabled={isMuted}
+                    onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                    className="w-16 hover:cursor-grab disabled:opacity-40 disabled:cursor-not-allowed accent-portal text-portal"
+                  />
+                  <span className="text-[9px] font-mono text-neutral-400 w-7 text-right">
+                    {isMuted ? '0%' : `${Math.round(volume * 100)}%`}
+                  </span>
+                </div>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -652,7 +771,7 @@ export default function ReaderChamber({
                            <BookmarkIcon size={14} className={existingBookmark ? 'fill-current' : ''} />
                         </button>
                      </div>
-                     <p className="indent-8 text-neutral-800 dark:text-neutral-300">
+                     <p className="text-justify indent-8">
                         {block.text}
                      </p>
                      

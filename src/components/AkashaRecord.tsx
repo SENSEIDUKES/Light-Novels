@@ -388,7 +388,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                   <div key={idx} className="flex items-start justify-between gap-3 p-3 bg-void/50 border border-neutral-900 rounded text-xs text-neutral-300 leading-normal group">
                     <div className="flex items-start">
                       <span className="font-mono text-portal text-xs mr-2 mt-0.5">#{idx + 1}</span>
-                      <p className="font-serif italic">{rule}</p>
+                      <p className="font-serif italic">{typeof rule === 'object' ? JSON.stringify(rule) : String(rule)}</p>
                     </div>
                     <button
                       onClick={() => handleDeleteLaw(idx)}
@@ -458,7 +458,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                     <div key={idx} className="flex items-center justify-between gap-2 p-2.5 bg-void/50 border border-neutral-900 rounded text-xs text-neutral-300">
                       <div className="flex items-center min-w-0 pr-1">
                         <Compass className="text-neutral-600 flex-shrink-0 mr-2" size={13} />
-                        <span className="truncate">{thread}</span>
+                        <span className="truncate">{typeof thread === 'object' ? JSON.stringify(thread) : String(thread)}</span>
                       </div>
                       <button
                         onClick={() => handleResolveThread(idx)}
@@ -486,7 +486,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                     <div key={idx} className="flex items-center justify-between gap-2 p-2 bg-neutral-950 border border-neutral-950 text-neutral-500 rounded text-xs group">
                       <div className="flex items-center min-w-0 pr-1">
                         <CheckCircle2 className="text-green-800 flex-shrink-0 mr-2" size={13} />
-                        <span className="line-through truncate italic">{thread}</span>
+                        <span className="line-through truncate italic">{typeof thread === 'object' ? JSON.stringify(thread) : String(thread)}</span>
                       </div>
                       <div className="flex items-center space-x-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button

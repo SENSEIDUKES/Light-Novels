@@ -1,19 +1,60 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Volume2, VolumeX, Music } from 'lucide-react';
 
 type AtmosphereType = 'none' | 'wind' | 'rain' | 'temple';
 
 export function AtmosphericAudio() {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [atmosphere, setAtmosphere] = useState<AtmosphereType>('none');
-  const [volume, setVolume] = useState(0.5);
+  const [isMuted, setIsMuted] = useState(() => {
+    return localStorage.getItem('seihouse-audio-muted') === 'true';
+  });
+  const [atmosphere, setAtmosphere] = useState<AtmosphereType>(() => {
+    return (localStorage.getItem('seihouse-audio-atmosphere') as AtmosphereType) || 'none';
+  });
+  const [volume, setVolume] = useState(() => {
+    const saved = localStorage.getItem('seihouse-audio-volume');
+    return saved ? parseFloat(saved) : 0.5;
+  });
+
   const audioCtxRef = useRef<AudioContext | null>(null);
   const windNodesRef = useRef<any>(null);
   const rainNodesRef = useRef<any>(null);
   const bellIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Sync state changes with localStorage and dispatch state event to UI
   useEffect(() => {
-    if (!isPlaying) {
+    localStorage.setItem('seihouse-audio-muted', String(isMuted));
+    localStorage.setItem('seihouse-audio-atmosphere', atmosphere);
+    localStorage.setItem('seihouse-audio-volume', String(volume));
+
+    // Dispatch the state update event to other listening components (like ReaderChamber preferences tab)
+    window.dispatchEvent(new CustomEvent('seihouse-audio-state', {
+      detail: { isMuted, atmosphere, volume }
+    }));
+  }, [isMuted, atmosphere, volume]);
+
+  // Handle incoming control events from UI
+  useEffect(() => {
+    const handleControl = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        if (typeof customEvent.detail.isMuted === 'boolean') {
+          setIsMuted(customEvent.detail.isMuted);
+        }
+        if (customEvent.detail.atmosphere) {
+          setAtmosphere(customEvent.detail.atmosphere as AtmosphereType);
+        }
+        if (typeof customEvent.detail.volume === 'number') {
+          setVolume(customEvent.detail.volume);
+        }
+      }
+    };
+    window.addEventListener('seihouse-audio-control', handleControl);
+    return () => window.removeEventListener('seihouse-audio-control', handleControl);
+  }, []);
+
+  // Main background synthesizer loop
+  useEffect(() => {
+    // If user has muted, or if atmosphere is set to none, stop sound synthesis
+    if (isMuted || atmosphere === 'none') {
       stopAll();
       return;
     }
@@ -40,17 +81,21 @@ export function AtmosphericAudio() {
     return () => {
       stopAll();
     };
-  }, [isPlaying, atmosphere, volume]);
+  }, [isMuted, atmosphere, volume]);
 
   const stopAll = () => {
     if (windNodesRef.current) {
-      windNodesRef.current.source.stop();
-      windNodesRef.current.source.disconnect();
+      try {
+        windNodesRef.current.source.stop();
+        windNodesRef.current.source.disconnect();
+      } catch (e) {}
       windNodesRef.current = null;
     }
     if (rainNodesRef.current) {
-      rainNodesRef.current.source.stop();
-      rainNodesRef.current.source.disconnect();
+      try {
+        rainNodesRef.current.source.stop();
+        rainNodesRef.current.source.disconnect();
+      } catch (e) {}
       rainNodesRef.current = null;
     }
     if (bellIntervalRef.current) {
@@ -186,8 +231,12 @@ export function AtmosphericAudio() {
     osc.stop(ctx.currentTime + 1.5);
   };
 
+  // Listen to narrative scale triggers and adjust atmosphere/volume dynamically
   useEffect(() => {
     const handleCue = (e: any) => {
+      // If manually muted by user, absolutely do not play or change state!
+      if (isMuted) return;
+
       const cue = e.detail;
       if (cue.type === 'narrative.metadata.signature') {
         const ctx = initAudioCtx();
@@ -198,7 +247,6 @@ export function AtmosphericAudio() {
            if (typeof meta.intensity === 'number') {
              setVolume(Math.max(0.1, Math.min(1.0, meta.intensity)));
            }
-           if (!isPlaying) setIsPlaying(true);
            
            if (meta.environment?.includes('rain') || meta.sceneType === 'travel') {
              setAtmosphere('rain');
@@ -211,16 +259,11 @@ export function AtmosphericAudio() {
            }
         }
       } else if (cue.type === 'narrative.chapter.enter') {
-        // Simple placeholder behavior applying Cue Bridge metadata:
         const meta = cue.value;
         if (meta) {
-          // Adjust volume based on intensity (metadata normalized 0-1)
           if (typeof meta.intensity === 'number') {
             setVolume(Math.max(0.2, Math.min(1.0, meta.intensity)));
           }
-
-          // Select a basic ambience based on element or emotion
-          if (!isPlaying) setIsPlaying(true); // Auto-start the atmosphere
           
           if (meta.element === 'water' || meta.emotion === 'sorrow') {
             setAtmosphere('rain');
@@ -239,32 +282,8 @@ export function AtmosphericAudio() {
     
     window.addEventListener('narrative-cue', handleCue);
     return () => window.removeEventListener('narrative-cue', handleCue);
-  }, [isPlaying]);
+  }, [isMuted]); // Observe changes to Mute preference directly
 
-  return (
-    <div className="fixed bottom-6 right-6 z-50 flex items-center bg-black/80 border border-neutral-900 rounded-full px-2 py-1 shadow-lg backdrop-blur-md">
-      <button 
-        onClick={() => setIsPlaying(!isPlaying)}
-        className={`p-2 rounded-full transition-colors ${isPlaying ? 'text-human' : 'text-neutral-500 hover:text-signal'}`}
-        title={isPlaying ? "Mute Atmosphere" : "Play Atmosphere"}
-      >
-        {isPlaying ? <Volume2 size={16} /> : <VolumeX size={16} />}
-      </button>
-      
-      {isPlaying && (
-        <div className="flex items-center space-x-1 pl-1 pr-2 border-l border-neutral-800 ml-1">
-            <select 
-                value={atmosphere}
-                onChange={(e) => setAtmosphere(e.target.value as AtmosphereType)}
-                className="bg-transparent text-xs text-neutral-400 focus:outline-none focus:text-signal font-mono cursor-pointer"
-            >
-                <option className="bg-void" value="none">Silence</option>
-                <option className="bg-void" value="wind">Howling Wind</option>
-                <option className="bg-void" value="rain">Heavy Rain</option>
-                <option className="bg-void" value="temple">Temple Bells</option>
-            </select>
-        </div>
-      )}
-    </div>
-  );
+  // Headless rendering to prevent blocking menu options
+  return null;
 }

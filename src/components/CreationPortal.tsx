@@ -3,6 +3,37 @@ import { Sparkles, ArrowRight, ShieldAlert, ChevronDown, ChevronUp, BookOpen, La
 import { motion, AnimatePresence } from 'motion/react';
 import { IntakeData, WorldBlueprint } from '../types';
 
+const renderSafeString = (val: any): React.ReactNode => {
+  if (val === undefined || val === null) return '';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') {
+    if (Array.isArray(val)) {
+      return val.map((item, idx) => (
+        <div key={idx} className="mb-1">
+          {typeof item === 'object' ? JSON.stringify(item) : String(item)}
+        </div>
+      ));
+    }
+    return (
+      <div className="space-y-1 bg-void/50 p-3 rounded border border-neutral-950 mt-1 font-sans">
+        {Object.entries(val).map(([k, v]) => {
+          const formattedKey = k
+            .replace(/([A-Z])/g, ' $1')
+            .trim()
+            .replace(/^\w/, c => c.toUpperCase());
+          return (
+            <div key={k} className="text-xs flex flex-col sm:flex-row sm:items-start pb-1 border-b border-neutral-900 last:border-0 last:pb-0">
+              <strong className="text-portal font-semibold mr-1.5 min-w-[100px] shrink-0">{formattedKey}:</strong>
+              <span className="text-neutral-300 whitespace-pre-wrap">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+  return String(val);
+};
+
 interface CreationPortalProps {
   onStartStory: (intake: IntakeData, blueprint: WorldBlueprint, chapterCount: number) => Promise<void>;
   onGenerateBlueprint: (intake: IntakeData) => Promise<WorldBlueprint>;
@@ -135,43 +166,43 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
         <div className="text-center mb-10">
           <span className="font-sc text-portal tracking-[0.2em] text-sm uppercase block mb-2">World Blueprint Generated</span>
           <h1 className="font-display font-bold text-3xl sm:text-4xl text-signal tracking-tight mb-4">
-            {blueprint.title}
+            {renderSafeString(blueprint.title)}
           </h1>
           <p className="font-sans font-light text-neutral-400 text-sm max-w-xl mx-auto leading-relaxed">
-            {blueprint.logline}
+            {renderSafeString(blueprint.logline)}
           </p>
         </div>
 
         <div className="bg-neutral-950/80 border border-portal/30 p-6 sm:p-10 rounded-lg shadow-[0_0_30px_rgba(4,172,255,0.05)] relative space-y-8">
           <div>
             <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm mb-2">World Overview</h3>
-            <p className="text-neutral-300 font-sans text-sm leading-relaxed">{blueprint.worldOverview}</p>
+            <div className="text-neutral-300 font-sans text-sm leading-relaxed">{renderSafeString(blueprint.worldOverview)}</div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
               <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm mb-2 flex items-center space-x-2"><Layers size={14} className="text-portal"/><span>Society & Factions</span></h3>
-              <p className="text-neutral-400 font-sans text-xs mb-3">{blueprint.societyStructure}</p>
+              <div className="text-neutral-400 font-sans text-xs mb-3">{renderSafeString(blueprint.societyStructure)}</div>
               <ul className="space-y-2">
                 {blueprint.majorFactions?.map((f, i) => (
-                  <li key={i} className="text-neutral-300 text-xs font-sans bg-void border border-neutral-800 p-2 rounded">{f}</li>
+                  <li key={i} className="text-neutral-300 text-xs font-sans bg-void border border-neutral-800 p-2 rounded">{renderSafeString(f)}</li>
                 ))}
               </ul>
             </div>
             <div>
               <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm mb-2 flex items-center space-x-2"><Zap size={14} className="text-portal"/><span>Power System</span></h3>
-              <p className="text-neutral-300 font-sans text-sm leading-relaxed whitespace-pre-wrap">{blueprint.powerSystemOutline}</p>
+              <div className="text-neutral-300 font-sans text-sm leading-relaxed whitespace-pre-wrap">{renderSafeString(blueprint.powerSystemOutline)}</div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
               <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm mb-2 flex items-center space-x-2"><Users size={14} className="text-portal"/><span>Main Character</span></h3>
-              <p className="text-neutral-300 font-sans text-sm leading-relaxed whitespace-pre-wrap">{blueprint.mcProfile}</p>
+              <div className="text-neutral-300 font-sans text-sm leading-relaxed whitespace-pre-wrap">{renderSafeString(blueprint.mcProfile)}</div>
             </div>
             <div>
               <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm mb-2 flex items-center space-x-2"><Target size={14} className="text-portal"/><span>First Arc Promise</span></h3>
-              <p className="text-neutral-300 font-sans text-sm leading-relaxed">{blueprint.firstArcPromise}</p>
+              <div className="text-neutral-300 font-sans text-sm leading-relaxed">{renderSafeString(blueprint.firstArcPromise)}</div>
             </div>
           </div>
 
