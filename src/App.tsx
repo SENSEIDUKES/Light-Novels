@@ -845,6 +845,109 @@ export default function App() {
   // Calculate stats for current active story
   const isCurrentArcFinished = activeStory && activeStory.arcs[activeStory.arcs.length - 1].isCompleted;
 
+  const handleGenerateCover = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!activeStory) return;
+    setIsGenerating(true);
+    setAppError(null);
+    try {
+      const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      const gemini = localStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = localStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = localStorage.getItem('@seihouse/api-key-ollama-host');
+      if (gemini) apiHeaders['x-gemini-key'] = gemini;
+      if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
+      if (ollama) apiHeaders['x-ollama-host'] = ollama;
+
+      const prompt = `Epic fantasy webnovel book cover for a story titled "${activeStory.title}", genre: ${activeStory.genre}. Concept: ${activeStory.customPremise}. The cover focuses on the journey of ${activeStory.mcName}. Cinematic lighting, digital painting, majestic, dark fantasy aesthetics, textless.`;
+
+      const response = await fetch('/api/generate-card-image', {
+        method: 'POST',
+        headers: apiHeaders,
+        body: JSON.stringify({ prompt, type: "cover", routingConfig: routingConfig.imageGenerator })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to generate cover art.");
+
+      const newImageUrl = data.imageUrl || data.fallbackUrl;
+      if (newImageUrl) {
+        handleUpdateStoryDirect({ ...activeStory, imageUrl: newImageUrl });
+      }
+    } catch(err: any) {
+      setAppError(err.message || "Failed to forge new cover.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleExportFullTome = (story: Story) => {
+    let htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>${story.title}</title>
+  <style>
+    :root {
+      --bg: #111;
+      --text: #dfd8cf;
+      --accent: #D4AF37;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Georgia', serif;
+      line-height: 1.8;
+      max-width: 800px; margin: 0 auto; padding: 2rem 1rem;
+    }
+    h1 { color: var(--accent); text-align: center; border-bottom: 1px dashed #333; padding-bottom: 2rem; margin-bottom: 1rem; font-size: 2.5rem; }
+    h2 { color: var(--accent); margin-top: 4rem; text-align: center; font-size: 1.5rem; }
+    p { text-indent: 2rem; text-align: justify; margin-bottom: 1.5rem; font-size: 1.25rem; }
+    .system { font-family: monospace; text-align: center; color: #04ACFF; margin: 2rem 0; font-size: 1rem; border: 1px solid #04ACFF33; padding: 1rem; border-radius: 8px; background: #000; }
+    .cover { display: block; max-width: 100%; height: auto; margin: 0 auto 3rem auto; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
+    .metadata { text-align: center; margin-bottom: 4rem; color: #888; font-size: 1rem; font-family: sans-serif; text-transform: uppercase; letter-spacing: 2px; }
+  </style>
+</head>
+<body>
+`;
+    if (story.imageUrl) {
+       htmlContent += `<img src="${story.imageUrl}" class="cover" alt="Cover" />\n`;
+    }
+    
+    htmlContent += `<h1>${story.title}</h1>`;
+    htmlContent += `<div class="metadata">Main Character: ${story.mcName} &bull; Genre: ${story.genre}</div>`;
+    
+    story.arcs.forEach(arc => {
+      htmlContent += `<h2 style="font-size: 2rem; margin-top: 4rem; border-bottom: 1px solid #333; padding-bottom: 1rem;">${arc.title}</h2>`;
+      arc.chapters.forEach(ch => {
+        if (!ch.generatedContent) return;
+        htmlContent += `<h2>Chapter ${ch.number}: ${ch.title}</h2>`;
+        
+        const pars = ch.generatedContent.split('\n\n').filter(p => p.trim());
+        pars.forEach(p => {
+          if (p.startsWith('[') && p.endsWith(']')) {
+             htmlContent += `<div class="system">${p.replace(/^\s*\[/, '').replace(/\]\s*$/, '')}</div>`;
+          } else {
+             htmlContent += `<p>${p}</p>`;
+          }
+        });
+      });
+    });
+
+    htmlContent += `</body></html>`;
+
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${story.title.replace(/\s+/g, '_')}_The_Complete_Tome.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const handleResumeReading = (story: Story) => {
     setActiveStoryId(story.id);
     let resumeChapterNum = 1;
@@ -1186,13 +1289,24 @@ export default function App() {
               <div className="flex flex-col md:flex-row gap-8 bg-[#0a0a0a] border border-neutral-900 rounded-xl p-6 shadow-2xl">
                 {/* Cover Art */}
                 <div className="w-full max-w-[180px] mx-auto md:max-w-none md:w-64 flex-shrink-0">
-                  <div className="relative aspect-[2/3] rounded-lg overflow-hidden border border-neutral-800 shadow-md">
+                  <div className="relative group aspect-[2/3] rounded-lg overflow-hidden border border-neutral-800 shadow-md">
                     <img 
                       src={activeStory.imageUrl || `https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?auto=format&fit=crop&q=80`}
                       alt={activeStory.title}
                       className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"
                     />
+                    {/* Hover Overlay for Cover Generation */}
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                      <button 
+                        onClick={handleGenerateCover}
+                        disabled={isGenerating}
+                        className="px-4 py-2 bg-portal/20 border border-portal/50 text-portal text-[10px] font-bold font-sc uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-colors flex flex-col items-center gap-1.5 shadow-[0_0_15px_rgba(4,172,255,0.4)]"
+                      >
+                        <Sparkles size={16} />
+                        <span>Forge Core Cover</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1266,11 +1380,19 @@ export default function App() {
                     </button>
 
                     <button
+                      onClick={() => handleExportFullTome(activeStory)}
+                      className="px-6 py-2.5 bg-void border border-neutral-800 text-neutral-300 font-sc font-bold uppercase tracking-wider rounded hover:bg-neutral-900 hover:border-gold-accent hover:text-gold-accent transition-all flex items-center space-x-2 text-xs shadow-md"
+                    >
+                      <BookCheck size={16} />
+                      <span>Export Full Tome (HTML)</span>
+                    </button>
+
+                    <button
                       onClick={() => handleExportSingleStory(activeStory)}
                       className="px-6 py-2.5 bg-void border border-neutral-800 text-neutral-400 font-sc font-bold uppercase tracking-wider rounded hover:bg-neutral-900 hover:border-neutral-700 hover:text-signal transition-all flex items-center space-x-2 text-xs"
                     >
                       <Download size={14} className="text-gold-accent" />
-                      <span>Export World JSON</span>
+                      <span>JSON Metadata</span>
                     </button>
                     
                     {isCurrentArcFinished && (
