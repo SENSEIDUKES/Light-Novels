@@ -230,11 +230,32 @@ export default function ReaderChamber({
             const type = entry.target.getAttribute('data-cue-type') as NarrativeCueEventType;
             const cueId = entry.target.getAttribute('data-cue-id');
             if (type && cueId) {
+              let parsedValue: any = entry.target.getAttribute('data-cue-value') || undefined;
+              let parsedMeta: any = undefined;
+              
+              const metaRaw = entry.target.getAttribute('data-cue-metadata');
+              if (metaRaw) {
+                try {
+                  parsedMeta = JSON.parse(metaRaw);
+                  parsedValue = parsedValue || parsedMeta; 
+                } catch(e) {
+                }
+              }
+
+              if (typeof parsedValue === 'string') {
+                try {
+                  parsedValue = JSON.parse(parsedValue);
+                } catch(e) {
+                  // Not JSON, leave as is
+                }
+              }
+
               dispatchNarrativeCue({
                 id: cueId,
                 type,
                 once: !!entry.target.getAttribute('data-cue-once'),
-                value: entry.target.getAttribute('data-cue-value') || undefined
+                value: parsedValue,
+                metadata: parsedMeta
               });
             }
           }
@@ -365,6 +386,7 @@ export default function ReaderChamber({
         data-cue-type="narrative.chapter.enter"
         data-cue-id={`chapter-enter-${selectedChapter.number}`}
         data-cue-once="true"
+        data-cue-value={selectedChapter.cuePayload ? JSON.stringify(selectedChapter.cuePayload) : undefined}
         className="narrative-trigger sticky top-[38px] sm:top-[44px] z-20 bg-[#111111]/90 backdrop-blur-md px-4 py-2 sm:py-3 flex items-center justify-between border-b border-neutral-900"
       >
         <div className="min-w-0">
@@ -581,7 +603,96 @@ export default function ReaderChamber({
                currentPrefs.lineHeight === 'relaxed' ? 'leading-relaxed' :
                'leading-loose'
              } max-w-2xl mx-auto select-text`}>
-               {selectedChapter.generatedContent.split('\n\n').map((paragraph, index) => {
+               {selectedChapter.blocks ? selectedChapter.blocks.map((block, index) => {
+                 if (!block.text.trim()) return null;
+                 const isSystemLine = block.text.startsWith('[') && block.text.endsWith(']');
+                 
+                 if (isSystemLine) {
+                   return (
+                     <div 
+                       key={block.id || `para-${index}`} 
+                       data-cue-type="narrative.metadata.signature"
+                       data-cue-id={block.id || `system-line-${selectedChapter.number}-${index}`}
+                       data-cue-metadata={block.metadata ? JSON.stringify(block.metadata) : undefined}
+                       data-cue-once="true"
+                       className={`narrative-trigger my-8 p-6 bg-black border border-portal/15 font-mono text-xs text-portal rounded shadow-[0_0_15px_rgba(4,172,255,0.05)] text-center tracking-widest leading-relaxed ${block.metadata ? 'metadata-block' : ''}`}
+                     >
+                       {block.text.replace('[', '').replace(']', '')}
+                     </div>
+                   );
+                 }
+
+                 const existingBookmark = activeBookmarks.find(b => b.chapterNumber === selectedChapter.number && b.paragraphIndex === index);
+                 const isEditingThisBookmark = editingBookmarkParagraphIndex === index;
+
+                 return (
+                   <div 
+                      key={block.id || `para-${index}`} 
+                      id={`para-${index}`} 
+                      data-cue-type={block.metadata ? "narrative.metadata.signature" : undefined}
+                      data-cue-id={block.id || `para-${selectedChapter.number}-${index}`}
+                      data-cue-metadata={block.metadata ? JSON.stringify(block.metadata) : undefined}
+                      data-cue-once="true"
+                      className={`relative group paragraph-block transition-colors duration-200 mb-6 ${existingBookmark ? 'custom-bookmark-bg' : ''} ${block.metadata ? 'narrative-trigger metadata-block' : ''}`}
+                   >
+                     {/* Floating bookmark button */}
+                     <div className="absolute -left-12 top-0 bottom-0 w-10 flex items-start justify-end pt-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none md:pointer-events-auto">
+                        <button 
+                          onClick={() => {
+                             if (existingBookmark) {
+                               handleRemoveBookmark(selectedChapter.number, index);
+                             } else {
+                               setEditingBookmarkParagraphIndex(index);
+                               setBookmarkNoteText('');
+                             }
+                          }}
+                          className={`pointer-events-auto p-1.5 rounded transition-all hover:bg-neutral-800 ${existingBookmark ? 'text-gold-accent' : 'text-neutral-500 hover:text-signal'}`}
+                          title="Bookmark this position"
+                        >
+                           <BookmarkIcon size={14} className={existingBookmark ? 'fill-current' : ''} />
+                        </button>
+                     </div>
+                     <p className="indent-8 text-neutral-800 dark:text-neutral-300">
+                        {block.text}
+                     </p>
+                     
+                     {/* Inline Bookmark Editor */}
+                     {isEditingThisBookmark && (
+                        <div className="mt-4 p-4 bg-void border border-neutral-800 rounded-lg shadow-xl relative z-20">
+                           <textarea
+                             value={bookmarkNoteText}
+                             onChange={(e) => setBookmarkNoteText(e.target.value)}
+                             placeholder="Add a contemplation or heavenly mechanic note here..."
+                             className="w-full bg-neutral-900 border border-neutral-800 rounded p-3 text-sm text-signal placeholder-neutral-600 focus:outline-none focus:border-portal mb-3 min-h-[80px]"
+                             autoFocus
+                           />
+                           <div className="flex justify-end space-x-2">
+                             <button
+                               onClick={() => setEditingBookmarkParagraphIndex(null)}
+                               className="px-4 py-1.5 text-xs text-neutral-400 hover:text-signal transition-colors font-mono"
+                             >
+                               Cancel
+                             </button>
+                             <button
+                               onClick={() => handleSaveBookmark(index, block.text.substring(0, 100) + '...', bookmarkNoteText)}
+                               className="px-4 py-1.5 text-xs bg-human text-signal rounded hover:bg-void transition-colors font-sans"
+                             >
+                               Save Bookmark
+                             </button>
+                           </div>
+                        </div>
+                     )}
+
+                     {/* Display Saved Bookmark Note (if active) */}
+                     {existingBookmark && existingBookmark.note && !isEditingThisBookmark && (
+                       <div className="mt-2 text-xs font-mono text-gold-accent flex items-start space-x-2 bg-neutral-900/50 p-2 border-l border-gold-accent/50 ml-8">
+                         <span className="opacity-70">Note:</span>
+                         <span className="break-words font-sans italic opacity-90">{existingBookmark.note}</span>
+                       </div>
+                     )}
+                   </div>
+                 );
+               }) : (selectedChapter.generatedContent || '').split('\n\n').map((paragraph, index) => {
                  if (!paragraph.trim()) return null;
                  const isSystemLine = paragraph.startsWith('[') && paragraph.endsWith(']');
                  if (isSystemLine) {

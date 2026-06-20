@@ -227,13 +227,13 @@ CRITICAL ANTI-DRIFT MANDATE (COHERENCE PROTOCOL):
 
 OUTPUT FORMAT TARGET:
 You MUST output the response in two distinct parts:
-First, output the chapter text. Start it with ---CHAPTER_TEXT--- on a new line, and put the entire chapter content there.
+First, output the chapter text structured as NDJSON (Newline Delimited JSON). Start it with ---CHAPTER_BLOCKS--- on a new line. Each paragraph of your chapter should be a single JSON object on one line containing an "id" (unique string), "type" (usually "paragraph"), "text" (the paragraph content), and optional "metadata" for audio narrative cues.
 Second, output the metadata. Start it with ---JSON_META--- on a new line, followed strictly by a valid JSON object matching the metadata schema.
 
 Example:
----CHAPTER_TEXT---
-The winds of the astral plane roared...
-(rest of the chapter)
+---CHAPTER_BLOCKS---
+{"id": "c1-p1", "type": "paragraph", "text": "Rain crawled down the black stones as Kael climbed higher into the mountain pass...", "metadata": {"sceneType": "travel", "environment": ["mountain", "rain", "night"], "motion": "walking", "emotion": "determined", "intensity": 0.35, "tension": 0.25, "danger": 0.15, "mysticism": 0.4, "audioSignature": "rainy-mountain-walk"}}
+{"id": "c1-p2", "type": "paragraph", "text": "He looked back at the valley below."}
 ---JSON_META---
 {
   "summary": "...",
@@ -421,11 +421,24 @@ If the novel is a "System" or "LitRPG" style, include a beautiful neon/cyberneti
 
 Also, analyze the events of this chapter and provide list updates/modifications to the permanent story memory so we can track newly met characters, dead characters, relationship updates, unresolved issues, or potential MC advancement.
 
+Also allow narrative cue payloads to carry normalized story metadata such as intensity, tension, powerShift, emotion, danger, mysticism, element, and relationshipShift. Do not directly convert this data into complex Web Audio synthesis yet. For now, AtmosphericAudio may use these values only for simple placeholder behavior such as choosing a sound, adjusting volume slightly, or selecting a basic ambience. Keep the structured payloads clean so SAP can later interpret them as part of a proper meaning-to-score audio system.
+
 You must return a JSON object with the following fields:
 {
   "chapterText": "The fully formatted narrative text of the chapter. Use double newlines for paragraph breaks so the reader displays it beautifully.",
   "summary": "A 2-sentence highly concise summary of what transpired in this chapter to store in our historical archive.",
   "statsChangeMessage": "A short status upgrade notification (e.g. '[System Breakthrough: Qi Condensation Rank 2 reached. Meridians purified!]', or 'None')",
+  "cuePayload": {
+    "intensity": 0.8,
+    "tension": 0.5,
+    "powerShift": 1,
+    "emotion": "awe",
+    "danger": 0.2,
+    "mysticism": 0.9,
+    "element": "void",
+    "relationshipShift": 0,
+    "signature": "celestial_chime"
+  },
   "memoryUpdates": {
     "currentPowerStage": "Updated MC power level if they broke through, otherwise the same as before.",
     "newCharacters": [

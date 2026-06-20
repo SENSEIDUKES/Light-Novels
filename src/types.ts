@@ -67,14 +67,56 @@ export interface StoryMemory {
   abilities?: string[]; // MC-specific learned arts & skills
 }
 
+export interface StoryBlockMetadata {
+  sceneType?: string;
+  environment?: string[];
+  motion?: string;
+  emotion?: string;
+  intensity?: number;
+  tension?: number;
+  danger?: number;
+  mysticism?: number;
+  audioSignature?: string;
+}
+
+export interface StoryBlock {
+  id: string;
+  type: string;
+  text: string;
+  metadata?: StoryBlockMetadata;
+}
+
+export interface ChapterContent {
+  storyId: string;
+  chapterNumber: number;
+  generatedContent: string;
+  blocks?: StoryBlock[];
+  summary?: string;
+  statsChangeMessage?: string;
+  cuePayload?: {
+    intensity?: number;
+    tension?: number;
+    powerShift?: number;
+    emotion?: string;
+    relationshipShift?: number;
+    danger?: number;
+    mysticism?: number;
+    element?: string;
+    signature?: string;
+  };
+}
+
 export interface Chapter {
   number: number;
   title: string;
   premise: string;
   status: 'unlocked' | 'generating' | 'read' | 'unread';
-  generatedContent?: string;
-  summary?: string;
+  generatedContent?: string; // Optional, only populated when currently viewed
+  blocks?: StoryBlock[];
+  hasContent?: boolean; // Indicates if the content was generated and stored
+  summary?: string; // Optional
   statsChangeMessage?: string;
+  cuePayload?: any;
 }
 
 export interface StoryArc {

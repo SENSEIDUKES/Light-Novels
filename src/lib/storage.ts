@@ -1,4 +1,4 @@
-import { StoryWorld } from '../types';
+import { StoryWorld, ChapterContent } from '../types';
 import { FirebaseStorageAdapter } from './firebaseStorage';
 import { auth } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -16,6 +16,9 @@ export interface StorageAdapter {
   saveStory(story: StoryWorld): Promise<void>;
   deleteStory(id: string): Promise<void>;
   clearAll(): Promise<void>;
+  
+  getChapterContent(storyId: string, chapterNumber: number): Promise<ChapterContent | null>;
+  saveChapterContent(content: ChapterContent): Promise<void>;
 }
 
 /**
@@ -26,7 +29,8 @@ export class IndexedDBStorageAdapter implements StorageAdapter {
   name = 'IndexedDB';
   private dbName = 'seihouse_story_world_db';
   private storeName = 'stories';
-  private version = 1;
+  private chaptersStoreName = 'chapter_contents';
+  private version = 2;
   private db: IDBDatabase | null = null;
 
   init(): Promise<void> {
@@ -52,6 +56,10 @@ export class IndexedDBStorageAdapter implements StorageAdapter {
         const db = request.result;
         if (!db.objectStoreNames.contains(this.storeName)) {
           db.createObjectStore(this.storeName, { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains(this.chaptersStoreName)) {
+          // Complex key path for identifying unique chapter contents
+          db.createObjectStore(this.chaptersStoreName, { keyPath: ['storyId', 'chapterNumber'] });
         }
       };
     });
@@ -136,17 +144,44 @@ export class IndexedDBStorageAdapter implements StorageAdapter {
   async clearAll(): Promise<void> {
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(this.storeName, 'readwrite');
-      const store = transaction.objectStore(this.storeName);
-      const request = store.clear();
+      const transaction = db.transaction([this.storeName, this.chaptersStoreName], 'readwrite');
+      transaction.objectStore(this.storeName).clear();
+      transaction.objectStore(this.chaptersStoreName).clear();
 
-      request.onsuccess = () => {
+      transaction.oncomplete = () => {
         resolve();
       };
 
-      request.onerror = () => {
-        reject(request.error);
+      transaction.onerror = () => {
+        reject(transaction.error);
       };
+    });
+  }
+
+  async getChapterContent(storyId: string, chapterNumber: number): Promise<ChapterContent | null> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(this.chaptersStoreName, 'readonly');
+      const store = transaction.objectStore(this.chaptersStoreName);
+      const request = store.get([storyId, chapterNumber]);
+
+      request.onsuccess = () => {
+        resolve(request.result || null);
+      };
+      
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async saveChapterContent(content: ChapterContent): Promise<void> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(this.chaptersStoreName, 'readwrite');
+      const store = transaction.objectStore(this.chaptersStoreName);
+      const request = store.put(content);
+
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
     });
   }
 }
@@ -158,6 +193,7 @@ export class IndexedDBStorageAdapter implements StorageAdapter {
 export class LocalStorageFallbackAdapter implements StorageAdapter {
   name = 'LocalStorage';
   private storageKey = '@seihouse/fiction-generator-stories-v2';
+  private chaptersStorageKey = '@seihouse/fiction-generator-chapters-v2';
 
   async init(): Promise<void> {
     // LocalStorage doesn't require asynchronous initialization.
@@ -202,6 +238,39 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
 
   async clearAll(): Promise<void> {
     localStorage.removeItem(this.storageKey);
+    localStorage.removeItem(this.chaptersStorageKey);
+  }
+
+  async getChapterContent(storyId: string, chapterNumber: number): Promise<ChapterContent | null> {
+    try {
+      const saved = localStorage.getItem(this.chaptersStorageKey);
+      if (saved) {
+        const chapters = JSON.parse(saved) as ChapterContent[];
+        return chapters.find((c: ChapterContent) => c.storyId === storyId && c.chapterNumber === chapterNumber) || null;
+      }
+    } catch (e) {
+      console.error('LocalStorage fallback read error:', e);
+    }
+    return null;
+  }
+
+  async saveChapterContent(content: ChapterContent): Promise<void> {
+    try {
+      const saved = localStorage.getItem(this.chaptersStorageKey);
+      let chapters: ChapterContent[] = [];
+      if (saved) {
+        chapters = JSON.parse(saved) as ChapterContent[];
+      }
+      const existingIndex = chapters.findIndex((c: ChapterContent) => c.storyId === content.storyId && c.chapterNumber === content.chapterNumber);
+      if (existingIndex > -1) {
+        chapters[existingIndex] = content;
+      } else {
+        chapters.push(content);
+      }
+      localStorage.setItem(this.chaptersStorageKey, JSON.stringify(chapters));
+    } catch (e) {
+      console.error('LocalStorage save error:', e);
+    }
   }
 }
 
@@ -323,13 +392,43 @@ export class PersistentStorageManager implements StorageAdapter {
   }
 
   async saveStory(story: StoryWorld): Promise<void> {
-    // Save to local immediately to maintain snappy UI
-    await this.localAdapter.saveStory(story);
+    const strippedStory: StoryWorld = JSON.parse(JSON.stringify(story)); // deep copy
+
+    // Extract chapter contents and save them separately
+    if (strippedStory.arcs) {
+      for (const arc of strippedStory.arcs) {
+        for (const chapter of arc.chapters) {
+          if (chapter.generatedContent || (chapter.blocks && chapter.blocks.length > 0)) {
+             const content: ChapterContent = {
+                storyId: story.id,
+                chapterNumber: chapter.number,
+                generatedContent: chapter.generatedContent || "",
+                blocks: chapter.blocks,
+                summary: chapter.summary,
+                statsChangeMessage: chapter.statsChangeMessage,
+                cuePayload: chapter.cuePayload
+             };
+             await this.saveChapterContent(content);
+             
+             // Strip from the Story document to save space
+             chapter.hasContent = true;
+             delete chapter.generatedContent;
+             delete chapter.blocks;
+             delete chapter.summary;
+             delete chapter.statsChangeMessage;
+             delete chapter.cuePayload;
+          }
+        }
+      }
+    }
+
+    // Save stripped story to local immediately to maintain snappy UI
+    await this.localAdapter.saveStory(strippedStory);
 
     if (this.isCloudAvailable) {
       this.setStatus('syncing');
       try {
-        await this.cloudAdapter.saveStory(story);
+        await this.cloudAdapter.saveStory(strippedStory);
         this.setStatus('synced');
       } catch (err) {
         console.error('Failed to save to cloud', err);
@@ -345,6 +444,38 @@ export class PersistentStorageManager implements StorageAdapter {
         await this.cloudAdapter.deleteStory(id);
       } catch (err) {
         console.error('Failed to delete from cloud', err);
+      }
+    }
+  }
+
+  async getChapterContent(storyId: string, chapterNumber: number): Promise<ChapterContent | null> {
+    // Try local
+    let localItem = await this.localAdapter.getChapterContent(storyId, chapterNumber);
+    if (localItem) return localItem;
+    
+    // Try cloud if missing locally
+    if (this.isCloudAvailable) {
+      try {
+        const cloudItem = await this.cloudAdapter.getChapterContent(storyId, chapterNumber);
+        if (cloudItem) {
+          // Cache locally
+          await this.localAdapter.saveChapterContent(cloudItem);
+          return cloudItem;
+        }
+      } catch (e) {
+        console.error("Cloud fetch failed", e);
+      }
+    }
+    return null;
+  }
+
+  async saveChapterContent(content: ChapterContent): Promise<void> {
+    await this.localAdapter.saveChapterContent(content);
+    if (this.isCloudAvailable) {
+      try {
+        await this.cloudAdapter.saveChapterContent(content);
+      } catch (err) {
+         console.error('Failed to save chapter content to cloud', err);
       }
     }
   }

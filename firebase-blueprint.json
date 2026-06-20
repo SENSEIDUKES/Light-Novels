@@ -57,6 +57,12 @@
       "type": "array",
       "properties": {}
     },
+    "Chapter": {
+      "title": "Story Chapter",
+      "description": "A single chapter content.",
+      "type": "object",
+      "properties": {}
+    },
     "IntakeData": {
       "title": "Intake Data",
       "description": "Intake forms",
@@ -78,6 +84,10 @@
     "stories/{storyId}": {
       "schema": "#/entities/StoryWorld",
       "description": "Stories belonging to users."
+    },
+    "stories/{storyId}/chapters/{chapterId}": {
+      "schema": "#/entities/Chapter",
+      "description": "Individual chapters belonging to a story."
     }
   }
 }

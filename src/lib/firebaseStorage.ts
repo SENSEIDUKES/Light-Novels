@@ -83,6 +83,31 @@ export class FirebaseStorageAdapter implements StorageAdapter {
     }
   }
 
+  async getChapterContent(storyId: string, chapterNumber: number): Promise<any | null> {
+    if (!this.isAuth()) return null;
+    try {
+      const docRef = doc(db, `${this.collectionName}/${storyId}/chapters`, chapterNumber.toString());
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data() as any;
+      }
+      return null;
+    } catch (error) {
+       handleFirestoreError(error, OperationType.GET, `${this.collectionName}/${storyId}/chapters/${chapterNumber}`);
+       return null;
+    }
+  }
+
+  async saveChapterContent(content: any): Promise<void> {
+    if (!this.isAuth()) throw new Error('Cannot save to Firebase without authentication');
+    try {
+      const docRef = doc(db, `${this.collectionName}/${content.storyId}/chapters`, content.chapterNumber.toString());
+      await setDoc(docRef, content, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `${this.collectionName}/${content.storyId}/chapters/${content.chapterNumber}`);
+    }
+  }
+
   async clearAll(): Promise<void> {
     // Risky, usually better not to implement bulk delete on client
     throw new Error("clearAll not supported on Firebase adapter directly for safety");

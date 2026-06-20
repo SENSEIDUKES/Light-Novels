@@ -6,11 +6,26 @@ export type NarrativeCueEventType =
   | 'narrative.chapter.enter'
   | 'narrative.paragraph.enter';
 
+export interface NarrativeCuePayload {
+  name?: string;
+  intensity?: number;
+  tension?: number;
+  powerShift?: number;
+  emotion?: string;
+  relationshipShift?: number;
+  danger?: number;
+  mysticism?: number;
+  element?: string;
+  signature?: string;
+  [key: string]: any;
+}
+
 export interface NarrativeCue {
   id: string;
   type: NarrativeCueEventType;
   once?: boolean;
-  value?: any;
+  value?: string | NarrativeCuePayload;
+  metadata?: NarrativeCuePayload;
 }
 
 const triggeredOnce = new Set<string>();

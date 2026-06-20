@@ -108,7 +108,7 @@ export default function LivingCodex({
     }> = [];
     
     arcs.forEach((arc, aIdx) => {
-      const written = arc.chapters.filter(ch => !!ch.generatedContent);
+      const written = arc.chapters.filter(ch => ch.hasContent || !!ch.generatedContent);
       written.forEach((ch, cIndex) => {
         list.push({
           chapter: ch,

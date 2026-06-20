@@ -6,7 +6,7 @@ import {
   Play, ChevronRight, BarChart, Cloud, CloudOff, RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Story, StoryMemory, Chapter, StoryArc, StoryWorld, ReaderPreferences, KarmaFateNode, CharacterRelationship, MultiModelRouting, RouteConfig, IntakeData, WorldBlueprint } from './types';
+import { Story, StoryMemory, Chapter, StoryArc, StoryWorld, ReaderPreferences, KarmaFateNode, CharacterRelationship, MultiModelRouting, RouteConfig, IntakeData, WorldBlueprint, StoryBlock } from './types';
 import CreationPortal from './components/CreationPortal';
 import AkashaRecord from './components/AkashaRecord';
 import ReaderChamber from './components/ReaderChamber';
@@ -117,6 +117,8 @@ export default function App() {
   const [generationPhase, setGenerationPhase] = useState<'blueprint' | 'initial-arc' | 'chapter' | 'steer' | 'cover' | null>(null);
   const [generationProgressMessage, setGenerationProgressMessage] = useState<string>('');
   const [estimatedSecondsRemaining, setEstimatedSecondsRemaining] = useState<number | null>(null);
+
+  const [streamingChapter, setStreamingChapter] = useState<{ number: number; content: string; blocks?: StoryBlock[] } | null>(null);
 
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('offline');
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -464,6 +466,49 @@ export default function App() {
 
   const activeStory = stories.find(s => s.id === activeStoryId);
 
+  // Dynamically fetch missing Chapter content when selected
+  useEffect(() => {
+    if (activeStory && selectedChapterNum !== -1) {
+      const tgtArc = activeStory.arcs.find(a => a.chapters.some(c => c.number === selectedChapterNum));
+      const tgtChapter = tgtArc?.chapters.find(c => c.number === selectedChapterNum);
+      
+      // If we have an unlocked chapter but its generatedContent is missing, we must fetch it.
+      if (tgtChapter && !tgtChapter.generatedContent && (tgtChapter.status === 'read' || tgtChapter.status === 'unlocked' || tgtChapter.status === 'generating')) {
+        storyStorage.getChapterContent(activeStory.id, selectedChapterNum).then(content => {
+          if (content) {
+            // Integrate content back into React state
+            const updatedStories = stories.map(s => {
+              if (s.id === activeStory.id) {
+                return {
+                  ...s,
+                  arcs: s.arcs.map(a => ({
+                    ...a,
+                    chapters: a.chapters.map(c => {
+                      if (c.number === selectedChapterNum) {
+                        return {
+                          ...c,
+                          generatedContent: content.generatedContent,
+                          blocks: content.blocks,
+                          summary: content.summary,
+                          statsChangeMessage: content.statsChangeMessage,
+                          cuePayload: content.cuePayload
+                        };
+                      }
+                      return c;
+                    })
+                  }))
+                };
+              }
+              return s;
+            });
+            // ONLY update React state. No need to trigger a full re-save or it will infinitely save/strip!
+            setStories(updatedStories);
+          }
+        });
+      }
+    }
+  }, [activeStory?.id, selectedChapterNum, activeStory?.arcs]);
+
   // 0.5. Generate Blueprint
   const handleGenerateBlueprint = async (intake: IntakeData): Promise<WorldBlueprint> => {
     setGenerationPhase('blueprint');
@@ -644,7 +689,7 @@ export default function App() {
       let accumulatedRaw = "";
       let buffer = "";
 
-      const textHeader = "---CHAPTER_TEXT---";
+      const textHeader = "---CHAPTER_BLOCKS---";
       const jsonHeader = "---JSON_META---";
 
       while(true) {
@@ -663,36 +708,37 @@ export default function App() {
               if (parsed.chunk) {
                 accumulatedRaw += parsed.chunk;
                 
-                let currentChapterText = accumulatedRaw;
+                let currentChapterText = "";
+                let blocksData: any[] = [];
                 if (accumulatedRaw.includes(textHeader)) {
                   const startIndex = accumulatedRaw.indexOf(textHeader) + textHeader.length;
+                  let rawBlocksStr = "";
                   if (accumulatedRaw.includes(jsonHeader)) {
-                    currentChapterText = accumulatedRaw.substring(startIndex, accumulatedRaw.indexOf(jsonHeader)).trim();
+                    rawBlocksStr = accumulatedRaw.substring(startIndex, accumulatedRaw.indexOf(jsonHeader)).trim();
                   } else {
-                    currentChapterText = accumulatedRaw.substring(startIndex).trim();
+                    rawBlocksStr = accumulatedRaw.substring(startIndex).trim();
                   }
+                  
+                  const blockLines = rawBlocksStr.split('\n').filter(l => l.trim().startsWith('{') && l.trim().endsWith('}'));
+                  blocksData = blockLines.map(l => {
+                    try { return JSON.parse(l); } catch { return null; }
+                  }).filter(Boolean);
+                  
+                  if (blocksData.length > 0) {
+                     currentChapterText = blocksData.map(b => b.text).join('\n\n');
+                  } else {
+                     currentChapterText = rawBlocksStr; // Fallback during very first token
+                  }
+                } else {
+                   currentChapterText = accumulatedRaw;
                 }
 
-                // Incrementally update UI
-                setStories(prev => prev.map(s => {
-                  if (s.id !== activeStory.id) return s;
-                  const cloned = { ...s };
-                  cloned.arcs = cloned.arcs.map((arc, aIdx) => {
-                    if (aIdx !== selectedArcIndex) return arc;
-                    return {
-                      ...arc,
-                      chapters: arc.chapters.map(ch => {
-                        if (ch.number !== chapterNumber) return ch;
-                        return {
-                          ...ch,
-                          generatedContent: currentChapterText || "Condensing celestial aura...",
-                          status: 'read' as const
-                        };
-                      })
-                    };
-                  });
-                  return cloned;
-                }));
+                // Incrementally update UI local state without altering the entire global stories ledger
+                setStreamingChapter({
+                  number: chapterNumber,
+                  content: currentChapterText || "Condensing celestial aura...",
+                  blocks: blocksData.length > 0 ? blocksData : undefined
+                });
               }
             } catch (e: any) {
               if (e.message && e.message !== "Unexpected end of JSON input") {
@@ -704,12 +750,13 @@ export default function App() {
       }
 
       // Finish generation, extract metadata
-      let data: any = { chapterText: "", summary: "An ethereal mist obscures the historical records.", statsChangeMessage: "None", memoryUpdates: {} };
+      let data: any = { chapterText: "", blocks: [], summary: "An ethereal mist obscures the historical records.", statsChangeMessage: "None", memoryUpdates: {} };
       
       if (accumulatedRaw.includes(textHeader)) {
         const startIndex = accumulatedRaw.indexOf(textHeader) + textHeader.length;
+        let rawBlocksStr = "";
         if (accumulatedRaw.includes(jsonHeader)) {
-          data.chapterText = accumulatedRaw.substring(startIndex, accumulatedRaw.indexOf(jsonHeader)).trim();
+          rawBlocksStr = accumulatedRaw.substring(startIndex, accumulatedRaw.indexOf(jsonHeader)).trim();
           
           const jsonStr = accumulatedRaw.substring(accumulatedRaw.indexOf(jsonHeader) + jsonHeader.length).trim();
           try {
@@ -721,7 +768,19 @@ export default function App() {
             console.warn("Failed to parse streamed JSON meta", e);
           }
         } else {
-          data.chapterText = accumulatedRaw.substring(startIndex).trim();
+          rawBlocksStr = accumulatedRaw.substring(startIndex).trim();
+        }
+        
+        const blockLines = rawBlocksStr.split('\n').filter(l => l.trim().startsWith('{') && l.trim().endsWith('}'));
+        const parsedBlocks = blockLines.map(l => {
+          try { return JSON.parse(l); } catch { return null; }
+        }).filter(Boolean);
+        
+        data.blocks = parsedBlocks;
+        data.chapterText = parsedBlocks.map((b: any) => b.text).join('\n\n');
+        
+        if (parsedBlocks.length === 0) {
+           data.chapterText = rawBlocksStr;
         }
       } else {
         // Fallback if formatting was ignored
@@ -749,8 +808,10 @@ export default function App() {
               return {
                 ...ch,
                 generatedContent: data.chapterText,
+                blocks: data.blocks,
                 summary: data.summary,
                 statsChangeMessage: data.statsChangeMessage !== 'None' ? data.statsChangeMessage : undefined,
+                cuePayload: data.cuePayload,
                 status: 'read' as const
               };
             })
@@ -758,7 +819,7 @@ export default function App() {
         });
 
         // Check if all chapters in ALL arcs are completed
-        const isArcFinished = cloned.arcs[selectedArcIndex].chapters.every(ch => !!ch.generatedContent);
+        const isArcFinished = cloned.arcs[selectedArcIndex].chapters.every(ch => ch.hasContent || !!ch.generatedContent);
         if (isArcFinished) {
           cloned.arcs[selectedArcIndex].isCompleted = true;
         }
@@ -901,6 +962,7 @@ export default function App() {
     } finally {
       setIsGenerating(false);
       setGenerationPhase(null);
+      setStreamingChapter(null);
     }
   };
 
@@ -1160,11 +1222,18 @@ export default function App() {
     
     story.arcs.forEach(arc => {
       htmlContent += `<h2 style="font-size: 2rem; margin-top: 4rem; border-bottom: 1px solid #333; padding-bottom: 1rem;">${arc.title}</h2>`;
+      // Can't export just from memory, we need to fetch all chapter contents dynamically if doing a full HTML export!
+      // To simplify, we will only export what's loaded, but warn the user.
       arc.chapters.forEach(ch => {
-        if (!ch.generatedContent) return;
+        if (!ch.generatedContent && !ch.hasContent) return;
+        
+        let contentToExport = ch.generatedContent;
+        if (!contentToExport && ch.hasContent) contentToExport = "[Content available in subcollection. View chapter directly to load.]";
+        if (!contentToExport) return;
+
         htmlContent += `<h2>Chapter ${ch.number}: ${ch.title}</h2>`;
         
-        const pars = ch.generatedContent.split('\n\n').filter(p => p.trim());
+        const pars = contentToExport.split('\n\n').filter(p => p.trim());
         pars.forEach(p => {
           if (p.startsWith('[') && p.endsWith(']')) {
              htmlContent += `<div class="system">${p.replace(/^\s*\[/, '').replace(/\]\s*$/, '')}</div>`;
@@ -1587,7 +1656,7 @@ export default function App() {
                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6">
                     {stories.map((story) => {
                       const totalChapters = story.arcs.reduce((sum, a) => sum + a.chapters.length, 0);
-                      const generated = story.arcs.reduce((sum, a) => sum + a.chapters.filter(c => !!c.generatedContent).length, 0);
+                      const generated = story.arcs.reduce((sum, a) => sum + a.chapters.filter(c => c.hasContent || !!c.generatedContent).length, 0);
                       
                       return (
                         <div
@@ -1742,7 +1811,7 @@ export default function App() {
                   <div className="pt-6 flex flex-wrap gap-3">
                     <button
                       onClick={() => {
-                        const lastCh = activeStory.arcs[activeStory.arcs.length - 1].chapters.find(c => !c.generatedContent)?.number || activeStory.arcs[activeStory.arcs.length - 1].chapters[0].number;
+                        const lastCh = activeStory.arcs[activeStory.arcs.length - 1].chapters.find(c => !(c.hasContent || !!c.generatedContent))?.number || activeStory.arcs[activeStory.arcs.length - 1].chapters[0].number;
                         setSelectedChapterNum(lastCh);
                         setCurrentScreen('reader');
                       }}
@@ -1880,7 +1949,11 @@ export default function App() {
               ) : (
                 <div className="mx-auto">
                   <ReaderChamber
-                    chapters={activeStory.arcs[activeStory.arcs.length - 1].chapters}
+                    chapters={activeStory.arcs[activeStory.arcs.length - 1].chapters.map(ch => 
+                      (streamingChapter && ch.number === streamingChapter.number)
+                        ? { ...ch, generatedContent: streamingChapter.content, blocks: streamingChapter.blocks, status: 'read' as const }
+                        : ch
+                    )}
                     arcTitle={activeStory.arcs[activeStory.arcs.length - 1].title}
                     currentPowerStage={activeStory.memory.currentPowerStage}
                     onGenerateChapter={handleGenerateChapter}

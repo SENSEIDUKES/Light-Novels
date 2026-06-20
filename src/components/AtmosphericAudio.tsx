@@ -192,12 +192,54 @@ export function AtmosphericAudio() {
       if (cue.type === 'narrative.metadata.signature') {
         const ctx = initAudioCtx();
         triggerChime(ctx);
+        const meta = cue.metadata || cue.value;
+        
+        if (meta) {
+           if (typeof meta.intensity === 'number') {
+             setVolume(Math.max(0.1, Math.min(1.0, meta.intensity)));
+           }
+           if (!isPlaying) setIsPlaying(true);
+           
+           if (meta.environment?.includes('rain') || meta.sceneType === 'travel') {
+             setAtmosphere('rain');
+           } else if (meta.mysticism && meta.mysticism > 0.5) {
+             setAtmosphere('temple');
+           } else if (meta.danger && meta.danger > 0.5) {
+             setAtmosphere('wind');
+           } else if (meta.environment?.includes('mountain')) {
+             setAtmosphere('wind');
+           }
+        }
+      } else if (cue.type === 'narrative.chapter.enter') {
+        // Simple placeholder behavior applying Cue Bridge metadata:
+        const meta = cue.value;
+        if (meta) {
+          // Adjust volume based on intensity (metadata normalized 0-1)
+          if (typeof meta.intensity === 'number') {
+            setVolume(Math.max(0.2, Math.min(1.0, meta.intensity)));
+          }
+
+          // Select a basic ambience based on element or emotion
+          if (!isPlaying) setIsPlaying(true); // Auto-start the atmosphere
+          
+          if (meta.element === 'water' || meta.emotion === 'sorrow') {
+            setAtmosphere('rain');
+          } else if (meta.mysticism && meta.mysticism > 0.7) {
+            setAtmosphere('temple');
+          } else if (meta.danger && meta.danger > 0.6) {
+            setAtmosphere('wind');
+          } else if (meta.tension && meta.tension > 0.8) {
+            setAtmosphere('wind');
+          } else {
+            setAtmosphere('none');
+          }
+        }
       }
     };
     
     window.addEventListener('narrative-cue', handleCue);
     return () => window.removeEventListener('narrative-cue', handleCue);
-  }, []);
+  }, [isPlaying]);
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex items-center bg-black/80 border border-neutral-900 rounded-full px-2 py-1 shadow-lg backdrop-blur-md">
