@@ -310,15 +310,71 @@ export default function LivingCodex({
   };
 
   // Generate Image Card API trigger
-  const handleAwakenCardImage = async (id: string, type: 'character' | 'location' | 'artifact', name: string, description: string) => {
+  const handleRevertImage = (id: string, type: string, newUrl: string) => {
+    // 1. Update memory
+    if (type === 'character' || type === 'beast') {
+      const updated = memory.characters.map(c => c.id === id ? { ...c, imageUrl: newUrl } : c);
+      onUpdateMemory({ ...memory, characters: updated });
+    } else if (type === 'location') {
+      const updated = (memory.locations || []).map(l => l.id === id ? { ...l, imageUrl: newUrl } : l);
+      onUpdateMemory({ ...memory, locations: updated });
+    } else if (type === 'artifact') {
+      const updated = (memory.artifacts || []).map(a => a.id === id ? { ...a, imageUrl: newUrl } : a);
+      onUpdateMemory({ ...memory, artifacts: updated });
+    }
+
+    // 2. Update activeStory image history isCurrent flags
+    if (activeStory.imageHistory) {
+      const updatedStoryHistory = activeStory.imageHistory.map(img => {
+        if (img.entityId === id) {
+          return { ...img, isCurrent: img.imageUrl === newUrl };
+        }
+        return img;
+      });
+      onUpdateStory({
+        ...activeStory,
+        imageHistory: updatedStoryHistory
+      });
+    }
+  };
+
+  const renderImageHistoryGallery = (entityId: string, type: 'character' | 'location' | 'artifact' | 'beast', imageHistory: any[] | undefined) => {
+    if (!imageHistory || imageHistory.length <= 1) return null;
+    return (
+      <div className="flex space-x-1 overflow-x-auto p-1.5 bg-neutral-950/80 custom-scrollbar border-b border-neutral-900 absolute top-0 w-full z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        {imageHistory.map((img) => (
+          <div 
+            key={img.id} 
+            className="relative flex-shrink-0 w-8 h-8 rounded-sm overflow-hidden border border-neutral-800 cursor-pointer hover:border-portal transition-colors shadow-lg" 
+            onClick={() => handleRevertImage(entityId, type, img.imageUrl)}
+            title={`Generated at Chapter ${img.chapterNumber || 'Unknown'}\nPrompt: ${img.promptUsed}`}
+          >
+            <img src={img.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          </div>
+        ))}
+      </div>
+    );
+  };
+  const handleAwakenCardImage = async (
+    id: string, 
+    type: 'character' | 'location' | 'artifact' | 'beast', 
+    entity: any
+  ) => {
     setGeneratingId(id);
     setGenerationError(null);
 
-    const targetPrompt = type === 'character' 
-      ? `A clean anime profile portrait of the Chinese light novel character ${name}. Description: ${description}. Soft elegant lighting.`
-      : type === 'location'
-      ? `A highly detailed serene landscape view of the Chinese cultivation environment ${name}. Description: ${description}.`
-      : `The glowing physical form of the ancient alchemical weapon relic ${name}. Description: ${description}`;
+    const styleConfig = activeStory.blueprint?.styleBible || "Chinese light novel world aesthetic, xianxia / wuxia fantasy illustration, cinematic, mystical, premium webnovel art.";
+
+    let targetPrompt = "";
+    if (type === 'character') {
+      targetPrompt = `Character image. Name: ${entity.name}. Visual description: ${entity.description}. Role: ${entity.role}. Current state/status: ${entity.status}. Power level / aura: ${entity.powerLevel || 'Unknown'}. Shared visual style: ${styleConfig}.`;
+    } else if (type === 'beast') {
+      targetPrompt = `Beast image. Name: ${entity.name}. Species/Type: ${entity.beastProfile?.bodyType || 'Unknown Beast'}. Visual description: ${entity.description}. Evolution state/Threat Tier: ${entity.beastProfile?.threatTier || 'Unknown'}. Aura / element style: ${entity.beastProfile?.element || 'Unknown'}. Shared visual style: ${styleConfig}.`;
+    } else if (type === 'location') {
+      targetPrompt = `Location image. Name: ${entity.name}. Visual description: ${entity.description}. Realm/Zone type: ${entity.realm || 'Unknown'}. Atmosphere/Safety: ${entity.safetyLevel || 'Unknown'}. Shared visual style: ${styleConfig}.`;
+    } else if (type === 'artifact') {
+      targetPrompt = `Artifact image. Name: ${entity.name}. Visual description: ${entity.description}. Tier/Rarity: ${entity.tier || 'Unknown'}. Aura/Energy style: visually striking. Shared visual style: ${styleConfig}.`;
+    }
 
     try {
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -343,8 +399,29 @@ export default function LivingCodex({
 
       const returnedUrl = data.imageUrl || data.fallbackUrl;
 
-      // Persist imageUrl updates directly to global state
-      if (type === 'character') {
+      const newHistoryItem = {
+        id: Math.random().toString(36).substring(2, 10),
+        entityId: id,
+        entityType: type,
+        imageUrl: returnedUrl,
+        promptUsed: targetPrompt,
+        createdAt: new Date().toISOString(),
+        isCurrent: true,
+        chapterNumber: activeStory.currentChapterNumber
+      };
+
+      const currentStoryHistory = activeStory.imageHistory || [];
+      const updatedStoryHistory = currentStoryHistory
+        .map(img => img.entityId === id ? { ...img, isCurrent: false } : img)
+        .concat(newHistoryItem as any);
+
+      onUpdateStory({
+        ...activeStory,
+        imageHistory: updatedStoryHistory
+      });
+
+      // Persist imageUrl updates directly to global state memory
+      if (type === 'character' || type === 'beast') {
         const updated = memory.characters.map(c => c.id === id ? { ...c, imageUrl: returnedUrl } : c);
         onUpdateMemory({ ...memory, characters: updated });
       } else if (type === 'location') {
@@ -798,7 +875,8 @@ export default function LivingCodex({
                           className="bg-neutral-950 border border-neutral-900 hover:border-neutral-800 rounded-lg overflow-hidden flex flex-col justify-between group transition-all duration-300 shadow-lg relative"
                         >
                           {/* Visual Stage illustration header */}
-                          <div className="h-44 w-full bg-void relative flex items-center justify-center overflow-hidden border-b border-neutral-900">
+                          <div className="h-44 w-full bg-void relative flex items-center justify-center overflow-hidden border-b border-neutral-900 group">
+                            {renderImageHistoryGallery(char.id, char.isBeast ? 'beast' : 'character', activeStory.imageHistory?.filter(img => img.entityId === char.id))}
                             {hasImage ? (
                               <img 
                                 src={char.imageUrl} 
@@ -855,7 +933,7 @@ export default function LivingCodex({
                             {/* Action: Forge visual aura portrait */}
                             <div className="pt-3 border-t border-neutral-950 flex justify-end">
                               <button
-                                onClick={() => handleAwakenCardImage(char.id, 'character', char.name, char.description)}
+                                onClick={() => handleAwakenCardImage(char.id, char.isBeast ? 'beast' : 'character', char)}
                                 disabled={isGenerating}
                                 className={`w-full py-1.5 rounded text-[9px] uppercase font-mono tracking-widest flex items-center justify-center space-x-1 border font-bold transition-all ${
                                   isGenerating
@@ -871,7 +949,7 @@ export default function LivingCodex({
                                 ) : (
                                   <>
                                     <Image size={10} className="text-portal" />
-                                    <span>{hasImage ? 'Regenerate Portrait' : 'Awaken Portrait'}</span>
+                                    <span>{hasImage ? 'Generate New Evolution' : 'Awaken Portrait'}</span>
                                   </>
                                 )}
                               </button>
@@ -967,7 +1045,8 @@ export default function LivingCodex({
                         return (
                           <div key={loc.id} className="bg-neutral-950 border border-neutral-900 hover:border-neutral-800 rounded-lg overflow-hidden flex flex-col justify-between group transition-all duration-300">
                             {/* Location Scenery Header */}
-                            <div className="h-36 w-full bg-void relative flex items-center justify-center overflow-hidden border-b border-neutral-900">
+                            <div className="h-36 w-full bg-void relative flex items-center justify-center overflow-hidden border-b border-neutral-900 group">
+                              {renderImageHistoryGallery(loc.id, 'location', activeStory.imageHistory?.filter(img => img.entityId === loc.id))}
                               {hasImage ? (
                                 <img 
                                   src={loc.imageUrl} 
@@ -1019,7 +1098,7 @@ export default function LivingCodex({
                                   Purge Node
                                 </button>
                                 <button
-                                  onClick={() => handleAwakenCardImage(loc.id, 'location', loc.name, loc.description)}
+                                  onClick={() => handleAwakenCardImage(loc.id, 'location', loc)}
                                   disabled={isGenerating}
                                   className="px-2 py-1 bg-void border border-portal/10 text-portal hover:border-portal rounded text-[8.5px] uppercase font-mono tracking-wider flex items-center space-x-1"
                                 >
@@ -1031,7 +1110,7 @@ export default function LivingCodex({
                                   ) : (
                                     <>
                                       <Compass size={8} />
-                                      <span>Awaken Vistas</span>
+                                      <span>{hasImage ? 'Generate New Evolution' : 'Awaken Vistas'}</span>
                                     </>
                                   )}
                                 </button>
@@ -1842,14 +1921,17 @@ export default function LivingCodex({
                   return (
                     <div key={art.id} className="p-4 bg-neutral-950/80 border border-neutral-900 rounded-lg hover:border-neutral-850 flex flex-col justify-between transition-all">
                       <div>
-                        {/* Render relational artifact card portrait if available */}
-                        {hasImage ? (
-                          <div className="h-32 w-full rounded overflow-hidden border border-neutral-900 mb-3">
-                            <img src={art.imageUrl} alt={art.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
-                          </div>
-                        ) : (
-                          <div className="h-2 bg-gradient-to-r from-void via-portal/5 to-void w-full rounded mb-1"></div>
-                        )}
+                        <div className="relative group">
+                          {/* Render relational artifact card portrait if available */}
+                          {renderImageHistoryGallery(art.id, 'artifact', activeStory.imageHistory?.filter(img => img.entityId === art.id))}
+                          {hasImage ? (
+                            <div className="h-32 w-full rounded overflow-hidden border border-neutral-900 mb-3">
+                              <img src={art.imageUrl} alt={art.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                            </div>
+                          ) : (
+                            <div className="h-2 bg-gradient-to-r from-void via-portal/5 to-void w-full rounded mb-1"></div>
+                          )}
+                        </div>
 
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="font-sc font-bold text-signal text-sm tracking-wide">{art.name}</h4>
@@ -1868,11 +1950,11 @@ export default function LivingCodex({
                         </span>
                         <div className="flex items-center space-x-2">
                           <button
-                            onClick={() => handleAwakenCardImage(art.id, 'artifact', art.name, art.description)}
+                            onClick={() => handleAwakenCardImage(art.id, 'artifact', art)}
                             disabled={isGenerating}
                             className="text-portal hover:underline capitalize"
                           >
-                            {isGenerating ? 'VERSA working...' : 'Synthesize Art'}
+                            {isGenerating ? 'VERSA working...' : (hasImage ? 'Generate New Evolution' : 'Synthesize Art')}
                           </button>
                           <span className="text-neutral-700">|</span>
                           <button

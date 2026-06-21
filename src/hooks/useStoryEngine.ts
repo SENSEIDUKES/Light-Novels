@@ -800,7 +800,12 @@ export const useStoryEngine = () => {
     store.setAppError(null);
     try {
       const apiHeaders = getApiHeaders();
-      const prompt = `Epic fantasy webnovel book cover for a story titled "${activeStory.title}", genre: ${activeStory.genre}. Concept: ${activeStory.customPremise}. The cover focuses on the journey of ${activeStory.mcName}. Cinematic lighting, digital painting, majestic, dark fantasy aesthetics, textless.`;
+      const styleConfig = activeStory.blueprint?.styleBible || "Chinese light novel world aesthetic, xianxia / wuxia fantasy illustration, cinematic, mystical, premium webnovel art.";
+      const mcProfile = activeStory.blueprint?.mcProfile || activeStory.mcName;
+      const worldOverview = activeStory.blueprint?.worldOverview || activeStory.genre;
+      const firstArcPromise = activeStory.blueprint?.firstArcPromise || activeStory.customPremise;
+
+      const prompt = `Cover image for a story titled "${activeStory.title}". Genre: ${activeStory.genre}. Core Premise: ${activeStory.customPremise}. Main character visual description: ${mcProfile}. Main visual conflict: ${firstArcPromise}. World aesthetic: ${worldOverview}. Shared visual style: ${styleConfig}. Epic fantasy webnovel book cover, digital painting, textless.`;
 
       const response = await fetch('/api/generate-card-image', {
         method: 'POST',
@@ -813,7 +818,27 @@ export const useStoryEngine = () => {
 
       const newImageUrl = data.imageUrl || data.fallbackUrl;
       if (newImageUrl) {
-        handleUpdateStoryDirect({ ...activeStory, imageUrl: newImageUrl } as any);
+        const imageRecord = {
+          id: Math.random().toString(36).substring(2, 10),
+          entityId: activeStory.id,
+          entityType: 'cover',
+          imageUrl: newImageUrl,
+          promptUsed: prompt,
+          createdAt: new Date().toISOString(),
+          isCurrent: true,
+          chapterNumber: activeStory.currentChapterNumber
+        };
+        
+        const currentHistory = activeStory.imageHistory || [];
+        const updatedHistory = currentHistory.map(img => 
+          img.entityType === 'cover' ? { ...img, isCurrent: false } : img
+        ).concat(imageRecord as any);
+
+        handleUpdateStoryDirect({ 
+          ...activeStory, 
+          imageUrl: newImageUrl,
+          imageHistory: updatedHistory
+        } as any);
       }
     } catch(err: any) {
       store.setAppError(err.message || "Failed to forge new cover.");

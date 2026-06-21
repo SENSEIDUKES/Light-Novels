@@ -18,6 +18,19 @@ export interface UserProfile {
   updatedAt: string;
 }
 
+export interface GeneratedImage {
+  id: string;
+  entityId: string;
+  entityType: 'cover' | 'character' | 'beast' | 'location' | 'artifact';
+  imageUrl: string;
+  chapterNumber?: number;
+  arcTitle?: string;
+  label?: string;
+  promptUsed: string;
+  createdAt: string;
+  isCurrent: boolean;
+}
+
 export interface BeastSonicProfile {
   size: 'tiny' | 'human-sized' | 'giant' | 'world-scale';
   bodyType: 'insect' | 'serpent' | 'bird' | 'mammal' | 'spirit' | 'undead' | 'dragon' | 'cosmic';
@@ -39,6 +52,7 @@ export interface Character {
   abilities?: string[];
   faction?: string;
   imageUrl?: string;
+  imageHistory?: GeneratedImage[];
   isBeast?: boolean;
   beastProfile?: BeastSonicProfile;
 }
@@ -59,6 +73,7 @@ export interface Location {
   realm?: string;
   safetyLevel?: 'Safe' | 'Dangerous' | 'Lethal' | string;
   imageUrl?: string;
+  imageHistory?: GeneratedImage[];
 }
 
 export interface Artifact {
@@ -68,6 +83,7 @@ export interface Artifact {
   tier?: 'Mortal' | 'Earth' | 'Heaven' | 'Primordial' | string;
   currentOwner?: string;
   imageUrl?: string;
+  imageHistory?: GeneratedImage[];
 }
 
 export interface StoryMemory {
@@ -270,6 +286,7 @@ export interface StoryWorld {
   arcs: StoryArc[];
   currentChapterNumber: number;
   imageUrl?: string;
+  imageHistory?: GeneratedImage[];
   intake?: IntakeData;
   blueprint?: WorldBlueprint;
   

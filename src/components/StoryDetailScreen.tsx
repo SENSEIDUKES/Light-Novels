@@ -35,7 +35,7 @@ export const StoryDetailScreen: React.FC<{
       <div className="flex flex-col md:flex-row gap-8 bg-[#0a0a0a] border border-neutral-900 rounded-xl p-6 shadow-2xl">
         {/* Cover Art */}
         <div className="w-full max-w-[180px] mx-auto md:max-w-none md:w-64 flex-shrink-0">
-          <div className="relative group aspect-[2/3] rounded-lg overflow-hidden border border-neutral-800 shadow-md">
+          <div className="relative group aspect-[2/3] rounded-lg overflow-hidden border border-neutral-800 shadow-md mb-2">
             <img 
               src={activeStory.imageUrl || `https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?auto=format&fit=crop&q=80`}
               alt={activeStory.title}
@@ -50,10 +50,38 @@ export const StoryDetailScreen: React.FC<{
                 className="px-4 py-2 bg-portal/20 border border-portal/50 text-portal text-[10px] font-bold font-sc uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-colors flex flex-col items-center gap-1.5 shadow-[0_0_15px_rgba(4,172,255,0.4)] disabled:opacity-50"
               >
                 <Sparkles size={16} />
-                <span>Forge Core Cover</span>
+                <span>{activeStory.imageUrl ? 'Generate New Evolution' : 'Forge Core Cover'}</span>
               </button>
             </div>
           </div>
+          
+          {/* Cover Image History */}
+          {activeStory.imageHistory && activeStory.imageHistory.filter(img => img.entityType === 'cover').length > 1 && (
+            <div className="flex space-x-1.5 overflow-x-auto p-1.5 bg-neutral-950 border border-neutral-900 rounded custom-scrollbar mt-2">
+              {activeStory.imageHistory.filter(img => img.entityType === 'cover').map((img) => (
+                <div 
+                  key={img.id} 
+                  className="relative flex-shrink-0 w-10 h-14 rounded overflow-hidden border border-neutral-800 cursor-pointer hover:border-portal transition-colors shadow-lg" 
+                  onClick={() => {
+                    const store = useAppStore.getState();
+                    const updated = store.stories.map(s => {
+                      if (s.id === activeStory.id) {
+                        const updatedHistory = s.imageHistory?.map(h => 
+                          h.entityType === 'cover' ? { ...h, isCurrent: h.imageUrl === img.imageUrl } : h
+                        );
+                        return { ...s, imageUrl: img.imageUrl, imageHistory: updatedHistory };
+                      }
+                      return s;
+                    });
+                    store.saveStories(updated as any);
+                  }}
+                  title={`Generated at Chapter ${img.chapterNumber || 'Unknown'}\nPrompt: ${img.promptUsed}`}
+                >
+                  <img src={img.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Info */}

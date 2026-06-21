@@ -36,6 +36,7 @@
         "arcs": { "$ref": "#/entities/StoryArcs" },
         "currentChapterNumber": { "type": "number" },
         "imageUrl": { "type": "string" },
+        "imageHistory": { "type": "array" },
         "intake": { "$ref": "#/entities/IntakeData" },
         "blueprint": { "$ref": "#/entities/WorldBlueprint" },
         "relationships": { "type": "array" },
