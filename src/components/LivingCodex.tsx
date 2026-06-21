@@ -11,6 +11,7 @@ import { VirtualizedList } from './VirtualizedList';
 import { AgentBadge } from './AgentBadge';
 import { AGENTS } from '../lib/agents';
 import { DestinyChoicePanel } from './DestinyChoicePanel';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface LivingCodexProps {
   memory: StoryMemory;
@@ -3105,7 +3106,7 @@ export default function LivingCodex({
                             {node.status === 'resolved' ? 'Severed' : 'Sever Link'}
                           </button>
                           <button
-                            onClick={() => setDeletePrompt({ id: node.id, type: 'fate', name: node.title })}
+                            onClick={() => setDeletePrompt({ id: node.id, type: 'fate', name: node.description })}
                             className="p-1 px-1.5 text-neutral-500 hover:text-human hover:bg-neutral-900 rounded transition-colors border border-transparent"
                             title="Purge decree"
                           >

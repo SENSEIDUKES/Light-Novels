@@ -250,6 +250,8 @@ export default function ReaderChamber({
     SpeechSynthesisVoice[]
   >([]);
   const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>("");
+  const [selectedDialogueVoiceURI, setSelectedDialogueVoiceURI] =
+    useState<string>("");
   const [showTtsControls, setShowTtsControls] = useState<boolean>(false);
 
   // --- Atmospheric Audio Sync States ---
@@ -335,6 +337,14 @@ export default function ReaderChamber({
             voices.find((v) => v.lang.includes("zh")) ||
             voices[0];
           setSelectedVoiceURI(defaultVoice?.voiceURI || "");
+
+          const dialogueVoice =
+            voices.find(
+              (v) =>
+                v.voiceURI !== defaultVoice?.voiceURI &&
+                v.lang.includes("en"),
+            ) || defaultVoice;
+          setSelectedDialogueVoiceURI(dialogueVoice?.voiceURI || "");
         }
       };
 
@@ -346,12 +356,14 @@ export default function ReaderChamber({
   }, []);
 
   // Track utterance chunks and current playing chunk
-  const chunksRef = useRef<string[]>([]);
+  const chunksRef = useRef<{ text: string; isDialogue: boolean; paragraphIndex?: number }[]>([]);
+  const [activeChunks, setActiveChunks] = useState<{ text: string; isDialogue: boolean; paragraphIndex?: number }[]>([]);
   const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
 
   const speechRateRef = useRef(speechRate);
   const speechPitchRef = useRef(speechPitch);
   const selectedVoiceURIRef = useRef(selectedVoiceURI);
+  const selectedDialogueVoiceURIRef = useRef(selectedDialogueVoiceURI);
   const speechVolumeRef = useRef(speechVolume);
   const availableVoicesRef = useRef(availableVoices);
   const currentChunkIndexRef = useRef(currentChunkIndex);
@@ -366,6 +378,9 @@ export default function ReaderChamber({
   useEffect(() => {
     selectedVoiceURIRef.current = selectedVoiceURI;
   }, [selectedVoiceURI]);
+  useEffect(() => {
+    selectedDialogueVoiceURIRef.current = selectedDialogueVoiceURI;
+  }, [selectedDialogueVoiceURI]);
   useEffect(() => {
     speechVolumeRef.current = speechVolume;
   }, [speechVolume]);
@@ -385,6 +400,7 @@ export default function ReaderChamber({
       }
       window.speechSynthesis.cancel();
       chunksRef.current = [];
+      setActiveChunks([]);
       setIsPlayingText(false);
       setIsPausedText(false);
       setCurrentChunkIndex(0);
@@ -409,19 +425,23 @@ export default function ReaderChamber({
 
     synth.cancel();
 
-    const text = chunksRef.current[index];
-    if (!text || !text.trim()) {
+    const chunkData = chunksRef.current[index];
+    if (!chunkData || !chunkData.text.trim()) {
       setCurrentChunkIndex(index + 1);
       speakChunk(index + 1);
       return;
     }
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    const utterance = new SpeechSynthesisUtterance(chunkData.text);
     currentUtteranceRef.current = utterance;
 
-    const voice = selectedVoiceURIRef.current
+    const voiceURI = chunkData.isDialogue
+      ? selectedDialogueVoiceURIRef.current
+      : selectedVoiceURIRef.current;
+
+    const voice = voiceURI
       ? availableVoicesRef.current.find(
-          (v) => v.voiceURI === selectedVoiceURIRef.current,
+          (v) => v.voiceURI === voiceURI,
         )
       : null;
     if (voice) utterance.voice = voice;
@@ -478,27 +498,50 @@ export default function ReaderChamber({
 
     if (!selectedChapter || !selectedChapter.generatedContent) return;
 
-    // Clean text of UI markup blocks like system alert blocks for fluent stream
-    // and run through extractSFXCues first to completely remove hidden audio, sfx, timing, or JSON metadata tags from speech
-    const proseCleaned = extractSFXCues(
-      selectedChapter.generatedContent,
-    ).cleanText;
-    const cleanText = proseCleaned
-      .replace(/\[System Alert:[^\]]+\]/gi, "")
-      .replace(/\[System Breakthrough:[^\]]+\]/gi, "")
-      .replace(/\[System Notification:[^\]]+\]/gi, "")
-      .replace(/\[Aura[^\]]+\]/gi, "");
+    const newChunks: {
+      text: string;
+      isDialogue: boolean;
+      paragraphIndex?: number;
+    }[] = [];
 
-    // Split text into chunks (sentences or paragraphs) to avoid the 14-second cutoff bug in some browsers
-    const rawChunks =
-      `Chapter ${selectedChapter.number}. ${selectedChapter.title}. \n\n ${cleanText}`.match(
-        /[^.!?\n]+[.!?\n]+/g,
-      ) || [cleanText];
+    newChunks.push({
+      text: `Chapter ${selectedChapter.number}. ${selectedChapter.title}.`,
+      isDialogue: false,
+      paragraphIndex: -1,
+    });
 
-    const chunks = rawChunks.map((c) => c.trim()).filter(Boolean);
+    const paragraphs = (selectedChapter.generatedContent || "").split("\n\n");
+    paragraphs.forEach((paragraph, index) => {
+      if (!paragraph.trim()) return;
+      const proseCleaned = extractSFXCues(paragraph).cleanText;
+      const cleanText = proseCleaned
+        .replace(/\[System Alert:[^\]]+\]/gi, "")
+        .replace(/\[System Breakthrough:[^\]]+\]/gi, "")
+        .replace(/\[System Notification:[^\]]+\]/gi, "")
+        .replace(/\[Aura[^\]]+\]/gi, "");
 
-    if (chunks.length > 0) {
-      chunksRef.current = chunks;
+      if (!cleanText.trim()) return;
+
+      const rawParts = cleanText.split(/(["“「][^"”」]+["”」])/g);
+      rawParts.forEach((part) => {
+        if (!part.trim()) return;
+        const isDialogue = /^["“「]/.test(part);
+        const subChunks = part.match(/[^.!?\n]+[.!?\n]*/g) || [part];
+        subChunks.forEach((sub) => {
+          if (sub.trim()) {
+            newChunks.push({
+              text: sub.trim(),
+              isDialogue,
+              paragraphIndex: index,
+            });
+          }
+        });
+      });
+    });
+
+    if (newChunks.length > 0) {
+      chunksRef.current = newChunks;
+      setActiveChunks(newChunks);
       setCurrentChunkIndex(0);
       setIsPlayingText(true);
       setIsPausedText(false);
@@ -514,6 +557,7 @@ export default function ReaderChamber({
       }
       window.speechSynthesis.cancel();
       chunksRef.current = [];
+      setActiveChunks([]);
       setIsPlayingText(false);
       setIsPausedText(false);
       setCurrentChunkIndex(0);
@@ -529,7 +573,7 @@ export default function ReaderChamber({
     }, 450);
 
     return () => clearTimeout(timer);
-  }, [speechRate, speechPitch, selectedVoiceURI, speechVolume]);
+  }, [speechRate, speechPitch, selectedVoiceURI, selectedDialogueVoiceURI, speechVolume]);
 
   // --- Cosmic Bookmarking System States & Handlers ---
   const [showBookmarksPanel, setShowBookmarksPanel] = useState(false);
@@ -539,6 +583,34 @@ export default function ReaderChamber({
   const [pendingScrollToParagraph, setPendingScrollToParagraph] = useState<
     number | null
   >(null);
+
+  const renderHighlightedText = (text: string, paragraphIndex: number) => {
+    const isPlaying = isPlayingText || isPausedText;
+    if (!isPlaying) return <>{text}</>;
+
+    const currentChunk = activeChunks[currentChunkIndex];
+    if (!currentChunk || currentChunk.paragraphIndex !== paragraphIndex)
+      return <>{text}</>;
+
+    const highlight = currentChunk.text;
+    if (!highlight || !text.includes(highlight)) return <>{text}</>;
+
+    const parts = text.split(highlight);
+    return (
+      <>
+        {parts.map((part, i) => (
+          <React.Fragment key={i}>
+            {part}
+            {i < parts.length - 1 && (
+              <span className="bg-portal/20 text-portal font-medium rounded-sm px-1 py-0.5 transition-all duration-300 shadow-[0_0_8px_rgba(4,172,255,0.15)]">
+                {highlight}
+              </span>
+            )}
+          </React.Fragment>
+        ))}
+      </>
+    );
+  };
 
   // --- Swipe Navigation States ---
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
@@ -1243,7 +1315,7 @@ export default function ReaderChamber({
                                   <p
                                     className={`text-justify indent-8 ${currentPrefs.paragraphSpacing === "normal" ? "mb-0" : currentPrefs.paragraphSpacing === "wide" ? "mb-2" : "mb-4"}`}
                                   >
-                                    {cleanText}
+                                    {renderHighlightedText(cleanText, index)}
                                   </p>
                                 </div>
                               </div>
@@ -1323,7 +1395,7 @@ export default function ReaderChamber({
                                 />
                               ))}
                               <p className="text-justify indent-8 relative">
-                                {cleanText}
+                                {renderHighlightedText(cleanText, index)}
                                 <button
                                   onClick={() => {
                                     if (existingBookmark) {
@@ -1507,7 +1579,7 @@ export default function ReaderChamber({
                                             : "mb-4"
                                       }`}
                                     >
-                                      {cleanText}
+                                      {renderHighlightedText(cleanText, index)}
                                     </p>
                                   </div>
                                 </div>
@@ -1846,11 +1918,26 @@ export default function ReaderChamber({
                   <div className="space-y-3">
                     <div>
                       <label className="block text-[10px] text-neutral-400 mb-1">
-                        Voice Signature
+                        Narrator Voice Signature
                       </label>
                       <select
                         value={selectedVoiceURI}
                         onChange={(e) => setSelectedVoiceURI(e.target.value)}
+                        className="w-full bg-void border border-neutral-800 rounded text-[11px] p-1.5 focus:border-portal focus:outline-none mb-2"
+                      >
+                        {availableVoices.map((v) => (
+                          <option key={v.voiceURI} value={v.voiceURI}>
+                            {v.name} ({v.lang})
+                          </option>
+                        ))}
+                      </select>
+                      
+                      <label className="block text-[10px] text-neutral-400 mb-1">
+                        Dialogue Voice Signature
+                      </label>
+                      <select
+                        value={selectedDialogueVoiceURI}
+                        onChange={(e) => setSelectedDialogueVoiceURI(e.target.value)}
                         className="w-full bg-void border border-neutral-800 rounded text-[11px] p-1.5 focus:border-portal focus:outline-none"
                       >
                         {availableVoices.map((v) => (
@@ -2045,11 +2132,26 @@ export default function ReaderChamber({
                     <div className="space-y-3">
                       <div>
                         <label className="block text-[10px] text-neutral-400 mb-1">
-                          Voice Signature
+                          Narrator Voice Signature
                         </label>
                         <select
                           value={selectedVoiceURI}
                           onChange={(e) => setSelectedVoiceURI(e.target.value)}
+                          className="w-full bg-void border border-neutral-800 rounded text-[11px] p-1.5 focus:border-portal focus:outline-none mb-2"
+                        >
+                          {availableVoices.map((v) => (
+                            <option key={v.voiceURI} value={v.voiceURI}>
+                              {v.name} ({v.lang})
+                            </option>
+                          ))}
+                        </select>
+                        
+                        <label className="block text-[10px] text-neutral-400 mb-1">
+                          Dialogue Voice Signature
+                        </label>
+                        <select
+                          value={selectedDialogueVoiceURI}
+                          onChange={(e) => setSelectedDialogueVoiceURI(e.target.value)}
                           className="w-full bg-void border border-neutral-800 rounded text-[11px] p-1.5 focus:border-portal focus:outline-none"
                         >
                           {availableVoices.map((v) => (

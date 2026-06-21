@@ -5,6 +5,7 @@ import {
   Trash2, ShieldCheck, Award, Zap 
 } from 'lucide-react';
 import { StoryMemory, Character } from '../types';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface AkashaRecordProps {
   memory: StoryMemory;
