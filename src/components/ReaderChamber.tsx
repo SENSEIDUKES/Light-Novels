@@ -355,6 +355,7 @@ export default function ReaderChamber({
   const speechVolumeRef = useRef(speechVolume);
   const availableVoicesRef = useRef(availableVoices);
   const currentChunkIndexRef = useRef(currentChunkIndex);
+  const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   useEffect(() => {
     speechRateRef.current = speechRate;
@@ -378,6 +379,10 @@ export default function ReaderChamber({
   // Stop speech if chapter changes or on unmount
   useEffect(() => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      if (currentUtteranceRef.current) {
+        currentUtteranceRef.current.onend = null;
+        currentUtteranceRef.current.onerror = null;
+      }
       window.speechSynthesis.cancel();
       chunksRef.current = [];
       setIsPlayingText(false);
@@ -397,6 +402,11 @@ export default function ReaderChamber({
       return;
     }
 
+    if (currentUtteranceRef.current) {
+      currentUtteranceRef.current.onend = null;
+      currentUtteranceRef.current.onerror = null;
+    }
+
     synth.cancel();
 
     const text = chunksRef.current[index];
@@ -407,6 +417,7 @@ export default function ReaderChamber({
     }
 
     const utterance = new SpeechSynthesisUtterance(text);
+    currentUtteranceRef.current = utterance;
 
     const voice = selectedVoiceURIRef.current
       ? availableVoicesRef.current.find(
@@ -419,13 +430,11 @@ export default function ReaderChamber({
     utterance.volume = speechVolumeRef.current;
 
     utterance.onend = () => {
-      setCurrentChunkIndex((prev) => {
-        const next = prev + 1;
-        setTimeout(() => {
-          speakChunk(next);
-        }, 50);
-        return next;
-      });
+      const nextIndex = index + 1;
+      setCurrentChunkIndex(nextIndex);
+      setTimeout(() => {
+        speakChunk(nextIndex);
+      }, 50);
     };
 
     utterance.onerror = (e) => {
@@ -451,12 +460,20 @@ export default function ReaderChamber({
         setIsPausedText(false);
         speakChunk(currentChunkIndex);
       } else {
+        if (currentUtteranceRef.current) {
+          currentUtteranceRef.current.onend = null;
+          currentUtteranceRef.current.onerror = null;
+        }
         synth.cancel();
         setIsPausedText(true);
       }
       return;
     }
 
+    if (currentUtteranceRef.current) {
+      currentUtteranceRef.current.onend = null;
+      currentUtteranceRef.current.onerror = null;
+    }
     synth.cancel();
 
     if (!selectedChapter || !selectedChapter.generatedContent) return;
@@ -491,6 +508,10 @@ export default function ReaderChamber({
 
   const handleStopSpeaking = () => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      if (currentUtteranceRef.current) {
+        currentUtteranceRef.current.onend = null;
+        currentUtteranceRef.current.onerror = null;
+      }
       window.speechSynthesis.cancel();
       chunksRef.current = [];
       setIsPlayingText(false);
