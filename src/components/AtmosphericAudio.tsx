@@ -97,7 +97,7 @@ export function AtmosphericAudio() {
     };
   }, [isMuted, atmosphere, volume]);
 
-  const stopAll = () => {
+  function stopAll() {
     activeSourcesRef.current.forEach(source => {
       try {
         source.stop();
@@ -128,7 +128,7 @@ export function AtmosphericAudio() {
     return buffer;
   };
 
-  const playWind = (ctx: AudioContext) => {
+  function playWind(ctx: AudioContext) {
     const buffer = createNoiseBuffer(ctx, 'white');
     const source = ctx.createBufferSource();
     source.buffer = buffer;
@@ -162,7 +162,7 @@ export function AtmosphericAudio() {
     registerSource(lfo);
   };
 
-  const playRain = (ctx: AudioContext) => {
+  function playRain(ctx: AudioContext) {
     const buffer = createNoiseBuffer(ctx, 'pink');
     const source = ctx.createBufferSource();
     source.buffer = buffer;
@@ -183,7 +183,7 @@ export function AtmosphericAudio() {
     registerSource(source);
   };
 
-  const playCrowd = (ctx: AudioContext) => {
+  function playCrowd(ctx: AudioContext) {
     const buffer = createNoiseBuffer(ctx, 'pink');
     const source = ctx.createBufferSource();
     source.buffer = buffer;
@@ -216,7 +216,7 @@ export function AtmosphericAudio() {
     registerSource(lfo);
   };
 
-  const playCombatAmbience = (ctx: AudioContext) => {
+  function playCombatAmbience(ctx: AudioContext) {
     const buffer = createNoiseBuffer(ctx, 'pink');
     const source = ctx.createBufferSource();
     source.buffer = buffer;
@@ -269,7 +269,7 @@ export function AtmosphericAudio() {
     osc2.stop(ctx.currentTime + 6);
   };
 
-  const playTempleBells = (ctx: AudioContext) => {
+  function playTempleBells(ctx: AudioContext) {
     // Initial bell
     triggerBell(ctx);
     // Random bell rings
@@ -584,7 +584,7 @@ export function AtmosphericAudio() {
     }
   };
 
-  const initAudioCtx = () => {
+  function initAudioCtx() {
     if (!audioCtxRef.current) {
       audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }

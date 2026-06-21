@@ -4,7 +4,7 @@ import { retrieveRelevantContext, generateEmbedding } from '../lib/rag';
 import { Story, IntakeData, WorldBlueprint, Chapter, StoryArc, StoryMemory, StoryWorld } from '../types';
 import { storyStorage } from '../lib/storage';
 
-const extractJsonBlocks = (rawStr: string): any[] => {
+export const extractJsonBlocks = (rawStr: string): any[] => {
   // 1. Try arrays wrapped in markdown or raw
   try {
     const arrayMatch = rawStr.match(/\[\s*\{[\s\S]*\}\s*\]/);
@@ -84,7 +84,7 @@ const extractJsonBlocks = (rawStr: string): any[] => {
   return braceBlocks;
 };
 
-const extractJsonMeta = (rawStr: string): any => {
+export const extractJsonMeta = (rawStr: string): any => {
   let cleanJson = rawStr.replace(/```json/gi, '').replace(/```/g, '').trim();
   cleanJson = cleanJson.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
   

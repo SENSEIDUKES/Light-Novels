@@ -1,71 +1,123 @@
-# SEIHOUSE — Light Novels
+# SEIHOUSE — Light Novels & Immersive Causal Narrative Engine
 
-An immersive, premium AI-powered webnovel and light novel reader inspired by WebNovel, Wuxiaworld, Qidian rankings, and dark fantasy cultivation fiction. Driven by a meaning-first engine that serves as a time capsule of creative ideas, **SEIHOUSE - Light Novels** allows readers to manifest original celestial realms, steer character fates, and read dynamically generated scrolls.
+An immersive, premium AI-powered webnovel, light novel reader, and active translation engine inspired by **WebNovel**, **Wuxiaworld**, **Qidian rankings**, and dark fantasy cultivation fiction. Driven by a meaning-first, deep-synthesis generative model pipeline, **SEIHOUSE** serves as a modern time capsule for artistic expressions and creative narrative realms.
+
+It empowers readers to dynamically manifest new celestial worlds, forge illustrated visual cards, program sequential destiny directions, and read dynamically generated scrolls synchronized with real-time sound cues and vocal synthesize chants.
 
 ---
 
-## 🌌 Brand Philosophy & Identity
+## 🌌 Brand Philosophy, Color Palette & Identity
 
-**MISSION**: *"SEIHouse exists to make a better time capsule and translator of artistic expression. A meaning-first creator infrastructure company."*
+**MISSION**: *"SEIHouse exists to make a better time capsule and translator of artistic expression. A meaning-first creator infrastructure company for music and literature."*
 
-*   **Foundation / Void & Depth** (`#000000`): The dark, ink/charcoal backdrop of infinite narrative possibilities.
-*   **Signal / Clarity** (`#FAFAFA`): Pure narrative transmission read on parchment-inspired high-contrast text layers.
-*   **Human / Emotional Core** (`#8B0000`): Deep crimson accents that invoke the trials, blood, and sheer passion of martial cultivation.
-*   **Portal / Consciousness Signal** (`#04ACFF`): High-fidelity blue sparks representing the interface between the mortal mind and the celestial system.
+*   🖤 **Foundation / Void & Depth** (`#000000`): The absolute canvas. Represents the infinite ink background from which narrative possibilities, ancient scripts, and cosmos are born.
+*   ⬜ **Signal / Clarity** (`#FAFAFA`): Pristine transmission. Standardizes long-form comfort on parchment-feel content cards with ultimate legibility and high contrast.
+*   🩸 **Human / Emotional Core** (`#8B0000`): Deep crimson accents representing spiritual trials, ancestral cores, bloodlines, breakthroughs, and the passion of mortal cultivation.
+*   🌐 **Portal / Consciousness Signal** (`#04ACFF`): High-fidelity turquoise flare that anchors holographic windows, system alerts, loading transitions, and multi-model matrix gates.
 
 ### 🎭 Aesthetic Typography
-*   **Emotional Headers**: *Alegreya* & *Alegreya SC* — invoking a heavy, grand, ancient-ritual visual strength.
-*   **UI/System**: *Rubik* — ensuring lightweight, sharp, readable, and highly mobile-first touch navigation elements.
-*   **Reading/Archive**: *Noto Serif* — tailored for long-form comfort, featuring deep line heights and rhythmic paragraph indentation.
+To balance narrative voice with modern user interface ergonomics, SEIHOUSE utilizes a strict three-tier font system:
+1.  **Emotional Headers & Grand Arc Titles**: *Alegreya* & *Alegreya SC* (Serif / Small Caps) — invoking an ancient, weight-bearing, divine-ritual scribe style with deep tracking.
+2.  **UI/System Overlays & Holorails**: *Rubik* & *Rubik Oblique* (Sans-Serif) — optimizing razor-sharp readability for touch targets, numeric power levels, and settings panels.
+3.  **Reading Viewport & Scripture Core**: *Noto Serif* — tailored for continuous high-contrast light-on-dark immersion with custom text line-heights, character indents, and proportional margins.
 
 ---
 
-## 🏛️ Core Features
+## 🏛️ Comprehensive Narrative Engine Architecture
 
-### 1. The Celestial Library (Home Screen)
-*   **Ascension Hero Banner**: Featuring a prominent featured cultivator showcase to immerse the user in the atmosphere of high-stakes cultivation.
-*   **Realm Serial Shelves**: A beautiful bento/grid layout showing active serials with individual fantasy cover arts, genre tags, and continuous progress tracking.
-*   **Destiny Manifestation**: Instantly carve a brand-new customized realm by specifying starting parameters, names, starting realms, and narrative catalysts. Data securely syncs to the Firebase Cloud.
+```
+                                  +-----------------------------+
+                                  |      Scripture Reader       |
+                                  | (Vocal Cues & Atmosphere)   |
+                                  +--------------+--------------+
+                                                 |
+                                                 v
++-------------------------+       +--------------+--------------+       +------------------------+
+|   Akasha Memory State   | <===> |    Causal Narrative RAG     | <===> |  Multi-Model AI Router  |
+| (Daoists, Laws, Karma)  |       |  (Embeddings & Syntheses)   |       | (Gemini/OpenRouter/Local)|
++-------------------------+       +-----------------------------+       +------------------------+
+```
 
-### 2. Scroll Ledger (Novel Detail View)
-*   **Grand Scroll Specs**: View high-contrast cover illustrations, full-bodied synopsis, current volume/arc name, MC cultivation progress, and total chapter count.
-*   **System Action Relics**: Easily access three powerful avenues: **Start Reading**, **Open Codex**, and **Generate Next Arc** once prior volumes are finalized.
-*   **Cover Forging**: Real-time generation of custom cover art using the Imagen 3 models to visually anchor the novel's essence.
+SEIHOUSE operates on a fully integrated state loops structure. Rather than generating stateless, drifting story text, it coordinates world memory, active vector similarity indices, and character status updates.
 
-### 3. Scripture Meridian Chamber (The Reader)
-*   **Focus-Mode Viewport**: An ancient system interface designed for extreme legibility with deep spacing, styled blockquotes for system notifications, and elegant mobile-first margins.
-*   **Chant Vocalizer (TTS)**: Fully integrated vocal synthesizer with granular speed transmission controls, custom voice engines, and play/pause functionality embedded inside the bottom overlay HUD layer.
-*   **Ambient Atmospheric Audio & Narrative Cues**: Immersive background environmental sounds (Howling Wind, Heavy Rain, Temple Bells) that dynamically react to real-time metadata cues injected within the text stream.
-*   **Resonance Anchors (Rich Bookmarks)**: Floating, interactive bookmarks that allow users to select paragraphs, add contemplation notes, and save timeline anchors to their memory codex.
-*   **Mobile-First Controls**: Seamless left/right horizontal swipe gestures for intuitive and fast chapter navigation on touch devices.
+### 1. The Alchemical Blueprinting Engine
+When spawning a novel, the user feeds starting nodes (genre pathways, main character roles, catalyst starting relics) to **Agent Versa**.
+*   **The Blueprint Scribe**: The backend structures a comprehensive `WorldBlueprint` containing the world backstory (`worldOverview`), main character profile (`mcProfile`), core power tiers (`powerSystemOutline`), starting factions, and deep alchemical constraints (`styleBible`).
+*   **Vol I Arc Genesis**: Deconstructs the initial blueprint into an structured 10-chapter ledger (`StoryArc`). Each chapter contains predefined titles and precise structural premises designed to keep pacing cohesive before writing a single word.
 
-### 4. The Infinite Codex
-*   **Responsive Bottom Sheet Modal**: Fluid, spring-loaded swipe-up sheet for mobile, allowing users to consult character lore and cultivation stats without severing their current reading context.
-*   **Timeline Recaps**: A chronological causal timeline detailing breakthroughs and summaries of every single chapter generated.
-*   **Karma Web & Power Rankings**: Relationship webs and breakthrough tiers updated dynamically based on story progression.
+### 2. Causal Retrieval-Augmented Generation (RAG) & Memory Loops
+To prevent common terminal text drift and maintain perfect lore longevity over dozens of chapters:
+*   **Vector Space Projection**: Within `src/lib/rag.ts` and the `/api/embed` endpoint, SEIHOUSE utilizes Google's state-of-the-art **`text-embedding-004`** model to project previous chapter summaries into high-dimensional vector representations.
+*   **Cohesive Memory Context**: Before synthesizing Chapter `N`, the **Agent Scout** Queries the vector space, retrieving up to 10 contextually matched preceding elements (e.g. searching the vector space for *"Azure Cloud elder vengeance"* when generating a fight chapter, pull summaries of previous Azure Cloud elder clashes).
+*   **Auto-Advancing States**: Every generated block outputs two segments: scenic story blocks and structured JSON memory updates (`memoryUpdates`). As characters die, master new techniques, or enter factions, the engine **automatically parses** and applies updates to the **Akasha Narrative Record** in real-time.
 
-### 5. Destiny Steering & Consciousness Sync
-*   **Multi-Model Router**: Tailor your generation strategy by swapping between model providers and speed tiers (Google Gemini, OpenRouter, and Ollama Local Support).
-*   **Predictive Destiny Suggestions**: The system examines the active `StoryWorld` memory block, calculating the most compelling paths forward (e.g., *Demonic Path*, *Sect Warfare*, *Jade Companions*).
-*   **Editable Destiny Script**: Combine auto-generated paths or craft custom directives in an advanced Prompt Box before triggering the next arc injection. 
-*   **Fluid Transmutation Loading**: Immersive shivering skeleton states and progress overlays keeping the user anchored while the AI synthesizes worlds in the background.
+### 3. State-Synchronized Akasha Ledger
+Located at `/src/components/AkashaRecord.tsx` and the core `LivingCodex.tsx`, the store tracks four active matrices:
+*   📜 **Realm & Rank Status**: Shows active breakthrough tiers, current ascension metrics, and rules of engagement.
+*   👥 **Daoists**: Keeps an interactive record of encountered gods, allies, and enemies. Tracks role, name, faction, alive/dead state, and unlocked elemental abilities.
+*   ⚖️ **Laws**: Strict world laws outlining physical and supernatural constraints of the universe (e.g., *"Double-cultivators face absolute heavenly thunder tribulation unless protected"*). If violated, the AI incorporates the systemic backlash.
+*   🌀 **Karma Bonds**: Chronologically records active storylines, open plot points, and achieved heroic deeds. Users can manually bind new karma or witness the engine seal karma threads automatically as arc chapters are read.
+
+### 4. Destiny Steering & Model Provider Router
+At the end of every 10-chapter volume, the text stream halts. The portal analyzes the accumulated database state, presenting **Predictive Destiny Directions**:
+*   *Action Progression*: Launch grand tournaments, sect warfare, and young master face-slapping.
+*   *Darker Path*: Triggers demonic corruptions, betrayal traps, and high-stakes survival.
+*   *New Location Spatial Leaps*: Ascension to higher-tier celestial coordinates, resetting local relative power scales.
+*   *Custom Directives Script*: An advanced control panel allowing users to write custom prompts, overriding or augmenting suggestions before fusing the next arc block.
+*   *The Router Box*: Fully adjustable routing configuration (`routingConfig`). Swap generation processes, translation models, and cover art forgery between **Google Gemini (flash/pro)**, **OpenRouter (DeepSeek, Llama3)**, or localized hosts running **Ollama** natively.
+
+### 5. Multi-System Illustrated Cover & Entity Forgery
+*   **The Style Bible Script**: Automatically wraps design instructions with stable digital-painting attributes based on the generated realm style (Chinese light novel, gothic ink, cyberpunk celestial).
+*   **Card Manifestation**: Users can click the "Forge Portrait" action on cualquier card (Characters, Beasts, Locations, Relics). The engine synthesizes custom book covers and entity paintings.
+*   **Chronicle Rollbacks**: If you dislike an AI visual iteration or the character breaks through to a new form (triggering the `evolutionReady` state), SEIHOUSE preserves an image history ledger. Revert to any historical depiction easily via the chronological visual cards.
 
 ---
 
-## 🛠️ Architecture & Optimization
+## 📖 Scripture Meridian Chamber (The Immersive Reader)
 
-### 📱 Mobile Polish & Responsiveness
-*   **Compact HUD Navigation**: The scripture bottom-HUD reorganizes on mobile layout to offer a lightweight control row for TTS, rate toggle, and navigation buttons.
-*   **Swipe Architecture**: Integrated touch event observers mapping to chapter traversal logic.
-
-### 🚀 Technical Stack
-*   **Frontend Ecosystem**: React 18+ with Vite, leveraging Tailwind CSS utility classes and `lucide-react` for iconography.
-*   **Animations**: Staggered and spring-loaded animations via `motion/react` to deliver an organic interface flow.
-*   **Backend & Cloud Services**: 
-    *   Node.js Express Server proxying requests.
-    *   **Firebase Authentication** & **Firestore Database** enabling multi-device sync, persistent codex states, and secure role-based rules.
-*   **Generative AI Ecosystem**: Full integration with the `@google/genai` TypeScript SDK (streaming chunks and function calling) as well as broad multi-provider support.
+The primary interaction mode is styled as an ancient scriptures chamber:
+*   🔊 **Narrative Ambient Audio**: Integrates environmental soundtracks (Heavy Rain, Howling Winds, Temple Bells, Bamboo Flute).
+*   🎭 **Real-Time SFX Cues**: The story generator writes emotional cue markers into the blocks (such as `[SFX: Thunder]` or `[BG: Wind]`). The interface reads these cues, dynamically triggering atmospheric audio fades.
+*   🗣️ **Chant Vocalizer (TTS)**: Built-in text-to-speech synthesis with a bottom overlay HUD. Regulate speeds, pause/play, and track progress during long reading sessions.
+*   📖 **Bilingual Translation Gateway**: DeepL integration with a high-fidelity **Gemini fallback pipeline**. Translates chapter text into 12 major languages (Korean, Simplified Chinese, German, etc.) while matching exact custom bilingual terminology dictionaries to keep translated cultivation terms accurate!
+*   🌌 **Focus Viewport & Gestures**: Mobile-first design offering total distraction-free reading, custom screen width constraints to prevent stretched text, and smooth left-or-right horizontal swiping to turn chapters on touchscreens.
 
 ---
 
-*“Carve your own destiny. Defy the heavens.”* — **SEIHOUSE**
+## 🚀 Setup & Local Execution
+
+### 📋 Prerequisites & Key Integration
+Configure API keys inside `.env` or in the in-app **Secrets Settings Panel**:
+*   `GEMINI_API_KEY`: Powering vector embeddings and default narrative/visual streams.
+*   `OPENROUTER_API_KEY` (Optional): Bridging secondary models.
+*   `DEEPL_AUTH_KEY` (Optional): Powering instant translation glossaries.
+
+Create `.env` using `.env.example` as a template:
+```env
+GEMINI_API_KEY=your_key_here
+OPENROUTER_API_KEY=
+DEEPL_AUTH_KEY=
+```
+
+### 💻 Local Run
+1.  **Install dependencies**:
+    ```bash
+    npm install
+    ```
+2.  **Start development server** (Runs multi-model backend server combined with Vite on port `3000`):
+    ```bash
+    npm run dev
+    ```
+3.  **Build production package**:
+    ```bash
+    npm run build
+    ```
+4.  **Execute production server**:
+    ```bash
+    npm run start
+    ```
+
+---
+
+*“Carve your own destiny. Defy the heavens. Master the infinite scroll.”* — **SEIHOUSE**
+

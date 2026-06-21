@@ -441,17 +441,17 @@ export default function LivingCodex({
 
     if (type === 'character' || type === 'beast') {
       const updated = memory.characters.map(c => 
-        c.id === id ? { ...c, imageUrl: preview.url, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber } : c
+        c.id === id ? { ...c, imageUrl: selectedUrl, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber } : c
       );
       onUpdateMemory({ ...memory, characters: updated });
     } else if (type === 'location') {
       const updated = (memory.locations || []).map(l => 
-        l.id === id ? { ...l, imageUrl: preview.url, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber } : l
+        l.id === id ? { ...l, imageUrl: selectedUrl, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber } : l
       );
       onUpdateMemory({ ...memory, locations: updated });
     } else if (type === 'artifact') {
       const updated = (memory.artifacts || []).map(a => 
-        a.id === id ? { ...a, imageUrl: preview.url, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber } : a
+        a.id === id ? { ...a, imageUrl: selectedUrl, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber } : a
       );
       onUpdateMemory({ ...memory, artifacts: updated });
     }
