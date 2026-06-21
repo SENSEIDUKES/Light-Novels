@@ -883,10 +883,29 @@ export const useStoryEngine = () => {
     const activeStory = store.stories.find(s => s.id === store.activeStoryId);
     if (!activeStory) return;
     
-    const clonedArcs = activeStory.arcs.map(arc => {
+    const clonedArcsRaw = await Promise.all(activeStory.arcs.map(async arc => {
       const slicedChapters = arc.chapters.filter(ch => ch.number <= chapterNumber);
-      return { ...arc, chapters: slicedChapters };
-    }).filter(arc => arc.chapters.length > 0);
+      const hydratedChapters = await Promise.all(slicedChapters.map(async ch => {
+        if (ch.hasContent || ch.generatedContent) {
+          const content = await storyStorage.getChapterContent(activeStory.id, ch.number);
+          if (content) {
+            return {
+              ...ch,
+              generatedContent: content.generatedContent,
+              blocks: content.blocks,
+              summary: content.summary,
+              statsChangeMessage: content.statsChangeMessage,
+              cuePayload: content.cuePayload,
+              _isNewContent: true
+            };
+          }
+        }
+        return ch;
+      }));
+      return { ...arc, chapters: hydratedChapters };
+    }));
+    
+    const clonedArcs = clonedArcsRaw.filter(arc => arc.chapters.length > 0);
 
     const clonedBookmarks = (activeStory.bookmarks || []).filter(b => b.chapterNumber <= chapterNumber);
 

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, BookOpen, MoreHorizontal, BookCheck, Download, Trash2, Zap } from 'lucide-react';
+import { Sparkles, BookOpen, MoreHorizontal, BookCheck, Download, Trash2, Zap, GitBranch } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { DestinyChoicePanel } from './DestinyChoicePanel';
+import { FateTimeline } from './FateTimeline';
 
 export const StoryDetailScreen: React.FC<{ 
   handleGenerateCover: () => Promise<{ imageUrls: string[], promptUsed: string } | undefined>,
@@ -17,6 +18,7 @@ export const StoryDetailScreen: React.FC<{
 }) => {
   const { currentScreen, setCurrentScreen, activeStoryId, stories, isGenerating, setSelectedChapterNum } = useAppStore();
   const [isStoryMenuOpen, setIsStoryMenuOpen] = useState(false);
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [coverPreview, setCoverPreview] = useState<{ urls: string[], prompt: string, selectedIndex: number } | null>(null);
 
   if (currentScreen !== 'detail') return null;
@@ -50,6 +52,12 @@ export const StoryDetailScreen: React.FC<{
         onDiscard={() => setCoverPreview(null)}
         title="Cover Evolution"
         subtitle="Choose the most fitting reflection for your next volume."
+      />
+
+      <FateTimeline 
+        isOpen={isTimelineOpen} 
+        onClose={() => setIsTimelineOpen(false)} 
+        activeStoryId={activeStoryId || ''} 
       />
 
       <div className="flex flex-col md:flex-row gap-8 bg-[#0a0a0a] border border-neutral-900 rounded-xl p-6 shadow-2xl">
@@ -199,6 +207,14 @@ export const StoryDetailScreen: React.FC<{
             >
               <Sparkles size={16} />
               <span>Open Codex</span>
+            </button>
+
+            <button
+              onClick={() => setIsTimelineOpen(true)}
+              className="px-6 py-2.5 bg-void border border-jade-accent text-jade-accent font-sc font-bold uppercase tracking-wider rounded hover:bg-jade-accent hover:text-void transition-all flex items-center space-x-2 text-xs"
+            >
+              <GitBranch size={16} />
+              <span>Fate Timeline</span>
             </button>
 
             <div className="relative">

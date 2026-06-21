@@ -32,6 +32,13 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
   const [newThread, setNewThread] = useState('');
   const [showAddThread, setShowAddThread] = useState(false);
 
+  const [deletePrompt, setDeletePrompt] = useState<{
+    id: string | number;
+    type: 'character' | 'law' | 'thread';
+    name?: string;
+  } | null>(null);
+  const [deleteInput, setDeleteInput] = useState('');
+
   const handleCreateChar = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newChar.name.trim() || !newChar.role.trim()) return;
@@ -321,7 +328,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                           {char.status.toUpperCase()}
                         </button>
                         <button
-                          onClick={() => handleDeleteChar(char.id)}
+                          onClick={() => setDeletePrompt({ id: char.id, type: 'character', name: char.name })}
                           className="text-neutral-600 hover:text-red-500 p-0.5 transition-colors"
                           title="Purge Spirit"
                         >
@@ -391,7 +398,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                       <p className="font-serif italic">{typeof rule === 'object' ? JSON.stringify(rule) : String(rule)}</p>
                     </div>
                     <button
-                      onClick={() => handleDeleteLaw(idx)}
+                      onClick={() => setDeletePrompt({ id: idx, type: 'law' })}
                       className="text-neutral-700 hover:text-red-500 flex-shrink-0 transition-colors opacity-0 group-hover:opacity-100"
                       title="Shatter Law"
                     >
@@ -497,7 +504,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                           Reopen
                         </button>
                         <button
-                          onClick={() => handleDeleteResolvedThread(idx)}
+                          onClick={() => setDeletePrompt({ id: idx, type: 'thread' })}
                           className="text-neutral-600 hover:text-red-500 p-0.5"
                         >
                           <X size={10} />
@@ -511,6 +518,67 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
           </div>
         )}
       </div>
+      
+      <AnimatePresence>
+        {deletePrompt && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-neutral-900 border border-red-900/50 rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl relative"
+            >
+              <h3 className="text-xl font-display font-bold text-signal mb-2">Delete {deletePrompt.type}?</h3>
+              <p className="text-sm text-neutral-400 mb-4 font-serif">
+                You can no longer see this fate or undo this karma severing.
+                {deletePrompt.name && <span className="block mt-2 font-mono text-xs text-red-300 mx-1">{deletePrompt.name}</span>}
+              </p>
+              
+              <div className="mb-6">
+                <label className="text-[10px] text-neutral-500 uppercase tracking-widest font-mono block mb-2">
+                  Type <span className="text-red-400 font-bold">DELETE</span> to confirm
+                </label>
+                <input
+                  type="text"
+                  placeholder="DELETE"
+                  value={deleteInput}
+                  onChange={(e) => setDeleteInput(e.target.value)}
+                  className="w-full bg-void text-xs text-signal border border-neutral-700 focus:border-red-500 p-2 rounded focus:outline-none font-mono placeholder:text-neutral-700"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setDeletePrompt(null);
+                    setDeleteInput('');
+                  }}
+                  className="px-4 py-2 bg-void border border-neutral-700 text-neutral-300 rounded font-sc text-xs hover:bg-neutral-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={deleteInput !== 'DELETE'}
+                  onClick={() => {
+                    if (deleteInput === 'DELETE') {
+                      if (deletePrompt.type === 'character') handleDeleteChar(deletePrompt.id as string);
+                      if (deletePrompt.type === 'law') handleDeleteLaw(deletePrompt.id as number);
+                      if (deletePrompt.type === 'thread') handleDeleteResolvedThread(deletePrompt.id as number);
+                      
+                      setDeletePrompt(null);
+                      setDeleteInput('');
+                    }
+                  }}
+                  className={`px-4 py-2 bg-red-900 border border-red-700 text-white rounded font-sc font-bold text-xs transition-colors ${deleteInput === 'DELETE' ? 'hover:bg-red-800' : 'opacity-50 cursor-not-allowed'}`}
+                >
+                  Sever Karma
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

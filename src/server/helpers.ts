@@ -1,5 +1,78 @@
 import { StoryWorld, WorldBlueprint, StoryArc, ChapterContent } from '../types';
 
+export function rankRelevantEntities(
+  entities: any[] | undefined,
+  mcName: string,
+  lastChapterSummary: string | undefined,
+  currentContext: string,
+  bonusContexts: (string | undefined | null)[],
+  maxFeatures: number = 10
+) {
+  if (!entities || !Array.isArray(entities)) return [];
+
+  const STOP_WORDS = new Set(["the", "and", "for", "with", "from", "that", "this", "they", "them", "their", "his", "hers", "there", "what", "where", "when", "why", "how", "then"]);
+
+  const tokenize = (txt: string) => (txt || "").toLowerCase().split(/\W+/).filter(w => w.length > 3 && !STOP_WORDS.has(w));
+  
+  const premiseTokens = tokenize(currentContext);
+  const bonusTokens = tokenize(bonusContexts.filter(Boolean).join(" "));
+
+  const scoredEntities = entities.map(entity => {
+    let score = 0;
+    let isForced = false;
+
+    if (!entity.name) return { entity, score: 100, isForced: true };
+
+    const nameLower = entity.name.toLowerCase();
+    const mcNameLower = (mcName || "").toLowerCase();
+    
+    // Always include MC
+    if (mcNameLower && (nameLower === mcNameLower || mcNameLower.includes(nameLower) || nameLower.includes(mcNameLower))) {
+       isForced = true;
+       score = 1000;
+    }
+    
+    // Always include Last Chapter Cast
+    if (lastChapterSummary && lastChapterSummary.toLowerCase().includes(nameLower)) {
+       isForced = true;
+       score = 500;
+    }
+
+    if (entity.evolutionReady) {
+       isForced = true;
+       score = 500;
+    }
+
+    if (!isForced) {
+      // Direct premise name match
+      if (currentContext && currentContext.toLowerCase().includes(nameLower)) {
+         score += 50;
+      }
+
+      // Context words overlap scoring
+      const entityText = `${entity.name} ${entity.description || ''} ${entity.role || ''} ${entity.abilityDescription || ''}`;
+      const entityTokens = tokenize(entityText);
+      const entitySet = new Set(entityTokens);
+      
+      for (const pt of premiseTokens) {
+        if (entitySet.has(pt)) score += 2;
+        if (nameLower.includes(pt)) score += 5;
+      }
+      for (const bt of bonusTokens) {
+         if (entitySet.has(bt)) score += 1;
+         if (nameLower.includes(bt)) score += 2;
+      }
+    }
+
+    return { entity, score, isForced };
+  });
+
+  const salient = scoredEntities.filter(e => e.score > 0 || e.isForced)
+                                .sort((a, b) => b.score - a.score);
+  
+  return salient.slice(0, maxFeatures).map(e => e.entity);
+}
+
 export function filterRelevantEntities(entities: any[] | undefined, ...contexts: (string|undefined|null)[]) {
   if (!entities || !Array.isArray(entities)) return [];
   

@@ -287,18 +287,42 @@ export const ModalsAndToasts: React.FC = () => {
 
       <AnimatePresence>
         {storyToDelete && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl relative"
+              className="bg-neutral-900 border border-red-900/50 rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl relative"
             >
-              <h3 className="text-xl font-display font-bold text-signal mb-2">Burn Scroll</h3>
-              <p className="text-sm text-neutral-400 mb-6 font-serif">
-                Are you certain you wish to burn this scroll world forever? This severed karma cannot be mended.
+              <h3 className="text-xl font-display font-bold text-signal mb-2">Delete scroll?</h3>
+              <p className="text-sm text-neutral-400 mb-4 font-serif">
+                This will forever sever karma. Are you true in your intent?
               </p>
-              <div className="flex justify-end space-x-3 mt-4">
+              
+              <div className="mb-6">
+                <label className="text-[10px] text-neutral-500 uppercase tracking-widest font-mono block mb-2">
+                  Type <span className="text-red-400 font-bold">DELETE</span> to confirm
+                </label>
+                <input
+                  type="text"
+                  placeholder="DELETE"
+                  onChange={(e) => {
+                    const btn = document.getElementById('confirm-burn-scroll');
+                    if (btn) {
+                       if (e.target.value === 'DELETE') {
+                         btn.removeAttribute('disabled');
+                         btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                       } else {
+                         btn.setAttribute('disabled', 'true');
+                         btn.classList.add('opacity-50', 'cursor-not-allowed');
+                       }
+                    }
+                  }}
+                  className="w-full bg-void text-xs text-signal border border-neutral-700 focus:border-red-500 p-2 rounded focus:outline-none font-mono placeholder:text-neutral-700"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3">
                 <button
                   onClick={cancelDeleteStory}
                   className="px-4 py-2 bg-void border border-neutral-700 text-neutral-300 rounded font-sc text-xs hover:bg-neutral-800 transition-colors"
@@ -306,8 +330,10 @@ export const ModalsAndToasts: React.FC = () => {
                   Cancel
                 </button>
                 <button
+                  id="confirm-burn-scroll"
+                  disabled
                   onClick={confirmDeleteStory}
-                  className="px-4 py-2 bg-red-900 border border-red-700 text-white rounded font-sc font-bold text-xs hover:bg-red-800 transition-colors"
+                  className="px-4 py-2 bg-red-900 border border-red-700 text-white rounded font-sc font-bold text-xs hover:bg-red-800 transition-colors opacity-50 cursor-not-allowed"
                 >
                   Sever Karma
                 </button>

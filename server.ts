@@ -3,7 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { routeTextGeneration, routeImageGeneration, routeTextGenerationStream, ROUTER_PRESETS } from "./aiRouter";
-import { ensureString, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChapterResponse, filterRelevantEntities } from "./src/server/helpers";
+import { ensureString, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChapterResponse, filterRelevantEntities, rankRelevantEntities } from "./src/server/helpers";
 import { PROMPTS } from "./src/server/prompts";
 
 import * as deepl from "deepl-node";
@@ -283,15 +283,17 @@ app.post("/api/generate-chapter-stream", async (req, res) => {
       ? pastSummaries.join("\n") 
       : "This is the very first chapter of the story arc! Set the scene dramatically.";
 
+    const lastSummary = pastSummaries && pastSummaries.length > 0 ? pastSummaries[pastSummaries.length - 1] : undefined;
+
     const memoryJsonStr = JSON.stringify({
       powerSystem: memory.powerSystem,
       currentPowerStage: memory.currentPowerStage,
       worldRules: memory.worldRules,
       unresolvedPlotThreads: memory.unresolvedPlotThreads,
-      characters: filterRelevantEntities(memory.characters, mcName, pastSummariesStr, currentChapter.premise, memory.unresolvedPlotThreads?.join(" "), customPremise),
-      factions: filterRelevantEntities(memory.factions, mcName, pastSummariesStr, currentChapter.premise, memory.unresolvedPlotThreads?.join(" "), customPremise),
-      locations: filterRelevantEntities(memory.locations, mcName, pastSummariesStr, currentChapter.premise, memory.unresolvedPlotThreads?.join(" "), customPremise),
-      artifacts: filterRelevantEntities(memory.artifacts, mcName, pastSummariesStr, currentChapter.premise, memory.unresolvedPlotThreads?.join(" "), customPremise)
+      characters: rankRelevantEntities(memory.characters, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
+      factions: rankRelevantEntities(memory.factions, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
+      locations: rankRelevantEntities(memory.locations, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
+      artifacts: rankRelevantEntities(memory.artifacts, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise])
     }, null, 2);
 
     const systemInstruction = PROMPTS.chapter.system;
@@ -356,15 +358,17 @@ app.post("/api/generate-chapter", async (req, res) => {
       ? pastSummaries.join("\n") 
       : "This is the very first chapter of the story arc! Set the scene dramatically.";
 
+    const lastSummary = pastSummaries && pastSummaries.length > 0 ? pastSummaries[pastSummaries.length - 1] : undefined;
+
     const memoryJsonStr = JSON.stringify({
       powerSystem: memory.powerSystem,
       currentPowerStage: memory.currentPowerStage,
       worldRules: memory.worldRules,
       unresolvedPlotThreads: memory.unresolvedPlotThreads,
-      characters: filterRelevantEntities(memory.characters, mcName, pastSummariesStr, currentChapter.premise, memory.unresolvedPlotThreads?.join(" "), customPremise),
-      factions: filterRelevantEntities(memory.factions, mcName, pastSummariesStr, currentChapter.premise, memory.unresolvedPlotThreads?.join(" "), customPremise),
-      locations: filterRelevantEntities(memory.locations, mcName, pastSummariesStr, currentChapter.premise, memory.unresolvedPlotThreads?.join(" "), customPremise),
-      artifacts: filterRelevantEntities(memory.artifacts, mcName, pastSummariesStr, currentChapter.premise, memory.unresolvedPlotThreads?.join(" "), customPremise)
+      characters: rankRelevantEntities(memory.characters, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
+      factions: rankRelevantEntities(memory.factions, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
+      locations: rankRelevantEntities(memory.locations, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
+      artifacts: rankRelevantEntities(memory.artifacts, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise])
     }, null, 2);
 
     const systemInstruction = PROMPTS.chapter.nonStreamSystem;
@@ -484,16 +488,18 @@ app.post("/api/generate-next-directions", async (req, res) => {
     const pastSummariesStr = pastSummaries && pastSummaries.length > 0 
       ? pastSummaries.join("\n") 
       : "Starting fresh in the immortal matrix.";
+      
+    const lastSummary = pastSummaries && pastSummaries.length > 0 ? pastSummaries[pastSummaries.length - 1] : undefined;
 
     const memoryJsonStr = JSON.stringify({
       powerSystem: memory.powerSystem,
       currentPowerStage: memory.currentPowerStage,
       worldRules: memory.worldRules,
       unresolvedPlotThreads: memory.unresolvedPlotThreads,
-      characters: filterRelevantEntities(memory.characters, mcName, pastSummariesStr, memory.unresolvedPlotThreads?.join(" "), customPremise),
-      factions: filterRelevantEntities(memory.factions, mcName, pastSummariesStr, memory.unresolvedPlotThreads?.join(" "), customPremise),
-      locations: filterRelevantEntities(memory.locations, mcName, pastSummariesStr, memory.unresolvedPlotThreads?.join(" "), customPremise),
-      artifacts: filterRelevantEntities(memory.artifacts, mcName, pastSummariesStr, memory.unresolvedPlotThreads?.join(" "), customPremise),
+      characters: rankRelevantEntities(memory.characters, mcName, lastSummary, "", [memory.unresolvedPlotThreads?.join(" "), customPremise]),
+      factions: rankRelevantEntities(memory.factions, mcName, lastSummary, "", [memory.unresolvedPlotThreads?.join(" "), customPremise]),
+      locations: rankRelevantEntities(memory.locations, mcName, lastSummary, "", [memory.unresolvedPlotThreads?.join(" "), customPremise]),
+      artifacts: rankRelevantEntities(memory.artifacts, mcName, lastSummary, "", [memory.unresolvedPlotThreads?.join(" "), customPremise]),
     }, null, 2);
 
     const systemInstruction = PROMPTS.directions.system;
@@ -574,15 +580,17 @@ app.post("/api/steer-arc", async (req, res) => {
       ? pastSummaries.join("\n") 
       : "No previous record. Use your creativity to extend smoothly.";
 
+    const lastSummary = pastSummaries && pastSummaries.length > 0 ? pastSummaries[pastSummaries.length - 1] : undefined;
+
     const memoryJsonStr = JSON.stringify({
       currentPowerStage: memory.currentPowerStage,
       powerSystem: memory.powerSystem,
       unresolvedPlotThreads: memory.unresolvedPlotThreads,
       resolvedPlotThreads: memory.resolvedPlotThreads,
-      characters: filterRelevantEntities(memory.characters, mcName, pastSummariesStr, steerDirection, userCustomDirections, memory.unresolvedPlotThreads?.join(" "), customPremise),
-      factions: filterRelevantEntities(memory.factions, mcName, pastSummariesStr, steerDirection, userCustomDirections, memory.unresolvedPlotThreads?.join(" "), customPremise),
-      locations: filterRelevantEntities(memory.locations, mcName, pastSummariesStr, steerDirection, userCustomDirections, memory.unresolvedPlotThreads?.join(" "), customPremise),
-      artifacts: filterRelevantEntities(memory.artifacts, mcName, pastSummariesStr, steerDirection, userCustomDirections, memory.unresolvedPlotThreads?.join(" "), customPremise)
+      characters: rankRelevantEntities(memory.characters, mcName, lastSummary, steerDirection, [userCustomDirections, memory.unresolvedPlotThreads?.join(" "), customPremise]),
+      factions: rankRelevantEntities(memory.factions, mcName, lastSummary, steerDirection, [userCustomDirections, memory.unresolvedPlotThreads?.join(" "), customPremise]),
+      locations: rankRelevantEntities(memory.locations, mcName, lastSummary, steerDirection, [userCustomDirections, memory.unresolvedPlotThreads?.join(" "), customPremise]),
+      artifacts: rankRelevantEntities(memory.artifacts, mcName, lastSummary, steerDirection, [userCustomDirections, memory.unresolvedPlotThreads?.join(" "), customPremise])
     }, null, 2);
 
     const data = await routeTextGeneration(

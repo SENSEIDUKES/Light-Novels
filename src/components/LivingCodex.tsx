@@ -415,11 +415,24 @@ export default function LivingCodex({
 
   // Local state for direct editing of Character abilities / power
   const [editingCharId, setEditingCharId] = useState<string | null>(null);
-  const [editingCharData, setEditingCharData] = useState({
+  const [editingCharData, setEditingCharData] = useState<{
+    powerLevel: string;
+    abilitiesInput: string;
+    faction: string;
+    status: Character['status'];
+  }>({
     powerLevel: '',
     abilitiesInput: '',
-    faction: ''
+    faction: '',
+    status: 'unknown'
   });
+
+  const [deletePrompt, setDeletePrompt] = useState<{
+    id: string;
+    type: 'faction' | 'artifact' | 'location' | 'relationship' | 'fate' | 'character' | 'memory';
+    name?: string;
+  } | null>(null);
+  const [deleteInput, setDeleteInput] = useState('');
 
   // Load custom glossary on mount if existing in local storage
   useEffect(() => {
@@ -813,6 +826,7 @@ export default function LivingCodex({
           ...char,
           powerLevel: editingCharData.powerLevel.trim() || undefined,
           faction: editingCharData.faction.trim() || undefined,
+          status: editingCharData.status,
           abilities: editingCharData.abilitiesInput.trim() 
             ? editingCharData.abilitiesInput.split(',').map(a => a.trim()).filter(Boolean) 
             : undefined
@@ -1104,9 +1118,22 @@ export default function LivingCodex({
             </h4>
             <div className="space-y-1">
               {memory.memoryWarnings.map((warning, idx) => (
-                <div key={idx} className="flex space-x-2 text-[10px] sm:text-xs text-neutral-400 font-sans">
-                  <span className="text-yellow-600/70 mt-0.5">•</span>
-                  <span>{warning}</span>
+                <div key={idx} className="flex space-x-2 text-[10px] sm:text-xs text-neutral-400 font-sans group items-start justify-between">
+                  <div className="flex space-x-2 flex-1">
+                    <span className="text-yellow-600/70 mt-0.5">•</span>
+                    <span>{warning}</span>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      const updatedWarnings = [...(memory.memoryWarnings || [])];
+                      updatedWarnings.splice(idx, 1);
+                      onUpdateMemory({ ...memory, memoryWarnings: updatedWarnings });
+                    }}
+                    className="opacity-0 group-hover:opacity-100 text-[9px] uppercase font-mono tracking-wider text-neutral-500 hover:text-yellow-500 transition-all px-2 flex-shrink-0"
+                    title="Dismiss Warning"
+                  >
+                    Resolve
+                  </button>
                 </div>
               ))}
             </div>
@@ -1430,7 +1457,7 @@ export default function LivingCodex({
                                 )}
                                 <div className="flex items-center justify-between gap-2">
                                   <button
-                                    onClick={() => handleDeleteLocation(loc.id)}
+                                    onClick={() => setDeletePrompt({ id: loc.id, type: 'location', name: loc.name })}
                                     className="text-[9px] text-neutral-600 hover:text-human uppercase font-mono flex-shrink-0"
                                   >
                                     Purge Node
@@ -1522,6 +1549,19 @@ export default function LivingCodex({
                                 className="bg-neutral-900 border border-neutral-850 p-1 w-full text-xs text-signal"
                               />
                             </div>
+                            <div>
+                              <label className="text-[9px] text-neutral-500 uppercase block mb-0.5">Current Status</label>
+                              <select 
+                                value={editingCharData.status}
+                                onChange={(e) => setEditingCharData({ ...editingCharData, status: e.target.value as Character['status'] })}
+                                className="bg-neutral-900 border border-neutral-850 p-1 w-full text-xs text-signal"
+                              >
+                                <option value="alive">Alive</option>
+                                <option value="deceased">Deceased</option>
+                                <option value="unknown">Unknown</option>
+                                <option value="ascended">Ascended</option>
+                              </select>
+                            </div>
                           </div>
                           <div className="flex justify-end space-x-2 pt-2">
                             <button onClick={() => setEditingCharId(null)} className="text-neutral-500">Abort</button>
@@ -1537,7 +1577,8 @@ export default function LivingCodex({
                               setEditingCharData({
                                 powerLevel: char.powerLevel || '',
                                 faction: char.faction || '',
-                                abilitiesInput: char.abilities ? char.abilities.join(', ') : ''
+                                abilitiesInput: char.abilities ? char.abilities.join(', ') : '',
+                                status: char.status || 'unknown'
                               });
                             }}
                             className="text-neutral-500 hover:text-portal transition-colors font-sc uppercase"
@@ -1871,7 +1912,7 @@ export default function LivingCodex({
                           </p>
                         </div>
                         <button
-                          onClick={() => handleDeleteCustomRelationship(bond.id)}
+                          onClick={() => setDeletePrompt({ id: bond.id, type: 'relationship' })}
                           className="p-1 px-1.5 text-neutral-500 hover:text-human hover:bg-neutral-900 rounded transition-colors"
                           title="Purge link"
                         >
@@ -2519,7 +2560,7 @@ export default function LivingCodex({
                             {fac.status}
                           </span>
                           <button
-                            onClick={() => handleDeleteFaction(fac.id)}
+                            onClick={() => setDeletePrompt({ id: fac.id, type: 'faction', name: fac.name })}
                             className="text-neutral-600 hover:text-human text-[9px] font-mono"
                           >
                             Dismantle
@@ -2736,7 +2777,7 @@ export default function LivingCodex({
                         
                         <div className="flex justify-between items-center mt-1 gap-2 border-t border-neutral-900/50 pt-2">
                               <button
-                                onClick={() => handleDeleteArtifact(art.id)}
+                                onClick={() => setDeletePrompt({ id: art.id, type: 'artifact', name: art.name })}
                                 className="text-[9px] text-neutral-600 hover:text-human uppercase font-mono flex-shrink-0"
                               >
                                 Shatter
@@ -3064,7 +3105,7 @@ export default function LivingCodex({
                             {node.status === 'resolved' ? 'Severed' : 'Sever Link'}
                           </button>
                           <button
-                            onClick={() => handleDeleteFateNode(node.id)}
+                            onClick={() => setDeletePrompt({ id: node.id, type: 'fate', name: node.title })}
                             className="p-1 px-1.5 text-neutral-500 hover:text-human hover:bg-neutral-900 rounded transition-colors border border-transparent"
                             title="Purge decree"
                           >
@@ -3170,6 +3211,69 @@ export default function LivingCodex({
         )}
 
       </div>
+
+      <AnimatePresence>
+        {deletePrompt && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-neutral-900 border border-red-900/50 rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl relative"
+            >
+              <h3 className="text-xl font-display font-bold text-signal mb-2">Delete {deletePrompt.type}?</h3>
+              <p className="text-sm text-neutral-400 mb-4 font-serif">
+                You can no longer see this fate or undo this karma severing.
+                {deletePrompt.name && <span className="block mt-2 font-mono text-xs text-red-300 mx-1">{deletePrompt.name}</span>}
+              </p>
+              
+              <div className="mb-6">
+                <label className="text-[10px] text-neutral-500 uppercase tracking-widest font-mono block mb-2">
+                  Type <span className="text-red-400 font-bold">DELETE</span> to confirm
+                </label>
+                <input
+                  type="text"
+                  placeholder="DELETE"
+                  value={deleteInput}
+                  onChange={(e) => setDeleteInput(e.target.value)}
+                  className="w-full bg-void text-xs text-signal border border-neutral-700 focus:border-red-500 p-2 rounded focus:outline-none font-mono placeholder:text-neutral-700"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setDeletePrompt(null);
+                    setDeleteInput('');
+                  }}
+                  className="px-4 py-2 bg-void border border-neutral-700 text-neutral-300 rounded font-sc text-xs hover:bg-neutral-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={deleteInput !== 'DELETE'}
+                  onClick={() => {
+                    if (deleteInput === 'DELETE') {
+                      if (deletePrompt.type === 'faction') handleDeleteFaction(deletePrompt.id);
+                      if (deletePrompt.type === 'artifact') handleDeleteArtifact(deletePrompt.id);
+                      if (deletePrompt.type === 'location') handleDeleteLocation(deletePrompt.id);
+                      if (deletePrompt.type === 'relationship') handleDeleteCustomRelationship(deletePrompt.id);
+                      if (deletePrompt.type === 'fate') handleDeleteFateNode(deletePrompt.id);
+                      
+                      setDeletePrompt(null);
+                      setDeleteInput('');
+                    }
+                  }}
+                  className={`px-4 py-2 bg-red-900 border border-red-700 text-white rounded font-sc font-bold text-xs transition-colors ${deleteInput === 'DELETE' ? 'hover:bg-red-800' : 'opacity-50 cursor-not-allowed'}`}
+                >
+                  Sever Karma
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
