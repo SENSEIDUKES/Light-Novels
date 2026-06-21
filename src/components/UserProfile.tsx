@@ -3,10 +3,11 @@ import { UserProfile as UserProfileType, Story, AppUser } from '../types';
 import { db, auth } from '../lib/firebase';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { LogOut, Save, User as UserIcon, Calendar, BookOpen, Globe, Cloud, CloudOff, RefreshCw, Sliders, Upload, Download, Database } from 'lucide-react';
+import { LogOut, Save, User as UserIcon, Calendar, BookOpen, Globe, Cloud, CloudOff, RefreshCw, Sliders, Upload, Download, Database, Zap } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
 import { AudioWidget } from './AudioWidget';
+import { getDaoRankData } from '../lib/qi';
 
 interface UserProfileProps {
   currentUser: AppUser | null;
@@ -87,10 +88,23 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     if (!currentUser || !profile) return;
     setIsLoading(true);
     try {
-      await setDoc(doc(db, 'users', currentUser.uid), {
-        ...formData,
+      const updates = {
+        username: formData.username,
+        displayName: formData.displayName,
+        avatarUrl: formData.avatarUrl,
+        preferredLanguage: formData.preferredLanguage,
+        defaultTranslationLanguage: formData.defaultTranslationLanguage,
         updatedAt: new Date().toISOString()
-      }, { merge: true });
+      };
+      
+      // Clean undefined to prevent Firestore errors
+      Object.keys(updates).forEach(key => {
+        if (updates[key as keyof typeof updates] === undefined) {
+          delete updates[key as keyof typeof updates];
+        }
+      });
+
+      await setDoc(doc(db, 'users', currentUser.uid), updates, { merge: true });
       setIsEditing(false);
       setError('');
     } catch (err: any) {
@@ -107,98 +121,103 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     }));
   };
 
+  const daoData = getDaoRankData(profile?.dao_xp || profile?.qi || 0);
+
   if (isLoading && !profile && currentUser) {
-    return <div className="p-8 text-center text-neutral-400 font-sc tracking-widest uppercase">Accessing Celestial Record...</div>;
+    return <div className="p-8 text-center text-neutral-500 font-sc tracking-widest uppercase animate-pulse">Accessing Celestial Record...</div>;
   }
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-8">
-      <div className="bg-void border border-neutral-900 rounded-xl overflow-hidden shadow-2xl">
-        <div className="bg-[#0a0a0a] p-6 border-b border-neutral-850 flex justify-between items-center">
-          <h2 className="font-display text-2xl text-signal flex items-center gap-2">
-            <Cloud className="text-[#00A86B]" size={28} /> 
+      <div className="bg-void border border-neutral-900 rounded-2xl overflow-hidden shadow-[0_0_40px_rgba(4,172,255,0.03)] backdrop-blur-sm relative">
+        {/* Subtle top glow */}
+        <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-portal/30 to-transparent"></div>
+        
+        <div className="bg-black/40 p-6 sm:p-8 border-b border-neutral-900 flex justify-between items-center">
+          <h2 className="font-display text-3xl text-signal flex items-center gap-3">
+            <Cloud className="text-portal" size={28} /> 
             Celestial Tools
           </h2>
           {currentUser && (
-            <button onClick={onLogout} className="px-4 py-2 border border-human text-human hover:bg-human hover:text-signal rounded text-xs font-sc font-bold tracking-wider transition-colors flex items-center gap-2">
+            <button onClick={onLogout} className="px-5 py-2 border border-human/30 text-human hover:bg-human/10 hover:border-human hover:text-signal rounded-full text-[11px] font-sc font-bold tracking-wider transition-all flex items-center gap-2">
               <LogOut size={14} /> Sever Link
             </button>
           )}
         </div>
 
         {error && (
-          <div className="p-4 bg-red-950/30 border-b border-red-900/50 text-red-400 text-sm font-mono">
+          <div className="p-4 bg-human/10 border-b border-human/30 text-human text-sm font-mono text-center">
             {error}
           </div>
         )}
 
-        <div className="p-6 md:p-8 space-y-8">
+        <div className="p-6 md:p-10 space-y-12">
           
           {/* Celestial Tools Section (Always Visible) */}
-          <div className="border-b border-neutral-900 pb-8">
-            <h3 className="text-[12px] uppercase font-bold tracking-widest text-neutral-400 font-sc mb-4 flex items-center gap-2">
+          <div className="border-b border-neutral-900/50 pb-10">
+            <h3 className="text-[11px] uppercase font-bold tracking-widest text-neutral-500 font-sc mb-6 flex items-center gap-2">
               <Sliders size={14} className="text-portal" />
               Environment & Sync Settings
             </h3>
-            <div className="flex flex-wrap items-center gap-4 border border-neutral-850 p-4 rounded bg-[#0f0f0f]">
-              <div className="flex items-center space-x-2 border border-neutral-800 px-3 py-1.5 rounded bg-black">
+            <div className="flex flex-wrap items-center gap-4 bg-[#030303] p-5 rounded-xl border border-neutral-900 shadow-inner">
+              <div className="flex items-center space-x-2 border border-neutral-800 px-4 py-2 rounded-lg bg-black">
                 {syncStatus === 'offline' ? (
-                  <button onClick={() => storyStorage.performSync()} title="Offline / Local Only. Click to sync" className="flex items-center space-x-2 hover:text-portal transition-colors"><CloudOff size={14} className="text-neutral-500" /> <span className="text-xs font-mono text-neutral-400">Offline</span></button>
+                  <button onClick={() => storyStorage.performSync()} title="Offline / Local Only. Click to sync" className="flex items-center space-x-2 hover:text-portal transition-colors"><CloudOff size={14} className="text-neutral-600" /> <span className="text-[11px] font-sans text-neutral-500 uppercase tracking-widest">Offline Flow</span></button>
                 ) : syncStatus === 'syncing' ? (
-                  <span title="Syncing..." className="flex items-center space-x-2"><RefreshCw size={14} className="text-portal animate-spin" /> <span className="text-xs font-mono text-portal">Syncing...</span></span>
+                  <span title="Syncing..." className="flex items-center space-x-2"><RefreshCw size={14} className="text-portal animate-spin" /> <span className="text-[11px] font-sans text-portal uppercase tracking-widest">Channeling...</span></span>
                 ) : syncStatus === 'error' ? (
-                  <button onClick={() => storyStorage.performSync()} title="Sync Error. Click to retry" className="flex items-center space-x-2 hover:text-portal transition-colors"><CloudOff size={14} className="text-human" /> <span className="text-xs font-mono text-human">Sync Error</span></button>
+                  <button onClick={() => storyStorage.performSync()} title="Sync Error. Click to retry" className="flex items-center space-x-2 hover:text-portal transition-colors"><CloudOff size={14} className="text-human" /> <span className="text-[11px] font-sans text-human uppercase tracking-widest">Disharmony</span></button>
                 ) : (
-                  <button onClick={() => storyStorage.performSync()} title="Synced to Firebase. Click to force sync" className="flex items-center space-x-2 hover:text-portal transition-colors"><Cloud size={14} className="text-[#00A86B]" /> <span className="text-xs font-mono text-[#00A86B]">Synced</span></button>
+                  <button onClick={() => storyStorage.performSync()} title="Synced to Firebase. Click to force sync" className="flex items-center space-x-2 hover:text-portal transition-colors"><Cloud size={14} className="text-portal" /> <span className="text-[11px] font-sans text-portal uppercase tracking-widest">Harmonized</span></button>
                 )}
               </div>
               {lastSavedTime && (
-                <div className="text-[10px] font-mono text-neutral-500">
+                <div className="text-[10px] font-mono text-neutral-600 tracking-wider">
                   Auto-saved: {new Date(lastSavedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </div>
               )}
 
-              <div className="w-[1px] h-6 bg-neutral-800 hidden sm:block mx-2"></div>
+              <div className="w-[1px] h-8 bg-neutral-900 hidden sm:block mx-2"></div>
               
               <div className="shrink-0 flex items-center">
                 <AudioWidget />
               </div>
 
-              <div className="w-[1px] h-6 bg-neutral-800 hidden sm:block mx-2"></div>
+              <div className="w-[1px] h-8 bg-neutral-900 hidden sm:block mx-2"></div>
 
               <button
                 onClick={() => setIsSettingsOpen(true)}
-                className="px-4 py-1.5 bg-black border border-neutral-800 hover:border-portal text-neutral-400 hover:text-portal transition-all rounded font-sc text-xs flex items-center space-x-2 font-bold"
+                className="px-5 py-2 bg-black border border-neutral-800 hover:border-portal/50 text-neutral-400 hover:text-portal transition-all rounded-lg font-sc text-xs flex items-center space-x-2 font-bold group"
                 title="Aether Router"
               >
-                <Sliders size={12} className="text-portal" />
-                <span className="uppercase tracking-widest font-semibold">Aether Router Configuration</span>
+                <Sliders size={14} className="text-portal group-hover:scale-110 transition-transform" />
+                <span className="uppercase tracking-widest font-semibold text-[11px]">Aether Router Configuration</span>
               </button>
             </div>
           </div>
 
           {/* Backup & Import Section */}
-          <div className="border-b border-neutral-900 pb-8">
-            <h3 className="text-[12px] uppercase font-bold tracking-widest text-neutral-400 font-sc mb-4 flex items-center gap-2">
+          <div className="border-b border-neutral-900/50 pb-10">
+            <h3 className="text-[11px] uppercase font-bold tracking-widest text-neutral-500 font-sc mb-6 flex items-center gap-2">
               <Database size={14} className="text-portal" />
-              Import World & Backup Full Library Options
+              Archives & World Transmigration
             </h3>
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6 border border-neutral-850 p-4 rounded bg-[#0f0f0f]">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <h4 className="font-sc font-bold text-sm text-signal uppercase tracking-wider">Aetherial Memory Sanctum</h4>
-                  <span className="text-[10px] px-2 py-0.25 bg-[#00A86B]/15 border border-[#00A86B]/35 text-[#00A86B] font-mono rounded-full font-bold uppercase tracking-wider animate-fadeIn">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-8 bg-[#030303] p-6 rounded-xl border border-neutral-900 shadow-inner">
+              <div className="space-y-2">
+                <div className="flex items-center space-x-3">
+                  <h4 className="font-display text-xl text-signal">Aetherial Memory Sanctum</h4>
+                  <span className="text-[9px] px-2.5 py-1 bg-portal/10 border border-portal/30 text-portal font-sans rounded-full font-bold uppercase tracking-widest animate-pulse">
                     {storageType}
                   </span>
                 </div>
-                <p className="text-xs text-neutral-400 mt-1 max-w-xl leading-relaxed">
-                  Every character bio, relationship map, karma fate node, chapter summary, and reader preference is saved automatically to your local-first client-side database.
+                <p className="text-sm font-serif text-neutral-400 max-w-xl leading-relaxed">
+                  Every character bio, relationship map, karma fate node, chapter summary, and reader preference is preserved in the deep local archives. Guard them closely.
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-3.5 w-full md:w-auto justify-end">
-                <label className="flex items-center space-x-2 bg-void hover:bg-neutral-900 text-neutral-300 hover:text-signal border border-neutral-800 hover:border-neutral-700 px-4 py-2 rounded text-xs font-sc font-bold uppercase tracking-wider cursor-pointer transition-all">
-                  <Upload size={14} className="text-portal" />
+              <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                <label className="flex items-center justify-center space-x-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-portal border border-neutral-800 hover:border-portal/50 px-5 py-3 rounded-lg text-[11px] font-sc font-bold uppercase tracking-wider cursor-pointer transition-all group">
+                  <Upload size={14} className="text-portal group-hover:-translate-y-0.5 transition-transform" />
                   <span>Import World Scroll</span>
                   <input 
                     type="file" 
@@ -211,9 +230,9 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                 <button
                   onClick={handleExportLibrary}
                   disabled={stories.length === 0}
-                  className="flex items-center space-x-2 bg-void hover:bg-neutral-900 text-neutral-350 hover:text-signal border border-neutral-800 hover:border-neutral-700 px-4 py-2 rounded text-xs font-sc font-bold uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  className="flex items-center justify-center space-x-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-signal border border-neutral-800 hover:border-human/50 px-5 py-3 rounded-lg text-[11px] font-sc font-bold uppercase tracking-wider disabled:opacity-20 disabled:cursor-not-allowed transition-all group"
                 >
-                  <Download size={14} className="text-gold-accent" />
+                  <Download size={14} className="text-human group-hover:translate-y-0.5 transition-transform" />
                   <span>Backup Full Library</span>
                 </button>
               </div>
@@ -221,55 +240,86 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
           </div>
 
           {!currentUser ? (
-            <div className="py-12 flex flex-col items-center justify-center text-center space-y-6">
-              <CloudOff size={48} className="text-neutral-800 drop-shadow-[0_0_15px_rgba(255,255,255,0.05)]" />
-              <div className="space-y-2">
-                <h3 className="font-display text-xl text-neutral-400">Spirit Unlinked</h3>
-                <p className="text-sm text-neutral-500 max-w-md mx-auto">Link your soul to the Celestial Cloud to permanently etch your stories into the matrix and sync across different planes of existence.</p>
+            <div className="py-16 flex flex-col items-center justify-center text-center space-y-8">
+              <CloudOff size={56} className="text-neutral-800 drop-shadow-[0_0_30px_rgba(4,172,255,0.08)]" />
+              <div className="space-y-4">
+                <h3 className="font-display text-3xl text-signal">Spirit Unlinked</h3>
+                <p className="text-base font-serif text-neutral-400 max-w-md mx-auto leading-relaxed">
+                  Link your soul to the Celestial Cloud to permanently etch your stories into the matrix and sync across different planes of existence.
+                </p>
               </div>
-              <button onClick={handleLogin} className="px-6 py-3 bg-neutral-900 border border-[#D4AF37]/50 text-[#D4AF37] hover:bg-[#D4AF37]/10 hover:border-[#D4AF37] transition-all rounded font-sc uppercase tracking-widest text-sm font-bold shadow-[0_0_15px_rgba(212,175,55,0.1)]">
+              <button 
+                onClick={handleLogin} 
+                className="px-8 py-3.5 bg-portal/10 border border-portal/50 text-portal hover:bg-portal hover:text-void rounded-full font-sc uppercase tracking-widest text-[12px] font-bold shadow-[0_0_20px_rgba(4,172,255,0.2)] hover:shadow-[0_0_30px_rgba(4,172,255,0.4)] transition-all"
+              >
                 Link Spirit Realm
               </button>
             </div>
           ) : (
             <>
               {/* Top Section - Avatar & Quick Info */}
-              <div className="flex flex-col md:flex-row gap-6 md:items-end border-b border-neutral-900 pb-8">
-                <div className="w-24 h-24 rounded-full border-2 border-neutral-800 overflow-hidden bg-neutral-950 flex-shrink-0 flex items-center justify-center relative shadow-[0_0_20px_rgba(4,172,255,0.15)]">
-                  {formData.avatarUrl ? (
-                    <img src={formData.avatarUrl} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  ) : (
-                    <UserIcon size={32} className="text-neutral-700" />
-                  )}
+              <div className="flex flex-col md:flex-row gap-8 md:items-end border-b border-neutral-900/50 pb-10">
+                <div className="w-28 h-28 rounded-full border border-portal/30 p-1 flex-shrink-0 relative group shadow-[0_0_40px_rgba(4,172,255,0.08)]">
+                  <div className="w-full h-full rounded-full overflow-hidden bg-black flex items-center justify-center">
+                    {formData.avatarUrl ? (
+                      <img src={formData.avatarUrl} alt="Avatar" className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 transition-all duration-500" referrerPolicy="no-referrer" />
+                    ) : (
+                      <UserIcon size={36} className="text-neutral-700" />
+                    )}
+                  </div>
+                  <div className="absolute inset-0 rounded-full border border-portal/10 scale-110 animate-[spin_10s_linear_infinite]"></div>
                 </div>
-                <div className="flex-1 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex-1 space-y-5">
+                  <div className="flex flex-col gap-3 mb-2">
+                    <div className="flex justify-between items-end">
+                      <div className="px-3 py-1 bg-portal/10 border border-portal/30 text-portal text-[10px] font-bold tracking-[0.2em] uppercase rounded font-sc">
+                        {daoData.rank}
+                      </div>
+                      <div className="flex items-center gap-1 text-[10px] text-portal/70 font-sc uppercase font-bold tracking-widest border border-portal/20 px-2 rounded bg-portal/5">
+                        <Zap size={10} className="text-portal" /> {daoData.currentQi} Qi
+                      </div>
+                    </div>
+                    {daoData.nextRank && (
+                      <div className="flex-1 max-w-[300px]">
+                        <div className="flex justify-between text-[9px] text-neutral-500 mb-1.5 font-sc uppercase tracking-widest">
+                          <span>Progress to {daoData.nextRank}</span>
+                          <span className="text-portal/70">{daoData.currentQi} / {daoData.maxQi}</span>
+                        </div>
+                        <div className="h-1 bg-neutral-900 rounded-full overflow-hidden shadow-inner">
+                          <div className="h-full bg-gradient-to-r from-portal/50 to-portal shadow-[0_0_10px_rgba(4,172,255,0.5)] transition-all duration-1000" style={{ width: `${daoData.progress}%` }}></div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-[#030303] p-5 rounded-xl border border-neutral-900">
                     <div>
-                      <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 font-sc block mb-1">Username (Dao Name)</label>
+                      <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 font-sc block mb-2">Username (Dao Name)</label>
                       {isEditing ? (
                         <input 
                           type="text" 
                           name="username" 
                           value={formData.username || ''} 
                           onChange={handleChange}
-                          className="w-full bg-black border border-neutral-800 rounded px-3 py-2 text-sm text-signal focus:border-portal outline-none font-mono"
+                          className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-2.5 text-sm text-signal focus:border-portal outline-none font-sans"
+                          placeholder="Enter Dao Name"
                         />
                       ) : (
-                        <div className="text-lg text-signal font-mono">{profile?.username}</div>
+                        <div className="text-xl text-signal font-sans">{profile?.username}</div>
                       )}
                     </div>
                     <div>
-                      <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 font-sc block mb-1">Display Name</label>
+                      <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 font-sc block mb-2">Display Name</label>
                       {isEditing ? (
                         <input 
                           type="text" 
                           name="displayName" 
                           value={formData.displayName || ''} 
                           onChange={handleChange}
-                          className="w-full bg-black border border-neutral-800 rounded px-3 py-2 text-sm text-signal focus:border-portal outline-none font-sans"
+                          className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-2.5 text-sm text-signal focus:border-human outline-none font-sans"
+                          placeholder="Your identity..."
                         />
                       ) : (
-                        <div className="text-lg text-neutral-300 font-sans">{profile?.displayName || 'Unknown Ascendant'}</div>
+                        <div className="text-lg text-neutral-400 font-serif italic mt-1">{profile?.displayName || 'Unknown Ascendant'}</div>
                       )}
                     </div>
                   </div>
@@ -277,17 +327,18 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
               </div>
 
               {/* Details Section */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                <div>
-                  <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 font-sc block mb-1 flex items-center gap-1">
-                    <Globe size={12} /> Preferred Language
-                  </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 pt-2">
+                <div className="bg-[#030303] border border-neutral-900 rounded-xl p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-neutral-900 rounded-lg"><Globe size={14} className="text-portal" /></div>
+                    <label className="text-[11px] uppercase font-bold tracking-widest text-neutral-400 font-sc">Preferred Language</label>
+                  </div>
                   {isEditing ? (
                     <select 
                       name="preferredLanguage" 
                       value={formData.preferredLanguage || 'English'} 
                       onChange={handleChange}
-                      className="w-full bg-black border border-neutral-800 rounded px-3 py-2 text-sm text-signal focus:border-portal outline-none font-sans"
+                      className="bg-black border border-neutral-800 rounded px-3 py-1.5 text-xs text-signal focus:border-portal outline-none font-sans appearance-none"
                     >
                       <option value="English">English</option>
                       <option value="Spanish">Spanish</option>
@@ -295,20 +346,21 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                       <option value="Japanese">Japanese</option>
                     </select>
                   ) : (
-                    <div className="text-sm text-neutral-300 font-sans px-3 py-2 bg-neutral-950/50 rounded border border-transparent">{profile?.preferredLanguage}</div>
+                    <div className="text-[11px] text-portal font-sans font-medium uppercase tracking-widest">{profile?.preferredLanguage}</div>
                   )}
                 </div>
 
-                <div>
-                  <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 font-sc block mb-1 flex items-center gap-1">
-                    <Globe size={12} /> Translation Default
-                  </label>
+                <div className="bg-[#030303] border border-neutral-900 rounded-xl p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-neutral-900 rounded-lg"><Globe size={14} className="text-human" /></div>
+                    <label className="text-[11px] uppercase font-bold tracking-widest text-neutral-400 font-sc">Translation Default</label>
+                  </div>
                   {isEditing ? (
                     <select 
                       name="defaultTranslationLanguage" 
                       value={formData.defaultTranslationLanguage || 'English'} 
                       onChange={handleChange}
-                      className="w-full bg-black border border-neutral-800 rounded px-3 py-2 text-sm text-signal focus:border-portal outline-none font-sans"
+                      className="bg-black border border-neutral-800 rounded px-3 py-1.5 text-xs text-signal focus:border-human outline-none font-sans appearance-none"
                     >
                       <option value="English">English</option>
                       <option value="Spanish">Spanish</option>
@@ -316,45 +368,50 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                       <option value="Japanese">Japanese</option>
                     </select>
                   ) : (
-                    <div className="text-sm text-neutral-300 font-sans px-3 py-2 bg-neutral-950/50 rounded border border-transparent">{profile?.defaultTranslationLanguage}</div>
+                    <div className="text-[11px] text-human font-sans font-medium uppercase tracking-widest">{profile?.defaultTranslationLanguage}</div>
                   )}
                 </div>
 
-                <div>
-                  <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 font-sc block mb-1 flex items-center gap-1">
-                    <Calendar size={12} /> Ascent Commenced
-                  </label>
-                  <div className="text-sm text-neutral-400 font-mono px-3 py-2 bg-neutral-950/50 rounded">{new Date(profile?.joinedDate || Date.now()).toLocaleDateString()}</div>
+                <div className="bg-[#030303] border border-neutral-900 rounded-xl p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-neutral-900 rounded-lg"><Calendar size={14} className="text-neutral-400" /></div>
+                    <label className="text-[11px] uppercase font-bold tracking-widest text-neutral-400 font-sc">Ascent Commenced</label>
+                  </div>
+                  <div className="text-[11px] text-neutral-300 font-sans tracking-wide">{new Date(profile?.joinedDate || Date.now()).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</div>
                 </div>
                 
-                <div>
-                  <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 font-sc block mb-1 flex items-center gap-1">
-                    <BookOpen size={12} /> Scrolls Accumulated
-                  </label>
-                  <div className="text-sm text-neutral-400 font-mono px-3 py-2 bg-neutral-950/50 rounded">
-                    {activeStoriesCount} stories manifesting
+                <div className="bg-[#030303] border border-neutral-900 rounded-xl p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-neutral-900 rounded-lg"><BookOpen size={14} className="text-portal" /></div>
+                    <label className="text-[11px] uppercase font-bold tracking-widest text-neutral-400 font-sc">Scrolls Accumulated</label>
+                  </div>
+                  <div className="text-[11px] text-portal font-sans font-black tracking-widest uppercase">
+                    {activeStoriesCount} Realms
                   </div>
                 </div>
               </div>
 
               {/* Own Stories Section */}
-              <div className="pt-6 border-t border-neutral-900">
-                <h3 className="text-[12px] uppercase font-bold tracking-widest text-neutral-400 font-sc mb-4 flex items-center gap-2">
-                  <BookOpen size={14} className="text-gold-accent" />
-                  Manifested Realms (Own Stories)
+              <div className="pt-10 border-t border-neutral-900/50 mt-10">
+                <h3 className="text-[11px] uppercase font-bold tracking-widest text-neutral-500 font-sc mb-6 flex items-center gap-2">
+                  <BookOpen size={14} className="text-human" />
+                  Manifested Realms
                 </h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Active Stories */}
-                  <div className="border border-neutral-850 bg-neutral-950/50 rounded-lg p-4">
-                    <h4 className="text-[10px] uppercase font-bold tracking-widest text-portal font-sc mb-3 border-b border-neutral-850 pb-2">Active Flows ({profile?.activeStories?.length || activeStoriesCount})</h4>
-                    <div className="space-y-2">
+                  <div className="border border-neutral-900 bg-[#030303] rounded-xl p-5 shadow-inner">
+                    <div className="flex items-center justify-between border-b border-neutral-800/50 pb-3 mb-4">
+                      <h4 className="text-[10px] uppercase font-bold tracking-widest text-portal font-sc">Active Flows</h4>
+                      <span className="text-[9px] px-2 py-0.5 bg-portal/10 text-portal rounded-full font-bold">{profile?.activeStories?.length || activeStoriesCount}</span>
+                    </div>
+                    <div className="space-y-3">
                       {userStories.length === 0 ? (
-                        <div className="text-xs text-neutral-600 font-sans italic">No realms manifested yet.</div>
+                        <div className="text-[11px] text-neutral-600 font-sans italic tracking-wide">No realms manifested yet.</div>
                       ) : (
                         userStories.map(s => (
-                          <div key={s.id} className="text-sm text-neutral-300 font-sans flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-portal"></span>
+                          <div key={s.id} className="text-[13px] text-neutral-300 font-sans flex items-center gap-3 overflow-hidden">
+                            <span className="w-1 h-1 rounded-full bg-portal flex-shrink-0 animate-pulse"></span>
                             <span className="truncate">{s.title}</span>
                           </div>
                         ))
@@ -363,15 +420,18 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                   </div>
 
                   {/* Inactive Stories */}
-                  <div className="border border-neutral-850 bg-neutral-950/50 rounded-lg p-4">
-                    <h4 className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 font-sc mb-3 border-b border-neutral-850 pb-2">Sealed Flows ({profile?.inactiveStories?.length || 0})</h4>
-                    <div className="space-y-2">
+                  <div className="border border-neutral-900 bg-[#030303] rounded-xl p-5 shadow-inner">
+                    <div className="flex items-center justify-between border-b border-neutral-800/50 pb-3 mb-4">
+                      <h4 className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 font-sc">Sealed Flows</h4>
+                      <span className="text-[9px] px-2 py-0.5 bg-neutral-900 text-neutral-500 rounded-full font-bold">{profile?.inactiveStories?.length || 0}</span>
+                    </div>
+                    <div className="space-y-3">
                       {(!profile?.inactiveStories || profile.inactiveStories.length === 0) ? (
-                        <div className="text-xs text-neutral-600 font-sans italic">No realms currently sealed.</div>
+                        <div className="text-[11px] text-neutral-600 font-sans italic tracking-wide">No realms currently sealed.</div>
                       ) : (
                         profile.inactiveStories.map(id => (
-                          <div key={id} className="text-sm text-neutral-500 font-sans flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-neutral-700"></span>
+                          <div key={id} className="text-[13px] text-neutral-500 font-sans flex items-center gap-3 overflow-hidden">
+                            <span className="w-1 h-1 rounded-full bg-neutral-700 flex-shrink-0"></span>
                             <span className="truncate">Story {id.split('-').pop()}</span>
                           </div>
                         ))
@@ -381,19 +441,19 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                 </div>
               </div>
 
-              <div className="pt-6 flex gap-4 min-h-[40px] border-t border-neutral-900 mt-6">
+              <div className="pt-8 flex gap-4 min-h-[40px] mt-8">
                 {isEditing ? (
                   <>
                     <button 
                       onClick={handleSave} 
                       disabled={isLoading}
-                      className="px-6 py-2 bg-portal border border-portal text-void font-bold uppercase text-xs tracking-wider rounded hover:bg-portal/80 transition-colors flex items-center gap-2"
+                      className="px-8 py-2.5 bg-portal border border-portal text-void font-bold uppercase text-[11px] tracking-widest rounded-full hover:bg-portal/90 shadow-[0_0_15px_rgba(4,172,255,0.3)] transition-all flex items-center gap-2"
                     >
                       <Save size={14} /> Guard Changes
                     </button>
                     <button 
                       onClick={() => { setIsEditing(false); setFormData(profile || {}); }} 
-                      className="px-6 py-2 bg-transparent border border-neutral-700 text-neutral-400 font-bold uppercase text-xs tracking-wider rounded hover:text-signal hover:border-neutral-500 transition-colors"
+                      className="px-8 py-2.5 bg-transparent border border-neutral-700 text-neutral-400 font-bold uppercase text-[11px] tracking-widest rounded-full hover:text-signal hover:border-neutral-500 transition-all"
                     >
                       Cancel
                     </button>
@@ -401,7 +461,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                 ) : (
                   <button 
                     onClick={() => setIsEditing(true)} 
-                    className="px-6 py-2 bg-transparent border border-neutral-700 text-neutral-300 font-bold uppercase text-xs tracking-wider rounded hover:border-portal hover:text-portal transition-colors flex items-center gap-2"
+                    className="px-8 py-2.5 bg-transparent border border-neutral-700 text-neutral-300 font-bold uppercase text-[11px] tracking-widest rounded-full hover:border-portal hover:text-portal transition-all flex items-center gap-2"
                   >
                     Modify Identity
                   </button>

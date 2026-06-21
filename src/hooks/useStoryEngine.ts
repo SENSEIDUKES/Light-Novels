@@ -3,6 +3,7 @@ import { secureStorage } from '../lib/encryption';
 import { retrieveRelevantContext, generateEmbedding } from '../lib/rag';
 import { Story, IntakeData, WorldBlueprint, Chapter, StoryArc, StoryMemory, StoryWorld } from '../types';
 import { storyStorage } from '../lib/storage';
+import { awardQi } from '../lib/qi';
 
 export const extractJsonBlocks = (rawStr: string): any[] => {
   // 1. Try arrays wrapped in markdown or raw
@@ -329,6 +330,7 @@ export const useStoryEngine = () => {
       store.setActiveStoryId(newStory.id);
       store.setSelectedChapterNum(1);
       store.setCurrentScreen('detail');
+      awardQi('world_created');
     } catch (err: any) {
       console.error(err);
       store.setAppError(err.message || "Failed to align celestial gates.");
@@ -741,6 +743,7 @@ export const useStoryEngine = () => {
       });
 
       await store.saveStories(updatedStories);
+      awardQi('chapter_generated');
 
     } catch (err: any) {
       console.error(err);
@@ -852,6 +855,130 @@ export const useStoryEngine = () => {
     }
   };
 
+  const handleAlterFate = async (chapterNumber: number, direction: string, customPrompt: string) => {
+    const activeStory = store.stories.find(s => s.id === store.activeStoryId);
+    if (!activeStory) return;
+    
+    const clonedArcs = activeStory.arcs.map(arc => {
+      const slicedChapters = arc.chapters.filter(ch => ch.number <= chapterNumber);
+      return { ...arc, chapters: slicedChapters };
+    }).filter(arc => arc.chapters.length > 0);
+
+    const clonedBookmarks = (activeStory.bookmarks || []).filter(b => b.chapterNumber <= chapterNumber);
+
+    const newStoryId = `story-${Date.now()}-fork`;
+    const newStory: StoryWorld = {
+      ...activeStory,
+      id: newStoryId,
+      parentStoryId: activeStory.id,
+      forkChapterNumber: chapterNumber,
+      title: `[Fate Fork] ${activeStory.title}`,
+      arcs: clonedArcs,
+      bookmarks: clonedBookmarks,
+      updatedAt: new Date().toISOString()
+    };
+
+    const updated = [newStory, ...store.stories];
+    await store.saveStories(updated);
+    store.setActiveStoryId(newStory.id);
+    
+    store.setGenerationPhase('steer');
+    store.setIsGenerating(true);
+    store.setAppError(null);
+
+    const totalPreviousChapters = clonedArcs.reduce((acc, arc) => acc + arc.chapters.length, 0);
+    const queryIntent = `Overall Arc Direction: ${direction}. Extra Context: ${customPrompt || ''}`;
+    const nextChapterNumber = totalPreviousChapters + 1;
+    
+    try {
+      store.setActiveAgentId('scout');
+      const apiHeaders = getApiHeaders();
+
+      const pastSummaries = await retrieveRelevantContext(
+        queryIntent,
+        nextChapterNumber,
+        newStory,
+        apiHeaders,
+        10 
+      );
+
+      store.setActiveAgentId('versa');
+      const response = await fetch('/api/steer-arc', {
+        method: 'POST',
+        headers: apiHeaders,
+        body: JSON.stringify({
+          mcName: newStory.mcName,
+          genre: newStory.genre,
+          customPremise: newStory.customPremise,
+          memory: newStory.memory,
+          pastSummaries,
+          currentArcCount: clonedArcs.length,
+          steerDirection: direction,
+          userCustomDirections: customPrompt,
+          routingConfig: store.routingConfig.storyMaker
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Story fork broke with status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      const nextChapters: Chapter[] = data.chapters.map((ch: any) => ({
+        number: ch.number,
+        title: ch.title,
+        premise: ch.premise,
+        status: 'unread'
+      }));
+
+      const newArc: StoryArc = {
+        title: data.title || `Vivergence Path`,
+        chapters: nextChapters,
+        isCompleted: false
+      };
+
+      const freshStories = await storyStorage.getStories();
+      const updatedStories = freshStories.map((s: any) => {
+        if (s.id !== newStory.id) return s;
+
+        const nextStoriesMemory = { ...s.memory };
+
+        if (data.newCharacters && data.newCharacters.length > 0) {
+          const verified = data.newCharacters.map((c: any) => ({
+            id: `char-${Math.random().toString(36).substr(2, 9)}`,
+            ...c,
+            status: c.status || 'alive'
+          }));
+          nextStoriesMemory.characters = [...nextStoriesMemory.characters, ...verified];
+        }
+
+        if (data.newUnresolvedPlotThreads && data.newUnresolvedPlotThreads.length > 0) {
+          nextStoriesMemory.unresolvedPlotThreads = [...nextStoriesMemory.unresolvedPlotThreads, ...data.newUnresolvedPlotThreads];
+        }
+
+        return {
+          ...s,
+          arcs: [...s.arcs, newArc],
+          memory: nextStoriesMemory,
+          updatedAt: new Date().toISOString()
+        };
+      });
+
+      await store.saveStories(updatedStories);
+      store.setSelectedChapterNum(nextChapters[0].number);
+      awardQi('branch_created');
+    } catch (err: any) {
+      console.error(err);
+      store.setAppError(err.message || "Failed to alter fate successfully.");
+    } finally {
+      store.setIsGenerating(false);
+      store.setGenerationPhase(null);
+      store.setActiveAgentId(null);
+    }
+  };
+
   const handleUpdateMemoryManual = async (updatedMemory: StoryMemory) => {
     const activeStory = store.stories.find(s => s.id === store.activeStoryId);
     if (!activeStory) return;
@@ -884,9 +1011,11 @@ export const useStoryEngine = () => {
             ...arc,
             chapters: arc.chapters.map(ch => {
               if (ch.number === charNum) {
+                const newStatus = ch.status === 'read' ? 'unread' : 'read';
+                if (newStatus === 'read') awardQi('chapter_finished');
                 return {
                   ...ch,
-                  status: (ch.status === 'read' ? 'unread' : 'read') as 'unread' | 'read'
+                  status: newStatus as 'unread' | 'read'
                 };
               }
               return ch;
@@ -970,11 +1099,28 @@ export const useStoryEngine = () => {
     } as any);
   };
 
+  const handleSealChapter = async (chapterNumber: number) => {
+    const activeStory = store.stories.find((s) => s.id === store.activeStoryId);
+    if (!activeStory) return;
+
+    const arcs = activeStory.arcs.map(arc => ({
+      ...arc,
+      chapters: arc.chapters.map(ch => 
+        ch.number === chapterNumber ? { ...ch, isSealed: true } : ch
+      )
+    }));
+
+    await handleUpdateStoryDirect({ ...activeStory, arcs } as any);
+    awardQi('chapter_sealed');
+  };
+
   return {
     handleGenerateBlueprint,
     handleStartStory,
     handleGenerateChapter,
     handleSteerArc,
+    handleAlterFate,
+    handleSealChapter,
     handleUpdateMemoryManual,
     handleUpdateStoryDirect,
     handleToggleRead,

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { auth } from './lib/firebase';
+import { auth, db } from './lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 // Store & Hooks
 import { useAppStore } from './store/useAppStore';
@@ -45,8 +46,27 @@ function App() {
     };
     initAndLoad();
 
+    let unsubProfile: (() => void) | undefined;
+
     const unsubAuth = onAuthStateChanged(auth, (user) => {
       store.setCurrentUser(user);
+      
+      if (unsubProfile) {
+        unsubProfile();
+        unsubProfile = undefined;
+      }
+      
+      if (user) {
+        unsubProfile = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
+          if (docSnap.exists()) {
+            store.setUserProfile(docSnap.data() as any);
+          } else {
+            store.setUserProfile(null);
+          }
+        });
+      } else {
+        store.setUserProfile(null);
+      }
     });
 
     const unsubSync = storyStorage.subscribe((status) => {
@@ -56,6 +76,7 @@ function App() {
     return () => {
       unsubAuth();
       unsubSync();
+      if (unsubProfile) unsubProfile();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -190,6 +211,8 @@ function App() {
                   handleSteerArc={storyEngine.handleSteerArc}
                   handleUpdateStoryDirect={storyEngine.handleUpdateStoryDirect}
                   setIsCodexSheetOpen={store.setIsCodexSheetOpen}
+                  handleAlterFate={storyEngine.handleAlterFate}
+                  handleSealChapter={storyEngine.handleSealChapter}
                />
             </motion.div>
           )}

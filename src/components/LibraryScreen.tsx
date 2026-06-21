@@ -4,6 +4,7 @@ import { Sparkles, BookOpen, Trash2, Play, Globe, Eye } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { ParticleSystem } from './ParticleSystem';
 import { Story } from '../types';
+import { getDaoRankData } from '../lib/qi';
 
 const HERO_VIDEOS = [
   "https://video.seihouse.org/LIGHT%20NOVEL/LIGHT_NOVEL_INTRO.mp4",
@@ -13,7 +14,7 @@ const HERO_VIDEOS = [
 const PUBLISHED_WORLDS: any[] = [];
 
 export const LibraryScreen: React.FC = () => {
-  const { currentScreen, setCurrentScreen, stories, setActiveStoryId, setStoryToDelete } = useAppStore();
+  const { currentScreen, setCurrentScreen, stories, setActiveStoryId, setStoryToDelete, userProfile } = useAppStore();
   const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
   const [activeTab, setActiveTab] = useState<'featured' | 'my-library'>(stories.length === 0 ? 'featured' : 'my-library');
   const heroVideoRef = useRef<HTMLVideoElement>(null);
@@ -160,7 +161,16 @@ export const LibraryScreen: React.FC = () => {
                   <h4 className="font-display font-bold text-xl sm:text-2xl text-signal leading-tight line-clamp-1">
                     {mostRecentStory.title}
                   </h4>
-                  <p className="text-xs text-neutral-400 font-sans truncate mt-1">
+                  {userProfile ? (
+                    <p className="text-[10px] text-portal/80 font-sc tracking-widest uppercase truncate font-bold mt-1">
+                      By {userProfile.username} · {userProfile.dao_rank || getDaoRankData(userProfile.dao_xp || userProfile.qi || 0).rank}
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-portal/80 font-sc tracking-widest uppercase truncate font-bold mt-1">
+                      By You · Mortal Reader
+                    </p>
+                  )}
+                  <p className="text-xs text-neutral-400 font-sans truncate mt-1.5">
                     MC: {mostRecentStory.mcName} • {mostRecentStory.memory.currentPowerStage}
                   </p>
                 </div>
@@ -255,7 +265,16 @@ export const LibraryScreen: React.FC = () => {
                       <h4 className="font-display font-bold text-base text-signal group-hover:text-gold-accent transition-colors leading-tight line-clamp-2">
                         {story.title}
                       </h4>
-                      <p className="text-[10px] text-neutral-500 font-sans truncate">
+                      {userProfile ? (
+                        <p className="text-[10px] text-portal/80 font-sc tracking-widest uppercase truncate font-bold mt-0.5">
+                          By {userProfile.username} · {userProfile.dao_rank || getDaoRankData(userProfile.dao_xp || userProfile.qi || 0).rank}
+                        </p>
+                      ) : (
+                        <p className="text-[10px] text-portal/80 font-sc tracking-widest uppercase truncate font-bold mt-0.5">
+                          By You · Mortal Reader
+                        </p>
+                      )}
+                      <p className="text-[10px] text-neutral-500 font-sans truncate mt-1">
                         MC: {story.mcName} • {story.memory.currentPowerStage}
                       </p>
                       

@@ -35,7 +35,7 @@ export const GlobalHeader: React.FC = () => {
             referrerPolicy="no-referrer"
           />
           <div className="min-w-0">
-            <span className="font-sc text-gold-accent text-[6px] sm:text-[10px] tracking-[0.1em] sm:tracking-[0.25em] font-semibold block uppercase truncate">SEIHouse Appellation</span>
+            <span className="font-sc text-portal text-[6px] sm:text-[10px] tracking-[0.1em] sm:tracking-[0.25em] font-semibold block uppercase truncate">SEIHouse Appellation</span>
             <h1 className="font-display font-bold text-xs sm:text-base md:text-lg text-signal tracking-wide leading-tight truncate">Celestial Scroll Library</h1>
           </div>
         </div>
@@ -71,10 +71,10 @@ export const GlobalHeader: React.FC = () => {
           </div>
 
           {activeStory && (
-            <div className="hidden md:flex items-center space-x-2 bg-neutral-900/60 px-3 py-1.5 rounded border border-neutral-850">
-              <User size={12} className="text-jade-accent" />
-              <span className="text-xs text-neutral-300 font-medium font-mono">{activeStory.mcName}</span>
-              <span className="text-[10px] text-neutral-500 font-semibold uppercase">({activeStory.genre})</span>
+            <div className="hidden md:flex items-center space-x-2 bg-[#030303] px-3 py-1.5 rounded-lg border border-neutral-800">
+              <User size={12} className="text-portal" />
+              <span className="text-[11px] text-signal font-serif tracking-widest">{activeStory.mcName}</span>
+              <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest">({activeStory.genre})</span>
             </div>
           )}
 

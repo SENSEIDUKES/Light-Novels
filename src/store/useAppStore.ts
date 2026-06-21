@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Story, StoryMemory, Chapter, StoryArc, StoryWorld, ReaderPreferences, KarmaFateNode, CharacterRelationship, MultiModelRouting, RouteConfig, IntakeData, WorldBlueprint, StoryBlock, StreamingChapter, AppUser } from '../types';
+import { Story, StoryMemory, Chapter, StoryArc, StoryWorld, ReaderPreferences, KarmaFateNode, CharacterRelationship, MultiModelRouting, RouteConfig, IntakeData, WorldBlueprint, StoryBlock, StreamingChapter, AppUser, UserProfile } from '../types';
 import { SyncStatus } from '../lib/storage';
 
 interface AppState {
@@ -21,6 +21,7 @@ interface AppState {
   // Sync / Auth
   syncStatus: SyncStatus;
   currentUser: AppUser | null;
+  userProfile: UserProfile | null;
   lastSavedTime: Date | null;
   storageType: string;
 
@@ -51,6 +52,7 @@ interface AppState {
   setActiveAgentId: (id: 'versa' | 'scout' | null) => void;
   setSyncStatus: (status: SyncStatus) => void;
   setCurrentUser: (user: AppUser | null) => void;
+  setUserProfile: (profile: UserProfile | null) => void;
   setLastSavedTime: (time: Date | null) => void;
   setStorageType: (type: string) => void;
   setSelectedChapterNum: (num: number) => void;
@@ -169,6 +171,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   syncStatus: 'offline',
   currentUser: null,
+  userProfile: null,
   lastSavedTime: null,
   storageType: 'Initializing...',
 
@@ -199,6 +202,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setActiveAgentId: (activeAgentId) => set({ activeAgentId }),
   setSyncStatus: (syncStatus) => set({ syncStatus }),
   setCurrentUser: (currentUser) => set({ currentUser }),
+  setUserProfile: (userProfile) => set({ userProfile }),
   setLastSavedTime: (lastSavedTime) => set({ lastSavedTime }),
   setStorageType: (storageType) => set({ storageType }),
   setSelectedChapterNum: (selectedChapterNum) => set({ selectedChapterNum }),

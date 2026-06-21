@@ -28,7 +28,21 @@ service cloud.firestore {
         && data.username is string && data.username.size() <= 100
         && data.joinedDate is string && data.joinedDate.size() <= 40
         && data.updatedAt is string && data.updatedAt.size() <= 40
+        && (!('qi' in data) || data.qi is number)
+        && (!('dao_xp' in data) || data.dao_xp is number)
+        && (!('dao_rank' in data) || data.dao_rank is string)
         && data.uid == request.auth.uid;
+    }
+
+    function isValidDaoXpEvent(data) {
+      return data.keys().hasAll(['user_id', 'event_type', 'xp_amount', 'created_at'])
+        && data.user_id is string && data.user_id.size() <= 128
+        && data.event_type is string && data.event_type.size() <= 50
+        && data.xp_amount is number
+        && data.created_at is string && data.created_at.size() <= 40
+        && (!('source_id' in data) || data.source_id == null || data.source_id is string)
+        && (!('source_type' in data) || data.source_type == null || data.source_type is string)
+        && data.user_id == request.auth.uid;
     }
 
     function isValidStoryWorld(data) {
@@ -73,8 +87,14 @@ service cloud.firestore {
         && incoming().uid == existing().uid
         && incoming().joinedDate == existing().joinedDate
         && isValidUserProfile(incoming())
-        && incoming().diff(existing()).affectedKeys().hasOnly(['username', 'displayName', 'avatarUrl', 'preferredLanguage', 'defaultTranslationLanguage', 'savedStoryCount', 'activeStories', 'inactiveStories', 'updatedAt'])
+        && incoming().diff(existing()).affectedKeys().hasOnly(['username', 'displayName', 'avatarUrl', 'preferredLanguage', 'defaultTranslationLanguage', 'savedStoryCount', 'activeStories', 'inactiveStories', 'updatedAt', 'qi', 'dao_xp', 'dao_rank'])
         && (!('updatedAt' in incoming().diff(existing()).affectedKeys()) || (incoming().updatedAt is string && incoming().updatedAt.size() <= 40));
+    }
+
+    match /dao_xp_events/{eventId} {
+      allow read: if isSignedIn() && resource.data.user_id == request.auth.uid;
+      allow create: if isSignedIn() 
+        && isValidDaoXpEvent(incoming());
     }
 
     match /stories/{storyId} {

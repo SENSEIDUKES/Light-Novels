@@ -16,6 +16,19 @@ export interface UserProfile {
   inactiveStories: string[];
   joinedDate: string;
   updatedAt: string;
+  qi?: number; // legacy
+  dao_xp?: number;
+  dao_rank?: string;
+}
+
+export interface DaoXpEvent {
+  id?: string;
+  user_id: string;
+  event_type: string;
+  xp_amount: number;
+  source_id?: string;
+  source_type?: string;
+  created_at: string;
 }
 
 export interface GeneratedImage {
@@ -174,6 +187,7 @@ export interface Chapter {
   generatedContent?: string; // Optional, only populated when currently viewed
   blocks?: StoryBlock[];
   hasContent?: boolean; // Indicates if the content was generated and stored
+  isSealed?: boolean; // Indicates the chapter is published/locked for editing
   summary?: string; // Optional
   embedding?: number[]; // Optional vector embedding for RAG continuity searches
   statsChangeMessage?: string;
@@ -290,6 +304,8 @@ export interface WorldBlueprint {
 export interface StoryWorld {
   userId?: string;
   id: string;
+  parentStoryId?: string;
+  forkChapterNumber?: number;
   title: string;
   genre: string;
   mcName: string;

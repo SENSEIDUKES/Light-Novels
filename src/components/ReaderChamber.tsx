@@ -4,7 +4,7 @@ import {
   Download, ArrowLeft, ArrowRight, Zap, ListMusic, 
   Award, ShieldAlert, CheckCircle, RefreshCcw,
   Play, Pause, Square, Volume2, VolumeX, Sliders, Settings,
-  Bookmark as BookmarkIcon, Trash2, Plus, Globe, Loader2
+  Bookmark as BookmarkIcon, Trash2, Plus, Globe, Loader2, Lock
 } from 'lucide-react';
 import { Chapter, StoryMemory, StoryWorld, ReaderPreferences, Bookmark } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -15,6 +15,8 @@ import { dispatchNarrativeCue, NarrativeCueEventType } from '../lib/narrativeCue
 import { useChapterTranslation } from '../hooks/useChapterTranslation';
 import { useAppStore } from '../store/useAppStore';
 import { SystemBlock } from './SystemBlock';
+
+import { AlterFatePanel } from './AlterFatePanel';
 
 const extractSFXCues = (text: string) => {
   const sfxList: string[] = [];
@@ -56,6 +58,8 @@ interface ReaderChamberProps {
   onSwitchTab?: (tab: 'reader' | 'codex' | 'memory') => void;
   activeStory: StoryWorld;
   onUpdateStory: (updatedStory: StoryWorld) => void;
+  handleAlterFate?: (chapterNumber: number, direction: string, customPrompt: string) => Promise<void>;
+  handleSealChapter?: (chapterNumber: number) => Promise<void>;
 }
 
 export default function ReaderChamber({
@@ -69,9 +73,12 @@ export default function ReaderChamber({
   arcTitle,
   onSwitchTab,
   activeStory,
-  onUpdateStory
+  onUpdateStory,
+  handleAlterFate,
+  handleSealChapter
 }: ReaderChamberProps) {
   const [filter, setFilter] = useState<'all' | 'unlocked' | 'locked'>('all');
+  const [isAlterFateOpen, setIsAlterFateOpen] = useState(false);
   const readerRef = useRef<HTMLDivElement>(null);
 
   // --- Translation States ---
@@ -594,8 +601,9 @@ export default function ReaderChamber({
           className={`narrative-trigger sticky top-[0px] z-20 backdrop-blur-md px-4 py-2 sm:py-3 flex items-center justify-between border-b transition-colors duration-500 ${getHeaderThemeClasses()}`}
         >
         <div className="min-w-0">
-          <span className="font-sc font-semibold text-[10px] text-jade-accent tracking-[0.2em] uppercase block">
-            {arcTitle} • Chapter {selectedChapter.number}
+          <span className="font-sc font-semibold text-[10px] text-jade-accent tracking-[0.2em] uppercase flex items-center gap-1.5 line-clamp-1">
+            <span>{arcTitle} • Chapter {selectedChapter.number}</span>
+            {selectedChapter.isSealed && <Lock size={10} className="text-portal shrink-0" title="Published & Sealed" />}
           </span>
           <h2 className="font-display font-medium text-signal text-base sm:text-xl line-clamp-1 mt-0.5">
             {selectedChapter.title}
@@ -1211,6 +1219,18 @@ export default function ReaderChamber({
                 <ArrowLeft size={14} />
                 <span>Previous</span>
               </button>
+              
+              {handleSealChapter && !selectedChapter.isSealed && !!selectedChapter.generatedContent && (
+                <button
+                  onClick={() => handleSealChapter(selectedChapter.number)}
+                  className="px-6 py-2 rounded-full border border-portal bg-portal/10 hover:bg-portal hover:text-void text-portal transition-all font-sc uppercase text-[10px] tracking-wider flex items-center space-x-2 shadow-[0_0_10px_rgba(4,172,255,0.15)] mx-auto"
+                >
+                  <Lock size={14} />
+                  <span className="hidden sm:inline">Seal Chapter (Publish)</span>
+                  <span className="sm:hidden">Publish</span>
+                </button>
+              )}
+
               <button
                 onClick={navigateNext}
                 disabled={selectedChapterNum === chapters.length}
@@ -1493,31 +1513,43 @@ export default function ReaderChamber({
                     </div>
                  </div>
 
-                 {/* Quick Access Lore Action Links */}
-                 <div className="flex items-center space-x-4 bg-void border border-neutral-900 rounded-full px-2 py-1">
-                     <button 
-                      onClick={() => onSwitchTab && onSwitchTab('codex')} 
-                      className="px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-jade-accent transition-colors text-[10px] font-sc uppercase tracking-wider"
+                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 w-full">
+                   {/* Quick Access Lore Action Links */}
+                   <div className="flex items-center space-x-4 bg-void border border-neutral-900 rounded-full px-2 py-1">
+                       <button 
+                        onClick={() => onSwitchTab && onSwitchTab('codex')} 
+                        className="px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-jade-accent transition-colors text-[10px] font-sc uppercase tracking-wider"
+                       >
+                           <Award size={14} />
+                           <span>Realms</span>
+                       </button>
+                       <div className="w-[1px] h-4 bg-neutral-800"></div>
+                       <button 
+                        onClick={() => onSwitchTab && onSwitchTab('codex')} 
+                        className="px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-portal transition-colors text-[10px] font-sc uppercase tracking-wider"
+                       >
+                           <ListMusic size={14} />
+                           <span>Codex</span>
+                       </button>
+                       <div className="w-[1px] h-4 bg-neutral-800"></div>
+                       <button 
+                        onClick={() => onSwitchTab && onSwitchTab('codex')} 
+                        className="px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-human transition-colors text-[10px] font-sc uppercase tracking-wider"
+                       >
+                           <ShieldAlert size={14} />
+                           <span>Bonds</span>
+                       </button>
+                   </div>
+                   
+                   {handleAlterFate && (
+                     <button
+                       onClick={() => setIsAlterFateOpen(true)}
+                       className="px-4 py-2 border border-portal text-portal font-sc font-bold uppercase tracking-wider text-[10px] rounded-full hover:bg-portal hover:text-void transition-colors flex items-center gap-2 shadow-[0_0_10px_rgba(4,172,255,0.15)]"
                      >
-                         <Award size={14} />
-                         <span>Realms</span>
+                       <Zap size={14} />
+                       <span>Alter Fate (Branch)</span>
                      </button>
-                     <div className="w-[1px] h-4 bg-neutral-800"></div>
-                     <button 
-                      onClick={() => onSwitchTab && onSwitchTab('codex')} 
-                      className="px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-portal transition-colors text-[10px] font-sc uppercase tracking-wider"
-                     >
-                         <ListMusic size={14} />
-                         <span>Codex</span>
-                     </button>
-                     <div className="w-[1px] h-4 bg-neutral-800"></div>
-                     <button 
-                      onClick={() => onSwitchTab && onSwitchTab('codex')} 
-                      className="px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-human transition-colors text-[10px] font-sc uppercase tracking-wider"
-                     >
-                         <ShieldAlert size={14} />
-                         <span>Bonds</span>
-                     </button>
+                   )}
                  </div>
              </div>
           </div>
@@ -1644,6 +1676,18 @@ export default function ReaderChamber({
         </>
       )}
     </AnimatePresence>
+
+    {handleAlterFate && (
+      <AlterFatePanel
+        isOpen={isAlterFateOpen}
+        onClose={() => setIsAlterFateOpen(false)}
+        chapterNumber={selectedChapterNum}
+        onConfirmFork={(direction, prompt) => {
+          setIsAlterFateOpen(false);
+          handleAlterFate(selectedChapterNum, direction, prompt);
+        }}
+      />
+    )}
     </div>
   );
 }
