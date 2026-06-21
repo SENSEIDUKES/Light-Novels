@@ -22,8 +22,6 @@ export const ReaderScreen: React.FC<{
   const { currentScreen, setCurrentScreen, activeStoryId, stories, selectedChapterNum, setSelectedChapterNum, isGenerating, routingConfig, streamingChapter, isReaderFullscreen } = useAppStore();
   const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
 
-  if (currentScreen !== 'reader') return null;
-
   const activeStory = stories.find(s => s.id === activeStoryId);
 
   useEffect(() => {
@@ -36,6 +34,8 @@ export const ReaderScreen: React.FC<{
       }
     }
   }, [activeStoryId, selectedChapterNum, currentScreen, activeStory?.id]);
+
+  if (currentScreen !== 'reader') return null;
 
   if (!activeStory) return null;
 

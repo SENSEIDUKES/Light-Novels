@@ -237,31 +237,84 @@ export default function ReaderChamber({
     }
   }, []);
 
-  // Track utterance queue
-  const utteranceQueueRef = useRef<SpeechSynthesisUtterance[]>([]);
-  const currentUtteranceIndexRef = useRef<number>(0);
+  // Track utterance chunks and current playing chunk
+  const chunksRef = useRef<string[]>([]);
+  const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
+
+  const speechRateRef = useRef(speechRate);
+  const speechPitchRef = useRef(speechPitch);
+  const selectedVoiceURIRef = useRef(selectedVoiceURI);
+  const speechVolumeRef = useRef(speechVolume);
+  const availableVoicesRef = useRef(availableVoices);
+  const currentChunkIndexRef = useRef(currentChunkIndex);
+
+  useEffect(() => { speechRateRef.current = speechRate; }, [speechRate]);
+  useEffect(() => { speechPitchRef.current = speechPitch; }, [speechPitch]);
+  useEffect(() => { selectedVoiceURIRef.current = selectedVoiceURI; }, [selectedVoiceURI]);
+  useEffect(() => { speechVolumeRef.current = speechVolume; }, [speechVolume]);
+  useEffect(() => { availableVoicesRef.current = availableVoices; }, [availableVoices]);
+  useEffect(() => { currentChunkIndexRef.current = currentChunkIndex; }, [currentChunkIndex]);
 
   // Stop speech if chapter changes or on unmount
   useEffect(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      utteranceQueueRef.current = [];
+      chunksRef.current = [];
       setIsPlayingText(false);
       setIsPausedText(false);
+      setCurrentChunkIndex(0);
     }
   }, [selectedChapterNum]);
 
-  const speakNextSentence = () => {
+  const speakChunk = (index: number) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    const synth = window.speechSynthesis;
     
-    if (currentUtteranceIndexRef.current < utteranceQueueRef.current.length) {
-      const nextUtterance = utteranceQueueRef.current[currentUtteranceIndexRef.current];
-      window.speechSynthesis.speak(nextUtterance);
-    } else {
+    if (index >= chunksRef.current.length) {
       setIsPlayingText(false);
       setIsPausedText(false);
-      utteranceQueueRef.current = [];
+      setCurrentChunkIndex(0);
+      return;
     }
+
+    synth.cancel();
+
+    const text = chunksRef.current[index];
+    if (!text || !text.trim()) {
+      setCurrentChunkIndex(index + 1);
+      speakChunk(index + 1);
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    const voice = selectedVoiceURIRef.current 
+      ? availableVoicesRef.current.find(v => v.voiceURI === selectedVoiceURIRef.current) 
+      : null;
+    if (voice) utterance.voice = voice;
+    utterance.rate = speechRateRef.current;
+    utterance.pitch = speechPitchRef.current;
+    utterance.volume = speechVolumeRef.current;
+    
+    utterance.onend = () => {
+      setCurrentChunkIndex(prev => {
+        const next = prev + 1;
+        setTimeout(() => {
+          speakChunk(next);
+        }, 50);
+        return next;
+      });
+    };
+    
+    utterance.onerror = (e) => {
+      console.warn("Aetherial speech synthesis chunk interrupted/errored:", e);
+      if (e.error !== 'interrupted' && e.error !== 'canceled') {
+         setIsPlayingText(false);
+         setIsPausedText(false);
+      }
+    };
+
+    synth.speak(utterance);
   };
 
   const handleSpeak = () => {
@@ -273,18 +326,16 @@ export default function ReaderChamber({
 
     if (isPlayingText) {
       if (isPausedText) {
-        synth.resume();
         setIsPausedText(false);
+        speakChunk(currentChunkIndex);
       } else {
-        synth.pause();
+        synth.cancel();
         setIsPausedText(true);
       }
       return;
     }
 
     synth.cancel();
-    utteranceQueueRef.current = [];
-    currentUtteranceIndexRef.current = 0;
 
     if (!selectedChapter || !selectedChapter.generatedContent) return;
 
@@ -298,56 +349,40 @@ export default function ReaderChamber({
       .replace(/\[Aura[^\]]+\]/gi, '');
 
     // Split text into chunks (sentences or paragraphs) to avoid the 14-second cutoff bug in some browsers
-    const chunks = `Chapter ${selectedChapter.number}. ${selectedChapter.title}. \n\n ${cleanText}`
+    const rawChunks = `Chapter ${selectedChapter.number}. ${selectedChapter.title}. \n\n ${cleanText}`
       .match(/[^.!?\n]+[.!?\n]+/g) || [cleanText];
 
-    const voice = selectedVoiceURI 
-      ? availableVoices.find(v => v.voiceURI === selectedVoiceURI) 
-      : null;
+    const chunks = rawChunks.map(c => c.trim()).filter(Boolean);
 
-    chunks.forEach((chunk, index) => {
-      const text = chunk.trim();
-      if (!text) return;
-      
-      const utterance = new SpeechSynthesisUtterance(text);
-      if (voice) utterance.voice = voice;
-      utterance.rate = speechRate;
-      utterance.pitch = speechPitch;
-      utterance.volume = speechVolume;
-
-      utterance.onend = () => {
-        currentUtteranceIndexRef.current += 1;
-        speakNextSentence();
-      };
-
-      utterance.onerror = (e) => {
-        console.warn("Aetherial speech synthesis interrupted:", e);
-        // Only stop if not just a boundary interruption
-        if (e.error !== 'interrupted' && e.error !== 'canceled') {
-           setIsPlayingText(false);
-           setIsPausedText(false);
-           utteranceQueueRef.current = [];
-        }
-      };
-
-      utteranceQueueRef.current.push(utterance);
-    });
-
-    if (utteranceQueueRef.current.length > 0) {
+    if (chunks.length > 0) {
+      chunksRef.current = chunks;
+      setCurrentChunkIndex(0);
       setIsPlayingText(true);
       setIsPausedText(false);
-      speakNextSentence();
+      speakChunk(0);
     }
   };
 
   const handleStopSpeaking = () => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      utteranceQueueRef.current = [];
+      chunksRef.current = [];
       setIsPlayingText(false);
       setIsPausedText(false);
+      setCurrentChunkIndex(0);
     }
   };
+
+  // Dynamic Settings sync (Debounced)
+  useEffect(() => {
+    if (!isPlayingText || isPausedText) return;
+    
+    const timer = setTimeout(() => {
+      speakChunk(currentChunkIndexRef.current);
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [speechRate, speechPitch, selectedVoiceURI, speechVolume]);
 
   // --- Cosmic Bookmarking System States & Handlers ---
   const [showBookmarksPanel, setShowBookmarksPanel] = useState(false);
@@ -603,7 +638,7 @@ export default function ReaderChamber({
         <div className="min-w-0">
           <span className="font-sc font-semibold text-[10px] text-jade-accent tracking-[0.2em] uppercase flex items-center gap-1.5 line-clamp-1">
             <span>{arcTitle} • Chapter {selectedChapter.number}</span>
-            {selectedChapter.isSealed && <Lock size={10} className="text-portal shrink-0" title="Published & Sealed" />}
+            {selectedChapter.isSealed && <span title="Published & Sealed" className="flex items-center"><Lock size={10} className="text-portal shrink-0" /></span>}
           </span>
           <h2 className="font-display font-medium text-signal text-base sm:text-xl line-clamp-1 mt-0.5">
             {selectedChapter.title}
@@ -1335,15 +1370,51 @@ export default function ReaderChamber({
 
                {/* Central Play/Pause RECITER bubble */}
                <div className="flex items-center space-x-2 relative">
-                  <button
-                     onClick={handleSpeak}
-                     disabled={!selectedChapter.generatedContent}
-                     className={`h-11 w-11 rounded-full flex items-center justify-center transition-all ${
-                       !selectedChapter.generatedContent ? 'bg-neutral-900 text-neutral-600' : 'bg-gold-accent text-void hover:scale-105 shadow-[0_0_12px_rgba(255,215,0,0.3)]'
-                     }`}
-                  >
-                     {isPlayingText && !isPausedText ? <Pause size={18} fill="currentColor"/> : <Play size={18} className="ml-0.5" fill="currentColor"/>}
-                  </button>
+                  {/* Mobile Cosmic Vinyl/Reciter Disk */}
+                  <div className="relative group/disc flex items-center justify-center h-14 w-14 select-none shrink-0 animate-duration-[4000ms]">
+                    <div 
+                      className={`absolute inset-0 rounded-full border border border-[#FAFAFA]/10 bg-[conic-gradient(from_0deg,#0a0a0a_0%,#262626_25%,#0a0a0a_50%,#262626_75%,#0a0a0a_100%)] shadow-[0_0_20px_rgba(4,172,255,0.12)] transition-transform duration-[4000ms] ease-linear overflow-hidden ${
+                        isPlayingText && !isPausedText ? 'animate-spin' : 'group-hover/disc:rotate-12'
+                      }`}
+                    >
+                      {/* High-fidelity vinyl ridges */}
+                      <div className="absolute inset-[3px] rounded-full border border-dashed border-neutral-850/80" />
+                      <div className="absolute inset-[6px] rounded-full border border-double border-neutral-900/60" />
+                      <div className="absolute inset-[10px] rounded-full border border-neutral-900/40" />
+                      <div className="absolute inset-[15px] rounded-full border border-dashed border-neutral-900/20" />
+                      
+                      {/* Floating consciousness pulse tracks / laser sheen effect */}
+                      {isPlayingText && !isPausedText ? (
+                        <>
+                          <div className="absolute top-0 bottom-0 left-[27px] w-[2px] bg-gradient-to-b from-transparent via-[#04ACFF]/50 to-transparent rotate-45 transform origin-center" />
+                          <div className="absolute top-0 bottom-0 left-[27px] w-[2px] bg-gradient-to-b from-transparent via-[#8B0000]/50 to-transparent -rotate-45 transform origin-center" />
+                          <div className="absolute inset-[12px] rounded-full border-2 border-portal/20 animate-pulse" />
+                        </>
+                      ) : (
+                        <div className="absolute top-0 bottom-0 left-[27px] w-[2px] bg-gradient-to-b from-transparent via-neutral-700/40 to-transparent rotate-30 transform origin-center" />
+                      )}
+                    </div>
+
+                    {/* Central audio touch Core key */}
+                    <button
+                      onClick={handleSpeak}
+                      disabled={!selectedChapter.generatedContent}
+                      className={`absolute h-8 w-8 rounded-full flex items-center justify-center transition-all z-10 ${
+                        !selectedChapter.generatedContent 
+                          ? 'bg-neutral-900 text-neutral-600 border border-neutral-800' 
+                          : isPlayingText && !isPausedText
+                            ? 'bg-[#8B0000] text-[#FAFAFA] border border-[#FAFAFA]/20 shadow-[0_0_12px_rgba(139,0,0,0.8)] hover:scale-105'
+                            : 'bg-[#04ACFF] text-[#000000] border border-[#FAFAFA]/10 shadow-[0_0_12px_rgba(4,172,255,0.8)] hover:scale-105'
+                      }`}
+                      title={isPlayingText && !isPausedText ? 'Pause Recitation' : 'Begin Rhythmic Recitation'}
+                    >
+                      {isPlayingText && !isPausedText ? (
+                        <Pause size={12} fill="currentColor" className="text-[#FAFAFA]" />
+                      ) : (
+                        <Play size={12} fill="currentColor" className="ml-0.5 text-[#000000]" />
+                      )}
+                    </button>
+                  </div>
                   <button 
                      onClick={() => setSpeechRate(prev => prev >= 2 ? 0.5 : prev + 0.5)} 
                      className="text-[9px] font-mono hover:text-signal bg-void border border-neutral-850 px-2.5 py-2 min-w-[44px] rounded text-neutral-400"
@@ -1398,6 +1469,16 @@ export default function ReaderChamber({
                                 />
                              </div>
                            </div>
+
+                           <div className="border-t border-neutral-900 pt-2 mt-1">
+                             <label className="block text-[10px] text-neutral-400 mb-1">Volume ({Math.round(speechVolume * 100)}%)</label>
+                             <input 
+                               type="range" min="0" max="1" step="0.05" 
+                               value={speechVolume} 
+                               onChange={(e) => setSpeechVolume(parseFloat(e.target.value))}
+                               className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer"
+                             />
+                           </div>
                         </div>
                      </div>
                   )}
@@ -1406,11 +1487,12 @@ export default function ReaderChamber({
                {/* Quick Access Icons on Right */}
                <div className="flex items-center space-x-1.5 bg-void/60 border border-neutral-900 rounded-full px-1.5 py-1">
                   <button 
-                     onClick={() => onSwitchTab && onSwitchTab('codex')} 
-                     className="p-2 text-neutral-400 hover:text-jade-accent transition-colors"
-                     title="Realms"
+                     onClick={navigatePrev} 
+                     disabled={selectedChapterNum <= 1}
+                     className="p-2 text-neutral-400 hover:text-portal transition-colors disabled:opacity-20 disabled:pointer-events-none"
+                     title="Previous Scroll"
                   >
-                     <Award size={16} />
+                     <ArrowLeft size={16} />
                   </button>
                   <button 
                      onClick={() => onSwitchTab && onSwitchTab('codex')} 
@@ -1420,11 +1502,12 @@ export default function ReaderChamber({
                      <ListMusic size={16} />
                   </button>
                   <button 
-                     onClick={() => onSwitchTab && onSwitchTab('codex')} 
-                     className="p-2 text-neutral-400 hover:text-human transition-colors"
-                     title="Bonds"
+                     onClick={navigateNext}
+                     disabled={selectedChapterNum === chapters.length || !chapters.find(c => c.number === selectedChapterNum + 1)}
+                     className="p-2 text-neutral-400 hover:text-human transition-colors disabled:opacity-20 disabled:pointer-events-none"
+                     title="Next Scroll"
                   >
-                     <ShieldAlert size={16} />
+                     <ArrowRight size={16} />
                   </button>
                </div>
             </div>
@@ -1434,15 +1517,49 @@ export default function ReaderChamber({
                 
                 {/* TTS Audio Controls */}
                 <div className="flex items-center space-x-4">
-                   <button
-                      onClick={handleSpeak}
-                      disabled={!selectedChapter.generatedContent}
-                      className={`h-12 w-12 rounded-full flex items-center justify-center transition-all ${
-                        !selectedChapter.generatedContent ? 'bg-neutral-900 text-neutral-600' : 'bg-gold-accent text-void hover:scale-105 shadow-[0_0_15px_rgba(255,215,0,0.4)]'
-                      }`}
-                   >
-                      {isPlayingText && !isPausedText ? <Pause size={20} fill="currentColor"/> : <Play size={20} className="ml-1" fill="currentColor"/>}
-                   </button>
+                   {/* Desktop Cosmic Vinyl/Reciter Disk */}
+                   <div className="relative group/disc flex items-center justify-center h-16 w-16 select-none shrink-0 animate-duration-[4000ms]">
+                     <div 
+                       className={`absolute inset-0 rounded-full border border-neutral-850 bg-[#000000] shadow-[0_0_20px_rgba(4,172,255,0.1)] transition-transform duration-[4000ms] ease-linear overflow-hidden ${
+                         isPlayingText && !isPausedText ? 'animate-spin' : 'group-hover/disc:rotate-12'
+                       }`}
+                     >
+                       {/* Concentric sound record grooves */}
+                       <div className="absolute inset-1.5 rounded-full border border-dashed border-neutral-900/60" />
+                       <div className="absolute inset-3 rounded-full border border-double border-neutral-900/40" />
+                       <div className="absolute inset-4.5 rounded-full border border-neutral-900/20" />
+                       
+                       {/* Floating consciousness pulse tracks */}
+                       {isPlayingText && !isPausedText && (
+                         <>
+                           <div className="absolute top-[4px] left-[26px] right-[26px] h-[1.5px] bg-[#04ACFF]/30 animate-pulse" />
+                           <div className="absolute bottom-[4px] left-[26px] right-[26px] h-[1.5px] bg-[#8B0000]/30 animate-pulse [animation-delay:200ms]" />
+                           <div className="absolute left-[4px] top-[26px] bottom-[26px] w-[1.5px] bg-[#04ACFF]/30 animate-pulse [animation-delay:400ms]" />
+                           <div className="absolute right-[4px] top-[26px] bottom-[26px] w-[1.5px] bg-[#8B0000]/30 animate-pulse [animation-delay:600ms]" />
+                         </>
+                       )}
+                     </div>
+
+                     {/* Central audio touch Core key */}
+                     <button
+                       onClick={handleSpeak}
+                       disabled={!selectedChapter.generatedContent}
+                       className={`absolute h-10 w-10 rounded-full flex items-center justify-center transition-all z-10 ${
+                         !selectedChapter.generatedContent 
+                           ? 'bg-neutral-900 text-neutral-600 border border-neutral-800 shadow-none' 
+                           : isPlayingText && !isPausedText
+                             ? 'bg-[#8B0000] text-[#FAFAFA] border border-[#fafafa]/25 shadow-[0_0_15px_rgba(139,0,0,0.6)] hover:scale-105'
+                             : 'bg-[#04ACFF] text-[#000000] border border-[#fafafa]/15 shadow-[0_0_15px_rgba(4,172,255,0.6)] hover:scale-105'
+                       }`}
+                       title={isPlayingText && !isPausedText ? 'Pause Recitation' : 'Begin Rhythmic Recitation'}
+                     >
+                       {isPlayingText && !isPausedText ? (
+                         <Pause size={15} fill="currentColor" className="text-[#FAFAFA]" />
+                       ) : (
+                         <Play size={15} fill="currentColor" className="ml-0.5 text-[#000000]" />
+                       )}
+                     </button>
+                   </div>
                    <div>
                        <p className="font-sc font-bold text-signal text-[10px] tracking-widest uppercase">
                           {isPlayingText && !isPausedText ? 'Rhythmic Recitation Active' : 'Listen to Scroll'}
@@ -1517,11 +1634,12 @@ export default function ReaderChamber({
                    {/* Quick Access Lore Action Links */}
                    <div className="flex items-center space-x-4 bg-void border border-neutral-900 rounded-full px-2 py-1">
                        <button 
-                        onClick={() => onSwitchTab && onSwitchTab('codex')} 
-                        className="px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-jade-accent transition-colors text-[10px] font-sc uppercase tracking-wider"
+                        onClick={navigatePrev}
+                        disabled={selectedChapterNum <= 1}
+                        className="px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-portal disabled:opacity-25 disabled:pointer-events-none transition-colors text-[10px] font-sc uppercase tracking-wider font-semibold"
                        >
-                           <Award size={14} />
-                           <span>Realms</span>
+                           <ArrowLeft size={14} />
+                           <span>Previous Scroll</span>
                        </button>
                        <div className="w-[1px] h-4 bg-neutral-800"></div>
                        <button 
@@ -1533,11 +1651,12 @@ export default function ReaderChamber({
                        </button>
                        <div className="w-[1px] h-4 bg-neutral-800"></div>
                        <button 
-                        onClick={() => onSwitchTab && onSwitchTab('codex')} 
-                        className="px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-human transition-colors text-[10px] font-sc uppercase tracking-wider"
+                        onClick={navigateNext}
+                        disabled={selectedChapterNum === chapters.length || !chapters.find(c => c.number === selectedChapterNum + 1)}
+                        className="px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-human disabled:opacity-25 disabled:pointer-events-none transition-colors text-[10px] font-sc uppercase tracking-wider font-semibold"
                        >
-                           <ShieldAlert size={14} />
-                           <span>Bonds</span>
+                           <ArrowRight size={14} />
+                           <span>Next Scroll</span>
                        </button>
                    </div>
                    
