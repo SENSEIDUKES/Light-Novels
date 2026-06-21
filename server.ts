@@ -1160,7 +1160,7 @@ Do not add any markup before or after the JSON.`;
 // 6. Translate Chapter
 app.post("/api/translate-chapter", async (req, res) => {
   try {
-    const { chapterId, targetLang, englishText, glossaryId } = req.body;
+    const { chapterId, targetLang, englishText, glossaryId, routingConfig } = req.body;
 
     if (!englishText || !targetLang) {
       return res.status(400).json({ error: "Missing required fields: targetLang, englishText" });
@@ -1195,23 +1195,23 @@ app.post("/api/translate-chapter", async (req, res) => {
 
     if (!finalTranslatedText) {
       // Fallback to Gemini
-      const prompt = `You are an expert translator specializing in fantasy, wuxia, and xianxia light novels.
-Translate the following chapter text into the language with language code '${targetLang}'.
+      const prompt = `Translate the following chapter text into the language with language code '${targetLang}'.
 Maintain the literary style, formatting, system tags (e.g., [SFX:...]), and keep paragraph breaks intact.
 
 Text to translate:
 ${englishText}
 `;
-      const ai = getAiClient();
-      const model = ai.models.generateContent({
-        model: "gemini-2.5-pro",
-        contents: prompt,
-        config: {
-          temperature: 0.3,
-        }
-      });
-      const response = await model;
-      finalTranslatedText = response.text() || englishText;
+      const systemInstruction = `You are an expert translator specializing in fantasy, wuxia, and xianxia light novels. Keep translations immersive, descriptive, and accurate to the genre. Do not include raw translation notes or metadata tags inside the final text.`;
+      
+      const data = await routeTextGeneration(
+        "storyMaker",
+        systemInstruction,
+        prompt,
+        "translate-chapter-fallback",
+        routingConfig,
+        getCustomKeys(req)
+      );
+      finalTranslatedText = data.text || englishText;
     }
 
     return res.json({

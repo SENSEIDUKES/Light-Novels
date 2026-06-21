@@ -17,10 +17,29 @@ import { useAppStore } from '../store/useAppStore';
 
 const extractSFXCues = (text: string) => {
   const sfxList: string[] = [];
-  const cleanText = text.replace(/\[(?:SFX|Audio|Sound):\s*([^\]]+)\]/gi, (match, sfx) => {
-      sfxList.push(sfx.trim().toLowerCase());
-      return '';
+  
+  // 1. Remove JSON-style signatures/metadata blocks (curly brace nested blocks containing metadata keys)
+  let cleanText = text.replace(/\{[^{}]*?"(?:sceneType|intensity|tension|danger|mysticism|emotion|audioSignature|beastEvent|summary|statsChangeMessage|memoryUpdates)"[^{}]*?\}/gi, '');
+  
+  // Clean raw JSON structures enclosed in brackets (e.g. `[{"intensity": 0.8}]`, `[{"sceneType": ...}]` or nested JSON config arrays)
+  cleanText = cleanText.replace(/\[\s*\{[\s\S]*?\}\s*\]/g, '');
+  cleanText = cleanText.replace(/\[\s*\{[^{}]*?\}\s*\]/g, '');
+
+  // 2. Extract genuine audio/SFX cue identifiers, and completely strip all hidden system metadata tags from reader output.
+  // We match common hidden tags: SFX, Audio, Sound, Beat, Timing, Time, Duration, Mood, Emotion, Trigger, Narrative, JSON, SAP, Audio-Metadata, Metadata, Intensity, Tension, Danger.
+  const hiddenSystemTagsRegex = /\[(?:SFX|Audio|Sound|Beat|Timing|Time|Duration|Trigger|SAP|Audio-Metadata|Metadata|Intensity|Tension|Danger|Mood|Emotion|Narrative):\s*([^\]]+)\]/gi;
+  
+  cleanText = cleanText.replace(hiddenSystemTagsRegex, (match, val) => {
+    // If it is a real audio/sound effect signifier, record it to trigger underlying page-turn/particle effects.
+    if (match.match(/\[(?:SFX|Audio|Sound):\s*/i)) {
+      sfxList.push(val.trim().toLowerCase());
+    }
+    return ''; // completely erase from the rendered reader-facing paragraph
   });
+
+  // 3. Strip any empty brackets or orphaned tag constructs that may have been parsed or typed (e.g. `[]`, `[ ]`)
+  cleanText = cleanText.replace(/\[\s*\]/g, '');
+
   return { cleanText: cleanText.trim(), sfxList };
 }
 
@@ -262,10 +281,13 @@ export default function ReaderChamber({
     if (!selectedChapter || !selectedChapter.generatedContent) return;
 
     // Clean text of UI markup blocks like system alert blocks for fluent stream
-    const cleanText = selectedChapter.generatedContent
+    // and run through extractSFXCues first to completely remove hidden audio, sfx, timing, or JSON metadata tags from speech
+    const proseCleaned = extractSFXCues(selectedChapter.generatedContent).cleanText;
+    const cleanText = proseCleaned
       .replace(/\[System Alert:[^\]]+\]/gi, '')
-      .replace(/\[Aura[^\]]+\]/gi, '')
-      .replace(/\[(?:SFX|Audio|Sound):\s*([^\]]+)\]/gi, '');
+      .replace(/\[System Breakthrough:[^\]]+\]/gi, '')
+      .replace(/\[System Notification:[^\]]+\]/gi, '')
+      .replace(/\[Aura[^\]]+\]/gi, '');
 
     // Split text into chunks (sentences or paragraphs) to avoid the 14-second cutoff bug in some browsers
     const chunks = `Chapter ${selectedChapter.number}. ${selectedChapter.title}. \n\n ${cleanText}`
@@ -492,12 +514,21 @@ export default function ReaderChamber({
 
   const handleExportText = () => {
     if (!selectedChapter.generatedContent) return;
+
+    // Clean each paragraph separately to remove metadata and keep prose pure
+    const paragraphs = selectedChapter.generatedContent.split('\n\n');
+    const cleanedParagraphs = paragraphs
+      .map(p => extractSFXCues(p).cleanText)
+      .filter(p => !!p); // Filter out lines that were purely metadata
+
+    const cleanedContent = cleanedParagraphs.join('\n\n');
+
     const blob = new Blob([
       `Chapter ${selectedChapter.number}: ${selectedChapter.title}\n`,
       `========================\n`,
       `Summary: ${selectedChapter.summary || 'None'}\n`,
       `System Alerts: ${selectedChapter.statsChangeMessage || 'None'}\n\n`,
-      selectedChapter.generatedContent
+      cleanedContent
     ], { type: 'text/plain;charset=utf-8' });
     
     const url = URL.createObjectURL(blob);
@@ -886,6 +917,7 @@ export default function ReaderChamber({
                {activeTranslationContent ? activeTranslationContent.split('\n\n').map((paragraph, index) => {
                  if (!paragraph.trim()) return null;
                  const { cleanText, sfxList } = extractSFXCues(paragraph);
+                 if (!cleanText) return null;
                  const isSystemLine = cleanText.startsWith('[') && cleanText.endsWith(']');
                  if (isSystemLine) {
                    const getSystemThemeClasses = () => {
@@ -902,7 +934,7 @@ export default function ReaderChamber({
                        key={index} 
                        className={`my-8 p-6 bg-black/50 border font-mono text-xs rounded text-center tracking-widest leading-relaxed transition-colors duration-500 ${getSystemThemeClasses()}`}
                      >
-                       {paragraph.replace('[', '').replace(']', '')}
+                       {cleanText.replace('[', '').replace(']', '')}
                      </div>
                    );
                  }
@@ -935,6 +967,7 @@ export default function ReaderChamber({
                }) : selectedChapter.blocks ? selectedChapter.blocks.map((block, index) => {
                  if (!block.text.trim()) return null;
                  const { cleanText, sfxList } = extractSFXCues(block.text);
+                 if (!cleanText) return null;
                  const isSystemLine = cleanText.startsWith('[') && cleanText.endsWith(']');
                  
                  if (isSystemLine) {
@@ -956,7 +989,7 @@ export default function ReaderChamber({
                        data-cue-once="true"
                        className={`narrative-trigger my-8 p-6 bg-black/50 border font-mono text-xs rounded text-center tracking-widest leading-relaxed transition-colors duration-500 ${getSystemThemeClasses()} ${block.metadata ? 'metadata-block' : ''}`}
                      >
-                       {block.text.replace('[', '').replace(']', '')}
+                       {cleanText.replace('[', '').replace(']', '')}
                      </div>
                    );
                  }
@@ -1042,6 +1075,7 @@ export default function ReaderChamber({
                }) : (selectedChapter.generatedContent || '').split('\n\n').map((paragraph, index) => {
                  if (!paragraph.trim()) return null;
                  const { cleanText, sfxList } = extractSFXCues(paragraph);
+                 if (!cleanText) return null;
                  const isSystemLine = cleanText.startsWith('[') && cleanText.endsWith(']');
                  if (isSystemLine) {
                    const getSystemThemeClasses = () => {
@@ -1060,7 +1094,7 @@ export default function ReaderChamber({
                        data-cue-id={`system-line-${selectedChapter.number}-${index}`}
                        className={`narrative-trigger my-8 p-6 bg-black/50 border font-mono text-xs rounded text-center tracking-widest leading-relaxed transition-colors duration-500 ${getSystemThemeClasses()}`}
                      >
-                       {paragraph.replace('[', '').replace(']', '')}
+                       {cleanText.replace('[', '').replace(']', '')}
                      </div>
                    );
                  }
