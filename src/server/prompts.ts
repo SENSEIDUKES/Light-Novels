@@ -2,9 +2,12 @@ export const PROMPTS = {
   blueprint: {
     system: `You are an elite fantasy and Chinese web-novel author/creative director specializing in light novels (Wuxia, Xianxia, Xuanhuan, Cultivation, LitRPG, and System novels). 
 Your task is to craft highly detailed, structured, and immersive world setting specifications (World Blueprints) which act as a solid bible for future chapter generation. 
-You must output strictly raw JSON matching the requested structure. Keep descriptions immersive, keeping true to the tropes of light novels — level progressions, face-slapping, arrogant young masters, mysterious elders, rare medicinal pills, jade treasures, ancient inheritances, or glowing holographic LitRPG system status screens.`,
+You must output strictly raw JSON matching the requested structure. Keep descriptions immersive, keeping true to the tropes of light novels — level progressions, face-slapping, arrogant young masters, mysterious elders, rare medicinal pills, jade treasures, ancient inheritances, or glowing holographic LitRPG system status screens.
+You must carefully incorporate and highlight any custom user story tags (such as "slice of life", "romantic comedy", "dark fantasy", "tragedy", etc. provided via 'storyTags') so they deeply influence the overall writing style, pacing, interpersonal character interactions, and thematic focus of this universe.`,
     userPrompt: (intakeJson: string) => `Create a detailed World Blueprint based on this active Intake Form config:
 ${intakeJson}
+
+Pay extreme attention to the "storyTags" field if provided! Integrate these sub-genres or styles (e.g., if "slice of life" is included, spend extra blueprint detail on lighthearted side-characters, daily training montages, culinary cultivation, or light humor; if "romantic comedy" is included, highlight comedic romantic tension, classic light-novel double entendres, or protective tsundere/rival character arcs).
 
 You must return a JSON object with the following fields:
 {
@@ -20,7 +23,7 @@ You must return a JSON object with the following fields:
   "majorMysteries": ["Mystery 1", "Mystery 2"],
   "firstArcPromise": "What readers can expect in the first 10 chapters",
   "tropeRules": "Specific tropes to include or avoid",
-  "styleBible": "Tone, themes, and stylistic notes",
+  "styleBible": "Tone, themes, and stylistic notes reflecting the storyTags",
   "unresolvedPlotThreads": ["Plot 1", "Plot 2"]
 }
 Do not add any text before or after the JSON.`
@@ -202,7 +205,12 @@ You must return a JSON object with the following fields:
         "status": "alive",
         "powerLevel": "e.g., Qi Condensation Tier 9, Core Formation, or unknown",
         "abilities": ["Optional array of known unique techniques/skills"],
-        "faction": "Optional. Name of the faction they associate with"
+        "faction": "Optional. Name of the faction they associate with",
+        "relevanceState": "active / warm / dormant / archived / reactivated based on importance",
+        "currentRelevance": "Why they matter right now",
+        "toneMemory": "Their vibe or disposition (e.g. bitter, cautious)",
+        "firstAppeared": 1,
+        "lastMajorInvolvement": 1
       }
     ],
     "characterStatusUpdates": [
@@ -212,7 +220,11 @@ You must return a JSON object with the following fields:
         "newRelationship": "Updated attitude toward MC if it changed, otherwise same",
         "newPowerLevel": "Optional. Updated power of the character if they progressed",
         "newAbilities": ["Optional. Any new techniques they revealed/gained in this chapter"],
-        "descriptionAppend": "Optional. New facts or secrets revealed about them to append to their codex entry"
+        "descriptionAppend": "Optional. New facts or secrets revealed about them",
+        "relevanceState": "Optional. Set to active, warm, dormant, archived, or reactivated based on current involvement.",
+        "currentRelevance": "Optional. Update their current importance.",
+        "toneMemory": "Optional. Update their behavior trend.",
+        "lastMajorInvolvement": "Number of this chapter if they played a major role."
       }
     ],
     "newUnresolvedPlotThreads": [
@@ -227,14 +239,18 @@ You must return a JSON object with the following fields:
         "description": "Short explanation of their standing & beliefs",
         "alignment": "Righteous / Demonic / Neutral / Mysterious",
         "headquarters": "Primary location or temple",
-        "status": "Active / Destroyed / Fractured"
+        "status": "Active / Destroyed / Fractured",
+        "relevanceState": "active / warm / dormant",
+        "currentRelevance": "Why they matter right now"
       }
     ],
     "factionUpdates": [
       {
         "name": "Faction Name",
         "statusOverride": "Optional. If their status changed (e.g. Destroyed)",
-        "descriptionAppend": "Optional. New secrets/history revealed about the sect"
+        "descriptionAppend": "Optional. New secrets/history revealed about the sect",
+        "relevanceState": "Optional. Update importance.",
+        "currentRelevance": "Optional. Update why they matter."
       }
     ],
     "newLocations": [
@@ -242,14 +258,18 @@ You must return a JSON object with the following fields:
         "name": "Name of newly introduced area, realm, pavilion, or planet",
         "description": "Atmosphere and key landmarks",
         "realm": "The broader realm (e.g. Mortal Realm, Celestial Domain)",
-        "safetyLevel": "Safe / Dangerous / Lethal"
+        "safetyLevel": "Safe / Dangerous / Lethal",
+        "relevanceState": "active / warm / dormant",
+        "currentRelevance": "Why it matters right now"
       }
     ],
     "locationUpdates": [
       {
         "name": "Location Name",
         "safetyLevelOverride": "Optional. If safety changed",
-        "descriptionAppend": "Optional. New geographic secrets revealed"
+        "descriptionAppend": "Optional. New geographic secrets revealed",
+        "relevanceState": "Optional. Update importance.",
+        "currentRelevance": "Optional. Update why it matters."
       }
     ],
     "newArtifacts": [
@@ -257,14 +277,18 @@ You must return a JSON object with the following fields:
         "name": "Name of the magical treasure, pill, array, or weapon",
         "description": "Magical properties and size/appearance",
         "tier": "Mortal / Earth / Heaven / Primordial",
-        "currentOwner": "Who holds this artifact now (e.g. MC, Elder Zhao)"
+        "currentOwner": "Who holds this artifact now (e.g. MC, Elder Zhao)",
+        "relevanceState": "active / warm / dormant",
+        "currentRelevance": "Why it matters right now"
       }
     ],
     "artifactUpdates": [
       {
         "name": "Artifact Name",
         "newOwner": "Optional. If the artifact changed hands",
-        "descriptionAppend": "Optional. New hidden powers or lore revealed about the artifact"
+        "descriptionAppend": "Optional. New hidden powers or lore revealed about the artifact",
+        "relevanceState": "Optional. Update importance.",
+        "currentRelevance": "Optional. Update why it matters."
       }
     ],
     "newMCAbilities": [

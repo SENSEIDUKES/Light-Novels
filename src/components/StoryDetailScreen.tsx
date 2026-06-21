@@ -78,6 +78,21 @@ export const StoryDetailScreen: React.FC<{
               </button>
             </div>
           </div>
+
+          {/* Mobile visible cover generation/evolution button */}
+          <div className="block md:hidden mt-2 mb-3">
+            <button
+              onClick={async () => {
+                const result = await handleGenerateCover();
+                if (result) setCoverPreview({ urls: result.imageUrls, prompt: result.promptUsed, selectedIndex: 0 });
+              }}
+              disabled={isGenerating || (!!activeStory.imageUrl && !activeStory.evolutionReady)}
+              className="w-full py-2.5 bg-portal/10 border border-portal/30 text-portal text-[11px] font-bold font-sc uppercase tracking-wider rounded flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_10px_rgba(4,172,255,0.1)] hover:bg-portal hover:text-void transition-all"
+            >
+              <Sparkles size={12} />
+              <span>{activeStory.evolutionReady ? 'Awaken Evolution' : activeStory.imageUrl ? 'Progression Required' : 'Forge Core Cover'}</span>
+            </button>
+          </div>
           
           {/* Cover Evolution Readiness indicator */}
           {activeStory.evolutionReady && !coverPreview && (
@@ -130,6 +145,11 @@ export const StoryDetailScreen: React.FC<{
             <span className="bg-void border border-neutral-800 text-neutral-400 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider font-mono">
               Cultivation Rate: Heaven
             </span>
+            {activeStory.intake?.storyTags && activeStory.intake.storyTags.map(tag => (
+              <span key={tag} className="bg-neutral-900 border border-portal/20 text-portal px-2 py-1 rounded text-[10px] font-medium font-sans">
+                #{tag}
+              </span>
+            ))}
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-void border border-neutral-800 rounded-lg">
@@ -243,13 +263,13 @@ export const StoryDetailScreen: React.FC<{
                       <div className="py-1">
                         <button
                           onClick={(e) => {
-                            setIsStoryMenuOpen(false);
                             handleDeleteStory(activeStory.id, e);
+                            setIsStoryMenuOpen(false);
                           }}
                           className="w-full text-left px-4 py-2.5 text-xs text-red-500 hover:bg-red-950/20 hover:text-red-400 transition-colors flex items-center space-x-2 font-sc font-bold uppercase tracking-wider"
                         >
                           <Trash2 size={14} />
-                          <span>Delete Matrix</span>
+                          <span>Burn Scroll</span>
                         </button>
                       </div>
                     </motion.div>

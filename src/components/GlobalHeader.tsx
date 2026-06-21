@@ -1,5 +1,5 @@
-import React from 'react';
-import { Cloud, CloudOff, RefreshCw, User, LogOut, Plus, Sliders, ScrollText, Scroll } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Cloud, CloudOff, RefreshCw, User, LogOut, Plus, Sliders, ScrollText, Scroll, Link } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
 import { auth } from '../lib/firebase';
@@ -8,6 +8,55 @@ import { AudioWidget } from './AudioWidget';
 
 export const GlobalHeader: React.FC = () => {
   const { currentScreen, setCurrentScreen, setActiveStoryId, syncStatus, currentUser, lastSavedTime, activeStoryId, stories, setIsSettingsOpen } = useAppStore();
+
+  const [daoStatus, setDaoStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
+  const [daoDetail, setDaoDetail] = useState<string>('Sensing alignment with the cosmic Dao...');
+
+  const localGeminiKey = useAppStore(state => state.localGeminiKey);
+  const localOpenrouterKey = useAppStore(state => state.localOpenrouterKey);
+  const localOllamaHost = useAppStore(state => state.localOllamaHost);
+  const isSettingsOpen = useAppStore(state => state.isSettingsOpen);
+
+  const checkDaoConnection = async () => {
+    setDaoStatus('checking');
+    try {
+      const res = await fetch('/api/config-status');
+      if (!res.ok) throw new Error();
+      const status = await res.json();
+      
+      const hasLocalKey = !!(localGeminiKey || localOpenrouterKey || localOllamaHost);
+      const isConnected = status.hasServerGemini || status.hasServerOpenRouter || hasLocalKey;
+      
+      if (isConnected) {
+        setDaoStatus('connected');
+        if (status.hasServerGemini && status.hasServerOpenRouter) {
+          setDaoDetail('Divine Flow Stable (Gemini & OpenRouter keys active)');
+        } else if (status.hasServerGemini) {
+          setDaoDetail('Divine Flow Stable (Celestial Gemini active)');
+        } else if (status.hasServerOpenRouter) {
+          setDaoDetail('Divine Flow Stable (OpenRouter active)');
+        } else {
+          setDaoDetail('Local Conduit Active (Overriding Keys configured)');
+        }
+      } else {
+        setDaoStatus('disconnected');
+        setDaoDetail('Severed from the Dao (Configure keys in Celestial Tools > Aether Router)');
+      }
+    } catch (err) {
+      const hasLocalKey = !!(localGeminiKey || localOpenrouterKey);
+      if (hasLocalKey) {
+        setDaoStatus('connected');
+        setDaoDetail('Local Conduit Active (Configured with local keys)');
+      } else {
+        setDaoStatus('disconnected');
+        setDaoDetail('Severed from the Dao (Connection offline)');
+      }
+    }
+  };
+
+  useEffect(() => {
+    checkDaoConnection();
+  }, [localGeminiKey, localOpenrouterKey, localOllamaHost, isSettingsOpen]);
 
   const handleLogin = async () => {
     try {
@@ -31,7 +80,7 @@ export const GlobalHeader: React.FC = () => {
           <img 
             src="https://images.seihouse.org/SEA%20LOGO/SEA%20LOGO.png" 
             alt="SEIHouse SEA Logo" 
-            className="h-7 sm:h-10 w-auto object-contain brightness-110 filter drop-shadow-[0_0_8px_rgba(4,172,255,0.3)] shrink-0"
+            className="h-7 sm:h-10 w-auto object-contain brightness-110 filter drop-shadow-[0_0_8px_rgba(4,172,255,0.3)] shrink-0 rounded-2xl"
             referrerPolicy="no-referrer"
           />
           <div className="min-w-0">
@@ -41,6 +90,39 @@ export const GlobalHeader: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
+          {/* Connection to the Dao Badge */}
+          <button
+            onClick={checkDaoConnection}
+            className={`flex items-center space-x-1.5 px-2 py-1 rounded-full text-[9px] sm:text-[10px] uppercase font-bold transition-all duration-300 border border-neutral-900 shrink-0 font-sc tracking-wider hover:scale-105 select-none animate-fadeIn ${
+              daoStatus === 'connected'
+                ? 'bg-emerald-550/10 border-emerald-500/25 text-emerald-400 hover:bg-emerald-550/15 shadow-[0_0_12px_rgba(16,185,129,0.06)]'
+                : daoStatus === 'disconnected'
+                ? 'bg-red-950/20 border-red-900/30 text-red-400 hover:bg-red-900/20 shadow-[0_0_12px_rgba(139,0,0,0.04)]'
+                : 'bg-neutral-900/50 border-neutral-800 text-neutral-400'
+            }`}
+            title={`${daoDetail} — Click to verify connection state`}
+          >
+            {daoStatus === 'checking' ? (
+              <RefreshCw size={11} className="animate-spin text-amber-400" />
+            ) : daoStatus === 'connected' ? (
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+            ) : (
+              <span className="relative flex h-2 w-2">
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+              </span>
+            )}
+            
+            <span className="hidden sm:inline-block font-bold">
+              {daoStatus === 'connected' ? 'Connection to the Dao' : daoStatus === 'disconnected' ? 'Dao Severed' : 'Sensing Dao...'}
+            </span>
+            <span className="sm:hidden font-bold">
+              {daoStatus === 'connected' ? 'Dao Aligned' : daoStatus === 'disconnected' ? 'Dao Severed' : 'Sensing...'}
+            </span>
+          </button>
+
           <div className="flex items-center shrink-0">
             {currentUser ? (
               <button 

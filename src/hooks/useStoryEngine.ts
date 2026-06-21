@@ -555,7 +555,12 @@ export const useStoryEngine = () => {
               status: c.status || 'alive',
               powerLevel: c.powerLevel || undefined,
               abilities: c.abilities || undefined,
-              faction: c.faction || undefined
+              faction: c.faction || undefined,
+              relevanceState: c.relevanceState || 'active',
+              currentRelevance: c.currentRelevance || undefined,
+              toneMemory: c.toneMemory || undefined,
+              firstAppeared: c.firstAppeared || chapterNumber,
+              lastMajorInvolvement: c.lastMajorInvolvement || chapterNumber
             }));
             nextMemory.characters = [...(nextMemory.characters || []), ...added];
           }
@@ -586,6 +591,10 @@ export const useStoryEngine = () => {
                   relationshipToMC: rule.newRelationship || char.relationshipToMC,
                   powerLevel: rule.newPowerLevel || char.powerLevel,
                   abilities: mergedAbilities.length > 0 ? mergedAbilities : undefined,
+                  relevanceState: rule.relevanceState || char.relevanceState,
+                  currentRelevance: rule.currentRelevance || char.currentRelevance,
+                  toneMemory: rule.toneMemory || char.toneMemory,
+                  lastMajorInvolvement: rule.lastMajorInvolvement || char.lastMajorInvolvement,
                   evolutionReady: evolutionReady,
                   evolutionReason: evolutionReason,
                   availableVisualUpdate: evolutionReady
@@ -606,7 +615,9 @@ export const useStoryEngine = () => {
                 return {
                   ...f,
                   description: newDesc,
-                  status: rule.statusOverride || f.status
+                  status: rule.statusOverride || f.status,
+                  relevanceState: rule.relevanceState || f.relevanceState,
+                  currentRelevance: rule.currentRelevance || f.currentRelevance
                 };
               }
               return f;
@@ -628,6 +639,8 @@ export const useStoryEngine = () => {
                   ...l,
                   description: newDesc,
                   safetyLevel: rule.safetyLevelOverride || l.safetyLevel,
+                  relevanceState: rule.relevanceState || l.relevanceState,
+                  currentRelevance: rule.currentRelevance || l.currentRelevance,
                   evolutionReady,
                   evolutionReason,
                   availableVisualUpdate: evolutionReady
@@ -652,6 +665,8 @@ export const useStoryEngine = () => {
                   ...a,
                   description: newDesc,
                   currentOwner: rule.newOwner || a.currentOwner,
+                  relevanceState: rule.relevanceState || a.relevanceState,
+                  currentRelevance: rule.currentRelevance || a.currentRelevance,
                   evolutionReady,
                   evolutionReason,
                   availableVisualUpdate: evolutionReady
@@ -692,7 +707,10 @@ export const useStoryEngine = () => {
               description: f.description || '',
               alignment: f.alignment || 'Neutral',
               headquarters: f.headquarters || '',
-              status: f.status || 'Active'
+              status: f.status || 'Active',
+              relevanceState: f.relevanceState || 'active',
+              currentRelevance: f.currentRelevance || undefined,
+              firstAppeared: chapterNumber
             }));
             const filteredAdded = added.filter((af: any) => !currentFactions.some((cf: any) => cf.name?.toLowerCase() === af.name?.toLowerCase()));
             nextMemory.factions = [...currentFactions, ...filteredAdded];
@@ -705,7 +723,10 @@ export const useStoryEngine = () => {
               name: l.name,
               description: l.description || '',
               realm: l.realm || '',
-              safetyLevel: l.safetyLevel || 'Safe'
+              safetyLevel: l.safetyLevel || 'Safe',
+              relevanceState: l.relevanceState || 'active',
+              currentRelevance: l.currentRelevance || undefined,
+              firstAppeared: chapterNumber
             }));
             const filteredAdded = added.filter((al: any) => !currentLocations.some((cl: any) => cl.name?.toLowerCase() === al.name?.toLowerCase()));
             nextMemory.locations = [...currentLocations, ...filteredAdded];
@@ -718,7 +739,10 @@ export const useStoryEngine = () => {
               name: a.name,
               description: a.description || '',
               tier: a.tier || 'Mortal',
-              currentOwner: a.currentOwner || 'Unknown'
+              currentOwner: a.currentOwner || 'Unknown',
+              relevanceState: a.relevanceState || 'active',
+              currentRelevance: a.currentRelevance || undefined,
+              firstAppeared: chapterNumber
             }));
             const filteredAdded = added.filter((aa: any) => !currentArtifacts.some((ca: any) => ca.name?.toLowerCase() === aa.name?.toLowerCase()));
             nextMemory.artifacts = [...currentArtifacts, ...filteredAdded];

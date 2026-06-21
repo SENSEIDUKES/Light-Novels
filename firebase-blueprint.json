@@ -68,7 +68,13 @@
       "title": "Intake Data",
       "description": "Intake forms",
       "type": "object",
-      "properties": {}
+      "properties": {
+        "storyTags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Custom selected and defined story tags"
+        }
+      }
     },
     "WorldBlueprint": {
       "title": "World Blueprint",

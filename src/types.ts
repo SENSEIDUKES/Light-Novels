@@ -54,7 +54,18 @@ export interface BeastSonicProfile {
   signatureSound: 'screech' | 'roar' | 'chitter' | 'hum' | 'pulse' | 'chant' | 'silence';
 }
 
-export interface Character {
+export type RelevanceState = 'active' | 'warm' | 'dormant' | 'archived' | 'reactivated';
+
+export interface BaseCodexEntry {
+  relevanceState?: RelevanceState;
+  firstAppeared?: number;
+  lastMajorInvolvement?: number;
+  unresolvedThreads?: string[];
+  currentRelevance?: string;
+  toneMemory?: string;
+}
+
+export interface Character extends BaseCodexEntry {
   id: string;
   name: string;
   role: string;
@@ -74,7 +85,7 @@ export interface Character {
   availableVisualUpdate?: boolean;
 }
 
-export interface Faction {
+export interface Faction extends BaseCodexEntry {
   id: string;
   name: string;
   description: string;
@@ -83,7 +94,7 @@ export interface Faction {
   status?: 'Active' | 'Destroyed' | 'Fractured' | string;
 }
 
-export interface Location {
+export interface Location extends BaseCodexEntry {
   id: string;
   name: string;
   description: string;
@@ -97,7 +108,7 @@ export interface Location {
   availableVisualUpdate?: boolean;
 }
 
-export interface Artifact {
+export interface Artifact extends BaseCodexEntry {
   id: string;
   name: string;
   description: string;
@@ -247,6 +258,7 @@ export interface IntakeData {
   genrePath?: string;
   corePremise?: string;
   desiredPlotDirection?: string;
+  storyTags?: string[];
 
   // 2. World Setting
   worldType?: string;

@@ -107,7 +107,7 @@ export const LibraryScreen: React.FC = () => {
             <div className="pt-2 sm:pt-4 flex flex-wrap gap-4">
               <button
                 onClick={() => setCurrentScreen('creator')}
-                className="group relative px-4 py-2 sm:px-6 sm:py-2.5 bg-void border border-portal text-portal text-xs sm:text-sm font-sc font-bold uppercase tracking-wider rounded shadow-[0_0_20px_rgba(4,172,255,0.4),inset_0_0_15px_rgba(4,172,255,0.2)] hover:shadow-[0_0_30px_rgba(4,172,255,0.6),inset_0_0_25px_rgba(4,172,255,0.4)] hover:bg-portal/10 hover:text-signal transition-all duration-500 overflow-hidden flex items-center space-x-1.5 sm:space-x-2"
+                className="group relative px-4 py-2 sm:px-6 sm:py-2.5 bg-void border border-portal text-portal text-xs sm:text-sm font-sc font-bold uppercase tracking-wider rounded-xl shadow-[0_0_20px_rgba(4,172,255,0.4),inset_0_0_15px_rgba(4,172,255,0.2)] hover:shadow-[0_0_30px_rgba(4,172,255,0.6),inset_0_0_25px_rgba(4,172,255,0.4)] hover:bg-portal/10 hover:text-signal transition-all duration-500 overflow-hidden flex items-center space-x-1.5 sm:space-x-2"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-portal/20 to-transparent -translate-x-[200%] group-hover:translate-x-[200%] transition-transform duration-1000 ease-in-out" />
                 <Sparkles size={14} className="relative z-10 group-hover:animate-pulse" />
@@ -173,6 +173,18 @@ export const LibraryScreen: React.FC = () => {
                   <p className="text-xs text-neutral-400 font-sans truncate mt-1.5">
                     MC: {mostRecentStory.mcName} • {mostRecentStory.memory.currentPowerStage}
                   </p>
+                  {mostRecentStory.intake?.storyTags && mostRecentStory.intake.storyTags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {mostRecentStory.intake.storyTags.slice(0, 3).map(tag => (
+                        <span key={tag} className="bg-neutral-900/60 border border-portal/10 text-portal/90 px-1.5 py-0.5 rounded text-[9px] font-medium font-sans">
+                          #{tag}
+                        </span>
+                      ))}
+                      {mostRecentStory.intake.storyTags.length > 3 && (
+                        <span className="text-[9px] text-neutral-500 font-sans self-center font-bold">+{mostRecentStory.intake.storyTags.length - 3}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 
                 {(() => {
@@ -196,7 +208,7 @@ export const LibraryScreen: React.FC = () => {
               <div className="w-full md:w-auto flex-shrink-0 flex items-center justify-end">
                 <button
                   onClick={() => handleResumeReading(mostRecentStory)}
-                  className="w-full md:w-auto px-6 py-3 bg-human border border-human text-signal text-sm font-sc font-bold uppercase tracking-wider rounded transition-all flex items-center justify-center space-x-2 shadow-[0_0_15px_rgba(139,0,0,0.5)] hover:bg-void hover:text-human"
+                  className="w-full md:w-auto px-6 py-3 bg-human border border-human text-signal text-sm font-sc font-bold uppercase tracking-wider rounded-xl transition-all flex items-center justify-center space-x-2 shadow-[0_0_15px_rgba(139,0,0,0.5)] hover:bg-void hover:text-human"
                 >
                   <Play size={16} />
                   <span>Quick Resume</span>
@@ -216,7 +228,7 @@ export const LibraryScreen: React.FC = () => {
               </p>
               <button
                 onClick={() => setCurrentScreen('creator')}
-                className="px-4 py-2 bg-void border border-neutral-800 hover:border-gold-accent text-xs text-neutral-300 hover:text-gold-accent rounded transition-all font-sc uppercase tracking-widest"
+                className="px-4 py-2 bg-void border border-neutral-800 hover:border-gold-accent text-xs text-neutral-300 hover:text-gold-accent rounded-xl transition-all font-sc uppercase tracking-widest"
               >
                 Manifest Realm
               </button>
@@ -249,7 +261,7 @@ export const LibraryScreen: React.FC = () => {
                       </div>
                       <button
                          onClick={(e) => handleDeleteStory(story.id, e)}
-                         className="absolute top-2 left-2 p-1.5 text-neutral-400 bg-black/60 border border-neutral-800 backdrop-blur-sm hover:text-red-500 hover:border-red-900 rounded opacity-0 group-hover:opacity-100 transition-all font-sc"
+                         className="absolute top-2 left-2 p-1.5 text-neutral-400 bg-black/60 border border-neutral-800 backdrop-blur-sm hover:text-red-500 hover:border-red-900 rounded-xl opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all font-sc"
                          title="Burn Scroll"
                       >
                          <Trash2 size={12} />

@@ -294,9 +294,9 @@ export const ModalsAndToasts: React.FC = () => {
               exit={{ opacity: 0, scale: 0.95 }}
               className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl relative"
             >
-              <h3 className="text-xl font-display font-bold text-signal mb-2">Purge Novel Matrix</h3>
+              <h3 className="text-xl font-display font-bold text-signal mb-2">Burn Scroll</h3>
               <p className="text-sm text-neutral-400 mb-6 font-serif">
-                Are you certain you wish to purge this serialized light novel matrix forever? This severed karma cannot be mended.
+                Are you certain you wish to burn this scroll world forever? This severed karma cannot be mended.
               </p>
               <div className="flex justify-end space-x-3 mt-4">
                 <button

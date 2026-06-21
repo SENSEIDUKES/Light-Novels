@@ -98,6 +98,20 @@ const FormSection = ({ id, title, icon, activeSection, setActiveSection, childre
   );
 };
 
+const TAG_PRESETS = [
+  'Romantic Comedy',
+  'Slice of Life',
+  'Dark Fantasy',
+  'Slow Burn',
+  'Harem Comedy',
+  'Overpowered MC',
+  'Kingdom Building',
+  'Tragedy / Angsty',
+  'School Life / Academy',
+  'Weapons Master',
+  'Beast Taming'
+];
+
 export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGenerating: isGeneratingProp, error }: CreationPortalProps) {
   const { isGenerating: storeIsGenerating, activeAgentId, generationPhase } = useAppStore();
   const isGenerating = isGeneratingProp || storeIsGenerating;
@@ -111,6 +125,7 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
     genrePath: 'Xianxia',
     corePremise: PREMISE_SUGGESTIONS[0],
     desiredPlotDirection: '',
+    storyTags: [],
     worldType: '',
     startingLocation: '',
     societyStructure: '',
@@ -140,11 +155,43 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
     mustIncludeElements: '',
   });
 
+  const [customTagInput, setCustomTagInput] = useState('');
   const [chapterCount, setChapterCount] = useState(10);
   const [activeSection, setActiveSection] = useState<'core' | 'world' | 'mc' | 'power' | 'plot'>('core');
 
   const updateIntake = (field: keyof IntakeData, value: string) => {
     setIntake(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleTogglePresetTag = (tag: string) => {
+    setIntake(prev => {
+      const activeTags = prev.storyTags || [];
+      if (activeTags.includes(tag)) {
+        return { ...prev, storyTags: activeTags.filter(t => t !== tag) };
+      } else {
+        return { ...prev, storyTags: [...activeTags, tag] };
+      }
+    });
+  };
+
+  const handleAddCustomTag = () => {
+    const trimmed = customTagInput.trim().replace(/^,|,$/g, '');
+    if (!trimmed) return;
+    setIntake(prev => {
+      const activeTags = prev.storyTags || [];
+      if (activeTags.some(t => t.toLowerCase() === trimmed.toLowerCase())) {
+        return prev;
+      }
+      return { ...prev, storyTags: [...activeTags, trimmed] };
+    });
+    setCustomTagInput('');
+  };
+
+  const handleRemoveTag = (tag: string) => {
+    setIntake(prev => ({
+      ...prev,
+      storyTags: (prev.storyTags || []).filter(t => t !== tag)
+    }));
   };
 
   const handleGenerateBlueprintClick = async (e: React.FormEvent) => {
@@ -281,6 +328,79 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
                   {p.icon} {p.name}
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div className="pt-2 border-t border-neutral-900/60">
+            <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Story Refinement Tags (Optional)</label>
+            <p className="text-neutral-500 font-sans text-xs mb-3">Add tags to further personalize your story (e.g. Slice of Life, Romantic Comedy, Overpowered MC) to help the AI tailor the universe according to your interests.</p>
+            
+            {/* Tag input and Add button */}
+            <div className="flex items-center gap-2 mb-3 max-w-md">
+              <input 
+                type="text" 
+                value={customTagInput} 
+                onChange={(e) => setCustomTagInput(e.target.value)} 
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddCustomTag();
+                  }
+                }}
+                placeholder="Type and hit Enter or click Add (e.g. space cultivation)" 
+                className="flex-1 bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded px-3 py-1.5 text-xs text-left" 
+              />
+              <button 
+                type="button" 
+                onClick={handleAddCustomTag}
+                className="px-3 py-1.5 bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-signal hover:border-portal rounded text-xs font-sc uppercase tracking-widest transition-colors"
+              >
+                Add
+              </button>
+            </div>
+
+            {/* Selected Tags list */}
+            {intake.storyTags && intake.storyTags.length > 0 ? (
+              <div className="flex flex-wrap gap-2 mb-4 p-2 bg-neutral-950/40 rounded border border-neutral-900/50">
+                {intake.storyTags.map((tag) => (
+                  <span key={tag} className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded bg-neutral-900 border border-portal/30 text-portal text-xs font-sans shadow-[0_0_8px_rgba(4,172,255,0.05)]">
+                    <span className="font-semibold">{tag}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTag(tag)}
+                      className="text-neutral-600 hover:text-signal focus:outline-none font-bold text-sm"
+                    >
+                      &times;
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="text-neutral-600 text-xs font-sans italic mb-3">No custom tags added yet. Select presets below or add custom ones above.</div>
+            )}
+
+            {/* Tag presets catalog */}
+            <div className="space-y-1.5">
+              <span className="block font-sc text-[10px] text-neutral-500 uppercase tracking-widest">Tag Presets</span>
+              <div className="flex flex-wrap gap-1.5">
+                {TAG_PRESETS.map((preset) => {
+                  const isSelected = intake.storyTags?.includes(preset);
+                  return (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => handleTogglePresetTag(preset)}
+                      className={`px-2.5 py-1 rounded-full text-xs font-sans border transition-all ${
+                        isSelected 
+                          ? 'bg-neutral-900 border-portal text-portal shadow-[0_0_8px_rgba(4,172,255,0.15)] font-medium' 
+                          : 'bg-transparent border-neutral-850 text-neutral-500 hover:text-neutral-300 hover:border-neutral-700'
+                      }`}
+                    >
+                      {isSelected ? '✓' : '+'} {preset}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

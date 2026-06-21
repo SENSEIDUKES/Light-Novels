@@ -3,7 +3,7 @@ import {
   Users, Network, Zap, Shield, Sparkles, Sword, HelpCircle, 
   MapPin, Plus, Trash2, Heart, ShieldAlert, BookOpen, Clock, 
   Check, Eye, RefreshCcw, Search, Compass, Award, Image, 
-  BookMarked, ArrowRight, ArrowLeftRight, Activity
+  BookMarked, ArrowRight, ArrowLeftRight, Activity, History
 } from 'lucide-react';
 import { StoryMemory, Character, Faction, Location, Artifact, StoryArc, StoryWorld, CharacterRelationship, KarmaFateNode, Chapter, MultiModelRouting } from '../types';
 import { secureStorage } from '../lib/encryption';
@@ -74,7 +74,7 @@ export default function LivingCodex({
   onUpdateStory,
   routingConfig
 }: LivingCodexProps) {
-  const [activePage, setActivePage] = useState<'characters' | 'relations' | 'power' | 'factions' | 'artifacts' | 'timeline' | 'mysteries' | 'glossary'>('characters');
+  const [activePage, setActivePage] = useState<'characters' | 'relations' | 'power' | 'factions' | 'artifacts' | 'timeline' | 'mysteries' | 'glossary' | 'dashboards'>('characters');
   
   // Selection state for node inspection in Relationship Map & other grids
   const [selectedNodeChar, setSelectedNodeChar] = useState<Character | null>(null);
@@ -86,6 +86,9 @@ export default function LivingCodex({
   const [customGlossary, setCustomGlossary] = useState<Array<{term: string, category: string, definition: string}>>([]);
   const [isExtractingGlossary, setIsExtractingGlossary] = useState(false);
   const [glossaryError, setGlossaryError] = useState<string | null>(null);
+
+  // Toggle for Deep Memory / Dormant elements
+  const [showDeepMemory, setShowDeepMemory] = useState(false);
 
   // --- CUSTOM COMPONENT BINDING STATES (LOCAL-FIRST PERSISTENT MATRIX) ---
   const [bondSourceId, setBondSourceId] = useState('');
@@ -100,6 +103,15 @@ export default function LivingCodex({
   const [fateDesc, setFateDesc] = useState('');
   
   const [codexNotification, setCodexNotification] = useState<string | null>(null);
+  const [selectedChartCharId, setSelectedChartCharId] = useState<string>('');
+  const [hoveredPowerPoint, setHoveredPowerPoint] = useState<any | null>(null);
+  const [hoveredAffPoint, setHoveredAffPoint] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (!selectedChartCharId && memory.characters && memory.characters.length > 0) {
+      setSelectedChartCharId(memory.characters[0].id);
+    }
+  }, [memory.characters, selectedChartCharId]);
   
   // Flatten written chapters with arc details for virtualized listing
   const flatChapters = useMemo(() => {
@@ -125,6 +137,148 @@ export default function LivingCodex({
     return list;
   }, [arcs]);
   
+  const powerTimeline = useMemo(() => {
+    const list: Array<{
+      chapterNumber: number;
+      title: string;
+      score: number;
+      stageName: string;
+      breakthrough: boolean;
+      summary?: string;
+      cuePayload?: any;
+    }> = [];
+
+    flatChapters.forEach((fc, idx) => {
+      const ch = fc.chapter;
+      let stageName = memory.currentPowerStage || 'Qi Condensation';
+      
+      const finalScoreRef = getPowerRankScore(memory.currentPowerStage).score;
+      const initialScoreRef = 15;
+      
+      const text = `${ch.statsChangeMessage || ''} ${ch.summary || ''} ${ch.title || ''}`.toLowerCase();
+      let estScore = initialScoreRef;
+      let breakthrough = false;
+
+      if (text.includes('nascent soul') || text.includes('nascent')) {
+        estScore = 85;
+        stageName = 'Nascent Soul';
+        breakthrough = true;
+      } else if (text.includes('core formation') || text.includes('grandmaster')) {
+        estScore = 70;
+        stageName = 'Core Formation';
+        breakthrough = true;
+      } else if (text.includes('foundation') || text.includes('establishment')) {
+        estScore = 55;
+        stageName = 'Foundation Establishment';
+        breakthrough = true;
+      } else if (text.includes('tier 7') || text.includes('tier 8') || text.includes('tier 9') || text.includes('tier 10')) {
+        estScore = 45;
+        stageName = 'Qi Refining Late Stage';
+        breakthrough = true;
+      } else if (text.includes('tier 4') || text.includes('tier 5') || text.includes('tier 6')) {
+        estScore = 32;
+        stageName = 'Qi Refining Mid Stage';
+        breakthrough = true;
+      } else if (text.includes('tier 1') || text.includes('tier 2') || text.includes('tier 3')) {
+        estScore = 20;
+        stageName = 'Qi Refining Early Stage';
+      } else {
+        const ratio = flatChapters.length > 1 ? idx / (flatChapters.length - 1) : 1;
+        estScore = Math.round(initialScoreRef + (finalScoreRef - initialScoreRef) * ratio);
+      }
+
+      if (ch.cuePayload?.powerShift) {
+        estScore += ch.cuePayload.powerShift;
+        breakthrough = true;
+      }
+
+      list.push({
+        chapterNumber: ch.number,
+        title: ch.title,
+        score: Math.min(100, Math.max(10, estScore)),
+        stageName: stageName,
+        breakthrough,
+        summary: ch.summary || ch.statsChangeMessage || 'Sensing gradual increase in raw spiritual reserves.',
+        cuePayload: ch.cuePayload
+      });
+    });
+
+    return list;
+  }, [flatChapters, memory.currentPowerStage]);
+
+  const affinityTimelineOfChar = useMemo(() => {
+    if (!selectedChartCharId) return [];
+    const char = memory.characters.find(c => c.id === selectedChartCharId);
+    if (!char) return [];
+
+    const bond = activeStory.relationships?.find(
+      r => r.sourceCharId === selectedChartCharId || r.targetCharId === selectedChartCharId
+    );
+    const targetAffinity = bond ? bond.affinity : 0;
+
+    const startAff = char.relationshipToMC.toLowerCase().includes('hostil') || char.relationshipToMC.toLowerCase().includes('enemy')
+      ? -45
+      : char.relationshipToMC.toLowerCase().includes('friend') || char.relationshipToMC.toLowerCase().includes('ally') || char.relationshipToMC.toLowerCase().includes('mentor')
+      ? 35
+      : 0;
+
+    const list: Array<{
+      chapterNumber: number;
+      title: string;
+      affinity: number;
+      eventSummary: string;
+      hasInteraction: boolean;
+    }> = [];
+
+    const total = flatChapters.length;
+    flatChapters.forEach((fc, idx) => {
+      const ch = fc.chapter;
+      const text = `${ch.generatedContent || ''} ${ch.summary || ''} ${ch.title || ''}`.toLowerCase();
+      const hasInteraction = text.includes(char.name.toLowerCase());
+
+      let baseInterpolated = startAff;
+      if (total > 1) {
+        baseInterpolated = startAff + (targetAffinity - startAff) * (idx / (total - 1));
+      } else {
+        baseInterpolated = targetAffinity;
+      }
+
+      let spike = 0;
+      if (hasInteraction) {
+        if (text.includes('attack') || text.includes('clash') || text.includes('betray') || text.includes('wound') || text.includes('mock')) {
+          spike = -15;
+        } else if (text.includes('save') || text.includes('trust') || text.includes('help') || text.includes('gift') || text.includes('reconcile')) {
+          spike = 15;
+        } else {
+          spike = 5;
+        }
+      }
+
+      const affinityVal = Math.min(100, Math.max(-100, Math.round(baseInterpolated + spike)));
+
+      let summary = `${char.name} was not present in this chapter of the saga.`;
+      if (hasInteraction) {
+        if (spike < 0) {
+          summary = `Hostility sparked: ${char.name} engaged in a tense conflict or clash of perspectives with ${mcName}.`;
+        } else if (spike > 0) {
+          summary = `Bonds strengthened: ${char.name} and ${mcName} shared an exchange of trust, assistance, or mutual protection.`;
+        } else {
+          summary = `${char.name} appeared, their active karma threads vibrating inside the chapter narrative.`;
+        }
+      }
+
+      list.push({
+        chapterNumber: ch.number,
+        title: ch.title,
+        affinity: affinityVal,
+        eventSummary: summary,
+        hasInteraction
+      });
+    });
+
+    return list;
+  }, [selectedChartCharId, flatChapters, memory.characters, activeStory.relationships, mcName]);
+
   const pushNotification = (msg: string) => {
     setCodexNotification(msg);
     setTimeout(() => setCodexNotification(null), 3000);
@@ -686,6 +840,25 @@ export default function LivingCodex({
   const activePreviewId = Object.keys(previews)[0];
   const activePreview = activePreviewId ? previews[activePreviewId] : null;
 
+  // Memory Temperature Filtering
+  const allChars = memory.characters || [];
+  const dormantChars = allChars.filter(c => c.relevanceState === 'dormant' || c.relevanceState === 'archived');
+  const charsToRender = showDeepMemory ? allChars : allChars.filter(c => !c.relevanceState || c.relevanceState === 'active' || c.relevanceState === 'warm' || c.relevanceState === 'reactivated');
+
+  const allLocs = memory.locations || [];
+  const dormantLocs = allLocs.filter(l => l.relevanceState === 'dormant' || l.relevanceState === 'archived');
+  const locsToRender = showDeepMemory ? allLocs : allLocs.filter(l => !l.relevanceState || l.relevanceState === 'active' || l.relevanceState === 'warm' || l.relevanceState === 'reactivated');
+
+  const allFactions = memory.factions || [];
+  const dormantFactions = allFactions.filter(f => f.relevanceState === 'dormant' || f.relevanceState === 'archived');
+  const factionsToRender = showDeepMemory ? allFactions : allFactions.filter(f => !f.relevanceState || f.relevanceState === 'active' || f.relevanceState === 'warm' || f.relevanceState === 'reactivated');
+
+  const allArtifacts = memory.artifacts || [];
+  const dormantArtifacts = allArtifacts.filter(a => a.relevanceState === 'dormant' || a.relevanceState === 'archived');
+  const artifactsToRender = showDeepMemory ? allArtifacts : allArtifacts.filter(a => !a.relevanceState || a.relevanceState === 'active' || a.relevanceState === 'warm' || a.relevanceState === 'reactivated');
+
+  const hasDormantState = dormantChars.length > 0 || dormantLocs.length > 0 || dormantFactions.length > 0 || dormantArtifacts.length > 0;
+
   return (
     <div className="bg-black border border-neutral-900 rounded-lg p-4 sm:p-6 shadow-2xl flex flex-col md:flex-row gap-6 relative min-h-[690px] overflow-hidden" id="living-codex-container">
       <DestinyChoicePanel 
@@ -721,7 +894,7 @@ export default function LivingCodex({
         </div>
 
         {/* HORIZONTAL TABS ON MOBILE / VERTICAL SIDEBAR ON DESKTOP */}
-        <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 gap-1.5 md:gap-1.5 md:space-y-1.5 scrollbar-none whitespace-nowrap w-full" id="codex-tab-scroller">
+        <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 gap-1.5 md:gap-1.5 md:space-y-1.5 no-scrollbar whitespace-nowrap w-full" id="codex-tab-scroller">
           {/* Character/Location Profiles Link */}
           <button
             onClick={() => setActivePage('characters')}
@@ -762,6 +935,19 @@ export default function LivingCodex({
           >
             <Zap size={14} className={activePage === 'power' ? 'text-yellow-500' : ''} />
             <span>Power Rankings</span>
+          </button>
+
+          {/* Progression Dashboards */}
+          <button
+            onClick={() => setActivePage('dashboards')}
+            className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
+              activePage === 'dashboards' 
+                ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
+                : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
+            }`}
+          >
+            <Activity size={14} className={activePage === 'dashboards' ? 'text-cyan-400' : ''} />
+            <span>Aether Dashboards</span>
           </button>
 
           {/* Factions & hierarchy Link */}
@@ -838,6 +1024,33 @@ export default function LivingCodex({
               <span>← Reader</span>
             </button>
           )}
+        </div>
+
+        {/* Deep Memory Controls */}
+        <div className="pt-4 border-t border-neutral-900 mt-4 hidden sm:block">
+           <button
+             onClick={() => setShowDeepMemory(!showDeepMemory)}
+             className={`w-full flex items-center justify-between px-3 py-2 rounded text-[10px] font-mono tracking-wider transition-all border ${
+               showDeepMemory
+                 ? 'bg-portal/10 border-portal text-portal shadow-sm shadow-portal/20'
+                 : 'bg-void border-neutral-900 text-neutral-500 hover:text-portal hover:border-portal'
+             }`}
+           >
+             <span className="flex items-center gap-1.5 uppercase">
+               <History size={12} />
+               Deep Memory
+             </span>
+             {hasDormantState && (
+               <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-bold ${
+                 showDeepMemory ? 'bg-portal text-void' : 'bg-neutral-900 text-neutral-400'
+               }`}>
+                 {(dormantChars.length + dormantLocs.length + dormantFactions.length + dormantArtifacts.length)} Dormant
+               </span>
+             )}
+           </button>
+           <p className="mt-2 text-[8.5px] text-neutral-500 font-sans px-2 text-center italic">
+             Toggle to unearth inactive karma threads, domains, and ancient artifacts.
+           </p>
         </div>
 
         {/* Back navigation shortcut to active script reading (Desktop Only) */}
@@ -946,7 +1159,7 @@ export default function LivingCodex({
                   <h4 className="text-[11px] text-human tracking-widest font-sc font-bold uppercase mb-3">Divine Character Cards</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                     {/* Character Cards Loop */}
-                    {memory.characters.map((char) => {
+                    {charsToRender.map((char) => {
                       const isGenerating = generatingId === char.id;
                       const hasImage = !!char.imageUrl;
                       const cScore = getPowerRankScore(char.powerLevel);
@@ -982,13 +1195,20 @@ export default function LivingCodex({
                             )}
 
                             {/* Status label floating top right */}
-                            <span className={`absolute top-2 right-2 text-[8px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border ${
-                              char.status === 'alive' ? 'bg-green-950/40 text-green-400 border-green-900' :
-                              char.status === 'deceased' ? 'bg-red-950/40 text-human border-red-900' :
-                              'bg-neutral-950 text-neutral-500 border-neutral-800'
-                            }`}>
-                              {char.status}
-                            </span>
+                            <div className="absolute top-2 right-2 flex space-x-1">
+                              {char.relevanceState && char.relevanceState.toLowerCase() !== 'active' && (
+                                <span className="text-[7.5px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border border-neutral-800 bg-neutral-900/80 text-neutral-400">
+                                  {char.relevanceState}
+                                </span>
+                              )}
+                              <span className={`text-[8px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border ${
+                                char.status === 'alive' ? 'bg-green-950/40 text-green-400 border-green-900' :
+                                char.status === 'deceased' ? 'bg-red-950/40 text-human border-red-900' :
+                                'bg-neutral-950 text-neutral-500 border-neutral-800'
+                              }`}>
+                                {char.status}
+                              </span>
+                            </div>
 
                             {/* Combat power ranking level index label floating top left */}
                             <div className="absolute top-2 left-2 flex items-center space-x-1 font-mono text-[8.5px] bg-black/80 px-1.5 py-0.5 rounded border border-neutral-850">
@@ -1135,12 +1355,12 @@ export default function LivingCodex({
                   )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {!memory.locations || memory.locations.length === 0 ? (
+                    {!locsToRender || locsToRender.length === 0 ? (
                       <div className="col-span-3 text-center py-10 border border-dashed border-neutral-900 rounded bg-neutral-950/20 text-xs text-neutral-500 italic">
                         No geographic realms known. Continue reading or formulate a custom domain above!
                       </div>
                     ) : (
-                      memory.locations.map((loc) => {
+                      locsToRender.map((loc) => {
                         const isGenerating = generatingId === loc.id;
                         const hasImage = !!loc.imageUrl;
                         const activePreview = previews[loc.id];
@@ -1254,7 +1474,7 @@ export default function LivingCodex({
             ) : (
               /* Profiles Detailed loop fallback list */
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {memory.characters.map((char) => {
+                {charsToRender.map((char) => {
                   const isEditing = editingCharId === char.id;
                   const charStatusColor = 
                     char.status === 'alive' ? 'text-green-400 border-green-950 bg-green-950/20' :
@@ -1264,8 +1484,15 @@ export default function LivingCodex({
 
                   return (
                     <div key={char.id} className="bg-neutral-950/40 border border-neutral-900 p-4 rounded-lg flex flex-col justify-between relative">
-                      <div className="absolute top-4 right-4 text-[9px] px-2 py-0.5 rounded border font-mono">
-                        <span className={charStatusColor}>{char.status}</span>
+                      <div className="absolute top-4 right-4 flex space-x-1 items-center">
+                        {char.relevanceState && char.relevanceState.toLowerCase() !== 'active' && (
+                          <span className="text-[8px] px-1.5 py-0.5 rounded border border-neutral-800 bg-neutral-900/50 text-neutral-400 font-mono uppercase">
+                            {char.relevanceState}
+                          </span>
+                        )}
+                        <span className={`text-[9px] px-2 py-0.5 rounded border font-mono ${charStatusColor}`}>
+                          {char.status}
+                        </span>
                       </div>
                       <div className="space-y-1">
                         <h4 className="font-sc font-medium text-signal text-sm">{char.name}</h4>
@@ -1335,7 +1562,7 @@ export default function LivingCodex({
               <p className="text-[10px] text-neutral-500 font-sans">Click on any Daoist node around {mcName}'s cosmic grid to inspect their physical alignment vectors.</p>
             </div>
 
-            {memory.characters.length === 0 ? (
+            {charsToRender.length === 0 ? (
               <div className="text-center py-20 border border-neutral-900 rounded bg-neutral-950/20 text-xs text-neutral-500 italic">
                 No active secondary nodes present. Mapping remains locked to the Void.
               </div>
@@ -1358,8 +1585,8 @@ export default function LivingCodex({
                     </defs>
 
                     {/* Draw connecting lines */}
-                    {memory.characters.map((char, index) => {
-                      const total = memory.characters.length;
+                    {charsToRender.map((char, index) => {
+                      const total = charsToRender.length;
                       const angle = (index * 2 * Math.PI) / total;
                       const radius = 100;
                       const cx = 200 + radius * Math.cos(angle);
@@ -1408,8 +1635,8 @@ export default function LivingCodex({
                     </g>
 
                     {/* Render Circular character nodes */}
-                    {memory.characters.map((char, index) => {
-                      const total = memory.characters.length;
+                    {charsToRender.map((char, index) => {
+                      const total = charsToRender.length;
                       const angle = (index * 2 * Math.PI) / total;
                       const radius = 100;
                       const cx = 200 + radius * Math.cos(angle);
@@ -1705,7 +1932,7 @@ export default function LivingCodex({
                 })()}
 
                 {/* Secondary characters in order of power level */}
-                {memory.characters
+                {charsToRender
                   .map(c => ({ char: c, stats: getPowerRankScore(c.powerLevel) }))
                   .sort((a, b) => b.stats.score - a.stats.score)
                   .map(({ char, stats }) => {
@@ -1731,7 +1958,7 @@ export default function LivingCodex({
                   })
                 }
 
-                {memory.characters.length === 0 && (
+                {charsToRender.length === 0 && (
                   <div className="text-center py-6 text-neutral-600 font-serif italic text-xs">
                     No secondary Daoist ranks mapped yet. Introduce them in scriptures.
                   </div>
@@ -1758,6 +1985,416 @@ export default function LivingCodex({
                 </ul>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* PAGE 3B: Progression Dashboards (Aether Dashboards) */}
+        {activePage === 'dashboards' && (
+          <div className="space-y-6 animate-fadeIn text-neutral-225" id="codex-progression-dashboards">
+            <div className="border-b border-neutral-900 pb-3 flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+              <div>
+                <h3 className="font-sc text-sm text-signal font-bold uppercase tracking-widest">Chronicles of the Heavenly Path</h3>
+                <p className="text-[10px] text-neutral-500 font-sans">Aether metrics illustrating MC cultivation breakthroughs and secondary character affinity timelines.</p>
+              </div>
+              <div className="flex items-center space-x-2 shrink-0">
+                <span className="text-[10px] px-2 py-0.5 font-mono bg-neutral-900 border border-neutral-850 text-cyan-400 rounded">
+                  Chapters Logged: {flatChapters.length}
+                </span>
+                <span className="text-[10px] px-2 py-0.5 font-mono bg-neutral-900 border border-neutral-850 text-yellow-500 rounded">
+                  Current Rank: {memory.currentPowerStage || 'None'}
+                </span>
+              </div>
+            </div>
+
+            {flatChapters.length === 0 ? (
+              <div className="text-center py-20 border border-neutral-900 rounded-lg bg-neutral-950/20 text-xs text-neutral-500 italic space-y-3">
+                <p>The Akashic Record remains void. The paths of destiny are yet unwritten.</p>
+                <p className="text-[10px] text-neutral-600 not-italic">Write or generate standard chapters inside the core Reader to materialize interactive progression maps.</p>
+              </div>
+            ) : (
+              <div className="space-y-6 animate-fadeIn">
+                
+                {/* Visual Charts Grid Layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  
+                  {/* CHART 1: Relationship Affinity Timeline Chart */}
+                  <div className="bg-neutral-950/40 border border-neutral-900 rounded-xl p-4 md:p-5 flex flex-col space-y-4 shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-900 pb-3">
+                      <div className="flex items-center space-x-2">
+                        <Heart size={14} className="text-rose-500 shrink-0" />
+                        <span className="font-sc font-bold text-xs uppercase tracking-wider text-signal">Affinity Chronology</span>
+                      </div>
+                      
+                      {/* Character Selector Option */}
+                      {memory.characters.length > 0 ? (
+                        <select
+                          value={selectedChartCharId}
+                          onChange={(e) => {
+                            setSelectedChartCharId(e.target.value);
+                            setHoveredAffPoint(null);
+                          }}
+                          className="text-[11px] bg-void border border-neutral-850 rounded px-2.5 py-1 text-neutral-300 focus:outline-none focus:border-portal cursor-pointer max-w-[180px] truncate"
+                        >
+                          {charsToRender.map((char) => (
+                            <option key={char.id} value={char.id}>
+                              {char.name} ({char.role.split(',')[0]})
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-[10px] text-neutral-600">No companions bound</span>
+                      )}
+                    </div>
+
+                    {charsToRender.length === 0 ? (
+                      <div className="flex-1 flex items-center justify-center py-10 text-xs text-neutral-500 italic">
+                        Align secondary characters in the Living Codex first to map karmic affinity.
+                      </div>
+                    ) : (
+                      <div className="space-y-4 flex-1 flex flex-col justify-between">
+                        {/* Interactive SVG Line Graph for Affinity */}
+                        {(() => {
+                          const activeChar = charsToRender.find(c => c.id === selectedChartCharId);
+                          if (!activeChar) return null;
+                          const points = affinityTimelineOfChar;
+                          const total = points.length;
+
+                          // Dimensions
+                          const w = 500;
+                          const h = 200;
+                          const padL = 40;
+                          const padR = 20;
+                          const padT = 20;
+                          const padB = 30;
+
+                          const graphW = w - padL - padR;
+                          const graphH = h - padT - padB;
+
+                          const coords = points.map((p, i) => {
+                            const x = padL + (total > 1 ? (i / (total - 1)) * graphW : graphW / 2);
+                            const normY = (p.affinity + 100) / 200;
+                            const y = padT + (1 - normY) * graphH;
+                            return { x, y, p, index: i };
+                          });
+
+                          let linePath = '';
+                          if (coords.length > 0) {
+                            linePath = `M ${coords[0].x} ${coords[0].y}`;
+                            for (let i = 1; i < coords.length; i++) {
+                              linePath += ` L ${coords[i].x} ${coords[i].y}`;
+                            }
+                          }
+
+                          const displayPoint = hoveredAffPoint || (points.length > 0 ? points[points.length - 1] : null);
+
+                          return (
+                            <div className="space-y-4 flex-1 flex flex-col justify-between">
+                              <div className="relative bg-void/50 border border-neutral-900/40 p-2 rounded-lg flex-1">
+                                <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto overflow-visible select-none">
+                                  {/* Gridlines */}
+                                  <line x1={padL} y1={padT} x2={w - padR} y2={padT} stroke="#1b1b1b" strokeDasharray="3,3" />
+                                  <line x1={padL} y1={padT + graphH/2} x2={w - padR} y2={padT + graphH/2} stroke="#3b2218" strokeDasharray="4,4" />
+                                  <line x1={padL} y1={padT + graphH} x2={w - padR} y2={padT + graphH} stroke="#1b1b1b" strokeDasharray="3,3" />
+
+                                  {/* Axes notes */}
+                                  <text x={padL - 10} y={padT + 4} textAnchor="end" fill="#10b981" className="font-mono text-[8px] font-bold">100 (Boon)</text>
+                                  <text x={padL - 10} y={padT + graphH/2 + 3} textAnchor="end" fill="#eab308" className="font-mono text-[8px] font-bold">0 (Neutral)</text>
+                                  <text x={padL - 10} y={padT + graphH + 2} textAnchor="end" fill="#ef4444" className="font-mono text-[8px] font-bold">-100 (Foe)</text>
+
+                                  {total > 1 && (
+                                    <>
+                                      <path
+                                        d={linePath}
+                                        fill="none"
+                                        stroke="url(#gradient-affinity)"
+                                        strokeWidth="2.5"
+                                        strokeLinecap="round"
+                                        className="transition-all duration-500"
+                                      />
+                                      <defs>
+                                        <linearGradient id="gradient-affinity" x1="0%" y1="0%" x2="100%" y2="0%">
+                                          <stop offset="0%" stopColor="#ef4444" />
+                                          <stop offset="50%" stopColor="#ca8a04" />
+                                          <stop offset="100%" stopColor="#10b981" />
+                                        </linearGradient>
+                                      </defs>
+                                    </>
+                                  )}
+
+                                  {coords.map((c) => {
+                                    const isHovered = hoveredAffPoint?.chapterNumber === c.p.chapterNumber || (!hoveredAffPoint && c.index === total - 1);
+                                    let nodeColor = '#3b82f6';
+                                    if (c.p.affinity > 20) nodeColor = '#10b981';
+                                    else if (c.p.affinity < -20) nodeColor = '#ef4444';
+                                    else nodeColor = '#a3a3a3';
+
+                                    return (
+                                      <g key={c.p.chapterNumber}>
+                                        <circle
+                                          cx={c.x}
+                                          cy={c.y}
+                                          r={isHovered ? "6.5" : "4"}
+                                          fill="#0a0a0a"
+                                          stroke={nodeColor}
+                                          strokeWidth={isHovered ? "2.5" : "1.2"}
+                                          className="cursor-pointer transition-all duration-200 hover:scale-125"
+                                          onClick={() => setHoveredAffPoint(c.p)}
+                                        />
+                                        {total <= 15 && (
+                                          <text
+                                            x={c.x}
+                                            y={padT + graphH + 18}
+                                            textAnchor="middle"
+                                            fill="#666"
+                                            className="font-mono text-[7px]"
+                                          >
+                                            Ch {c.p.chapterNumber}
+                                          </text>
+                                        )}
+                                      </g>
+                                    );
+                                  })}
+                                </svg>
+                              </div>
+
+                              {displayPoint && (
+                                <div className="p-3 bg-neutral-900/60 border border-neutral-850 rounded-lg space-y-1.5 text-xs">
+                                  <div className="flex items-center justify-between font-mono">
+                                    <span className="font-bold text-signal">Chapter {displayPoint.chapterNumber}: {displayPoint.title}</span>
+                                    <span className={`px-2 py-0.5 font-bold uppercase rounded text-[9px] ${
+                                      displayPoint.affinity > 20 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                                      displayPoint.affinity < -20 ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
+                                      'bg-neutral-800 text-neutral-400'
+                                    }`}>
+                                      Affinity: {displayPoint.affinity > 0 ? `+${displayPoint.affinity}` : displayPoint.affinity}
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-neutral-400 leading-normal italic font-light font-serif">
+                                    {displayPoint.eventSummary}
+                                  </p>
+                                  {displayPoint.hasInteraction && (
+                                    <div className="flex items-center space-x-1 py-0.5 text-[9px] text-portal/80 font-mono">
+                                      <span className="animate-pulse text-xs">•</span>
+                                      <span>Direct alchemical alignment interface response logged inside original chapter script.</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* CHART 2: MC Breakthrough & Power Stage Curve Graph */}
+                  <div className="bg-neutral-950/40 border border-neutral-900 rounded-xl p-4 md:p-5 flex flex-col space-y-4 shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-900 pb-3">
+                      <div className="flex items-center space-x-2">
+                        <Zap size={14} className="text-yellow-500 shrink-0" />
+                        <span className="font-sc font-bold text-xs uppercase tracking-wider text-signal">MC breakthroughs progress</span>
+                      </div>
+                      <span className="text-[9.5px] uppercase font-mono px-2 py-0.5 border border-amber-500/20 text-yellow-500 bg-amber-500/5 rounded">
+                        Ascension Path
+                      </span>
+                    </div>
+
+                    <div className="space-y-4 flex-1 flex flex-col justify-between">
+                      {/* Interactive SVG Staircase Curve for MC Cultivation */}
+                      {(() => {
+                        const points = powerTimeline;
+                        const total = points.length;
+
+                        // Dimensions
+                        const w = 500;
+                        const h = 200;
+                        const padL = 40;
+                        const padR = 20;
+                        const padT = 20;
+                        const padB = 30;
+
+                        const graphW = w - padL - padR;
+                        const graphH = h - padT - padB;
+
+                        const coords = points.map((p, i) => {
+                          const x = padL + (total > 1 ? (i / (total - 1)) * graphW : graphW / 2);
+                          const normY = p.score / 100;
+                          const y = padT + (1 - normY) * graphH;
+                          return { x, y, p, index: i };
+                        });
+
+                        let curvePath = '';
+                        if (coords.length > 0) {
+                          curvePath = `M ${coords[0].x} ${coords[0].y}`;
+                          for (let i = 1; i < coords.length; i++) {
+                            const midX = coords[i-1].x + (coords[i].x - coords[i-1].x) * 0.4;
+                            curvePath += ` L ${midX} ${coords[i-1].y} L ${midX} ${coords[i].y} L ${coords[i].x} ${coords[i].y}`;
+                          }
+                        }
+
+                        const displayPoint = hoveredPowerPoint || (points.length > 0 ? points[points.length - 1] : null);
+
+                        return (
+                          <div className="space-y-4 flex-1 flex flex-col justify-between">
+                            <div className="relative bg-void/50 border border-neutral-900/40 p-2 rounded-lg flex-1">
+                              <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto overflow-visible select-none">
+                                {/* Horizontal gridlines representing major celestial thresholds */}
+                                <line x1={padL} y1={padT} x2={w - padR} y2={padT} stroke="#1b1b1b" />
+                                <line x1={padL} y1={padT + graphH * 0.15} x2={w - padR} y2={padT + graphH * 0.15} stroke="#222" strokeDasharray="3,3" />
+                                <line x1={padL} y1={padT + graphH * 0.3} x2={w - padR} y2={padT + graphH * 0.3} stroke="#222" strokeDasharray="3,3" />
+                                <line x1={padL} y1={padT + graphH * 0.45} x2={w - padR} y2={padT + graphH * 0.45} stroke="#222" strokeDasharray="3,3" />
+                                <line x1={padL} y1={padT + graphH * 0.65} x2={w - padR} y2={padT + graphH * 0.65} stroke="#222" strokeDasharray="3,3" />
+                                <line x1={padL} y1={padT + graphH} x2={w - padR} y2={padT + graphH} stroke="#1b1b1b" />
+
+                                {/* threshold labels */}
+                                <text x={padL - 10} y={padT + graphH * 0.15 + 3} textAnchor="end" fill="#a855f7" className="font-mono text-[7px] font-medium">Nascent (85)</text>
+                                <text x={padL - 10} y={padT + graphH * 0.3 + 3} textAnchor="end" fill="#ca8a04" className="font-mono text-[7px] font-medium">Core (70)</text>
+                                <text x={padL - 10} y={padT + graphH * 0.45 + 3} textAnchor="end" fill="#04ACFF" className="font-mono text-[7px] font-medium">Found. (55)</text>
+                                <text x={padL - 10} y={padT + graphH * 0.65 + 3} textAnchor="end" fill="#10b981" className="font-mono text-[7px] font-medium">Qi (35)</text>
+                                <text x={padL - 10} y={padT + graphH + 2} textAnchor="end" fill="#525252" className="font-mono text-[7px] font-medium">Mortal</text>
+
+                                {total > 1 && (
+                                  <path
+                                    d={curvePath}
+                                    fill="none"
+                                    stroke="#eab308"
+                                    strokeWidth="2.5"
+                                    strokeLinecap="round"
+                                    className="transition-all duration-500"
+                                  />
+                                )}
+
+                                {coords.map((c) => {
+                                  const isHovered = hoveredPowerPoint?.chapterNumber === c.p.chapterNumber || (!hoveredPowerPoint && c.index === total - 1);
+                                  const breakthroughNode = c.p.breakthrough;
+
+                                  return (
+                                    <g key={c.p.chapterNumber}>
+                                      <circle
+                                        cx={c.x}
+                                        cy={c.y}
+                                        r={isHovered ? "6.5" : breakthroughNode ? "5" : "3.5"}
+                                        fill={breakthroughNode ? "#eab308" : "#0d0d0d"}
+                                        stroke={breakthroughNode ? "#ca8a04" : "#ca8a04"}
+                                        strokeWidth={isHovered ? "2.5" : breakthroughNode ? "1.5" : "1.2"}
+                                        className={`cursor-pointer transition-all duration-200 ${breakthroughNode ? 'animate-pulse' : ''} hover:scale-125`}
+                                        onClick={() => setHoveredPowerPoint(c.p)}
+                                      />
+                                      {total <= 15 && (
+                                        <text
+                                          x={c.x}
+                                          y={padT + graphH + 18}
+                                          textAnchor="middle"
+                                          fill="#666"
+                                          className="font-mono text-[7px]"
+                                        >
+                                          Ch {c.p.chapterNumber}
+                                        </text>
+                                      )}
+                                    </g>
+                                  );
+                                })}
+                              </svg>
+                            </div>
+
+                            {displayPoint && (
+                              <div className="p-3 bg-neutral-900/60 border border-neutral-850 rounded-lg space-y-1.5 text-xs">
+                                <div className="flex items-center justify-between font-mono">
+                                  <span className="font-bold text-signal">Chapter {displayPoint.chapterNumber}: {displayPoint.title}</span>
+                                  <span className="font-bold text-yellow-500 bg-yellow-500/10 border border-yellow-500/20 px-2 py-0.5 rounded text-[9.5px] uppercase">
+                                    {displayPoint.stageName}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-neutral-400 leading-normal italic font-light font-serif">
+                                  {displayPoint.summary}
+                                </p>
+                                {displayPoint.breakthrough && (
+                                  <div className="flex items-center space-x-1 text-[9px] text-yellow-500 font-mono">
+                                    <Sparkles size={11} className="text-yellow-400 shrink-0" />
+                                    <span>Core breakthrough advancement recorded inside celestial memory layers.</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Bottom Full-Width Section: Karma Nodes Destiny Analysis */}
+                <div className="bg-neutral-950/30 border border-neutral-900 rounded-xl p-4 md:p-5 space-y-4">
+                  <div className="flex items-center justify-between border-b border-neutral-900 pb-3">
+                    <div className="flex items-center space-x-2">
+                      <Network size={14} className="text-portal shrink-0" />
+                      <span className="font-sc font-bold text-xs uppercase tracking-wider text-signal">Causal Destiny & Karma Balance</span>
+                    </div>
+                    <span className="text-[9.5px] font-mono text-neutral-500 bg-neutral-900 px-2 py-0.5 border border-neutral-850 rounded">
+                      Causal Web Metrics
+                    </span>
+                  </div>
+
+                  {(() => {
+                    const nodes = activeStory.karmaNodes || [];
+                    const activeNodes = nodes.filter(n => n.status === 'active');
+                    const resolvedNodes = nodes.filter(n => n.status === 'resolved');
+
+                    const debts = nodes.filter(n => n.type === 'Debt').length;
+                    const boons = nodes.filter(n => n.type === 'Boon').length;
+                    const enmities = nodes.filter(n => n.type === 'Enmity').length;
+                    const destinies = nodes.filter(n => n.type === 'Destiny').length;
+
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        
+                        <div className="p-4 bg-void/50 border border-neutral-900 rounded-lg flex flex-col justify-between">
+                          <span className="text-[9px] font-mono uppercase text-neutral-500 tracking-wider">Active Karma Contracts</span>
+                          <span className="text-2xl font-bold font-sc text-portal mt-2">{activeNodes.length}</span>
+                          <span className="text-[9.5px] text-neutral-500 font-mono mt-1">{resolvedNodes.length} snaps resolved</span>
+                        </div>
+
+                        <div className="p-4 bg-void/50 border border-neutral-900 rounded-lg flex flex-col justify-between">
+                          <div className="flex items-center justify-between text-[9px] font-mono uppercase text-neutral-500 tracking-wider">
+                            <span>Karmic Debts</span>
+                            <span className="text-red-500">●</span>
+                          </div>
+                          <span className="text-2xl font-bold font-sc text-red-400 mt-2">{debts}</span>
+                          <span className="text-[9.5px] text-neutral-500 font-sans mt-0.5 leading-snug">Spiritual blockages requiring master settlement.</span>
+                        </div>
+
+                        <div className="p-4 bg-void/50 border border-neutral-900 rounded-lg flex flex-col justify-between">
+                          <div className="flex items-center justify-between text-[9px] font-mono uppercase text-neutral-500 tracking-wider">
+                            <span>Celestial Boons</span>
+                            <span className="text-emerald-500">●</span>
+                          </div>
+                          <span className="text-2xl font-bold font-sc text-emerald-400 mt-2">{boons}</span>
+                          <span className="text-[9.5px] text-neutral-500 font-sans mt-0.5 leading-snug">Sect inheritance or Master Gu blessings active.</span>
+                        </div>
+
+                        <div className="p-4 bg-void/50 border border-neutral-900 rounded-lg flex flex-col justify-between">
+                          <div className="flex items-center justify-between text-[9px] font-mono uppercase text-neutral-500 tracking-wider">
+                            <span>Destinies & Enmities</span>
+                            <span className="text-amber-500">●</span>
+                          </div>
+                          <span className="text-2xl font-bold font-sc text-amber-500 mt-2">{destinies + enmities}</span>
+                          <span className="text-[9.5px] text-neutral-500 font-sans mt-0.5 leading-snug">Vengeful sect elders or fated ascension loops.</span>
+                        </div>
+
+                      </div>
+                    );
+                  })()}
+
+                  {(!activeStory.karmaNodes || activeStory.karmaNodes.length === 0) && (
+                    <div className="text-center py-4 text-[11px] text-neutral-500 font-sans italic">
+                      No karma nodes have been bound in this mortal cycle yet. Engrave connections inside the **Karma Web** or use **Alter Fate** reader blocks to trigger destinies.
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            )}
           </div>
         )}
 
@@ -1851,12 +2488,12 @@ export default function LivingCodex({
 
             {/* Structured Collapsible Hierarchical grid */}
             <div className="grid grid-cols-1 gap-5">
-              {!memory.factions || memory.factions.length === 0 ? (
+              {!factionsToRender || factionsToRender.length === 0 ? (
                 <div className="text-center py-12 border border-dashed border-neutral-900 rounded bg-neutral-950/20 text-xs text-neutral-500 italic">
                   No registered religious sects found. Fabricate your starting sects in chapter writing or add one above!
                 </div>
               ) : (
-                memory.factions.map((fac) => {
+                factionsToRender.map((fac) => {
                   // Find all living characters whose sector affiliation matches this faction
                   const mates = memory.characters.filter(c => c.faction?.toLowerCase().includes(fac.name.toLowerCase()));
                   const alignmentColor = 
@@ -2032,12 +2669,12 @@ export default function LivingCodex({
 
             {/* List Artifacts Grid Gallery */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
-              {!memory.artifacts || memory.artifacts.length === 0 ? (
+              {!artifactsToRender || artifactsToRender.length === 0 ? (
                 <div className="col-span-2 text-center py-12 border border-dashed border-neutral-900 rounded bg-neutral-950/20 text-xs text-neutral-500 italic">
                   No legendary relics found. Gather rare ores or let chapters uncover divine relics!
                 </div>
               ) : (
-                memory.artifacts.map((art) => {
+                artifactsToRender.map((art) => {
                   const isGenerating = generatingId === art.id;
                   const hasImage = !!art.imageUrl;
                   const activePreview = previews[art.id];
