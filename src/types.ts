@@ -55,6 +55,10 @@ export interface Character {
   imageHistory?: GeneratedImage[];
   isBeast?: boolean;
   beastProfile?: BeastSonicProfile;
+  lastImageChapter?: number;
+  evolutionReady?: boolean;
+  evolutionReason?: string;
+  availableVisualUpdate?: boolean;
 }
 
 export interface Faction {
@@ -74,6 +78,10 @@ export interface Location {
   safetyLevel?: 'Safe' | 'Dangerous' | 'Lethal' | string;
   imageUrl?: string;
   imageHistory?: GeneratedImage[];
+  lastImageChapter?: number;
+  evolutionReady?: boolean;
+  evolutionReason?: string;
+  availableVisualUpdate?: boolean;
 }
 
 export interface Artifact {
@@ -84,6 +92,10 @@ export interface Artifact {
   currentOwner?: string;
   imageUrl?: string;
   imageHistory?: GeneratedImage[];
+  lastImageChapter?: number;
+  evolutionReady?: boolean;
+  evolutionReason?: string;
+  availableVisualUpdate?: boolean;
 }
 
 export interface StoryMemory {
@@ -287,6 +299,10 @@ export interface StoryWorld {
   currentChapterNumber: number;
   imageUrl?: string;
   imageHistory?: GeneratedImage[];
+  lastImageChapter?: number;
+  evolutionReady?: boolean;
+  evolutionReason?: string;
+  availableVisualUpdate?: boolean;
   intake?: IntakeData;
   blueprint?: WorldBlueprint;
   

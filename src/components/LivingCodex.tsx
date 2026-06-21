@@ -10,6 +10,7 @@ import { secureStorage } from '../lib/encryption';
 import { VirtualizedList } from './VirtualizedList';
 import { AgentBadge } from './AgentBadge';
 import { AGENTS } from '../lib/agents';
+import { DestinyChoicePanel } from './DestinyChoicePanel';
 
 interface LivingCodexProps {
   memory: StoryMemory;
@@ -227,6 +228,7 @@ export default function LivingCodex({
   // Interactive state for visual generation triggers
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [previews, setPreviews] = useState<Record<string, { urls: string[], prompt: string, selectedIndex: number, type: 'character' | 'location' | 'artifact' | 'beast' }>>({});
 
   // Form states primitive handlers
   const [showAddFactionForm, setShowAddFactionForm] = useState(false);
@@ -397,46 +399,83 @@ export default function LivingCodex({
         throw new Error(data.error || "Aetherial alignment gate failed to synchronize imagery.");
       }
 
-      const returnedUrl = data.imageUrl || data.fallbackUrl;
+      let newImageUrls = data.imageUrls;
+      if (!newImageUrls && data.imageUrl) newImageUrls = [data.imageUrl];
+      if (!newImageUrls && data.fallbackUrl) newImageUrls = [data.fallbackUrl];
 
-      const newHistoryItem = {
-        id: Math.random().toString(36).substring(2, 10),
-        entityId: id,
-        entityType: type,
-        imageUrl: returnedUrl,
-        promptUsed: targetPrompt,
-        createdAt: new Date().toISOString(),
-        isCurrent: true,
-        chapterNumber: activeStory.currentChapterNumber
-      };
-
-      const currentStoryHistory = activeStory.imageHistory || [];
-      const updatedStoryHistory = currentStoryHistory
-        .map(img => img.entityId === id ? { ...img, isCurrent: false } : img)
-        .concat(newHistoryItem as any);
-
-      onUpdateStory({
-        ...activeStory,
-        imageHistory: updatedStoryHistory
-      });
-
-      // Persist imageUrl updates directly to global state memory
-      if (type === 'character' || type === 'beast') {
-        const updated = memory.characters.map(c => c.id === id ? { ...c, imageUrl: returnedUrl } : c);
-        onUpdateMemory({ ...memory, characters: updated });
-      } else if (type === 'location') {
-        const updated = (memory.locations || []).map(l => l.id === id ? { ...l, imageUrl: returnedUrl } : l);
-        onUpdateMemory({ ...memory, locations: updated });
-      } else if (type === 'artifact') {
-        const updated = (memory.artifacts || []).map(a => a.id === id ? { ...a, imageUrl: returnedUrl } : a);
-        onUpdateMemory({ ...memory, artifacts: updated });
+      if (newImageUrls && newImageUrls.length > 0) {
+        setPreviews(prev => ({ ...prev, [id]: { urls: newImageUrls, prompt: targetPrompt, selectedIndex: 0, type } }));
+      } else {
+        throw new Error("No imagery frames returned.");
       }
+
     } catch (err: any) {
       console.error(err);
       setGenerationError(err.message || "Failed to trigger visual aura synthesis.");
     } finally {
       setGeneratingId(null);
     }
+  };
+
+  const handleSaveEvolution = (id: string, type: 'character' | 'location' | 'artifact' | 'beast') => {
+    const preview = previews[id];
+    if (!preview) return;
+
+    const selectedUrl = preview.urls[preview.selectedIndex];
+
+    const newHistoryItem = {
+      id: Math.random().toString(36).substring(2, 10),
+      entityId: id,
+      entityType: type,
+      imageUrl: selectedUrl,
+      promptUsed: preview.prompt,
+      createdAt: new Date().toISOString(),
+      isCurrent: true,
+      chapterNumber: activeStory.currentChapterNumber
+    };
+
+    const currentStoryHistory = activeStory.imageHistory || [];
+    const updatedStoryHistory = currentStoryHistory
+      .map(img => img.entityId === id ? { ...img, isCurrent: false } : img)
+      .concat(newHistoryItem as any);
+
+    if (type === 'character' || type === 'beast') {
+      const updated = memory.characters.map(c => 
+        c.id === id ? { ...c, imageUrl: preview.url, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber } : c
+      );
+      onUpdateMemory({ ...memory, characters: updated });
+    } else if (type === 'location') {
+      const updated = (memory.locations || []).map(l => 
+        l.id === id ? { ...l, imageUrl: preview.url, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber } : l
+      );
+      onUpdateMemory({ ...memory, locations: updated });
+    } else if (type === 'artifact') {
+      const updated = (memory.artifacts || []).map(a => 
+        a.id === id ? { ...a, imageUrl: preview.url, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber } : a
+      );
+      onUpdateMemory({ ...memory, artifacts: updated });
+    }
+
+    onUpdateStory({
+      ...activeStory,
+      imageHistory: updatedStoryHistory
+    });
+
+    setPreviews(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+
+    pushNotification("Evolution successfully bonded to entity record.");
+  };
+
+  const handleDiscardPreview = (id: string) => {
+    setPreviews(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   };
 
   // AI-powered dynamic glossary extraction trigger
@@ -644,8 +683,22 @@ export default function LivingCodex({
     item.category.toLowerCase().includes(glossarySearch.toLowerCase())
   );
 
+  const activePreviewId = Object.keys(previews)[0];
+  const activePreview = activePreviewId ? previews[activePreviewId] : null;
+
   return (
     <div className="bg-black border border-neutral-900 rounded-lg p-4 sm:p-6 shadow-2xl flex flex-col md:flex-row gap-6 relative min-h-[690px] overflow-hidden" id="living-codex-container">
+      <DestinyChoicePanel 
+        isOpen={!!activePreview}
+        imageUrls={activePreview?.urls || []}
+        selectedIndex={activePreview?.selectedIndex || 0}
+        onSelect={(index) => activePreviewId && setPreviews(prev => ({ ...prev, [activePreviewId]: { ...prev[activePreviewId], selectedIndex: index } }))}
+        onApply={() => activePreviewId && handleSaveEvolution(activePreviewId, previews[activePreviewId].type)}
+        onDiscard={() => activePreviewId && handleDiscardPreview(activePreviewId)}
+        title="Evolution Preview"
+        subtitle="Choose the form that will be bound to the Living Codex."
+      />
+      
       {/* Dynamic Portal aura line */}
       <div className="absolute top-0 inset-x-0 h-[3px] bg-gradient-to-r from-portal via-human to-portal"></div>
 
@@ -868,18 +921,21 @@ export default function LivingCodex({
                       const isGenerating = generatingId === char.id;
                       const hasImage = !!char.imageUrl;
                       const cScore = getPowerRankScore(char.powerLevel);
+                      const activePreview = previews[char.id];
+                      const canGenerate = !hasImage || char.evolutionReady;
+                      const displayedImage = activePreview ? activePreview.urls[activePreview.selectedIndex] : char.imageUrl;
                       
                       return (
                         <div 
                           key={char.id} 
-                          className="bg-neutral-950 border border-neutral-900 hover:border-neutral-800 rounded-lg overflow-hidden flex flex-col justify-between group transition-all duration-300 shadow-lg relative"
+                          className={`bg-neutral-950 border ${char.evolutionReady && !activePreview ? 'border-portal/50 shadow-[0_0_15px_rgba(4,172,255,0.15)]' : 'border-neutral-900'} hover:border-neutral-800 rounded-lg overflow-hidden flex flex-col justify-between group transition-all duration-300 shadow-lg relative`}
                         >
                           {/* Visual Stage illustration header */}
                           <div className="h-44 w-full bg-void relative flex items-center justify-center overflow-hidden border-b border-neutral-900 group">
                             {renderImageHistoryGallery(char.id, char.isBeast ? 'beast' : 'character', activeStory.imageHistory?.filter(img => img.entityId === char.id))}
-                            {hasImage ? (
+                            {displayedImage ? (
                               <img 
-                                src={char.imageUrl} 
+                                src={displayedImage} 
                                 alt={char.name}
                                 referrerPolicy="no-referrer"
                                 className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500 brightness-95"
@@ -910,6 +966,12 @@ export default function LivingCodex({
                               <Award size={10} className="text-yellow-500" />
                               <span className="text-neutral-300">Pwr:{cScore.score}</span>
                             </div>
+
+                            {activePreview && (
+                              <div className="absolute inset-x-0 bottom-0 bg-neutral-950/90 text-[9px] font-mono font-bold uppercase py-1 text-center text-gold-accent border-t border-gold-accent/30 tracking-widest z-10 animate-pulse">
+                                Evolution Preview
+                              </div>
+                            )}
                           </div>
 
                           {/* Detail body */}
@@ -931,28 +993,39 @@ export default function LivingCodex({
                             </div>
 
                             {/* Action: Forge visual aura portrait */}
-                            <div className="pt-3 border-t border-neutral-950 flex justify-end">
+                            <div className="pt-3 border-t border-neutral-950 flex flex-col gap-2">
+                              {char.evolutionReady && !activePreview && (
+                                <div className="text-[9px] font-mono text-portal animate-pulse flex items-center gap-1.5 mb-1 px-1">
+                                  <Sparkles size={8} />
+                                  <span>Evolution Available: {char.evolutionReason || "New Breakthrough"}</span>
+                                </div>
+                              )}
                               <button
                                 onClick={() => handleAwakenCardImage(char.id, char.isBeast ? 'beast' : 'character', char)}
-                                disabled={isGenerating}
+                                disabled={isGenerating || !canGenerate}
                                 className={`w-full py-1.5 rounded text-[9px] uppercase font-mono tracking-widest flex items-center justify-center space-x-1 border font-bold transition-all ${
                                   isGenerating
                                     ? 'bg-neutral-900 border-neutral-800 text-neutral-500 cursor-wait'
+                                    : !canGenerate
+                                    ? 'bg-neutral-950 border-neutral-900 text-neutral-600 cursor-not-allowed opacity-75'
+                                    : char.evolutionReady
+                                    ? 'bg-portal border-portal text-void shadow-[0_0_10px_rgba(4,172,255,0.4)]'
                                     : 'bg-void border-portal/15 text-portal hover:border-portal hover:bg-portal/5 hover:shadow-[0_0_8px_rgba(4,172,255,0.2)]'
                                 }`}
+                                title={!canGenerate ? "Evolution requires further story progression." : ""}
                               >
-                                {isGenerating ? (
-                                  <>
-                                    <RefreshCcw size={10} className="animate-spin text-portal" />
-                                    <span>VERSA is working...</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Image size={10} className="text-portal" />
-                                    <span>{hasImage ? 'Generate New Evolution' : 'Awaken Portrait'}</span>
-                                  </>
-                                )}
-                              </button>
+                                  {isGenerating ? (
+                                    <>
+                                      <RefreshCcw size={10} className="animate-spin" />
+                                      <span>VERSA is working...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Image size={10} className={char.evolutionReady ? 'text-void' : 'text-portal'} />
+                                      <span>{char.evolutionReady ? 'Awaken Evolution' : hasImage ? 'Requires Progression' : 'Awaken Portrait'}</span>
+                                    </>
+                                  )}
+                                </button>
                             </div>
                           </div>
                         </div>
@@ -1041,15 +1114,18 @@ export default function LivingCodex({
                       memory.locations.map((loc) => {
                         const isGenerating = generatingId === loc.id;
                         const hasImage = !!loc.imageUrl;
+                        const activePreview = previews[loc.id];
+                        const canGenerate = !hasImage || loc.evolutionReady;
+                        const displayedImage = activePreview ? activePreview.urls[activePreview.selectedIndex] : loc.imageUrl;
 
                         return (
-                          <div key={loc.id} className="bg-neutral-950 border border-neutral-900 hover:border-neutral-800 rounded-lg overflow-hidden flex flex-col justify-between group transition-all duration-300">
+                          <div key={loc.id} className={`bg-neutral-950 border ${loc.evolutionReady && !activePreview ? 'border-portal/50 shadow-[0_0_15px_rgba(4,172,255,0.15)]' : 'border-neutral-900'} hover:border-neutral-800 rounded-lg overflow-hidden flex flex-col justify-between group transition-all duration-300`}>
                             {/* Location Scenery Header */}
                             <div className="h-36 w-full bg-void relative flex items-center justify-center overflow-hidden border-b border-neutral-900 group">
                               {renderImageHistoryGallery(loc.id, 'location', activeStory.imageHistory?.filter(img => img.entityId === loc.id))}
-                              {hasImage ? (
+                              {displayedImage ? (
                                 <img 
-                                  src={loc.imageUrl} 
+                                  src={displayedImage} 
                                   alt={loc.name}
                                   referrerPolicy="no-referrer"
                                   className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500 brightness-90"
@@ -1077,6 +1153,12 @@ export default function LivingCodex({
                                   {loc.realm}
                                 </span>
                               )}
+
+                              {activePreview && (
+                                <div className="absolute inset-x-0 bottom-0 bg-neutral-950/90 text-[9px] font-mono font-bold uppercase py-1 text-center text-gold-accent border-t border-gold-accent/30 tracking-widest z-10 animate-pulse">
+                                  Evolution Preview
+                                </div>
+                              )}
                             </div>
 
                             {/* Info */}
@@ -1090,30 +1172,47 @@ export default function LivingCodex({
                                 </p>
                               </div>
 
-                              <div className="pt-3 border-t border-neutral-950 flex items-center justify-between gap-2">
-                                <button
-                                  onClick={() => handleDeleteLocation(loc.id)}
-                                  className="text-[9px] text-neutral-600 hover:text-human uppercase font-mono"
-                                >
-                                  Purge Node
-                                </button>
-                                <button
-                                  onClick={() => handleAwakenCardImage(loc.id, 'location', loc)}
-                                  disabled={isGenerating}
-                                  className="px-2 py-1 bg-void border border-portal/10 text-portal hover:border-portal rounded text-[8.5px] uppercase font-mono tracking-wider flex items-center space-x-1"
-                                >
-                                  {isGenerating ? (
-                                    <>
-                                      <RefreshCcw size={8} className="animate-spin" />
-                                      <span>VERSA working...</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Compass size={8} />
-                                      <span>{hasImage ? 'Generate New Evolution' : 'Awaken Vistas'}</span>
-                                    </>
-                                  )}
-                                </button>
+                              <div className="pt-3 border-t border-neutral-950 flex flex-col gap-2">
+                                {loc.evolutionReady && !activePreview && (
+                                  <div className="text-[9px] font-mono text-portal animate-pulse flex items-center gap-1.5 mb-1 px-1">
+                                    <Sparkles size={8} />
+                                    <span>Evolution Available: {loc.evolutionReason || "Atmosphere Shift"}</span>
+                                  </div>
+                                )}
+                                <div className="flex items-center justify-between gap-2">
+                                  <button
+                                    onClick={() => handleDeleteLocation(loc.id)}
+                                    className="text-[9px] text-neutral-600 hover:text-human uppercase font-mono flex-shrink-0"
+                                  >
+                                    Purge Node
+                                  </button>
+                                  <button
+                                    onClick={() => handleAwakenCardImage(loc.id, 'location', loc)}
+                                    disabled={isGenerating || !canGenerate}
+                                    className={`px-2 flex-grow py-1 rounded text-[8.5px] border uppercase font-mono tracking-wider flex items-center justify-center space-x-1 font-bold ${
+                                      isGenerating
+                                        ? 'bg-neutral-900 border-neutral-800 text-neutral-500 cursor-wait'
+                                        : !canGenerate
+                                        ? 'bg-neutral-950 border-neutral-900 text-neutral-600 cursor-not-allowed opacity-75'
+                                        : loc.evolutionReady
+                                        ? 'bg-portal border-portal text-void shadow-[0_0_10px_rgba(4,172,255,0.4)]'
+                                        : 'bg-void border-portal/15 text-portal hover:border-portal hover:bg-portal/5 hover:shadow-[0_0_8px_rgba(4,172,255,0.2)]'
+                                    }`}
+                                    title={!canGenerate ? "Progression required to awaken further vistas." : ""}
+                                  >
+                                        {isGenerating ? (
+                                          <>
+                                            <RefreshCcw size={8} className="animate-spin" />
+                                            <span>VERSA...</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Compass size={8} className={loc.evolutionReady ? 'text-void' : 'text-portal'} />
+                                            <span>{loc.evolutionReady ? 'Awaken Evolution' : hasImage ? 'Requires Progression' : 'Awaken Vistas'}</span>
+                                          </>
+                                        )}
+                                      </button>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1912,6 +2011,9 @@ export default function LivingCodex({
                 memory.artifacts.map((art) => {
                   const isGenerating = generatingId === art.id;
                   const hasImage = !!art.imageUrl;
+                  const activePreview = previews[art.id];
+                  const canGenerate = !hasImage || art.evolutionReady;
+                  const displayedImage = activePreview ? activePreview.urls[activePreview.selectedIndex] : art.imageUrl;
                   const tierColor = 
                     art.tier === 'Primordial' ? 'text-yellow-400 border-yellow-950 bg-yellow-950/20' :
                     art.tier === 'Heaven' ? 'text-portal border-cyan-950 bg-cyan-950/20 animate-pulse' :
@@ -1919,17 +2021,25 @@ export default function LivingCodex({
                     'text-neutral-500 border-neutral-900 bg-neutral-950';
 
                   return (
-                    <div key={art.id} className="p-4 bg-neutral-950/80 border border-neutral-900 rounded-lg hover:border-neutral-850 flex flex-col justify-between transition-all">
+                    <div key={art.id} className={`p-4 bg-neutral-950/80 border ${art.evolutionReady && !activePreview ? 'border-portal/50 shadow-[0_0_15px_rgba(4,172,255,0.15)]' : 'border-neutral-900'} rounded-lg hover:border-neutral-850 flex flex-col justify-between transition-all`}>
                       <div>
-                        <div className="relative group">
+                        <div className="relative group overflow-hidden rounded mb-3">
                           {/* Render relational artifact card portrait if available */}
                           {renderImageHistoryGallery(art.id, 'artifact', activeStory.imageHistory?.filter(img => img.entityId === art.id))}
-                          {hasImage ? (
-                            <div className="h-32 w-full rounded overflow-hidden border border-neutral-900 mb-3">
-                              <img src={art.imageUrl} alt={art.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                          {displayedImage ? (
+                            <div className="h-32 w-full border border-neutral-900 relative">
+                              <img src={displayedImage} alt={art.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                              {activePreview && (
+                                <div className="absolute inset-x-0 bottom-0 bg-neutral-950/90 text-[9px] font-mono font-bold uppercase py-1 text-center text-gold-accent border-t border-gold-accent/30 tracking-widest z-10 animate-pulse">
+                                  Evolution Preview
+                                </div>
+                              )}
                             </div>
                           ) : (
-                            <div className="h-2 bg-gradient-to-r from-void via-portal/5 to-void w-full rounded mb-1"></div>
+                            <div className="h-32 w-full border border-dashed border-neutral-800 flex flex-col items-center justify-center bg-black/40 text-neutral-600 rounded">
+                              <Sword size={24} className="mb-2 opacity-50" />
+                              <span className="text-[8px] tracking-widest font-mono uppercase">Unmanifested</span>
+                            </div>
                           )}
                         </div>
 
@@ -1944,25 +2054,53 @@ export default function LivingCodex({
                         </p>
                       </div>
 
-                      <div className="border-t border-neutral-900 mt-4 pt-3 flex justify-between items-center text-[10px] gap-2">
-                        <span className="text-neutral-500 font-sans">
-                          Bearer: <strong className="text-neutral-300 font-mono">{art.currentOwner || 'Unknown'}</strong>
-                        </span>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => handleAwakenCardImage(art.id, 'artifact', art)}
-                            disabled={isGenerating}
-                            className="text-portal hover:underline capitalize"
-                          >
-                            {isGenerating ? 'VERSA working...' : (hasImage ? 'Generate New Evolution' : 'Synthesize Art')}
-                          </button>
-                          <span className="text-neutral-700">|</span>
-                          <button
-                            onClick={() => handleDeleteArtifact(art.id)}
-                            className="text-neutral-600 hover:text-human font-mono"
-                          >
-                            Shatter
-                          </button>
+                      <div className="border-t border-neutral-900 mt-4 pt-3 flex flex-col gap-2">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="text-neutral-500 font-sans">
+                            Bearer: <strong className="text-neutral-300 font-mono">{art.currentOwner || 'Unknown'}</strong>
+                          </span>
+                        </div>
+                        
+                        {art.evolutionReady && !activePreview && (
+                          <div className="text-[9px] font-mono text-portal animate-pulse flex items-center gap-1.5 mb-1">
+                            <Sparkles size={8} />
+                            <span>Evolution Available: {art.evolutionReason || "Ownership Change"}</span>
+                          </div>
+                        )}
+                        
+                        <div className="flex justify-between items-center mt-1 gap-2 border-t border-neutral-900/50 pt-2">
+                              <button
+                                onClick={() => handleDeleteArtifact(art.id)}
+                                className="text-[9px] text-neutral-600 hover:text-human uppercase font-mono flex-shrink-0"
+                              >
+                                Shatter
+                              </button>
+                              <button
+                                onClick={() => handleAwakenCardImage(art.id, 'artifact', art)}
+                                disabled={isGenerating || !canGenerate}
+                                className={`px-2 flex-grow py-1 rounded text-[8.5px] border uppercase font-mono tracking-wider flex items-center justify-center space-x-1 font-bold ${
+                                  isGenerating
+                                    ? 'bg-neutral-900 border-neutral-800 text-neutral-500 cursor-wait'
+                                    : !canGenerate
+                                    ? 'bg-neutral-950 border-neutral-900 text-neutral-600 cursor-not-allowed opacity-75'
+                                    : art.evolutionReady
+                                    ? 'bg-portal border-portal text-void shadow-[0_0_10px_rgba(4,172,255,0.4)]'
+                                    : 'bg-void border-portal/15 text-portal hover:border-portal hover:bg-portal/5 hover:shadow-[0_0_8px_rgba(4,172,255,0.2)]'
+                                }`}
+                                title={!canGenerate ? "Progression required to awaken Relic." : ""}
+                              >
+                                {isGenerating ? (
+                                  <>
+                                    <RefreshCcw size={8} className="animate-spin" />
+                                    <span>Forging...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles size={8} className={art.evolutionReady ? 'text-void' : 'text-gold-accent'} />
+                                    <span>{art.evolutionReady ? 'Awaken Evolution' : hasImage ? 'Requires Progression' : 'Generate Aura'}</span>
+                                  </>
+                                )}
+                              </button>
                         </div>
                       </div>
                     </div>

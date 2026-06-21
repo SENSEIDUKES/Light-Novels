@@ -2,18 +2,21 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, BookOpen, MoreHorizontal, BookCheck, Download, Trash2, Zap } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
+import { DestinyChoicePanel } from './DestinyChoicePanel';
 
 export const StoryDetailScreen: React.FC<{ 
-  handleGenerateCover: () => void,
+  handleGenerateCover: () => Promise<{ imageUrls: string[], promptUsed: string } | undefined>,
+  handleApplyCover: (imageUrl: string, promptUsed: string) => void,
   handleExportFullTome: (story: any) => void,
   handleExportSingleStory: (story: any) => void,
   handleDeleteStory: (id: string, e: React.MouseEvent) => void,
   setIsCodexSheetOpen: (open: boolean) => void
 }> = ({
-  handleGenerateCover, handleExportFullTome, handleExportSingleStory, handleDeleteStory, setIsCodexSheetOpen
+  handleGenerateCover, handleApplyCover, handleExportFullTome, handleExportSingleStory, handleDeleteStory, setIsCodexSheetOpen
 }) => {
   const { currentScreen, setCurrentScreen, activeStoryId, stories, isGenerating, setSelectedChapterNum } = useAppStore();
   const [isStoryMenuOpen, setIsStoryMenuOpen] = useState(false);
+  const [coverPreview, setCoverPreview] = useState<{ urls: string[], prompt: string, selectedIndex: number } | null>(null);
 
   if (currentScreen !== 'detail') return null;
 
@@ -32,28 +35,56 @@ export const StoryDetailScreen: React.FC<{
       transition={{ duration: 0.3 }}
       className="max-w-5xl mx-auto space-y-8"
     >
+      <DestinyChoicePanel 
+        isOpen={!!coverPreview}
+        imageUrls={coverPreview?.urls || []}
+        selectedIndex={coverPreview?.selectedIndex || 0}
+        onSelect={(index) => setCoverPreview(prev => prev ? { ...prev, selectedIndex: index } : null)}
+        onApply={() => {
+          if (coverPreview) {
+            handleApplyCover(coverPreview.urls[coverPreview.selectedIndex], coverPreview.prompt);
+            setCoverPreview(null);
+          }
+        }}
+        onDiscard={() => setCoverPreview(null)}
+        title="Cover Evolution"
+        subtitle="Choose the most fitting reflection for your next volume."
+      />
+
       <div className="flex flex-col md:flex-row gap-8 bg-[#0a0a0a] border border-neutral-900 rounded-xl p-6 shadow-2xl">
         {/* Cover Art */}
         <div className="w-full max-w-[180px] mx-auto md:max-w-none md:w-64 flex-shrink-0">
-          <div className="relative group aspect-[2/3] rounded-lg overflow-hidden border border-neutral-800 shadow-md mb-2">
+          <div className={`relative group aspect-[2/3] rounded-lg overflow-hidden border ${activeStory.evolutionReady && !coverPreview ? 'border-portal/50 shadow-[0_0_15px_rgba(4,172,255,0.15)]' : 'border-neutral-800'} mb-2`}>
             <img 
               src={activeStory.imageUrl || `https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?auto=format&fit=crop&q=80`}
               alt={activeStory.title}
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
             />
+            
             {/* Hover Overlay for Cover Generation */}
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
               <button 
-                onClick={handleGenerateCover}
-                disabled={isGenerating}
-                className="px-4 py-2 bg-portal/20 border border-portal/50 text-portal text-[10px] font-bold font-sc uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-colors flex flex-col items-center gap-1.5 shadow-[0_0_15px_rgba(4,172,255,0.4)] disabled:opacity-50"
+                onClick={async () => {
+                  const result = await handleGenerateCover();
+                  if (result) setCoverPreview({ urls: result.imageUrls, prompt: result.promptUsed, selectedIndex: 0 });
+                }}
+                disabled={isGenerating || (!!activeStory.imageUrl && !activeStory.evolutionReady)}
+                className="px-4 py-2 bg-portal/20 border border-portal/50 text-portal text-[10px] font-bold font-sc uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-colors flex flex-col items-center gap-1.5 shadow-[0_0_15px_rgba(4,172,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Sparkles size={16} />
-                <span>{activeStory.imageUrl ? 'Generate New Evolution' : 'Forge Core Cover'}</span>
+                <span>{activeStory.evolutionReady ? 'Awaken Evolution' : activeStory.imageUrl ? 'Progression Required' : 'Forge Core Cover'}</span>
               </button>
             </div>
           </div>
+          
+          {/* Cover Evolution Readiness indicator */}
+          {activeStory.evolutionReady && !coverPreview && (
+             <div className="text-[10px] font-mono text-portal animate-pulse flex items-center justify-center gap-1.5 mb-2 px-1 text-center bg-portal/10 py-1 rounded">
+               <Sparkles size={10} />
+               <span>Evolution Available</span>
+             </div>
+          )}
           
           {/* Cover Image History */}
           {activeStory.imageHistory && activeStory.imageHistory.filter(img => img.entityType === 'cover').length > 1 && (

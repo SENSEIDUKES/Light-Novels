@@ -164,6 +164,7 @@ function App() {
             >
               <StoryDetailScreen 
                  handleGenerateCover={storyEngine.handleGenerateCover}
+                 handleApplyCover={storyEngine.handleApplyCover}
                  handleExportFullTome={storyExporter.handleExportFullTome}
                  handleExportSingleStory={storyExporter.handleExportSingleStory}
                  handleDeleteStory={(id, e) => {

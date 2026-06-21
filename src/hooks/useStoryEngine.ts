@@ -489,13 +489,21 @@ export const useStoryEngine = () => {
                   newDesc = newDesc ? `${newDesc} ${rule.descriptionAppend}` : rule.descriptionAppend;
                 }
 
+                const powerLevelChanged = rule.newPowerLevel && rule.newPowerLevel !== char.powerLevel;
+                const statusChanged = rule.newStatus && rule.newStatus !== char.status;
+                const evolutionReady = powerLevelChanged || statusChanged || char.evolutionReady || false;
+                const evolutionReason = powerLevelChanged ? "Breakthrough in Power Level" : (statusChanged ? "Major Status Change" : char.evolutionReason);
+
                 return {
                   ...char,
                   description: newDesc,
                   status: rule.newStatus || char.status,
                   relationshipToMC: rule.newRelationship || char.relationshipToMC,
                   powerLevel: rule.newPowerLevel || char.powerLevel,
-                  abilities: mergedAbilities.length > 0 ? mergedAbilities : undefined
+                  abilities: mergedAbilities.length > 0 ? mergedAbilities : undefined,
+                  evolutionReady: evolutionReady,
+                  evolutionReason: evolutionReason,
+                  availableVisualUpdate: evolutionReady
                 };
               }
               return char;
@@ -528,10 +536,16 @@ export const useStoryEngine = () => {
                 if (rule.descriptionAppend) {
                   newDesc = newDesc ? `${newDesc} ${rule.descriptionAppend}` : rule.descriptionAppend;
                 }
+                const safetyChanged = rule.safetyLevelOverride && rule.safetyLevelOverride !== l.safetyLevel;
+                const evolutionReady = safetyChanged || l.evolutionReady || false;
+                const evolutionReason = safetyChanged ? "Atmosphere/Safety Shift" : l.evolutionReason;
                 return {
                   ...l,
                   description: newDesc,
-                  safetyLevel: rule.safetyLevelOverride || l.safetyLevel
+                  safetyLevel: rule.safetyLevelOverride || l.safetyLevel,
+                  evolutionReady,
+                  evolutionReason,
+                  availableVisualUpdate: evolutionReady
                 };
               }
               return l;
@@ -546,10 +560,16 @@ export const useStoryEngine = () => {
                 if (rule.descriptionAppend) {
                   newDesc = newDesc ? `${newDesc} ${rule.descriptionAppend}` : rule.descriptionAppend;
                 }
+                const ownerChanged = rule.newOwner && rule.newOwner !== a.currentOwner;
+                const evolutionReady = ownerChanged || a.evolutionReady || false;
+                const evolutionReason = ownerChanged ? "New Artifact Master" : a.evolutionReason;
                 return {
                   ...a,
                   description: newDesc,
-                  currentOwner: rule.newOwner || a.currentOwner
+                  currentOwner: rule.newOwner || a.currentOwner,
+                  evolutionReady,
+                  evolutionReason,
+                  availableVisualUpdate: evolutionReady
                 };
               }
               return a;
@@ -792,9 +812,9 @@ export const useStoryEngine = () => {
     await store.saveStories(updated);
   };
 
-  const handleGenerateCover = async () => {
+  const handleGenerateCover = async (): Promise<{ imageUrls: string[], promptUsed: string } | undefined> => {
     const activeStory = store.stories.find(s => s.id === store.activeStoryId);
-    if (!activeStory) return;
+    if (!activeStory) return undefined;
     store.setGenerationPhase('cover');
     store.setIsGenerating(true);
     store.setAppError(null);
@@ -816,29 +836,12 @@ export const useStoryEngine = () => {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Failed to generate cover art.");
 
-      const newImageUrl = data.imageUrl || data.fallbackUrl;
-      if (newImageUrl) {
-        const imageRecord = {
-          id: Math.random().toString(36).substring(2, 10),
-          entityId: activeStory.id,
-          entityType: 'cover',
-          imageUrl: newImageUrl,
-          promptUsed: prompt,
-          createdAt: new Date().toISOString(),
-          isCurrent: true,
-          chapterNumber: activeStory.currentChapterNumber
-        };
-        
-        const currentHistory = activeStory.imageHistory || [];
-        const updatedHistory = currentHistory.map(img => 
-          img.entityType === 'cover' ? { ...img, isCurrent: false } : img
-        ).concat(imageRecord as any);
+      let newImageUrls = data.imageUrls;
+      if (!newImageUrls && data.imageUrl) newImageUrls = [data.imageUrl];
+      if (!newImageUrls && data.fallbackUrl) newImageUrls = [data.fallbackUrl];
 
-        handleUpdateStoryDirect({ 
-          ...activeStory, 
-          imageUrl: newImageUrl,
-          imageHistory: updatedHistory
-        } as any);
+      if (newImageUrls && newImageUrls.length > 0) {
+        return { imageUrls: newImageUrls, promptUsed: prompt };
       }
     } catch(err: any) {
       store.setAppError(err.message || "Failed to forge new cover.");
@@ -846,6 +849,37 @@ export const useStoryEngine = () => {
       store.setIsGenerating(false);
       store.setGenerationPhase(null);
     }
+    return undefined;
+  };
+
+  const handleApplyCover = async (imageUrl: string, promptUsed: string) => {
+    const activeStory = store.stories.find(s => s.id === store.activeStoryId);
+    if (!activeStory) return;
+
+    const imageRecord = {
+      id: Math.random().toString(36).substring(2, 10),
+      entityId: activeStory.id,
+      entityType: 'cover',
+      imageUrl,
+      promptUsed,
+      createdAt: new Date().toISOString(),
+      isCurrent: true,
+      chapterNumber: activeStory.currentChapterNumber
+    };
+    
+    const currentHistory = activeStory.imageHistory || [];
+    const updatedHistory = currentHistory.map(img => 
+      img.entityType === 'cover' ? { ...img, isCurrent: false } : img
+    ).concat(imageRecord as any);
+
+    handleUpdateStoryDirect({ 
+      ...activeStory, 
+      imageUrl,
+      imageHistory: updatedHistory,
+      evolutionReady: false,
+      availableVisualUpdate: false,
+      lastImageChapter: activeStory.currentChapterNumber
+    } as any);
   };
 
   return {
@@ -856,6 +890,7 @@ export const useStoryEngine = () => {
     handleUpdateMemoryManual,
     handleUpdateStoryDirect,
     handleToggleRead,
-    handleGenerateCover
+    handleGenerateCover,
+    handleApplyCover
   };
 };

@@ -554,7 +554,8 @@ app.post("/api/generate-card-image", async (req, res) => {
       return res.status(400).json({ error: "Missing prompt parameter for image generation" });
     }
     const result = await routeImageGeneration(prompt, type, routingConfig, getCustomKeys(req));
-    return res.json(result);
+    // Provide backwards compatible property and new array
+    return res.json({ ...result, imageUrl: result.imageUrls?.[0] });
   } catch (error: any) {
     console.error("Error generating card image:", error);
     return res.status(500).json({ error: error.message || "Internal server error" });
