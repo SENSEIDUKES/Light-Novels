@@ -166,6 +166,7 @@ function App() {
                  handleGenerateCover={storyEngine.handleGenerateCover}
                  handleApplyCover={storyEngine.handleApplyCover}
                  handleExportFullTome={storyExporter.handleExportFullTome}
+                 handleExportEPUB={storyExporter.handleExportEPUB}
                  handleExportSingleStory={storyExporter.handleExportSingleStory}
                  handleDeleteStory={(id, e) => {
                    e.stopPropagation();

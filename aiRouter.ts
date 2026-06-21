@@ -290,7 +290,8 @@ export async function routeTextGeneration(
   userPrompt: string,
   routeKey: string, // e.g., "generate-chapter", "steer-arc" etc.
   routingConfig?: RouteConfig,
-  customKeys?: { geminiApiKey?: string; openrouterApiKey?: string; ollamaHost?: string; }
+  customKeys?: { geminiApiKey?: string; openrouterApiKey?: string; ollamaHost?: string; },
+  responseSchema?: any
 ): Promise<any> {
   const activeConfig: RouteConfig = routingConfig || {
     provider: "openrouter",
@@ -307,15 +308,21 @@ export async function routeTextGeneration(
     const ai = getAIClient(customKeys?.geminiApiKey);
     const geminiModel = (model || "google/gemini-2.5-flash-lite").replace(/^google\//, "");
     try {
+      const config: any = {
+        systemInstruction,
+        responseMimeType: "application/json",
+        temperature: 0.95,
+        maxOutputTokens: 8192,
+      };
+      
+      if (responseSchema) {
+        config.responseSchema = responseSchema;
+      }
+
       const response = await ai.models.generateContent({
         model: geminiModel,
         contents: userPrompt,
-        config: {
-          systemInstruction,
-          responseMimeType: "application/json",
-          temperature: 0.95,
-          maxOutputTokens: 8192,
-        }
+        config
       });
 
       if (!response.text) {

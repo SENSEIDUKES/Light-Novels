@@ -144,6 +144,84 @@ export const extractJsonMeta = (rawStr: string): any => {
   return longestObject || {};
 };
 
+function getLevenshteinDistance(v1: string, v2: string): number {
+  if (!v1 || !v2) return Math.max(v1?.length || 0, v2?.length || 0);
+  if (v1 === v2) return 0;
+  const matrix = [];
+  for (let i = 0; i <= v2.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= v1.length; j++) {
+    matrix[0][j] = j;
+  }
+  for (let i = 1; i <= v2.length; i++) {
+    for (let j = 1; j <= v1.length; j++) {
+      if (v2.charAt(i - 1) === v1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1)
+        );
+      }
+    }
+  }
+  return matrix[v2.length][v1.length];
+}
+
+function runMemoryLinter(
+  prevMemory: StoryMemory,
+  nextMemory: StoryMemory,
+  chapterText: string
+): string[] {
+  const warnings: string[] = [];
+
+  // 1. Dead character referenced in new text
+  if (prevMemory.characters) {
+    prevMemory.characters.forEach((char) => {
+      if (char.status?.toLowerCase() === 'deceased') {
+        const regex = new RegExp(`\\b${char.name}\\b`, 'i');
+        if (regex.test(chapterText)) {
+          warnings.push(`Deceased character "${char.name}" was referenced in the new text. Verify this was a flashback or memory.`);
+        }
+      }
+    });
+  }
+
+  // 2. Duplicateish Names (Levenshtein) in updated roster
+  if (nextMemory.characters) {
+    for (let i = 0; i < nextMemory.characters.length; i++) {
+      for (let j = i + 1; j < nextMemory.characters.length; j++) {
+        const name1 = nextMemory.characters[i].name;
+        const name2 = nextMemory.characters[j].name;
+        if (name1 && name2 && name1.toLowerCase() !== name2.toLowerCase()) {
+          const distance = getLevenshteinDistance(name1.toLowerCase(), name2.toLowerCase());
+          if (distance > 0 && distance <= 2 && name1.length > 4 && name2.length > 4) {
+             warnings.push(`Potential duplicate character names: "${name1}" and "${name2}". Check roster.`);
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Power stage skipping
+  if (prevMemory.currentPowerStage !== nextMemory.currentPowerStage) {
+     const prevStage = prevMemory.currentPowerStage || 'None';
+     warnings.push(`Power stage updated from "${prevStage}" to "${nextMemory.currentPowerStage}". Verify no ranks were skipped.`);
+  }
+
+  // 4. Returning Dead/Resolved threads
+  if (nextMemory.unresolvedPlotThreads && prevMemory.resolvedPlotThreads) {
+    for (const thread of nextMemory.unresolvedPlotThreads) {
+      if (prevMemory.resolvedPlotThreads.some(r => r.toLowerCase() === thread.toLowerCase())) {
+        warnings.push(`Plot thread "${thread}" was previously resolved but is now marked unresolved.`);
+      }
+    }
+  }
+
+  return warnings;
+}
+
 export const useStoryEngine = () => {
   const store = useAppStore();
 
@@ -319,7 +397,6 @@ export const useStoryEngine = () => {
       let buffer = "";
 
       const textHeader = "---CHAPTER_BLOCKS---";
-      const jsonHeader = "---JSON_META---";
 
       while(true) {
         const { value, done } = await reader.read();
@@ -343,13 +420,7 @@ export const useStoryEngine = () => {
 
                 if (accumulatedRaw.includes(textHeader)) {
                   const startIndex = accumulatedRaw.indexOf(textHeader) + textHeader.length;
-                  if (accumulatedRaw.includes(jsonHeader)) {
-                    rawBlocksStr = accumulatedRaw.substring(startIndex, accumulatedRaw.indexOf(jsonHeader)).trim();
-                  } else {
-                    rawBlocksStr = accumulatedRaw.substring(startIndex).trim();
-                  }
-                } else if (accumulatedRaw.includes(jsonHeader)) {
-                  rawBlocksStr = accumulatedRaw.substring(0, accumulatedRaw.indexOf(jsonHeader)).trim();
+                  rawBlocksStr = accumulatedRaw.substring(startIndex).trim();
                 }
 
                 blocksData = extractJsonBlocks(rawBlocksStr);
@@ -382,37 +453,48 @@ export const useStoryEngine = () => {
       let data: any = { chapterText: "", blocks: [], summary: "An ethereal mist obscures the historical records.", statsChangeMessage: "None", memoryUpdates: {} };
       
       let rawBlocksStr = accumulatedRaw;
-      let rawMetaStr = "";
 
       if (accumulatedRaw.includes(textHeader)) {
         const startIndex = accumulatedRaw.indexOf(textHeader) + textHeader.length;
-        if (accumulatedRaw.includes(jsonHeader)) {
-          rawBlocksStr = accumulatedRaw.substring(startIndex, accumulatedRaw.indexOf(jsonHeader)).trim();
-          rawMetaStr = accumulatedRaw.substring(accumulatedRaw.indexOf(jsonHeader) + jsonHeader.length).trim();
-        } else {
-          rawBlocksStr = accumulatedRaw.substring(startIndex).trim();
-        }
-      } else if (accumulatedRaw.includes(jsonHeader)) {
-        rawBlocksStr = accumulatedRaw.substring(0, accumulatedRaw.indexOf(jsonHeader)).trim();
-        rawMetaStr = accumulatedRaw.substring(accumulatedRaw.indexOf(jsonHeader) + jsonHeader.length).trim();
+        rawBlocksStr = accumulatedRaw.substring(startIndex).trim();
       }
 
-      const parsedMeta = rawMetaStr ? extractJsonMeta(rawMetaStr) : extractJsonMeta(accumulatedRaw);
       const parsedBlocks = extractJsonBlocks(rawBlocksStr);
-
-      data = { ...data, ...parsedMeta };
       data.blocks = parsedBlocks;
       
       if (parsedBlocks.length > 0) {
         data.chapterText = parsedBlocks.map((b: any) => b.text).join('\\n\\n');
       } else {
         data.chapterText = rawBlocksStr.replace(/\`\`\`json/gi, '').replace(/\`\`\`/g, '').trim();
-        // If meta was parsed from accumulatedRaw due to missing header, it might pollute chapterText
-        // but text is generally fine unless it's very messy. 
       }
       
       if (!data.chapterText) {
         data.chapterText = accumulatedRaw;
+      }
+
+      // Perform extraction step
+      store.setStreamingChapter({
+         number: chapterNumber,
+         content: data.chapterText,
+         blocks: data.blocks
+      });
+
+      const extractResponse = await fetch('/api/extract-chapter-metadata', {
+        method: 'POST',
+        headers: apiHeaders,
+        body: JSON.stringify({
+          chapterNumber: targetChapter.number,
+          title: targetChapter.title,
+          chapterText: rawBlocksStr,
+          routingConfig: store.routingConfig.storyMaker
+        })
+      });
+
+      if (!extractResponse.ok) {
+         console.warn("Failed to extract chapter metadata explicitly. Setting defaults.");
+      } else {
+         const extractedData = await extractResponse.json();
+         data = { ...data, ...extractedData };
       }
 
       let newChapterEmbedding;
@@ -430,6 +512,7 @@ export const useStoryEngine = () => {
           if (aIdx !== selectedArcIndex) return arc;
           return {
             ...arc,
+            summary: data.arcSummary || arc.summary,
             chapters: arc.chapters.map(ch => {
               if (ch.number !== chapterNumber) return ch;
               return {
@@ -643,6 +726,11 @@ export const useStoryEngine = () => {
             const currentAbilities = nextMemory.abilities || [];
             const filteredAbilities = memoryUpdates.newMCAbilities.filter((ab: string) => !currentAbilities.includes(ab));
             nextMemory.abilities = [...currentAbilities, ...filteredAbilities];
+          }
+
+          const linterWarnings = runMemoryLinter(cloned.memory, nextMemory, data.chapterText);
+          if (linterWarnings.length > 0) {
+            nextMemory.memoryWarnings = [...(nextMemory.memoryWarnings || []), ...linterWarnings];
           }
 
           cloned.memory = nextMemory;

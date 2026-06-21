@@ -1,4 +1,5 @@
 import { Chapter, StoryWorld } from '../types';
+import { storyStorage } from './storage';
 
 export function cosineSimilarity(vecA: number[], vecB: number[]): number {
   let dotProduct = 0;
@@ -34,7 +35,8 @@ export async function generateEmbedding(text: string, apiHeaders: Record<string,
 
 /**
  * Executes a local Vector Search (RAG) substituting Server-side Firebase Vector Extensions.
- * It filters past chapters using cosine distance to ensure AI maintains deep continuity.
+ * It uses a rolling/hierarchical summary approach: per-arc summary + last-N detailed chapter summaries,
+ * and falls back/adds older vector-searched chapters to maintain deep long-context continuity.
  */
 export async function retrieveRelevantContext(
   currentPremise: string,
@@ -43,61 +45,88 @@ export async function retrieveRelevantContext(
   apiHeaders: Record<string, string> = {},
   topK: number = 3
 ): Promise<string[]> {
-  // 1. Generate an embedding for the prompt's intent (premise + loose plot threads)
-  const queryText = `Premise: ${currentPremise}. Unresolved: ${story.memory.unresolvedPlotThreads.join(', ')}`;
-  const queryEmbedding = await generateEmbedding(queryText, apiHeaders);
+  const contextBlocks: string[] = [];
 
-  // Fallback to all standard summaries if embedding fails
-  if (!queryEmbedding) {
-    const fallbackSummaries: string[] = [];
-    story.arcs.forEach(arc => {
-      arc.chapters.forEach(ch => {
-        if (ch.number < targetChapterNumber && ch.summary) {
-          fallbackSummaries.push(`Chapter ${ch.number}: ${ch.summary}`);
-        }
-      });
-    });
-    
-    // Just return the last K + 2 to prevent token overflow if vector search failed
-    return fallbackSummaries.slice(-topK - 2);
-  }
-
-  // 2. Gather all candidate chapters that have summaries
-  const candidates: { chapterNumber: number; summary: string; embedding: number[]; score: number }[] = [];
-  
+  // 1. Coarse History: Arc Summaries
+  const arcSummaries: string[] = [];
   story.arcs.forEach(arc => {
-    arc.chapters.forEach(ch => {
-      if (ch.number < targetChapterNumber && ch.summary && ch.embedding) {
-        const score = cosineSimilarity(queryEmbedding, ch.embedding);
-        candidates.push({
-          chapterNumber: ch.number,
-          summary: ch.summary,
-          embedding: ch.embedding,
-          score
-        });
-      }
-    });
+    const hasPastChapters = arc.chapters.some(c => c.number < targetChapterNumber);
+    if (hasPastChapters && arc.summary) {
+      arcSummaries.push(`Volume '${arc.title}' Summary: ${arc.summary}`);
+    }
   });
 
-  // Sort by score descending (closest vectors first)
-  candidates.sort((a, b) => b.score - a.score);
+  if (arcSummaries.length > 0) {
+    contextBlocks.push("--- COARSE HISTORY (ARC SUMMARIES) ---");
+    contextBlocks.push(...arcSummaries);
+  }
 
-  // Take top K semantically relevant
-  const topCandidates = candidates.slice(0, topK);
-
-  // ALWAYS include the immediate preceding chapter for continuity lock
-  if (targetChapterNumber > 1) {
-    const immediatePrevNumber = targetChapterNumber - 1;
-    if (!topCandidates.some(c => c.chapterNumber === immediatePrevNumber)) {
-      const prevFallback = candidates.find(c => c.chapterNumber === immediatePrevNumber);
-      if (prevFallback) {
-         topCandidates.push(prevFallback);
+  // 2. Fine Recent Detail: Last N Chapters
+  const allPastChapters: { chapterNumber: number; summary: string, embedding?: number[] }[] = [];
+  
+  for (const arc of story.arcs) {
+    for (const ch of arc.chapters) {
+      if (ch.number < targetChapterNumber) {
+        let chSummary = ch.summary;
+        if (!chSummary && ch.hasContent) {
+           const content = await storyStorage.getChapterContent(story.id, ch.number);
+           if (content && content.summary) {
+              chSummary = content.summary;
+           }
+        }
+        if (chSummary) {
+          allPastChapters.push({ chapterNumber: ch.number, summary: chSummary, embedding: ch.embedding });
+        }
       }
     }
   }
 
-  // Re-sort temporally so the AI reads them in chronological chronological order
-  topCandidates.sort((a, b) => a.chapterNumber - b.chapterNumber);
+  allPastChapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
 
-  return topCandidates.map(c => `Chapter ${c.chapterNumber}: ${c.summary}`);
+  // Take the last topK (plus 2 to ensure we have a solid recent chunk, as requested)
+  const lastNCount = Math.max(topK, 5);
+  const recentChapters = allPastChapters.slice(-lastNCount);
+  const recentChapterNumbers = new Set(recentChapters.map(c => c.chapterNumber));
+
+  if (recentChapters.length > 0) {
+    if (contextBlocks.length > 0) contextBlocks.push(""); // spacer
+    contextBlocks.push("--- RECENT FINE DETAIL (LATEST CHAPTERS) ---");
+    recentChapters.forEach(c => {
+      contextBlocks.push(`Chapter ${c.chapterNumber}: ${c.summary}`);
+    });
+  }
+
+  // 3. Recovered Relevant Memories: Vector search over older chapters
+  const oldCandidateChapters = allPastChapters.filter(c => !recentChapterNumbers.has(c.chapterNumber));
+  
+  if (oldCandidateChapters.length > 0) {
+    const queryText = `Premise: ${currentPremise}. Unresolved: ${story.memory.unresolvedPlotThreads.join(', ')}`;
+    const queryEmbedding = await generateEmbedding(queryText, apiHeaders);
+
+    if (queryEmbedding) {
+      const candidates: { chapterNumber: number; summary: string; score: number }[] = [];
+      for (const ch of oldCandidateChapters) {
+        if (ch.embedding) {
+          const score = cosineSimilarity(queryEmbedding, ch.embedding);
+          if (score > 0.70) {
+            candidates.push({ chapterNumber: ch.chapterNumber, summary: ch.summary, score });
+          }
+        }
+      }
+
+      if (candidates.length > 0) {
+        candidates.sort((a, b) => b.score - a.score);
+        const topVectorMatches = candidates.slice(0, 2);
+        topVectorMatches.sort((a, b) => a.chapterNumber - b.chapterNumber); // chronological
+        
+        if (contextBlocks.length > 0) contextBlocks.push(""); // spacer
+        contextBlocks.push("--- RECOVERED RELEVANT MEMORIES (OLDER CHAPTERS) ---");
+        topVectorMatches.forEach(c => {
+          contextBlocks.push(`Chapter ${c.chapterNumber}: ${c.summary}`);
+        });
+      }
+    }
+  }
+
+  return contextBlocks;
 }

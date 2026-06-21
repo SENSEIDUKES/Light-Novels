@@ -1,5 +1,34 @@
 import { StoryWorld, WorldBlueprint, StoryArc, ChapterContent } from '../types';
 
+export function filterRelevantEntities(entities: any[] | undefined, ...contexts: (string|undefined|null)[]) {
+  if (!entities || !Array.isArray(entities)) return [];
+  
+  const contextText = contexts.filter(Boolean).join(" ").toLowerCase();
+  const STOP_WORDS = new Set(["the", "and", "for", "with", "from", "that", "this", "they", "them", "their", "his", "hers", "there", "what", "where", "when", "why", "how", "then"]);
+  
+  return entities.filter(entity => {
+    if (!entity.name) return true;
+    
+    // Always include the entity if it's explicitly marked evolutionReady (means it changed recently)
+    if (entity.evolutionReady) return true;
+
+    const nameStr = entity.name.toLowerCase();
+    
+    // Exact full name match
+    if (contextText.includes(nameStr)) return true;
+    
+    // Partial word match (useful for titles or multi-word names like "Elder Zhao")
+    const tokens = nameStr.split(/\s+/);
+    for (const token of tokens) {
+      if (token.length > 3 && !STOP_WORDS.has(token)) {
+         if (contextText.includes(token)) return true;
+      }
+    }
+    
+    return false;
+  });
+}
+
 /**
  * Validates and converts any arbitrary value safely to a string.
  */

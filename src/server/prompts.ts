@@ -77,26 +77,16 @@ CRITICAL ANTI-DRIFT MANDATE (COHERENCE PROTOCOL):
 2. CONTINUITY LOCK: Acknowledge the immediate climax, physical position, or conversation from the LAST paragraph of the previous chapter summary in PAST SUMMARY CONTEXT. There can be zero unexplained timeskips, spatial transitions, or sudden narrative jumps.
 3. CHARACTER ACCORD: Never create a new character that conflicts with or duplicates the name of an existing one. If a character from the 'Living/Met Characters' list appears, treat them as fully known to the MC and the reader. DO NOT re-introduce them or describe them as a stranger. Respect historical character relationships and status.
 4. SEQUENTIAL ASCENSION: If the character advances in their cultivation rank, it must crawl logically from the current stage to the next sequential stage defined in the Power System ranks; skipping ranks is forbidden.
-5. CLEAN MEMORY SECTIONS: List true logical deltas (introducing actual newly met characters with distinct names, moving unresolved plot threads to resolved only if they are fully completed in the text, and changing statuses on existing characters based on the physical events in this chapter).
 
 OUTPUT FORMAT TARGET:
-You MUST output the response in two distinct parts:
-First, output the chapter text structured as NDJSON (Newline Delimited JSON). Start it with ---CHAPTER_BLOCKS--- on a new line. Each paragraph of your chapter should be a single JSON object on one line containing an "id" (unique string), "type" (usually "paragraph"), "text" (the paragraph content), and optional "metadata" for audio narrative cues.
+You MUST output strictly the chapter text structured as NDJSON (Newline Delimited JSON). Start it with ---CHAPTER_BLOCKS--- on a new line. Each paragraph of your chapter should be a single JSON object on one line containing an "id" (unique string), "type" (usually "paragraph"), "text" (the paragraph content), and optional "metadata" for audio narrative cues.
 You can include a "beastEvent" object inside the block "metadata" when encountering significant beast moments (reveals, major strikes, deaths, power surges). A beastEvent needs a "type" ("reveal", "power-up", "technique", "injury", "turning-point", "death", "breakthrough") and a "profile" (containing size, bodyType, element, movement, intelligence, threatTier, signatureSound matching the predefined schema). Use this sparingly and only on significant narrative beats.
-
-Second, output the metadata. Start it with ---JSON_META--- on a new line, followed strictly by a valid JSON object matching the metadata schema.
 
 Example:
 ---CHAPTER_BLOCKS---
 {"id": "c1-p1", "type": "paragraph", "text": "Rain crawled down the black stones as Kael climbed higher into the mountain pass...", "metadata": {"sceneType": "travel", "environment": ["mountain", "rain", "night"], "motion": "walking", "emotion": "determined", "intensity": 0.35, "tension": 0.25, "danger": 0.15, "mysticism": 0.4, "audioSignature": "rainy-mountain-walk"}}
 {"id": "c1-p2", "type": "paragraph", "text": "Suddenly, the sky tore open. The Thunder Roc emerged, completely blotting out the moon.", "metadata": {"tension": 0.9, "beastEvent": {"type": "reveal", "profile": {"size": "giant", "bodyType": "bird", "element": "lightning", "movement": "flying", "intelligence": "ancient", "threatTier": "mythic", "signatureSound": "screech"}}}}
-{"id": "c1-p3", "type": "paragraph", "text": "He looked back at the valley below."}
----JSON_META---
-{
-  "summary": "...",
-  "statsChangeMessage": "None",
-  "memoryUpdates": { ... }
-}`,
+{"id": "c1-p3", "type": "paragraph", "text": "He looked back at the valley below."}`,
 
     nonStreamSystem: `You are an elite fantasy web-novel author specializing in Chinese light novels (Wuxia, Xianxia, Xuanhuan, Divine Systems). 
 Your writing must be highly descriptive, immersive, and emotionally impactful, utilizing the "Reading/archive" font tone. Write using rich metaphors, profound dialogue, high cultivation chants, and grand scene setting. 
@@ -134,12 +124,49 @@ CHAPTER LENGTH & PACING DIRECTIVES:
 Write a fully fleshed-out chapter following the length directives. Split it into multiple beautiful paragraphs with plenty of dialogue, combat choreography or cultivation breakthroughs where descriptive details make it feel real. 
 If the novel is a "System" or "LitRPG" style, include a beautiful neon/cybernetic Cultivation System panel in the story text (formatted cleanly using mono-spaced block grids or brackets like: [System Alert: Qi +100!]).
 
-${withCue ? `Also allow narrative cue payloads to carry normalized story metadata such as intensity, tension, powerShift, emotion, danger, mysticism, element, and relationshipShift. Do not directly convert this data into complex Web Audio synthesis yet. For now, AtmosphericAudio may use these values only for simple placeholder behavior such as choosing a sound, adjusting volume slightly, or selecting a basic ambience. Keep the structured payloads clean so SAP can later interpret them as part of a proper meaning-to-score audio system.` : `Also, analyze the events of this chapter and provide list updates/modifications to the permanent story memory so we can track newly met characters, dead characters, relationship updates, unresolved issues, or potential MC advancement.`}
+${withCue ? `Also allow narrative cue payloads to carry normalized story metadata. Do not directly convert this data into complex Web Audio synthesis yet. Keep the structured payloads clean so SAP can later interpret them as part of a proper meaning-to-score audio system. DO NOT generate summary or memory updates, only generate the chapter text blocks.` : `Also, analyze the events of this chapter and provide list updates/modifications to the permanent story memory so we can track newly met characters, dead characters, relationship updates, unresolved issues, or potential MC advancement.`}
 
-You must return a JSON object with the following fields:
+${!withCue ? `You must return a JSON object with the following fields:
 {
   "chapterText": "The fully formatted narrative text of the chapter. Use double newlines for paragraph breaks so the reader displays it beautifully.",
-  "summary": "A 2-sentence highly concise summary of what transpired in this chapter to store in our historical archive.",
+  "summary": "A detailed 1-2 paragraph summary of the exact events, conversations, and physical movements that transpired in this chapter to store in our historical archive.",
+  "arcSummary": "A rolling 2-3 sentence highly concise overview of the ENTIRE current arc up to (and including) this chapter's events. Acts as a coarse history block.",
+  "statsChangeMessage": "A short status upgrade notification (e.g. '[System Breakthrough: Qi Condensation Rank 2 reached. Meridians purified!]', or 'None')",
+  "cuePayload": { "intensity": 0.8, "tension": 0.5, "powerShift": 1, "emotion": "awe", "danger": 0.2, "mysticism": 0.9, "element": "void", "relationshipShift": 0, "signature": "celestial_chime" },
+  "memoryUpdates": {
+    "currentPowerStage": "Updated MC power level if they broke through, otherwise the same as before.",
+    "newCharacters": [],
+    "characterStatusUpdates": [],
+    "newUnresolvedPlotThreads": [],
+    "resolvedPlotThreads": [],
+    "newFactions": [],
+    "factionUpdates": [],
+    "newLocations": [],
+    "locationUpdates": [],
+    "newArtifacts": [],
+    "artifactUpdates": [],
+    "newMCAbilities": []
+  }
+}
+
+Do not add any text before or after the JSON.` : `Output strictly the NDJSON blocks.`}`
+  },
+
+  extractMetadata: {
+    system: `You are an elite fantasy web-novel editor. Your task is to analyze the just-written chapter text and extract structured metadata and story memory updates.
+You must output strictly JSON matching the specified schema format. Do NOT generate chapter text. Focus entirely on analyzing the provided chapter to produce accurate memory updates.`,
+    userPrompt: (chapterNumber: number, title: string, chapterText: string) => `Analyze the following chapter text.
+
+Chapter ${chapterNumber}: "${title}"
+
+Chapter Text:
+${chapterText}
+
+Extract updates for the permanent story memory so we can track newly met characters, dead characters, relationship updates, unresolved issues, or potential MC advancement. Also, provide a short summary of events, and an arc summary.
+You must return a JSON object with the following fields:
+{
+  "summary": "A detailed 1-2 paragraph summary of the exact events, conversations, and physical movements that transpired in this chapter to store in our historical archive.",
+  "arcSummary": "A rolling 2-3 sentence highly concise overview of the ENTIRE current arc up to (and including) this chapter's events. Acts as a coarse history block.",
   "statsChangeMessage": "A short status upgrade notification (e.g. '[System Breakthrough: Qi Condensation Rank 2 reached. Meridians purified!]', or 'None')",
   "cuePayload": {
     "intensity": 0.8,
@@ -246,7 +273,7 @@ You must return a JSON object with the following fields:
   }
 }
 
-Do not add any text before or after the JSON.`
+Do not add any text before or after the JSON. Ensure the JSON is well-formed.`
   },
 
   directions: {

@@ -416,7 +416,7 @@ export class PersistentStorageManager implements StorageAdapter {
              chapter.hasContent = true;
              delete chapter.generatedContent;
              delete chapter.blocks;
-             delete chapter.summary;
+             // delete chapter.summary; // Keep summary in the main story document for lightweight context retrieval
              delete chapter.statsChangeMessage;
              delete chapter.cuePayload;
              delete (chapter as any)._isNewContent;

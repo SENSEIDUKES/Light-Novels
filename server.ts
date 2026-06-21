@@ -3,7 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { routeTextGeneration, routeImageGeneration, routeTextGenerationStream, ROUTER_PRESETS } from "./aiRouter";
-import { ensureString, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChapterResponse } from "./src/server/helpers";
+import { ensureString, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChapterResponse, filterRelevantEntities } from "./src/server/helpers";
 import { PROMPTS } from "./src/server/prompts";
 
 import * as deepl from "deepl-node";
@@ -279,17 +279,20 @@ app.post("/api/generate-chapter-stream", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields for chapter generation" });
     }
 
+    const pastSummariesStr = pastSummaries && pastSummaries.length > 0 
+      ? pastSummaries.join("\n") 
+      : "This is the very first chapter of the story arc! Set the scene dramatically.";
+
     const memoryJsonStr = JSON.stringify({
       powerSystem: memory.powerSystem,
       currentPowerStage: memory.currentPowerStage,
       worldRules: memory.worldRules,
-      characters: memory.characters,
-      unresolvedPlotThreads: memory.unresolvedPlotThreads
+      unresolvedPlotThreads: memory.unresolvedPlotThreads,
+      characters: filterRelevantEntities(memory.characters, mcName, pastSummariesStr, currentChapter.premise, memory.unresolvedPlotThreads?.join(" "), customPremise),
+      factions: filterRelevantEntities(memory.factions, mcName, pastSummariesStr, currentChapter.premise, memory.unresolvedPlotThreads?.join(" "), customPremise),
+      locations: filterRelevantEntities(memory.locations, mcName, pastSummariesStr, currentChapter.premise, memory.unresolvedPlotThreads?.join(" "), customPremise),
+      artifacts: filterRelevantEntities(memory.artifacts, mcName, pastSummariesStr, currentChapter.premise, memory.unresolvedPlotThreads?.join(" "), customPremise)
     }, null, 2);
-
-    const pastSummariesStr = pastSummaries && pastSummaries.length > 0 
-      ? pastSummaries.join("\n") 
-      : "This is the very first chapter of the story arc! Set the scene dramatically.";
 
     const systemInstruction = PROMPTS.chapter.system;
     const userPrompt = PROMPTS.chapter.userPrompt(
@@ -349,17 +352,20 @@ app.post("/api/generate-chapter", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields for chapter generation" });
     }
 
+    const pastSummariesStr = pastSummaries && pastSummaries.length > 0 
+      ? pastSummaries.join("\n") 
+      : "This is the very first chapter of the story arc! Set the scene dramatically.";
+
     const memoryJsonStr = JSON.stringify({
       powerSystem: memory.powerSystem,
       currentPowerStage: memory.currentPowerStage,
       worldRules: memory.worldRules,
-      characters: memory.characters,
-      unresolvedPlotThreads: memory.unresolvedPlotThreads
+      unresolvedPlotThreads: memory.unresolvedPlotThreads,
+      characters: filterRelevantEntities(memory.characters, mcName, pastSummariesStr, currentChapter.premise, memory.unresolvedPlotThreads?.join(" "), customPremise),
+      factions: filterRelevantEntities(memory.factions, mcName, pastSummariesStr, currentChapter.premise, memory.unresolvedPlotThreads?.join(" "), customPremise),
+      locations: filterRelevantEntities(memory.locations, mcName, pastSummariesStr, currentChapter.premise, memory.unresolvedPlotThreads?.join(" "), customPremise),
+      artifacts: filterRelevantEntities(memory.artifacts, mcName, pastSummariesStr, currentChapter.premise, memory.unresolvedPlotThreads?.join(" "), customPremise)
     }, null, 2);
-
-    const pastSummariesStr = pastSummaries && pastSummaries.length > 0 
-      ? pastSummaries.join("\n") 
-      : "This is the very first chapter of the story arc! Set the scene dramatically.";
 
     const systemInstruction = PROMPTS.chapter.nonStreamSystem;
     const userPrompt = PROMPTS.chapter.userPrompt(
@@ -389,6 +395,76 @@ app.post("/api/generate-chapter", async (req, res) => {
   }
 });
 
+// 2.1 Extract Metadata from Chapters
+app.post("/api/extract-chapter-metadata", async (req, res) => {
+  try {
+    const { chapterNumber, title, chapterText, routingConfig } = req.body;
+    
+    if (!chapterText) {
+      return res.status(400).json({ error: "Missing chapter text" });
+    }
+
+    const systemInstruction = PROMPTS.extractMetadata.system;
+    const userPrompt = PROMPTS.extractMetadata.userPrompt(chapterNumber, title || "Unknown", chapterText);
+
+    const metadataSchema = {
+      type: "OBJECT",
+      properties: {
+        summary: { type: "STRING" },
+        arcSummary: { type: "STRING" },
+        statsChangeMessage: { type: "STRING" },
+        cuePayload: {
+          type: "OBJECT",
+          properties: {
+            intensity: { type: "NUMBER" },
+            tension: { type: "NUMBER" },
+            powerShift: { type: "NUMBER" },
+            emotion: { type: "STRING" },
+            danger: { type: "NUMBER" },
+            mysticism: { type: "NUMBER" },
+            element: { type: "STRING" },
+            relationshipShift: { type: "NUMBER" },
+            signature: { type: "STRING" }
+          }
+        },
+        memoryUpdates: {
+          type: "OBJECT",
+          properties: {
+            currentPowerStage: { type: "STRING" },
+            newCharacters: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, role: { type: "STRING"}, description: { type: "STRING"}, relationshipToMC: { type: "STRING"}, status: { type: "STRING"}, powerLevel: { type: "STRING"}, faction: { type: "STRING"} } } },
+            characterStatusUpdates: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, newStatus: { type: "STRING"}, newRelationship: { type: "STRING"}, newPowerLevel: { type: "STRING"}, descriptionAppend: { type: "STRING"} } } },
+            newUnresolvedPlotThreads: { type: "ARRAY", items: { type: "STRING" } },
+            resolvedPlotThreads: { type: "ARRAY", items: { type: "STRING" } },
+            newFactions: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, description: { type: "STRING"}, alignment: { type: "STRING"}, headquarters: { type: "STRING"}, status: { type: "STRING"} } } },
+            factionUpdates: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, statusOverride: { type: "STRING"}, descriptionAppend: { type: "STRING"} } } },
+            newLocations: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, description: { type: "STRING"}, realm: { type: "STRING"}, safetyLevel: { type: "STRING"} } } },
+            locationUpdates: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, safetyLevelOverride: { type: "STRING"}, descriptionAppend: { type: "STRING"} } } },
+            newArtifacts: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, description: { type: "STRING"}, tier: { type: "STRING"}, currentOwner: { type: "STRING"} } } },
+            artifactUpdates: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, newOwner: { type: "STRING"}, descriptionAppend: { type: "STRING"} } } },
+            newMCAbilities: { type: "ARRAY", items: { type: "STRING" } }
+          }
+        }
+      },
+      required: ["summary", "arcSummary", "statsChangeMessage", "memoryUpdates"]
+    };
+
+    const data = await routeTextGeneration(
+      "storyMaker",
+      systemInstruction,
+      userPrompt,
+      "extract-chapter-metadata",
+      routingConfig,
+      getCustomKeys(req),
+      metadataSchema
+    );
+
+    return res.json(cleanChapterResponse(data));
+  } catch (error: any) {
+    console.error("Error extracting memory updates:", error);
+    return res.status(500).json({ error: error.message || "Internal server error" });
+  }
+});
+
 // 2.5 Generate Next Story Directions based on memories
 app.post("/api/generate-next-directions", async (req, res) => {
   const { 
@@ -405,44 +481,29 @@ app.post("/api/generate-next-directions", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields for directions generation" });
     }
 
-    const systemInstruction = `You are a visionary series consultant and master of fate for bestselling serialized Chinese web-novels. 
-Your task is to analyze the current state of a light novel's lore, characters, power levels, and history, and generate 4 to 6 highly creative and compelling next-step plot direction options for the upcoming Volume/Arc. 
-You must output strictly raw JSON matching the requested structure. Keep proposals immersive, keeping true to the tropes of light novels — level progressions, face-slapping, double cultivation, or glowing system holographic screens.`;
+    const pastSummariesStr = pastSummaries && pastSummaries.length > 0 
+      ? pastSummaries.join("\n") 
+      : "Starting fresh in the immortal matrix.";
 
-    const userPrompt = `Analyze the current state of the light novel and write exactly 4 to 6 potential sequential plot directions.
+    const memoryJsonStr = JSON.stringify({
+      powerSystem: memory.powerSystem,
+      currentPowerStage: memory.currentPowerStage,
+      worldRules: memory.worldRules,
+      unresolvedPlotThreads: memory.unresolvedPlotThreads,
+      characters: filterRelevantEntities(memory.characters, mcName, pastSummariesStr, memory.unresolvedPlotThreads?.join(" "), customPremise),
+      factions: filterRelevantEntities(memory.factions, mcName, pastSummariesStr, memory.unresolvedPlotThreads?.join(" "), customPremise),
+      locations: filterRelevantEntities(memory.locations, mcName, pastSummariesStr, memory.unresolvedPlotThreads?.join(" "), customPremise),
+      artifacts: filterRelevantEntities(memory.artifacts, mcName, pastSummariesStr, memory.unresolvedPlotThreads?.join(" "), customPremise),
+    }, null, 2);
 
-STORY PROGRESS DETAILS:
-- MC Name: ${mcName}
-- Genre/Style: ${genre}
-- Core Premise: ${customPremise}
-
-CURRENT STORY MEMORY (You must ensure deep lore continuity with these):
-- MC Current Level: ${memory.currentPowerStage}
-- Power System: ${memory.powerSystem}
-- Living Characters: ${JSON.stringify(memory.characters)}
-- Unresolved Plots: ${JSON.stringify(memory.unresolvedPlotThreads)}
-- World Rules: ${JSON.stringify(memory.worldRules)}
-
-CHRONOLOGY / PAST STORY CONTEXT SUMMARY:
-${pastSummaries && pastSummaries.length > 0 ? pastSummaries.join("\n") : "Starting fresh in the immortal matrix."}
-
-Create exactly 4 to 6 potential direction options. Each option must have:
-1. "title": A poetic, high-energy light novel style volume/arc title (e.g., 'Return of the Frost King', 'Unveiled System: The Golden Meridian Chamber', 'Ascension to the Obsidian Hellfire Planet').
-2. "directionType": Must be exactly one of: 'action' | 'darker' | 'romance' | 'twist' | 'new location' | 'continue'.
-3. "description": A short, intriguing 1-2 sentence overview/hint of what might happen, referencing existing characters/rules/factions where applicable to maintain deep lore coherence (e.g., '${mcName} must venture into the Frost Forest using the newly mastered pills, but discovers that the Phoenix Sect has set up a demonic blockade.').
-
-Return strictly a JSON object with this shape:
-{
-  "directions": [
-    {
-      "title": "Title of this Direction",
-      "directionType": "one of the type strings",
-      "description": "Vivid light novel plot preview"
-    }
-  ]
-}
-
-Do not add any text before or after the JSON.`;
+    const systemInstruction = PROMPTS.directions.system;
+    const userPrompt = PROMPTS.directions.userPrompt(
+      mcName,
+      genre,
+      customPremise,
+      memoryJsonStr,
+      pastSummariesStr
+    );
 
     const data = await routeTextGeneration(
       "storyMaker",
@@ -509,17 +570,20 @@ app.post("/api/steer-arc", async (req, res) => {
     const count = 10; // Generate next 10 chapters max to maintain excellent quality and prevent drift
     const startNum = (parseInt(currentArcCount) || 10) + 1;
 
-    const memoryJsonStr = JSON.stringify({
-      currentPowerStage: memory.currentPowerStage,
-      powerSystem: memory.powerSystem,
-      characters: memory.characters,
-      unresolvedPlotThreads: memory.unresolvedPlotThreads,
-      resolvedPlotThreads: memory.resolvedPlotThreads
-    }, null, 2);
-
     const pastSummariesStr = pastSummaries && pastSummaries.length > 0 
       ? pastSummaries.join("\n") 
       : "No previous record. Use your creativity to extend smoothly.";
+
+    const memoryJsonStr = JSON.stringify({
+      currentPowerStage: memory.currentPowerStage,
+      powerSystem: memory.powerSystem,
+      unresolvedPlotThreads: memory.unresolvedPlotThreads,
+      resolvedPlotThreads: memory.resolvedPlotThreads,
+      characters: filterRelevantEntities(memory.characters, mcName, pastSummariesStr, steerDirection, userCustomDirections, memory.unresolvedPlotThreads?.join(" "), customPremise),
+      factions: filterRelevantEntities(memory.factions, mcName, pastSummariesStr, steerDirection, userCustomDirections, memory.unresolvedPlotThreads?.join(" "), customPremise),
+      locations: filterRelevantEntities(memory.locations, mcName, pastSummariesStr, steerDirection, userCustomDirections, memory.unresolvedPlotThreads?.join(" "), customPremise),
+      artifacts: filterRelevantEntities(memory.artifacts, mcName, pastSummariesStr, steerDirection, userCustomDirections, memory.unresolvedPlotThreads?.join(" "), customPremise)
+    }, null, 2);
 
     const data = await routeTextGeneration(
       "storyMaker",

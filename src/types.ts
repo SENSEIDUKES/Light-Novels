@@ -105,6 +105,7 @@ export interface StoryMemory {
   characters: Character[];
   unresolvedPlotThreads: string[];
   resolvedPlotThreads: string[];
+  memoryWarnings?: string[];
   
   // Living Codex expansions
   factions?: Faction[];
@@ -190,6 +191,7 @@ export interface StoryArc {
   title: string;
   chapters: Chapter[];
   isCompleted: boolean;
+  summary?: string;
 }
 
 export interface ReaderPreferences {

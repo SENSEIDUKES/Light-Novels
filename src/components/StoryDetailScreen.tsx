@@ -8,11 +8,12 @@ export const StoryDetailScreen: React.FC<{
   handleGenerateCover: () => Promise<{ imageUrls: string[], promptUsed: string } | undefined>,
   handleApplyCover: (imageUrl: string, promptUsed: string) => void,
   handleExportFullTome: (story: any) => void,
+  handleExportEPUB: (story: any) => void,
   handleExportSingleStory: (story: any) => void,
   handleDeleteStory: (id: string, e: React.MouseEvent) => void,
   setIsCodexSheetOpen: (open: boolean) => void
 }> = ({
-  handleGenerateCover, handleApplyCover, handleExportFullTome, handleExportSingleStory, handleDeleteStory, setIsCodexSheetOpen
+  handleGenerateCover, handleApplyCover, handleExportFullTome, handleExportEPUB, handleExportSingleStory, handleDeleteStory, setIsCodexSheetOpen
 }) => {
   const { currentScreen, setCurrentScreen, activeStoryId, stories, isGenerating, setSelectedChapterNum } = useAppStore();
   const [isStoryMenuOpen, setIsStoryMenuOpen] = useState(false);
@@ -214,6 +215,17 @@ export const StoryDetailScreen: React.FC<{
                         >
                           <BookCheck size={14} className="text-portal" />
                           <span>Export Full Tome (HTML)</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setIsStoryMenuOpen(false);
+                            handleExportEPUB(activeStory);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-xs text-neutral-300 hover:bg-neutral-900 hover:text-portal transition-colors flex items-center space-x-2 font-sc font-bold uppercase tracking-wider"
+                        >
+                          <BookOpen size={14} className="text-gold-accent" />
+                          <span>Export Full Tome (EPUB)</span>
                         </button>
 
                         <button

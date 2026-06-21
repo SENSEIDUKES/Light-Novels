@@ -1,6 +1,7 @@
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
 import { Story } from '../types';
+import JSZip from 'jszip';
 
 export const useStoryExporter = () => {
   const store = useAppStore();
@@ -127,5 +128,129 @@ export const useStoryExporter = () => {
     downloadAnchor.remove();
   };
 
-  return { handleExportSingleStory, handleExportFullTome };
+  const handleExportEPUB = async (story: Story) => {
+    try {
+      const zip = new JSZip();
+
+      // Mimetype
+      zip.file("mimetype", "application/epub+zip");
+
+      // META-INF
+      const metaInf = zip.folder("META-INF");
+      metaInf?.file("container.xml", `<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>`);
+
+      // OEBPS
+      const oebps = zip.folder("OEBPS");
+      const textFolder = oebps?.folder("Text");
+
+      // Generate Chapters
+      let manifestItems = '';
+      let spineItems = '';
+      let navPoints = '';
+
+      let chapterCount = 0;
+
+      if (story.arcs) {
+        for (const arc of story.arcs) {
+          for (const ch of arc.chapters) {
+            if (ch.hasContent || ch.generatedContent) {
+              chapterCount++;
+              
+              let text = ch.generatedContent || "";
+              // if missing, try to fetch it
+              if (!text && ch.hasContent) {
+                 const content = await storyStorage.getChapterContent(story.id, ch.number);
+                 if (content) text = content.generatedContent;
+              }
+
+              text = cleanNovelProse(text).replace(/\\n/g, "</p><p>");
+              
+              const chFileName = `chapter${ch.number}.html`;
+              const chId = `chapter${ch.number}`;
+              
+              const xhtml = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Chapter ${ch.number}: ${ch.title.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</title>
+</head>
+<body>
+<h1>Chapter ${ch.number}: ${ch.title.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</h1>
+<div><p>${text}</p></div>
+</body>
+</html>`;
+
+              textFolder?.file(chFileName, xhtml);
+
+              manifestItems += `<item id="${chId}" href="Text/${chFileName}" media-type="application/xhtml+xml"/>\n`;
+              spineItems += `<itemref idref="${chId}"/>\n`;
+              navPoints += `<navPoint id="navPoint-${chapterCount}" playOrder="${chapterCount}">
+  <navLabel><text>Chapter ${ch.number}: ${ch.title.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</text></navLabel>
+  <content src="Text/${chFileName}"/>
+</navPoint>\n`;
+            }
+          }
+        }
+      }
+
+      // UUID
+      const uuid = "urn:uuid:" + crypto.randomUUID();
+
+      // content.opf
+      const opf = `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+    <dc:title>${story.title.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</dc:title>
+    <dc:language>en</dc:language>
+    <dc:identifier id="BookId">${uuid}</dc:identifier>
+    <dc:creator>Aetherial Resonance</dc:creator>
+  </metadata>
+  <manifest>
+    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+    ${manifestItems}
+  </manifest>
+  <spine toc="ncx">
+    ${spineItems}
+  </spine>
+</package>`;
+
+      oebps?.file("content.opf", opf);
+
+      // toc.ncx
+      const ncx = `<?xml version="1.0" encoding="UTF-8"?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+  <head>
+    <meta name="dtb:uid" content="${uuid}"/>
+  </head>
+  <docTitle>
+    <text>${story.title.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</text>
+  </docTitle>
+  <navMap>
+    ${navPoints}
+  </navMap>
+</ncx>`;
+
+      oebps?.file("toc.ncx", ncx);
+
+      const content = await zip.generateAsync({ type: "blob" });
+      const url = window.URL.createObjectURL(content);
+
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", url);
+      downloadAnchor.setAttribute("download", `TOME_${story.title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.epub`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      store.setAppError("Failed to forge EPUB Tome: " + err.message);
+    }
+  };
+
+  return { handleExportSingleStory, handleExportFullTome, handleExportEPUB };
 };

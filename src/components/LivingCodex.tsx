@@ -882,6 +882,35 @@ export default function LivingCodex({
           </div>
         )}
 
+        {/* Memory Linter Soft Warnings */}
+        {memory.memoryWarnings && memory.memoryWarnings.length > 0 && (
+          <div className="mb-4 p-3 bg-yellow-950/20 border border-yellow-900/50 rounded space-y-2">
+            <h4 className="flex items-center space-x-2 text-yellow-600 text-xs font-sc font-bold uppercase tracking-widest">
+              <Activity size={12} />
+              <span>Continuity Alerts ({memory.memoryWarnings.length})</span>
+            </h4>
+            <div className="space-y-1">
+              {memory.memoryWarnings.map((warning, idx) => (
+                <div key={idx} className="flex space-x-2 text-[10px] sm:text-xs text-neutral-400 font-sans">
+                  <span className="text-yellow-600/70 mt-0.5">•</span>
+                  <span>{warning}</span>
+                </div>
+              ))}
+            </div>
+            <div className="pt-2">
+              <button 
+                onClick={() => {
+                  const updatedMemory = { ...memory, memoryWarnings: [] };
+                  onUpdateMemory(updatedMemory);
+                }}
+                className="text-[9px] uppercase font-mono tracking-wider text-yellow-600/70 hover:text-yellow-500 transition-colors"
+               >
+                 Clear Alerts
+               </button>
+            </div>
+          </div>
+        )}
+
         {/* PAGE 1: Character & Location Cards (Illustrated Profiles & Cards) */}
         {activePage === 'characters' && (
           <div className="space-y-6 animate-fadeIn" id="codex-characters-and-locations">
