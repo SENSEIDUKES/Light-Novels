@@ -5,6 +5,30 @@ import { Story } from '../types';
 export const useStoryExporter = () => {
   const store = useAppStore();
 
+  const cleanNovelProse = (text: string): string => {
+    if (!text) return "";
+    // 1. Remove curl-braced JSON-style signatures/metadata blocks
+    let clean = text.replace(/\{[^{}]*?"(?:sceneType|intensity|tension|danger|mysticism|emotion|audioSignature|beastEvent|summary|statsChangeMessage|memoryUpdates)"[^{}]*?\}/gi, '');
+    
+    // Clean raw JSON configurations in brackets
+    clean = clean.replace(/\[\s*\{[\s\S]*?\}\s*\]/g, '');
+
+    // 2. Erase any hidden system tags
+    const hiddenTagsRegex = /\[(?:SFX|Audio|Sound|Beat|Timing|Time|Duration|Trigger|SAP|Audio-Metadata|Metadata|Intensity|Tension|Danger|Mood|Emotion|Narrative):\s*([^\]]+)\]/gi;
+    clean = clean.replace(hiddenTagsRegex, '');
+
+    // 3. Remove other system messages
+    clean = clean.replace(/\[System Alert:[^\]]+\]/gi, '');
+    clean = clean.replace(/\[System Breakthrough:[^\]]+\]/gi, '');
+    clean = clean.replace(/\[System Notification:[^\]]+\]/gi, '');
+    clean = clean.replace(/\[Aura[^\]]+\]/gi, '');
+
+    // 4. Clean empty brackets
+    clean = clean.replace(/\[\s*\]/g, '');
+
+    return clean.trim();
+  };
+
   const handleExportSingleStory = async (story: Story) => {
     try {
       const exportData = JSON.parse(JSON.stringify(story));
@@ -83,7 +107,7 @@ export const useStoryExporter = () => {
             htmlContent += `<h3>Chapter ${ch.number}: ${ch.title}</h3>\n`;
             
             let text = ch.generatedContent || "";
-            text = text.replace(/\\n/g, "</p><p>");
+            text = cleanNovelProse(text).replace(/\\n/g, "</p><p>");
             htmlContent += `<div class="chapter-content"><p>${text}</p></div>\n`;
             if (ch.statsChangeMessage) {
               htmlContent += `<div class="stats-msg">${ch.statsChangeMessage}</div>\n`;

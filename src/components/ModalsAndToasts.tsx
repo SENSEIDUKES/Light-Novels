@@ -7,7 +7,7 @@ import { secureStorage } from '../lib/encryption';
 
 const DEFAULT_PRESETS = {
   storyMaker: {
-    gemini: ["gemini-3.5-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"],
+    gemini: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
     openrouter: [
       "meta-llama/llama-3-8b-instruct:free",
       "mistralai/mistral-7b-instruct:free",
@@ -18,7 +18,7 @@ const DEFAULT_PRESETS = {
     ollama: ["llama3", "gemma2", "mistral", "phi3"]
   },
   imageGenerator: {
-    gemini: ["gemini-2.5-flash-image", "gemini-3.1-flash-image"],
+    gemini: ["gemini-2.5-flash", "imagen-3.0-generate-002"],
     openrouter: ["stable-diffusion-xl", "playgroundai/playground-v2.5", "shuttle-ai/shuttle-3-diffusion"],
     ollama: ["local-sd-mortal", "local-sd-celestial"]
   }

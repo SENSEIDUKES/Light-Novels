@@ -36,7 +36,7 @@ export function getAIClient(customApiKey?: string) {
 // Router default presets
 export const ROUTER_PRESETS = {
   storyMaker: {
-    gemini: ["gemini-3.5-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"],
+    gemini: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
     openrouter: [
       "deepseek/deepseek-chat",
       "google/gemini-2.5-flash",
@@ -45,7 +45,7 @@ export const ROUTER_PRESETS = {
     ollama: ["llama3", "gemma2", "mistral", "phi3"]
   },
   imageGenerator: {
-    gemini: ["gemini-2.5-flash-image", "gemini-3.1-flash-image"],
+    gemini: ["gemini-2.5-flash", "imagen-3.0-generate-002"],
     openrouter: ["stable-diffusion-xl", "playgroundai/playground-v2.5", "shuttle-ai/shuttle-3-diffusion"],
     ollama: ["local-sd-mortal", "local-sd-celestial"]
   }
@@ -113,7 +113,7 @@ export async function* routeTextGenerationStream(
 ): AsyncGenerator<string, void, unknown> {
   const activeConfig: RouteConfig = routingConfig || {
     provider: "gemini",
-    model: "gemini-3.5-flash"
+    model: "gemini-2.5-flash"
   };
 
   const { provider, model } = activeConfig;
@@ -123,7 +123,7 @@ export async function* routeTextGenerationStream(
     const ai = getAIClient(customKeys?.geminiApiKey);
     try {
       const responseStream = await ai.models.generateContentStream({
-        model: model || "gemini-3.5-flash",
+        model: model || "gemini-2.5-flash",
         contents: userPrompt,
         config: {
           systemInstruction,
@@ -292,7 +292,7 @@ export async function routeTextGeneration(
 ): Promise<any> {
   const activeConfig: RouteConfig = routingConfig || {
     provider: "gemini",
-    model: "gemini-3.5-flash"
+    model: "gemini-2.5-flash"
   };
 
   const { provider, model } = activeConfig;
@@ -305,7 +305,7 @@ export async function routeTextGeneration(
     const ai = getAIClient(customKeys?.geminiApiKey);
     try {
       const response = await ai.models.generateContent({
-        model: model || "gemini-3.5-flash",
+        model: model || "gemini-2.5-flash",
         contents: userPrompt,
         config: {
           systemInstruction,
