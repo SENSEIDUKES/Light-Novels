@@ -108,8 +108,48 @@ export class FirebaseStorageAdapter implements StorageAdapter {
     }
   }
 
+  async getLoreGlossary(novelId: string): Promise<any[]> {
+    if (!this.isAuth()) return [];
+    try {
+      const q = query(
+        collection(db, 'lore_glossary'),
+        where('novel_id', '==', novelId)
+      );
+      const querySnapshot = await getDocs(q);
+      const terms: any[] = [];
+      querySnapshot.forEach((docSnap) => {
+        terms.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      return terms;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'lore_glossary');
+      return [];
+    }
+  }
+
+  async saveLoreGlossaryTerm(term: any): Promise<void> {
+    if (!this.isAuth()) throw new Error('Cannot save to Firebase without authentication');
+    try {
+      const docRef = term.id ? doc(db, 'lore_glossary', term.id) : doc(collection(db, 'lore_glossary'));
+      await setDoc(docRef, term, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'lore_glossary');
+    }
+  }
+
+  async deleteLoreGlossaryTerm(termId: string): Promise<void> {
+    if (!this.isAuth()) throw new Error('Cannot delete from Firebase without authentication');
+    try {
+      await deleteDoc(doc(db, 'lore_glossary', termId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, 'lore_glossary');
+    }
+  }
+
   async clearAll(): Promise<void> {
     // Risky, usually better not to implement bulk delete on client
     throw new Error("clearAll not supported on Firebase adapter directly for safety");
   }
 }
+
+export const firebaseStorage = new FirebaseStorageAdapter();

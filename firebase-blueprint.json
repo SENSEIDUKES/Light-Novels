@@ -74,6 +74,18 @@
       "description": "World building",
       "type": "object",
       "properties": {}
+    },
+    "LoreGlossary": {
+      "title": "Lore Glossary",
+      "description": "Glossary for translating original terms to target language",
+      "type": "object",
+      "properties": {
+        "novel_id": { "type": "string" },
+        "source_text": { "type": "string" },
+        "target_text": { "type": "string" },
+        "target_lang": { "type": "string" }
+      },
+      "required": ["novel_id", "source_text", "target_text", "target_lang"]
     }
   },
   "firestore": {
@@ -88,6 +100,10 @@
     "stories/{storyId}/chapters/{chapterId}": {
       "schema": "#/entities/Chapter",
       "description": "Individual chapters belonging to a story."
+    },
+    "lore_glossary/{termId}": {
+      "schema": "#/entities/LoreGlossary",
+      "description": "Glossary terms used for translation within novels."
     }
   }
 }

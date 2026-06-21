@@ -14,6 +14,7 @@ import { AudioWidget } from './AudioWidget';
 import { dispatchNarrativeCue, NarrativeCueEventType } from '../lib/narrativeCues';
 import { useChapterTranslation } from '../hooks/useChapterTranslation';
 import { useAppStore } from '../store/useAppStore';
+import { SystemBlock } from './SystemBlock';
 
 const extractSFXCues = (text: string) => {
   const sfxList: string[] = [];
@@ -920,23 +921,7 @@ export default function ReaderChamber({
                  if (!cleanText) return null;
                  const isSystemLine = cleanText.startsWith('[') && cleanText.endsWith(']');
                  if (isSystemLine) {
-                   const getSystemThemeClasses = () => {
-                     const t = currentPrefs.themeOverride || 'void';
-                     if (t === 'crimson') return 'border-[#8B0000]/30 text-[#ff4444] shadow-[0_0_15px_rgba(139,0,0,0.1)]';
-                     if (t === 'abyss') return 'border-[#04ACFF]/30 text-[#04ACFF] shadow-[0_0_15px_rgba(4,172,255,0.1)]';
-                     if (t === 'sepia') return 'border-[#8b5a2b]/30 text-[#d2a679] shadow-[0_0_15px_rgba(139,90,43,0.1)]';
-                     if (t === 'emerald') return 'border-[#0f5132]/30 text-[#10b981] shadow-[0_0_15px_rgba(16,185,129,0.1)]';
-                     return 'border-portal/15 text-gold-accent shadow-[0_0_15px_rgba(212,175,55,0.05)]';
-                   };
-
-                   return (
-                     <div 
-                       key={index} 
-                       className={`my-8 p-6 bg-black/50 border font-mono text-xs rounded text-center tracking-widest leading-relaxed transition-colors duration-500 ${getSystemThemeClasses()}`}
-                     >
-                       {cleanText.replace('[', '').replace(']', '')}
-                     </div>
-                   );
+                   return <SystemBlock key={index} content={cleanText} />;
                  }
 
                  return (
@@ -971,26 +956,16 @@ export default function ReaderChamber({
                  const isSystemLine = cleanText.startsWith('[') && cleanText.endsWith(']');
                  
                  if (isSystemLine) {
-                   const getSystemThemeClasses = () => {
-                     const t = currentPrefs.themeOverride || 'void';
-                     if (t === 'crimson') return 'border-[#8B0000]/30 text-[#ff4444] shadow-[0_0_15px_rgba(139,0,0,0.1)]';
-                     if (t === 'abyss') return 'border-[#04ACFF]/30 text-[#04ACFF] shadow-[0_0_15px_rgba(4,172,255,0.1)]';
-                     if (t === 'sepia') return 'border-[#8b5a2b]/30 text-[#d2a679] shadow-[0_0_15px_rgba(139,90,43,0.1)]';
-                     if (t === 'emerald') return 'border-[#0f5132]/30 text-[#10b981] shadow-[0_0_15px_rgba(16,185,129,0.1)]';
-                     return 'border-portal/15 text-gold-accent shadow-[0_0_15px_rgba(212,175,55,0.05)]';
-                   };
-
                    return (
-                     <div 
-                       key={block.id || `para-${index}`} 
+                     <SystemBlock 
+                       key={block.id || `para-${index}`}
+                       content={cleanText}
                        data-cue-type="narrative.metadata.signature"
                        data-cue-id={block.id || `system-line-${selectedChapter.number}-${index}`}
                        data-cue-metadata={block.metadata ? JSON.stringify(block.metadata) : undefined}
                        data-cue-once="true"
-                       className={`narrative-trigger my-8 p-6 bg-black/50 border font-mono text-xs rounded text-center tracking-widest leading-relaxed transition-colors duration-500 ${getSystemThemeClasses()} ${block.metadata ? 'metadata-block' : ''}`}
-                     >
-                       {cleanText.replace('[', '').replace(']', '')}
-                     </div>
+                       className={`narrative-trigger ${block.metadata ? 'metadata-block' : ''}`}
+                     />
                    );
                  }
 
@@ -1078,24 +1053,14 @@ export default function ReaderChamber({
                  if (!cleanText) return null;
                  const isSystemLine = cleanText.startsWith('[') && cleanText.endsWith(']');
                  if (isSystemLine) {
-                   const getSystemThemeClasses = () => {
-                     const t = currentPrefs.themeOverride || 'void';
-                     if (t === 'crimson') return 'border-[#8B0000]/30 text-[#ff4444] shadow-[0_0_15px_rgba(139,0,0,0.1)]';
-                     if (t === 'abyss') return 'border-[#04ACFF]/30 text-[#04ACFF] shadow-[0_0_15px_rgba(4,172,255,0.1)]';
-                     if (t === 'sepia') return 'border-[#8b5a2b]/30 text-[#d2a679] shadow-[0_0_15px_rgba(139,90,43,0.1)]';
-                     if (t === 'emerald') return 'border-[#0f5132]/30 text-[#10b981] shadow-[0_0_15px_rgba(16,185,129,0.1)]';
-                     return 'border-portal/15 text-gold-accent shadow-[0_0_15px_rgba(212,175,55,0.05)]';
-                   };
-
                    return (
-                     <div 
-                       key={index} 
+                     <SystemBlock 
+                       key={index}
+                       content={cleanText}
                        data-cue-type="narrative.metadata.signature"
                        data-cue-id={`system-line-${selectedChapter.number}-${index}`}
-                       className={`narrative-trigger my-8 p-6 bg-black/50 border font-mono text-xs rounded text-center tracking-widest leading-relaxed transition-colors duration-500 ${getSystemThemeClasses()}`}
-                     >
-                       {cleanText.replace('[', '').replace(']', '')}
-                     </div>
+                       className="narrative-trigger"
+                     />
                    );
                  }
 

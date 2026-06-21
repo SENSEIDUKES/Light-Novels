@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { storyStorage } from '../lib/storage';
+import { firebaseStorage } from '../lib/firebaseStorage';
 
 export function useChapterTranslation() {
   const [isTranslating, setIsTranslating] = useState(false);
@@ -23,6 +24,11 @@ export function useChapterTranslation() {
         return cachedContent.translations[targetLang].content;
       }
 
+      // 1.5 Fetch glossary terms for this specific story novel_id
+      const glossaryTerms = await firebaseStorage.getLoreGlossary(storyId);
+      // Filter for this specific language
+      const applicableTerms = glossaryTerms.filter(t => t.target_lang === targetLang);
+
       // 2. Not cached, so we call our Express API
       const response = await fetch('/api/translate-chapter', {
         method: 'POST',
@@ -33,6 +39,7 @@ export function useChapterTranslation() {
           chapterId: `${storyId}-${chapterNumber}`,
           targetLang,
           englishText,
+          glossaryTerms: applicableTerms
         })
       });
 

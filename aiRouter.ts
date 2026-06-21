@@ -36,8 +36,9 @@ export function getAIClient(customApiKey?: string) {
 // Router default presets
 export const ROUTER_PRESETS = {
   storyMaker: {
-    gemini: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
+    gemini: ["google/gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
     openrouter: [
+      "google/gemini-2.5-flash-lite",
       "deepseek/deepseek-chat",
       "google/gemini-2.5-flash",
       "openai/gpt-3.5-turbo"
@@ -45,8 +46,8 @@ export const ROUTER_PRESETS = {
     ollama: ["llama3", "gemma2", "mistral", "phi3"]
   },
   imageGenerator: {
-    gemini: ["gemini-2.5-flash", "imagen-3.0-generate-002"],
-    openrouter: ["stable-diffusion-xl", "playgroundai/playground-v2.5", "shuttle-ai/shuttle-3-diffusion"],
+    gemini: ["google/gemini-3.1-flash-image", "imagen-3.0-generate-002"],
+    openrouter: ["google/gemini-3.1-flash-image", "stable-diffusion-xl", "playgroundai/playground-v2.5", "shuttle-ai/shuttle-3-diffusion"],
     ollama: ["local-sd-mortal", "local-sd-celestial"]
   }
 };
@@ -112,8 +113,8 @@ export async function* routeTextGenerationStream(
   customKeys?: { geminiApiKey?: string; openrouterApiKey?: string; ollamaHost?: string; }
 ): AsyncGenerator<string, void, unknown> {
   const activeConfig: RouteConfig = routingConfig || {
-    provider: "gemini",
-    model: "gemini-2.5-flash"
+    provider: "openrouter",
+    model: "google/gemini-2.5-flash-lite"
   };
 
   const { provider, model } = activeConfig;
@@ -121,9 +122,10 @@ export async function* routeTextGenerationStream(
 
   if (provider === "gemini") {
     const ai = getAIClient(customKeys?.geminiApiKey);
+    const geminiModel = (model || "google/gemini-2.5-flash-lite").replace(/^google\//, "");
     try {
       const responseStream = await ai.models.generateContentStream({
-        model: model || "gemini-2.5-flash",
+        model: geminiModel,
         contents: userPrompt,
         config: {
           systemInstruction,
@@ -291,8 +293,8 @@ export async function routeTextGeneration(
   customKeys?: { geminiApiKey?: string; openrouterApiKey?: string; ollamaHost?: string; }
 ): Promise<any> {
   const activeConfig: RouteConfig = routingConfig || {
-    provider: "gemini",
-    model: "gemini-2.5-flash"
+    provider: "openrouter",
+    model: "google/gemini-2.5-flash-lite"
   };
 
   const { provider, model } = activeConfig;
@@ -303,9 +305,10 @@ export async function routeTextGeneration(
     // GOOGLE GEMINI ROUTE
     // -------------------------------------------------------------
     const ai = getAIClient(customKeys?.geminiApiKey);
+    const geminiModel = (model || "google/gemini-2.5-flash-lite").replace(/^google\//, "");
     try {
       const response = await ai.models.generateContent({
-        model: model || "gemini-2.5-flash",
+        model: geminiModel,
         contents: userPrompt,
         config: {
           systemInstruction,
@@ -441,8 +444,8 @@ export async function routeImageGeneration(
   customKeys?: { geminiApiKey?: string; openrouterApiKey?: string; ollamaHost?: string; }
 ): Promise<{ imageUrl: string; note?: string; isFallback?: boolean }> {
   const activeConfig: RouteConfig = routingConfig || {
-    provider: "gemini",
-    model: "gemini-2.5-flash-image"
+    provider: "openrouter",
+    model: "google/gemini-3.1-flash-image"
   };
 
   const { provider, model } = activeConfig;
@@ -491,7 +494,7 @@ export async function routeImageGeneration(
     // -------------------------------------------------------------
     const ai = getAIClient(customKeys?.geminiApiKey);
     try {
-      const gModel = model || "gemini-2.5-flash-image";
+      const gModel = (model || "google/gemini-3.1-flash-image").replace(/^google\//, "");
       let base64Data: string | null = null;
 
       if (gModel.startsWith("imagen-")) {

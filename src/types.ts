@@ -298,6 +298,14 @@ export interface AppUser {
   photoURL: string | null;
 }
 
+export interface LoreGlossary {
+  id: string;
+  novel_id: string;
+  source_text: string;
+  target_text: string;
+  target_lang: string;
+}
+
 export interface RouteConfig {
   provider: 'gemini' | 'openrouter' | 'ollama';
   model: string;

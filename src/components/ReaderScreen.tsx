@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import { ArrowLeft, Sparkles, BookA } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import SteerPortal from './SteerPortal';
 import ReaderChamber from './ReaderChamber';
+import { GlossarySidePanel } from './GlossarySidePanel';
 import { Story, StreamingChapter } from '../types';
 
 export const ReaderScreen: React.FC<{
@@ -16,6 +17,7 @@ export const ReaderScreen: React.FC<{
   handleSteerArc, handleGenerateChapter, handleToggleRead, handleUpdateStoryDirect, setIsCodexSheetOpen
 }) => {
   const { currentScreen, setCurrentScreen, activeStoryId, stories, selectedChapterNum, setSelectedChapterNum, isGenerating, routingConfig, streamingChapter, isReaderFullscreen } = useAppStore();
+  const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
 
   if (currentScreen !== 'reader') return null;
 
@@ -41,7 +43,15 @@ export const ReaderScreen: React.FC<{
             <span className="text-neutral-700 font-mono flex-shrink-0">•</span>
             <span className="text-neutral-400 font-display text-xs sm:text-sm truncate pr-2">{activeStory.title}</span>
           </div>
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 flex items-center space-x-2">
+             <button
+               onClick={() => setIsGlossaryOpen(true)}
+               className="px-2.5 py-1 sm:px-4 sm:py-1.5 bg-neutral-900 border border-neutral-800 text-neutral-400 font-sc font-bold uppercase tracking-wider rounded hover:bg-neutral-800 hover:text-white transition-all flex items-center space-x-1 sm:space-x-2 text-[9px] sm:text-[10px]"
+             >
+               <BookA size={11} />
+               <span className="hidden sm:inline">Lore Glossary</span>
+               <span className="sm:hidden">Lore</span>
+             </button>
              <button
                onClick={() => setIsCodexSheetOpen(true)}
                className="px-2.5 py-1 sm:px-4 sm:py-1.5 bg-void border border-portal text-portal font-sc font-bold uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-all flex items-center space-x-1 sm:space-x-2 text-[9px] sm:text-[10px]"
@@ -98,6 +108,12 @@ export const ReaderScreen: React.FC<{
           )}
         </div>
       )}
+      
+      <GlossarySidePanel 
+        isOpen={isGlossaryOpen} 
+        onClose={() => setIsGlossaryOpen(false)} 
+        novelId={activeStory.id} 
+      />
     </motion.div>
   );
 };

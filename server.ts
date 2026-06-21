@@ -152,6 +152,8 @@ app.post("/api/models", async (req, res) => {
       if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
         return res.json({
           models: [
+            "google/gemini-2.5-flash-lite",
+            "google/gemini-3.1-flash-image",
             "gemini-2.5-flash",
             "gemini-2.5-pro",
             "gemini-2.0-flash",
@@ -617,7 +619,7 @@ app.post("/api/generate-custom-glossary", async (req, res) => {
 // 6. Translate Chapter
 app.post("/api/translate-chapter", async (req, res) => {
   try {
-    const { chapterId, targetLang, englishText, glossaryId, routingConfig } = req.body;
+    const { chapterId, targetLang, englishText, glossaryTerms, routingConfig } = req.body;
 
     if (!englishText || !targetLang) {
       return res.status(400).json({ error: "Missing required fields: targetLang, englishText" });
@@ -639,21 +641,57 @@ app.post("/api/translate-chapter", async (req, res) => {
     };
 
     let finalTranslatedText = "";
+    let tempGlossaryInfo: deepl.GlossaryInfo | null = null;
 
     try {
       if (translator) {
         const deeplLangCode = langMapForDeepL[targetLang] || targetLang.toUpperCase();
-        const result = await translator.translateText(englishText, null, deeplLangCode as deepl.TargetLanguageCode);
+        let translateOptions: deepl.TranslateTextOptions = {};
+
+        if (glossaryTerms && Array.isArray(glossaryTerms) && glossaryTerms.length > 0) {
+          try {
+            const entriesObj: Record<string, string> = {};
+            glossaryTerms.forEach((term: any) => {
+               if (term.source_text && term.target_text) {
+                 entriesObj[term.source_text] = term.target_text;
+               }
+            });
+            
+            if (Object.keys(entriesObj).length > 0) {
+              const entries = new deepl.GlossaryEntries({ entries: entriesObj });
+              tempGlossaryInfo = await translator.createGlossary(`Temp_${Date.now()}`, 'en', deeplLangCode as deepl.TargetLanguageCode, entries);
+              translateOptions.glossary = tempGlossaryInfo;
+            }
+          } catch (glossaryError) {
+            console.warn("Could not create DeepL glossary, proceeding without it.", glossaryError);
+          }
+        }
+
+        const result = await translator.translateText(englishText, null, deeplLangCode as deepl.TargetLanguageCode, translateOptions);
         finalTranslatedText = Array.isArray(result) ? result[0].text : result.text;
       }
     } catch (deeplError) {
-      console.warn("DeepL translation failed or not supported for this language. Falling back to Gemini...");
+      console.warn("DeepL translation failed or not supported for this language. Falling back to Gemini...", deeplError);
+    } finally {
+      if (tempGlossaryInfo && translator) {
+        try {
+           await translator.deleteGlossary(tempGlossaryInfo);
+        } catch (delError) {
+           console.error("Failed to delete temp glossary:", delError);
+        }
+      }
     }
 
     if (!finalTranslatedText) {
       // Fallback to Gemini
+      let geminiGlossaryString = "";
+      if (glossaryTerms && Array.isArray(glossaryTerms) && glossaryTerms.length > 0) {
+         const list = glossaryTerms.map((t: any) => `${t.source_text} -> ${t.target_text}`).join('\\n');
+         geminiGlossaryString = `\n\nMust use these EXACT translations for specific terms (Glossary):\n${list}\n`;
+      }
+
       const prompt = `Translate the following chapter text into the language with language code '${targetLang}'.
-Maintain the literary style, formatting, system tags (e.g., [SFX:...]), and keep paragraph breaks intact.
+Maintain the literary style, formatting, system tags (e.g., [SFX:...]), and keep paragraph breaks intact.${geminiGlossaryString}
 
 Text to translate:
 ${englishText}

@@ -326,7 +326,7 @@ export const useStoryEngine = () => {
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
         
-        let lines = buffer.split('\\n');
+        let lines = buffer.split('\n');
         buffer = lines.pop() || "";
         
         for (const line of lines) {

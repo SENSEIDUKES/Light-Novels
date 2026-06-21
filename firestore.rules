@@ -51,8 +51,17 @@ service cloud.firestore {
         && data.chapterNumber is number;
     }
 
+    function isValidLoreGlossary(data) {
+      return data.keys().hasAll(['novel_id', 'source_text', 'target_text', 'target_lang'])
+        && data.keys().size() == 4
+        && data.novel_id is string && data.novel_id.size() <= 128
+        && data.source_text is string && data.source_text.size() <= 500
+        && data.target_text is string && data.target_text.size() <= 500
+        && data.target_lang is string && data.target_lang.size() <= 20;
+    }
+
     match /users/{userId} {
-      allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow read: if isSignedIn() && userId == request.auth.uid;
       allow create: if isSignedIn() 
         && isValidId(userId) 
         && incoming().uid == userId
@@ -114,6 +123,28 @@ service cloud.firestore {
           
         allow delete: if isSignedIn() && isValidId(chapterId) && get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid;
       }
+    }
+    match /lore_glossary/{termId} {
+      allow read: if isSignedIn() && (
+        get(/databases/$(database)/documents/stories/$(resource.data.novel_id)).data.userId == request.auth.uid
+      );
+      
+      allow create: if isSignedIn()
+        && isValidId(termId)
+        && isValidLoreGlossary(incoming())
+        && exists(/databases/$(database)/documents/stories/$(incoming().novel_id))
+        && get(/databases/$(database)/documents/stories/$(incoming().novel_id)).data.userId == request.auth.uid;
+        
+      allow update: if isSignedIn()
+        && isValidId(termId)
+        && existing().novel_id == incoming().novel_id
+        && isValidLoreGlossary(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['source_text', 'target_text', 'target_lang'])
+        && get(/databases/$(database)/documents/stories/$(existing().novel_id)).data.userId == request.auth.uid;
+
+      allow delete: if isSignedIn() 
+        && isValidId(termId) 
+        && get(/databases/$(database)/documents/stories/$(existing().novel_id)).data.userId == request.auth.uid;
     }
   }
 }
