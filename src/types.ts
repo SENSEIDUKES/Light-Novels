@@ -1,7 +1,7 @@
 export interface StreamingChapter {
   number: number;
   content: string;
-  blocks?: any[];
+  blocks?: StoryBlock[];
 }
 
 export interface UserProfile {
@@ -104,6 +104,22 @@ export interface StoryBlock {
   metadata?: StoryBlockMetadata;
 }
 
+export interface StoryCuePayload {
+  intensity?: number;
+  tension?: number;
+  powerShift?: number;
+  emotion?: string;
+  relationshipShift?: number;
+  danger?: number;
+  mysticism?: number;
+  element?: string;
+  signature?: string;
+  beastEvent?: {
+    type: 'reveal' | 'power-up' | 'technique' | 'injury' | 'turning-point' | 'death' | 'breakthrough';
+    profile: BeastSonicProfile;
+  };
+}
+
 export interface ChapterContent {
   storyId: string;
   chapterNumber: number;
@@ -111,21 +127,7 @@ export interface ChapterContent {
   blocks?: StoryBlock[];
   summary?: string;
   statsChangeMessage?: string;
-  cuePayload?: {
-    intensity?: number;
-    tension?: number;
-    powerShift?: number;
-    emotion?: string;
-    relationshipShift?: number;
-    danger?: number;
-    mysticism?: number;
-    element?: string;
-    signature?: string;
-    beastEvent?: {
-      type: 'reveal' | 'power-up' | 'technique' | 'injury' | 'turning-point' | 'death' | 'breakthrough';
-      profile: BeastSonicProfile;
-    };
-  };
+  cuePayload?: StoryCuePayload;
   translations?: {
     [langCode: string]: {
       title: string;
@@ -146,7 +148,7 @@ export interface Chapter {
   summary?: string; // Optional
   embedding?: number[]; // Optional vector embedding for RAG continuity searches
   statsChangeMessage?: string;
-  cuePayload?: any;
+  cuePayload?: StoryCuePayload;
   translations?: {
     [langCode: string]: {
       title: string;
@@ -288,6 +290,13 @@ export interface Bookmark {
 }
 
 export type Story = StoryWorld;
+
+export interface AppUser {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+}
 
 export interface RouteConfig {
   provider: 'gemini' | 'openrouter' | 'ollama';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserProfile as UserProfileType, Story } from '../types';
+import { UserProfile as UserProfileType, Story, AppUser } from '../types';
 import { db, auth } from '../lib/firebase';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
@@ -9,7 +9,7 @@ import { storyStorage } from '../lib/storage';
 import { AudioWidget } from './AudioWidget';
 
 interface UserProfileProps {
-  currentUser: any;
+  currentUser: AppUser | null;
   stories: Story[];
   onLogout: () => void;
   onNavigateHome: () => void;

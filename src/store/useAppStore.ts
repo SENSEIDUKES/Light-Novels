@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Story, StoryMemory, Chapter, StoryArc, StoryWorld, ReaderPreferences, KarmaFateNode, CharacterRelationship, MultiModelRouting, RouteConfig, IntakeData, WorldBlueprint, StoryBlock, StreamingChapter } from '../types';
+import { Story, StoryMemory, Chapter, StoryArc, StoryWorld, ReaderPreferences, KarmaFateNode, CharacterRelationship, MultiModelRouting, RouteConfig, IntakeData, WorldBlueprint, StoryBlock, StreamingChapter, AppUser } from '../types';
 import { SyncStatus } from '../lib/storage';
 
 interface AppState {
@@ -20,7 +20,7 @@ interface AppState {
 
   // Sync / Auth
   syncStatus: SyncStatus;
-  currentUser: any;
+  currentUser: AppUser | null;
   lastSavedTime: Date | null;
   storageType: string;
 
@@ -50,7 +50,7 @@ interface AppState {
   setStreamingChapter: (data: StreamingChapter | null) => void;
   setActiveAgentId: (id: 'versa' | 'scout' | null) => void;
   setSyncStatus: (status: SyncStatus) => void;
-  setCurrentUser: (user: any) => void;
+  setCurrentUser: (user: AppUser | null) => void;
   setLastSavedTime: (time: Date | null) => void;
   setStorageType: (type: string) => void;
   setSelectedChapterNum: (num: number) => void;

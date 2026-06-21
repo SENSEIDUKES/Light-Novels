@@ -5,7 +5,7 @@ import {
   Check, Eye, RefreshCcw, Search, Compass, Award, Image, 
   BookMarked, ArrowRight, ArrowLeftRight, Activity
 } from 'lucide-react';
-import { StoryMemory, Character, Faction, Location, Artifact, StoryArc, StoryWorld, CharacterRelationship, KarmaFateNode } from '../types';
+import { StoryMemory, Character, Faction, Location, Artifact, StoryArc, StoryWorld, CharacterRelationship, KarmaFateNode, Chapter, MultiModelRouting } from '../types';
 import { secureStorage } from '../lib/encryption';
 import { VirtualizedList } from './VirtualizedList';
 import { AgentBadge } from './AgentBadge';
@@ -20,7 +20,7 @@ interface LivingCodexProps {
   onSwitchTab?: (tab: 'reader' | 'codex' | 'memory') => void;
   activeStory: StoryWorld;
   onUpdateStory: (updatedStory: StoryWorld) => void;
-  routingConfig?: any;
+  routingConfig?: MultiModelRouting;
 }
 
 // 1. Static high-fidelity Chinese cultivation vocabulary (Glossary defaults)
@@ -103,7 +103,7 @@ export default function LivingCodex({
   // Flatten written chapters with arc details for virtualized listing
   const flatChapters = useMemo(() => {
     const list: Array<{
-      chapter: any;
+      chapter: Chapter;
       arcTitle: string;
       arcIndex: number;
       isFirstInArc: boolean;
@@ -278,7 +278,7 @@ export default function LivingCodex({
   }, [mcName]);
 
   // Save custom glossary
-  const saveCustomGlossaryLocally = (terms: any[]) => {
+  const saveCustomGlossaryLocally = (terms: Array<{ term: string; category: string; definition: string; }>) => {
     setCustomGlossary(terms);
     localStorage.setItem(`custom_glossary_${mcName}`, JSON.stringify(terms));
   };
@@ -2080,7 +2080,7 @@ export default function LivingCodex({
                       <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1">Severity</label>
                       <select
                         value={fateSeverity}
-                        onChange={(e) => setFateSeverity(e.target.value as any)}
+                        onChange={(e) => setFateSeverity(e.target.value as 'Minor' | 'Major' | 'Cosmic')}
                         className="w-full bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none"
                       >
                         <option value="Minor">Minor</option>
@@ -2093,7 +2093,7 @@ export default function LivingCodex({
                       <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1">Fate Type</label>
                       <select
                         value={fateType}
-                        onChange={(e) => setFateType(e.target.value as any)}
+                        onChange={(e) => setFateType(e.target.value as 'Debt' | 'Boon' | 'Enmity' | 'Destiny')}
                         className="w-full bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none"
                       >
                         <option value="Debt">Debt</option>

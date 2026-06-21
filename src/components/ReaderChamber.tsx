@@ -404,8 +404,8 @@ export default function ReaderChamber({
             const type = entry.target.getAttribute('data-cue-type') as NarrativeCueEventType;
             const cueId = entry.target.getAttribute('data-cue-id');
             if (type && cueId) {
-              let parsedValue: any = entry.target.getAttribute('data-cue-value') || undefined;
-              let parsedMeta: any = undefined;
+              let parsedValue: unknown = entry.target.getAttribute('data-cue-value') || undefined;
+              let parsedMeta: unknown = undefined;
               
               const metaRaw = entry.target.getAttribute('data-cue-metadata');
               if (metaRaw) {
