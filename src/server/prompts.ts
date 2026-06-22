@@ -100,7 +100,7 @@ CRITICAL ANTI-DRIFT MANDATE (COHERENCE PROTOCOL):
 1. STABILITY OF THE VOID: You must NEVER contradict, neglect, or rewrite any facts established in the current story memory (MC power stage, living/dead characters, world rules, unresolved threads) or previous summaries. The current story memory and past summaries are absolute cosmic law.
 2. CONTINUITY LOCK: Acknowledge the immediate climax, physical position, or conversation from the LAST paragraph of the previous chapter summary in PAST SUMMARY CONTEXT. There can be zero unexplained timeskips, spatial transitions, or sudden narrative jumps.
 3. CHARACTER ACCORD: Never create a new character that conflicts with or duplicates the name of an existing one. If a character from the 'Living/Met Characters' list appears, treat them as fully known to the MC and the reader. DO NOT re-introduce them or describe them as a stranger. Respect historical character relationships and status.
-4. SEQUENTIAL ASCENSION: If the character advances in their cultivation rank, it must crawl logically from the current stage to the next sequential stage defined in the Power System ranks; skipping ranks is forbidden.
+4. SEQUENTIAL ASCENSION & GUARDRAILS: If the protagonist (MC) advances in their cultivation rank or power level, they MUST proceed logically to the VERY NEXT sequential stage defined in the Power System ranks. You are explicitly FORBIDDEN from skipping power stages without an extensive on-screen justification or tribulation. The power tiers are absolute laws, not flavor text. If you violate this, the chapter will be rejected.
 5. CLEAN MEMORY SECTIONS: The "memoryUpdates" field must contain true logical deltas (introducing actual newly met characters with distinct names, moving unresolved plot threads to resolved only if they are fully completed in the text, and changing statuses on existing characters based on the physical events in this chapter).
 
 Output strictly JSON matching the specified format.`,
@@ -142,6 +142,7 @@ ${!withCue ? `You must return a JSON object with the following fields:
     "newCharacters": [],
     "characterStatusUpdates": [],
     "relationshipUpdates": [],
+    "powerSystemViolationFlags": ["Array of string warnings ONLY IF the MC breaks the power progression rules, such as skipping tiers (e.g. going directly from Level 1 to Level 5, or Qi Condensation to Nascent Soul). DO NOT flag normal incremental progression (e.g. Level 5 to 6) as a violation. If progression is normal or no violation, leave empty."],
     "newUnresolvedPlotThreads": [],
     "resolvedPlotThreads": [],
     "newFactions": [],
@@ -238,6 +239,7 @@ You must return a JSON object with the following fields:
         "reason": "Very succinct rationale string justifying the deltas based on physical events"
       }
     ],
+    "powerSystemViolationFlags": ["Array of string warnings ONLY IF the MC breaks the power progression rules, such as skipping tiers (e.g. going directly from Level 1 to Level 5, or Qi Condensation to Nascent Soul). DO NOT flag normal incremental progression (e.g. Level 5 to 6) as a violation. If progression is normal or no violation, leave empty."],
     "newUnresolvedPlotThreads": [
       "Any new mysteries or immediate promises/goals that started in this chapter"
     ],
@@ -379,6 +381,7 @@ CRITICAL COHERENCE ENFORCEMENT:
 1. CONSTANT COMPATIBILITY: The sequel MUST fully respect all rules, existing living characters, and power structures defined in the CURRENT COMPREHENSIVE STORY MEMORY. Do not erase, forget, or contradict pre-existing lore.
 2. STABILIZED KARMA CHAIN: The sequel must actively address unresolved plot threads inherited from previous volumes. Incorporating them builds a satisfying narrative growth.
 3. ORGANIC INITIATION: The first chapters of the sequel should pick up seamlessly from where the final summarised chapter ended, explaining any transition, voyage, or core shift smoothly.
+4. SEQUENTIAL POWER SCALING: If the MC's power tier advances in this arc, it MUST advance sequentially according to the Power System Outline. Skipping tiers is strictly forbidden.
 
 Output strictly raw JSON matching the requested structure.`,
     userPrompt: (startNum: number, mcName: string, genre: string, customPremise: string, steerDirection: string, userCustomDirections: string, memoryJson: string, pastSummariesJson: string, count: number) => `Create a brand new ${count}-chapter sequel story arc continuing from chapter ${startNum} for:

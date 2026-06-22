@@ -35,7 +35,9 @@ export function LivingCodexMysteries({ memory }: LivingCodexMysteriesProps) {
                   </span>
                   <div className="space-y-1">
                     <p className="text-neutral-350 leading-relaxed font-sans">{typeof thread === 'string' ? thread : thread.description}</p>
-                    <span className="text-[9px] text-neutral-600 uppercase font-sc block">Opened destiny arc</span>
+                    <span className="text-[9px] text-neutral-600 uppercase font-sc block">
+                      {typeof thread !== 'string' && typeof thread.originChapter === 'number' ? `Planted in Chapter ${thread.originChapter}` : 'Opened destiny arc'}
+                    </span>
                   </div>
                 </div>
               ))

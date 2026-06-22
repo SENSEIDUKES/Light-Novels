@@ -72,6 +72,7 @@ export interface PlotThread {
   description: string;
   status: 'active' | 'resolved';
   provenance?: MemoryProvenance;
+  originChapter?: number;
 }
 
 export interface Ability {

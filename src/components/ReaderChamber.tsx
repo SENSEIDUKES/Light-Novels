@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import {
   Sparkles,
   ChevronRight,
@@ -52,6 +52,7 @@ import { VoiceEditionPanel } from "./VoiceEditionPanel";
 
 import { ReaderPreferencesPanel } from "./ReaderPreferencesPanel";
 import { CosmicBookmarksPanel } from "./CosmicBookmarksPanel";
+import { CodexHovercard } from "./CodexHovercard";
 
 const extractSFXCues = (text: string) => {
   const sfxList: string[] = [];
@@ -224,7 +225,12 @@ export default function ReaderChamber({
     }
 
     const doTranslation = async () => {
-      if (!selectedChapter.generatedContent) return;
+      let textToTranslate = selectedChapter.generatedContent || "";
+      if (!textToTranslate && selectedChapter.blocks) {
+        textToTranslate = selectedChapter.blocks.map(b => b.text).join('\n\n');
+      }
+      if (!textToTranslate) return;
+      
       if (selectedChapter.translations?.[preferredLang]) {
         setActiveTranslationContent(
           selectedChapter.translations[preferredLang].content,
@@ -234,7 +240,7 @@ export default function ReaderChamber({
       const result = await translateChapter(
         activeStory.id,
         selectedChapter.number,
-        selectedChapter.generatedContent,
+        textToTranslate,
         preferredLang,
       );
       if (result) {
@@ -246,6 +252,7 @@ export default function ReaderChamber({
     preferredLang,
     selectedChapter.number,
     selectedChapter.generatedContent,
+    selectedChapter.blocks,
     selectedChapter.translations,
   ]);
 
@@ -650,30 +657,89 @@ export default function ReaderChamber({
     number | null
   >(null);
 
+  const codexTerms = useMemo(() => {
+    const terms: Array<{ term: string; type: 'character'|'faction'|'artifact'|'location'; entry: any }> = [];
+    if (!activeStory.memory) return terms;
+    activeStory.memory.characters?.forEach(c => {
+      if (c.name && c.name.length > 2) terms.push({ term: c.name, type: 'character', entry: c });
+    });
+    activeStory.memory.factions?.forEach(f => {
+      if (f.name && f.name.length > 2) terms.push({ term: f.name, type: 'faction', entry: f });
+    });
+    activeStory.memory.artifacts?.forEach(a => {
+      if (a.name && a.name.length > 2) terms.push({ term: a.name, type: 'artifact', entry: a });
+    });
+    activeStory.memory.locations?.forEach(l => {
+      if (l.name && l.name.length > 2) terms.push({ term: l.name, type: 'location', entry: l });
+    });
+    return terms.sort((a, b) => b.term.length - a.term.length);
+  }, [activeStory.memory]);
+
   const renderHighlightedText = (text: string, paragraphIndex: number) => {
     const isPlaying = isPlayingText || isPausedText;
-    if (!isPlaying) return <>{text}</>;
+    let ttsHighlight = "";
+    
+    if (isPlaying) {
+      const currentChunk = activeChunks[currentChunkIndex];
+      if (currentChunk && currentChunk.paragraphIndex === paragraphIndex) {
+        ttsHighlight = currentChunk.text;
+      }
+    }
 
-    const currentChunk = activeChunks[currentChunkIndex];
-    if (!currentChunk || currentChunk.paragraphIndex !== paragraphIndex)
-      return <>{text}</>;
+    if (codexTerms.length === 0) {
+      if (!ttsHighlight || !text.includes(ttsHighlight)) return <>{text}</>;
+      const parts = text.split(ttsHighlight);
+      return (
+        <>
+          {parts.map((part, i) => (
+            <React.Fragment key={i}>
+              {part}
+              {i < parts.length - 1 && (
+                <span className="bg-portal/20 text-portal font-medium rounded-sm px-1 py-0.5 transition-all duration-300 shadow-[0_0_8px_rgba(4,172,255,0.15)]">
+                  {ttsHighlight}
+                </span>
+              )}
+            </React.Fragment>
+          ))}
+        </>
+      );
+    }
 
-    const highlight = currentChunk.text;
-    if (!highlight || !text.includes(highlight)) return <>{text}</>;
+    if (ttsHighlight && text.includes(ttsHighlight)) {
+       const parts = text.split(ttsHighlight);
+       return (
+         <>
+           {parts.map((part, i) => (
+             <React.Fragment key={i}>
+               {part}
+               {i < parts.length - 1 && (
+                 <span className="bg-portal/20 text-portal font-medium rounded-sm px-1 py-0.5 transition-all duration-300 shadow-[0_0_8px_rgba(4,172,255,0.15)]">
+                   {ttsHighlight}
+                 </span>
+               )}
+             </React.Fragment>
+           ))}
+         </>
+       );
+    }
 
-    const parts = text.split(highlight);
+    const escapedTerms = codexTerms.map(t => t.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const pattern = new RegExp(`\\b(${escapedTerms.join('|')})\\b`, 'g');
+    const parts = text.split(pattern);
+    
+    if (parts.length === 1) return <>{text}</>;
+    
     return (
       <>
-        {parts.map((part, i) => (
-          <React.Fragment key={i}>
-            {part}
-            {i < parts.length - 1 && (
-              <span className="bg-portal/20 text-portal font-medium rounded-sm px-1 py-0.5 transition-all duration-300 shadow-[0_0_8px_rgba(4,172,255,0.15)]">
-                {highlight}
-              </span>
-            )}
-          </React.Fragment>
-        ))}
+        {parts.map((part, i) => {
+          if (i % 2 !== 0) {
+            const matchedEntry = codexTerms.find(t => t.term === part);
+            if (matchedEntry) {
+              return <CodexHovercard key={i} term={part} type={matchedEntry.type} entry={matchedEntry.entry}>{part}</CodexHovercard>;
+            }
+          }
+          return <React.Fragment key={i}>{part}</React.Fragment>;
+        })}
       </>
     );
   };
@@ -910,10 +976,14 @@ export default function ReaderChamber({
   };
 
   const handleExportText = () => {
-    if (!selectedChapter.generatedContent) return;
+    let textToExport = selectedChapter.generatedContent || "";
+    if (!textToExport && selectedChapter.blocks) {
+      textToExport = selectedChapter.blocks.map(b => b.text).join('\n\n');
+    }
+    if (!textToExport) return;
 
     // Clean each paragraph separately to remove metadata and keep prose pure
-    const paragraphs = selectedChapter.generatedContent.split("\n\n");
+    const paragraphs = textToExport.split("\n\n");
     const cleanedParagraphs = paragraphs
       .map((p) => extractSFXCues(p).cleanText)
       .filter((p) => !!p); // Filter out lines that were purely metadata
@@ -1125,7 +1195,7 @@ export default function ReaderChamber({
               Translating the Heavenly Dao...
             </p>
           </div>
-        ) : selectedChapter.generatedContent ? (
+        ) : selectedChapter.generatedContent || (selectedChapter.blocks && selectedChapter.blocks.length > 0) ? (
           <>
             <AnimatePresence mode="wait">
               <motion.div
@@ -1599,7 +1669,7 @@ export default function ReaderChamber({
 
               {handleSealChapter &&
                 !selectedChapter.isSealed &&
-                !!selectedChapter.generatedContent && (
+                (!!selectedChapter.generatedContent || !!(selectedChapter.blocks && selectedChapter.blocks.length > 0)) && (
                   <button
                     onClick={handleSealClick}
                     disabled={isCheckingConsistency}
@@ -1761,9 +1831,9 @@ export default function ReaderChamber({
                 {/* Central audio touch Core key */}
                 <button
                   onClick={handleSpeak}
-                  disabled={!selectedChapter.generatedContent}
+                  disabled={!(selectedChapter.generatedContent || (selectedChapter.blocks && selectedChapter.blocks.length > 0))}
                   className={`absolute h-8 w-8 rounded-full flex items-center justify-center transition-all z-10 ${
-                    !selectedChapter.generatedContent
+                    !(selectedChapter.generatedContent || (selectedChapter.blocks && selectedChapter.blocks.length > 0))
                       ? "bg-neutral-900 text-neutral-600 border border-neutral-800"
                       : isPlayingText && !isPausedText
                         ? "bg-[#8B0000] text-[#FAFAFA] border border-[#FAFAFA]/20 shadow-[0_0_12px_rgba(139,0,0,0.8)] hover:scale-105"
@@ -1964,9 +2034,9 @@ export default function ReaderChamber({
                 {/* Central audio touch Core key */}
                 <button
                   onClick={handleSpeak}
-                  disabled={!selectedChapter.generatedContent}
+                  disabled={!(selectedChapter.generatedContent || (selectedChapter.blocks && selectedChapter.blocks.length > 0))}
                   className={`absolute h-10 w-10 rounded-full flex items-center justify-center transition-all z-10 ${
-                    !selectedChapter.generatedContent
+                    !(selectedChapter.generatedContent || (selectedChapter.blocks && selectedChapter.blocks.length > 0))
                       ? "bg-neutral-900 text-neutral-600 border border-neutral-800 shadow-none"
                       : isPlayingText && !isPausedText
                         ? "bg-[#8B0000] text-[#FAFAFA] border border-[#fafafa]/25 shadow-[0_0_15px_rgba(139,0,0,0.6)] hover:scale-105"

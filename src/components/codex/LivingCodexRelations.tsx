@@ -46,7 +46,7 @@ export function LivingCodexRelations({
         
           <div className="space-y-6 animate-fadeIn" id="codex-relationships">
             <div className="border-b border-neutral-900 pb-3">
-              <h3 className="font-sc text-sm text-signal font-bold uppercase tracking-widest">The Celestial Karma Web</h3>
+              <h3 className="font-sc text-sm text-signal font-bold uppercase tracking-widest">Karma</h3>
               <p className="text-[10px] text-neutral-500 font-sans">Click on any Daoist node around {mcName}'s cosmic grid to inspect their physical alignment vectors.</p>
             </div>
 

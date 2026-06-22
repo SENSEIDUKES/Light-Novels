@@ -344,8 +344,15 @@ export const useChapterGeneration = () => {
 
           if (memoryUpdates.newUnresolvedPlotThreads && memoryUpdates.newUnresolvedPlotThreads.length > 0) {
             const currentThreads = nextMemory.unresolvedPlotThreads || [];
-            const threads = memoryUpdates.newUnresolvedPlotThreads.filter((t: string) => !currentThreads.some(ct => (typeof ct === 'string' ? ct : ct.description) === t));
-            nextMemory.unresolvedPlotThreads = [...currentThreads, ...threads];
+            const newThreadObjs = memoryUpdates.newUnresolvedPlotThreads
+              .filter((t: string) => !currentThreads.some(ct => (typeof ct === 'string' ? ct : ct.description) === t))
+              .map((t: string) => ({
+                id: `thread-${Math.random().toString(36).substr(2, 9)}`,
+                description: t,
+                status: 'active',
+                originChapter: chapterNumber
+              }));
+            nextMemory.unresolvedPlotThreads = [...currentThreads, ...newThreadObjs];
           }
 
           if (memoryUpdates.resolvedPlotThreads && memoryUpdates.resolvedPlotThreads.length > 0) {
@@ -355,15 +362,22 @@ export const useChapterGeneration = () => {
             let updatedResolved = [...currentResolved];
 
             memoryUpdates.resolvedPlotThreads.forEach((title: string) => {
-               updatedUnresolved = updatedUnresolved.filter((t: string | { description: string }) => {
+               const matchedThread = updatedUnresolved.find((t: any) => {
                  const desc = typeof t === 'string' ? t : t.description;
-                 return desc.toLowerCase() !== title.toLowerCase();
+                 return desc.toLowerCase() === title.toLowerCase();
                });
-               if (!updatedResolved.some((r: string | { description: string }) => {
-                 const desc = typeof r === 'string' ? r : r.description;
-                 return desc === title;
-               })) {
-                 updatedResolved = [...updatedResolved, title];
+               
+               if (matchedThread) {
+                 updatedUnresolved = updatedUnresolved.filter(t => t !== matchedThread);
+                 if (!updatedResolved.some((r: any) => {
+                   const desc = typeof r === 'string' ? r : r.description;
+                   return desc.toLowerCase() === title.toLowerCase();
+                 })) {
+                   updatedResolved = [...updatedResolved, typeof matchedThread === 'string' ? { description: matchedThread, status: 'resolved' } : {
+                     ...matchedThread,
+                     status: 'resolved'
+                   }];
+                 }
                }
             });
 
@@ -467,9 +481,16 @@ export const useChapterGeneration = () => {
             cloned.relationships = updatedRelationships;
           }
 
+          let violationWarnings: string[] = [];
+          if (memoryUpdates.powerSystemViolationFlags && memoryUpdates.powerSystemViolationFlags.length > 0) {
+            violationWarnings = memoryUpdates.powerSystemViolationFlags;
+          }
+
           const linterWarnings = runMemoryLinter(cloned.memory, nextMemory, data.chapterText);
-          if (linterWarnings.length > 0) {
-            nextMemory.memoryWarnings = [...(nextMemory.memoryWarnings || []), ...linterWarnings];
+          const allWarnings = [...violationWarnings, ...linterWarnings];
+          
+          if (allWarnings.length > 0) {
+            nextMemory.memoryWarnings = [...(nextMemory.memoryWarnings || []), ...allWarnings];
           }
 
           cloned.memory = nextMemory;

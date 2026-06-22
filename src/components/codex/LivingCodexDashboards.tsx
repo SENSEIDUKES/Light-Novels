@@ -429,7 +429,7 @@ export function LivingCodexDashboards({
 
             {(!activeStory.karmaNodes || activeStory.karmaNodes.length === 0) && (
               <div className="text-center py-4 text-[11px] text-neutral-500 font-sans italic">
-                No karma nodes have been bound in this mortal cycle yet. Engrave connections inside the **Karma Web** or use **Alter Fate** reader blocks to trigger destinies.
+                No karma nodes have been bound in this mortal cycle yet. Engrave connections inside the **Karma** tab or use **Alter Fate** reader blocks to trigger destinies.
               </div>
             )}
           </div>

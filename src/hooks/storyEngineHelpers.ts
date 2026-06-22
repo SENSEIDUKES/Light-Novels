@@ -195,18 +195,19 @@ export function runMemoryLinter(
         const name1 = nextMemory.characters[i].name;
         const name2 = nextMemory.characters[j].name;
         if (name1 && name2 && name1.toLowerCase() !== name2.toLowerCase()) {
-          const distance = getLevenshteinDistance(name1.toLowerCase(), name2.toLowerCase());
-          if (distance > 0 && distance <= 2 && name1.length > 4 && name2.length > 4) {
-             warnings.push(`Potential duplicate character names: "${name1}" and "${name2}". Check roster.`);
+          const parts1 = name1.split(' ');
+          const parts2 = name2.split(' ');
+          const isSameFamilyName = parts1.length > 1 && parts2.length > 1 && parts1[0].toLowerCase() === parts2[0].toLowerCase();
+          
+          if (!isSameFamilyName) {
+            const distance = getLevenshteinDistance(name1.toLowerCase(), name2.toLowerCase());
+            if (distance > 0 && distance <= 2 && name1.length > 5 && name2.length > 5) {
+               warnings.push(`Potential duplicate character names: "${name1}" and "${name2}". Check roster.`);
+            }
           }
         }
       }
     }
-  }
-
-  if (prevMemory.currentPowerStage !== nextMemory.currentPowerStage) {
-     const prevStage = prevMemory.currentPowerStage || 'None';
-     warnings.push(`Power stage updated from "${prevStage}" to "${nextMemory.currentPowerStage}". Verify no ranks were skipped.`);
   }
 
   if (nextMemory.unresolvedPlotThreads && prevMemory.resolvedPlotThreads) {

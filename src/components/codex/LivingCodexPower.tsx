@@ -28,7 +28,7 @@ export function LivingCodexPower({
           <div className="space-y-6 animate-fadeIn" id="codex-power-system-leadboard">
             <div className="border-b border-neutral-900 pb-3 flex justify-between items-end">
               <div>
-                <h3 className="font-sc text-sm text-signal font-bold uppercase tracking-widest">Sovereign Cultivation Leaderboard</h3>
+                <h3 className="font-sc text-sm text-signal font-bold uppercase tracking-widest">Power Rankings</h3>
                 <p className="text-[10px] text-neutral-500 font-sans">Power rankings distill standard cultivation tiers into exact energetic indexes.</p>
               </div>
               <span className="text-[10px] px-2 py-0.5 font-mono bg-neutral-950 border border-neutral-900 text-yellow-500 rounded">

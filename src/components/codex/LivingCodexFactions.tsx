@@ -30,13 +30,6 @@ export function LivingCodexFactions({
           <h3 className="font-sc text-sm text-signal font-bold uppercase tracking-widest">Sect alliances & Hierarchies</h3>
           <p className="text-[10px] text-neutral-500 font-sans">Tree flow mapping describing who commands high elders, lineages, and outer disciples.</p>
         </div>
-        <button
-          onClick={() => setShowAddFactionForm(!showAddFactionForm)}
-          className="px-2 py-1 bg-void hover:bg-neutral-900 font-sc font-bold border border-neutral-850 hover:border-neutral-700 text-neutral-400 hover:text-signal rounded text-[9px] uppercase tracking-wider flex items-center space-x-1"
-        >
-          <Plus size={10} />
-          <span>Formulate Sect</span>
-        </button>
       </div>
 
       {/* Input Form to add custom faction */}

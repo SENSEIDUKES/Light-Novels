@@ -102,7 +102,7 @@ export function LivingCodexGlossary({ memory, arcs, mcName, routingConfig }: Liv
     <div className="space-y-6 animate-fadeIn" id="codex-glossary-lookup">
       <div className="border-b border-neutral-900 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 className="font-sc text-sm text-signal font-bold uppercase tracking-widest">Sovereign Cultivation Glossary</h3>
+          <h3 className="font-sc text-sm text-signal font-bold uppercase tracking-widest">Lore</h3>
           <p className="text-[10px] text-neutral-500 font-sans">Look up traditional light novel cultivation slang and dynamically extract story-specific concepts using Gemini.</p>
         </div>
         <button

@@ -16,6 +16,7 @@ import { LivingCodexTimeline } from './codex/LivingCodexTimeline';
 import { LivingCodexArtifacts } from './codex/LivingCodexArtifacts';
 import { LivingCodexFactions } from './codex/LivingCodexFactions';
 import { LivingCodexDashboards } from './codex/LivingCodexDashboards';
+import { LivingCodexFate } from './codex/LivingCodexFate';
 import { VirtualizedList } from './VirtualizedList';
 import { AgentBadge } from './AgentBadge';
 import { AGENTS } from '../lib/agents';
@@ -97,7 +98,7 @@ export default function LivingCodex({
     abilities: rawMemory.abilities || []
   };
 
-  const [activePage, setActivePage] = useState<'characters' | 'relations' | 'power' | 'factions' | 'artifacts' | 'timeline' | 'mysteries' | 'glossary' | 'dashboards'>('characters');
+  const [activePage, setActivePage] = useState<'portraits' | 'karma' | 'power' | 'artifacts' | 'fate' | 'lore'>('portraits');
   
   // Selection state for node inspection in Relationship Map & other grids
   const [selectedNodeChar, setSelectedNodeChar] = useState<Character | null>(null);
@@ -402,7 +403,7 @@ export default function LivingCodex({
 
   // Form states primitive handlers
   const [showAddFactionForm, setShowAddFactionForm] = useState(false);
-  const [newFaction, setNewFaction] = useState({
+  const [newFaction, setNewFaction] = useState<Partial<Faction>>({
     name: '',
     description: '',
     alignment: 'Neutral',
@@ -427,6 +428,7 @@ export default function LivingCodex({
   });
 
   const [showAddAbilityForm, setShowAddAbilityForm] = useState(false);
+  const [newWorldRule, setNewWorldRule] = useState('');
   const [newAbility, setNewAbility] = useState('');
 
   const [showAddCharForm, setShowAddCharForm] = useState(false);
@@ -745,15 +747,15 @@ export default function LivingCodex({
   // Action: Add Location
   const handleAddLocation = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!newLocation.name.trim()) return;
+    if (!newLocation.name?.trim()) return;
 
     const currentLocations = memory.locations || [];
     const locationObj: Location = {
       id: `loc-${Date.now()}`,
       name: newLocation.name.trim(),
-      description: newLocation.description.trim(),
-      realm: newLocation.realm.trim() || undefined,
-      safetyLevel: newLocation.safetyLevel
+      description: newLocation.description?.trim() || '',
+      realm: newLocation.realm?.trim() || undefined,
+      safetyLevel: newLocation.safetyLevel || 'Safe'
     };
 
     onUpdateMemory({
@@ -763,6 +765,19 @@ export default function LivingCodex({
 
     setNewLocation({ name: '', description: '', realm: '', safetyLevel: 'Safe' });
     setShowAddLocationForm(false);
+  };
+
+  // Action: Add World Rule (Fate)
+  const handleAddWorldRule = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newWorldRule.trim()) return;
+    
+    const currentRules = memory.worldRules || [];
+    onUpdateMemory({
+      ...memory,
+      worldRules: [...currentRules, newWorldRule.trim()]
+    });
+    setNewWorldRule('');
   };
 
   // Action: Delete Location
@@ -884,36 +899,36 @@ export default function LivingCodex({
 
         {/* HORIZONTAL TABS ON MOBILE / VERTICAL SIDEBAR ON DESKTOP */}
         <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 gap-1.5 md:gap-1.5 md:space-y-1.5 no-scrollbar whitespace-nowrap w-full" id="codex-tab-scroller">
-          {/* Character/Location Profiles Link */}
+          {/* Portraits Link */}
           <button
-            onClick={() => setActivePage('characters')}
+            onClick={() => setActivePage('portraits')}
             className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
-              activePage === 'characters' 
+              activePage === 'portraits' 
                 ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
                 : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
             }`}
           >
-            <Users size={14} className={activePage === 'characters' ? 'text-human' : ''} />
-            <span>Sovereign Portals</span>
+            <Users size={14} className={activePage === 'portraits' ? 'text-human' : ''} />
+            <span>Portraits</span>
           </button>
 
-          {/* Relationship Map Link */}
+          {/* Karma Link */}
           <button
             onClick={() => {
-              setActivePage('relations');
+              setActivePage('karma');
               setSelectedNodeChar(null);
             }}
             className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
-              activePage === 'relations' 
+              activePage === 'karma' 
                 ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
                 : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
             }`}
           >
-            <Network size={14} className={activePage === 'relations' ? 'text-portal' : ''} />
-            <span>Karma Web</span>
+            <Network size={14} className={activePage === 'karma' ? 'text-portal' : ''} />
+            <span>Karma</span>
           </button>
 
-          {/* Power ranking chart System Link */}
+          {/* Power Rankings Link */}
           <button
             onClick={() => setActivePage('power')}
             className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
@@ -926,32 +941,6 @@ export default function LivingCodex({
             <span>Power Rankings</span>
           </button>
 
-          {/* Progression Dashboards */}
-          <button
-            onClick={() => setActivePage('dashboards')}
-            className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
-              activePage === 'dashboards' 
-                ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
-                : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
-            }`}
-          >
-            <Activity size={14} className={activePage === 'dashboards' ? 'text-cyan-400' : ''} />
-            <span>Aether Dashboards</span>
-          </button>
-
-          {/* Factions & hierarchy Link */}
-          <button
-            onClick={() => setActivePage('factions')}
-            className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
-              activePage === 'factions' 
-                ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
-                : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
-            }`}
-          >
-            <Shield size={14} className={activePage === 'factions' ? 'text-green-500' : ''} />
-            <span>Faction Hierarchy</span>
-          </button>
-
           {/* Artifacts Gallery Link */}
           <button
             onClick={() => setActivePage('artifacts')}
@@ -962,46 +951,33 @@ export default function LivingCodex({
             }`}
           >
             <Sword size={14} className={activePage === 'artifacts' ? 'text-orange-500' : ''} />
-            <span>Divine Relics</span>
+            <span>Artifacts</span>
           </button>
 
-          {/* Timeline Scroll Link */}
+          {/* Fate Panel Link */}
           <button
-            onClick={() => setActivePage('timeline')}
+            onClick={() => setActivePage('fate')}
             className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
-              activePage === 'timeline' 
+              activePage === 'fate' 
                 ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
                 : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
             }`}
           >
-            <Clock size={14} className={activePage === 'timeline' ? 'text-neutral-300' : ''} />
-            <span>Chronicle Recaps</span>
+            <Compass size={14} className={activePage === 'fate' ? 'text-green-400' : ''} />
+            <span>Fate</span>
           </button>
 
-          {/* Unresolved Mysteries Link */}
+          {/* Lore Link */}
           <button
-            onClick={() => setActivePage('mysteries')}
-            className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
-              activePage === 'mysteries' 
-                ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
-                : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
-            }`}
-          >
-            <HelpCircle size={12} className={activePage === 'mysteries' ? 'text-cyan-400' : ''} />
-            <span>Karma Threads</span>
-          </button>
-
-          {/* Glossary Link (Newly integrated!) */}
-          <button
-            onClick={() => setActivePage('glossary')}
+            onClick={() => setActivePage('lore')}
             className={`flex items-center space-x-1.5 md:space-x-3 px-3 py-1.5 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
-              activePage === 'glossary' 
+              activePage === 'lore' 
                 ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
                 : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
             }`}
           >
-            <BookMarked size={12} className={activePage === 'glossary' ? 'text-purple-400' : ''} />
-            <span>Sovereign Glossary</span>
+            <BookMarked size={12} className={activePage === 'lore' ? 'text-purple-400' : ''} />
+            <span>Lore</span>
           </button>
 
           {/* Back navigation shortcut in horizontal list on mobile */}
@@ -1126,99 +1102,117 @@ export default function LivingCodex({
           </div>
         )}
 
-        {/* PAGE 1: Character & Location Cards */}
-        {activePage === 'characters' && (
-          <LivingCodexCharacters
-            memory={memory}
-            activeStory={activeStory}
-            charsToRender={charsToRender}
-            locationsToRender={locationsToRender}
-            showAddCharForm={showAddCharForm}
-            setShowAddCharForm={setShowAddCharForm}
-            newChar={newChar}
-            setNewChar={setNewChar}
-            handleAddCharacter={handleAddCharacter}
-            showAddLocationForm={showAddLocationForm}
-            setShowAddLocationForm={setShowAddLocationForm}
-            newLocation={newLocation}
-            setNewLocation={setNewLocation}
-            handleAddLocation={handleAddLocation}
-            setDeletePrompt={setDeletePrompt}
-            selectedNodeChar={selectedNodeChar}
-            setSelectedNodeChar={setSelectedNodeChar}
-            handleAwakenCardImage={handleAwakenCardImage}
-            generatingId={generatingId}
-            previews={previews}
-            renderImageHistoryGallery={renderImageHistoryGallery}
-            getPowerRankScore={getPowerRankScore}
-          />
+        {/* PAGE 1: PORTRAITS (Characters & Beasts, Locations, Timeline Recaps, Factions) */}
+        {activePage === 'portraits' && (
+          <div className="space-y-8 pb-8">
+            <LivingCodexCharacters
+              memory={memory}
+              activeStory={activeStory}
+              charsToRender={charsToRender}
+              locationsToRender={locationsToRender}
+              showAddCharForm={false}
+              setShowAddCharForm={() => {}}
+              newChar={newChar}
+              setNewChar={setNewChar}
+              handleAddCharacter={() => {}}
+              showAddLocationForm={false}
+              setShowAddLocationForm={() => {}}
+              newLocation={newLocation}
+              setNewLocation={setNewLocation}
+              handleAddLocation={() => {}}
+              setDeletePrompt={setDeletePrompt}
+              selectedNodeChar={selectedNodeChar}
+              setSelectedNodeChar={setSelectedNodeChar}
+              handleAwakenCardImage={handleAwakenCardImage}
+              generatingId={generatingId}
+              previews={previews}
+              renderImageHistoryGallery={renderImageHistoryGallery}
+              getPowerRankScore={getPowerRankScore}
+            />
+            
+            <div className="border-t border-neutral-900 pt-6">
+              <LivingCodexFactions
+                factionsToRender={factionsToRender}
+                memoryCharacters={memory.characters}
+                showAddFactionForm={false}
+                setShowAddFactionForm={() => {}}
+                newFaction={newFaction}
+                setNewFaction={setNewFaction}
+                handleAddFaction={() => {}}
+                setDeletePrompt={setDeletePrompt}
+              />
+            </div>
+
+            <div className="border-t border-neutral-900 pt-6">
+              <h4 className="text-[11px] text-human tracking-widest font-sc font-bold uppercase mb-4 px-2">Visual Story Recaps</h4>
+              <LivingCodexTimeline
+                flatChapters={flatChapters}
+                onJumpToChapter={onJumpToChapter}
+              />
+            </div>
+          </div>
         )}
         
-        {/* PAGE 2: Relationship Map */}
-        {activePage === 'relations' && (
-          <LivingCodexRelations
-            memory={memory}
-            charsToRender={charsToRender}
-            showAddRelForm={showAddRelForm}
-            setShowAddRelForm={setShowAddRelForm}
-            newRel={newRel}
-            setNewRel={setNewRel}
-            handleAddCustomRelationship={handleAddCustomRelationship}
-            setDeletePrompt={setDeletePrompt}
-            selectedNodeChar={selectedNodeChar}
-            setSelectedNodeChar={setSelectedNodeChar}
-            mcName={mcName}
-            activeStory={activeStory}
-            bondSourceId={bondSourceId}
-            setBondSourceId={setBondSourceId}
-            bondTargetId={bondTargetId}
-            setBondTargetId={setBondTargetId}
-            bondAffinity={bondAffinity}
-            setBondAffinity={setBondAffinity}
-            bondDesc={bondDesc}
-            setBondDesc={setBondDesc}
-          />
+        {/* PAGE 2: KARMA (Relations Web & Mysteries / Threads) */}
+        {activePage === 'karma' && (
+          <div className="space-y-8 pb-8">
+            <LivingCodexRelations
+              memory={memory}
+              charsToRender={charsToRender}
+              showAddRelForm={showAddRelForm}
+              setShowAddRelForm={setShowAddRelForm}
+              newRel={newRel}
+              setNewRel={setNewRel}
+              handleAddCustomRelationship={handleAddCustomRelationship}
+              setDeletePrompt={setDeletePrompt}
+              selectedNodeChar={selectedNodeChar}
+              setSelectedNodeChar={setSelectedNodeChar}
+              mcName={mcName}
+              activeStory={activeStory}
+              bondSourceId={bondSourceId}
+              setBondSourceId={setBondSourceId}
+              bondTargetId={bondTargetId}
+              setBondTargetId={setBondTargetId}
+              bondAffinity={bondAffinity}
+              setBondAffinity={setBondAffinity}
+              bondDesc={bondDesc}
+              setBondDesc={setBondDesc}
+            />
+            
+            <div className="border-t border-neutral-900 pt-6">
+              <h4 className="text-[11px] text-human tracking-widest font-sc font-bold uppercase mb-4 px-2">Karmic Threads & Plot Lines</h4>
+              <LivingCodexMysteries memory={memory} />
+            </div>
+          </div>
         )}
         
-        {/* PAGE 3: Power system */}
+        {/* PAGE 3: POWER RANKINGS */}
         {activePage === 'power' && (
-          <LivingCodexPower
-            memory={memory}
-            activeStory={activeStory}
-            getPowerStageLevel={getPowerStageLevel}
-            mcName={mcName}
-            getPowerRankScore={getPowerRankScore}
-            charsToRender={charsToRender}
-          />
+          <div className="space-y-8 pb-8">
+            <LivingCodexPower
+              memory={memory}
+              activeStory={activeStory}
+              getPowerStageLevel={getPowerStageLevel}
+              mcName={mcName}
+              getPowerRankScore={getPowerRankScore}
+              charsToRender={charsToRender}
+            />
+
+            <div className="border-t border-neutral-900 pt-6">
+              <h4 className="text-[11px] text-human tracking-widest font-sc font-bold uppercase mb-4 px-2">Cultivation Analytics</h4>
+              <LivingCodexDashboards
+                memory={memory}
+                activeStory={activeStory}
+                flatChapters={flatChapters}
+                charsToRender={charsToRender}
+                affinityTimelineOfChar={affinityTimelineOfChar}
+                powerTimeline={powerTimeline}
+              />
+            </div>
+          </div>
         )}
         
-        {/* PAGE 3B: Progression Dashboards (Aether Dashboards) */}
-        {activePage === 'dashboards' && (
-          <LivingCodexDashboards
-            memory={memory}
-            activeStory={activeStory}
-            flatChapters={flatChapters}
-            charsToRender={charsToRender}
-            affinityTimelineOfChar={affinityTimelineOfChar}
-            powerTimeline={powerTimeline}
-          />
-        )}
-        
-        {/* PAGE 4: Sects & Factions (Collapsible Faction Hierarchy) */}
-        {activePage === 'factions' && (
-          <LivingCodexFactions
-            factionsToRender={factionsToRender}
-            memoryCharacters={memory.characters}
-            showAddFactionForm={showAddFactionForm}
-            setShowAddFactionForm={setShowAddFactionForm}
-            newFaction={newFaction}
-            setNewFaction={setNewFaction}
-            handleAddFaction={handleAddFaction}
-            setDeletePrompt={setDeletePrompt}
-          />
-        )}
-        
-        {/* PAGE 5: Artifacts Grid Gallery */}
+        {/* PAGE 4: ARTIFACTS */}
         {activePage === 'artifacts' && (
           <LivingCodexArtifacts
             artifactsToRender={artifactsToRender}
@@ -1236,21 +1230,32 @@ export default function LivingCodex({
           />
         )}
         
-        {/* PAGE 6: Timeline (Chronology Chapter Recap Page) */}
-        {activePage === 'timeline' && (
-          <LivingCodexTimeline
-            flatChapters={flatChapters}
-            onJumpToChapter={onJumpToChapter}
+        {/* PAGE 5: FATE (User world molding controls) */}
+        {activePage === 'fate' && (
+          <LivingCodexFate
+             showAddCharForm={showAddCharForm}
+             setShowAddCharForm={setShowAddCharForm}
+             newChar={newChar}
+             setNewChar={setNewChar}
+             handleAddCharacter={handleAddCharacter}
+             showAddLocationForm={showAddLocationForm}
+             setShowAddLocationForm={setShowAddLocationForm}
+             newLocation={newLocation}
+             setNewLocation={setNewLocation}
+             handleAddLocation={handleAddLocation}
+             showAddFactionForm={showAddFactionForm}
+             setShowAddFactionForm={setShowAddFactionForm}
+             newFaction={newFaction}
+             setNewFaction={setNewFaction}
+             handleAddFaction={handleAddFaction}
+             newWorldRule={newWorldRule}
+             setNewWorldRule={setNewWorldRule}
+             handleAddWorldRule={handleAddWorldRule}
           />
         )}
         
-        {/* PAGE 7: Mysteries (Plots / Karma Threads) */}
-        {activePage === 'mysteries' && (
-          <LivingCodexMysteries memory={memory} />
-        )}
-        
-        {/* PAGE 8: Sovereign Glossary Tab */}
-        {activePage === 'glossary' && (
+        {/* PAGE 6: LORE (Glossary) */}
+        {activePage === 'lore' && (
           <LivingCodexGlossary
             memory={memory}
             arcs={arcs}

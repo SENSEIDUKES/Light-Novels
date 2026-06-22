@@ -99,7 +99,7 @@ function App() {
       const tgtArc = activeStory.arcs.find(a => a.chapters.some(c => c.number === store.selectedChapterNum));
       const tgtChapter = tgtArc?.chapters.find(c => c.number === store.selectedChapterNum);
       
-      if (tgtChapter && !tgtChapter.generatedContent && (tgtChapter.status === 'read' || tgtChapter.status === 'unlocked' || tgtChapter.status === 'generating')) {
+      if (tgtChapter && !tgtChapter.generatedContent && (!tgtChapter.blocks || tgtChapter.blocks.length === 0) && (tgtChapter.status === 'read' || tgtChapter.status === 'unlocked' || tgtChapter.status === 'generating')) {
         const fetchKey = `${activeStory.id}-${store.selectedChapterNum}`;
         if (fetchInitiatedRef.current.has(fetchKey)) return;
         fetchInitiatedRef.current.add(fetchKey);

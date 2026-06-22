@@ -274,7 +274,7 @@ export function cleanChapterResponse(resp: Record<string, unknown> | null | unde
     if ("currentPowerStage" in mu) mu.currentPowerStage = ensureString(mu.currentPowerStage);
     
     // Arrays of strings
-    const stringArrayFields = ["newUnresolvedPlotThreads", "resolvedPlotThreads", "newMCAbilities"];
+    const stringArrayFields = ["newUnresolvedPlotThreads", "resolvedPlotThreads", "newMCAbilities", "powerSystemViolationFlags"];
     stringArrayFields.forEach(field => {
       if (field in mu && Array.isArray(mu[field])) {
         mu[field] = mu[field].map((i: unknown) => ensureString(i));

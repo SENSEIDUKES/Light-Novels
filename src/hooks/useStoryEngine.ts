@@ -91,7 +91,12 @@ export const useStoryEngine = () => {
             id: `char-${Math.random().toString(36).substr(2, 9)}`,
             ...c
           })) || [],
-          unresolvedPlotThreads: responseData.unresolvedPlotThreads || [],
+          unresolvedPlotThreads: (responseData.unresolvedPlotThreads || []).map((t: any) => ({
+            id: `thread-${Math.random().toString(36).substr(2, 9)}`,
+            description: typeof t === 'string' ? t : t.description,
+            status: 'active',
+            originChapter: 1
+          })),
           resolvedPlotThreads: []
         },
         arcs: [

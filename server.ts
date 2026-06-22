@@ -264,11 +264,26 @@ app.post("/api/generate-chapter-stream", async (req, res) => {
 
     const lastSummary = pastSummaries && pastSummaries.length > 0 ? pastSummaries[pastSummaries.length - 1] : undefined;
 
+    const currentChapterNum = currentChapter.number || 1;
+    const formattedThreads = (memory.unresolvedPlotThreads || []).map((t: any) => {
+      if (typeof t === 'string') return t;
+      if (t && t.description) {
+        if (typeof t.originChapter === 'number' && currentChapterNum > t.originChapter) {
+          const age = currentChapterNum - t.originChapter;
+          if (age >= 1) {
+            return `${t.description} (Thread open for ${age} chapter${age > 1 ? 's' : ''} — pay it off or deepen it!)`;
+          }
+        }
+        return t.description;
+      }
+      return String(t);
+    });
+
     const memoryJsonStr = JSON.stringify({
       powerSystem: memory.powerSystem,
       currentPowerStage: memory.currentPowerStage,
       worldRules: memory.worldRules,
-      unresolvedPlotThreads: memory.unresolvedPlotThreads,
+      unresolvedPlotThreads: formattedThreads,
       characters: rankRelevantEntities(memory.characters, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
       factions: rankRelevantEntities(memory.factions, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
       locations: rankRelevantEntities(memory.locations, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
@@ -339,11 +354,26 @@ app.post("/api/generate-chapter", async (req, res) => {
 
     const lastSummary = pastSummaries && pastSummaries.length > 0 ? pastSummaries[pastSummaries.length - 1] : undefined;
 
+    const currentChapterNum = currentChapter.number || 1;
+    const formattedThreads = (memory.unresolvedPlotThreads || []).map((t: any) => {
+      if (typeof t === 'string') return t;
+      if (t && t.description) {
+        if (typeof t.originChapter === 'number' && currentChapterNum > t.originChapter) {
+          const age = currentChapterNum - t.originChapter;
+          if (age >= 1) {
+            return `${t.description} (Thread open for ${age} chapter${age > 1 ? 's' : ''} — pay it off or deepen it!)`;
+          }
+        }
+        return t.description;
+      }
+      return String(t);
+    });
+
     const memoryJsonStr = JSON.stringify({
       powerSystem: memory.powerSystem,
       currentPowerStage: memory.currentPowerStage,
       worldRules: memory.worldRules,
-      unresolvedPlotThreads: memory.unresolvedPlotThreads,
+      unresolvedPlotThreads: formattedThreads,
       characters: rankRelevantEntities(memory.characters, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
       factions: rankRelevantEntities(memory.factions, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
       locations: rankRelevantEntities(memory.locations, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),

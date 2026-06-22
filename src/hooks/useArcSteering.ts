@@ -84,7 +84,13 @@ export const useArcSteering = () => {
         }
 
         if (data.newUnresolvedPlotThreads && data.newUnresolvedPlotThreads.length > 0) {
-          nextStoriesMemory.unresolvedPlotThreads = [...(nextStoriesMemory.unresolvedPlotThreads || []), ...data.newUnresolvedPlotThreads];
+          const newThreads = data.newUnresolvedPlotThreads.map((t: string) => ({
+            id: `thread-${Math.random().toString(36).substr(2, 9)}`,
+            description: t,
+            status: 'active',
+            originChapter: nextChapters[0]?.number || activeStory.currentChapterNumber
+          }));
+          nextStoriesMemory.unresolvedPlotThreads = [...(nextStoriesMemory.unresolvedPlotThreads || []), ...newThreads];
         }
 
         return {
@@ -226,7 +232,13 @@ export const useArcSteering = () => {
         }
 
         if (data.newUnresolvedPlotThreads && data.newUnresolvedPlotThreads.length > 0) {
-          nextStoriesMemory.unresolvedPlotThreads = [...(nextStoriesMemory.unresolvedPlotThreads || []), ...data.newUnresolvedPlotThreads];
+          const newThreads = data.newUnresolvedPlotThreads.map((t: string) => ({
+            id: `thread-${Math.random().toString(36).substr(2, 9)}`,
+            description: t,
+            status: 'active',
+            originChapter: nextChapters[0]?.number || chapterNumber
+          }));
+          nextStoriesMemory.unresolvedPlotThreads = [...(nextStoriesMemory.unresolvedPlotThreads || []), ...newThreads];
         }
 
         return {

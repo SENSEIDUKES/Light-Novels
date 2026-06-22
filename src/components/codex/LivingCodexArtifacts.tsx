@@ -35,7 +35,7 @@ export function LivingCodexArtifacts({
     <div className="space-y-6 animate-fadeIn" id="codex-divine-artifacts">
       <div className="border-b border-neutral-900 pb-3 flex justify-between items-end">
         <div>
-          <h3 className="font-sc text-sm text-signal font-bold uppercase tracking-widest">Divine Treasure Vault Gallery</h3>
+          <h3 className="font-sc text-sm text-signal font-bold uppercase tracking-widest">Artifacts</h3>
           <p className="text-[10px] text-neutral-500 font-sans">Behold artifacts, weapons, secret arrays, or sacred medicinal pills currently existing in memory.</p>
         </div>
         <button

@@ -58,7 +58,7 @@ export const AlterFatePanel: React.FC<AlterFatePanelProps> = ({ isOpen, onClose,
                 Alter Fate (Timeline Fork)
               </h2>
               <p className="text-xs text-neutral-400 mt-1 font-sans">
-                Branch reality from <strong className="text-portal">Chapter {chapterNumber}</strong>. The Karma Web, Codex, and all future chapters will respect this divergence.
+                Branch reality from <strong className="text-portal">Chapter {chapterNumber}</strong>. The Karma, Codex, and all future chapters will respect this divergence.
               </p>
             </div>
             <button onClick={onClose} className="p-2 text-neutral-400 hover:text-signal rounded border border-neutral-800 hover:bg-neutral-900 transition-colors z-10">

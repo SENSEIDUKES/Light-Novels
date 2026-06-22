@@ -67,7 +67,7 @@ export function LivingCodexCharacters({
           <div className="space-y-6 animate-fadeIn" id="codex-characters-and-locations">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-900 pb-3">
               <div>
-                <h3 className="font-sc text-sm text-signal font-bold uppercase tracking-widest">Sovereign Portrait Chambers</h3>
+                <h3 className="font-sc text-sm text-signal font-bold uppercase tracking-widest">Portraits</h3>
                 <p className="text-[10px] text-neutral-500 font-sans">Toggle profiles and locations, awaken visual aura portraits directly from the Void.</p>
               </div>
               <div className="flex items-center gap-2">
@@ -225,13 +225,6 @@ export function LivingCodexCharacters({
                 <div>
                   <div className="flex items-center justify-between mb-3 border-t border-neutral-900 pt-5">
                     <h4 className="text-[11px] text-human tracking-widest font-sc font-bold uppercase">World Geolocation Vistas</h4>
-                    <button
-                      onClick={() => setShowAddLocationForm(!showAddLocationForm)}
-                      className="px-2 py-1 bg-void hover:bg-neutral-900 font-sc font-bold border border-neutral-850 hover:border-neutral-700 text-neutral-400 hover:text-signal rounded text-[9px] uppercase tracking-wider flex items-center space-x-1"
-                    >
-                      <Plus size={10} />
-                      <span>Formulate Domain</span>
-                    </button>
                   </div>
 
                   {/* Form to manual add location */}
