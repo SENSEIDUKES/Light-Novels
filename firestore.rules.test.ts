@@ -22,6 +22,9 @@ beforeAll(async () => {
     });
     emulatorReady = true;
   } catch (e) {
+    if (process.env.CI) {
+      throw new Error("Firestore emulator MUST be running in CI environments for security rules tests.\n" + e);
+    }
     console.warn("Firestore emulator not running or failed to initialize, skipping rules tests.");
   }
 });

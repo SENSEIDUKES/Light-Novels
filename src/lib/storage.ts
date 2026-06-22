@@ -276,6 +276,21 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'offline';
 
+export interface SyncTask {
+  type: 'story' | 'chapter';
+  storyId: string;
+  chapterNumber?: number;
+  timestamp: number;
+}
+
+export interface SyncAuditResult {
+  localStories: number;
+  cloudStories: number;
+  mismatches: string[];
+  missingChapters: string[];
+  pendingWrites: number;
+}
+
 /**
  * Universal Storage Manager utilizing IndexedDB for high storage capacity
  * with dynamic and silent fallback to local storage under secure sandboxed contexts.
@@ -288,10 +303,74 @@ export class PersistentStorageManager implements StorageAdapter {
   private isCloudAvailable = false;
   private syncStatus: SyncStatus = 'idle';
   private subscribers: ((status: SyncStatus) => void)[] = [];
+  private syncQueue: SyncTask[] = [];
+  private queueKey = '@seihouse/sync-queue';
 
   constructor() {
     this.localAdapter = new LocalStorageFallbackAdapter();
     this.cloudAdapter = new FirebaseStorageAdapter();
+    this.loadQueue();
+  }
+
+  private loadQueue() {
+    try {
+      const q = localStorage.getItem(this.queueKey);
+      if (q) this.syncQueue = JSON.parse(q);
+    } catch (e) {
+      console.warn('Failed to load sync queue');
+    }
+  }
+
+  private saveQueue() {
+    try {
+      localStorage.setItem(this.queueKey, JSON.stringify(this.syncQueue));
+    } catch (e) {
+      console.warn('Failed to save sync queue');
+    }
+  }
+
+  private enqueueTask(task: SyncTask) {
+    this.syncQueue.push(task);
+    this.saveQueue();
+    if (this.isCloudAvailable && this.syncStatus !== 'syncing') {
+      this.flushSyncQueue();
+    }
+  }
+
+  private async flushSyncQueue() {
+    if (!this.isCloudAvailable || this.syncQueue.length === 0) return;
+    this.setStatus('syncing');
+
+    let tasksProcessed = 0;
+    const currentQueue = [...this.syncQueue];
+    
+    try {
+      for (const task of currentQueue) {
+        if (task.type === 'story') {
+          const localStory = await this.localAdapter.getStory(task.storyId);
+          if (localStory) {
+            await this.cloudAdapter.saveStory(localStory);
+          }
+        } else if (task.type === 'chapter' && task.chapterNumber !== undefined) {
+          const localChapter = await this.localAdapter.getChapterContent(task.storyId, task.chapterNumber);
+          if (localChapter) {
+            await this.cloudAdapter.saveChapterContent(localChapter);
+          }
+        }
+        tasksProcessed++;
+      }
+      
+      // Remove processed operations
+      this.syncQueue = this.syncQueue.slice(tasksProcessed);
+      this.saveQueue();
+      this.setStatus('synced');
+    } catch (error) {
+      console.error('Failed to flush sync queue', error);
+      // Keep unprocessed tasks in queue
+      this.syncQueue = this.syncQueue.slice(tasksProcessed);
+      this.saveQueue();
+      this.setStatus('error');
+    }
   }
 
   subscribe(callback: (status: SyncStatus) => void) {
@@ -341,6 +420,10 @@ export class PersistentStorageManager implements StorageAdapter {
 
   public async performSync() {
     if (!this.isCloudAvailable) return;
+    
+    // First flush any offline writes
+    await this.flushSyncQueue();
+    
     this.setStatus('syncing');
 
     try {
@@ -351,19 +434,42 @@ export class PersistentStorageManager implements StorageAdapter {
       const cloudMap = new Map(cloudStories.map(s => [s.id, s]));
       const localMap = new Map(localStories.map(s => [s.id, s]));
 
-      // Merge logic: newest updatedAt wins
+      // Merge logic: newest updatedAt wins, but handle conflicts by copying
       for (const localStory of localStories) {
         const cloudStory = cloudMap.get(localStory.id);
         if (!cloudStory) {
           // Exists locally but not in cloud. Push to cloud.
           await this.cloudAdapter.saveStory(localStory);
         } else {
-          // Exists in both. Compare updatedAt
+          // Exists in both. Check timestamps and revisions
           const localTime = new Date(localStory.updatedAt).getTime();
           const cloudTime = new Date(cloudStory.updatedAt).getTime();
+          
           if (localTime > cloudTime) {
-             await this.cloudAdapter.saveStory(localStory);
+             const timeDiff = localTime - cloudTime;
+             if (timeDiff > 5000) { // Large gap means potential conflict if cloud also changed independently
+                // We overwrite cloud if we are newer, but if the cloud version has a significantly different version/content, we could branch it.
+                // For simplicity, local wins but we ensure we pushed it cleanly.
+                await this.cloudAdapter.saveStory(localStory);
+             } else {
+                await this.cloudAdapter.saveStory(localStory);
+             }
           } else if (cloudTime > localTime) {
+             const timeDiff = cloudTime - localTime;
+             
+             // Conflict: Local changed but Cloud changed MORE recently. 
+             // We don't want to blindly overwrite local and lose local edits.
+             // If they diverged, we create a conflict copy.
+             // Here, let's just make a safe backup of the local story if it's considered 'dirty'
+             // Since we lack deep dirty checking, we duplicate if diff is substantial
+             if (timeDiff > 1000 * 60 * 5) { // 5 minutes diff
+                 const localCopy = JSON.parse(JSON.stringify(localStory)) as StoryWorld;
+                 localCopy.id = `${localStory.id}-conflict-${Date.now()}`;
+                 localCopy.title = `${localCopy.title} (Local Conflict Copied)`;
+                 await this.localAdapter.saveStory(localCopy);
+                 await this.cloudAdapter.saveStory(localCopy); // Save the conflict copy to cloud too
+             }
+             
              await this.localAdapter.saveStory(cloudStory);
           }
         }
@@ -381,6 +487,77 @@ export class PersistentStorageManager implements StorageAdapter {
       console.error("Cloud sync failed:", error);
       this.setStatus('error');
     }
+  }
+
+  public async getSyncAudit(): Promise<SyncAuditResult> {
+     const localStories = await this.localAdapter.getStories();
+     let cloudStoriesCount = 0;
+     let mismatches = [];
+     let missingChapters = [];
+     
+     if (this.isCloudAvailable) {
+        const cloudStories = await this.cloudAdapter.getStories();
+        cloudStoriesCount = cloudStories.length;
+     }
+
+     for (const story of localStories) {
+         if (story.arcs) {
+             for (const arc of story.arcs) {
+                 for (const chapter of arc.chapters) {
+                     if (chapter.hasContent) {
+                         const c = await this.localAdapter.getChapterContent(story.id, chapter.number);
+                         if (!c) {
+                             missingChapters.push(`Story: ${story.title}, Chapter: ${chapter.number}`);
+                         }
+                     }
+                 }
+             }
+         }
+     }
+     
+     return {
+         localStories: localStories.length,
+         cloudStories: cloudStoriesCount,
+         mismatches,
+         missingChapters,
+         pendingWrites: this.syncQueue.length
+     };
+  }
+
+  public async auditAndRecoverChapters(storyId: string): Promise<number> {
+      const story = await this.getStory(storyId);
+      if (!story || !story.arcs) return 0;
+      
+      let recovered = 0;
+      let modified = false;
+
+      for (const arc of story.arcs) {
+         for (const chapter of arc.chapters) {
+            if (chapter.hasContent) {
+               let localContent = await this.localAdapter.getChapterContent(storyId, chapter.number);
+               if (!localContent && this.isCloudAvailable) {
+                   // Try to recover from cloud
+                   const cloudContent = await this.cloudAdapter.getChapterContent(storyId, chapter.number);
+                   if (cloudContent) {
+                       await this.localAdapter.saveChapterContent(cloudContent);
+                       recovered++;
+                       continue;
+                   }
+               }
+               
+               if (!localContent) {
+                   // Completely missing in both places, remove the flag to let user regenerate
+                   chapter.hasContent = false;
+                   modified = true;
+               }
+            }
+         }
+      }
+      
+      if (modified) {
+          await this.saveStory(story);
+      }
+      return recovered;
   }
 
   async getStories(): Promise<StoryWorld[]> {
@@ -428,15 +605,18 @@ export class PersistentStorageManager implements StorageAdapter {
     // Save stripped story to local immediately to maintain snappy UI
     await this.localAdapter.saveStory(strippedStory);
 
-    if (this.isCloudAvailable) {
+    if (this.isCloudAvailable && this.syncStatus !== 'syncing') {
       this.setStatus('syncing');
       try {
         await this.cloudAdapter.saveStory(strippedStory);
         this.setStatus('synced');
       } catch (err) {
         console.error('Failed to save to cloud', err);
+        this.enqueueTask({ type: 'story', storyId: strippedStory.id, timestamp: Date.now() });
         this.setStatus('error');
       }
+    } else {
+      this.enqueueTask({ type: 'story', storyId: strippedStory.id, timestamp: Date.now() });
     }
   }
 
@@ -473,13 +653,17 @@ export class PersistentStorageManager implements StorageAdapter {
   }
 
   async saveChapterContent(content: ChapterContent): Promise<void> {
+    content.updatedAt = new Date().toISOString();
     await this.localAdapter.saveChapterContent(content);
-    if (this.isCloudAvailable) {
+    if (this.isCloudAvailable && this.syncStatus !== 'syncing') {
       try {
         await this.cloudAdapter.saveChapterContent(content);
       } catch (err) {
          console.error('Failed to save chapter content to cloud', err);
+         this.enqueueTask({ type: 'chapter', storyId: content.storyId, chapterNumber: content.chapterNumber, timestamp: Date.now() });
       }
+    } else {
+       this.enqueueTask({ type: 'chapter', storyId: content.storyId, chapterNumber: content.chapterNumber, timestamp: Date.now() });
     }
   }
 

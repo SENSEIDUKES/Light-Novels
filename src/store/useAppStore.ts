@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Story, StoryMemory, Chapter, StoryArc, StoryWorld, ReaderPreferences, KarmaFateNode, CharacterRelationship, MultiModelRouting, RouteConfig, IntakeData, WorldBlueprint, StoryBlock, StreamingChapter, AppUser, UserProfile } from '../types';
 import { SyncStatus } from '../lib/storage';
+import { auth } from '../lib/firebase';
 
 interface AppState {
   stories: Story[];
@@ -341,14 +342,41 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       await storyStorage.init();
       set({ storageType: storyStorage.getActiveAdapterName() });
-      const loaded = await storyStorage.getStories();
+      let loaded = await storyStorage.getStories();
+      const user = auth.currentUser;
       if (loaded && loaded.length > 0) {
+        if (user) {
+          const hasDemoMatrix = loaded.some(s => s.id === 'demo-matrix-1');
+          if (hasDemoMatrix) {
+            const userDemoId = `demo-matrix-${user.uid}`;
+            loaded = loaded.map(s => {
+              if (s.id === 'demo-matrix-1') return { ...s, id: userDemoId };
+              return s;
+            });
+            await storyStorage.deleteStory('demo-matrix-1');
+            for (const s of loaded) {
+              await storyStorage.saveStory(s);
+            }
+          }
+        }
         set({ stories: loaded });
       } else {
-        for (const s of INITIAL_DEMO_STORIES) {
-          await storyStorage.saveStory(s);
+        if (user) {
+          const userDemoId = `demo-matrix-${user.uid}`;
+          const modifiedDemo = INITIAL_DEMO_STORIES.map(s => {
+            if (s.id === 'demo-matrix-1') return { ...s, id: userDemoId };
+            return s;
+          });
+          for (const s of modifiedDemo) {
+            await storyStorage.saveStory(s);
+          }
+          set({ stories: modifiedDemo });
+        } else {
+          for (const s of INITIAL_DEMO_STORIES) {
+            await storyStorage.saveStory(s);
+          }
+          set({ stories: INITIAL_DEMO_STORIES });
         }
-        set({ stories: INITIAL_DEMO_STORIES });
       }
     } catch (e) {
       console.error("Persistent story memory failed to initialize, reverting to local fallback:", e);

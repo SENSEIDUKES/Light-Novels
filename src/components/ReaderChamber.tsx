@@ -121,6 +121,7 @@ export default function ReaderChamber({
   const readerRef = useRef<HTMLDivElement>(null);
 
   // --- Translation States ---
+  const maxChapterNum = chapters.length > 0 ? Math.max(...chapters.map(c => c.number)) : 0;
   const { translateChapter, isTranslating, translationError } =
     useChapterTranslation();
   const userProfile = useAppStore((state) => state.userProfile);
@@ -426,9 +427,16 @@ export default function ReaderChamber({
     synth.cancel();
 
     const chunkData = chunksRef.current[index];
-    if (!chunkData || !chunkData.text.trim()) {
+    
+    // Some browsers (like Chrome) can silently freeze and never fire 'onend' 
+    // if the utterance contains no pronounceable word characters (e.g. "...", "-", "!").
+    const hasWordChars = /[a-zA-Z0-9\u00C0-\u017F\u4E00-\u9FA5\u3040-\u309F\u30A0-\u30FF]/.test(chunkData?.text || "");
+
+    if (!chunkData || !chunkData.text.trim() || !hasWordChars) {
       setCurrentChunkIndex(index + 1);
-      speakChunk(index + 1);
+      setTimeout(() => {
+        speakChunk(index + 1);
+      }, 50);
       return;
     }
 
@@ -496,7 +504,18 @@ export default function ReaderChamber({
     }
     synth.cancel();
 
-    if (!selectedChapter || !selectedChapter.generatedContent) return;
+    if (!selectedChapter) return;
+
+    let paragraphs: string[] = [];
+    if (activeTranslationContent) {
+      paragraphs = activeTranslationContent.split("\n\n");
+    } else if (selectedChapter.blocks && selectedChapter.blocks.length > 0) {
+      paragraphs = selectedChapter.blocks.map((b: any) => b.text);
+    } else if (selectedChapter.generatedContent) {
+      paragraphs = selectedChapter.generatedContent.split("\n\n");
+    }
+
+    if (paragraphs.length === 0) return;
 
     const newChunks: {
       text: string;
@@ -510,7 +529,6 @@ export default function ReaderChamber({
       paragraphIndex: -1,
     });
 
-    const paragraphs = (selectedChapter.generatedContent || "").split("\n\n");
     paragraphs.forEach((paragraph, index) => {
       if (!paragraph.trim()) return;
       const proseCleaned = extractSFXCues(paragraph).cleanText;
@@ -649,7 +667,7 @@ export default function ReaderChamber({
       Math.abs(distanceX) > minSwipeDistance
     ) {
       if (isLeftSwipe) {
-        if (selectedChapterNum < chapters.length) navigateNext();
+        if (selectedChapterNum < maxChapterNum) navigateNext();
       } else if (isRightSwipe) {
         if (selectedChapterNum > 1) navigatePrev();
       }
@@ -1718,7 +1736,7 @@ export default function ReaderChamber({
 
               <button
                 onClick={navigateNext}
-                disabled={selectedChapterNum === chapters.length}
+                disabled={selectedChapterNum === maxChapterNum}
                 className="px-6 py-2 rounded-full border border-neutral-800 hover:border-gold-accent text-neutral-400 hover:text-gold-accent disabled:opacity-20 transition-all font-sc uppercase text-[10px] tracking-wider flex items-center space-x-2"
               >
                 <span>Next</span>
@@ -1820,11 +1838,11 @@ export default function ReaderChamber({
                 <ArrowLeft size={16} />
               </button>
               <span className="text-[10px] font-mono text-neutral-400 font-bold select-none px-1">
-                {selectedChapterNum}/{chapters.length}
+                {selectedChapterNum}/{maxChapterNum}
               </span>
               <button
                 onClick={navigateNext}
-                disabled={selectedChapterNum === chapters.length}
+                disabled={selectedChapterNum === maxChapterNum}
                 className="text-neutral-400 hover:text-signal disabled:opacity-20 p-2.5"
                 title="Next Chapter"
               >
@@ -2024,7 +2042,7 @@ export default function ReaderChamber({
               <button
                 onClick={navigateNext}
                 disabled={
-                  selectedChapterNum === chapters.length ||
+                  selectedChapterNum === maxChapterNum ||
                   !chapters.find((c) => c.number === selectedChapterNum + 1)
                 }
                 className="p-2 text-neutral-400 hover:text-human transition-colors disabled:opacity-20 disabled:pointer-events-none"
@@ -2232,7 +2250,7 @@ export default function ReaderChamber({
                 <button
                   onClick={navigateNext}
                   disabled={
-                    selectedChapterNum === chapters.length ||
+                    selectedChapterNum === maxChapterNum ||
                     !chapters.find((c) => c.number === selectedChapterNum + 1)
                   }
                   className="px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-human disabled:opacity-25 disabled:pointer-events-none transition-colors text-[10px] font-sc uppercase tracking-wider font-semibold"

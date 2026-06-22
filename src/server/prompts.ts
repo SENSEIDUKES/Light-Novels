@@ -140,6 +140,7 @@ ${!withCue ? `You must return a JSON object with the following fields:
     "currentPowerStage": "Updated MC power level if they broke through, otherwise the same as before.",
     "newCharacters": [],
     "characterStatusUpdates": [],
+    "relationshipUpdates": [],
     "newUnresolvedPlotThreads": [],
     "resolvedPlotThreads": [],
     "newFactions": [],
@@ -225,6 +226,15 @@ You must return a JSON object with the following fields:
         "currentRelevance": "Optional. Update their current importance.",
         "toneMemory": "Optional. Update their behavior trend.",
         "lastMajorInvolvement": "Number of this chapter if they played a major role."
+      }
+    ],
+    "relationshipUpdates": [
+      {
+        "sourceName": "Name of character creating the relationship link",
+        "targetName": "Name of the target character",
+        "affinityDelta": "Number between -100 to 100 capturing how their relationship affinity changed based purely on recent actions",
+        "threatDelta": "Number between -100 to 100 on how threatened they feel by the target",
+        "reason": "Very succinct rationale string justifying the deltas based on physical events"
       }
     ],
     "newUnresolvedPlotThreads": [

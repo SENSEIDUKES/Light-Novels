@@ -48,7 +48,7 @@ function App() {
 
     let unsubProfile: (() => void) | undefined;
 
-    const unsubAuth = onAuthStateChanged(auth, (user) => {
+    const unsubAuth = onAuthStateChanged(auth, async (user) => {
       store.setCurrentUser(user);
       
       if (unsubProfile) {
@@ -64,13 +64,36 @@ function App() {
             store.setUserProfile(null);
           }
         });
+
+        // Migrate demo-matrix-1 to avoid multi-tenant database write conflicts
+        const latestStories = [...useAppStore.getState().stories];
+        const hasDemoMatrix1 = latestStories.some(s => s.id === 'demo-matrix-1');
+        if (hasDemoMatrix1) {
+          const userDemoId = `demo-matrix-${user.uid}`;
+          const updatedStories = latestStories.map(s => {
+            if (s.id === 'demo-matrix-1') {
+              return { ...s, id: userDemoId };
+            }
+            return s;
+          });
+          
+          if (useAppStore.getState().activeStoryId === 'demo-matrix-1') {
+            useAppStore.getState().setActiveStoryId(userDemoId);
+          }
+          await useAppStore.getState().saveStories(updatedStories);
+        }
       } else {
         store.setUserProfile(null);
       }
     });
 
-    const unsubSync = storyStorage.subscribe((status) => {
+    const unsubSync = storyStorage.subscribe(async (status) => {
       store.setSyncStatus(status);
+      if (status === 'synced') {
+         // Reload stories from storage to catch cloud-merged data
+         const freshStories = await storyStorage.getStories();
+         store.setStories(freshStories);
+      }
     });
 
     return () => {

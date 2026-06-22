@@ -121,6 +121,32 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     }));
   };
 
+  const [isAuditing, setIsAuditing] = useState(false);
+  const [auditResult, setAuditResult] = useState<any>(null);
+
+  const handleRunAudit = async () => {
+     setIsAuditing(true);
+     setAuditResult(null);
+     try {
+       const result = await storyStorage.getSyncAudit();
+       setAuditResult(result);
+     } catch (e) {
+       console.error(e);
+     } finally {
+       setIsAuditing(false);
+     }
+  };
+
+  const handleRecover = async () => {
+      setIsAuditing(true);
+      let totalRecovered = 0;
+      for (const s of userStories) {
+          totalRecovered += await storyStorage.auditAndRecoverChapters(s.id);
+      }
+      setAuditResult((prev: any) => ({ ...prev, recovered: totalRecovered }));
+      setIsAuditing(false);
+  };
+
   const daoData = getDaoRankData(profile?.dao_xp || profile?.qi || 0);
 
   if (isLoading && !profile && currentUser) {
@@ -215,7 +241,16 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                 </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+              <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto flex-wrap">
+                <button
+                  onClick={handleRunAudit}
+                  disabled={isAuditing}
+                  className="flex items-center justify-center space-x-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-portal border border-neutral-800 hover:border-portal/50 px-5 py-3 rounded-lg text-[11px] font-sc font-bold uppercase tracking-wider disabled:opacity-20 disabled:cursor-not-allowed transition-all group"
+                >
+                  <Database size={14} className="text-portal group-hover:scale-110 transition-transform" />
+                  <span>Audit Sync Health</span>
+                </button>
+
                 <label className="flex items-center justify-center space-x-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-portal border border-neutral-800 hover:border-portal/50 px-5 py-3 rounded-lg text-[11px] font-sc font-bold uppercase tracking-wider cursor-pointer transition-all group">
                   <Upload size={14} className="text-portal group-hover:-translate-y-0.5 transition-transform" />
                   <span>Import World Scroll</span>
@@ -237,6 +272,30 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                 </button>
               </div>
             </div>
+
+            {/* Audit Results */}
+            {auditResult && (
+               <div className="mt-4 p-4 border border-portal/30 bg-black rounded-lg text-[11px] font-mono text-neutral-400 space-y-2">
+                 <div className="text-portal font-sc uppercase tracking-widest border-b border-neutral-800 pb-2 mb-2 font-bold">Sync Health Diagnostic</div>
+                 <div className="grid grid-cols-2 gap-4">
+                     <div>Local Realms: <span className="text-signal">{auditResult.localStories}</span></div>
+                     <div>Cloud Realms: <span className="text-signal">{auditResult.cloudStories}</span></div>
+                     <div>Pending Writes: <span className="text-signal">{auditResult.pendingWrites}</span></div>
+                     <div>Missing Chapter Contents: <span className={auditResult.missingChapters.length > 0 ? "text-human" : "text-signal"}>{auditResult.missingChapters.length}</span></div>
+                 </div>
+                 {auditResult.missingChapters.length > 0 && (
+                     <div className="pt-2 border-t border-neutral-800 mt-2">
+                         <div className="text-human mb-2">Warning: {auditResult.missingChapters.length} chapters are marked as generated but lack local cache content.</div>
+                         <button onClick={handleRecover} disabled={isAuditing} className="px-4 py-1.5 bg-human/10 text-human border border-human/30 hover:bg-human/20 rounded uppercase tracking-widest font-sc cursor-pointer">
+                             Attempt Cloud Recovery
+                         </button>
+                     </div>
+                 )}
+                 {auditResult.recovered !== undefined && (
+                     <div className="text-portal mt-2">Recovered {auditResult.recovered} missing chapters from the cloud.</div>
+                 )}
+               </div>
+            )}
           </div>
 
           {!currentUser ? (

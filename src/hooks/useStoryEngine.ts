@@ -214,8 +214,12 @@ function runMemoryLinter(
   // 4. Returning Dead/Resolved threads
   if (nextMemory.unresolvedPlotThreads && prevMemory.resolvedPlotThreads) {
     for (const thread of nextMemory.unresolvedPlotThreads) {
-      if (prevMemory.resolvedPlotThreads.some(r => r.toLowerCase() === thread.toLowerCase())) {
-        warnings.push(`Plot thread "${thread}" was previously resolved but is now marked unresolved.`);
+      const threadStr = typeof thread === 'string' ? thread : thread.description;
+      if (prevMemory.resolvedPlotThreads.some(r => {
+        const rStr = typeof r === 'string' ? r : r.description;
+        return rStr.toLowerCase() === threadStr.toLowerCase();
+      })) {
+        warnings.push(`Plot thread "${threadStr}" was previously resolved but is now marked unresolved.`);
       }
     }
   }
@@ -678,7 +682,7 @@ export const useStoryEngine = () => {
 
           if (memoryUpdates.newUnresolvedPlotThreads && memoryUpdates.newUnresolvedPlotThreads.length > 0) {
             const currentThreads = nextMemory.unresolvedPlotThreads || [];
-            const threads = memoryUpdates.newUnresolvedPlotThreads.filter((t: string) => !currentThreads.includes(t));
+            const threads = memoryUpdates.newUnresolvedPlotThreads.filter((t: string) => !currentThreads.some(ct => (typeof ct === 'string' ? ct : ct.description) === t));
             nextMemory.unresolvedPlotThreads = [...currentThreads, ...threads];
           }
 
@@ -689,8 +693,8 @@ export const useStoryEngine = () => {
             let updatedResolved = [...currentResolved];
 
             memoryUpdates.resolvedPlotThreads.forEach((title: string) => {
-              updatedUnresolved = updatedUnresolved.filter(t => t.toLowerCase() !== title.toLowerCase());
-              if (!updatedResolved.includes(title)) {
+              updatedUnresolved = updatedUnresolved.filter(t => (typeof t === 'string' ? t : t.description).toLowerCase() !== title.toLowerCase());
+              if (!updatedResolved.some(r => (typeof r === 'string' ? r : r.description) === title)) {
                 updatedResolved = [...updatedResolved, title];
               }
             });
@@ -752,6 +756,47 @@ export const useStoryEngine = () => {
             const currentAbilities = nextMemory.abilities || [];
             const filteredAbilities = memoryUpdates.newMCAbilities.filter((ab: string) => !currentAbilities.includes(ab));
             nextMemory.abilities = [...currentAbilities, ...filteredAbilities];
+          }
+
+          if (memoryUpdates.relationshipUpdates && memoryUpdates.relationshipUpdates.length > 0) {
+            const currentRelationships = cloned.relationships || [];
+            let updatedRelationships = [...currentRelationships];
+            
+            memoryUpdates.relationshipUpdates.forEach((relUpdate: any) => {
+              if (!relUpdate.sourceName || !relUpdate.targetName) return;
+
+              const existingIndex = updatedRelationships.findIndex(r => 
+                r.sourceCharName.toLowerCase() === relUpdate.sourceName.toLowerCase() && 
+                r.targetCharName.toLowerCase() === relUpdate.targetName.toLowerCase()
+              );
+              
+              const affinityDelta = Number(relUpdate.affinityDelta) || 0;
+              const threatDelta = Number(relUpdate.threatDelta) || 0;
+
+              if (existingIndex >= 0) {
+                const existing = updatedRelationships[existingIndex];
+                updatedRelationships[existingIndex] = {
+                  ...existing,
+                  affinity: Math.max(-100, Math.min(100, existing.affinity + affinityDelta)),
+                  threat: Math.max(-100, Math.min(100, (existing.threat || 0) + threatDelta)),
+                  description: relUpdate.reason || existing.description,
+                  updatedAt: new Date().toISOString()
+                };
+              } else {
+                updatedRelationships.push({
+                   id: `rel-${Math.random().toString(36).substr(2, 9)}`,
+                   sourceCharId: 'unknown',
+                   sourceCharName: relUpdate.sourceName,
+                   targetCharId: 'unknown',
+                   targetCharName: relUpdate.targetName,
+                   affinity: Math.max(-100, Math.min(100, affinityDelta)),
+                   threat: Math.max(-100, Math.min(100, threatDelta)),
+                   description: relUpdate.reason || '',
+                   updatedAt: new Date().toISOString()
+                });
+              }
+            });
+            cloned.relationships = updatedRelationships;
           }
 
           const linterWarnings = runMemoryLinter(cloned.memory, nextMemory, data.chapterText);
@@ -1146,14 +1191,43 @@ export const useStoryEngine = () => {
     const activeStory = store.stories.find((s) => s.id === store.activeStoryId);
     if (!activeStory) return;
 
-    const arcs = activeStory.arcs.map(arc => ({
-      ...arc,
-      chapters: arc.chapters.map(ch => 
-        ch.number === chapterNumber ? { ...ch, isSealed: true } : ch
-      )
+    const generateContentHash = async (content: string): Promise<string> => {
+      try {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(content || '');
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+      } catch (err) {
+        return Math.random().toString(36).substring(2, 15);
+      }
+    };
+
+    const newArcs = await Promise.all(activeStory.arcs.map(async (arc) => {
+      const newChapters = await Promise.all(arc.chapters.map(async (ch) => {
+        if (ch.number === chapterNumber) {
+          const contentHash = await generateContentHash(ch.generatedContent || '');
+          const versionId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
+          const branchAnchor = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
+          
+          return { 
+            ...ch, 
+            isSealed: true,
+            contentHash,
+            sealedAt: Date.now(),
+            versionId,
+            assetManifest: {},
+            translationCache: {},
+            audioCueCache: {},
+            branchAnchor
+          };
+        }
+        return ch;
+      }));
+      return { ...arc, chapters: newChapters };
     }));
 
-    await handleUpdateStoryDirect({ ...activeStory, arcs } as any);
+    await handleUpdateStoryDirect({ ...activeStory, arcs: newArcs } as any);
     awardQi('chapter_sealed');
   };
 

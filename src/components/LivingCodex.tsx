@@ -65,16 +65,29 @@ const DEFAULT_CULTIVATION_GLOSSARY = [
 ];
 
 export default function LivingCodex({ 
-  memory, 
-  arcs, 
+  memory: rawMemory = {} as any, 
+  arcs = [], 
   onUpdateMemory, 
-  mcName, 
+  mcName = 'Main Character', 
   onJumpToChapter, 
   onSwitchTab,
   activeStory,
   onUpdateStory,
   routingConfig
 }: LivingCodexProps) {
+  const memory = {
+    ...rawMemory,
+    characters: rawMemory.characters || [],
+    unresolvedPlotThreads: rawMemory.unresolvedPlotThreads || [],
+    resolvedPlotThreads: rawMemory.resolvedPlotThreads || [],
+    worldRules: rawMemory.worldRules || [],
+    memoryWarnings: rawMemory.memoryWarnings || [],
+    factions: rawMemory.factions || [],
+    locations: rawMemory.locations || [],
+    artifacts: rawMemory.artifacts || [],
+    abilities: rawMemory.abilities || []
+  };
+
   const [activePage, setActivePage] = useState<'characters' | 'relations' | 'power' | 'factions' | 'artifacts' | 'timeline' | 'mysteries' | 'glossary' | 'dashboards'>('characters');
   
   // Selection state for node inspection in Relationship Map & other grids
@@ -124,7 +137,7 @@ export default function LivingCodex({
     }> = [];
     
     arcs.forEach((arc, aIdx) => {
-      const written = arc.chapters.filter(ch => ch.hasContent || !!ch.generatedContent);
+      const written = (arc.chapters || []).filter(ch => ch.hasContent || !!ch.generatedContent);
       written.forEach((ch, cIndex) => {
         list.push({
           chapter: ch,
@@ -217,9 +230,10 @@ export default function LivingCodex({
     );
     const targetAffinity = bond ? bond.affinity : 0;
 
-    const startAff = char.relationshipToMC.toLowerCase().includes('hostil') || char.relationshipToMC.toLowerCase().includes('enemy')
+    const relString = (char.relationshipToMC || '').toLowerCase();
+    const startAff = relString.includes('hostil') || relString.includes('enemy')
       ? -45
-      : char.relationshipToMC.toLowerCase().includes('friend') || char.relationshipToMC.toLowerCase().includes('ally') || char.relationshipToMC.toLowerCase().includes('mentor')
+      : relString.includes('friend') || relString.includes('ally') || relString.includes('mentor')
       ? 35
       : 0;
 
@@ -235,7 +249,7 @@ export default function LivingCodex({
     flatChapters.forEach((fc, idx) => {
       const ch = fc.chapter;
       const text = `${ch.generatedContent || ''} ${ch.summary || ''} ${ch.title || ''}`.toLowerCase();
-      const hasInteraction = text.includes(char.name.toLowerCase());
+      const hasInteraction = text.includes((char.name || '').toLowerCase());
 
       let baseInterpolated = startAff;
       if (total > 1) {
@@ -1578,7 +1592,7 @@ export default function LivingCodex({
                               setEditingCharData({
                                 powerLevel: char.powerLevel || '',
                                 faction: char.faction || '',
-                                abilitiesInput: char.abilities ? char.abilities.join(', ') : '',
+                                abilitiesInput: char.abilities ? char.abilities.map(a => typeof a === 'string' ? a : a.description || a.name).join(', ') : '',
                                 status: char.status || 'unknown'
                               });
                             }}
@@ -2537,7 +2551,7 @@ export default function LivingCodex({
               ) : (
                 factionsToRender.map((fac) => {
                   // Find all living characters whose sector affiliation matches this faction
-                  const mates = memory.characters.filter(c => c.faction?.toLowerCase().includes(fac.name.toLowerCase()));
+                  const mates = memory.characters.filter(c => c.faction?.toLowerCase().includes((fac.name || '').toLowerCase()));
                   const alignmentColor = 
                     fac.alignment === 'Righteous' ? 'text-green-400 border-green-950 bg-green-950/10' :
                     fac.alignment === 'Demonic' ? 'text-human border-red-950 bg-red-950/10' :
@@ -2930,7 +2944,7 @@ export default function LivingCodex({
                           <HelpCircle size={12} className="animate-pulse" />
                         </span>
                         <div className="space-y-1">
-                          <p className="text-neutral-350 leading-relaxed font-sans">{thread}</p>
+                          <p className="text-neutral-350 leading-relaxed font-sans">{typeof thread === 'string' ? thread : thread.description}</p>
                           <span className="text-[9px] text-neutral-600 uppercase font-sc block">Opened destiny arc</span>
                         </div>
                       </div>
@@ -2954,7 +2968,7 @@ export default function LivingCodex({
                           <Check size={12} />
                         </span>
                         <div className="space-y-1">
-                          <p className="text-neutral-500 leading-relaxed font-sans line-through italic">{thread}</p>
+                          <p className="text-neutral-500 leading-relaxed font-sans line-through italic">{typeof thread === 'string' ? thread : thread.description}</p>
                           <span className="text-[9px] text-green-700 uppercase font-sc block">Causal resolution achieved</span>
                         </div>
                       </div>

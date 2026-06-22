@@ -282,7 +282,7 @@ export function cleanChapterResponse(resp: Record<string, unknown> | null | unde
     });
 
     // Arrays of objects
-    const objArrayFields = ["newCharacters", "characterStatusUpdates", "newFactions", "factionUpdates", "newLocations", "locationUpdates", "newArtifacts", "artifactUpdates"];
+    const objArrayFields = ["newCharacters", "characterStatusUpdates", "relationshipUpdates", "newFactions", "factionUpdates", "newLocations", "locationUpdates", "newArtifacts", "artifactUpdates"];
     objArrayFields.forEach(field => {
       if (field in mu && Array.isArray(mu[field])) {
         mu[field] = mu[field].filter((i: unknown) => i && typeof i === "object");

@@ -56,6 +56,30 @@ export interface BeastSonicProfile {
 
 export type RelevanceState = 'active' | 'warm' | 'dormant' | 'archived' | 'reactivated';
 
+export interface MemoryProvenance {
+  sourceChapterNumber?: number;
+  sourceBlockId?: string;
+  createdBy?: string;
+  confidence?: number;
+  lastMentionedChapter?: number;
+  supersedesMemoryId?: string;
+  isUserPinned?: boolean;
+}
+
+export interface PlotThread {
+  id?: string;
+  description: string;
+  status: 'active' | 'resolved';
+  provenance?: MemoryProvenance;
+}
+
+export interface Ability {
+  id?: string;
+  name: string;
+  description?: string;
+  provenance?: MemoryProvenance;
+}
+
 export interface BaseCodexEntry {
   relevanceState?: RelevanceState;
   firstAppeared?: number;
@@ -63,6 +87,7 @@ export interface BaseCodexEntry {
   unresolvedThreads?: string[];
   currentRelevance?: string;
   toneMemory?: string;
+  provenance?: MemoryProvenance;
 }
 
 export interface Character extends BaseCodexEntry {
@@ -73,7 +98,7 @@ export interface Character extends BaseCodexEntry {
   relationshipToMC: string;
   status: 'alive' | 'deceased' | 'unknown' | 'ascended';
   powerLevel?: string;
-  abilities?: string[];
+  abilities?: Array<string | Ability>;
   faction?: string;
   imageUrl?: string;
   imageHistory?: GeneratedImage[];
@@ -127,15 +152,15 @@ export interface StoryMemory {
   currentPowerStage: string;
   worldRules: string[];
   characters: Character[];
-  unresolvedPlotThreads: string[];
-  resolvedPlotThreads: string[];
+  unresolvedPlotThreads: Array<string | PlotThread>;
+  resolvedPlotThreads: Array<string | PlotThread>;
   memoryWarnings?: string[];
   
   // Living Codex expansions
   factions?: Faction[];
   locations?: Location[];
   artifacts?: Artifact[];
-  abilities?: string[]; // MC-specific learned arts & skills
+  abilities?: Array<string | Ability>; // MC-specific learned arts & skills
 }
 
 export interface StoryBlockMetadata {
@@ -188,6 +213,9 @@ export interface ChapterContent {
       translatedAt: number;
     };
   };
+  syncStatus?: 'local' | 'synced' | 'conflict';
+  revisionId?: string;
+  updatedAt?: string;
 }
 
 export interface Chapter {
@@ -199,6 +227,13 @@ export interface Chapter {
   blocks?: StoryBlock[];
   hasContent?: boolean; // Indicates if the content was generated and stored
   isSealed?: boolean; // Indicates the chapter is published/locked for editing
+  contentHash?: string;
+  sealedAt?: number;
+  versionId?: string;
+  assetManifest?: Record<string, string>;
+  translationCache?: Record<string, string>;
+  audioCueCache?: Record<string, string>;
+  branchAnchor?: string;
   summary?: string; // Optional
   embedding?: number[]; // Optional vector embedding for RAG continuity searches
   statsChangeMessage?: string;
@@ -247,6 +282,7 @@ export interface CharacterRelationship {
   targetCharId: string;
   targetCharName: string;
   affinity: number; // -100 to +100
+  threat?: number; // -100 to +100
   description: string;
   updatedAt: string;
 }

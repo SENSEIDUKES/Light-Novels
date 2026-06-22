@@ -91,12 +91,12 @@ export const ReaderScreen: React.FC<{
       ) : (
         <div className="mx-auto">
           <ReaderChamber
-            chapters={activeStory.arcs[activeStory.arcs.length - 1].chapters.map(ch => 
+            chapters={activeStory.arcs.flatMap(a => a.chapters).map(ch => 
               (streamingChapter && ch.number === streamingChapter.number)
                 ? { ...ch, generatedContent: streamingChapter.content, blocks: streamingChapter.blocks, status: 'read' as const }
                 : ch
             )}
-            arcTitle={activeStory.arcs[activeStory.arcs.length - 1].title}
+            arcTitle={activeStory.arcs.find(a => a.chapters.some(c => c.number === selectedChapterNum))?.title || activeStory.arcs[activeStory.arcs.length - 1].title}
             currentPowerStage={activeStory.memory.currentPowerStage}
             onGenerateChapter={handleGenerateChapter}
             isGenerating={isGenerating}

@@ -437,6 +437,7 @@ app.post("/api/extract-chapter-metadata", async (req, res) => {
             currentPowerStage: { type: "STRING" },
             newCharacters: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, role: { type: "STRING"}, description: { type: "STRING"}, relationshipToMC: { type: "STRING"}, status: { type: "STRING"}, powerLevel: { type: "STRING"}, faction: { type: "STRING"} } } },
             characterStatusUpdates: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, newStatus: { type: "STRING"}, newRelationship: { type: "STRING"}, newPowerLevel: { type: "STRING"}, descriptionAppend: { type: "STRING"} } } },
+            relationshipUpdates: { type: "ARRAY", items: { type: "OBJECT", properties: { sourceName: { type: "STRING" }, targetName: { type: "STRING" }, affinityDelta: { type: "NUMBER" }, threatDelta: { type: "NUMBER" }, reason: { type: "STRING" } } } },
             newUnresolvedPlotThreads: { type: "ARRAY", items: { type: "STRING" } },
             resolvedPlotThreads: { type: "ARRAY", items: { type: "STRING" } },
             newFactions: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, description: { type: "STRING"}, alignment: { type: "STRING"}, headquarters: { type: "STRING"}, status: { type: "STRING"} } } },
