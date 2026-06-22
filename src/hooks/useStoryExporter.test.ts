@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useStoryExporter } from './useStoryExporter';
 import { Story } from '../types';
 
@@ -8,10 +8,6 @@ describe('useStoryExporter', () => {
     const { result } = renderHook(() => useStoryExporter());
     const exporter = result.current;
     
-    // We access the internal cleanNovelProse by testing the html generated via handleExportFullTome briefly, 
-    // but since that triggers click(), let's just directly export the logic if we could, 
-    // or test the cleaner wrapper:
-    
     // Since `cleanNovelProse` is internal we can intercept document.createElement to check the result
     const createElementSpy = vi.spyOn(document, 'createElement');
     const mockAnchor = {
@@ -19,7 +15,7 @@ describe('useStoryExporter', () => {
       click: vi.fn(),
       remove: vi.fn()
     };
-    // @ts-expect-error - Mock anchor object doesn't implement all HTMLAnchorElement properties but is sufficient for the spy test
+    // @ts-expect-error - mock anchor
     createElementSpy.mockReturnValue(mockAnchor);
     const appendSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => null);
 
@@ -71,6 +67,88 @@ Suddenly!
     expect(decodedHtml).not.toContain('[Audio: dramatic.mp3]');
     expect(decodedHtml).not.toContain('{"statsChangeMessage"');
 
+    createElementSpy.mockRestore();
+    appendSpy.mockRestore();
+  });
+
+  it('handleExportSingleStory test', async () => {
+    const { result } = renderHook(() => useStoryExporter());
+    const createElementSpy = vi.spyOn(document, 'createElement');
+    const mockAnchor = {
+      setAttribute: vi.fn(),
+      click: vi.fn(),
+      remove: vi.fn()
+    };
+    // @ts-expect-error - mock anchor
+    createElementSpy.mockReturnValue(mockAnchor);
+    const appendSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => null);
+
+    await act(async () => {
+      await result.current.handleExportSingleStory({
+        id: '123',
+        title: 'Story single export',
+        genre: 'test',
+        mcName: 'test',
+        customPremise: 'test',
+        createdAt: '123',
+        updatedAt: '123',
+        currentChapterNumber: 1,
+        memory: {} as any,
+        arcs: []
+      });
+    });
+
+    expect(mockAnchor.setAttribute).toHaveBeenCalledWith('download', 'story_world_story_single_export.json');
+    createElementSpy.mockRestore();
+    appendSpy.mockRestore();
+  });
+
+  it('handleExportEPUB test', async () => {
+    const { result } = renderHook(() => useStoryExporter());
+    const createElementSpy = vi.spyOn(document, 'createElement');
+    const mockAnchor = {
+      setAttribute: vi.fn(),
+      click: vi.fn(),
+      remove: vi.fn()
+    };
+    // @ts-expect-error - mock anchor
+    createElementSpy.mockReturnValue(mockAnchor);
+    const appendSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => null);
+
+    window.URL.createObjectURL = vi.fn().mockImplementation(() => 'mock-url');
+    window.URL.revokeObjectURL = vi.fn();
+
+    await act(async () => {
+      await result.current.handleExportEPUB({
+        id: '123',
+        title: 'Story EPUB',
+        genre: 'test',
+        mcName: 'test',
+        customPremise: 'test',
+        createdAt: '123',
+        updatedAt: '123',
+        currentChapterNumber: 1,
+        memory: {} as any,
+        arcs: [
+          {
+            title: 'Arc 1',
+            isCompleted: false,
+            chapters: [
+              {
+                number: 1,
+                title: 'C1',
+                premise: '',
+                status: 'unread',
+                hasContent: true,
+                generatedContent: 'Test epub format.',
+              }
+            ]
+          }
+        ]
+      });
+    });
+
+    expect(mockAnchor.setAttribute).toHaveBeenCalledWith('download', 'TOME_story_epub.epub');
     createElementSpy.mockRestore();
     appendSpy.mockRestore();
   });

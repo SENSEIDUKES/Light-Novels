@@ -339,7 +339,7 @@ export function LivingCodexRelations({
                         <p className="font-serif italic text-neutral-500 text-xs">"No custom karma strands recorded. Link cultivators on your left."</p>
                       </div>
                     }
-                    renderItem={(bond) => (
+                    renderItem={(bond: any) => (
                       <div key={bond.id} className="p-3 bg-neutral-950 border border-neutral-900 rounded flex justify-between items-start gap-4">
                         <div className="min-w-0 space-y-1">
                           <div className="flex flex-wrap items-center gap-1.5">

@@ -6,5 +6,12 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**', '**/.{idea,git,cache,output,temp}/**'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      include: ['src/hooks/useStoryExporter.ts', 'src/hooks/useChapterTranslation.ts', 'src/hooks/useStoryEngine.ts'],
+      exclude: ['src/main.tsx', 'src/vite-env.d.ts', 'server.ts', 'aiRouter.ts', '**/*.test.ts', '**/*.test.tsx', 'eslint.config.js', 'vitest.config.ts', 'playwright.config.ts', 'src/components/**', 'src/App.tsx']
+    }
   },
 });

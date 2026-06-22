@@ -419,7 +419,7 @@ export default function LivingCodex({
   });
 
   const [showAddLocationForm, setShowAddLocationForm] = useState(false);
-  const [newLocation, setNewLocation] = useState({
+  const [newLocation, setNewLocation] = useState<Partial<Location>>({
     name: '',
     description: '',
     realm: '',
@@ -428,6 +428,35 @@ export default function LivingCodex({
 
   const [showAddAbilityForm, setShowAddAbilityForm] = useState(false);
   const [newAbility, setNewAbility] = useState('');
+
+  const [showAddCharForm, setShowAddCharForm] = useState(false);
+  const [newChar, setNewChar] = useState<Partial<Character>>({ name: '', description: '', role: 'ally', currentGoal: '' });
+  
+  const [showAddRelForm, setShowAddRelForm] = useState(false);
+  const [newRel, setNewRel] = useState({ sourceCharName: '', targetCharName: '', affinity: 0, description: '' });
+
+  const getPowerStageLevel = (stageName?: string) => {
+    // dummy helper if not defined elsewhere
+    return { score: 1, title: stageName || '' };
+  };
+
+  const handleAddCharacter = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!newChar.name) return;
+    const updatedChars = [...(activeStory.memory.characters || []), {
+      id: crypto.randomUUID(),
+      name: newChar.name,
+      description: newChar.description,
+      role: newChar.role as any,
+      currentGoal: newChar.currentGoal,
+      secrets: [],
+      inventory: [],
+      knownLore: []
+    }];
+    onUpdateMemory({ ...memory, characters: updatedChars });
+    setShowAddCharForm(false);
+    setNewChar({ name: '', description: '', role: 'ally', currentGoal: '' });
+  };
 
   // Local state for direct editing of Character abilities / power
   const [editingCharId, setEditingCharId] = useState<string | null>(null);
@@ -713,8 +742,8 @@ export default function LivingCodex({
   };
 
   // Action: Add Location
-  const handleAddLocation = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddLocation = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!newLocation.name.trim()) return;
 
     const currentLocations = memory.locations || [];

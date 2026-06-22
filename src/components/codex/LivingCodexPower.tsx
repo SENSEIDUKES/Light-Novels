@@ -7,9 +7,9 @@ import { StoryMemory, StoryWorld } from '../../types';
 interface LivingCodexPowerProps {
   memory: StoryMemory;
   activeStory: StoryWorld;
-  getPowerStageLevel: (stage?: string) => number;
+  getPowerStageLevel: (stage?: string) => { score: number, title: string };
   mcName: string;
-  getPowerRankScore: (s?: string) => number;
+  getPowerRankScore: (s?: string) => { score: number, title: string };
   charsToRender: any[];
 }
 

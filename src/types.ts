@@ -109,6 +109,7 @@ export interface Character extends BaseCodexEntry {
   evolutionReady?: boolean;
   evolutionReason?: string;
   availableVisualUpdate?: boolean;
+  voicePresetId?: string;
 }
 
 export interface Faction extends BaseCodexEntry {
@@ -174,6 +175,9 @@ export interface StoryBlockMetadata {
   danger?: number;
   mysticism?: number;
   audioSignature?: string;
+  speakerName?: string;
+  mode?: string;
+  speakerRole?: string;
 }
 
 export interface StoryBlock {

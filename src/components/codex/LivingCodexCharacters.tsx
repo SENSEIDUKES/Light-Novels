@@ -53,7 +53,7 @@ export function LivingCodexCharacters({
   previews,
   renderImageHistoryGallery,
   getPowerRankScore
-}: LivingCodexCharactersProps & { getPowerRankScore?: (s?: string) => number; }) {
+}: LivingCodexCharactersProps & { getPowerRankScore?: (s?: string) => { score: number, title: string }; }) {
   const [charViewStyle, setCharViewStyle] = useState<'cards' | 'profiles'>('cards');
   const [editingCharId, setEditingCharId] = useState<string | null>(null);
   const [editingCharData, setEditingCharData] = useState<any>({});
@@ -100,7 +100,7 @@ export function LivingCodexCharacters({
                     {charsToRender.map((char) => {
                       const isGenerating = generatingId === char.id;
                       const hasImage = !!char.imageUrl;
-                      const cScore = (getPowerRankScore || (() => 0))(char.powerLevel);
+                      const cScore = (getPowerRankScore || (() => ({ score: 0, title: '' })))(char.powerLevel);
                       const activePreview = previews[char.id];
                       const canGenerate = !hasImage || char.evolutionReady;
                       const displayedImage = activePreview ? activePreview.urls[activePreview.selectedIndex] : char.imageUrl;
@@ -188,7 +188,7 @@ export function LivingCodexCharacters({
                                 </div>
                               )}
                               <button
-                                onClick={() => handleAwakenCardImage(char.id, char.isBeast ? 'beast' : 'character', char)}
+                                onClick={() => handleAwakenCardImage(char.id, char.isBeast ? 'beast' : 'character', char as any)}
                                 disabled={isGenerating || !canGenerate}
                                 className={`w-full py-1.5 rounded text-[9px] uppercase font-mono tracking-widest flex items-center justify-center space-x-1 border font-bold transition-all ${
                                   isGenerating
@@ -208,7 +208,7 @@ export function LivingCodexCharacters({
                                     </>
                                   ) : (
                                     <>
-                                      <img size={10} className={char.evolutionReady ? 'text-void' : 'text-portal'} />
+                                      <Sparkles size={10} className={char.evolutionReady ? 'text-void' : 'text-portal'} />
                                       <span>{char.evolutionReady ? 'Awaken Evolution' : hasImage ? 'Requires Progression' : 'Awaken Portrait'}</span>
                                     </>
                                   )}
@@ -374,7 +374,7 @@ export function LivingCodexCharacters({
                                     Purge Node
                                   </button>
                                   <button
-                                    onClick={() => handleAwakenCardImage(loc.id, 'location', loc)}
+                                    onClick={() => handleAwakenCardImage(loc.id, 'location', loc as any)}
                                     disabled={isGenerating || !canGenerate}
                                     className={`px-2 flex-grow py-1 rounded text-[8.5px] border uppercase font-mono tracking-wider flex items-center justify-center space-x-1 font-bold ${
                                       isGenerating
@@ -476,7 +476,7 @@ export function LivingCodexCharacters({
                           </div>
                           <div className="flex justify-end space-x-2 pt-2">
                             <button onClick={() => setEditingCharId(null)} className="text-neutral-500">Abort</button>
-                            <button onClick={() => handleSaveCharEdit(char.id)} className="bg-portal text-void px-2 py-0.5 rounded font-bold">Save</button>
+                            <button onClick={() => handleSaveCharEdit()} className="bg-portal text-void px-2 py-0.5 rounded font-bold">Save</button>
                           </div>
                         </div>
                       ) : (

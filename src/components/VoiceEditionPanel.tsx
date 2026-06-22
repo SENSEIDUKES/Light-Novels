@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Play, Loader2, Music, Square } from 'lucide-react';
-import { Chapter, StoryWorld, VoiceClip, AudioManifest } from '../types';
+import { Chapter, StoryWorld, VoiceClip, AudioManifest, StoryBlock } from '../types';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { resolveKokoroVoicePreset } from '../lib/voice/voiceResolver';
 
 interface VoiceEditionPanelProps {
   selectedChapter: Chapter;
@@ -41,19 +42,15 @@ export const VoiceEditionPanel: React.FC<VoiceEditionPanelProps> = ({ selectedCh
     try {
       const storage = getStorage();
       
-      let blocks: { text: string; isDialogue: boolean; id: string }[] = [];
+      let blocks: StoryBlock[] = [];
       
       if (selectedChapter.blocks && selectedChapter.blocks.length > 0) {
-        blocks = selectedChapter.blocks.map((b, i) => ({
-          text: b.text || '',
-          isDialogue: b.type === 'dialogue',
-          id: b.id || `block-${i}`
-        }));
+        blocks = selectedChapter.blocks;
       } else if (selectedChapter.generatedContent) {
         const paragraphs = selectedChapter.generatedContent.split('\n\n');
         blocks = paragraphs.filter(p => !!p.trim()).map((p, i) => ({
           text: p,
-          isDialogue: /^["“「]/.test(p.trim()),
+          type: /^["“「]/.test(p.trim()) ? 'dialogue' : 'paragraph',
           id: `para-${i}`
         }));
       }
@@ -65,19 +62,54 @@ export const VoiceEditionPanel: React.FC<VoiceEditionPanelProps> = ({ selectedCh
       setProgress({ current: 0, total: blocks.length });
       
       const clips: VoiceClip[] = [];
+      let updatedCharacters = [...activeStory.memory.characters];
+      let hasCharacterUpdates = false;
 
       const generateAll = async () => {
         for (let i = 0; i < blocks.length; i++) {
           if (stopLivePlaybackRef.current) break; // If user stopped, we can either halt or keep generating. Let's halt for cost savings if they stop.
           
           const block = blocks[i];
-          const speakerVoice = block.isDialogue ? 'Puck' : 'Zephyr';
+          const isDialogue = block.type === 'dialogue';
+          
+          let speakerVoice = 'am_puck';
+          if (!isDialogue) {
+            const preset = resolveKokoroVoicePreset({ mode: "narration", language: "en" });
+            speakerVoice = preset.providerVoiceId;
+          } else {
+            const speakerName = block.metadata?.speakerName;
+            const speakerRole = block.metadata?.speakerRole;
+            let character = updatedCharacters.find(c => c.name === speakerName);
+
+            const preset = resolveKokoroVoicePreset({
+              mode: "dialogue",
+              language: "en",
+              speakerName: speakerName || character?.name,
+              speakerRole: speakerRole || character?.role,
+              savedVoicePresetId: character?.voicePresetId,
+            });
+            speakerVoice = preset.providerVoiceId;
+
+            if (character && !character.voicePresetId) {
+              const charIndex = updatedCharacters.findIndex(c => c.id === character!.id);
+              if (charIndex !== -1) {
+                updatedCharacters[charIndex] = { ...updatedCharacters[charIndex], voicePresetId: preset.id };
+                hasCharacterUpdates = true;
+              }
+            }
+          }
           
           try {
             const res = await fetch('/api/generate-audio', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: block.text, speakerVoice })
+              body: JSON.stringify({
+                text: block.text,
+                speakerVoice,
+                // Add these just in case we need to pass style info
+                emotion: block.metadata?.emotion,
+                intensity: block.metadata?.intensity
+              })
             });
             
             if (!res.ok) {
@@ -116,6 +148,10 @@ export const VoiceEditionPanel: React.FC<VoiceEditionPanelProps> = ({ selectedCh
 
            const updatedStory: StoryWorld = {
              ...activeStory,
+             memory: {
+               ...activeStory.memory,
+               characters: hasCharacterUpdates ? updatedCharacters : activeStory.memory.characters
+             },
              arcs: activeStory.arcs.map(arc => ({
                ...arc,
                chapters: arc.chapters.map(ch => 
