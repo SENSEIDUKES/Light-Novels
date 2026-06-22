@@ -10,7 +10,7 @@ describe('PersistentStorageManager', () => {
     localStorage.clear();
     manager = new PersistentStorageManager();
     // Force local storage adapter
-    vi.spyOn(manager as any, 'isCloudAvailable', 'get').mockReturnValue(false);
+    (manager as any).isCloudAvailable = false;
   });
 
   describe('Chapter content split storage', () => {
@@ -39,7 +39,6 @@ describe('PersistentStorageManager', () => {
                 status: 'unread',
                 generatedContent: 'Heavens opened!',
                 summary: 'Start',
-                // @ts-expect-error - Custom transient _isNewContent property used in save pipeline
                 _isNewContent: true,
               }
             ]

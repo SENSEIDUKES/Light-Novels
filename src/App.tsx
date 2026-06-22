@@ -65,23 +65,8 @@ function App() {
           }
         });
 
-        // Migrate demo-matrix-1 to avoid multi-tenant database write conflicts
-        const latestStories = [...useAppStore.getState().stories];
-        const hasDemoMatrix1 = latestStories.some(s => s.id === 'demo-matrix-1');
-        if (hasDemoMatrix1) {
-          const userDemoId = `demo-matrix-${user.uid}`;
-          const updatedStories = latestStories.map(s => {
-            if (s.id === 'demo-matrix-1') {
-              return { ...s, id: userDemoId };
-            }
-            return s;
-          });
-          
-          if (useAppStore.getState().activeStoryId === 'demo-matrix-1') {
-            useAppStore.getState().setActiveStoryId(userDemoId);
-          }
-          await useAppStore.getState().saveStories(updatedStories);
-        }
+        // Handle unmigrated demo stories: migrate if worked on, otherwise discard them
+        await store.migrateOrDiscardDemoStories(user);
       } else {
         store.setUserProfile(null);
       }
@@ -104,17 +89,25 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const fetchInitiatedRef = React.useRef<Set<string>>(new Set());
+
   // Dynamically fetch missing content for active chapter
   useEffect(() => {
-    const activeStory = store.stories.find(s => s.id === store.activeStoryId);
+    // Narrow dependency to just ID and chapter num to avoid looping on whole stories array
+    const activeStory = useAppStore.getState().stories.find(s => s.id === store.activeStoryId);
     if (activeStory && store.selectedChapterNum !== -1) {
       const tgtArc = activeStory.arcs.find(a => a.chapters.some(c => c.number === store.selectedChapterNum));
       const tgtChapter = tgtArc?.chapters.find(c => c.number === store.selectedChapterNum);
       
       if (tgtChapter && !tgtChapter.generatedContent && (tgtChapter.status === 'read' || tgtChapter.status === 'unlocked' || tgtChapter.status === 'generating')) {
+        const fetchKey = `${activeStory.id}-${store.selectedChapterNum}`;
+        if (fetchInitiatedRef.current.has(fetchKey)) return;
+        fetchInitiatedRef.current.add(fetchKey);
+
         storyStorage.getChapterContent(activeStory.id, store.selectedChapterNum).then(content => {
           if (content) {
-            const freshStories = [...store.stories];
+            const currentStore = useAppStore.getState();
+            const freshStories = [...currentStore.stories];
             const updated = freshStories.map(s => {
               if (s.id === activeStory.id) {
                 return {
@@ -139,12 +132,12 @@ function App() {
               }
               return s;
             });
-            store.setStories(updated);
+            currentStore.saveStories(updated); // Use saveStories instead of setStories so it persists correctly if necessary, or just setStories
           }
         });
       }
     }
-  }, [store.activeStoryId, store.selectedChapterNum, store.stories]); // Only run when changing chapter
+  }, [store.activeStoryId, store.selectedChapterNum]); // Removed store.stories
 
   if (isInitializing) {
     return (

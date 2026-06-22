@@ -576,7 +576,7 @@ export class PersistentStorageManager implements StorageAdapter {
       for (const arc of strippedStory.arcs) {
         for (const chapter of arc.chapters) {
           if (chapter.generatedContent || (chapter.blocks && chapter.blocks.length > 0)) {
-             if ((chapter as any)._isNewContent) {
+             if (chapter._isNewContent) {
                const content: ChapterContent = {
                   storyId: story.id,
                   chapterNumber: chapter.number,
@@ -596,7 +596,7 @@ export class PersistentStorageManager implements StorageAdapter {
              // delete chapter.summary; // Keep summary in the main story document for lightweight context retrieval
              delete chapter.statsChangeMessage;
              delete chapter.cuePayload;
-             delete (chapter as any)._isNewContent;
+             delete chapter._isNewContent;
           }
         }
       }

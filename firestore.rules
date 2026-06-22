@@ -23,11 +23,11 @@ service cloud.firestore {
     }
 
     function isValidUserProfile(data) {
-      return data.keys().hasAll(['uid', 'username', 'joinedDate', 'updatedAt'])
+      return data.keys().hasAll(['uid', 'username'])
         && data.uid is string && data.uid.size() <= 128
         && data.username is string && data.username.size() <= 100
-        && data.joinedDate is string && data.joinedDate.size() <= 40
-        && data.updatedAt is string && data.updatedAt.size() <= 40
+        && (!('joinedDate' in data) || (data.joinedDate is string && data.joinedDate.size() <= 40))
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 40))
         && (!('qi' in data) || data.qi is number)
         && (!('dao_xp' in data) || data.dao_xp is number)
         && (!('dao_rank' in data) || data.dao_rank is string)
@@ -47,16 +47,17 @@ service cloud.firestore {
     }
 
     function isValidStoryWorld(data) {
-      return data.keys().hasAll(['userId', 'id', 'title', 'genre', 'mcName', 'customPremise', 'createdAt', 'updatedAt', 'currentChapterNumber'])
+      return data.keys().hasAll(['userId', 'id'])
         && data.userId is string && data.userId.size() <= 128
         && data.id is string && data.id.size() <= 128
-        && data.title is string && data.title.size() <= 500
-        && data.genre is string && data.genre.size() <= 100
-        && data.mcName is string && data.mcName.size() <= 100
-        && data.customPremise is string && data.customPremise.size() <= 50000
-        && data.createdAt is string && data.createdAt.size() <= 40
-        && data.updatedAt is string && data.updatedAt.size() <= 40
-        && data.currentChapterNumber is number
+        && (!('title' in data) || (data.title is string && data.title.size() <= 500))
+        && (!('genre' in data) || (data.genre is string && data.genre.size() <= 100))
+        && (!('mcName' in data) || (data.mcName is string && data.mcName.size() <= 100))
+        && (!('customPremise' in data) || (data.customPremise is string && data.customPremise.size() <= 50000))
+        && (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 40))
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 40))
+        && (!('currentChapterNumber' in data) || data.currentChapterNumber is number)
+        && (!('isEdited' in data) || data.isEdited is bool)
         && data.userId == request.auth.uid;
     }
 
@@ -68,11 +69,11 @@ service cloud.firestore {
 
     function isValidLoreGlossary(data) {
       return data.keys().hasAll(['novel_id', 'source_text', 'target_text', 'target_lang'])
-        && data.keys().size() == 4
         && data.novel_id is string && data.novel_id.size() <= 128
         && data.source_text is string && data.source_text.size() <= 500
         && data.target_text is string && data.target_text.size() <= 500
-        && data.target_lang is string && data.target_lang.size() <= 20;
+        && data.target_lang is string && data.target_lang.size() <= 20
+        && (!('id' in data) || (data.id is string && data.id.size() <= 128));
     }
 
     match /users/{userId} {
@@ -123,7 +124,8 @@ service cloud.firestore {
           'title', 'genre', 'mcName', 'customPremise', 'updatedAt', 'currentChapterNumber', 
           'imageUrl', 'intake', 'blueprint', 'relationships', 'karmaNodes', 'readerPreferences', 
           'bookmarks', 'memory', 'arcs', 'parentStoryId', 'forkChapterNumber', 'imageHistory', 
-          'lastImageChapter', 'evolutionReady', 'evolutionReason', 'availableVisualUpdate'
+          'lastImageChapter', 'evolutionReady', 'evolutionReason', 'availableVisualUpdate',
+          'isEdited', 'userId'
         ])
         && (!('title' in incoming().diff(existing()).affectedKeys()) || (incoming().title is string && incoming().title.size() <= 500))
         && (!('updatedAt' in incoming().diff(existing()).affectedKeys()) || (incoming().updatedAt is string && incoming().updatedAt.size() <= 40));
@@ -145,7 +147,7 @@ service cloud.firestore {
           && incoming().storyId == existing().storyId
           && incoming().chapterNumber == existing().chapterNumber
           && (isValidChapter(incoming()))
-          && incoming().diff(existing()).affectedKeys().hasOnly(['generatedContent', 'blocks', 'summary', 'statsChangeMessage', 'cuePayload', 'translations', 'updatedAt', 'revisionId']);
+          && incoming().diff(existing()).affectedKeys().hasOnly(['generatedContent', 'blocks', 'summary', 'statsChangeMessage', 'cuePayload', 'translations', 'updatedAt', 'revisionId', 'syncStatus']);
           
         allow delete: if isSignedIn() && isValidId(chapterId) && get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid;
       }

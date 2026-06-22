@@ -1,7 +1,7 @@
 import { useAppStore } from '../store/useAppStore';
 import { secureStorage } from '../lib/encryption';
 import { retrieveRelevantContext, generateEmbedding } from '../lib/rag';
-import { Story, IntakeData, WorldBlueprint, Chapter, StoryArc, StoryMemory, StoryWorld } from '../types';
+import { Story, IntakeData, WorldBlueprint, Chapter, StoryArc, StoryMemory, StoryWorld, GeneratedImage } from '../types';
 import { storyStorage } from '../lib/storage';
 import { awardQi } from '../lib/qi';
 
@@ -1161,7 +1161,7 @@ export const useStoryEngine = () => {
     const activeStory = store.stories.find(s => s.id === store.activeStoryId);
     if (!activeStory) return;
 
-    const imageRecord = {
+    const imageRecord: GeneratedImage = {
       id: Math.random().toString(36).substring(2, 10),
       entityId: activeStory.id,
       entityType: 'cover',
@@ -1173,9 +1173,9 @@ export const useStoryEngine = () => {
     };
     
     const currentHistory = activeStory.imageHistory || [];
-    const updatedHistory = currentHistory.map(img => 
+    const updatedHistory: GeneratedImage[] = currentHistory.map(img => 
       img.entityType === 'cover' ? { ...img, isCurrent: false } : img
-    ).concat(imageRecord as any);
+    ).concat(imageRecord);
 
     handleUpdateStoryDirect({ 
       ...activeStory, 
@@ -1184,7 +1184,7 @@ export const useStoryEngine = () => {
       evolutionReady: false,
       availableVisualUpdate: false,
       lastImageChapter: activeStory.currentChapterNumber
-    } as any);
+    });
   };
 
   const handleSealChapter = async (chapterNumber: number) => {
@@ -1227,7 +1227,7 @@ export const useStoryEngine = () => {
       return { ...arc, chapters: newChapters };
     }));
 
-    await handleUpdateStoryDirect({ ...activeStory, arcs: newArcs } as any);
+    await handleUpdateStoryDirect({ ...activeStory, arcs: newArcs });
     awardQi('chapter_sealed');
   };
 

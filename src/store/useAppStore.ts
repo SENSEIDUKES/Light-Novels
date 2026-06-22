@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Story, StoryMemory, Chapter, StoryArc, StoryWorld, ReaderPreferences, KarmaFateNode, CharacterRelationship, MultiModelRouting, RouteConfig, IntakeData, WorldBlueprint, StoryBlock, StreamingChapter, AppUser, UserProfile } from '../types';
 import { SyncStatus } from '../lib/storage';
 import { auth } from '../lib/firebase';
+import { getRandomDemoStory } from './demoStories';
 
 interface AppState {
   stories: Story[];
@@ -70,87 +71,9 @@ interface AppState {
   confirmDeleteStory: () => void;
   cancelDeleteStory: () => void;
   initStorage: () => Promise<void>;
+  migrateOrDiscardDemoStories: (user: any) => Promise<void>;
 }
 
-const INITIAL_DEMO_STORIES: Story[] = [
-  {
-    id: 'demo-matrix-1',
-    title: 'Immortal Calamity: Echoes of the Cauldron',
-
-    genre: 'Xianxia',
-    mcName: 'Ye Fan',
-    customPremise: 'Awakening a mysterious black tripod cauldron inside the family trash heap that grinds low-grade herbs into peerless elixirs.',
-    createdAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-    updatedAt: new Date().toISOString(),
-    currentChapterNumber: 1,
-    imageUrl: 'https://images.unsplash.com/photo-1542157077-789d38ac0bc2?auto=format&fit=crop&q=80',
-    memory: {
-      powerSystem: 'Qi Condensation (Tiers 1-10) -> Foundation Establishment (Low, Mid, Peak) -> Core Formation -> Nascent Soul.',
-      currentPowerStage: 'Qi Condensation Tier 1 (Crippled Roots)',
-      worldRules: [
-        'Sovereigns of the nine sects execute absolute law; normal citizens are but wood and grass.',
-        'Spiritual herb concentration determines sect royalty.',
-        'Those who double-cultivate without high-grade talismans face spiritual deviance.',
-        'Heavenly thunder tribulation burns away those who cheat destiny.'
-      ],
-      characters: [
-        {
-          id: 'char-1',
-          name: 'Master Gu',
-          role: 'Sacred Cauldron Mentor',
-          description: 'A sarcastic soul form living inside the cauldron ring. Loves to tease Ye Fan but knows divine recipes.',
-          relationshipToMC: 'Playful Bond / Absolute Ally',
-          status: 'alive'
-        },
-        {
-          id: 'char-2',
-          name: 'Elder Zhao',
-          role: 'Vengeful Elder',
-          description: 'The greedy outer elder of the Azure Clouds Sect who covets Ye Fan\'s mysterious luck.',
-          relationshipToMC: 'Extreme Hostility / Hidden Enemy',
-          status: 'alive'
-        }
-      ],
-      unresolvedPlotThreads: [
-        'Resolve the mystery of Ye Fan\'s birthmark.',
-        'Gather three Heavenly Jade Elixirs to cure Ye Fan\'s broken meridians.',
-        'Avenge the clan expulsion by defeating Elder Zhao\'s disciple in the outer sect arena.'
-      ],
-      resolvedPlotThreads: [
-        'Survive the wilderness wolf attack during clan expulsion.'
-      ]
-    },
-    arcs: [
-      {
-        title: 'Volume 1: Awakening the Sky-Shattering Cauldron',
-        isCompleted: false,
-        chapters: [
-          {
-            number: 1,
-            title: 'Expulsion from the Main Hall, Mysterious Cauldron of the Trash Heap',
-            premise: 'Ye Fan gets humiliated and expelled by Elder Zhao. In despair, he drops blood on a rusted black metal container, awakening Master Gu.',
-            status: 'read',
-            generatedContent: `The chill of the Sky Cloud Sect's main hall seeped through the thin soles of Ye Fan's shoes, but it was nothing compared to the frost hardening in his chest. Above him, Elder Zhao sat like an ancient mountain, his voice booming with critical indifference.\n\n"Ye Fan. Your spiritual root is severed, your meridians are completely clogged. After three years, you remain at Qi Condensation Tier 1. You are a absolute waste of spiritual resources, eating Azure Elixirs meant for true geniuses! By decree of the Elder Council, you are hereby expelled to the Outer Wilderness!"\n\nA ripple of laughter rolled through the crowd of inner disciples. At the front, Zhao Chen—the Elder's favored nephew—smirked, looking down at Ye Fan like an ox looks at a blade of grass.\n\nYe Fan said nothing. He simply clenched his fists so tightly his knuckles turned white as bone. He turned on his heel, leaving behind the mountain peak he had called home.\n\nExpelled to the trash heap of the outer village, Ye Fan scavenged amongst broken arrays and discarded iron. There, his hand brushed against a peculiar, soot-covered tripod cauldron. A jagged piece of discarded metal cut his palm, and a drop of rich, blood-red vital essence splattered on the cauldron's rim.\n\nHum.\n\nLines of radiant blue light rippled through the rusty cauldron, a cosmic portal unlocking. An old, sarcastic voice resounded directly in Ye Fan's soul:\n\n"Who dares disturb the peace of Master Gu? Ah, a trash child with ruined roots? Excellent! Truly, my luck is spectacular..."\n\nYe Fan stared in disbelief. His hands was healed. Master Gu explained that his meridians were not ruined—they were simply compressed, awaiting the supreme refining energy of the cauldron! This was the beginning of his true, heaven-defying ascension.`,
-            summary: 'Ye Fan gets expelled to the Outer Wilderness by Elder Zhao. He bleeds on a discarded tripod cauldron, awakening Master Gu, who reveals Ye Fan actually possesses rare Compressed Meridians.',
-            statsChangeMessage: '[System Awakening: Cauldron link activated. Meridians starting to unlock!]'
-          },
-          {
-            number: 2,
-            title: 'Master Gu\'s Pill Recipe, Breakthrough in Secret Council',
-            premise: 'Master Gu instructs Ye Fan to locate spatial snake vines to brew Earth Essence elixirs, defying the crippled meridian rumors.',
-            status: 'unread'
-          },
-          {
-            number: 3,
-            title: 'Sect Envoys Arrive, the Audacity of the Waste Disciple',
-            premise: 'Zhao Chen sends thugs to break Ye Fan\'s legs in the outer wilderness, but Ye Fan showcases his newly unlocked Qi Condensation Tier 2 stats.',
-            status: 'unread'
-          }
-        ]
-      }
-    ]
-  }
-];
 
 import { storyStorage } from '../lib/storage';
 
@@ -214,21 +137,29 @@ export const useAppStore = create<AppState>((set, get) => ({
   setRoutingConfig: (routingConfig) => set({ routingConfig }),
 
   saveStories: async (updated: Story[]) => {
-    set({ stories: updated });
+    const activeId = get().activeStoryId;
+    const markedStories = updated.map(s => {
+      if (s.id.startsWith('demo-matrix-') && s.id === activeId) {
+        return { ...s, isEdited: true };
+      }
+      return s;
+    });
+
+    set({ stories: markedStories });
     try {
       const storedStories = await storyStorage.getStories();
       for (const st of storedStories) {
-        if (!updated.some(u => u.id === st.id)) {
+        if (!markedStories.some(u => u.id === st.id)) {
           await storyStorage.deleteStory(st.id);
         }
       }
-      for (const s of updated) {
+      for (const s of markedStories) {
         await storyStorage.saveStory(s);
       }
       set({ lastSavedTime: new Date() });
     } catch (e) {
       console.error("Celestial local disk write breached, reverting to standard storage cache:", e);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(markedStories));
       set({ lastSavedTime: new Date() });
     }
   },
@@ -344,38 +275,56 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ storageType: storyStorage.getActiveAdapterName() });
       let loaded = await storyStorage.getStories();
       const user = auth.currentUser;
+      
       if (loaded && loaded.length > 0) {
         if (user) {
-          const hasDemoMatrix = loaded.some(s => s.id === 'demo-matrix-1');
-          if (hasDemoMatrix) {
-            const userDemoId = `demo-matrix-${user.uid}`;
-            loaded = loaded.map(s => {
-              if (s.id === 'demo-matrix-1') return { ...s, id: userDemoId };
-              return s;
-            });
-            await storyStorage.deleteStory('demo-matrix-1');
-            for (const s of loaded) {
-              await storyStorage.saveStory(s);
+          const unmigratedDemos = loaded.filter(s => s.id.startsWith('demo-matrix-') && !s.id.includes(user.uid));
+          if (unmigratedDemos.length > 0) {
+            let updatedLoaded: Story[] = [...loaded];
+            let changed = false;
+            
+            for (const demo of unmigratedDemos) {
+              const isWorkedOn = demo.isEdited || demo.currentChapterNumber > 1 || demo.arcs.some(arc => 
+                arc.chapters.some(ch => ch.number > 1 && (ch.status === 'read' || ch.hasContent || ch.generatedContent))
+              );
+              
+              if (isWorkedOn) {
+                const userDemoId = `demo-matrix-${user.uid}`;
+                updatedLoaded = updatedLoaded.map(s => {
+                  if (s.id === demo.id) {
+                    return { ...s, id: userDemoId, userId: user.uid };
+                  }
+                  return s;
+                });
+                await storyStorage.deleteStory(demo.id);
+                changed = true;
+              } else {
+                updatedLoaded = updatedLoaded.filter(s => s.id !== demo.id);
+                await storyStorage.deleteStory(demo.id);
+                changed = true;
+              }
+            }
+            
+            if (changed) {
+              loaded = updatedLoaded;
+              for (const s of loaded) {
+                await storyStorage.saveStory(s);
+              }
             }
           }
         }
         set({ stories: loaded });
       } else {
         if (user) {
-          const userDemoId = `demo-matrix-${user.uid}`;
-          const modifiedDemo = INITIAL_DEMO_STORIES.map(s => {
-            if (s.id === 'demo-matrix-1') return { ...s, id: userDemoId };
-            return s;
-          });
-          for (const s of modifiedDemo) {
-            await storyStorage.saveStory(s);
-          }
-          set({ stories: modifiedDemo });
+          const randomDemo = getRandomDemoStory();
+          randomDemo.id = `demo-matrix-${user.uid}`;
+          randomDemo.userId = user.uid;
+          await storyStorage.saveStory(randomDemo);
+          set({ stories: [randomDemo] });
         } else {
-          for (const s of INITIAL_DEMO_STORIES) {
-            await storyStorage.saveStory(s);
-          }
-          set({ stories: INITIAL_DEMO_STORIES });
+          const randomDemo = getRandomDemoStory();
+          await storyStorage.saveStory(randomDemo);
+          set({ stories: [randomDemo] });
         }
       }
     } catch (e) {
@@ -386,12 +335,63 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (saved) {
           set({ stories: JSON.parse(saved) });
         } else {
-          set({ stories: INITIAL_DEMO_STORIES });
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_DEMO_STORIES));
+          const randomDemo = getRandomDemoStory();
+          set({ stories: [randomDemo] });
+          localStorage.setItem(STORAGE_KEY, JSON.stringify([randomDemo]));
         }
       } catch (innerErr) {
-        set({ stories: INITIAL_DEMO_STORIES });
+        const randomDemo = getRandomDemoStory();
+        set({ stories: [randomDemo] });
       }
+    }
+  },
+
+  migrateOrDiscardDemoStories: async (user: any) => {
+    if (!user) return;
+    const { stories, activeStoryId, saveStories, setActiveStoryId, setCurrentScreen } = get();
+    
+    // Find unmigrated demo stories
+    const unmigratedDemos = stories.filter(s => s.id.startsWith('demo-matrix-') && !s.id.includes(user.uid));
+    if (unmigratedDemos.length === 0) return;
+    
+    let updatedStories = [...stories];
+    let updatedActiveId = activeStoryId;
+    let changed = false;
+    
+    for (const demo of unmigratedDemos) {
+      const isWorkedOn = demo.isEdited || demo.currentChapterNumber > 1 || demo.arcs.some(arc => 
+        arc.chapters.some(ch => ch.number > 1 && (ch.status === 'read' || ch.hasContent || ch.generatedContent))
+      );
+      
+      if (isWorkedOn) {
+        const userDemoId = `demo-matrix-${user.uid}`;
+        updatedStories = updatedStories.map(s => {
+          if (s.id === demo.id) {
+            return { ...s, id: userDemoId, userId: user.uid };
+          }
+          return s;
+        });
+        if (updatedActiveId === demo.id) {
+          updatedActiveId = userDemoId;
+        }
+        await storyStorage.deleteStory(demo.id);
+        changed = true;
+      } else {
+        updatedStories = updatedStories.filter(s => s.id !== demo.id);
+        if (updatedActiveId === demo.id) {
+          updatedActiveId = null;
+          setCurrentScreen('home');
+        }
+        await storyStorage.deleteStory(demo.id);
+        changed = true;
+      }
+    }
+    
+    if (changed) {
+      if (activeStoryId !== updatedActiveId) {
+        setActiveStoryId(updatedActiveId);
+      }
+      await saveStories(updatedStories);
     }
   }
 }));

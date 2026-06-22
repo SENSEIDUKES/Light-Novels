@@ -232,7 +232,7 @@ export const StoryDetailScreen: React.FC<{
                       }
                       return s;
                     });
-                    store.saveStories(updated as any);
+                    store.saveStories(updated);
                   }}
                   title={`Generated at Chapter ${img.chapterNumber || 'Unknown'}\nPrompt: ${img.promptUsed}`}
                 >

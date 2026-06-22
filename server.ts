@@ -18,6 +18,7 @@ if (DEEPL_AUTH_KEY) {
 }
 
 function validateEnvironmentOnStartup() {
+  if (process.env.NODE_ENV === "production") return;
   const geminiKey = process.env.GEMINI_API_KEY;
   
   console.log("\n==================================================");
@@ -42,7 +43,7 @@ function getCustomKeys(req: express.Request) {
     ollamaHost: (req.header("x-ollama-host") as string) || undefined,
   };
 }
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 // Increase payload sizes
 app.use(express.json({ limit: "20mb" }));
@@ -796,7 +797,9 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`Server running on http://localhost:${PORT}`);
+    }
   });
 }
 

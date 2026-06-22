@@ -246,6 +246,7 @@ export interface Chapter {
       translatedAt: number;
     };
   };
+  _isNewContent?: boolean;
 }
 
 export interface StoryArc {
@@ -372,6 +373,7 @@ export interface StoryWorld {
   availableVisualUpdate?: boolean;
   intake?: IntakeData;
   blueprint?: WorldBlueprint;
+  isEdited?: boolean; // Track if the user has modified/actively worked on the demo story
   
   // Local-first persistent storage properties
   relationships?: CharacterRelationship[];
@@ -409,6 +411,8 @@ export interface LoreGlossary {
 export interface RouteConfig {
   provider: 'gemini' | 'openrouter' | 'ollama';
   model: string;
+  temperature?: number;
+  maxOutputTokens?: number;
 }
 
 export interface MultiModelRouting {

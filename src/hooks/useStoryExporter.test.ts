@@ -1,10 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
+import { renderHook } from '@testing-library/react';
 import { useStoryExporter } from './useStoryExporter';
 import { Story } from '../types';
 
 describe('useStoryExporter', () => {
   it('should clean novelty formatting properly before export', () => {
-    const exporter = useStoryExporter();
+    const { result } = renderHook(() => useStoryExporter());
+    const exporter = result.current;
     
     // We access the internal cleanNovelProse by testing the html generated via handleExportFullTome briefly, 
     // but since that triggers click(), let's just directly export the logic if we could, 
@@ -42,7 +44,7 @@ describe('useStoryExporter', () => {
               premise: '',
               status: 'unread',
               hasContent: true,
-              generatedContent: `The hero enters \\[System Alert: Trap detected\\] and then fights.
+              generatedContent: `The hero enters [System Alert: Trap detected] and then fights.
 [Audio: dramatic.mp3]
 Suddenly!
 {"statsChangeMessage": "Gain 10 EXP"}`

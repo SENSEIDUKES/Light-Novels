@@ -4,13 +4,20 @@ import { useStoryEngine } from './useStoryEngine';
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
 
-vi.mock('../lib/storage', () => ({
-  storyStorage: {
-    getChapterContent: vi.fn(),
-    saveChapterContent: vi.fn(),
-    getStories: vi.fn().mockResolvedValue([]),
-  }
-}));
+vi.mock('../lib/storage', () => {
+   return {
+     storyStorage: {
+       getChapterContent: vi.fn(),
+       saveChapterContent: vi.fn(),
+       getStories: vi.fn().mockImplementation(async () => {
+         const { useAppStore } = await import('../store/useAppStore');
+         return useAppStore.getState().stories;
+       }),
+       deleteStory: vi.fn(),
+       saveStory: vi.fn()
+     }
+   }
+});
 
 describe('useStoryEngine Scenarios', () => {
   beforeEach(() => {
@@ -64,7 +71,7 @@ describe('useStoryEngine Scenarios', () => {
 
   describe('Forking at chapter N (handleAlterFate)', () => {
     it('should slice arcs cleanly at chapter N, spawn a new story, and trigger steering', async () => {
-      vi.mocked(storyStorage.getStories).mockResolvedValue(useAppStore.getState().stories);
+      vi.mocked(storyStorage.getStories).mockImplementation(async () => useAppStore.getState().stories);
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
@@ -107,7 +114,7 @@ describe('useStoryEngine Scenarios', () => {
 
   describe('Multi-arc navigation (handleSteerArc)', () => {
     it('should append a new arc to the existing story without spawning a new one', async () => {
-      vi.mocked(storyStorage.getStories).mockResolvedValue(useAppStore.getState().stories);
+      vi.mocked(storyStorage.getStories).mockImplementation(async () => useAppStore.getState().stories);
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({

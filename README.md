@@ -68,7 +68,7 @@ At the end of every 10-chapter volume, the text stream halts. The portal analyze
 
 ### 5. Multi-System Illustrated Cover & Entity Forgery
 *   **The Style Bible Script**: Automatically wraps design instructions with stable digital-painting attributes based on the generated realm style (Chinese light novel, gothic ink, cyberpunk celestial).
-*   **Card Manifestation**: Users can click the "Forge Portrait" action on cualquier card (Characters, Beasts, Locations, Relics). The engine synthesizes custom book covers and entity paintings.
+*   **Card Manifestation**: Users can click the "Forge Portrait" action on any card (Characters, Beasts, Locations, Relics). The engine synthesizes custom book covers and entity paintings.
 *   **Chronicle Rollbacks**: If you dislike an AI visual iteration or the character breaks through to a new form (triggering the `evolutionReady` state), SEIHOUSE preserves an image history ledger. Revert to any historical depiction easily via the chronological visual cards.
 
 ---

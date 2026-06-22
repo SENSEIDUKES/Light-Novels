@@ -3,6 +3,8 @@ import { RouteConfig, MultiModelRouting } from "./src/types";
 
 // Lazy-loaded Gemini clients
 let defaultAIClient: GoogleGenAI | null = null;
+const DEFAULT_TEMPERATURE = process.env.AI_TEMPERATURE ? parseFloat(process.env.AI_TEMPERATURE) : 0.95;
+const DEFAULT_MAX_TOKENS = process.env.AI_MAX_TOKENS ? parseInt(process.env.AI_MAX_TOKENS, 10) : 8192;
 export function getAIClient(customApiKey?: string) {
   const apiKey = customApiKey || process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
@@ -117,8 +119,10 @@ export async function* routeTextGenerationStream(
     model: "gemini-2.5-flash-lite"
   };
 
-  const { provider, model } = activeConfig;
-  console.log(`[aiRouter] Streaming task '${routeKey}' via Route '${route}' -> Provider: '${provider}', Model: '${model}'`);
+  const { provider, model, temperature, maxOutputTokens } = activeConfig;
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`[aiRouter] Streaming task '${routeKey}' via Route '${route}' -> Provider: '${provider}', Model: '${model}'`);
+  }
 
   if (provider === "gemini") {
     const ai = getAIClient(customKeys?.geminiApiKey);
@@ -129,9 +133,9 @@ export async function* routeTextGenerationStream(
         contents: userPrompt,
         config: {
           systemInstruction,
-          temperature: 0.95,
+          temperature: temperature ?? DEFAULT_TEMPERATURE,
           responseMimeType: "text/plain",
-          maxOutputTokens: 8192,
+          maxOutputTokens: maxOutputTokens ?? DEFAULT_MAX_TOKENS,
         }
       });
 
@@ -177,7 +181,8 @@ export async function* routeTextGenerationStream(
           { role: "user", content: userPrompt }
         ],
         stream: true,
-        max_tokens: 8192
+        temperature: temperature ?? DEFAULT_TEMPERATURE,
+        max_tokens: maxOutputTokens ?? DEFAULT_MAX_TOKENS
       };
 
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -242,7 +247,10 @@ export async function* routeTextGenerationStream(
           system: systemInstruction,
           prompt: userPrompt,
           stream: true,
-          options: { num_predict: 8192 }
+          options: { 
+            num_predict: maxOutputTokens ?? DEFAULT_MAX_TOKENS,
+            temperature: temperature ?? DEFAULT_TEMPERATURE
+          }
         })
       });
 
@@ -298,8 +306,10 @@ export async function routeTextGeneration(
     model: "gemini-2.5-flash-lite"
   };
 
-  const { provider, model } = activeConfig;
-  console.log(`[aiRouter] Routing task '${routeKey}' via Route '${route}' -> Provider: '${provider}', Model: '${model}'`);
+  const { provider, model, temperature, maxOutputTokens } = activeConfig;
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`[aiRouter] Routing task '${routeKey}' via Route '${route}' -> Provider: '${provider}', Model: '${model}'`);
+  }
 
   if (provider === "gemini") {
     // -------------------------------------------------------------
@@ -311,8 +321,8 @@ export async function routeTextGeneration(
       const config: any = {
         systemInstruction,
         responseMimeType: "application/json",
-        temperature: 0.95,
-        maxOutputTokens: 8192,
+        temperature: temperature ?? DEFAULT_TEMPERATURE,
+        maxOutputTokens: maxOutputTokens ?? DEFAULT_MAX_TOKENS,
       };
       
       if (responseSchema) {
@@ -369,7 +379,8 @@ export async function routeTextGeneration(
           { role: "user", content: userPrompt }
         ],
         response_format: { type: "json_object" },
-        max_tokens: 8192
+        temperature: temperature ?? DEFAULT_TEMPERATURE,
+        max_tokens: maxOutputTokens ?? DEFAULT_MAX_TOKENS
       };
 
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -419,7 +430,10 @@ export async function routeTextGeneration(
           prompt: userPrompt,
           stream: false,
           format: "json",
-          options: { num_predict: 8192 }
+          options: { 
+            num_predict: maxOutputTokens ?? DEFAULT_MAX_TOKENS,
+            temperature: temperature ?? DEFAULT_TEMPERATURE
+          }
         })
       });
 
@@ -456,7 +470,9 @@ export async function routeImageGeneration(
   };
 
   const { provider, model } = activeConfig;
-  console.log(`[aiRouter] Routing Image task -> Provider: '${provider}', Model: '${model}'`);
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`[aiRouter] Routing Image task -> Provider: '${provider}', Model: '${model}'`);
+  }
 
   const styleEnhancer = type === "location"
     ? "mystical landscape, fantasy environment concept art, high-energy light novel scenery, dramatic lighting, celestial aura, beautiful composition, vibrant colors"

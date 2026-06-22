@@ -5,7 +5,7 @@ import {
   Check, Eye, RefreshCcw, Search, Compass, Award, Image, 
   BookMarked, ArrowRight, ArrowLeftRight, Activity, History
 } from 'lucide-react';
-import { StoryMemory, Character, Faction, Location, Artifact, StoryArc, StoryWorld, CharacterRelationship, KarmaFateNode, Chapter, MultiModelRouting } from '../types';
+import { StoryMemory, Character, Faction, Location, Artifact, StoryArc, StoryWorld, CharacterRelationship, KarmaFateNode, Chapter, MultiModelRouting, GeneratedImage } from '../types';
 import { secureStorage } from '../lib/encryption';
 import { VirtualizedList } from './VirtualizedList';
 import { AgentBadge } from './AgentBadge';
@@ -65,7 +65,7 @@ const DEFAULT_CULTIVATION_GLOSSARY = [
 ];
 
 export default function LivingCodex({ 
-  memory: rawMemory = {} as any, 
+  memory: rawMemory = {} as StoryMemory, 
   arcs = [], 
   onUpdateMemory, 
   mcName = 'Main Character', 
@@ -605,7 +605,7 @@ export default function LivingCodex({
 
     const selectedUrl = preview.urls[preview.selectedIndex];
 
-    const newHistoryItem = {
+    const newHistoryItem: GeneratedImage = {
       id: Math.random().toString(36).substring(2, 10),
       entityId: id,
       entityType: type,
@@ -617,9 +617,9 @@ export default function LivingCodex({
     };
 
     const currentStoryHistory = activeStory.imageHistory || [];
-    const updatedStoryHistory = currentStoryHistory
+    const updatedStoryHistory: GeneratedImage[] = currentStoryHistory
       .map(img => img.entityId === id ? { ...img, isCurrent: false } : img)
-      .concat(newHistoryItem as any);
+      .concat(newHistoryItem);
 
     if (type === 'character' || type === 'beast') {
       const updated = memory.characters.map(c => 
