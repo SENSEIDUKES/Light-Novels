@@ -464,6 +464,7 @@ export default function ReaderChamber({
   const chunksRef = useRef<{ text: string; isDialogue: boolean; paragraphIndex?: number }[]>([]);
   const [activeChunks, setActiveChunks] = useState<{ text: string; isDialogue: boolean; paragraphIndex?: number }[]>([]);
   const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
+  const [currentNarratedBlockIndex, setCurrentNarratedBlockIndex] = useState(-1);
 
   const speechRateRef = useRef(speechRate);
   const speechPitchRef = useRef(speechPitch);
@@ -517,10 +518,53 @@ export default function ReaderChamber({
     setIsPlayingText(false);
     setIsPausedText(false);
     setCurrentChunkIndex(0);
+    setCurrentNarratedBlockIndex(-1);
     lastFiredParagraphIndexRef.current = -1;
     chunksRef.current = [];
     setActiveChunks([]);
     dispatchNarration({ status: 'end' });
+  };
+
+  const fireBlockSideEffects = (blockIndex: number, durationMs: number) => {
+    setCurrentNarratedBlockIndex(blockIndex);
+    
+    dispatchNarration({ 
+      status: 'block', 
+      blockIndex, 
+      durationMs 
+    });
+
+    if (
+      useAppStore.getState().readerMode === "sen" &&
+      blockIndex !== -1 &&
+      blockIndex > lastFiredParagraphIndexRef.current
+    ) {
+      lastFiredParagraphIndexRef.current = blockIndex;
+      const block = selectedChapter.blocks?.[blockIndex];
+      const { immersion } = useAppStore.getState();
+      
+      if (block && immersion.master) {
+        if (immersion.audioCues) {
+          const { sfxList } = extractSFXCues(block.text);
+          sfxList.forEach((sfx, i) => {
+            dispatchNarrativeCue({
+              id: `sfx-block-${selectedChapter.number}-${blockIndex}-${i}`,
+              type: "narrative.fx.play",
+              once: true,
+              value: sfx,
+            });
+          });
+        }
+        if (immersion.imagePopups && block.metadata) {
+          dispatchNarrativeCue({
+             id: block.id || `para-${selectedChapter.number}-${blockIndex}`,
+             type: "narrative.metadata.signature",
+             once: true,
+             metadata: block.metadata,
+          });
+        }
+      }
+    }
   };
 
   const startClipSequence = (clips: VoiceClip[], startIndex = 0) => {
@@ -542,40 +586,26 @@ export default function ReaderChamber({
     if (blockIndex === -1 && clip.blockId?.startsWith('para-')) {
       blockIndex = parseInt(clip.blockId.replace('para-', ''), 10);
     }
-    
-    const blockText = blockIndex !== -1 ? (selectedChapter.blocks?.[blockIndex]?.text || "") : "";
-    const wordCount = blockText.split(/\s+/).length || 10;
-    const durationMs = (wordCount / (speechRateRef.current * 2.7)) * 1000 || 4000;
 
     if (startIndex === 0) {
       dispatchNarration({ status: 'start' });
     }
 
-    if (blockIndex !== -1) {
-      dispatchNarration({
-        status: 'block',
-        blockIndex,
-        durationMs
-      });
-
-      const blockObj = selectedChapter.blocks?.[blockIndex];
-      if (blockObj && immersion.master) {
-        const { sfxList } = extractSFXCues(blockObj.text);
-        if (immersion.audioCues) {
-          sfxList.forEach((sfx, i) => {
-            dispatchNarrativeCue({
-              id: `sfx-clip-${selectedChapter.number}-${blockIndex}-${i}`,
-              type: "narrative.fx.play",
-              once: true,
-              value: sfx,
-            });
-          });
-        }
-      }
-    }
-
     audio.playbackRate = speechRate;
     audio.volume = speechVolume;
+
+    audio.onloadedmetadata = () => {
+      if (blockIndex !== -1) {
+        let durationMs = (audio.duration * 1000) / audio.playbackRate;
+        if (!isFinite(durationMs)) {
+          const blockText = selectedChapter.blocks?.[blockIndex]?.text || "";
+          const wordCount = blockText.split(/\s+/).length || 10;
+          durationMs = (wordCount / (speechRateRef.current * 2.7)) * 1000 || 4000;
+        }
+
+        fireBlockSideEffects(blockIndex, durationMs);
+      }
+    };
 
     audio.onended = () => {
       startClipSequence(clips, startIndex + 1);
@@ -635,6 +665,7 @@ export default function ReaderChamber({
       setIsPlayingText(false);
       setIsPausedText(false);
       setCurrentChunkIndex(0);
+      setCurrentNarratedBlockIndex(-1);
       return;
     }
 
@@ -662,44 +693,8 @@ export default function ReaderChamber({
     const wordCount = chunkData.text.split(/\s+/).length || 0;
     const estimatedDurationMs = (wordCount / (speechRateRef.current * 2.7)) * 1000;
     
-    // In SEN mode, drive imagePopups and audioCues off the block playhead
     const currentPara = chunkData.paragraphIndex ?? -1;
-    if (
-      useAppStore.getState().readerMode === "sen" &&
-      currentPara !== -1 &&
-      currentPara > lastFiredParagraphIndexRef.current
-    ) {
-      lastFiredParagraphIndexRef.current = currentPara;
-      const block = selectedChapter.blocks?.[currentPara];
-      if (block) {
-        const { sfxList } = extractSFXCues(block.text);
-        const { immersion } = useAppStore.getState();
-        if (immersion.audioCues) {
-          sfxList.forEach((sfx, i) => {
-            dispatchNarrativeCue({
-              id: `sfx-block-${selectedChapter.number}-${currentPara}-${i}`,
-              type: "narrative.fx.play",
-              once: true,
-              value: sfx,
-            });
-          });
-        }
-        if (block.metadata && immersion.imagePopups) {
-          dispatchNarrativeCue({
-             id: block.id || `para-${selectedChapter.number}-${currentPara}`,
-             type: "narrative.metadata.signature",
-             once: true,
-             metadata: block.metadata,
-          });
-        }
-      }
-    }
-
-    dispatchNarration({ 
-      status: 'block', 
-      blockIndex: chunkData.paragraphIndex, 
-      durationMs: estimatedDurationMs 
-    });
+    fireBlockSideEffects(currentPara, estimatedDurationMs);
 
     const utterance = new SpeechSynthesisUtterance(chunkData.text);
     currentUtteranceRef.current = utterance;
@@ -1276,10 +1271,9 @@ export default function ReaderChamber({
   };
 
   const isUserPlaying = isPlayingText || isPausedText;
-  const activeChunk = activeChunks[currentChunkIndex];
   const getFocusClass = (paraIdx: number) => {
     if (!isUserPlaying || readerMode !== "sen") return "";
-    return activeChunk && activeChunk.paragraphIndex === paraIdx
+    return currentNarratedBlockIndex === paraIdx
       ? "reading-focus-active"
       : "reading-focus-dimmed";
   };
@@ -1532,7 +1526,7 @@ export default function ReaderChamber({
                           const revealImageUrl = revealTerm && 'imageUrl' in revealTerm.entry ? (revealTerm.entry as any).imageUrl : undefined;
 
                           const isSenMode = readerMode === "sen";
-                          const currentParaIdx = activeChunks[currentChunkIndex]?.paragraphIndex ?? -1;
+                          const currentParaIdx = currentNarratedBlockIndex;
                           const isPlaying = isPlayingText || isPausedText;
                           const isRevealed = !isSenMode || !immersion.imagePopups || (!isPlaying) || index <= currentParaIdx;
 

@@ -169,6 +169,12 @@ export function useAutoScroll({ containerRef, mode, wpm = 200, onManualPause }: 
           if (container) {
             const blockEl = container.querySelector(`[data-block-index="${blockIndex}"]`) as HTMLElement;
             if (blockEl) {
+              const focusBandOffset = container.clientHeight ? container.clientHeight / 3 : 150;
+              const targetScrollTop = Math.max(0, blockEl.offsetTop - focusBandOffset);
+              
+              // Nudge scrollTop toward the block's desired position to correct accumulated drift
+              container.scrollTop = container.scrollTop + (targetScrollTop - container.scrollTop) * 0.7;
+
               // the height of the block spread over its spoken duration
               const distanceToCover = blockEl.offsetHeight; 
               targetVelocityRef.current = calculatePacedVelocity(distanceToCover, durationMs);
@@ -177,6 +183,7 @@ export function useAutoScroll({ containerRef, mode, wpm = 200, onManualPause }: 
               targetVelocityRef.current = calculateConstantVelocity(currentWpm);
             }
           }
+          play();
         }
       };
 

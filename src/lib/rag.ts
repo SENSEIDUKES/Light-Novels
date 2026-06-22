@@ -2,6 +2,7 @@ import { Chapter, StoryWorld } from '../types';
 import { storyStorage } from './storage';
 
 export function cosineSimilarity(vecA: number[], vecB: number[]): number {
+  if (vecA.length !== vecB.length) return 0;
   let dotProduct = 0;
   let normA = 0;
   let normB = 0;
