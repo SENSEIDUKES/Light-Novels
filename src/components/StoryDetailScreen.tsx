@@ -320,14 +320,18 @@ export const StoryDetailScreen: React.FC<{
           <div className="pt-6 flex flex-wrap gap-3 items-center relative">
             <button
               onClick={() => {
-                const lastCh = activeStory.arcs[activeStory.arcs.length - 1].chapters.find(c => !(c.hasContent || !!c.generatedContent))?.number || activeStory.arcs[activeStory.arcs.length - 1].chapters[0].number;
-                setSelectedChapterNum(lastCh);
+                if (activeStory.lastReadChapter && activeStory.lastReadChapter > 0) {
+                  setSelectedChapterNum(activeStory.lastReadChapter);
+                } else {
+                  const lastCh = activeStory.arcs[activeStory.arcs.length - 1].chapters.find(c => !(c.hasContent || !!c.generatedContent))?.number || activeStory.arcs[activeStory.arcs.length - 1].chapters[0].number;
+                  setSelectedChapterNum(lastCh);
+                }
                 setCurrentScreen('reader');
               }}
               className="px-6 py-2.5 bg-human border border-human text-signal font-sc font-bold uppercase tracking-wider rounded shadow-md hover:bg-void hover:text-human transition-all flex items-center space-x-2 text-xs"
             >
               <BookOpen size={16} />
-              <span>Start Reading</span>
+              <span>{activeStory.lastReadChapter ? 'Resume Reading' : 'Start Reading'}</span>
             </button>
 
             <button

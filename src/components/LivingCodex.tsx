@@ -430,7 +430,7 @@ export default function LivingCodex({
   const [newAbility, setNewAbility] = useState('');
 
   const [showAddCharForm, setShowAddCharForm] = useState(false);
-  const [newChar, setNewChar] = useState<Partial<Character>>({ name: '', description: '', role: 'ally', currentGoal: '' });
+  const [newChar, setNewChar] = useState<Partial<Character>>({ name: '', description: '', role: 'ally' });
   
   const [showAddRelForm, setShowAddRelForm] = useState(false);
   const [newRel, setNewRel] = useState({ sourceCharName: '', targetCharName: '', affinity: 0, description: '' });
@@ -443,19 +443,20 @@ export default function LivingCodex({
   const handleAddCharacter = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!newChar.name) return;
-    const updatedChars = [...(activeStory.memory.characters || []), {
+    
+    const newCharacter: Character = {
       id: crypto.randomUUID(),
       name: newChar.name,
-      description: newChar.description,
-      role: newChar.role as any,
-      currentGoal: newChar.currentGoal,
-      secrets: [],
-      inventory: [],
-      knownLore: []
-    }];
+      description: newChar.description || '',
+      role: newChar.role || 'ally',
+      relationshipToMC: 'neutral',
+      status: 'alive'
+    };
+    
+    const updatedChars = [...(activeStory.memory.characters || []), newCharacter];
     onUpdateMemory({ ...memory, characters: updatedChars });
     setShowAddCharForm(false);
-    setNewChar({ name: '', description: '', role: 'ally', currentGoal: '' });
+    setNewChar({ name: '', description: '', role: 'ally' });
   };
 
   // Local state for direct editing of Character abilities / power

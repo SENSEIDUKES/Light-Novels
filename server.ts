@@ -449,6 +449,48 @@ app.post("/api/extract-chapter-metadata", async (req, res) => {
   }
 });
 
+// 2.2 Consistency Guard Check
+app.post("/api/check-consistency", async (req, res) => {
+  try {
+    const { chapterText, memory, routingConfig } = req.body;
+    if (!chapterText || !memory) {
+      return res.status(400).json({ error: "Missing chapterText or memory payload" });
+    }
+
+    // Use json structure to pass to the prompt
+    const memoryStr = JSON.stringify(memory, null, 2);
+
+    const systemInstruction = PROMPTS.consistencyGuard.system;
+    const userPrompt = PROMPTS.consistencyGuard.userPrompt(chapterText, memoryStr);
+
+    const schema = {
+      type: "OBJECT",
+      properties: {
+        warnings: {
+          type: "ARRAY",
+          items: { type: "STRING" }
+        }
+      },
+      required: ["warnings"]
+    };
+
+    const data = await routeTextGeneration(
+      "storyMaker",
+      systemInstruction,
+      userPrompt,
+      "check-consistency",
+      routingConfig,
+      getCustomKeys(req),
+      schema
+    );
+
+    return res.json({ warnings: data.warnings || [] });
+  } catch (error: any) {
+    console.error("Error in consistency guard:", error);
+    return res.status(500).json({ error: error.message || "Consistency check failed" });
+  }
+});
+
 // 2.5 Generate Next Story Directions based on memories
 app.post("/api/generate-next-directions", async (req, res) => {
   const { 

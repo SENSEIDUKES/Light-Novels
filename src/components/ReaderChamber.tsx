@@ -50,6 +50,9 @@ import { SystemBlock } from "./SystemBlock";
 import { AlterFatePanel } from "./AlterFatePanel";
 import { VoiceEditionPanel } from "./VoiceEditionPanel";
 
+import { ReaderPreferencesPanel } from "./ReaderPreferencesPanel";
+import { CosmicBookmarksPanel } from "./CosmicBookmarksPanel";
+
 const extractSFXCues = (text: string) => {
   const sfxList: string[] = [];
 
@@ -100,6 +103,7 @@ interface ReaderChamberProps {
     customPrompt: string,
   ) => Promise<void>;
   handleSealChapter?: (chapterNumber: number) => Promise<void>;
+  handleCheckConsistency?: (chapterNumber: number) => Promise<string[]>;
 }
 
 export default function ReaderChamber({
@@ -116,9 +120,12 @@ export default function ReaderChamber({
   onUpdateStory,
   handleAlterFate,
   handleSealChapter,
+  handleCheckConsistency,
 }: ReaderChamberProps) {
   const [filter, setFilter] = useState<"all" | "unlocked" | "locked">("all");
   const [isAlterFateOpen, setIsAlterFateOpen] = useState(false);
+  const [isCheckingConsistency, setIsCheckingConsistency] = useState(false);
+  const [consistencyWarnings, setConsistencyWarnings] = useState<string[] | null>(null);
   const readerRef = useRef<HTMLDivElement>(null);
 
   // --- Translation States ---
@@ -160,15 +167,55 @@ export default function ReaderChamber({
     string | null
   >(null);
 
+  const selectedChapter =
+    chapters.find((c) => c.number === selectedChapterNum) || chapters[0];
+
+  // --- Scroll position tracking ---
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSavedScrollRef = useRef<number>(0);
+  
+  const handleViewportScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    const scrollTop = target.scrollTop;
+    
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (Math.abs(scrollTop - lastSavedScrollRef.current) > 100) {
+        lastSavedScrollRef.current = scrollTop;
+        onUpdateStory({
+          ...activeStory,
+          lastReadChapter: selectedChapterNum,
+          lastReadScrollPosition: scrollTop,
+          lastReadAt: new Date().toISOString()
+        });
+      }
+    }, 2000); // 2000ms debounce
+  };
+
+  // Restore scroll position on mount/chapter change
+  useEffect(() => {
+    if (readerRef.current && activeStory.lastReadChapter === selectedChapterNum) {
+      // Only restore if we have valid content to scroll on
+      if (selectedChapter.generatedContent || selectedChapter.blocks) {
+        // Small delay to ensure content is fully rendered before scrolling
+        setTimeout(() => {
+           if (readerRef.current && activeStory.lastReadScrollPosition) {
+             readerRef.current.scrollTop = activeStory.lastReadScrollPosition;
+           }
+        }, 100);
+      }
+    }
+  }, [selectedChapterNum, activeStory.lastReadChapter, selectedChapter.generatedContent, selectedChapter.blocks]);
+
   // --- atmospheric audio (just reference, no actual addition needed here)
   const isReaderFullscreen = useAppStore((state) => state.isReaderFullscreen);
   const setIsReaderFullscreen = useAppStore(
     (state) => state.setIsReaderFullscreen,
   );
   const activeAgentId = useAppStore((state) => state.activeAgentId);
-
-  const selectedChapter =
-    chapters.find((c) => c.number === selectedChapterNum) || chapters[0];
 
   useEffect(() => {
     if (preferredLang === "en") {
@@ -775,6 +822,28 @@ export default function ReaderChamber({
     selectedChapter.generatedContent,
   ]);
 
+  const handleSealClick = async () => {
+    if (!handleSealChapter) return;
+    if (!handleCheckConsistency) {
+      handleSealChapter(selectedChapter.number);
+      return;
+    }
+    setIsCheckingConsistency(true);
+    setConsistencyWarnings(null);
+    try {
+      const warnings = await handleCheckConsistency(selectedChapter.number);
+      if (warnings.length > 0) {
+        setConsistencyWarnings(warnings);
+      } else {
+        await handleSealChapter(selectedChapter.number);
+      }
+    } catch (e) {
+      await handleSealChapter(selectedChapter.number);
+    } finally {
+      setIsCheckingConsistency(false);
+    }
+  };
+
   const activeBookmarks = activeStory.bookmarks || [];
 
   const handleSaveBookmark = (
@@ -1026,223 +1095,16 @@ export default function ReaderChamber({
       {/* Dynamic Collapsible Reader Preferences Panel */}
       <AnimatePresence>
         {showReaderPreferences && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="bg-neutral-950 border-b border-neutral-900 overflow-hidden px-4 py-4 space-y-4"
-          >
-            <div className="max-w-2xl mx-auto grid grid-cols-2 sm:grid-cols-5 gap-4">
-              {/* Font Family control */}
-              <div className="space-y-1">
-                <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">
-                  Aura Font
-                </span>
-                <div className="flex flex-col gap-1">
-                  {(["serif", "sans", "mono"] as const).map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => handleUpdatePreference("fontFamily", f)}
-                      className={`px-2 py-1 text-[10px] rounded border text-left flex items-center justify-between transition-all capitalize ${
-                        currentPrefs.fontFamily === f
-                          ? "bg-portal/10 border-portal text-portal font-bold"
-                          : "bg-void border-neutral-800 text-neutral-400 hover:border-neutral-700"
-                      }`}
-                    >
-                      <span>
-                        {f === "serif"
-                          ? "Literata (Serif)"
-                          : f === "sans"
-                            ? "Rubik (Sans)"
-                            : "System Mono"}
-                      </span>
-                      {currentPrefs.fontFamily === f && <Check size={8} />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Font Size control */}
-              <div className="space-y-1">
-                <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">
-                  Sizing Index
-                </span>
-                <div className="flex flex-col gap-1">
-                  {(["xs", "sm", "base", "lg", "xl"] as const).map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => handleUpdatePreference("fontSize", s)}
-                      className={`px-2 py-1 text-[10px] rounded border text-left flex items-center justify-between transition-all uppercase ${
-                        currentPrefs.fontSize === s
-                          ? "bg-portal/10 border-portal text-portal font-bold"
-                          : "bg-void border-neutral-800 text-neutral-400 hover:border-neutral-700"
-                      }`}
-                    >
-                      <span>{s}</span>
-                      {currentPrefs.fontSize === s && <Check size={8} />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Line Height control */}
-              <div className="space-y-1">
-                <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">
-                  Line Spacing
-                </span>
-                <div className="flex flex-col gap-1">
-                  {(["snug", "normal", "relaxed", "loose"] as const).map(
-                    (l) => (
-                      <button
-                        key={l}
-                        onClick={() => handleUpdatePreference("lineHeight", l)}
-                        className={`px-2 py-1 text-[10px] rounded border text-left flex items-center justify-between transition-all capitalize ${
-                          currentPrefs.lineHeight === l
-                            ? "bg-portal/10 border-portal text-portal font-bold"
-                            : "bg-void border-neutral-800 text-neutral-400 hover:border-neutral-700"
-                        }`}
-                      >
-                        <span>{l}</span>
-                        {currentPrefs.lineHeight === l && <Check size={8} />}
-                      </button>
-                    ),
-                  )}
-                </div>
-              </div>
-
-              {/* Paragraph Spacing control */}
-              <div className="space-y-1">
-                <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">
-                  Break Spacing
-                </span>
-                <div className="flex flex-col gap-1">
-                  {(["normal", "wide", "double"] as const).map((p) => (
-                    <button
-                      key={p}
-                      onClick={() =>
-                        handleUpdatePreference("paragraphSpacing", p)
-                      }
-                      className={`px-2 py-1 text-[10px] rounded border text-left flex items-center justify-between transition-all capitalize ${
-                        currentPrefs.paragraphSpacing === p
-                          ? "bg-portal/10 border-portal text-portal font-bold"
-                          : "bg-void border-neutral-800 text-neutral-400 hover:border-neutral-700"
-                      }`}
-                    >
-                      <span>{p}</span>
-                      {currentPrefs.paragraphSpacing === p && (
-                        <Check size={8} />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Theme override control */}
-              <div className="space-y-1 col-span-2 sm:col-span-1">
-                <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">
-                  Ethereal Hue
-                </span>
-                <div className="flex flex-col gap-1">
-                  {(
-                    ["void", "crimson", "abyss", "sepia", "emerald"] as const
-                  ).map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => handleUpdatePreference("themeOverride", t)}
-                      className={`px-2 py-1 text-[10px] rounded border text-left flex items-center justify-between transition-all capitalize ${
-                        currentPrefs.themeOverride === t
-                          ? "bg-portal/10 border-portal text-portal font-bold"
-                          : "bg-void border-neutral-800 text-neutral-400 hover:border-neutral-700"
-                      }`}
-                    >
-                      <span>{t}</span>
-                      {currentPrefs.themeOverride === t && <Check size={8} />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Atmospheric Synthesizer Controls */}
-            <div className="border-t border-neutral-900/60 mt-5 pt-4 max-w-2xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="text-center md:text-left">
-                <span className="text-[10px] font-sc text-portal uppercase tracking-wider font-bold flex items-center justify-center md:justify-start gap-1.5">
-                  <Sliders size={11} className="text-portal" />
-                  Atmospheric Synthesis
-                </span>
-                <p className="text-[9px] text-neutral-500 mt-0.5">
-                  Generates generative background elements. Soundscapes evolve
-                  dynamically to reflect dramatic narrative spikes.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                {/* Mute button */}
-                <button
-                  onClick={() => handleMuteToggle(!isMuted)}
-                  className={`px-3 py-1.5 text-[10px] rounded border flex items-center gap-1.5 transition-all uppercase font-sc font-bold tracking-wider ${
-                    isMuted
-                      ? "bg-red-950/20 border-red-900/40 text-red-500 hover:bg-neutral-900"
-                      : "bg-portal/10 border-portal text-portal hover:brightness-110"
-                  }`}
-                  title={
-                    isMuted ? "Unmute sound synthesis" : "Mute sound synthesis"
-                  }
-                >
-                  {isMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}
-                  <span>{isMuted ? "Muted" : "Sound Active"}</span>
-                </button>
-
-                {/* Atmosphere selection */}
-                <div className="flex items-center gap-1.5 bg-void border border-neutral-850 px-2 py-1 rounded">
-                  <span className="text-[9px] font-mono text-neutral-500 uppercase">
-                    Ambience:
-                  </span>
-                  <select
-                    value={atmosphere}
-                    disabled={isMuted}
-                    onChange={(e) => handleAtmosphereChange(e.target.value)}
-                    className="bg-transparent text-[10px] text-neutral-300 font-mono focus:outline-none focus:text-signal cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    <option value="none" className="bg-void">
-                      Silence
-                    </option>
-                    <option value="wind" className="bg-void">
-                      Howling Wind
-                    </option>
-                    <option value="rain" className="bg-void">
-                      Heavy Rain
-                    </option>
-                    <option value="temple" className="bg-void">
-                      Temple Bells
-                    </option>
-                  </select>
-                </div>
-
-                {/* Volume slider */}
-                <div className="flex items-center gap-2 bg-void border border-neutral-850 px-2 py-1 rounded">
-                  <span className="text-[9px] font-mono text-neutral-500 uppercase">
-                    Vol:
-                  </span>
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="1.0"
-                    step="0.05"
-                    value={volume}
-                    disabled={isMuted}
-                    onChange={(e) =>
-                      handleVolumeChange(parseFloat(e.target.value))
-                    }
-                    className="w-16 hover:cursor-grab disabled:opacity-40 disabled:cursor-not-allowed accent-portal text-portal"
-                  />
-                  <span className="text-[9px] font-mono text-neutral-400 w-7 text-right">
-                    {isMuted ? "0%" : `${Math.round(volume * 100)}%`}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </motion.div>
+          <ReaderPreferencesPanel 
+            currentPrefs={currentPrefs}
+            handleUpdatePreference={handleUpdatePreference}
+            isMuted={isMuted}
+            handleMuteToggle={handleMuteToggle}
+            atmosphere={atmosphere}
+            handleAtmosphereChange={handleAtmosphereChange}
+            volume={volume}
+            handleVolumeChange={handleVolumeChange}
+          />
         )}
       </AnimatePresence>
 
@@ -1254,6 +1116,7 @@ export default function ReaderChamber({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onClick={handleTextClick}
+        onScroll={handleViewportScroll}
       >
         {isTranslating ? (
           <div className="flex flex-col items-center justify-center h-full py-32 space-y-4">
@@ -1738,14 +1601,15 @@ export default function ReaderChamber({
                 !selectedChapter.isSealed &&
                 !!selectedChapter.generatedContent && (
                   <button
-                    onClick={() => handleSealChapter(selectedChapter.number)}
-                    className="px-6 py-2 rounded-full border border-portal bg-portal/10 hover:bg-portal hover:text-void text-portal transition-all font-sc uppercase text-[10px] tracking-wider flex items-center space-x-2 shadow-[0_0_10px_rgba(4,172,255,0.15)] mx-auto"
+                    onClick={handleSealClick}
+                    disabled={isCheckingConsistency}
+                    className="px-6 py-2 rounded-full border border-portal bg-portal/10 hover:bg-portal hover:text-void text-portal transition-all font-sc uppercase text-[10px] tracking-wider flex items-center space-x-2 shadow-[0_0_10px_rgba(4,172,255,0.15)] mx-auto disabled:opacity-50"
                   >
-                    <Lock size={14} />
+                    {isCheckingConsistency ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
                     <span className="hidden sm:inline">
-                      Seal Chapter (Publish)
+                      {isCheckingConsistency ? "Guarding Continuity..." : "Seal Chapter (Publish)"}
                     </span>
-                    <span className="sm:hidden">Publish</span>
+                    <span className="sm:hidden">{isCheckingConsistency ? "..." : "Publish"}</span>
                   </button>
                 )}
 
@@ -2290,145 +2154,14 @@ export default function ReaderChamber({
       </div>
 
       {/* THE CHRONICLE ANCHORS (BOOKMARKS DRAW PANEL) */}
-      {showBookmarksPanel && (
-        <div
-          onClick={() => setShowBookmarksPanel(false)}
-          className="fixed inset-0 bg-black/80 z-40 backdrop-blur-sm transition-opacity"
-        />
-      )}
-      <AnimatePresence>
-        {showBookmarksPanel && (
-          <motion.div
-            key="bookmarks-drawer"
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 24, stiffness: 180 }}
-            className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-black border-l border-neutral-900 z-50 p-6 flex flex-col justify-between shadow-[2px_0_20px_rgba(0,0,0,0.95)]"
-          >
-              <div className="flex-1 flex flex-col min-h-0">
-                {/* Header */}
-                <div className="flex items-center justify-between pb-4 border-b border-neutral-900 mb-6">
-                  <div className="flex items-center space-x-2.5">
-                    <div className="p-1.5 bg-portal/10 text-portal rounded">
-                      <BookmarkIcon size={18} fill="currentColor" />
-                    </div>
-                    <div>
-                      <h3 className="font-sc font-bold text-sm text-signal tracking-widest uppercase">
-                        The Chronicle Anchors
-                      </h3>
-                      <p className="text-[10px] text-neutral-550 uppercase tracking-wider font-semibold font-sc">
-                        Spatial Memory Nodes
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setShowBookmarksPanel(false)}
-                    className="p-1.5 text-neutral-400 hover:text-signal rounded border border-neutral-900 hover:border-neutral-850 transition-all font-sc text-[10px] uppercase tracking-wider"
-                  >
-                    Close
-                  </button>
-                </div>
-
-                {/* Scroll list */}
-                <div className="flex-1 min-h-0">
-                  <VirtualizedList
-                    items={activeBookmarks}
-                    itemHeight={180} // Estimated height of each memoir card element with annotations
-                    containerHeight="100%"
-                    className="pr-1"
-                    emptyPlaceholder={
-                      <div className="h-full flex flex-col items-center justify-center text-center text-neutral-650 space-y-3 py-16">
-                        <BookmarkIcon
-                          size={36}
-                          className="text-neutral-800 animate-pulse animate-duration-1000"
-                        />
-                        <p className="font-serif italic text-xs max-w-xs px-4">
-                          "No memory anchors exist in current alignment. Hover
-                          beside paragraphs to affix anchors, annotations, and
-                          memory marks."
-                        </p>
-                      </div>
-                    }
-                    renderItem={(bookmark) => {
-                      const bookmarkedChapter = chapters.find(
-                        (c) => c.number === bookmark.chapterNumber,
-                      );
-                      return (
-                        <div
-                          key={bookmark.id}
-                          className="p-4 bg-neutral-950 border border-neutral-900 hover:border-portal/40 rounded-lg space-y-2.5 transition-all text-left relative group mb-4"
-                        >
-                          {/* Title metadata */}
-                          <div className="flex items-center justify-between text-[10px]">
-                            <span className="font-sc font-bold text-gold-accent tracking-wider uppercase">
-                              Ch. {bookmark.chapterNumber} •{" "}
-                              {bookmarkedChapter
-                                ? bookmarkedChapter.title.substring(0, 24) +
-                                  "..."
-                                : "Sacred Chapter"}
-                            </span>
-                            <span className="text-neutral-600 font-mono text-[9px]">
-                              {new Date(bookmark.createdAt).toLocaleDateString(
-                                undefined,
-                                {
-                                  month: "short",
-                                  day: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                },
-                              )}
-                            </span>
-                          </div>
-
-                          {/* Passage snippet */}
-                          <p className="font-serif italic text-xs text-neutral-400 line-clamp-3 leading-relaxed border-l border-neutral-800 pl-2.5">
-                            "{bookmark.paragraphExcerpt}..."
-                          </p>
-
-                          {/* Anchor feedback notes */}
-                          {bookmark.note && (
-                            <div className="bg-portal/5 border border-portal/10 p-2 rounded text-[11px] font-sans text-neutral-200 italic">
-                              <span className="font-sc font-bold text-[8px] text-portal tracking-widest uppercase block not-italic mb-0.5">
-                                Anchor Resonance:
-                              </span>
-                              {bookmark.note}
-                            </div>
-                          )}
-
-                          {/* Controls row */}
-                          <div className="flex items-center justify-between pt-2 border-t border-neutral-900/60">
-                            <button
-                              onClick={() =>
-                                handleRemoveBookmark(
-                                  bookmark.chapterNumber,
-                                  bookmark.paragraphIndex,
-                                )
-                              }
-                              className="text-neutral-600 hover:text-red-500 text-[10px] font-sc font-bold uppercase tracking-wider flex items-center space-x-1"
-                              title="Shed memory anchor"
-                            >
-                              <Trash2 size={12} />
-                              <span>Release</span>
-                            </button>
-
-                            <button
-                              onClick={() => handleJumpToBookmark(bookmark)}
-                              className="px-3 py-1 bg-portal/11 hover:bg-portal text-portal hover:text-void text-[10px] font-sc font-bold uppercase tracking-wider rounded transition-all flex items-center space-x-1.5"
-                            >
-                              <span>Venture (Jump)</span>
-                              <ChevronRight size={12} />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    }}
-                  />
-                </div>
-              </div>
-            </motion.div>
-        )}
-      </AnimatePresence>
+      <CosmicBookmarksPanel
+        showBookmarksPanel={showBookmarksPanel}
+        setShowBookmarksPanel={setShowBookmarksPanel}
+        activeBookmarks={activeBookmarks}
+        chapters={chapters}
+        handleRemoveBookmark={handleRemoveBookmark}
+        handleJumpToBookmark={handleJumpToBookmark}
+      />
 
       {handleAlterFate && (
         <AlterFatePanel
@@ -2440,6 +2173,44 @@ export default function ReaderChamber({
             handleAlterFate(selectedChapterNum, direction, prompt);
           }}
         />
+      )}
+
+      {consistencyWarnings && (
+        <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-void border border-portal/50 rounded-lg p-6 max-w-lg w-full shadow-[0_0_50px_rgba(4,172,255,0.15)] relative">
+            <h3 className="text-xl font-display text-portal flex items-center gap-2 mb-4">
+              <ShieldAlert size={20} /> Continuity Guard Warning
+            </h3>
+            <p className="text-signal text-sm mb-6">
+              The Heavenly Dao sensors have detected potential logic fractures in this chapter. It is recommended to alter fate or manually edit before sealing.
+            </p>
+            <ul className="space-y-3 mb-8">
+              {consistencyWarnings.map((warning, idx) => (
+                <li key={idx} className="bg-portal/10 border-l-[3px] border-portal text-portal p-3 text-sm rounded-r flex items-start gap-2">
+                  <ShieldAlert size={16} className="shrink-0 mt-0.5" />
+                  <span>{warning}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex gap-4 justify-end">
+              <button
+                onClick={() => setConsistencyWarnings(null)}
+                className="px-4 py-2 border border-neutral-700 text-neutral-400 hover:text-signal rounded font-sc text-xs tracking-wider transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                   setConsistencyWarnings(null);
+                   if (handleSealChapter) await handleSealChapter(selectedChapter.number);
+                }}
+                className="px-4 py-2 bg-portal/20 hover:bg-portal hover:text-void border border-portal text-portal rounded font-sc text-xs tracking-wider transition-colors flex items-center gap-2"
+              >
+                Seal Anyway
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

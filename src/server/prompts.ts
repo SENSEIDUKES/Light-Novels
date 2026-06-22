@@ -347,6 +347,30 @@ Return strictly a JSON object with this shape:
 Do not add any text before or after the JSON.`
   },
 
+  consistencyGuard: {
+    system: `You are an elite fantasy web-novel editor. Your task is to act as a consistency guard and contradiction detector. Analyze the newly drafted chapter against the existing story memory (Codex). Return strictly JSON.`,
+    userPrompt: (chapterText: string, memoryJson: string) => `Analyze this newly drafted chapter text and compare it against the established Story Memory/Codex.
+
+Chapter Text:
+${chapterText}
+
+Story Memory (Codex):
+${memoryJson}
+
+Find any continuity breaks or contradictions. Common examples:
+- A character marked 'deceased', 'dead', or 'destroyed' in the codex is actively speaking or performing actions in the present (unless explicitly a flashback/ghost).
+- A character jumping power stages inexplicably or using an ability they shouldn't possess.
+- World rules being blatantly broken.
+
+Return strictly a JSON object with this shape:
+{
+  "warnings": [
+    "A clear, concise 1-sentence warning describing the contradiction (e.g. 'Elder Zhao is marked deceased in the codex but speaks in paragraph 4.')"
+  ]
+}
+If no contradictions are found, return an empty array for "warnings". Do not add any text before or after the JSON.`
+  },
+
   steer: {
     system: `You are a visionary series consultant and lead author for bestselling serialized Chinese web-novels. 
 Your task is to take a completed story volume, process the steering direction chosen by the reader, and outline a brand new high-stakes sequel story arc (exactly 10 chapters, continuing the chapter numbering sequence).

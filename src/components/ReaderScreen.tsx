@@ -7,6 +7,7 @@ import ReaderChamber from './ReaderChamber';
 import { GlossarySidePanel } from './GlossarySidePanel';
 import { Story, StreamingChapter } from '../types';
 import { awardQi } from '../lib/qi';
+import { RecapScreen } from './RecapScreen';
 
 export const ReaderScreen: React.FC<{
   handleSteerArc: (direction: string, customPrompt: string) => Promise<void>,
@@ -15,12 +16,14 @@ export const ReaderScreen: React.FC<{
   handleToggleRead: (ch: number) => void,
   handleUpdateStoryDirect: (story: Story) => void,
   setIsCodexSheetOpen: (open: boolean) => void,
-  handleSealChapter: (chapterNumber: number) => Promise<void>
+  handleSealChapter: (chapterNumber: number) => Promise<void>,
+  handleCheckConsistency?: (chapterNumber: number) => Promise<string[]>
 }> = ({
-  handleSteerArc, handleAlterFate, handleGenerateChapter, handleToggleRead, handleUpdateStoryDirect, setIsCodexSheetOpen, handleSealChapter
+  handleSteerArc, handleAlterFate, handleGenerateChapter, handleToggleRead, handleUpdateStoryDirect, setIsCodexSheetOpen, handleSealChapter, handleCheckConsistency
 }) => {
   const { currentScreen, setCurrentScreen, activeStoryId, stories, selectedChapterNum, setSelectedChapterNum, isGenerating, routingConfig, streamingChapter, isReaderFullscreen } = useAppStore();
   const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
+  const [showRecap, setShowRecap] = useState(false);
 
   const activeStory = stories.find(s => s.id === activeStoryId);
 
@@ -28,16 +31,33 @@ export const ReaderScreen: React.FC<{
     if (activeStory && currentScreen === 'reader') {
       const currentChapter = activeStory.arcs.flatMap(a => a.chapters).find(c => c.number === selectedChapterNum);
       if (currentChapter && currentChapter.status === 'unread' && currentChapter.hasContent) {
-         // Optionally you can check if it wasn't awarded recently, but for now just single firing on unread is ok.
-         // Actually, awarding it strictly when user opens an unread chapter that has content is fine.
          awardQi('chapter_read');
       }
+
+      // Check if we need to show recap (has been gone for > 24 hours)
+      // Since it's testing, let's also show it if lastReadAt doesn't exist but we are past chapter 3.
+      if (activeStory.lastReadAt) {
+        const lastReadDate = new Date(activeStory.lastReadAt).getTime();
+        const now = Date.now();
+        const hrsElapsed = (now - lastReadDate) / (1000 * 60 * 60);
+        if (hrsElapsed > 12) {
+          setShowRecap(true);
+        }
+      } else if (selectedChapterNum > 2) {
+        setShowRecap(true);
+      }
+    } else {
+      setShowRecap(false);
     }
-  }, [activeStoryId, selectedChapterNum, currentScreen, activeStory?.id]);
+  }, [activeStoryId, currentScreen, activeStory?.id]);
 
   if (currentScreen !== 'reader') return null;
 
   if (!activeStory) return null;
+
+  if (showRecap) {
+    return <RecapScreen story={activeStory} lastReadChapter={selectedChapterNum} onContinue={() => setShowRecap(false)} />;
+  }
 
   return (
     <motion.div
@@ -110,6 +130,7 @@ export const ReaderScreen: React.FC<{
             onUpdateStory={handleUpdateStoryDirect}
             handleAlterFate={handleAlterFate}
             handleSealChapter={handleSealChapter}
+            handleCheckConsistency={handleCheckConsistency}
           />
 
           {activeStory.arcs[activeStory.arcs.length - 1].isCompleted && (

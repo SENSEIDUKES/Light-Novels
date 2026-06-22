@@ -229,6 +229,7 @@ function App() {
                   setIsCodexSheetOpen={store.setIsCodexSheetOpen}
                   handleAlterFate={storyEngine.handleAlterFate}
                   handleSealChapter={storyEngine.handleSealChapter}
+                  handleCheckConsistency={storyEngine.handleCheckConsistency}
                />
             </motion.div>
           )}
