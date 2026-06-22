@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { SceneScoreEngine, SceneAudioTrack } from '../lib/audio/musicResolver';
 
 type AtmosphereType = 'none' | 'wind' | 'rain' | 'temple' | 'crowd' | 'combat';
 type FXType = 'footsteps' | 'footsteps_snow' | 'footsteps_wood' | 'footsteps_stone' | 'creature' | 'system_alert' | 'combat_hit';
@@ -19,11 +20,34 @@ export function AtmosphericAudio() {
   const activeSourcesRef = useRef<AudioScheduledSourceNode[]>([]);
   const activeIntervalsRef = useRef<NodeJS.Timeout[]>([]);
 
+  // BGM refs
+  const bgmPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const scoreEngineRef = useRef(new SceneScoreEngine());
+  const currentBgmTrackRef = useRef<SceneAudioTrack | null>(null);
+
+  useEffect(() => {
+    // Initialize headless HTML5 Audio Element for BGM tracking
+    if (!bgmPlayerRef.current) {
+      const audio = new Audio();
+      audio.loop = true;
+      audio.crossOrigin = "anonymous";
+      bgmPlayerRef.current = audio;
+    }
+    return () => {
+      bgmPlayerRef.current?.pause();
+    };
+  }, []);
+
   // Sync state changes with localStorage and dispatch state event to UI
   useEffect(() => {
     localStorage.setItem('seihouse-audio-muted', String(isMuted));
     localStorage.setItem('seihouse-audio-atmosphere', atmosphere);
     localStorage.setItem('seihouse-audio-volume', String(volume));
+
+    if (bgmPlayerRef.current) {
+      bgmPlayerRef.current.muted = isMuted;
+      bgmPlayerRef.current.volume = volume * 0.5; // lower volume baseline for bgm
+    }
 
     // Dispatch the state update event to other listening components (like ReaderChamber preferences tab)
     window.dispatchEvent(new CustomEvent('seihouse-audio-state', {
@@ -618,6 +642,17 @@ export function AtmosphericAudio() {
                 triggerFateShift(ctx);
              } else if (meta.playChime) {
                triggerChime(ctx);
+             }
+
+             if (meta.music) {
+               const newTrack = scoreEngineRef.current.evaluateSceneContext(meta.music, meta.environment || []);
+               if (newTrack && currentBgmTrackRef.current?.id !== newTrack.id) {
+                 currentBgmTrackRef.current = newTrack;
+                 if (bgmPlayerRef.current && newTrack.url) {
+                   bgmPlayerRef.current.src = newTrack.url;
+                   bgmPlayerRef.current.play().catch(console.warn);
+                 }
+               }
              }
 
              if (typeof meta.intensity === 'number') {

@@ -179,6 +179,15 @@ export interface StoryBlockMetadata {
   speakerName?: string;
   mode?: string;
   speakerRole?: string;
+  entities?: { name: string; type: 'character'|'artifact'|'location'|'beast'|'faction'; mention: 'reveal'|'reference' }[];
+  music?: { mood: 'war'|'duel'|'serenity'|'romance'|'dread'|'mystery'|'triumph'|'tribulation'|'travel'|'tragedy'|'fighting'|'adventure'|'ambient'|'boss-fight'|'tension'|'sad'|'mystical'|'excitement'|'tired'|'horror'; region?: 'chinese'|'japanese'|'western'; intensity?: number; customUrl?: string; trackId?: string };
+}
+
+export interface SystemEvent {
+  kind: 'status' | 'skill_acquired' | 'level_up' | 'quest' | 'appraisal';
+  title: string;
+  rows?: {label: string; value: string}[];
+  rarity?: string;
 }
 
 export interface StoryBlock {
@@ -186,6 +195,7 @@ export interface StoryBlock {
   type: string;
   text: string;
   metadata?: StoryBlockMetadata;
+  system?: SystemEvent;
 }
 
 export interface StoryCuePayload {

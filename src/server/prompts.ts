@@ -85,12 +85,16 @@ OUTPUT FORMAT TARGET:
 You MUST output strictly the chapter text structured as NDJSON (Newline Delimited JSON). Start it with ---CHAPTER_BLOCKS--- on a new line. Each paragraph of your chapter should be a single JSON object on one line containing an "id" (unique string), "type" (either "paragraph" or "dialogue"), "text" (the paragraph content), and optional "metadata" for audio narrative cues.
 For dialogue blocks, the "metadata" must contain "speakerName" (the name of the character speaking), "mode": "dialogue", and "speakerRole" (e.g. villain, main_character, face_slap, friend). DO NOT output direct voice IDs.
 You can include a "beastEvent" object inside the block "metadata" when encountering significant beast moments (reveals, major strikes, deaths, power surges). A beastEvent needs a "type" ("reveal", "power-up", "technique", "injury", "turning-point", "death", "breakthrough") and a "profile" (containing size, bodyType, element, movement, intelligence, threatTier, signatureSound matching the predefined schema). Use this sparingly and only on significant narrative beats.
+For LitRPG or System moments, you MUST include a "system" object on the block (parallel to "metadata") to render a holographic status panel. The "system" object must contain "kind" (one of "status", "skill_acquired", "level_up", "quest", "appraisal"), a string "title", an optional array of "rows" (each with "label" and "value" strings), and an optional string "rarity". Use this structured object instead of plain text brackets like [System Alert].
+For each block, list all notable codex entities referenced in the 'entities' array inside "metadata". Each entity in the array must have the shape: { "name": string, "type": "character"|"artifact"|"location"|"beast"|"faction", "mention": "reveal"|"reference" }. Set mention to "reveal" ONLY value for a first dramatic appearance of the entity in the story, otherwise use "reference".
+Additionally, emit a per-scene 'music' object inside "metadata" when the scene's backing soundtrack can be described or changes: { "mood": "war"|"duel"|"serenity"|"romance"|"dread"|"mystery"|"triumph"|"tribulation"|"travel"|"tragedy"|"fighting"|"adventure"|"ambient"|"boss-fight"|"tension"|"sad"|"mystical"|"excitement"|"tired"|"horror", "region": "chinese"|"japanese"|"western" (optional), "intensity": number (optional, 0 to 1) }.
 
 Example:
 ---CHAPTER_BLOCKS---
-{"id": "c1-p1", "type": "paragraph", "text": "Rain crawled down the black stones as Kael climbed higher into the mountain pass...", "metadata": {"mode": "narration", "sceneType": "travel", "environment": ["mountain", "rain", "night"], "motion": "walking", "emotion": "determined", "intensity": 0.35, "tension": 0.25, "danger": 0.15, "mysticism": 0.4, "audioSignature": "rainy-mountain-walk"}}
+{"id": "c1-p1", "type": "paragraph", "text": "Rain crawled down the black stones as Kael climbed higher into the mountain pass...", "metadata": {"mode": "narration", "sceneType": "travel", "environment": ["mountain", "rain", "night"], "motion": "walking", "emotion": "determined", "intensity": 0.35, "tension": 0.25, "danger": 0.15, "mysticism": 0.4, "audioSignature": "rainy-mountain-walk", "entities": [{"name": "Kael", "type": "character", "mention": "reference"}], "music": {"mood": "travel", "region": "western", "intensity": 0.3}}}
 {"id": "c1-p2", "type": "dialogue", "text": "\\"Who dares disturb my slumber?\\" Overseer Chen bellowed.", "metadata": {"mode": "dialogue", "speakerName": "Overseer Chen", "speakerRole": "villain", "emotion": "cruel", "intensity": 0.85, "tension": 0.9}}
-{"id": "c1-p3", "type": "paragraph", "text": "Suddenly, the sky tore open. The Thunder Roc emerged, completely blotting out the moon.", "metadata": {"mode": "narration", "tension": 0.9, "beastEvent": {"type": "reveal", "profile": {"size": "giant", "bodyType": "bird", "element": "lightning", "movement": "flying", "intelligence": "ancient", "threatTier": "mythic", "signatureSound": "screech"}}}}`,
+{"id": "c1-p3", "type": "paragraph", "text": "Suddenly, the sky tore open. The Thunder Roc emerged, completely blotting out the moon.", "metadata": {"mode": "narration", "tension": 0.9, "beastEvent": {"type": "reveal", "profile": {"size": "giant", "bodyType": "bird", "element": "lightning", "movement": "flying", "intelligence": "ancient", "threatTier": "mythic", "signatureSound": "screech"}}}}
+{"id": "c1-p4", "type": "paragraph", "text": "A holographic chime rang out in his mind.", "system": {"kind": "level_up", "title": "Breakthrough Achieved", "rarity": "Mythic", "rows": [{"label": "Realm", "value": "Core Formation"}]}}`,
 
     nonStreamSystem: `You are an elite fantasy web-novel author specializing in Chinese light novels (Wuxia, Xianxia, Xuanhuan, Divine Systems). 
 Your writing must be highly descriptive, immersive, and emotionally impactful, utilizing the "Reading/archive" font tone. Write using rich metaphors, profound dialogue, high cultivation chants, and grand scene setting. 
@@ -126,7 +130,7 @@ CHAPTER LENGTH & PACING DIRECTIVES:
 - Avoid rambling or overly repetitive internal monologues. Instead, natively reach the word count through dynamic dialogue, deeply immersive sensory descriptions, engaging combat choreography, detailed cultivation revelations, and world-building that advances the plot.
 
 Write a fully fleshed-out chapter following the length directives. Split it into multiple beautiful paragraphs with plenty of dialogue, combat choreography or cultivation breakthroughs where descriptive details make it feel real. 
-If the novel is a "System" or "LitRPG" style, include a beautiful neon/cybernetic Cultivation System panel in the story text (formatted cleanly using mono-spaced block grids or brackets like: [System Alert: Qi +100!]).
+${withCue ? 'For "System" or "LitRPG" styles, you MUST use the structured "system" json object on the NDJSON blocks for system panels instead of plain text brackets.' : 'If the novel is a "System" or "LitRPG" style, include a beautiful neon/cybernetic Cultivation System panel in the story text (formatted cleanly using mono-spaced block grids or brackets like: [System Alert: Qi +100!]).'}
 
 ${withCue ? `Also allow narrative cue payloads to carry normalized story metadata. Do not directly convert this data into complex Web Audio synthesis yet. Keep the structured payloads clean so SAP can later interpret them as part of a proper meaning-to-score audio system. DO NOT generate summary or memory updates, only generate the chapter text blocks.` : `Also, analyze the events of this chapter and provide list updates/modifications to the permanent story memory so we can track newly met characters, dead characters, relationship updates, unresolved issues, or potential MC advancement.`}
 
@@ -169,6 +173,11 @@ Chapter Text:
 ${chapterText}
 
 Extract updates for the permanent story memory so we can track newly met characters, dead characters, relationship updates, unresolved issues, or potential MC advancement. Also, provide a short summary of events, and an arc summary.
+
+Within the "cuePayload" object:
+1. List all notable codex entities referenced in the 'entities' array. Each entity must have the shape: { "name": string, "type": "character"|"artifact"|"location"|"beast"|"faction", "mention": "reveal"|"reference" }. Set mention to "reveal" ONLY for the first dramatic appearance of the entity in the story, otherwise use "reference".
+2. Emit a backing 'music' object: { "mood": "war"|"duel"|"serenity"|"romance"|"dread"|"mystery"|"triumph"|"tribulation"|"travel"|"tragedy"|"fighting"|"adventure"|"ambient"|"boss-fight"|"tension"|"sad"|"mystical"|"excitement"|"tired"|"horror", "region": "chinese"|"japanese"|"western" (optional), "intensity": number (optional, 0 to 1) }.
+
 You must return a JSON object with the following fields:
 {
   "summary": "A detailed 1-2 paragraph summary of the exact events, conversations, and physical movements that transpired in this chapter to store in our historical archive.",
@@ -184,6 +193,18 @@ You must return a JSON object with the following fields:
     "element": "void",
     "relationshipShift": 0,
     "signature": "celestial_chime",
+    "entities": [
+      {
+        "name": "Full name of any notable codex entity referenced in this chapter",
+        "type": "character",
+        "mention": "reference"
+      }
+    ],
+    "music": {
+      "mood": "travel",
+      "region": "chinese",
+      "intensity": 0.5
+    },
     "beastEvent": {
       "type": "reveal",
       "profile": {

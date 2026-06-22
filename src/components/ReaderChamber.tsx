@@ -45,6 +45,7 @@ import {
 } from "../lib/narrativeCues";
 import { useChapterTranslation } from "../hooks/useChapterTranslation";
 import { useAppStore } from "../store/useAppStore";
+import { secureStorage } from "../lib/encryption";
 import { SystemBlock } from "./SystemBlock";
 
 import { AlterFatePanel } from "./AlterFatePanel";
@@ -124,6 +125,103 @@ export default function ReaderChamber({
   handleCheckConsistency,
 }: ReaderChamberProps) {
   const [filter, setFilter] = useState<"all" | "unlocked" | "locked">("all");
+  const [generatingRevealId, setGeneratingRevealId] = useState<string | null>(null);
+  const stories = useAppStore(state => state.stories);
+  const activeStoryId = useAppStore(state => state.activeStoryId);
+  const saveStories = useAppStore(state => state.saveStories);
+  const routingConfig = useAppStore(state => state.routingConfig);
+
+  const handleManifestReveal = async (entry: any, type: string) => {
+    if (generatingRevealId) return;
+    setGeneratingRevealId(entry.id);
+    try {
+      const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      const gemini = await secureStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = await secureStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = await secureStorage.getItem('@seihouse/api-key-ollama-host');
+      if (gemini) apiHeaders['x-gemini-key'] = gemini;
+      if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
+      if (ollama) apiHeaders['x-ollama-host'] = ollama;
+
+      const res = await fetch('/api/generate-card-image', {
+        method: 'POST',
+        headers: apiHeaders,
+        body: JSON.stringify({
+          prompt: `${entry.name}. ${entry.description}`,
+          type,
+          routingConfig
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Aetherial alignment gate failed to synchronize imagery.");
+      }
+
+      let newImageUrls = data.imageUrls;
+      if (!newImageUrls && data.imageUrl) newImageUrls = [data.imageUrl];
+      if (!newImageUrls && data.fallbackUrl) newImageUrls = [data.fallbackUrl];
+
+      if (!newImageUrls || newImageUrls.length === 0) {
+        throw new Error("No imagery frames returned.");
+      }
+      const selectedUrl = newImageUrls[0];
+
+      if (activeStory && type !== 'faction') {
+        const id = entry.id;
+        const currentChapterNumber = activeStory.currentChapterNumber || 1;
+        const newHistoryItem = {
+          id: Math.random().toString(36).substring(2, 10),
+          entityId: id,
+          entityType: type as any,
+          imageUrl: selectedUrl,
+          promptUsed: `${entry.name}. ${entry.description}`,
+          createdAt: new Date().toISOString(),
+          isCurrent: true,
+          chapterNumber: currentChapterNumber
+        };
+
+        const currentStoryHistory = activeStory.imageHistory || [];
+        const updatedStoryHistory = currentStoryHistory
+          .map((img: any) => img.entityId === id ? { ...img, isCurrent: false } : img)
+          .concat(newHistoryItem);
+
+        const memory = activeStory.memory;
+        let updatedMemory = { ...memory };
+        if (type === 'character') {
+          updatedMemory.characters = memory.characters.map((c: any) => 
+            c.id === id ? { ...c, imageUrl: selectedUrl, imageHistory: (c.imageHistory || []).concat(newHistoryItem) } : c
+          );
+        } else if (type === 'location') {
+          updatedMemory.locations = (memory.locations || []).map((l: any) => 
+            l.id === id ? { ...l, imageUrl: selectedUrl, imageHistory: (l.imageHistory || []).concat(newHistoryItem) } : l
+          );
+        } else if (type === 'artifact') {
+          updatedMemory.artifacts = (memory.artifacts || []).map((a: any) => 
+            a.id === id ? { ...a, imageUrl: selectedUrl, imageHistory: (a.imageHistory || []).concat(newHistoryItem) } : a
+          );
+        }
+
+        const updatedStories = stories.map(s => {
+          if (s.id === activeStoryId) {
+            return {
+              ...s,
+              memory: updatedMemory,
+              imageHistory: updatedStoryHistory,
+              updatedAt: new Date().toISOString()
+            };
+          }
+          return s;
+        });
+
+        await saveStories(updatedStories);
+      }
+    } catch (err) {
+      console.error("Failed to manifest reveal card auras:", err);
+    } finally {
+      setGeneratingRevealId(null);
+    }
+  };
   const [isAlterFateOpen, setIsAlterFateOpen] = useState(false);
   const [isCheckingConsistency, setIsCheckingConsistency] = useState(false);
   const [consistencyWarnings, setConsistencyWarnings] = useState<string[] | null>(null);
@@ -1286,28 +1384,111 @@ export default function ReaderChamber({
                             block.text,
                           );
                           if (!cleanText) return null;
+
+                          const revealEntity = block.metadata?.entities?.find(ent => {
+                            if (ent.mention !== 'reveal') return false;
+                            const matched = codexTerms.find(
+                              t => t.term.toLowerCase() === ent.name.toLowerCase()
+                            );
+                            return matched && matched.entry;
+                          });
+
+                          const revealTerm = revealEntity
+                            ? codexTerms.find(t => t.term.toLowerCase() === revealEntity.name.toLowerCase())
+                            : undefined;
+
+                          const revealImageUrl = revealTerm && 'imageUrl' in revealTerm.entry ? (revealTerm.entry as any).imageUrl : undefined;
+
+                          const revealCard = revealTerm ? (
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              whileInView={{ opacity: 1, scale: 1 }}
+                              viewport={{ once: true, margin: "-50px" }}
+                              transition={{ duration: 0.5, ease: "easeOut" }}
+                              className="w-full max-w-sm mx-auto my-6 p-4 rounded-xl border border-portal/30 bg-void/80 backdrop-blur-md shadow-[0_0_25px_rgba(4,172,255,0.15)] flex flex-col items-center text-center group/reveal"
+                            >
+                              {revealImageUrl ? (
+                                <div className="relative w-full aspect-square max-w-[180px] rounded-lg overflow-hidden border border-neutral-900 bg-neutral-950 mb-3 shadow-inner">
+                                  <img
+                                    src={revealImageUrl}
+                                    alt={revealTerm.entry.name}
+                                    loading="lazy"
+                                    referrerPolicy="no-referrer"
+                                    className="w-full h-full object-cover transition-transform duration-500 group-hover/reveal:scale-105"
+                                  />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+                                </div>
+                              ) : (
+                                revealTerm.type !== 'faction' && (
+                                  <button
+                                    onClick={() => handleManifestReveal(revealTerm.entry, revealTerm.type)}
+                                    disabled={generatingRevealId === revealTerm.entry.id}
+                                    className="relative w-full aspect-square max-w-[180px] mb-3 overflow-hidden rounded-lg bg-[#010b14] border border-portal/40 hover:border-portal flex flex-col items-center justify-center cursor-pointer transition-all duration-500 group/revealmanifest shadow-[0_0_15px_rgba(4,172,255,0.15)] hover:shadow-[0_0_25px_rgba(4,172,255,0.35)]"
+                                  >
+                                    <div className="absolute inset-x-0 bottom-0 top-0 h-full w-full bg-[radial-gradient(circle_at_center,rgba(4,172,255,0.18)_0%,transparent_70%)] animate-pulse pointer-events-none" />
+                                    <div className="absolute w-20 h-20 rounded-full border border-dashed border-portal/25 animate-[spin_12s_linear_infinite] group-hover/revealmanifest:border-portal/50" />
+                                    <div className="absolute w-[88px] h-[88px] rounded-full border border-dotted border-portal/15 animate-[spin_20s_linear_infinite_reverse]" />
+                                    
+                                    {generatingRevealId === revealTerm.entry.id ? (
+                                      <div className="flex flex-col items-center gap-1.5 z-10">
+                                        <Loader2 size={18} className="text-portal animate-spin" />
+                                        <span className="font-mono text-[9px] text-portal/90 uppercase tracking-widest animate-pulse font-medium">
+                                          Summoning...
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <div className="flex flex-col items-center gap-1.5 z-10 transition-transform duration-300 group-hover/revealmanifest:scale-105">
+                                        <span className="text-portal text-sm group-hover/revealmanifest:animate-bounce">✦</span>
+                                        <span className="font-sc text-[10px] text-signal tracking-widest font-bold uppercase">
+                                          Manifest
+                                        </span>
+                                        <span className="font-mono text-[8px] text-neutral-500 tracking-wider">
+                                          Awaken Portrait
+                                        </span>
+                                      </div>
+                                    )}
+                                  </button>
+                                )
+                              )}
+                              <span className="font-mono text-[9px] text-portal uppercase tracking-widest mb-1 font-bold">
+                                Reveal · {revealTerm.type}
+                              </span>
+                              <h4 className="font-display font-medium text-lg text-signal tracking-wide">
+                                {revealTerm.entry.name}
+                              </h4>
+                              {revealTerm.entry.description && (
+                                <p className="font-serif italic text-xs text-neutral-400 mt-1 max-w-[280px] line-clamp-2">
+                                  {revealTerm.entry.description}
+                                </p>
+                              )}
+                            </motion.div>
+                          ) : null;
+
                           const isSystemLine =
                             cleanText.startsWith("[") &&
                             cleanText.endsWith("]");
 
-                          if (isSystemLine) {
+                          if (isSystemLine || block.system) {
                             return (
-                              <SystemBlock
-                                key={block.id || `para-${index}`}
-                                content={cleanText}
-                                data-cue-type="narrative.metadata.signature"
-                                data-cue-id={
-                                  block.id ||
-                                  `system-line-${selectedChapter.number}-${index}`
-                                }
-                                data-cue-metadata={
-                                  block.metadata
-                                    ? JSON.stringify(block.metadata)
-                                    : undefined
-                                }
-                                data-cue-once="true"
-                                className={`narrative-trigger ${block.metadata ? "metadata-block" : ""}`}
-                              />
+                              <React.Fragment key={block.id || `para-${index}`}>
+                                {revealCard}
+                                <SystemBlock
+                                  content={cleanText}
+                                  system={block.system}
+                                  data-cue-type="narrative.metadata.signature"
+                                  data-cue-id={
+                                    block.id ||
+                                    `system-line-${selectedChapter.number}-${index}`
+                                  }
+                                  data-cue-metadata={
+                                    block.metadata
+                                      ? JSON.stringify(block.metadata)
+                                      : undefined
+                                  }
+                                  data-cue-once="true"
+                                  className={`narrative-trigger ${block.metadata ? "metadata-block" : ""}`}
+                                />
+                              </React.Fragment>
                             );
                           }
 
@@ -1320,9 +1501,10 @@ export default function ReaderChamber({
                             editingBookmarkParagraphIndex === index;
 
                           return (
-                            <div
-                              key={block.id || `para-${index}`}
-                              id={`para-${index}`}
+                            <React.Fragment key={block.id || `para-${index}`}>
+                              {revealCard}
+                              <div
+                                id={`para-${index}`}
                               data-cue-type={
                                 block.metadata
                                   ? "narrative.metadata.signature"
@@ -1434,6 +1616,7 @@ export default function ReaderChamber({
                                   </div>
                                 )}
                             </div>
+                          </React.Fragment>
                           );
                         })
                       : (selectedChapter.generatedContent || "")

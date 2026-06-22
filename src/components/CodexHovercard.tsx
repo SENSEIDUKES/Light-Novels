@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shield, MapPin, Swords, User } from 'lucide-react';
+import { Shield, MapPin, Swords, User, Loader2 } from 'lucide-react';
 import { Character, Faction, Artifact, Location } from '../types';
+import { useAppStore } from '../store/useAppStore';
+import { secureStorage } from '../lib/encryption';
 
 interface CodexHovercardProps {
   term: string;
@@ -13,6 +15,108 @@ interface CodexHovercardProps {
 export const CodexHovercard: React.FC<CodexHovercardProps> = ({ term, type, entry, children }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLSpanElement>(null);
+  const imageUrl = 'imageUrl' in entry ? (entry as any).imageUrl : undefined;
+
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const stories = useAppStore(state => state.stories);
+  const activeStoryId = useAppStore(state => state.activeStoryId);
+  const saveStories = useAppStore(state => state.saveStories);
+  const routingConfig = useAppStore(state => state.routingConfig);
+
+  const handleManifest = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isGeneratingImage) return;
+
+    setIsGeneratingImage(true);
+    try {
+      const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      const gemini = await secureStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = await secureStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = await secureStorage.getItem('@seihouse/api-key-ollama-host');
+      if (gemini) apiHeaders['x-gemini-key'] = gemini;
+      if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
+      if (ollama) apiHeaders['x-ollama-host'] = ollama;
+
+      const activeStory = stories.find(s => s.id === activeStoryId);
+      const res = await fetch('/api/generate-card-image', {
+        method: 'POST',
+        headers: apiHeaders,
+        body: JSON.stringify({
+          prompt: `${entry.name}. ${entry.description}`,
+          type,
+          routingConfig
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Aetherial alignment gate failed to synchronize imagery.");
+      }
+
+      let newImageUrls = data.imageUrls;
+      if (!newImageUrls && data.imageUrl) newImageUrls = [data.imageUrl];
+      if (!newImageUrls && data.fallbackUrl) newImageUrls = [data.fallbackUrl];
+
+      if (!newImageUrls || newImageUrls.length === 0) {
+        throw new Error("No imagery frames returned.");
+      }
+      const selectedUrl = newImageUrls[0];
+
+      if (activeStory && type !== 'faction') {
+        const id = entry.id;
+        const currentChapterNumber = activeStory.currentChapterNumber || 1;
+        const newHistoryItem = {
+          id: Math.random().toString(36).substring(2, 10),
+          entityId: id,
+          entityType: type as any,
+          imageUrl: selectedUrl,
+          promptUsed: `${entry.name}. ${entry.description}`,
+          createdAt: new Date().toISOString(),
+          isCurrent: true,
+          chapterNumber: currentChapterNumber
+        };
+
+        const currentStoryHistory = activeStory.imageHistory || [];
+        const updatedStoryHistory = currentStoryHistory
+          .map((img: any) => img.entityId === id ? { ...img, isCurrent: false } : img)
+          .concat(newHistoryItem);
+
+        const memory = activeStory.memory;
+        let updatedMemory = { ...memory };
+        if (type === 'character') {
+          updatedMemory.characters = memory.characters.map((c: any) => 
+            c.id === id ? { ...c, imageUrl: selectedUrl, imageHistory: (c.imageHistory || []).concat(newHistoryItem) } : c
+          );
+        } else if (type === 'location') {
+          updatedMemory.locations = (memory.locations || []).map((l: any) => 
+            l.id === id ? { ...l, imageUrl: selectedUrl, imageHistory: (l.imageHistory || []).concat(newHistoryItem) } : l
+          );
+        } else if (type === 'artifact') {
+          updatedMemory.artifacts = (memory.artifacts || []).map((a: any) => 
+            a.id === id ? { ...a, imageUrl: selectedUrl, imageHistory: (a.imageHistory || []).concat(newHistoryItem) } : a
+          );
+        }
+
+        const updatedStories = stories.map(s => {
+          if (s.id === activeStoryId) {
+            return {
+              ...s,
+              memory: updatedMemory,
+              imageHistory: updatedStoryHistory,
+              updatedAt: new Date().toISOString()
+            };
+          }
+          return s;
+        });
+
+        await saveStories(updatedStories);
+      }
+    } catch (err) {
+      console.error("Failed to manifest entity card auras:", err);
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
 
   const getIcon = () => {
     switch (type) {
@@ -92,6 +196,48 @@ export const CodexHovercard: React.FC<CodexHovercardProps> = ({ term, type, entr
             onClick={(e) => e.stopPropagation()}
             onTouchEnd={(e) => e.stopPropagation()}
           >
+            {imageUrl ? (
+              <div className="w-full aspect-[2/1] mb-2.5 overflow-hidden rounded-lg bg-neutral-900 border border-neutral-800 flex-shrink-0">
+                <img
+                  src={imageUrl}
+                  alt={entry.name}
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : (
+              type !== 'faction' && (
+                <button
+                  onClick={handleManifest}
+                  disabled={isGeneratingImage}
+                  className="relative w-full aspect-[2/1] mb-2.5 overflow-hidden rounded-lg bg-[#010b14] border border-portal/40 hover:border-portal flex flex-col items-center justify-center cursor-pointer transition-all duration-500 group/manifest shadow-[0_0_15px_rgba(4,172,255,0.15)] hover:shadow-[0_0_25px_rgba(4,172,255,0.35)]"
+                >
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(4,172,255,0.18)_0%,transparent_70%)] animate-pulse pointer-events-none" />
+                  <div className="absolute w-20 h-20 rounded-full border border-dashed border-portal/25 animate-[spin_12s_linear_infinite] group-hover/manifest:border-portal/50" />
+                  <div className="absolute w-[88px] h-[88px] rounded-full border border-dotted border-portal/15 animate-[spin_20s_linear_infinite_reverse]" />
+                  
+                  {isGeneratingImage ? (
+                    <div className="flex flex-col items-center gap-1.5 z-10">
+                      <Loader2 size={18} className="text-portal animate-spin" />
+                      <span className="font-mono text-[10px] text-portal/90 uppercase tracking-widest animate-pulse font-medium">
+                        Summoning...
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-1.5 z-10 transition-transform duration-300 group-hover/manifest:scale-105">
+                      <span className="text-portal text-sm group-hover/manifest:animate-bounce">✦</span>
+                      <span className="font-sc text-xs text-signal tracking-widest font-bold uppercase">
+                        Manifest
+                      </span>
+                      <span className="font-mono text-[9px] text-neutral-500 tracking-wider">
+                        Awaken Aetherial Portrait
+                      </span>
+                    </div>
+                  )}
+                </button>
+              )
+            )}
             <div className="flex items-center gap-2 mb-2 pb-2 border-b border-neutral-800 flex-wrap">
               {getIcon()}
               <span className="font-display font-medium text-sm text-signal">
