@@ -47,6 +47,7 @@ export function AudioWidget() {
         onClick={handleMuteToggle} 
         className="text-neutral-400 hover:text-portal transition-colors"
         title={audioMuted ? "Unmute Audio" : "Mute Audio"}
+        aria-label={audioMuted ? "Unmute Audio" : "Mute Audio"}
       >
         {audioMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
       </button>
@@ -59,6 +60,7 @@ export function AudioWidget() {
         onChange={handleVolumeChange}
         className="w-16 h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-portal/50 hidden sm:group-hover:block transition-all"
         title="Volume"
+        aria-label="Audio Volume"
       />
     </div>
   );

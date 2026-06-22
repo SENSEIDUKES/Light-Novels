@@ -234,6 +234,25 @@ export const StoryDetailScreen: React.FC<{
                     });
                     store.saveStories(updated);
                   }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      const store = useAppStore.getState();
+                      const updated = store.stories.map(s => {
+                        if (s.id === activeStory.id) {
+                          const updatedHistory = s.imageHistory?.map(h => 
+                            h.entityType === 'cover' ? { ...h, isCurrent: h.imageUrl === img.imageUrl } : h
+                          );
+                          return { ...s, imageUrl: img.imageUrl, imageHistory: updatedHistory };
+                        }
+                        return s;
+                      });
+                      store.saveStories(updated);
+                    }
+                  }}
+                  aria-label={`Apply cover image from chapter ${img.chapterNumber || 'Unknown'}`}
                   title={`Generated at Chapter ${img.chapterNumber || 'Unknown'}\nPrompt: ${img.promptUsed}`}
                 >
                   <img src={img.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -324,6 +343,8 @@ export const StoryDetailScreen: React.FC<{
             <div className="relative">
               <button
                 onClick={() => setIsStoryMenuOpen(!isStoryMenuOpen)}
+                aria-expanded={isStoryMenuOpen}
+                aria-label="More options"
                 className="p-2.5 bg-void border border-neutral-800 text-neutral-400 hover:text-signal rounded hover:bg-neutral-900 hover:border-neutral-750 transition-all flex items-center justify-center"
                 title="More options"
                 type="button"

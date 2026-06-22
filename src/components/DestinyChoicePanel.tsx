@@ -50,6 +50,15 @@ export const DestinyChoicePanel: React.FC<DestinyChoicePanelProps> = ({
                 <div 
                   key={index}
                   onClick={() => onSelect(index)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onSelect(index);
+                    }
+                  }}
+                  aria-label={`Select form ${index + 1}`}
                   className={`relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer transition-all duration-300 border-2 ${
                     isSelected ? 'border-portal shadow-[0_0_20px_rgba(4,172,255,0.3)] scale-105 z-10' : 'border-neutral-800 hover:border-neutral-700 opacity-70 hover:opacity-100'
                   }`}

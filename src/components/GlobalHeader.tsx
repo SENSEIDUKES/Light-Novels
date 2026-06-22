@@ -58,7 +58,19 @@ export const GlobalHeader: React.FC = () => {
   return (
     <header className="border-b border-neutral-900 bg-black/90 backdrop-blur-md sticky top-0 z-40 py-1.5 sm:py-3 animate-fadeIn">
       <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 flex items-center justify-between">
-        <div className="flex items-center space-x-2 sm:space-x-3 cursor-pointer min-w-0 mr-2" onClick={() => { setCurrentScreen('home'); setActiveStoryId(null); }}>
+        <div 
+          className="flex items-center space-x-2 sm:space-x-3 cursor-pointer min-w-0 mr-2" 
+          onClick={() => { setCurrentScreen('home'); setActiveStoryId(null); }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setCurrentScreen('home'); setActiveStoryId(null);
+            }
+          }}
+          aria-label="Return to Home"
+        >
           <img 
             src="https://images.seihouse.org/SEA%20LOGO/SEA%20LOGO.png" 
             alt="SEIHouse SEA Logo" 
@@ -111,6 +123,7 @@ export const GlobalHeader: React.FC = () => {
                 onClick={() => setCurrentScreen('profile')} 
                 className="group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-500 hover:scale-105"
                 title={`Spirit Linked: ${currentUser.email}`}
+                aria-label="Open User Profile"
               >
                 {/* Qi Cyclone Aurora */}
                 <div className={`absolute inset-[-4px] rounded-full border border-dashed animate-[spin_6s_linear_infinite] transition-colors duration-500 ${currentScreen === 'profile' ? 'border-portal/40' : 'border-human/40 group-hover:border-portal/40'}`} />
@@ -128,6 +141,7 @@ export const GlobalHeader: React.FC = () => {
                 onClick={() => setCurrentScreen('profile')} 
                 className={`group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-300 hover:bg-neutral-900 border border-transparent ${currentScreen === 'profile' ? 'text-portal' : 'text-human hover:text-portal'}`}
                 title="Open Celestial Tools"
+                aria-label="Open Celestial Tools"
               >
                 <Cloud size={24} className="transition-colors" strokeWidth={1.5} />
               </button>
@@ -147,6 +161,7 @@ export const GlobalHeader: React.FC = () => {
               onClick={() => { setCurrentScreen('home'); setActiveStoryId(null); }}
               className="group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-500 hover:scale-105 ml-2 sm:ml-4"
               title="Return to Library"
+              aria-label="Return to Library"
             >
               <div className="absolute inset-[-4px] rounded-full border border-dashed border-human/40 group-hover:border-portal/40 animate-[spin_6s_linear_infinite] transition-colors duration-500" />
               <div className="absolute inset-[-8px] rounded-full border border-dotted border-human/30 group-hover:border-portal/30 animate-[spin_10s_linear_infinite_reverse] transition-colors duration-500" />
@@ -162,6 +177,7 @@ export const GlobalHeader: React.FC = () => {
               onClick={() => setCurrentScreen('creator')}
               className="group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-500 hover:scale-105 ml-2 sm:ml-4"
               title="Create Story"
+              aria-label="Create Story"
             >
               <div className="absolute inset-[-4px] rounded-full border border-dashed border-human/40 group-hover:border-portal/40 animate-[spin_6s_linear_infinite] transition-colors duration-500" />
               <div className="absolute inset-[-8px] rounded-full border border-dotted border-human/30 group-hover:border-portal/30 animate-[spin_10s_linear_infinite_reverse] transition-colors duration-500" />

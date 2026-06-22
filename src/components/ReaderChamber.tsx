@@ -963,24 +963,28 @@ export default function ReaderChamber({
                   : "border-neutral-800 text-neutral-400 hover:text-signal hover:bg-neutral-900"
               }`}
               title={selectedChapter.status === "read" ? "Mark Chapter as Unread" : "Mark Chapter as Finished & Read"}
+              aria-label={selectedChapter.status === "read" ? "Mark Chapter as Unread" : "Mark Chapter as Finished & Read"}
             >
               <Check size={14} />
             </button>
 
             <button
               onClick={() => setShowReaderPreferences(!showReaderPreferences)}
+              aria-expanded={showReaderPreferences}
               className={`p-2 rounded-full border flex items-center justify-center transition-all ${
                 showReaderPreferences
                   ? "border-portal bg-portal/10 text-portal"
                   : "border-neutral-800 text-neutral-400 hover:text-signal hover:bg-neutral-900"
               }`}
               title="Aetherial Styles"
+              aria-label="Aetherial Styles"
             >
               <Sliders size={14} />
             </button>
 
             <button
               onClick={() => setShowBookmarksPanel(!showBookmarksPanel)}
+              aria-expanded={showBookmarksPanel}
               className={`p-2 rounded-full border flex items-center justify-center transition-all relative ${
                 showBookmarksPanel
                   ? "border-gold-accent bg-gold-accent/15 text-gold-accent"
@@ -989,6 +993,7 @@ export default function ReaderChamber({
                     : "border-neutral-800 text-neutral-400 hover:text-signal hover:bg-neutral-900"
               }`}
               title="The Chronicle Anchors"
+              aria-label="The Chronicle Anchors"
             >
               <BookmarkIcon size={14} />
               {activeBookmarks.length > 0 && (

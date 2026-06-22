@@ -98,6 +98,7 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
               </div>
               <button 
                 onClick={onClose}
+                aria-label="Close glossary"
                 className="p-1 text-neutral-500 hover:text-white transition-colors rounded hover:bg-neutral-900"
               >
                 <X size={20} />
@@ -141,6 +142,7 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
                       </div>
                       <button
                         onClick={() => handleDelete(term.id)}
+                        aria-label="Delete term"
                         className="opacity-0 group-hover:opacity-100 p-1.5 text-neutral-600 hover:text-red-400 hover:bg-neutral-800 rounded transition-all"
                       >
                         <Trash2 size={14} />
@@ -173,6 +175,7 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
                   <button
                     onClick={handleAddWord}
                     disabled={!newSource.trim() || !newTarget.trim()}
+                    aria-label="Add term"
                     className="bg-portal/20 text-portal hover:bg-portal hover:text-black disabled:opacity-50 disabled:cursor-not-allowed px-3 rounded flex items-center justify-center transition-colors"
                   >
                     <Plus size={16} />

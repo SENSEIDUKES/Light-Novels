@@ -160,6 +160,7 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
             </div>
             <button
               onClick={onClose}
+              aria-label="Close timeline"
               className="text-neutral-500 hover:text-signal transition-colors p-2"
             >
               <X size={20} />
@@ -210,6 +211,17 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
                         top: (c - (node.forkChNum || 1)) * rowHeight + rowHeight/2 
                       }}
                       title={`Chapter ${c}`}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setActiveStoryId(node.story.id);
+                          onClose();
+                          setCurrentScreen('reader');
+                        }
+                      }}
+                      aria-label={`Jump to Chapter ${c} of ${node.story.title}`}
                       onClick={() => {
                         setActiveStoryId(node.story.id);
                         onClose();

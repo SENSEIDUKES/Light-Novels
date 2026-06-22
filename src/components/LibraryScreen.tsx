@@ -246,6 +246,16 @@ export const LibraryScreen: React.FC = () => {
                       setActiveStoryId(story.id);
                       setCurrentScreen('detail');
                     }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setActiveStoryId(story.id);
+                        setCurrentScreen('detail');
+                      }
+                    }}
+                    aria-label={`View story ${story.title}`}
                     className="group cursor-pointer flex flex-col space-y-3"
                   >
                     <div className="relative aspect-[2/3] rounded-md overflow-hidden border border-neutral-800 group-hover:border-gold-accent shadow-lg transition-all duration-300 transform group-hover:-translate-y-1">
@@ -261,6 +271,7 @@ export const LibraryScreen: React.FC = () => {
                       </div>
                       <button
                          onClick={(e) => handleDeleteStory(story.id, e)}
+                         aria-label={`Burn scroll for ${story.title}`}
                          className="absolute top-2 left-2 p-1.5 text-neutral-400 bg-black/60 border border-neutral-800 backdrop-blur-sm hover:text-red-500 hover:border-red-900 rounded-xl opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all font-sc"
                          title="Burn Scroll"
                       >
@@ -333,6 +344,15 @@ export const LibraryScreen: React.FC = () => {
                   key={world.id}
                   className="group cursor-pointer flex flex-col space-y-3"
                   onClick={() => alert("Published Worlds are currently view-only in this realm. Future ascensions will unlock reading.")}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      alert("Published Worlds are currently view-only in this realm. Future ascensions will unlock reading.");
+                    }
+                  }}
+                  aria-label={`View published world ${world.title}`}
                 >
                   <div className="relative aspect-[2/3] rounded-md overflow-hidden border border-neutral-800 group-hover:border-portal shadow-lg transition-all duration-300 transform group-hover:-translate-y-1">
                     <img 

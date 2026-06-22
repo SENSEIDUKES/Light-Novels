@@ -74,6 +74,7 @@ const FormSection = ({ id, title, icon, activeSection, setActiveSection, childre
       <button
         type="button"
         onClick={() => setActiveSection(isActive ? id : id)}
+        aria-expanded={isActive}
         className={`w-full flex items-center justify-between p-4 px-6 text-left transition-colors ${isActive ? 'bg-neutral-900/50 text-signal border-b border-neutral-900' : 'bg-void text-neutral-400 hover:bg-neutral-950 hover:text-neutral-200'}`}
       >
         <div className="flex items-center space-x-3">
@@ -368,6 +369,7 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
                     <button
                       type="button"
                       onClick={() => handleRemoveTag(tag)}
+                      aria-label={`Remove tag ${tag}`}
                       className="text-neutral-600 hover:text-signal focus:outline-none font-bold text-sm"
                     >
                       &times;

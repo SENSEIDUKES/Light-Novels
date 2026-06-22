@@ -12,6 +12,8 @@
   --color-signal: #FAFAFA;
   --color-human: #8B0000;
   --color-portal: #04ACFF;
+
+  --color-neutral-600: #999999; /* Improved contrast AA compliant on black */
 }
 
 html, body {
