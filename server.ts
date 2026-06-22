@@ -774,6 +774,50 @@ ${englishText}
 });
 
 
+// 7. Generate Audio (TTS) for the Voice Edition
+app.post("/api/generate-audio", async (req, res) => {
+  try {
+    const { text, speakerVoice, routingConfig } = req.body;
+    if (!text || !speakerVoice) {
+      return res.status(400).json({ error: "Missing required fields: text, speakerVoice" });
+    }
+
+    const customKeys = getCustomKeys(req);
+    const apiKey = customKeys?.geminiApiKey || process.env.GEMINI_API_KEY;
+
+    if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
+      throw new Error("GEMINI_API_KEY is missing or invalid.");
+    }
+
+    const { GoogleGenAI, Modality } = await import("@google/genai");
+    const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { "User-Agent": "aistudio-build" } } });
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-tts-preview",
+      contents: [{ parts: [{ text }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: speakerVoice }
+          }
+        }
+      }
+    });
+
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (!base64Audio) {
+      throw new Error("Failed to generate audio from Gemini.");
+    }
+
+    return res.json({ base64Audio });
+  } catch (error: any) {
+    console.error("Error generating audio:", error);
+    return res.status(500).json({ error: error.message || "Failed to generate audio" });
+  }
+});
+
+
 // ==========================================
 // VITE CLIENT DEV SERVER INTEGRATION
 // ==========================================

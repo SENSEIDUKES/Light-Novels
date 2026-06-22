@@ -4,6 +4,7 @@ import { retrieveRelevantContext, generateEmbedding } from '../lib/rag';
 import { Story, IntakeData, WorldBlueprint, Chapter, StoryArc, StoryMemory, StoryWorld, GeneratedImage } from '../types';
 import { storyStorage } from '../lib/storage';
 import { awardQi } from '../lib/qi';
+import { auth } from '../lib/firebase';
 
 export const extractJsonBlocks = (rawStr: string): any[] => {
   // 1. Try arrays wrapped in markdown or raw
@@ -300,6 +301,7 @@ export const useStoryEngine = () => {
 
       const newStory: Story = {
         id: `story-${Date.now()}`,
+        userId: auth.currentUser?.uid || undefined,
         title: responseData.title || blueprint.title || 'The Ascension Chronicles',
         genre: intake.genrePath || 'Xianxia',
         mcName: intake.mcName || 'Unknown',

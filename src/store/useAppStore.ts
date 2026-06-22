@@ -148,12 +148,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set({ stories: markedStories });
     try {
-      const storedStories = await storyStorage.getStories();
-      for (const st of storedStories) {
-        if (!markedStories.some(u => u.id === st.id)) {
-          await storyStorage.deleteStory(st.id);
-        }
-      }
       for (const s of markedStories) {
         await storyStorage.saveStory(s);
       }
@@ -258,6 +252,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   confirmDeleteStory: () => {
     const { storyToDelete, stories, saveStories, activeStoryId, setActiveStoryId, setCurrentScreen, setStoryToDelete } = get();
     if (storyToDelete) {
+      storyStorage.deleteStory(storyToDelete).catch(console.error);
       const updated = stories.filter(s => s.id !== storyToDelete);
       saveStories(updated);
       if (activeStoryId === storyToDelete) {

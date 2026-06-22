@@ -199,6 +199,19 @@ export interface StoryCuePayload {
   };
 }
 
+export interface VoiceClip {
+  blockId: string;
+  audioUrl: string;
+  speakerVoice: string;
+}
+
+export interface AudioManifest {
+  version: string;
+  language: string;
+  clips: VoiceClip[];
+  generatedAt: number;
+}
+
 export interface ChapterContent {
   storyId: string;
   chapterNumber: number;
@@ -214,6 +227,7 @@ export interface ChapterContent {
       translatedAt: number;
     };
   };
+  audioManifest?: AudioManifest;
   syncStatus?: 'local' | 'synced' | 'conflict';
   revisionId?: string;
   updatedAt?: string;
@@ -246,6 +260,7 @@ export interface Chapter {
       translatedAt: number;
     };
   };
+  audioManifest?: AudioManifest;
   _isNewContent?: boolean;
 }
 

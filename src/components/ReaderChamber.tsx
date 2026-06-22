@@ -48,6 +48,7 @@ import { useAppStore } from "../store/useAppStore";
 import { SystemBlock } from "./SystemBlock";
 
 import { AlterFatePanel } from "./AlterFatePanel";
+import { VoiceEditionPanel } from "./VoiceEditionPanel";
 
 const extractSFXCues = (text: string) => {
   const sfxList: string[] = [];
@@ -1712,6 +1713,15 @@ export default function ReaderChamber({
                 </div>
               </motion.div>
             </AnimatePresence>
+
+            {/* Voice Edition Feature */}
+            {(selectedChapter.generatedContent || selectedChapter.blocks) && (
+               <VoiceEditionPanel
+                  selectedChapter={selectedChapter}
+                  activeStory={activeStory}
+                  onUpdateStory={onUpdateStory}
+               />
+            )}
 
             {/* Navigation links at bottom of chapter */}
             <div className="flex items-center justify-between border-t border-neutral-900 pt-8 mt-16 pb-8">
