@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Story, StoryMemory, Chapter, StoryArc, StoryWorld, ReaderPreferences, KarmaFateNode, CharacterRelationship, MultiModelRouting, RouteConfig, IntakeData, WorldBlueprint, StoryBlock, StreamingChapter, AppUser, UserProfile } from '../types';
 import { SyncStatus } from '../lib/storage';
+import { secureStorage } from '../lib/encryption';
 import { auth } from '../lib/firebase';
 import { getRandomDemoStory } from './demoStories';
 
@@ -273,6 +274,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       await storyStorage.init();
       set({ storageType: storyStorage.getActiveAdapterName() });
+      
+      const gemini = await secureStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = await secureStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = await secureStorage.getItem('@seihouse/api-key-ollama-host');
+      set({ localGeminiKey: gemini, localOpenrouterKey: openrouter, localOllamaHost: ollama });
+
       let loaded = await storyStorage.getStories();
       const user = auth.currentUser;
       

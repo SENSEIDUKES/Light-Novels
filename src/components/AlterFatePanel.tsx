@@ -34,17 +34,22 @@ export const AlterFatePanel: React.FC<AlterFatePanelProps> = ({ isOpen, onClose,
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [customPrompt, setCustomPrompt] = useState('');
 
-  if (!isOpen) return null;
-
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+      {isOpen && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className="bg-void border border-portal/30 rounded-xl shadow-[0_0_40px_rgba(4,172,255,0.15)] overflow-hidden max-w-2xl w-full flex flex-col"
+          key="alter-fate-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
         >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            className="bg-void border border-portal/30 rounded-xl shadow-[0_0_40px_rgba(4,172,255,0.15)] overflow-hidden max-w-2xl w-full flex flex-col"
+          >
           <div className="p-6 border-b border-neutral-900 bg-neutral-950 flex justify-between items-center relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-portal/10 blur-3xl rounded-full"></div>
             <div>
@@ -120,7 +125,8 @@ export const AlterFatePanel: React.FC<AlterFatePanelProps> = ({ isOpen, onClose,
             </button>
           </div>
         </motion.div>
-      </div>
+        </motion.div>
+      )}
     </AnimatePresence>
   );
 };

@@ -522,7 +522,13 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
       
       <AnimatePresence>
         {deletePrompt && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <motion.div
+            key="akasha-delete-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -576,7 +582,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                 </button>
               </div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
 

@@ -23,17 +23,22 @@ export const DestinyChoicePanel: React.FC<DestinyChoicePanelProps> = ({
   title = "Destiny Choices",
   subtitle = "Choose the form that will enter the Codex."
 }) => {
-  if (!isOpen || imageUrls.length === 0) return null;
-
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+      {(isOpen && imageUrls.length > 0) && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className="bg-[#0a0a0a] border border-neutral-800 rounded-xl shadow-2xl overflow-hidden max-w-4xl w-full flex flex-col"
+          key="destiny-choice-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
         >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            className="bg-[#0a0a0a] border border-neutral-800 rounded-xl shadow-2xl overflow-hidden max-w-4xl w-full flex flex-col"
+          >
           <div className="p-6 text-center border-b border-neutral-900 bg-void">
             <h2 className="text-xl font-sc font-bold text-signal tracking-widest uppercase flex items-center justify-center gap-2">
               <Sparkles className="text-portal" size={20} />
@@ -101,7 +106,8 @@ export const DestinyChoicePanel: React.FC<DestinyChoicePanelProps> = ({
             </button>
           </div>
         </motion.div>
-      </div>
+        </motion.div>
+      )}
     </AnimatePresence>
   );
 };

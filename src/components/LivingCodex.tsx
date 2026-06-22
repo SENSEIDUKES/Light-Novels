@@ -468,7 +468,7 @@ export default function LivingCodex({
   };
 
   // Assign numeric power rankings based on parsed cultivation stages
-  const getPowerRankScore = (powerStr: string | undefined): { score: number, title: string } => {
+  function getPowerRankScore(powerStr: string | undefined): { score: number, title: string } {
     if (!powerStr) return { score: 10, title: 'Mortal Tier' };
     const p = powerStr.toLowerCase();
     
@@ -491,7 +491,7 @@ export default function LivingCodex({
       return { score: 12, title: 'Mortal Meridian Blockade' };
     }
     return { score: 40, title: 'Spiritual Adept' };
-  };
+  }
 
   // Generate Image Card API trigger
   const handleRevertImage = (id: string, type: string, newUrl: string) => {
@@ -562,9 +562,9 @@ export default function LivingCodex({
 
     try {
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-      const gemini = secureStorage.getItem('@seihouse/api-key-gemini');
-      const openrouter = secureStorage.getItem('@seihouse/api-key-openrouter');
-      const ollama = secureStorage.getItem('@seihouse/api-key-ollama-host');
+      const gemini = await secureStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = await secureStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = await secureStorage.getItem('@seihouse/api-key-ollama-host');
       if (gemini) apiHeaders['x-gemini-key'] = gemini;
       if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
       if (ollama) apiHeaders['x-ollama-host'] = ollama;
@@ -670,9 +670,9 @@ export default function LivingCodex({
       const factionNames = (memory.factions || []).map(f => f.name);
 
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-      const gemini = secureStorage.getItem('@seihouse/api-key-gemini');
-      const openrouter = secureStorage.getItem('@seihouse/api-key-openrouter');
-      const ollama = secureStorage.getItem('@seihouse/api-key-ollama-host');
+      const gemini = await secureStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = await secureStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = await secureStorage.getItem('@seihouse/api-key-ollama-host');
       if (gemini) apiHeaders['x-gemini-key'] = gemini;
       if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
       if (ollama) apiHeaders['x-ollama-host'] = ollama;
@@ -3229,7 +3229,13 @@ export default function LivingCodex({
 
       <AnimatePresence>
         {deletePrompt && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <motion.div
+            key="delete-prompt-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -3285,7 +3291,7 @@ export default function LivingCodex({
                 </button>
               </div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
 

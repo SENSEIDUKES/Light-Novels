@@ -138,21 +138,25 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-6">
+      {isOpen && (
         <motion.div
+          key="fate-timeline-backdrop"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="absolute inset-0 bg-neutral-950/90 backdrop-blur-sm"
-          onClick={onClose}
-        />
-        
-        <motion.div
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.95, opacity: 0 }}
-          className="relative bg-neutral-950 border border-neutral-800 rounded-xl shadow-2xl w-full h-[90vh] flex flex-col overflow-hidden"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-6"
         >
+          <div
+            className="absolute inset-0 bg-neutral-950/90 backdrop-blur-sm"
+            onClick={onClose}
+          />
+          
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            className="relative bg-neutral-950 border border-neutral-800 rounded-xl shadow-2xl w-full h-[90vh] flex flex-col overflow-hidden"
+          >
           <div className="flex items-center justify-between p-4 border-b border-neutral-900 bg-void">
             <div className="flex items-center space-x-3">
               <GitBranch className="text-portal" />
@@ -261,7 +265,8 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
             
           </div>
         </motion.div>
-      </div>
+      </motion.div>
+      )}
     </AnimatePresence>
   );
 };

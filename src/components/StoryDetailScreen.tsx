@@ -64,7 +64,13 @@ export const StoryDetailScreen: React.FC<{
       {/* Unified Export Tome Modal */}
       <AnimatePresence>
         {isExportModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+          <motion.div
+            key="export-modal-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -160,7 +166,7 @@ export const StoryDetailScreen: React.FC<{
                 </button>
               </div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -352,47 +358,48 @@ export const StoryDetailScreen: React.FC<{
                 <MoreHorizontal size={18} />
               </button>
 
+              {isStoryMenuOpen && (
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setIsStoryMenuOpen(false)} 
+                />
+              )}
               <AnimatePresence>
                 {isStoryMenuOpen && (
-                  <>
-                    <div 
-                      className="fixed inset-0 z-40" 
-                      onClick={() => setIsStoryMenuOpen(false)} 
-                    />
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute left-0 mt-2 w-56 rounded bg-neutral-950 border border-neutral-800 shadow-xl z-50 overflow-hidden divide-y divide-neutral-900"
-                    >
-                      <div className="py-1">
-                        <button
-                          onClick={() => {
-                            setIsStoryMenuOpen(false);
-                            setIsExportModalOpen(true);
-                          }}
-                          className="w-full text-left px-4 py-2.5 text-xs text-neutral-300 hover:bg-neutral-900 hover:text-gold-accent transition-colors flex items-center space-x-2 font-sc font-bold uppercase tracking-wider"
-                        >
-                          <Scroll size={14} className="text-portal" />
-                          <span>Export Tome</span>
-                        </button>
-                      </div>
+                  <motion.div
+                    key="story-menu-dropdown"
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute left-0 mt-2 w-56 rounded bg-neutral-950 border border-neutral-800 shadow-xl z-50 overflow-hidden divide-y divide-neutral-900"
+                  >
+                    <div className="py-1">
+                      <button
+                        onClick={() => {
+                          setIsStoryMenuOpen(false);
+                          setIsExportModalOpen(true);
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-xs text-neutral-300 hover:bg-neutral-900 hover:text-gold-accent transition-colors flex items-center space-x-2 font-sc font-bold uppercase tracking-wider"
+                      >
+                        <Scroll size={14} className="text-portal" />
+                        <span>Export Tome</span>
+                      </button>
+                    </div>
 
-                      <div className="py-1">
-                        <button
-                          onClick={(e) => {
-                            handleDeleteStory(activeStory.id, e);
-                            setIsStoryMenuOpen(false);
-                          }}
-                          className="w-full text-left px-4 py-2.5 text-xs text-red-500 hover:bg-red-950/20 hover:text-red-400 transition-colors flex items-center space-x-2 font-sc font-bold uppercase tracking-wider"
-                        >
-                          <Trash2 size={14} />
-                          <span>Burn Scroll</span>
-                        </button>
-                      </div>
-                    </motion.div>
-                  </>
+                    <div className="py-1">
+                      <button
+                        onClick={(e) => {
+                          handleDeleteStory(activeStory.id, e);
+                          setIsStoryMenuOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-xs text-red-500 hover:bg-red-950/20 hover:text-red-400 transition-colors flex items-center space-x-2 font-sc font-bold uppercase tracking-wider"
+                      >
+                        <Trash2 size={14} />
+                        <span>Burn Scroll</span>
+                      </button>
+                    </div>
+                  </motion.div>
                 )}
               </AnimatePresence>
             </div>

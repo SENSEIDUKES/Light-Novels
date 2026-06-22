@@ -230,11 +230,11 @@ function runMemoryLinter(
 export const useStoryEngine = () => {
   const store = useAppStore();
 
-  const getApiHeaders = () => {
+  const getApiHeaders = async () => {
     const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-    const gemini = secureStorage.getItem('@seihouse/api-key-gemini');
-    const openrouter = secureStorage.getItem('@seihouse/api-key-openrouter');
-    const ollama = secureStorage.getItem('@seihouse/api-key-ollama-host');
+    const gemini = await secureStorage.getItem('@seihouse/api-key-gemini');
+    const openrouter = await secureStorage.getItem('@seihouse/api-key-openrouter');
+    const ollama = await secureStorage.getItem('@seihouse/api-key-ollama-host');
     if (gemini) apiHeaders['x-gemini-key'] = gemini;
     if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
     if (ollama) apiHeaders['x-ollama-host'] = ollama;
@@ -247,7 +247,7 @@ export const useStoryEngine = () => {
     store.setIsGenerating(true);
     store.setAppError(null);
     try {
-      const apiHeaders = getApiHeaders();
+      const apiHeaders = await getApiHeaders();
       const response = await fetch('/api/generate-blueprint', {
         method: 'POST',
         headers: apiHeaders,
@@ -277,7 +277,7 @@ export const useStoryEngine = () => {
     store.setAppError(null);
 
     try {
-      const apiHeaders = getApiHeaders();
+      const apiHeaders = await getApiHeaders();
       const response = await fetch('/api/generate-initial-arc', {
         method: 'POST',
         headers: apiHeaders,
@@ -361,7 +361,7 @@ export const useStoryEngine = () => {
 
     try {
       store.setActiveAgentId('scout');
-      const apiHeaders = getApiHeaders();
+      const apiHeaders = await getApiHeaders();
 
       const pastSummaries = await retrieveRelevantContext(
         targetChapter.premise || activeStory.customPremise,
@@ -838,7 +838,7 @@ export const useStoryEngine = () => {
     
     try {
       store.setActiveAgentId('scout');
-      const apiHeaders = getApiHeaders();
+      const apiHeaders = await getApiHeaders();
 
       const pastSummaries = await retrieveRelevantContext(
         queryIntent,
@@ -980,7 +980,7 @@ export const useStoryEngine = () => {
     
     try {
       store.setActiveAgentId('scout');
-      const apiHeaders = getApiHeaders();
+      const apiHeaders = await getApiHeaders();
 
       const pastSummaries = await retrieveRelevantContext(
         queryIntent,
@@ -1124,7 +1124,7 @@ export const useStoryEngine = () => {
     store.setIsGenerating(true);
     store.setAppError(null);
     try {
-      const apiHeaders = getApiHeaders();
+      const apiHeaders = await getApiHeaders();
       const styleConfig = activeStory.blueprint?.styleBible || "Chinese light novel world aesthetic, xianxia / wuxia fantasy illustration, cinematic, mystical, premium webnovel art.";
       const mcProfile = activeStory.blueprint?.mcProfile || activeStory.mcName;
       const worldOverview = activeStory.blueprint?.worldOverview || activeStory.genre;

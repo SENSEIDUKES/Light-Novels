@@ -2280,26 +2280,22 @@ export default function ReaderChamber({
       </div>
 
       {/* THE CHRONICLE ANCHORS (BOOKMARKS DRAW PANEL) */}
+      {showBookmarksPanel && (
+        <div
+          onClick={() => setShowBookmarksPanel(false)}
+          className="fixed inset-0 bg-black/80 z-40 backdrop-blur-sm transition-opacity"
+        />
+      )}
       <AnimatePresence>
         {showBookmarksPanel && (
-          <>
-            {/* Backdrop blur overlay */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.6 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowBookmarksPanel(false)}
-              className="fixed inset-0 bg-black/80 z-50 backdrop-blur-sm"
-            />
-
-            {/* Sidebar Drawer container */}
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 24, stiffness: 180 }}
-              className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-black border-l border-neutral-900 z-50 p-6 flex flex-col justify-between shadow-[2px_0_20px_rgba(0,0,0,0.95)]"
-            >
+          <motion.div
+            key="bookmarks-drawer"
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 24, stiffness: 180 }}
+            className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-black border-l border-neutral-900 z-50 p-6 flex flex-col justify-between shadow-[2px_0_20px_rgba(0,0,0,0.95)]"
+          >
               <div className="flex-1 flex flex-col min-h-0">
                 {/* Header */}
                 <div className="flex items-center justify-between pb-4 border-b border-neutral-900 mb-6">
@@ -2421,7 +2417,6 @@ export default function ReaderChamber({
                 </div>
               </div>
             </motion.div>
-          </>
         )}
       </AnimatePresence>
 

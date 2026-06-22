@@ -70,20 +70,17 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
   const filteredTerms = terms.filter(t => t.target_lang === targetLang);
 
   return (
-    <AnimatePresence>
+    <>
       {isOpen && (
-        <React.Fragment>
-          {/* Backdrop */}
+        <div
+          onClick={onClose}
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity"
+        />
+      )}
+      <AnimatePresence>
+        {isOpen && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
-          />
-
-          {/* Panel */}
-          <motion.div
+            key="glossary-panel"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
@@ -185,8 +182,8 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
             </div>
 
           </motion.div>
-        </React.Fragment>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

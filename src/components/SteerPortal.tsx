@@ -99,9 +99,9 @@ export default function SteerPortal({
 
     try {
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-      const gemini = secureStorage.getItem('@seihouse/api-key-gemini');
-      const openrouter = secureStorage.getItem('@seihouse/api-key-openrouter');
-      const ollama = secureStorage.getItem('@seihouse/api-key-ollama-host');
+      const gemini = await secureStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = await secureStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = await secureStorage.getItem('@seihouse/api-key-ollama-host');
       if (gemini) apiHeaders['x-gemini-key'] = gemini;
       if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
       if (ollama) apiHeaders['x-ollama-host'] = ollama;

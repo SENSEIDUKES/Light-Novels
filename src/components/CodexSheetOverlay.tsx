@@ -16,11 +16,14 @@ export const CodexSheetOverlay: React.FC<{
   return (
     <AnimatePresence>
       {isCodexSheetOpen && activeStory && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-none">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+        <motion.div
+          key="codex-sheet-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-none"
+        >
+          <div
             onClick={() => setIsCodexSheetOpen(false)}
             className="absolute inset-0 bg-black/90 sm:backdrop-blur-sm pointer-events-auto"
           />
@@ -64,7 +67,7 @@ export const CodexSheetOverlay: React.FC<{
               </div>
             </div>
           </motion.div>
-        </div>
+        </motion.div>
       )}
     </AnimatePresence>
   );
