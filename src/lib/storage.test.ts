@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { PersistentStorageManager, ChapterContent } from './storage';
-import { StoryWorld } from '../types';
+import { PersistentStorageManager } from './storage';
+import { StoryWorld, ChapterContent } from '../types';
 
 describe('PersistentStorageManager', () => {
   let manager: PersistentStorageManager;
@@ -26,7 +26,7 @@ describe('PersistentStorageManager', () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         currentChapterNumber: 1,
-        memory: { powerSystem: '', characters: [] },
+        memory: { powerSystem: '', characters: [], currentPowerStage: '', worldRules: [], unresolvedPlotThreads: [], resolvedPlotThreads: [] },
         arcs: [
           {
             title: 'Arc 1',
@@ -39,7 +39,7 @@ describe('PersistentStorageManager', () => {
                 status: 'unread',
                 generatedContent: 'Heavens opened!',
                 summary: 'Start',
-                // @ts-expect-error
+                // @ts-expect-error - Custom transient _isNewContent property used in save pipeline
                 _isNewContent: true,
               }
             ]
@@ -81,12 +81,16 @@ describe('PersistentStorageManager', () => {
 
       const localStory: StoryWorld = {
         id: 'conflict_story', title: 'Local Version', genre: '', mcName: '', customPremise: '', createdAt: '', 
-        updatedAt: new Date(oldTime).toISOString(), currentChapterNumber: 1, memory: { powerSystem: '', characters: [] }, arcs: []
+        updatedAt: new Date(oldTime).toISOString(), currentChapterNumber: 1, 
+        memory: { powerSystem: '', characters: [], currentPowerStage: '', worldRules: [], unresolvedPlotThreads: [], resolvedPlotThreads: [] }, 
+        arcs: []
       };
 
       const cloudStory: StoryWorld = {
         id: 'conflict_story', title: 'Cloud Version', genre: '', mcName: '', customPremise: '', createdAt: '', 
-        updatedAt: new Date(newTime).toISOString(), currentChapterNumber: 1, memory: { powerSystem: '', characters: [] }, arcs: []
+        updatedAt: new Date(newTime).toISOString(), currentChapterNumber: 1, 
+        memory: { powerSystem: '', characters: [], currentPowerStage: '', worldRules: [], unresolvedPlotThreads: [], resolvedPlotThreads: [] }, 
+        arcs: []
       };
 
       await localAdapter.saveStory(localStory);

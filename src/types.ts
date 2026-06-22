@@ -8,6 +8,7 @@ export interface UserProfile {
   uid: string;
   username: string;
   displayName: string;
+  displayNameColor?: string;
   avatarUrl: string;
   preferredLanguage: string;
   defaultTranslationLanguage: string;

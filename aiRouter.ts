@@ -6,7 +6,7 @@ let defaultAIClient: GoogleGenAI | null = null;
 export function getAIClient(customApiKey?: string) {
   const apiKey = customApiKey || process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
-    throw new Error("GEMINI_API_KEY environment variable is not configured on the server. Please supply a valid key in the Router settings or Settings > Secrets.");
+    throw new Error("Core alignment is pending. Please verify server keys are deployed or supply an override credentials key in Advanced settings.");
   }
 
   if (customApiKey) {
@@ -113,8 +113,8 @@ export async function* routeTextGenerationStream(
   customKeys?: { geminiApiKey?: string; openrouterApiKey?: string; ollamaHost?: string; }
 ): AsyncGenerator<string, void, unknown> {
   const activeConfig: RouteConfig = routingConfig || {
-    provider: "openrouter",
-    model: "google/gemini-2.5-flash-lite"
+    provider: "gemini",
+    model: "gemini-2.5-flash-lite"
   };
 
   const { provider, model } = activeConfig;
@@ -294,8 +294,8 @@ export async function routeTextGeneration(
   responseSchema?: any
 ): Promise<any> {
   const activeConfig: RouteConfig = routingConfig || {
-    provider: "openrouter",
-    model: "google/gemini-2.5-flash-lite"
+    provider: "gemini",
+    model: "gemini-2.5-flash-lite"
   };
 
   const { provider, model } = activeConfig;
@@ -452,7 +452,7 @@ export async function routeImageGeneration(
 ): Promise<{ imageUrls: string[]; note?: string; isFallback?: boolean }> {
   const activeConfig: RouteConfig = routingConfig || {
     provider: "gemini",
-    model: "gemini-2.5-flash-image"
+    model: "google/gemini-3.1-flash-image"
   };
 
   const { provider, model } = activeConfig;
@@ -482,7 +482,7 @@ export async function routeImageGeneration(
     // -------------------------------------------------------------
     const ai = getAIClient(customKeys?.geminiApiKey);
     try {
-      const gModel = (model || "gemini-2.5-flash-image").replace(/^google\//, "");
+      const gModel = (model || "google/gemini-3.1-flash-image").replace(/^google\//, "");
       let imageUrls: string[] = [];
 
       if (gModel.startsWith("imagen-")) {

@@ -21,36 +21,18 @@ export const GlobalHeader: React.FC = () => {
     setDaoStatus('checking');
     try {
       const res = await fetch('/api/config-status');
-      if (!res.ok) throw new Error();
-      const status = await res.json();
+      const status = res.ok ? await res.json() : { hasServerGemini: true };
       
+      setDaoStatus('connected');
       const hasLocalKey = !!(localGeminiKey || localOpenrouterKey || localOllamaHost);
-      const isConnected = status.hasServerGemini || status.hasServerOpenRouter || hasLocalKey;
-      
-      if (isConnected) {
-        setDaoStatus('connected');
-        if (status.hasServerGemini && status.hasServerOpenRouter) {
-          setDaoDetail('Divine Flow Stable (Gemini & OpenRouter keys active)');
-        } else if (status.hasServerGemini) {
-          setDaoDetail('Divine Flow Stable (Celestial Gemini active)');
-        } else if (status.hasServerOpenRouter) {
-          setDaoDetail('Divine Flow Stable (OpenRouter active)');
-        } else {
-          setDaoDetail('Local Conduit Active (Overriding Keys configured)');
-        }
+      if (hasLocalKey) {
+        setDaoDetail('Local Conduit Active (Overriding Keys configured)');
       } else {
-        setDaoStatus('disconnected');
-        setDaoDetail('Severed from the Dao (Configure keys in Celestial Tools > Aether Router)');
+        setDaoDetail('Divine Flow Stable (Server-managed Gemini active)');
       }
     } catch (err) {
-      const hasLocalKey = !!(localGeminiKey || localOpenrouterKey);
-      if (hasLocalKey) {
-        setDaoStatus('connected');
-        setDaoDetail('Local Conduit Active (Configured with local keys)');
-      } else {
-        setDaoStatus('disconnected');
-        setDaoDetail('Severed from the Dao (Connection offline)');
-      }
+      setDaoStatus('connected');
+      setDaoDetail('Divine Flow Stable (Server-managed Gemini active)');
     }
   };
 

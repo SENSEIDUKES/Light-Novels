@@ -17,7 +17,7 @@ describe('useStoryExporter', () => {
       click: vi.fn(),
       remove: vi.fn()
     };
-    // @ts-expect-error
+    // @ts-expect-error - Mock anchor object doesn't implement all HTMLAnchorElement properties but is sufficient for the spy test
     createElementSpy.mockReturnValue(mockAnchor);
     const appendSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => null);
 
@@ -30,7 +30,7 @@ describe('useStoryExporter', () => {
       createdAt: '',
       updatedAt: '',
       currentChapterNumber: 1,
-      memory: { powerSystem: '', characters: [] },
+      memory: { powerSystem: '', characters: [], currentPowerStage: '', worldRules: [], unresolvedPlotThreads: [], resolvedPlotThreads: [] },
       arcs: [
         {
           title: 'Arc 1',

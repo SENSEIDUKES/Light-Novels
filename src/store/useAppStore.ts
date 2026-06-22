@@ -184,7 +184,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isReaderFullscreen: false,
   routingConfig: {
     storyMaker: { provider: 'gemini', model: 'gemini-2.5-flash-lite' },
-    imageGenerator: { provider: 'gemini', model: 'gemini-2.5-flash-image' }
+    imageGenerator: { provider: 'gemini', model: 'google/gemini-3.1-flash-image' }
   },
   localGeminiKey: '',
   localOpenrouterKey: '',

@@ -163,7 +163,7 @@ export const LibraryScreen: React.FC = () => {
                   </h4>
                   {userProfile ? (
                     <p className="text-[10px] text-portal/80 font-sc tracking-widest uppercase truncate font-bold mt-1">
-                      By {userProfile.username} · {userProfile.dao_rank || getDaoRankData(userProfile.dao_xp || userProfile.qi || 0).rank}
+                      By <span style={{ color: userProfile.displayNameColor || undefined }}>{userProfile.displayName || userProfile.username}</span> · {userProfile.dao_rank || getDaoRankData(userProfile.dao_xp || userProfile.qi || 0).rank}
                     </p>
                   ) : (
                     <p className="text-[10px] text-portal/80 font-sc tracking-widest uppercase truncate font-bold mt-1">
@@ -279,7 +279,7 @@ export const LibraryScreen: React.FC = () => {
                       </h4>
                       {userProfile ? (
                         <p className="text-[10px] text-portal/80 font-sc tracking-widest uppercase truncate font-bold mt-0.5">
-                          By {userProfile.username} · {userProfile.dao_rank || getDaoRankData(userProfile.dao_xp || userProfile.qi || 0).rank}
+                          By <span style={{ color: userProfile.displayNameColor || undefined }}>{userProfile.displayName || userProfile.username}</span> · {userProfile.dao_rank || getDaoRankData(userProfile.dao_xp || userProfile.qi || 0).rank}
                         </p>
                       ) : (
                         <p className="text-[10px] text-portal/80 font-sc tracking-widest uppercase truncate font-bold mt-0.5">

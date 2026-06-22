@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, BookOpen, MoreHorizontal, BookCheck, Download, Trash2, Zap, GitBranch } from 'lucide-react';
+import { Sparkles, BookOpen, MoreHorizontal, BookCheck, Download, Trash2, Zap, GitBranch, Scroll } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { DestinyChoicePanel } from './DestinyChoicePanel';
 import { FateTimeline } from './FateTimeline';
@@ -16,10 +16,11 @@ export const StoryDetailScreen: React.FC<{
 }> = ({
   handleGenerateCover, handleApplyCover, handleExportFullTome, handleExportEPUB, handleExportSingleStory, handleDeleteStory, setIsCodexSheetOpen
 }) => {
-  const { currentScreen, setCurrentScreen, activeStoryId, stories, isGenerating, setSelectedChapterNum } = useAppStore();
+  const { currentScreen, setCurrentScreen, activeStoryId, stories, isGenerating, setSelectedChapterNum, userProfile } = useAppStore();
   const [isStoryMenuOpen, setIsStoryMenuOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [coverPreview, setCoverPreview] = useState<{ urls: string[], prompt: string, selectedIndex: number } | null>(null);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   if (currentScreen !== 'detail') return null;
 
@@ -59,6 +60,109 @@ export const StoryDetailScreen: React.FC<{
         onClose={() => setIsTimelineOpen(false)} 
         activeStoryId={activeStoryId || ''} 
       />
+
+      {/* Unified Export Tome Modal */}
+      <AnimatePresence>
+        {isExportModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ duration: 0.25 }}
+              className="bg-[#050505] border border-neutral-800 rounded-xl shadow-[0_0_30px_rgba(4,172,255,0.05)] overflow-hidden max-w-2xl w-full flex flex-col"
+            >
+              {/* Modal Header */}
+              <div className="p-6 text-center border-b border-neutral-900 bg-void">
+                <h2 className="text-lg font-sc font-bold text-signal tracking-[0.2em] uppercase flex items-center justify-center gap-2.5">
+                  <Scroll className="text-portal" size={20} />
+                  <span>Export Novel</span>
+                  <Scroll className="text-portal" size={20} />
+                </h2>
+                <p className="text-xs text-neutral-400 mt-2 font-sans max-w-md mx-auto">
+                  Select your preferred format to save or read this novel outside the SEIHouse platform.
+                </p>
+              </div>
+
+              {/* Form Options Grid */}
+              <div className="p-6 space-y-4 bg-neutral-950/40">
+                {/* HTML Option */}
+                <button
+                  onClick={() => {
+                    handleExportFullTome(activeStory);
+                    setIsExportModalOpen(false);
+                  }}
+                  className="w-full text-left p-4 rounded-lg bg-void border border-neutral-850 hover:border-portal hover:bg-neutral-900/40 transition-all duration-300 flex items-start space-x-4 group"
+                >
+                  <div className="p-2.5 bg-neutral-900 rounded border border-neutral-800 text-portal group-hover:bg-portal group-hover:text-void group-hover:border-portal transition-all duration-300">
+                    <BookCheck size={20} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-mono font-bold text-signal uppercase tracking-wider group-hover:text-portal transition-colors">
+                      Web Page (HTML Format)
+                    </h4>
+                    <p className="text-[11px] text-neutral-400 mt-1 font-serif leading-relaxed">
+                      Creates a single HTML file containing all generated chapters, complete with modern reading styles. Perfect for printing, sharing, or reading in any web browser.
+                    </p>
+                  </div>
+                </button>
+
+                {/* EPUB Option */}
+                <button
+                  onClick={() => {
+                    handleExportEPUB(activeStory);
+                    setIsExportModalOpen(false);
+                  }}
+                  className="w-full text-left p-4 rounded-lg bg-void border border-neutral-850 hover:border-gold-accent hover:bg-neutral-900/40 transition-all duration-300 flex items-start space-x-4 group"
+                >
+                  <div className="p-2.5 bg-neutral-900 rounded border border-neutral-800 text-gold-accent group-hover:bg-gold-accent group-hover:text-void group-hover:border-gold-accent transition-all duration-300">
+                    <BookOpen size={20} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-mono font-bold text-signal uppercase tracking-wider group-hover:text-gold-accent transition-colors">
+                      E-Book (EPUB Format)
+                    </h4>
+                    <p className="text-[11px] text-neutral-400 mt-1 font-serif leading-relaxed">
+                      Downloads a standard .epub file compatible with e-readers, Kindle, Apple Books, and other popular digital reader devices or apps.
+                    </p>
+                  </div>
+                </button>
+
+                {/* JSON Option */}
+                <button
+                  onClick={() => {
+                    handleExportSingleStory(activeStory);
+                    setIsExportModalOpen(false);
+                  }}
+                  className="w-full text-left p-4 rounded-lg bg-void border border-neutral-850 hover:border-jade-accent hover:bg-neutral-900/40 transition-all duration-300 flex items-start space-x-4 group"
+                >
+                  <div className="p-2.5 bg-neutral-900 rounded border border-neutral-800 text-jade-accent group-hover:bg-jade-accent group-hover:text-void group-hover:border-jade-accent transition-all duration-300">
+                    <Download size={20} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-mono font-bold text-signal uppercase tracking-wider group-hover:text-jade-accent transition-colors">
+                      Backup File (JSON Format)
+                    </h4>
+                    <p className="text-[11px] text-neutral-400 mt-1 font-serif leading-relaxed">
+                      Downloads a raw data payload including story settings, metadata, structures, and character registers so you can backup or transfer your novel profile.
+                    </p>
+                  </div>
+                </button>
+              </div>
+
+              {/* Close Button Footer */}
+              <div className="p-4 border-t border-neutral-900 bg-void flex justify-end">
+                <button
+                  onClick={() => setIsExportModalOpen(false)}
+                  className="px-6 py-2.5 rounded font-mono text-[11px] uppercase tracking-wider bg-neutral-900 text-neutral-400 hover:bg-neutral-850 hover:text-signal transition-colors border border-neutral-800"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <div className="flex flex-col md:flex-row gap-8 bg-[#0a0a0a] border border-neutral-900 rounded-xl p-6 shadow-2xl">
         {/* Cover Art */}
@@ -143,7 +247,7 @@ export const StoryDetailScreen: React.FC<{
         <div className="flex-1 space-y-4">
           <div className="space-y-1">
             <h2 className="font-display font-bold text-3xl sm:text-4xl text-signal leading-tight">{activeStory.title}</h2>
-            <p className="font-sans text-xs text-neutral-400">Written by <span className="text-gold-accent">Aetherial Resonance</span> • {activeStory.createdAt.split('T')[0]}</p>
+            <p className="font-sans text-xs text-neutral-400">Written by <span className={userProfile?.displayNameColor ? "font-bold" : "text-gold-accent font-bold"} style={userProfile?.displayNameColor ? { color: userProfile.displayNameColor } : undefined}>{userProfile?.displayName || userProfile?.username || 'Aetherial Resonance'}</span> • {activeStory.createdAt.split('T')[0]}</p>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -245,34 +349,12 @@ export const StoryDetailScreen: React.FC<{
                         <button
                           onClick={() => {
                             setIsStoryMenuOpen(false);
-                            handleExportFullTome(activeStory);
+                            setIsExportModalOpen(true);
                           }}
                           className="w-full text-left px-4 py-2.5 text-xs text-neutral-300 hover:bg-neutral-900 hover:text-gold-accent transition-colors flex items-center space-x-2 font-sc font-bold uppercase tracking-wider"
                         >
-                          <BookCheck size={14} className="text-portal" />
-                          <span>Export Full Tome (HTML)</span>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setIsStoryMenuOpen(false);
-                            handleExportEPUB(activeStory);
-                          }}
-                          className="w-full text-left px-4 py-2.5 text-xs text-neutral-300 hover:bg-neutral-900 hover:text-portal transition-colors flex items-center space-x-2 font-sc font-bold uppercase tracking-wider"
-                        >
-                          <BookOpen size={14} className="text-gold-accent" />
-                          <span>Export Full Tome (EPUB)</span>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setIsStoryMenuOpen(false);
-                            handleExportSingleStory(activeStory);
-                          }}
-                          className="w-full text-left px-4 py-2.5 text-xs text-neutral-350 hover:bg-neutral-900 hover:text-signal transition-colors flex items-center space-x-2 font-sc font-bold uppercase tracking-wider"
-                        >
-                          <Download size={14} className="text-gold-accent" />
-                          <span>Export JSON Metadata</span>
+                          <Scroll size={14} className="text-portal" />
+                          <span>Export Tome</span>
                         </button>
                       </div>
 

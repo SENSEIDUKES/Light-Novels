@@ -22,7 +22,9 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Partial<UserProfileType>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const colorInputRef = React.useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const handleLogin = async () => {
     try {
@@ -91,6 +93,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
       const updates = {
         username: formData.username,
         displayName: formData.displayName,
+        displayNameColor: formData.displayNameColor,
         avatarUrl: formData.avatarUrl,
         preferredLanguage: formData.preferredLanguage,
         defaultTranslationLanguage: formData.defaultTranslationLanguage,
@@ -205,20 +208,20 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
 
               <div className="w-[1px] h-8 bg-neutral-900 hidden sm:block mx-2"></div>
               
-              <div className="shrink-0 flex items-center">
+              <div className="shrink-0 flex items-center gap-3">
                 <AudioWidget />
+                <button
+                  type="button"
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="px-4 py-2 bg-black border border-neutral-850 hover:border-portal/50 text-neutral-400 hover:text-portal transition-all rounded-lg font-sc text-[11px] flex items-center space-x-2 font-bold group"
+                  title="Aether Router Configuration"
+                >
+                  <Sliders size={13} className="text-portal group-hover:scale-110 transition-transform" />
+                  <span className="uppercase tracking-widest font-semibold">Aether Router</span>
+                </button>
               </div>
 
               <div className="w-[1px] h-8 bg-neutral-900 hidden sm:block mx-2"></div>
-
-              <button
-                onClick={() => setIsSettingsOpen(true)}
-                className="px-5 py-2 bg-black border border-neutral-800 hover:border-portal/50 text-neutral-400 hover:text-portal transition-all rounded-lg font-sc text-xs flex items-center space-x-2 font-bold group"
-                title="Aether Router"
-              >
-                <Sliders size={14} className="text-portal group-hover:scale-110 transition-transform" />
-                <span className="uppercase tracking-widest font-semibold text-[11px]">Aether Router Configuration</span>
-              </button>
             </div>
           </div>
 
@@ -367,18 +370,154 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                       )}
                     </div>
                     <div>
-                      <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 font-sc block mb-2">Display Name</label>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 font-sc">Display Name</label>
+                        {!isEditing && (
+                          <button 
+                            onClick={() => setIsEditing(true)} 
+                            className="text-[10px] uppercase tracking-widest text-portal hover:text-portal/80 font-sc flex items-center gap-1 transition-colors"
+                          >
+                            Modify
+                          </button>
+                        )}
+                      </div>
+                      
                       {isEditing ? (
-                        <input 
-                          type="text" 
-                          name="displayName" 
-                          value={formData.displayName || ''} 
-                          onChange={handleChange}
-                          className="w-full bg-black border border-neutral-800 rounded-lg px-4 py-2.5 text-sm text-signal focus:border-human outline-none font-sans"
-                          placeholder="Your identity..."
-                        />
+                        <div className="space-y-3">
+                          <div className="flex gap-2">
+                            <input 
+                              type="text" 
+                              name="displayName" 
+                              value={formData.displayName || ''} 
+                              onChange={handleChange}
+                              className="flex-1 bg-black border border-neutral-800 rounded-lg px-4 py-2.5 text-sm text-signal focus:border-human outline-none font-sans"
+                              placeholder="Your identity..."
+                            />
+                          </div>
+                          
+                          {/* Beautiful Dynamic Color Palette Options */}
+                          <div className="bg-[#080808] border border-neutral-900 rounded-lg p-3 space-y-2">
+                            <div className="text-[9px] uppercase tracking-wider text-neutral-500 font-sc font-bold">Select Celestial Aura Color:</div>
+                            <div className="flex flex-wrap items-center gap-2.5">
+                              {/* SEIHouse Canonical Colors */}
+                              <button
+                                type="button"
+                                onClick={() => setFormData(prev => ({ ...prev, displayNameColor: '#FAFAFA' }))}
+                                className={`w-8 h-8 rounded-full border transition-all duration-200 transform hover:scale-110 flex items-center justify-center ${
+                                  (formData.displayNameColor || '#FAFAFA') === '#FAFAFA' ? 'border-portal scale-110 ring-2 ring-portal/20' : 'border-neutral-800'
+                                }`}
+                                style={{ backgroundColor: '#FAFAFA' }}
+                                title="Signal / Clarity (#FAFAFA)"
+                              >
+                                {(formData.displayNameColor || '#FAFAFA') === '#FAFAFA' && <span className="w-1.5 h-1.5 rounded-full bg-black"></span>}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setFormData(prev => ({ ...prev, displayNameColor: '#8B0000' }))}
+                                className={`w-8 h-8 rounded-full border transition-all duration-200 transform hover:scale-110 flex items-center justify-center ${
+                                  formData.displayNameColor === '#8B0000' ? 'border-portal scale-110 ring-2 ring-portal/20' : 'border-neutral-800'
+                                }`}
+                                style={{ backgroundColor: '#8B0000' }}
+                                title="Human / Emotional Core (#8B0000)"
+                              >
+                                {formData.displayNameColor === '#8B0000' && <span className="w-1.5 h-1.5 rounded-full bg-white"></span>}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setFormData(prev => ({ ...prev, displayNameColor: '#04ACFF' }))}
+                                className={`w-8 h-8 rounded-full border transition-all duration-200 transform hover:scale-110 flex items-center justify-center ${
+                                  formData.displayNameColor === '#04ACFF' ? 'border-portal scale-110 ring-2 ring-portal/20' : 'border-neutral-800'
+                                }`}
+                                style={{ backgroundColor: '#04ACFF' }}
+                                title="Portal / Consciousness Signal (#04ACFF)"
+                              >
+                                {formData.displayNameColor === '#04ACFF' && <span className="w-1.5 h-1.5 rounded-full bg-black"></span>}
+                              </button>
+
+                              {/* Other beautiful high-contrast themes */}
+                              <button
+                                type="button"
+                                onClick={() => setFormData(prev => ({ ...prev, displayNameColor: '#FFD700' }))}
+                                className={`w-8 h-8 rounded-full border transition-all duration-200 transform hover:scale-110 flex items-center justify-center ${
+                                  formData.displayNameColor === '#FFD700' ? 'border-portal scale-110 ring-2 ring-portal/20' : 'border-neutral-800'
+                                }`}
+                                style={{ backgroundColor: '#FFD700' }}
+                                title="Ascendant Gold (#FFD700)"
+                              >
+                                {formData.displayNameColor === '#FFD700' && <span className="w-1.5 h-1.5 rounded-full bg-black"></span>}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setFormData(prev => ({ ...prev, displayNameColor: '#10B981' }))}
+                                className={`w-8 h-8 rounded-full border transition-all duration-200 transform hover:scale-110 flex items-center justify-center ${
+                                  formData.displayNameColor === '#10B981' ? 'border-portal scale-110 ring-2 ring-portal/20' : 'border-neutral-800'
+                                }`}
+                                style={{ backgroundColor: '#10B981' }}
+                                title="Qi Emerald (#10B981)"
+                              >
+                                {formData.displayNameColor === '#10B981' && <span className="w-1.5 h-1.5 rounded-full bg-black"></span>}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setFormData(prev => ({ ...prev, displayNameColor: '#A855F7' }))}
+                                className={`w-8 h-8 rounded-full border transition-all duration-200 transform hover:scale-110 flex items-center justify-center ${
+                                  formData.displayNameColor === '#A855F7' ? 'border-portal scale-110 ring-2 ring-portal/20' : 'border-neutral-800'
+                                }`}
+                                style={{ backgroundColor: '#A855F7' }}
+                                title="Aether Violet (#A855F7)"
+                              >
+                                {formData.displayNameColor === '#A855F7' && <span className="w-1.5 h-1.5 rounded-full bg-white"></span>}
+                              </button>
+
+                              {/* Rainbow / Custom trigger */}
+                              <button
+                                type="button"
+                                onClick={() => colorInputRef.current?.click()}
+                                className={`w-8 h-8 rounded-full border transition-all duration-200 transform hover:scale-110 flex items-center justify-center relative bg-gradient-to-tr from-red-500 via-green-500 to-blue-500 ${
+                                  !['#FAFAFA', '#8B0000', '#04ACFF', '#FFD700', '#10B981', '#A855F7'].includes(formData.displayNameColor || '#FAFAFA') ? 'border-portal scale-110 ring-2 ring-portal/30' : 'border-neutral-800'
+                                }`}
+                                title="Custom Color Spectrum..."
+                              >
+                                <input 
+                                  ref={colorInputRef}
+                                  type="color" 
+                                  name="displayNameColor"
+                                  value={formData.displayNameColor || '#8B0000'}
+                                  onChange={handleChange}
+                                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                />
+                                {!['#FAFAFA', '#8B0000', '#04ACFF', '#FFD700', '#10B981', '#A855F7'].includes(formData.displayNameColor || '#FAFAFA') && (
+                                  <span className="w-2 h-2 rounded-full border border-black bg-white" style={{ backgroundColor: formData.displayNameColor }}></span>
+                                )}
+                              </button>
+                            </div>
+                            <div className="flex items-center justify-between pt-1 border-t border-neutral-900/50">
+                              <span className="text-[9px] font-mono text-neutral-500">Current Hex Aura:</span>
+                              <span className="text-[10px] font-mono uppercase font-bold" style={{ color: formData.displayNameColor || '#FAFAFA' }}>
+                                {formData.displayNameColor || '#FAFAFA'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
                       ) : (
-                        <div className="text-lg text-neutral-400 font-serif italic mt-1">{profile?.displayName || 'Unknown Ascendant'}</div>
+                        <div className="flex items-center justify-between bg-black/30 border border-neutral-900/50 p-3.5 rounded-lg">
+                          <div 
+                            className="text-lg font-serif italic" 
+                            style={{ color: profile?.displayNameColor || '#fa0202' }}
+                          >
+                            {profile?.displayName || 'Unknown Ascendant'}
+                          </div>
+                          {profile?.displayNameColor && (
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: profile.displayNameColor }}></div>
+                              <span className="text-[9px] font-mono uppercase tracking-wider text-neutral-600">{profile.displayNameColor}</span>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -498,6 +637,36 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Collapsible Advanced Settings Panel */}
+              <div className="pt-8 border-t border-neutral-900/50 mt-8">
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                  className="flex items-center justify-between w-full text-[11px] font-sc uppercase font-bold tracking-widest text-portal hover:text-signal transition-all py-2"
+                >
+                  <span>{showAdvanced ? "▲ Hide Advanced Settings" : "▼ Show Advanced Settings (Admin)"}</span>
+                  <Sliders size={12} className="text-portal" />
+                </button>
+
+                {showAdvanced && (
+                  <div className="mt-4 p-5 bg-[#030303] border border-neutral-900 rounded-xl space-y-4 animate-fadeIn">
+                    <p className="text-[11px] font-sans text-neutral-500 leading-normal">
+                      Configure custom model presets, routing overrides, or API credential endpoints. Standard settings are fully server-managed by default and operate automatically without manual entries.
+                    </p>
+                    <div className="flex flex-wrap gap-4">
+                      <button
+                        onClick={() => setIsSettingsOpen(true)}
+                        className="px-5 py-2 bg-black border border-neutral-850 hover:border-portal/50 text-neutral-400 hover:text-portal transition-all rounded-lg font-sc text-xs flex items-center space-x-2 font-bold group"
+                        title="Aether Router"
+                      >
+                        <Sliders size={14} className="text-portal group-hover:scale-110 transition-transform" />
+                        <span className="uppercase tracking-widest font-semibold text-[11px]">Aether Router Configuration</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="pt-8 flex gap-4 min-h-[40px] mt-8">

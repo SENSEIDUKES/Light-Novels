@@ -31,6 +31,7 @@ service cloud.firestore {
         && (!('qi' in data) || data.qi is number)
         && (!('dao_xp' in data) || data.dao_xp is number)
         && (!('dao_rank' in data) || data.dao_rank is string)
+        && (!('displayNameColor' in data) || (data.displayNameColor is string && data.displayNameColor.size() <= 30))
         && data.uid == request.auth.uid;
     }
 
@@ -87,7 +88,7 @@ service cloud.firestore {
         && incoming().uid == existing().uid
         && incoming().joinedDate == existing().joinedDate
         && isValidUserProfile(incoming())
-        && incoming().diff(existing()).affectedKeys().hasOnly(['username', 'displayName', 'avatarUrl', 'preferredLanguage', 'defaultTranslationLanguage', 'savedStoryCount', 'activeStories', 'inactiveStories', 'updatedAt', 'qi', 'dao_xp', 'dao_rank'])
+        && incoming().diff(existing()).affectedKeys().hasOnly(['username', 'displayName', 'displayNameColor', 'avatarUrl', 'preferredLanguage', 'defaultTranslationLanguage', 'savedStoryCount', 'activeStories', 'inactiveStories', 'updatedAt', 'qi', 'dao_xp', 'dao_rank'])
         && (!('updatedAt' in incoming().diff(existing()).affectedKeys()) || (incoming().updatedAt is string && incoming().updatedAt.size() <= 40));
     }
 
@@ -118,7 +119,12 @@ service cloud.firestore {
         && (
             isValidStoryWorld(incoming()) // Must remain structurally valid
         )
-        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'genre', 'mcName', 'customPremise', 'updatedAt', 'currentChapterNumber', 'imageUrl', 'intake', 'blueprint', 'relationships', 'karmaNodes', 'readerPreferences', 'bookmarks', 'memory', 'arcs'])
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'genre', 'mcName', 'customPremise', 'updatedAt', 'currentChapterNumber', 
+          'imageUrl', 'intake', 'blueprint', 'relationships', 'karmaNodes', 'readerPreferences', 
+          'bookmarks', 'memory', 'arcs', 'parentStoryId', 'forkChapterNumber', 'imageHistory', 
+          'lastImageChapter', 'evolutionReady', 'evolutionReason', 'availableVisualUpdate'
+        ])
         && (!('title' in incoming().diff(existing()).affectedKeys()) || (incoming().title is string && incoming().title.size() <= 500))
         && (!('updatedAt' in incoming().diff(existing()).affectedKeys()) || (incoming().updatedAt is string && incoming().updatedAt.size() <= 40));
 
@@ -139,7 +145,7 @@ service cloud.firestore {
           && incoming().storyId == existing().storyId
           && incoming().chapterNumber == existing().chapterNumber
           && (isValidChapter(incoming()))
-          && incoming().diff(existing()).affectedKeys().hasOnly(['generatedContent', 'blocks', 'summary', 'statsChangeMessage', 'cuePayload', 'translations']);
+          && incoming().diff(existing()).affectedKeys().hasOnly(['generatedContent', 'blocks', 'summary', 'statsChangeMessage', 'cuePayload', 'translations', 'updatedAt', 'revisionId']);
           
         allow delete: if isSignedIn() && isValidId(chapterId) && get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid;
       }

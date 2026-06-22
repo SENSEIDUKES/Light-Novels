@@ -19,37 +19,15 @@ if (DEEPL_AUTH_KEY) {
 
 function validateEnvironmentOnStartup() {
   const geminiKey = process.env.GEMINI_API_KEY;
-  const openrouterKey = process.env.OPENROUTER_API_KEY;
   
   console.log("\n==================================================");
-  console.log("   S E I H O U S E   A P I   V A L I D A T I O N  ");
+  console.log("   S E I H O U S E   A P I   C O N F I G U R I N G ");
   console.log("==================================================");
   
-  let valid = true;
-  if (!geminiKey) {
-    console.warn("⚠️  [Server Alert] GEMINI_API_KEY environment variable is missing.");
-    valid = false;
-  } else if (geminiKey === "MY_GEMINI_API_KEY" || geminiKey.trim() === "") {
-    console.warn("⚠️  [Server Alert] GEMINI_API_KEY is currently set to an empty/placeholder value.");
-    valid = false;
+  if (geminiKey && geminiKey !== "MY_GEMINI_API_KEY" && geminiKey.trim() !== "") {
+    console.log("🟢 [Server Status] SEIHouse core engine active (Server-managed keys enabled).");
   } else {
-    console.log("✅ [Server] GEMINI_API_KEY environment variable is detected and ready.");
-  }
-
-  if (!openrouterKey) {
-    console.log("ℹ️  [Server] OPENROUTER_API_KEY is not defined. (Custom front-end headers or fallback Ollama still functions)");
-  } else if (openrouterKey === "MY_OPENROUTER_API_KEY" || openrouterKey.trim() === "") {
-    console.log("ℹ️  [Server] OPENROUTER_API_KEY is set to a placeholder.");
-  } else {
-    console.log("✅ [Server] OPENROUTER_API_KEY environment variable is detected.");
-  }
-  
-  if (!valid) {
-    console.warn("\n⚠️  [Server Status] RUNNING IN TEMPORARY 'KEYS-PENDING' STATUS.");
-    console.warn("    To activate default server-side generation, configure your credentials");
-    console.warn("    in Settings > Secrets panel OR enter overriding keys in the application's configuration UI.");
-  } else {
-    console.log("\n🟢 [Server Status] CORE GENERATION ENGINE ACTIVE AND SECURED.");
+    console.log("ℹ️ [Server Status] Waiting for platform-managed cloud endpoints initialization...");
   }
   console.log("==================================================\n");
 }

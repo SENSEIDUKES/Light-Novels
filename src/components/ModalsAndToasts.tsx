@@ -43,6 +43,13 @@ export const ModalsAndToasts: React.FC = () => {
     imageGenerator: { gemini: [], openrouter: [], ollama: [] }
   });
   const [loadingModels, setLoadingModels] = useState<Record<string, boolean>>({});
+  const [deleteText, setDeleteText] = useState('');
+
+  useEffect(() => {
+    if (!storyToDelete) {
+      setDeleteText('');
+    }
+  }, [storyToDelete]);
 
   useEffect(() => {
     fetch('/api/router-presets')
@@ -182,22 +189,31 @@ export const ModalsAndToasts: React.FC = () => {
                   </div>
 
                   <div>
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <div className="grid grid-cols-3 gap-1.5 mb-2">
                       {(['gemini', 'openrouter', 'ollama'] as const).map((prov) => (
                         <button
                           key={prov}
                           type="button"
                           onClick={() => handleUpdateProvider('imageGenerator', prov)}
-                          className={`py-1 text-[9px] font-bold uppercase font-sc tracking-wider border rounded transition-all ${
+                          className={`py-1.5 px-0.5 text-[9px] font-bold uppercase font-sc tracking-wider border rounded transition-all leading-tight ${
                             routingConfig.imageGenerator.provider === prov
                               ? 'bg-human/10 border-human text-human'
                               : 'bg-void border-neutral-900 text-neutral-550 hover:border-neutral-800'
                           }`}
                         >
-                          {prov === 'gemini' ? 'Gemini' : prov === 'openrouter' ? 'OpenRouter' : 'Ollama'}
+                          {prov === 'gemini' 
+                            ? 'Gemini' 
+                            : prov === 'openrouter' 
+                              ? 'Preview Fallback' 
+                              : 'Free Placeholder'}
                         </button>
                       ))}
                     </div>
+                    {routingConfig.imageGenerator.provider !== 'gemini' && (
+                      <p className="text-[10px] font-mono text-neutral-500 italic mt-1 px-1 text-center leading-normal">
+                        ★ Standard {routingConfig.imageGenerator.provider === 'openrouter' ? 'OpenRouter' : 'Ollama'} handles text-only; image requests default to our <span className="text-human font-bold font-sans">Free Visual Placeholder</span>.
+                      </p>
+                    )}
                   </div>
 
                   <SearchableModelSelector
@@ -306,18 +322,8 @@ export const ModalsAndToasts: React.FC = () => {
                 <input
                   type="text"
                   placeholder="DELETE"
-                  onChange={(e) => {
-                    const btn = document.getElementById('confirm-burn-scroll');
-                    if (btn) {
-                       if (e.target.value === 'DELETE') {
-                         btn.removeAttribute('disabled');
-                         btn.classList.remove('opacity-50', 'cursor-not-allowed');
-                       } else {
-                         btn.setAttribute('disabled', 'true');
-                         btn.classList.add('opacity-50', 'cursor-not-allowed');
-                       }
-                    }
-                  }}
+                  value={deleteText}
+                  onChange={(e) => setDeleteText(e.target.value)}
                   className="w-full bg-void text-xs text-signal border border-neutral-700 focus:border-red-500 p-2 rounded focus:outline-none font-mono placeholder:text-neutral-700"
                 />
               </div>
@@ -331,9 +337,13 @@ export const ModalsAndToasts: React.FC = () => {
                 </button>
                 <button
                   id="confirm-burn-scroll"
-                  disabled
-                  onClick={confirmDeleteStory}
-                  className="px-4 py-2 bg-red-900 border border-red-700 text-white rounded font-sc font-bold text-xs hover:bg-red-800 transition-colors opacity-50 cursor-not-allowed"
+                  disabled={deleteText !== 'DELETE'}
+                  onClick={() => {
+                    if (deleteText === 'DELETE') {
+                      confirmDeleteStory();
+                    }
+                  }}
+                  className={`px-4 py-2 bg-red-900 border border-red-700 text-white rounded font-sc font-bold text-xs transition-colors ${deleteText === 'DELETE' ? 'hover:bg-red-800' : 'opacity-50 cursor-not-allowed'}`}
                 >
                   Sever Karma
                 </button>
