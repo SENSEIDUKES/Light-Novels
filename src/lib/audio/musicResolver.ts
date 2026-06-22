@@ -15,10 +15,13 @@ export const MOOD_PRIORITIES: Record<string, number> = {
   'boss-fight': 100,
   'tragedy': 95,
   'fighting': 90,
+  'duel': 88,
   'war': 85,
   'triumph': 80,
   'horror': 75,
+  'dread': 72,
   'tension': 70,
+  'excitement': 65,
   'tribulation': 60,
   'adventure': 50,
   'mystery': 40,
@@ -33,29 +36,13 @@ export const MOOD_PRIORITIES: Record<string, number> = {
 
 // 2. Dummy Skeleton Library 
 // You will replace this with your dynamic fetch to Cloudflare when ready
-export const TRACK_LIBRARY: SceneAudioTrack[] = [
-  {
-    id: 'ADVENTURE_1_OLD_CAVE',
-    mood: 'adventure',
-    tags: ['cave', 'old', 'underground'],
-    url: '', // Replace with Cloudflare R2 link
-    isPremium: false,
-  },
-  {
-    id: 'FIGHTING_1_TOURNAMENT',
-    mood: 'fighting',
-    tags: ['tournament', 'arena'],
-    url: '', // Replace with Cloudflare R2 link
-    isPremium: false,
-  },
-  {
-    id: 'BOSS_FIGHT_1_FINAL_BOSS',
-    mood: 'boss-fight',
-    tags: ['boss', 'monster', 'final'],
-    url: '', 
-    isPremium: false,
-  }
-];
+export const TRACK_LIBRARY: SceneAudioTrack[] = Object.keys(MOOD_PRIORITIES).map((mood, idx) => ({
+  id: `${mood.toUpperCase().replace('-', '_')}_1_DEFAULT`,
+  mood,
+  tags: ['default'],
+  url: '', 
+  isPremium: false,
+}));
 
 // 3. Audio Resolution Controller
 export class SceneScoreEngine {

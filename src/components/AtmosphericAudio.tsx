@@ -21,22 +21,50 @@ export function AtmosphericAudio() {
   const activeIntervalsRef = useRef<NodeJS.Timeout[]>([]);
 
   // BGM refs
-  const bgmPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const bgmPlayerA = useRef<HTMLAudioElement | null>(null);
+  const bgmPlayerB = useRef<HTMLAudioElement | null>(null);
+  const activeBgmPlayer = useRef<'A' | 'B'>('A');
   const scoreEngineRef = useRef(new SceneScoreEngine());
   const currentBgmTrackRef = useRef<SceneAudioTrack | null>(null);
+  const bgmIntensityRef = useRef<number>(1.0);
+  const bgmFadeInterval = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Initialize headless HTML5 Audio Element for BGM tracking
-    if (!bgmPlayerRef.current) {
-      const audio = new Audio();
-      audio.loop = true;
-      audio.crossOrigin = "anonymous";
-      bgmPlayerRef.current = audio;
+    if (!bgmPlayerA.current) {
+      const audioA = new Audio();
+      audioA.loop = true;
+      audioA.crossOrigin = "anonymous";
+      bgmPlayerA.current = audioA;
+
+      const audioB = new Audio();
+      audioB.loop = true;
+      audioB.crossOrigin = "anonymous";
+      bgmPlayerB.current = audioB;
     }
     return () => {
-      bgmPlayerRef.current?.pause();
+      bgmPlayerA.current?.pause();
+      bgmPlayerB.current?.pause();
+      if (bgmFadeInterval.current) clearInterval(bgmFadeInterval.current);
     };
   }, []);
+
+  const syncBgmVolumes = () => {
+    const targetVolume = volume * 0.5 * bgmIntensityRef.current;
+    if (bgmPlayerA.current) bgmPlayerA.current.muted = isMuted;
+    if (bgmPlayerB.current) bgmPlayerB.current.muted = isMuted;
+    
+    // Auto-sync active player volume if not currently cross-fading
+    if (!bgmFadeInterval.current) {
+      if (activeBgmPlayer.current === 'A' && bgmPlayerA.current) {
+        bgmPlayerA.current.volume = targetVolume;
+        if (bgmPlayerB.current) bgmPlayerB.current.volume = 0;
+      } else if (activeBgmPlayer.current === 'B' && bgmPlayerB.current) {
+        bgmPlayerB.current.volume = targetVolume;
+        if (bgmPlayerA.current) bgmPlayerA.current.volume = 0;
+      }
+    }
+  };
 
   // Sync state changes with localStorage and dispatch state event to UI
   useEffect(() => {
@@ -44,10 +72,7 @@ export function AtmosphericAudio() {
     localStorage.setItem('seihouse-audio-atmosphere', atmosphere);
     localStorage.setItem('seihouse-audio-volume', String(volume));
 
-    if (bgmPlayerRef.current) {
-      bgmPlayerRef.current.muted = isMuted;
-      bgmPlayerRef.current.volume = volume * 0.5; // lower volume baseline for bgm
-    }
+    syncBgmVolumes();
 
     // Dispatch the state update event to other listening components (like ReaderChamber preferences tab)
     window.dispatchEvent(new CustomEvent('seihouse-audio-state', {
@@ -648,15 +673,44 @@ export function AtmosphericAudio() {
                const newTrack = scoreEngineRef.current.evaluateSceneContext(meta.music, meta.environment || []);
                if (newTrack && currentBgmTrackRef.current?.id !== newTrack.id) {
                  currentBgmTrackRef.current = newTrack;
-                 if (bgmPlayerRef.current && newTrack.url) {
-                   bgmPlayerRef.current.src = newTrack.url;
-                   bgmPlayerRef.current.play().catch(console.warn);
+                 const nextPlayerKey = activeBgmPlayer.current === 'A' ? 'B' : 'A';
+                 const nextPlayer = nextPlayerKey === 'A' ? bgmPlayerA.current : bgmPlayerB.current;
+                 const prevPlayer = activeBgmPlayer.current === 'A' ? bgmPlayerA.current : bgmPlayerB.current;
+                 
+                 if (nextPlayer && prevPlayer && newTrack.url) {
+                   activeBgmPlayer.current = nextPlayerKey;
+                   nextPlayer.src = newTrack.url;
+                   nextPlayer.volume = 0;
+                   nextPlayer.play().catch(console.warn);
+
+                   const targetVolume = volume * 0.5 * bgmIntensityRef.current;
+                   const fadeSteps = 20;
+                   const fadeDuration = 2000;
+                   const stepTime = fadeDuration / fadeSteps;
+                   let step = 0;
+
+                   if (bgmFadeInterval.current) clearInterval(bgmFadeInterval.current);
+                   
+                   bgmFadeInterval.current = setInterval(() => {
+                     step++;
+                     const t = step / fadeSteps;
+                     nextPlayer.volume = Math.min(1, Math.max(0, targetVolume * t));
+                     prevPlayer.volume = Math.min(1, Math.max(0, targetVolume * (1 - t)));
+                     if (step >= fadeSteps) {
+                       if (bgmFadeInterval.current) clearInterval(bgmFadeInterval.current);
+                       bgmFadeInterval.current = null;
+                       prevPlayer.pause();
+                       prevPlayer.volume = 0;
+                       nextPlayer.volume = targetVolume;
+                     }
+                   }, stepTime);
                  }
                }
              }
 
              if (typeof meta.intensity === 'number') {
-               setVolume(Math.max(0.1, Math.min(1.0, meta.intensity)));
+               bgmIntensityRef.current = Math.max(0.1, Math.min(1.0, meta.intensity));
+               syncBgmVolumes();
              }
 
              if (meta.environment?.includes('rain') || meta.sceneType === 'travel') {
@@ -670,10 +724,12 @@ export function AtmosphericAudio() {
              }
           }
         } else if (cue.type === 'narrative.chapter.enter') {
+          scoreEngineRef.current.resetScene();
           const meta = cue.value;
           if (meta) {
             if (typeof meta.intensity === 'number') {
-              setVolume(Math.max(0.2, Math.min(1.0, meta.intensity)));
+              bgmIntensityRef.current = Math.max(0.2, Math.min(1.0, meta.intensity));
+              syncBgmVolumes();
             }
             
             if (meta.element === 'water' || meta.emotion === 'sorrow') {

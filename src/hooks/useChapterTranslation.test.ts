@@ -85,4 +85,52 @@ describe('useChapterTranslation', () => {
       })
     }));
   });
+
+  it('should handle fetch errors correctly', async () => {
+    vi.mocked(storyStorage.getChapterContent).mockResolvedValue(null);
+    vi.mocked(firebaseStorage.getLoreGlossary).mockResolvedValue([]);
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: 'Translation server down' })
+    } as Response);
+
+    const { result } = renderHook(() => useChapterTranslation());
+
+    let translated;
+    await act(async () => {
+      translated = await result.current.translateChapter('s1', 1, 'English Text', 'es');
+    });
+
+    expect(translated).toBeNull();
+    expect(result.current.translationError).toBe('Translation server down');
+    expect(result.current.isTranslating).toBe(false);
+  });
+
+  it('should initialize empty cache and save to it if getChapterContent returns null', async () => {
+    vi.mocked(storyStorage.getChapterContent).mockResolvedValue(null);
+    vi.mocked(firebaseStorage.getLoreGlossary).mockResolvedValue([]);
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ translatedText: 'Texto Mágico' })
+    } as Response);
+
+    const { result } = renderHook(() => useChapterTranslation());
+
+    let translated;
+    await act(async () => {
+      translated = await result.current.translateChapter('s1', 1, 'Magic Text', 'es');
+    });
+
+    expect(translated).toBe('Texto Mágico');
+    expect(storyStorage.saveChapterContent).toHaveBeenCalledWith(expect.objectContaining({
+      storyId: 's1',
+      chapterNumber: 1,
+      translations: expect.objectContaining({
+        'es': expect.objectContaining({ content: 'Texto Mágico' })
+      })
+    }));
+  });
 });

@@ -8,6 +8,8 @@ interface SystemBlockProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export function SystemBlock({ content, system, className, ...props }: SystemBlockProps) {
+  const { onAnimationStart, onDrag, onDragStart, onDragEnd, ...safeProps } = props;
+
   // If structured system object exists, render holographic panel
   if (system) {
     let colorStyles = '';
@@ -22,15 +24,16 @@ export function SystemBlock({ content, system, className, ...props }: SystemBloc
       <motion.div 
         initial={{ opacity: 0, y: 10, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
+        whileHover={{ scale: 1.02 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className={`my-8 rounded-md border font-mono p-4 max-w-xl mx-auto backdrop-blur-sm ${colorStyles} ${className || ''}`}
-        {...props}
+        className={`system-block holographic-panel cursor-pointer my-8 rounded-md border font-mono p-4 max-w-xl mx-auto transition-all duration-300 ${colorStyles} ${className || ''}`}
+        {...safeProps}
       >
         <div className="flex flex-col space-y-4">
           <div className="flex items-center justify-between border-b pb-2 border-inherit/30">
             <span className="font-bold uppercase tracking-widest text-xs md:text-sm">{system.title}</span>
             {system.rarity && (
-              <span className="text-[10px] uppercase px-2 py-0.5 border border-inherit/30 rounded-sm bg-black/40">
+              <span className="rarity-accent text-[10px] uppercase px-2 py-0.5 border rounded-sm bg-black/40 text-inherit">
                 {system.rarity}
               </span>
             )}

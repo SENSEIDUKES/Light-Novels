@@ -139,6 +139,9 @@ describe('useStoryEngine hook functionalities', () => {
       setActiveAgentId: vi.fn(),
       setStreamingChapter: setStreamingChapterSpy,
       saveStories: saveStoriesSpy,
+      setActiveStoryId: vi.fn(),
+      setSelectedChapterNum: vi.fn(),
+      setCurrentScreen: vi.fn(),
     };
 
     (useAppStore as any).mockReturnValue(mockStore);
@@ -213,6 +216,206 @@ describe('useStoryEngine hook functionalities', () => {
 
     expect(setAppErrorSpy).toHaveBeenCalledWith("Severely ruptured meridian bounds");
     expect(setIsGeneratingSpy).toHaveBeenLastCalledWith(false); 
+  });
+
+  it('handleGenerateBlueprint executes and returns successfully', async () => {
+    const { result } = renderHook(() => useStoryEngine());
+    const engine = result.current;
+
+    (global.fetch as any).mockImplementation((url: string) => {
+      if (url === '/api/generate-blueprint') {
+         return Promise.resolve({ ok: true, json: () => Promise.resolve({ title: "New BP Title" }) });
+      }
+      return Promise.reject(new Error('unmocked url'));
+    });
+
+    let res;
+    await act(async () => {
+       res = await engine.handleGenerateBlueprint({} as any);
+    });
+
+    expect(res).toEqual({ title: "New BP Title" });
+    expect(setIsGeneratingSpy).toHaveBeenCalledWith(false);
+  });
+
+  it('handleGenerateBlueprint handles failure', async () => {
+    const { result } = renderHook(() => useStoryEngine());
+    const engine = result.current;
+
+    (global.fetch as any).mockImplementation((url: string) => {
+      if (url === '/api/generate-blueprint') {
+         return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({ error: "API Failure" }) });
+      }
+      return Promise.reject(new Error('unmocked url'));
+    });
+
+    await act(async () => {
+       try { await engine.handleGenerateBlueprint({} as any); } catch {}
+    });
+
+    expect(setAppErrorSpy).toHaveBeenCalledWith("API Failure");
+  });
+
+  it('handleStartStory creates story successfully', async () => {
+    const { result } = renderHook(() => useStoryEngine());
+    const engine = result.current;
+
+    (global.fetch as any).mockImplementation((url: string) => {
+      if (url === '/api/generate-initial-arc') {
+         return Promise.resolve({ ok: true, json: () => Promise.resolve({
+           chapters: [{ number: 1, title: 'C1', premise: 'P1' }],
+           title: 'The Generated Title',
+           powerSystem: 'Generated Power',
+           unresolvedPlotThreads: ['Thread 1']
+         }) });
+      }
+      return Promise.reject(new Error('unmocked url'));
+    });
+
+    await act(async () => {
+       await engine.handleStartStory({ genrePath: 'scifi' } as any, { title: 'B Title' } as any, 1);
+    });
+
+    expect(saveStoriesSpy).toHaveBeenCalled();
+    const saveArgs = saveStoriesSpy.mock.calls[0][0];
+    expect(saveArgs[0].title).toBe('The Generated Title');
+    expect(saveArgs[0].arcs[0].chapters[0].title).toBe('C1');
+  });
+
+  it('handleStartStory handles failure', async () => {
+    const { result } = renderHook(() => useStoryEngine());
+    const engine = result.current;
+
+    (global.fetch as any).mockImplementation((url: string) => {
+      if (url === '/api/generate-initial-arc') {
+         return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({ error: "Arc API error" }) });
+      }
+      return Promise.reject(new Error('unmocked url'));
+    });
+
+    await act(async () => {
+       await engine.handleStartStory({ genrePath: 'scifi' } as any, { title: 'B Title' } as any, 1);
+    });
+
+    expect(setAppErrorSpy).toHaveBeenCalledWith("Arc API error");
+  });
+
+  it('handleUpdateMemoryManual properly updates active story', async () => {
+    const { result } = renderHook(() => useStoryEngine());
+    const engine = result.current;
+
+    await act(async () => {
+       await engine.handleUpdateMemoryManual({ currentPowerStage: 'Advanced' } as any);
+    });
+
+    expect(saveStoriesSpy).toHaveBeenCalled();
+    const updatedStores = saveStoriesSpy.mock.calls[0][0];
+    expect(updatedStores[0].memory.currentPowerStage).toBe('Advanced');
+  });
+
+  it('handleUpdateStoryDirect directly updates the passed story', async () => {
+    const { result } = renderHook(() => useStoryEngine());
+    const engine = result.current;
+
+    await act(async () => {
+       await engine.handleUpdateStoryDirect({ id: 'story-123', title: 'Modified' } as any);
+    });
+
+    expect(saveStoriesSpy).toHaveBeenCalled();
+    expect(saveStoriesSpy.mock.calls[0][0][0].title).toBe('Modified');
+  });
+
+  it('handleToggleRead toggles chapter read status', async () => {
+    const { result } = renderHook(() => useStoryEngine());
+    const engine = result.current;
+
+    mockStore.stories[0].arcs[0].chapters[0].status = 'unread';
+
+    await act(async () => {
+       await engine.handleToggleRead(1);
+    });
+
+    expect(saveStoriesSpy).toHaveBeenCalled();
+    const updated = saveStoriesSpy.mock.calls[0][0];
+    expect(updated[0].arcs[0].chapters[0].status).toBe('read');
+  });
+
+  it('handleGenerateCover calls api', async () => {
+    const { result } = renderHook(() => useStoryEngine());
+    const engine = result.current;
+
+    (global.fetch as any).mockImplementation((url: string) => {
+      if (url === '/api/generate-card-image') {
+         return Promise.resolve({ ok: true, json: () => Promise.resolve({ imageUrls: ['http://img1'] }) });
+      }
+      return Promise.reject(new Error('unmocked url'));
+    });
+
+    let res;
+    await act(async () => {
+       res = await engine.handleGenerateCover();
+    });
+
+    expect(res?.imageUrls).toEqual(['http://img1']);
+  });
+
+  it('handleApplyCover updates story image history', async () => {
+    const { result } = renderHook(() => useStoryEngine());
+    const engine = result.current;
+
+    await act(async () => {
+       await engine.handleApplyCover('http://img1', 'prompt');
+    });
+
+    expect(saveStoriesSpy).toHaveBeenCalled();
+    const updated = saveStoriesSpy.mock.calls[0][0];
+    expect(updated[0].imageUrl).toBe('http://img1');
+    expect(updated[0].imageHistory.length).toBe(1);
+  });
+
+  it('handleCheckConsistency returns warnings', async () => {
+    const { result } = renderHook(() => useStoryEngine());
+    const engine = result.current;
+
+    mockStore.stories[0].arcs[0].chapters[0].generatedContent = 'some text';
+
+    (global.fetch as any).mockImplementation((url: string) => {
+      if (url === '/api/check-consistency') {
+         return Promise.resolve({ ok: true, json: () => Promise.resolve({ warnings: ['Warning 1'] }) });
+      }
+      return Promise.reject(new Error('unmocked url'));
+    });
+
+    let res;
+    await act(async () => {
+       res = await engine.handleCheckConsistency(1);
+    });
+
+    expect(res).toEqual(['Warning 1']);
+  });
+
+  it('handleSealChapter updates chapter correctly', async () => {
+    const { result } = renderHook(() => useStoryEngine());
+    const engine = result.current;
+
+    Object.defineProperty(window, 'crypto', {
+      value: {
+        subtle: {
+          digest: vi.fn().mockResolvedValue(new ArrayBuffer(8))
+        },
+        randomUUID: vi.fn().mockReturnValue('uuid-test')
+      }
+    });
+
+    await act(async () => {
+       await engine.handleSealChapter(1);
+    });
+
+    expect(saveStoriesSpy).toHaveBeenCalled();
+    const updated = saveStoriesSpy.mock.calls[0][0];
+    const targetChapter = updated[0].arcs[0].chapters[0];
+    expect(targetChapter.isSealed).toBe(true);
+    expect(targetChapter.versionId).toBe('uuid-test');
   });
 });
 

@@ -54,6 +54,7 @@ import { VoiceEditionPanel } from "./VoiceEditionPanel";
 import { ReaderPreferencesPanel } from "./ReaderPreferencesPanel";
 import { CosmicBookmarksPanel } from "./CosmicBookmarksPanel";
 import { CodexHovercard } from "./CodexHovercard";
+import { useImageManifest } from "../hooks/useImageManifest";
 
 const extractSFXCues = (text: string) => {
   const sfxList: string[] = [];
@@ -131,91 +132,13 @@ export default function ReaderChamber({
   const saveStories = useAppStore(state => state.saveStories);
   const routingConfig = useAppStore(state => state.routingConfig);
 
+  const { manifestImage, generatingIds } = useImageManifest();
+
   const handleManifestReveal = async (entry: any, type: string) => {
     if (generatingRevealId) return;
     setGeneratingRevealId(entry.id);
     try {
-      const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-      const gemini = await secureStorage.getItem('@seihouse/api-key-gemini');
-      const openrouter = await secureStorage.getItem('@seihouse/api-key-openrouter');
-      const ollama = await secureStorage.getItem('@seihouse/api-key-ollama-host');
-      if (gemini) apiHeaders['x-gemini-key'] = gemini;
-      if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
-      if (ollama) apiHeaders['x-ollama-host'] = ollama;
-
-      const res = await fetch('/api/generate-card-image', {
-        method: 'POST',
-        headers: apiHeaders,
-        body: JSON.stringify({
-          prompt: `${entry.name}. ${entry.description}`,
-          type,
-          routingConfig
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Aetherial alignment gate failed to synchronize imagery.");
-      }
-
-      let newImageUrls = data.imageUrls;
-      if (!newImageUrls && data.imageUrl) newImageUrls = [data.imageUrl];
-      if (!newImageUrls && data.fallbackUrl) newImageUrls = [data.fallbackUrl];
-
-      if (!newImageUrls || newImageUrls.length === 0) {
-        throw new Error("No imagery frames returned.");
-      }
-      const selectedUrl = newImageUrls[0];
-
-      if (activeStory && type !== 'faction') {
-        const id = entry.id;
-        const currentChapterNumber = activeStory.currentChapterNumber || 1;
-        const newHistoryItem = {
-          id: Math.random().toString(36).substring(2, 10),
-          entityId: id,
-          entityType: type as any,
-          imageUrl: selectedUrl,
-          promptUsed: `${entry.name}. ${entry.description}`,
-          createdAt: new Date().toISOString(),
-          isCurrent: true,
-          chapterNumber: currentChapterNumber
-        };
-
-        const currentStoryHistory = activeStory.imageHistory || [];
-        const updatedStoryHistory = currentStoryHistory
-          .map((img: any) => img.entityId === id ? { ...img, isCurrent: false } : img)
-          .concat(newHistoryItem);
-
-        const memory = activeStory.memory;
-        let updatedMemory = { ...memory };
-        if (type === 'character') {
-          updatedMemory.characters = memory.characters.map((c: any) => 
-            c.id === id ? { ...c, imageUrl: selectedUrl, imageHistory: (c.imageHistory || []).concat(newHistoryItem) } : c
-          );
-        } else if (type === 'location') {
-          updatedMemory.locations = (memory.locations || []).map((l: any) => 
-            l.id === id ? { ...l, imageUrl: selectedUrl, imageHistory: (l.imageHistory || []).concat(newHistoryItem) } : l
-          );
-        } else if (type === 'artifact') {
-          updatedMemory.artifacts = (memory.artifacts || []).map((a: any) => 
-            a.id === id ? { ...a, imageUrl: selectedUrl, imageHistory: (a.imageHistory || []).concat(newHistoryItem) } : a
-          );
-        }
-
-        const updatedStories = stories.map(s => {
-          if (s.id === activeStoryId) {
-            return {
-              ...s,
-              memory: updatedMemory,
-              imageHistory: updatedStoryHistory,
-              updatedAt: new Date().toISOString()
-            };
-          }
-          return s;
-        });
-
-        await saveStories(updatedStories);
-      }
+      await manifestImage(entry, type);
     } catch (err) {
       console.error("Failed to manifest reveal card auras:", err);
     } finally {
