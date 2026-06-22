@@ -63,8 +63,6 @@ app.post("/api/embed", async (req, res) => {
     const { text } = req.body;
     if (!text) return res.status(400).json({ error: "Missing text payload" });
     
-    // We enforce Gemini for embeddings as it provides state-of-the-art vector embeddings natively
-    // We use getCustomKeys to allow overriding if they placed a valid key.
     const customKeys = getCustomKeys(req);
     const apiKey = customKeys?.geminiApiKey || process.env.GEMINI_API_KEY;
     
@@ -72,23 +70,20 @@ app.post("/api/embed", async (req, res) => {
       throw new Error("GEMINI_API_KEY environment variable is not configured for Vector generation.");
     }
     
-    // Simple fetch directly to gemini API for text-embedding-004
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "models/text-embedding-004",
-        content: { parts: [{ text }] }
-      })
+    const { GoogleGenAI } = await import("@google/genai");
+    const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { "User-Agent": "aistudio-build" } } });
+    
+    const response = await ai.models.embedContent({
+      model: "gemini-embedding-2",
+      contents: text
     });
     
-    if (!response.ok) {
-      const errBase = await response.text();
-      throw new Error(`Embedding generation failed: ${response.status} - ${errBase}`);
+    const embedValues = response.embeddings?.[0]?.values || (response as any).embedding?.values;
+    if (!embedValues) {
+      throw new Error("No embedding values returned from Gemini model.");
     }
     
-    const data = await response.json();
-    return res.json({ embedding: data.embedding.values });
+    return res.json({ embedding: embedValues });
   } catch (error: any) {
     console.error("Error generating vector embedding:", error);
     return res.status(500).json({ error: error.message || "Internal server error" });

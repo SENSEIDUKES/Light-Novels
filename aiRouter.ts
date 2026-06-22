@@ -114,10 +114,16 @@ export async function* routeTextGenerationStream(
   routingConfig?: RouteConfig,
   customKeys?: { geminiApiKey?: string; openrouterApiKey?: string; ollamaHost?: string; }
 ): AsyncGenerator<string, void, unknown> {
-  const activeConfig: RouteConfig = routingConfig || {
+  let activeConfig: RouteConfig = (routingConfig as any)?.storyMaker || routingConfig || {
     provider: "gemini",
     model: "gemini-2.5-flash-lite"
   };
+  if (!activeConfig.provider) {
+    activeConfig = {
+      provider: "gemini",
+      model: "gemini-2.5-flash-lite"
+    };
+  }
 
   const { provider, model, temperature, maxOutputTokens } = activeConfig;
   if (process.env.NODE_ENV !== "production") {
@@ -301,10 +307,16 @@ export async function routeTextGeneration(
   customKeys?: { geminiApiKey?: string; openrouterApiKey?: string; ollamaHost?: string; },
   responseSchema?: any
 ): Promise<any> {
-  const activeConfig: RouteConfig = routingConfig || {
+  let activeConfig: RouteConfig = (routingConfig as any)?.storyMaker || routingConfig || {
     provider: "gemini",
     model: "gemini-2.5-flash-lite"
   };
+  if (!activeConfig.provider) {
+    activeConfig = {
+      provider: "gemini",
+      model: "gemini-2.5-flash-lite"
+    };
+  }
 
   const { provider, model, temperature, maxOutputTokens } = activeConfig;
   if (process.env.NODE_ENV !== "production") {
@@ -464,10 +476,16 @@ export async function routeImageGeneration(
   routingConfig?: RouteConfig,
   customKeys?: { geminiApiKey?: string; openrouterApiKey?: string; ollamaHost?: string; }
 ): Promise<{ imageUrls: string[]; note?: string; isFallback?: boolean }> {
-  const activeConfig: RouteConfig = routingConfig || {
+  let activeConfig: RouteConfig = (routingConfig as any)?.imageGenerator || routingConfig || {
     provider: "gemini",
     model: "google/gemini-3.1-flash-image"
   };
+  if (!activeConfig.provider) {
+    activeConfig = {
+      provider: "gemini",
+      model: "google/gemini-3.1-flash-image"
+    };
+  }
 
   const { provider, model } = activeConfig;
   if (process.env.NODE_ENV !== "production") {

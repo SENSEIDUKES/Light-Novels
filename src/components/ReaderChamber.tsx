@@ -34,6 +34,7 @@ import {
   StoryWorld,
   ReaderPreferences,
   Bookmark,
+  VoiceClip,
 } from "../types";
 import { motion, AnimatePresence } from "motion/react";
 import { VirtualizedList } from "./VirtualizedList";
@@ -42,9 +43,11 @@ import { AudioWidget } from "./AudioWidget";
 import {
   dispatchNarrativeCue,
   NarrativeCueEventType,
+  dispatchNarration
 } from "../lib/narrativeCues";
 import { useChapterTranslation } from "../hooks/useChapterTranslation";
 import { useAppStore } from "../store/useAppStore";
+import { useAutoScroll } from "../hooks/useAutoScroll";
 import { secureStorage } from "../lib/encryption";
 import { SystemBlock } from "./SystemBlock";
 
@@ -149,6 +152,11 @@ export default function ReaderChamber({
   const [isCheckingConsistency, setIsCheckingConsistency] = useState(false);
   const [consistencyWarnings, setConsistencyWarnings] = useState<string[] | null>(null);
   const readerRef = useRef<HTMLDivElement>(null);
+  const readerMode = useAppStore((state) => state.readerMode);
+  const immersion = useAppStore((state) => state.immersion);
+  const setReaderMode = useAppStore((state) => state.setReaderMode);
+  const setImmersion = useAppStore((state) => state.setImmersion);
+
 
   // --- Translation States ---
   const maxChapterNum = chapters.length > 0 ? Math.max(...chapters.map(c => c.number)) : 0;
@@ -329,7 +337,27 @@ export default function ReaderChamber({
   const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>("");
   const [selectedDialogueVoiceURI, setSelectedDialogueVoiceURI] =
     useState<string>("");
-  const [showTtsControls, setShowTtsControls] = useState<boolean>(false);
+  const [showImmersionPopover, setShowImmersionPopover] = useState<boolean>(false);
+  const [showVoiceDetail, setShowVoiceDetail] = useState<boolean>(false);
+
+  const [isAutoScrollPausedByUser, setIsAutoScrollPausedByUser] = useState(false);
+
+  useEffect(() => {
+    setIsAutoScrollPausedByUser(false);
+  }, [readerMode, selectedChapterNum]);
+
+  const { play: playAutoScroll, pause: pauseAutoScroll, isScrolling: isAutoScrolling } = useAutoScroll({
+    containerRef: readerRef,
+    mode: readerMode === "sen" && immersion.autoScroll 
+      ? "paced" 
+      : (readerMode === "teleprompter" && immersion.autoScroll && !isAutoScrollPausedByUser ? "constant" : "off"),
+    wpm: Math.round(speechRate * 150),
+    onManualPause: () => {
+      if (readerMode === "teleprompter") {
+        setIsAutoScrollPausedByUser(true);
+      }
+    }
+  });
 
   // --- Atmospheric Audio Sync States ---
   const [isMuted, setIsMuted] = useState(() => {
@@ -445,6 +473,10 @@ export default function ReaderChamber({
   const availableVoicesRef = useRef(availableVoices);
   const currentChunkIndexRef = useRef(currentChunkIndex);
   const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const lastFiredParagraphIndexRef = useRef<number>(-1);
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+  const activeClipsRef = useRef<any[]>([]);
+  const activeClipIndexRef = useRef<number>(0);
 
   useEffect(() => {
     speechRateRef.current = speechRate;
@@ -468,20 +500,130 @@ export default function ReaderChamber({
     currentChunkIndexRef.current = currentChunkIndex;
   }, [currentChunkIndex]);
 
-  // Stop speech if chapter changes or on unmount
-  useEffect(() => {
+  const stopAllPlayback = () => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       if (currentUtteranceRef.current) {
         currentUtteranceRef.current.onend = null;
         currentUtteranceRef.current.onerror = null;
       }
       window.speechSynthesis.cancel();
-      chunksRef.current = [];
-      setActiveChunks([]);
-      setIsPlayingText(false);
-      setIsPausedText(false);
-      setCurrentChunkIndex(0);
     }
+    if (activeAudioRef.current) {
+      activeAudioRef.current.onended = null;
+      activeAudioRef.current.onerror = null;
+      activeAudioRef.current.pause();
+      activeAudioRef.current = null;
+    }
+    setIsPlayingText(false);
+    setIsPausedText(false);
+    setCurrentChunkIndex(0);
+    lastFiredParagraphIndexRef.current = -1;
+    chunksRef.current = [];
+    setActiveChunks([]);
+    dispatchNarration({ status: 'end' });
+  };
+
+  const startClipSequence = (clips: VoiceClip[], startIndex = 0) => {
+    if (startIndex >= clips.length) {
+      stopAllPlayback();
+      setReaderMode('teleprompter');
+      return;
+    }
+
+    setIsPlayingText(true);
+    setIsPausedText(false);
+    activeClipIndexRef.current = startIndex;
+
+    const clip = clips[startIndex];
+    const audio = new Audio(clip.audioUrl);
+    activeAudioRef.current = audio;
+
+    let blockIndex = selectedChapter.blocks?.findIndex(b => b.id === clip.blockId) ?? -1;
+    if (blockIndex === -1 && clip.blockId?.startsWith('para-')) {
+      blockIndex = parseInt(clip.blockId.replace('para-', ''), 10);
+    }
+    
+    const blockText = blockIndex !== -1 ? (selectedChapter.blocks?.[blockIndex]?.text || "") : "";
+    const wordCount = blockText.split(/\s+/).length || 10;
+    const durationMs = (wordCount / (speechRateRef.current * 2.7)) * 1000 || 4000;
+
+    if (startIndex === 0) {
+      dispatchNarration({ status: 'start' });
+    }
+
+    if (blockIndex !== -1) {
+      dispatchNarration({
+        status: 'block',
+        blockIndex,
+        durationMs
+      });
+
+      const blockObj = selectedChapter.blocks?.[blockIndex];
+      if (blockObj && immersion.master) {
+        const { sfxList } = extractSFXCues(blockObj.text);
+        if (immersion.audioCues) {
+          sfxList.forEach((sfx, i) => {
+            dispatchNarrativeCue({
+              id: `sfx-clip-${selectedChapter.number}-${blockIndex}-${i}`,
+              type: "narrative.fx.play",
+              once: true,
+              value: sfx,
+            });
+          });
+        }
+      }
+    }
+
+    audio.playbackRate = speechRate;
+    audio.volume = speechVolume;
+
+    audio.onended = () => {
+      startClipSequence(clips, startIndex + 1);
+    };
+
+    audio.onerror = (e) => {
+      console.warn("SEN clip audio failed, skipping:", e);
+      startClipSequence(clips, startIndex + 1);
+    };
+
+    audio.play().catch(err => {
+      console.warn("Audio play blocked/failed, skipping:", err);
+      startClipSequence(clips, startIndex + 1);
+    });
+  };
+
+  const handleTogglePlayback = () => {
+    if (isPlayingText) {
+      stopAllPlayback();
+      setReaderMode('teleprompter');
+      return;
+    }
+
+    const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+    const isBrowserSupported = typeof window !== "undefined" && "speechSynthesis" in window;
+    const hasGeneratedAudio = !!(selectedChapter?.audioManifest?.clips && selectedChapter.audioManifest.clips.length > 0);
+    const generationAvailable = typeof navigator !== "undefined" && navigator.onLine;
+
+    const canRunSEN = !isOffline && isBrowserSupported && (hasGeneratedAudio || generationAvailable);
+
+    if (canRunSEN) {
+      setReaderMode('sen');
+      
+      if (hasGeneratedAudio && selectedChapter.audioManifest?.clips) {
+        activeClipsRef.current = selectedChapter.audioManifest.clips;
+        startClipSequence(selectedChapter.audioManifest.clips, 0);
+      } else {
+        handleSpeak();
+      }
+    } else {
+      setReaderMode('basic-tts');
+      handleSpeak();
+    }
+  };
+
+  // Stop speech if chapter changes or on unmount
+  useEffect(() => {
+    stopAllPlayback();
   }, [selectedChapterNum]);
 
   const speakChunk = (index: number) => {
@@ -489,6 +631,7 @@ export default function ReaderChamber({
     const synth = window.speechSynthesis;
 
     if (index >= chunksRef.current.length) {
+      dispatchNarration({ status: 'end' });
       setIsPlayingText(false);
       setIsPausedText(false);
       setCurrentChunkIndex(0);
@@ -515,6 +658,48 @@ export default function ReaderChamber({
       }, 50);
       return;
     }
+
+    const wordCount = chunkData.text.split(/\s+/).length || 0;
+    const estimatedDurationMs = (wordCount / (speechRateRef.current * 2.7)) * 1000;
+    
+    // In SEN mode, drive imagePopups and audioCues off the block playhead
+    const currentPara = chunkData.paragraphIndex ?? -1;
+    if (
+      useAppStore.getState().readerMode === "sen" &&
+      currentPara !== -1 &&
+      currentPara > lastFiredParagraphIndexRef.current
+    ) {
+      lastFiredParagraphIndexRef.current = currentPara;
+      const block = selectedChapter.blocks?.[currentPara];
+      if (block) {
+        const { sfxList } = extractSFXCues(block.text);
+        const { immersion } = useAppStore.getState();
+        if (immersion.audioCues) {
+          sfxList.forEach((sfx, i) => {
+            dispatchNarrativeCue({
+              id: `sfx-block-${selectedChapter.number}-${currentPara}-${i}`,
+              type: "narrative.fx.play",
+              once: true,
+              value: sfx,
+            });
+          });
+        }
+        if (block.metadata && immersion.imagePopups) {
+          dispatchNarrativeCue({
+             id: block.id || `para-${selectedChapter.number}-${currentPara}`,
+             type: "narrative.metadata.signature",
+             once: true,
+             metadata: block.metadata,
+          });
+        }
+      }
+    }
+
+    dispatchNarration({ 
+      status: 'block', 
+      blockIndex: chunkData.paragraphIndex, 
+      durationMs: estimatedDurationMs 
+    });
 
     const utterance = new SpeechSynthesisUtterance(chunkData.text);
     currentUtteranceRef.current = utterance;
@@ -562,6 +747,7 @@ export default function ReaderChamber({
     if (isPlayingText) {
       if (isPausedText) {
         setIsPausedText(false);
+        dispatchNarration({ status: 'resume' });
         speakChunk(currentChunkIndex);
       } else {
         if (currentUtteranceRef.current) {
@@ -570,6 +756,7 @@ export default function ReaderChamber({
         }
         synth.cancel();
         setIsPausedText(true);
+        dispatchNarration({ status: 'pause' });
       }
       return;
     }
@@ -637,25 +824,16 @@ export default function ReaderChamber({
       chunksRef.current = newChunks;
       setActiveChunks(newChunks);
       setCurrentChunkIndex(0);
+      lastFiredParagraphIndexRef.current = -1;
       setIsPlayingText(true);
       setIsPausedText(false);
+      dispatchNarration({ status: 'start' });
       speakChunk(0);
     }
   };
 
   const handleStopSpeaking = () => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      if (currentUtteranceRef.current) {
-        currentUtteranceRef.current.onend = null;
-        currentUtteranceRef.current.onerror = null;
-      }
-      window.speechSynthesis.cancel();
-      chunksRef.current = [];
-      setActiveChunks([]);
-      setIsPlayingText(false);
-      setIsPausedText(false);
-      setCurrentChunkIndex(0);
-    }
+    stopAllPlayback();
   };
 
   // Dynamic Settings sync (Debounced)
@@ -817,6 +995,7 @@ export default function ReaderChamber({
 
   // IntersectionObserver for narrative cues
   useEffect(() => {
+    if (readerMode === "sen") return;
     const targets = document.querySelectorAll(".narrative-trigger");
     const observer = new window.IntersectionObserver(
       (entries) => {
@@ -847,6 +1026,24 @@ export default function ReaderChamber({
                 }
               }
 
+              if (readerMode === "teleprompter") {
+                // In teleprompter mode: No audio, but image reveals still fire.
+                if (type.startsWith("narrative.fx")) {
+                  return; // No audio cues/SFX
+                }
+                if (type.startsWith("narrative.metadata") && !immersion.imagePopups) {
+                  return; // Gate image reveals on immersion.imagePopups
+                }
+              } else {
+                // Other non-SEN modes
+                if (type.startsWith("narrative.fx") && !immersion.audioCues) {
+                  return;
+                }
+                if (type.startsWith("narrative.metadata") && !immersion.imagePopups) {
+                  return;
+                }
+              }
+
               dispatchNarrativeCue({
                 id: cueId,
                 type,
@@ -868,6 +1065,9 @@ export default function ReaderChamber({
     activeStory.currentChapterNumber,
     selectedChapter.generatedContent,
     selectedChapter.blocks,
+    readerMode,
+    immersion.imagePopups,
+    immersion.audioCues,
   ]);
 
   // Scroll to paragraph effect
@@ -1073,6 +1273,15 @@ export default function ReaderChamber({
     if (t === "sepia") return "bg-[#2a2420]/80 border-[#8b5a2b]/30";
     if (t === "emerald") return "bg-[#0a1c12]/80 border-[#0f5132]/30";
     return "bg-[#111111]/80 border-neutral-800/60";
+  };
+
+  const isUserPlaying = isPlayingText || isPausedText;
+  const activeChunk = activeChunks[currentChunkIndex];
+  const getFocusClass = (paraIdx: number) => {
+    if (!isUserPlaying || readerMode !== "sen") return "";
+    return activeChunk && activeChunk.paragraphIndex === paraIdx
+      ? "reading-focus-active"
+      : "reading-focus-dimmed";
   };
 
   return (
@@ -1291,7 +1500,7 @@ export default function ReaderChamber({
                                     />
                                   ))}
                                   <p
-                                    className={`text-justify indent-8 ${currentPrefs.paragraphSpacing === "normal" ? "mb-0" : currentPrefs.paragraphSpacing === "wide" ? "mb-2" : "mb-4"}`}
+                                    className={`text-justify indent-8 ${currentPrefs.paragraphSpacing === "normal" ? "mb-0" : currentPrefs.paragraphSpacing === "wide" ? "mb-2" : "mb-4"} ${getFocusClass(index)}`}
                                   >
                                     {renderHighlightedText(cleanText, index)}
                                   </p>
@@ -1322,16 +1531,22 @@ export default function ReaderChamber({
 
                           const revealImageUrl = revealTerm && 'imageUrl' in revealTerm.entry ? (revealTerm.entry as any).imageUrl : undefined;
 
-                          const revealCard = revealTerm ? (
+                          const isSenMode = readerMode === "sen";
+                          const currentParaIdx = activeChunks[currentChunkIndex]?.paragraphIndex ?? -1;
+                          const isPlaying = isPlayingText || isPausedText;
+                          const isRevealed = !isSenMode || !immersion.imagePopups || (!isPlaying) || index <= currentParaIdx;
+
+                          const revealCard = (revealTerm && (!isSenMode || immersion.imagePopups)) ? (
                             <motion.div
                               initial={{ opacity: 0, scale: 0.95 }}
-                              whileInView={{ opacity: 1, scale: 1 }}
+                              whileInView={!isSenMode ? { opacity: 1, scale: 1 } : undefined}
+                              animate={isSenMode ? (isRevealed ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.95 }) : undefined}
                               viewport={{ once: true, margin: "-50px" }}
                               transition={{ duration: 0.5, ease: "easeOut" }}
-                              className="w-full max-w-sm mx-auto my-6 p-4 rounded-xl border border-portal/30 bg-void/80 backdrop-blur-md shadow-[0_0_25px_rgba(4,172,255,0.15)] flex flex-col items-center text-center group/reveal"
+                              className="w-full max-w-sm mx-auto my-6 p-4 min-h-[300px] rounded-xl border border-portal/30 bg-void/80 backdrop-blur-md shadow-[0_0_25px_rgba(4,172,255,0.15)] flex flex-col items-center justify-center text-center group/reveal"
                             >
                               {revealImageUrl ? (
-                                <div className="relative w-full aspect-square max-w-[180px] rounded-lg overflow-hidden border border-neutral-900 bg-neutral-950 mb-3 shadow-inner">
+                                <div className="relative w-[180px] h-[180px] shrink-0 rounded-lg overflow-hidden border border-neutral-900 bg-neutral-950 mb-3 shadow-inner">
                                   <img
                                     src={revealImageUrl}
                                     alt={revealTerm.entry.name}
@@ -1346,7 +1561,7 @@ export default function ReaderChamber({
                                   <button
                                     onClick={() => handleManifestReveal(revealTerm.entry, revealTerm.type)}
                                     disabled={generatingRevealId === revealTerm.entry.id}
-                                    className="relative w-full aspect-square max-w-[180px] mb-3 overflow-hidden rounded-lg bg-[#010b14] border border-portal/40 hover:border-portal flex flex-col items-center justify-center cursor-pointer transition-all duration-500 group/revealmanifest shadow-[0_0_15px_rgba(4,172,255,0.15)] hover:shadow-[0_0_25px_rgba(4,172,255,0.35)]"
+                                    className="relative w-[180px] h-[180px] shrink-0 mb-3 overflow-hidden rounded-lg bg-[#010b14] border border-portal/40 hover:border-portal flex flex-col items-center justify-center cursor-pointer transition-all duration-500 group/revealmanifest shadow-[0_0_15px_rgba(4,172,255,0.15)] hover:shadow-[0_0_25px_rgba(4,172,255,0.35)]"
                                   >
                                     <div className="absolute inset-x-0 bottom-0 top-0 h-full w-full bg-[radial-gradient(circle_at_center,rgba(4,172,255,0.18)_0%,transparent_70%)] animate-pulse pointer-events-none" />
                                     <div className="absolute w-20 h-20 rounded-full border border-dashed border-portal/25 animate-[spin_12s_linear_infinite] group-hover/revealmanifest:border-portal/50" />
@@ -1409,6 +1624,7 @@ export default function ReaderChamber({
                                       : undefined
                                   }
                                   data-cue-once="true"
+                                  data-block-index={index}
                                   className={`narrative-trigger ${block.metadata ? "metadata-block" : ""}`}
                                 />
                               </React.Fragment>
@@ -1428,6 +1644,7 @@ export default function ReaderChamber({
                               {revealCard}
                               <div
                                 id={`para-${index}`}
+                                data-block-index={index}
                               data-cue-type={
                                 block.metadata
                                   ? "narrative.metadata.signature"
@@ -1456,7 +1673,7 @@ export default function ReaderChamber({
                                   data-cue-once="true"
                                 />
                               ))}
-                              <p className="text-justify indent-8 relative">
+                              <p className={`text-justify indent-8 relative ${getFocusClass(index)}`}>
                                 {renderHighlightedText(cleanText, index)}
                                 <button
                                   onClick={() => {
@@ -1936,7 +2153,7 @@ export default function ReaderChamber({
 
                 {/* Central audio touch Core key */}
                 <button
-                  onClick={handleSpeak}
+                  onClick={handleTogglePlayback}
                   disabled={!(selectedChapter.generatedContent || (selectedChapter.blocks && selectedChapter.blocks.length > 0))}
                   className={`absolute h-8 w-8 rounded-full flex items-center justify-center transition-all z-10 ${
                     !(selectedChapter.generatedContent || (selectedChapter.blocks && selectedChapter.blocks.length > 0))
@@ -1947,7 +2164,7 @@ export default function ReaderChamber({
                   }`}
                   title={
                     isPlayingText && !isPausedText
-                      ? "Pause Recitation"
+                      ? "Stop Audio Playback"
                       : "Begin Rhythmic Recitation"
                   }
                 >
@@ -1975,102 +2192,211 @@ export default function ReaderChamber({
                 {speechRate.toFixed(1)}x
               </button>
               <button
-                onClick={() => setShowTtsControls(!showTtsControls)}
-                className={`p-1.5 border rounded transition-colors ${showTtsControls ? "bg-neutral-800 border-neutral-700 text-signal" : "bg-void border-neutral-800 hover:text-signal hover:bg-neutral-900 text-neutral-400"}`}
+                onClick={() => setShowImmersionPopover(!showImmersionPopover)}
+                className={`p-1.5 border rounded transition-colors ${showImmersionPopover ? "bg-neutral-800 border-neutral-700 text-signal" : "bg-void border-neutral-800 hover:text-signal hover:bg-neutral-900 text-neutral-400"}`}
               >
                 <Settings size={14} />
               </button>
 
-              {/* Mobile Settings Tooltip */}
-              {showTtsControls && (
-                <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-[280px] bg-black border border-neutral-800 rounded-lg shadow-xl p-3 z-50">
-                  <h4 className="text-[10px] uppercase font-sc text-neutral-500 mb-2 tracking-wider text-center">
-                    Voice Synthesis Engine
-                  </h4>
+              {/* Floating Basic Narration Fallback Indicator */}
+              {readerMode === 'basic-tts' && isPlayingText && (
+                <div className="absolute bottom-full mb-14 left-1/2 -translate-x-1/2 z-40 pointer-events-none animate-bounce">
+                  <span className="text-[8px] uppercase font-mono tracking-widest text-[#FAFAFA] bg-neutral-950/95 border border-neutral-800 px-3 py-1 rounded-full shadow-[0_2px_10px_rgba(0,0,0,0.7)]">
+                    Basic Narration
+                  </span>
+                </div>
+              )}
 
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-[10px] text-neutral-400 mb-1">
-                        Narrator Voice Signature
-                      </label>
-                      <select
-                        value={selectedVoiceURI}
-                        onChange={(e) => setSelectedVoiceURI(e.target.value)}
-                        className="w-full bg-void border border-neutral-800 rounded text-[11px] p-1.5 focus:border-portal focus:outline-none mb-2"
+              {/* Mobile Immersion Tooltip */}
+              {showImmersionPopover && (
+                <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-[280px] bg-black/95 backdrop-blur-md border border-neutral-850 rounded-xl shadow-[0_4px_30px_rgba(0,0,0,0.8)] p-4 z-50 text-sans text-left">
+                  {/* Header */}
+                  <div className="flex items-center justify-between border-b border-neutral-900 pb-2 mb-3">
+                    <h4 className="text-[10px] uppercase font-sc text-portal tracking-wider font-bold">
+                      Immersion Control Matrix
+                    </h4>
+                    <span className="text-[8px] font-mono text-neutral-500">
+                      v2.0
+                    </span>
+                  </div>
+
+                  <div className="space-y-3.5">
+                    {/* Master Switch on Top */}
+                    <div className="flex items-center justify-between bg-neutral-950/85 p-2 rounded-lg border border-neutral-900">
+                      <div className="flex flex-col">
+                        <span className="text-[11px] font-medium text-[#FAFAFA] font-sans">
+                          Immersion Engine
+                        </span>
+                        <span className="text-[9px] text-neutral-500 font-sans">
+                          Master consciousness coupling
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setImmersion({ master: !immersion.master })}
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          immersion.master ? "bg-portal/80 shadow-[0_0_8px_rgba(4,172,255,0.4)]" : "bg-neutral-850"
+                        }`}
                       >
-                        {availableVoices.map((v) => (
-                          <option key={v.voiceURI} value={v.voiceURI}>
-                            {v.name} ({v.lang})
-                          </option>
-                        ))}
-                      </select>
+                        <span
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-void shadow transition duration-200 ease-in-out ${
+                            immersion.master ? "translate-x-4 bg-signal" : "translate-x-0 bg-neutral-500"
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Sub-toggles */}
+                    <div className={`space-y-3 pl-1 transition-opacity duration-200 ${immersion.master ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
                       
-                      <label className="block text-[10px] text-neutral-400 mb-1">
-                        Dialogue Voice Signature
-                      </label>
-                      <select
-                        value={selectedDialogueVoiceURI}
-                        onChange={(e) => setSelectedDialogueVoiceURI(e.target.value)}
-                        className="w-full bg-void border border-neutral-800 rounded text-[11px] p-1.5 focus:border-portal focus:outline-none"
-                      >
-                        {availableVoices.map((v) => (
-                          <option key={v.voiceURI} value={v.voiceURI}>
-                            {v.name} ({v.lang})
-                          </option>
-                        ))}
-                      </select>
+                      {/* Auto-scroll */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-medium text-neutral-300">
+                            Autonomous Scroll
+                          </span>
+                          <span className="text-[8px] text-neutral-500">
+                            Pages follow reading playhead
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => immersion.master && setImmersion({ autoScroll: !immersion.autoScroll })}
+                          disabled={!immersion.master}
+                          className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
+                            immersion.autoScroll ? "bg-portal/60" : "bg-neutral-850"
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-void shadow transition duration-150 ease-in-out ${
+                              immersion.autoScroll ? "translate-x-4 bg-signal" : "translate-x-0 bg-neutral-500"
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      {/* Audio cues */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-medium text-neutral-300">
+                            Aetheric Sound Effects
+                          </span>
+                          <span className="text-[8px] text-neutral-500">
+                            Adaptive localized SFX cues
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => immersion.master && setImmersion({ audioCues: !immersion.audioCues })}
+                          disabled={!immersion.master}
+                          className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
+                            immersion.audioCues ? "bg-portal/60" : "bg-neutral-850"
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-void shadow transition duration-150 ease-in-out ${
+                              immersion.audioCues ? "translate-x-4 bg-signal" : "translate-x-0 bg-neutral-500"
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      {/* Image popups */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-medium text-neutral-300">
+                            Holographic Visions
+                          </span>
+                          <span className="text-[8px] text-neutral-500">
+                            Automatic scenic image pop-ups
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => immersion.master && setImmersion({ imagePopups: !immersion.imagePopups })}
+                          disabled={!immersion.master}
+                          className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
+                            immersion.imagePopups ? "bg-portal/60" : "bg-neutral-850"
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-void shadow transition duration-150 ease-in-out ${
+                              immersion.imagePopups ? "translate-x-4 bg-signal" : "translate-x-0 bg-neutral-500"
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      {/* Scene music */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-medium text-neutral-300">
+                            Scene Harmonics
+                          </span>
+                          <span className="text-[8px] text-neutral-500">
+                            Atmospheric musical tapestries
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => immersion.master && setImmersion({ sceneMusic: !immersion.sceneMusic })}
+                          disabled={!immersion.master}
+                          className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
+                            immersion.sceneMusic ? "bg-portal/60" : "bg-neutral-850"
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-void shadow transition duration-150 ease-in-out ${
+                              immersion.sceneMusic ? "translate-x-4 bg-signal" : "translate-x-0 bg-neutral-500"
+                            }`}
+                          />
+                        </button>
+                      </div>
+                      
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[10px] text-neutral-400 mb-1">
-                          Rate ({speechRate}x)
-                        </label>
-                        <input
-                          type="range"
-                          min="0.5"
-                          max="2"
-                          step="0.1"
-                          value={speechRate}
-                          onChange={(e) =>
-                            setSpeechRate(parseFloat(e.target.value))
-                          }
-                          className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-neutral-400 mb-1">
-                          Pitch ({speechPitch})
-                        </label>
-                        <input
-                          type="range"
-                          min="0.5"
-                          max="2"
-                          step="0.1"
-                          value={speechPitch}
-                          onChange={(e) =>
-                            setSpeechPitch(parseFloat(e.target.value))
-                          }
-                          className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer"
-                        />
-                      </div>
-                    </div>
-
+                    {/* Collapsible Voice Settings */}
                     <div className="border-t border-neutral-900 pt-2 mt-1">
-                      <label className="block text-[10px] text-neutral-400 mb-1">
-                        Volume ({Math.round(speechVolume * 100)}%)
-                      </label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.05"
-                        value={speechVolume}
-                        onChange={(e) =>
-                          setSpeechVolume(parseFloat(e.target.value))
-                        }
-                        className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer"
-                      />
+                      <button
+                        onClick={() => setShowVoiceDetail(!showVoiceDetail)}
+                        className="flex items-center justify-between w-full text-[9px] uppercase font-sc text-neutral-400 hover:text-signal transition-colors py-1 focus:outline-none"
+                      >
+                        <span>Voice Matrix Signature</span>
+                        <span className="text-[8px] font-mono">{showVoiceDetail ? "▲" : "▼"}</span>
+                      </button>
+                      
+                      {showVoiceDetail && (
+                        <div className="space-y-2 mt-2 animate-fade-in text-neutral-400">
+                          <div>
+                            <label className="block text-[8px] text-neutral-500 mb-1">
+                              Narrator Voice
+                            </label>
+                            <select
+                              value={selectedVoiceURI}
+                              onChange={(e) => setSelectedVoiceURI(e.target.value)}
+                              className="w-full bg-void border border-neutral-850 rounded text-[10px] p-1 focus:border-portal focus:outline-none"
+                            >
+                              {availableVoices.map((v) => (
+                                <option key={v.voiceURI} value={v.voiceURI}>
+                                  {v.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          <div>
+                            <label className="block text-[8px] text-neutral-500 mb-1">
+                              Dialogue Voice
+                            </label>
+                            <select
+                              value={selectedDialogueVoiceURI}
+                              onChange={(e) => setSelectedDialogueVoiceURI(e.target.value)}
+                              className="w-full bg-void border border-neutral-850 rounded text-[10px] p-1 focus:border-portal focus:outline-none"
+                            >
+                              {availableVoices.map((v) => (
+                                <option key={v.voiceURI} value={v.voiceURI}>
+                                  {v.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2139,7 +2465,7 @@ export default function ReaderChamber({
 
                 {/* Central audio touch Core key */}
                 <button
-                  onClick={handleSpeak}
+                  onClick={handleTogglePlayback}
                   disabled={!(selectedChapter.generatedContent || (selectedChapter.blocks && selectedChapter.blocks.length > 0))}
                   className={`absolute h-10 w-10 rounded-full flex items-center justify-center transition-all z-10 ${
                     !(selectedChapter.generatedContent || (selectedChapter.blocks && selectedChapter.blocks.length > 0))
@@ -2150,7 +2476,7 @@ export default function ReaderChamber({
                   }`}
                   title={
                     isPlayingText && !isPausedText
-                      ? "Pause Recitation"
+                      ? "Stop Audio Playback"
                       : "Begin Rhythmic Recitation"
                   }
                 >
@@ -2170,10 +2496,17 @@ export default function ReaderChamber({
                 </button>
               </div>
               <div>
-                <p className="font-sc font-bold text-signal text-[10px] tracking-widest uppercase">
-                  {isPlayingText && !isPausedText
-                    ? "Rhythmic Recitation Active"
-                    : "Listen to Scroll"}
+                <p className="font-sc font-bold text-signal text-[10px] tracking-widest uppercase flex items-center gap-1.5">
+                  <span>
+                    {isPlayingText && !isPausedText
+                      ? "Rhythmic Recitation Active"
+                      : "Listen to Scroll"}
+                  </span>
+                  {readerMode === 'basic-tts' && isPlayingText && (
+                    <span className="text-[7.5px] uppercase font-mono tracking-wider text-[#000000] bg-portal px-1 rounded font-bold">
+                      Basic Narration
+                    </span>
+                  )}
                 </p>
                 <p className="font-sans text-[10px] text-neutral-500">
                   Chapter {selectedChapterNum}
@@ -2190,84 +2523,201 @@ export default function ReaderChamber({
                   {speechRate.toFixed(1)}x
                 </button>
                 <button
-                  onClick={() => setShowTtsControls(!showTtsControls)}
-                  className={`p-1 border rounded transition-colors ${showTtsControls ? "bg-neutral-800 border-neutral-700 text-signal" : "bg-void border-neutral-800 hover:text-signal hover:bg-neutral-900"}`}
+                  onClick={() => setShowImmersionPopover(!showImmersionPopover)}
+                  className={`p-1 border rounded transition-colors ${showImmersionPopover ? "bg-neutral-800 border-neutral-700 text-signal" : "bg-void border-neutral-800 hover:text-signal hover:bg-neutral-900"}`}
                 >
                   <Settings size={14} />
                 </button>
 
-                {showTtsControls && (
-                  <div className="absolute bottom-full mb-3 left-0 w-64 bg-black border border-neutral-800 rounded-lg shadow-xl p-3 z-50">
-                    <h4 className="text-[10px] uppercase font-sc text-neutral-500 mb-2 tracking-wider">
-                      Voice Synthesis Engine
-                    </h4>
+                {showImmersionPopover && (
+                  <div className="absolute bottom-full mb-3 left-0 w-72 bg-black/95 backdrop-blur-md border border-neutral-855 rounded-xl shadow-[0_4px_30px_rgba(0,0,0,0.8)] p-4 z-50 animate-fade-in font-sans text-left">
+                    {/* Header */}
+                    <div className="flex items-center justify-between border-b border-neutral-900 pb-2.5 mb-3">
+                      <h4 className="text-[11px] uppercase font-sc text-portal tracking-wider font-bold">
+                        Immersion Control Matrix
+                      </h4>
+                      <span className="text-[9px] font-mono text-neutral-500">
+                        v2.0
+                      </span>
+                    </div>
 
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-[10px] text-neutral-400 mb-1">
-                          Narrator Voice Signature
-                        </label>
-                        <select
-                          value={selectedVoiceURI}
-                          onChange={(e) => setSelectedVoiceURI(e.target.value)}
-                          className="w-full bg-void border border-neutral-800 rounded text-[11px] p-1.5 focus:border-portal focus:outline-none mb-2"
+                    <div className="space-y-4">
+                      {/* Master Switch on Top */}
+                      <div className="flex items-center justify-between bg-neutral-950/85 p-2 rounded-lg border border-neutral-900">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-medium text-[#FAFAFA] font-sans">
+                            Immersion Engine
+                          </span>
+                          <span className="text-[10px] text-neutral-500 font-sans">
+                            Master consciousness coupling
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => setImmersion({ master: !immersion.master })}
+                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            immersion.master ? "bg-portal/80 shadow-[0_0_8px_rgba(4,172,255,0.4)]" : "bg-neutral-850"
+                          }`}
                         >
-                          {availableVoices.map((v) => (
-                            <option key={v.voiceURI} value={v.voiceURI}>
-                              {v.name} ({v.lang})
-                            </option>
-                          ))}
-                        </select>
-                        
-                        <label className="block text-[10px] text-neutral-400 mb-1">
-                          Dialogue Voice Signature
-                        </label>
-                        <select
-                          value={selectedDialogueVoiceURI}
-                          onChange={(e) => setSelectedDialogueVoiceURI(e.target.value)}
-                          className="w-full bg-void border border-neutral-800 rounded text-[11px] p-1.5 focus:border-portal focus:outline-none"
-                        >
-                          {availableVoices.map((v) => (
-                            <option key={v.voiceURI} value={v.voiceURI}>
-                              {v.name} ({v.lang})
-                            </option>
-                          ))}
-                        </select>
+                          <span
+                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-void shadow transition duration-200 ease-in-out ${
+                              immersion.master ? "translate-x-4 bg-signal" : "translate-x-0 bg-neutral-500"
+                            }`}
+                          />
+                        </button>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-[10px] text-neutral-400 mb-1">
-                            Rate ({speechRate}x)
-                          </label>
-                          <input
-                            type="range"
-                            min="0.5"
-                            max="2"
-                            step="0.1"
-                            value={speechRate}
-                            onChange={(e) =>
-                              setSpeechRate(parseFloat(e.target.value))
-                            }
-                            className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer"
-                          />
+                      {/* Sub-toggles */}
+                      <div className={`space-y-3 pl-1 transition-opacity duration-200 ${immersion.master ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
+                        
+                        {/* Auto-scroll */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-medium text-neutral-300">
+                              Autonomous Scroll
+                            </span>
+                            <span className="text-[9px] text-neutral-500">
+                              Pages follow reading playhead
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => immersion.master && setImmersion({ autoScroll: !immersion.autoScroll })}
+                            disabled={!immersion.master}
+                            className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
+                              immersion.autoScroll ? "bg-portal/60" : "bg-neutral-850"
+                            }`}
+                          >
+                            <span
+                              className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-void shadow transition duration-150 ease-in-out ${
+                                immersion.autoScroll ? "translate-x-4 bg-signal" : "translate-x-0 bg-neutral-500"
+                              }`}
+                            />
+                          </button>
                         </div>
-                        <div>
-                          <label className="block text-[10px] text-neutral-400 mb-1">
-                            Pitch ({speechPitch})
-                          </label>
-                          <input
-                            type="range"
-                            min="0.5"
-                            max="2"
-                            step="0.1"
-                            value={speechPitch}
-                            onChange={(e) =>
-                              setSpeechPitch(parseFloat(e.target.value))
-                            }
-                            className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer"
-                          />
+
+                        {/* Audio cues */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-medium text-neutral-300">
+                              Aetheric Sound Effects
+                            </span>
+                            <span className="text-[9px] text-neutral-500">
+                              Adaptive localized SFX cues
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => immersion.master && setImmersion({ audioCues: !immersion.audioCues })}
+                            disabled={!immersion.master}
+                            className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
+                              immersion.audioCues ? "bg-portal/60" : "bg-neutral-850"
+                            }`}
+                          >
+                            <span
+                              className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-void shadow transition duration-150 ease-in-out ${
+                                immersion.audioCues ? "translate-x-4 bg-signal" : "translate-x-0 bg-neutral-500"
+                              }`}
+                            />
+                          </button>
                         </div>
+
+                        {/* Image popups */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-medium text-neutral-300">
+                              Holographic Visions
+                            </span>
+                            <span className="text-[9px] text-neutral-500">
+                              Automatic scenic image pop-ups
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => immersion.master && setImmersion({ imagePopups: !immersion.imagePopups })}
+                            disabled={!immersion.master}
+                            className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
+                              immersion.imagePopups ? "bg-portal/60" : "bg-neutral-850"
+                            }`}
+                          >
+                            <span
+                              className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-void shadow transition duration-150 ease-in-out ${
+                                immersion.imagePopups ? "translate-x-4 bg-signal" : "translate-x-0 bg-neutral-500"
+                              }`}
+                            />
+                          </button>
+                        </div>
+
+                        {/* Scene music */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-medium text-neutral-300">
+                              Scene Harmonics
+                            </span>
+                            <span className="text-[9px] text-neutral-500">
+                              Atmospheric musical tapestries
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => immersion.master && setImmersion({ sceneMusic: !immersion.sceneMusic })}
+                            disabled={!immersion.master}
+                            className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
+                              immersion.sceneMusic ? "bg-portal/60" : "bg-neutral-850"
+                            }`}
+                          >
+                            <span
+                              className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-void shadow transition duration-150 ease-in-out ${
+                                immersion.sceneMusic ? "translate-x-4 bg-signal" : "translate-x-0 bg-neutral-500"
+                              }`}
+                            />
+                          </button>
+                        </div>
+                        
+                      </div>
+
+                      {/* Collapsible Voice Settings */}
+                      <div className="border-t border-neutral-900 pt-2 mt-2">
+                        <button
+                          onClick={() => setShowVoiceDetail(!showVoiceDetail)}
+                          className="flex items-center justify-between w-full text-[10px] uppercase font-sc text-neutral-400 hover:text-signal transition-colors py-1 focus:outline-none"
+                        >
+                          <span>Voice Matrix Signature</span>
+                          <span className="text-[8px] font-mono">{showVoiceDetail ? "▲" : "▼"}</span>
+                        </button>
+                        
+                        {showVoiceDetail && (
+                          <div className="space-y-2.5 mt-2 animate-fade-in text-neutral-400">
+                            <div>
+                              <label className="block text-[9px] text-neutral-500 mb-1">
+                                Narrator Voice
+                              </label>
+                              <select
+                                value={selectedVoiceURI}
+                                onChange={(e) => setSelectedVoiceURI(e.target.value)}
+                                className="w-full bg-void border border-neutral-850 rounded text-[10px] p-1 focus:border-portal focus:outline-none"
+                              >
+                                {availableVoices.map((v) => (
+                                  <option key={v.voiceURI} value={v.voiceURI}>
+                                    {v.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            
+                            <div>
+                              <label className="block text-[9px] text-neutral-500 mb-1">
+                                Dialogue Voice
+                              </label>
+                              <select
+                                value={selectedDialogueVoiceURI}
+                                onChange={(e) => setSelectedDialogueVoiceURI(e.target.value)}
+                                className="w-full bg-void border border-neutral-850 rounded text-[10px] p-1 focus:border-portal focus:outline-none"
+                              >
+                                {availableVoices.map((v) => (
+                                  <option key={v.voiceURI} value={v.voiceURI}>
+                                    {v.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2350,6 +2800,33 @@ export default function ReaderChamber({
           }}
         />
       )}
+
+      {/* Small Resume Affordance for Teleprompter Mode */}
+      <AnimatePresence>
+        {readerMode === "teleprompter" && isAutoScrollPausedByUser && (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 30 }}
+            transition={{ duration: 0.3 }}
+            className="absolute bottom-28 left-1/2 -translate-x-1/2 z-40 bg-black/95 border border-portal/40 hover:border-portal shadow-[0_0_20px_rgba(4,172,255,0.25)] rounded-full px-6 py-3 flex items-center gap-3 backdrop-blur-md"
+          >
+            <span className="text-signal text-xs font-sans tracking-wide">
+              Auto-scroll paused
+            </span>
+            <button
+              onClick={() => {
+                setIsAutoScrollPausedByUser(false);
+                playAutoScroll();
+              }}
+              className="bg-portal hover:bg-[#00c0ff] text-void text-xs font-sans font-medium px-4 py-1.5 rounded-full transition-colors flex items-center gap-1.5 cursor-pointer shadow-[0_0_10px_rgba(4,172,255,0.4)]"
+            >
+              <Play size={12} className="fill-current" />
+              Resume Scroll
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {consistencyWarnings && (
         <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">

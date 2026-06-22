@@ -41,6 +41,15 @@ interface AppState {
   localOpenrouterKey: string;
   localOllamaHost: string;
 
+  readerMode: 'teleprompter' | 'sen' | 'basic-tts';
+  immersion: {
+    master: boolean;
+    audioCues: boolean;
+    imagePopups: boolean;
+    sceneMusic: boolean;
+    autoScroll: boolean;
+  };
+
   // Actions
   setStories: (stories: Story[]) => void;
   setActiveStoryId: (id: string | null) => void;
@@ -64,6 +73,8 @@ interface AppState {
   setIsCodexSheetOpen: (isOpen: boolean) => void;
   setIsReaderFullscreen: (isFull: boolean) => void;
   setRoutingConfig: (config: MultiModelRouting) => void;
+  setReaderMode: (mode: 'teleprompter' | 'sen' | 'basic-tts') => void;
+  setImmersion: (immersion: Partial<{ master: boolean; audioCues: boolean; imagePopups: boolean; sceneMusic: boolean; autoScroll: boolean }>) => void;
 
   // Complex Actions
   saveStories: (updated: Story[]) => Promise<void>;
@@ -114,6 +125,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   localOpenrouterKey: '',
   localOllamaHost: '',
 
+  readerMode: 'teleprompter',
+  immersion: {
+    master: true,
+    audioCues: true,
+    imagePopups: true,
+    sceneMusic: true,
+    autoScroll: true,
+  },
+
   setStories: (stories) => set({ stories }),
   setActiveStoryId: (id) => set({ activeStoryId: id }),
   setCurrentScreen: (screen) => set({ currentScreen: screen }),
@@ -136,6 +156,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   setIsCodexSheetOpen: (isCodexSheetOpen) => set({ isCodexSheetOpen }),
   setIsReaderFullscreen: (isReaderFullscreen) => set({ isReaderFullscreen }),
   setRoutingConfig: (routingConfig) => set({ routingConfig }),
+  setReaderMode: (readerMode) => set({ readerMode }),
+  setImmersion: (immersion) => set((state) => ({
+    immersion: { ...state.immersion, ...immersion }
+  })),
 
   saveStories: async (updated: Story[]) => {
     const activeId = get().activeStoryId;

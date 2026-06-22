@@ -28,6 +28,18 @@ export interface NarrativeCue {
   metadata?: NarrativeCuePayload;
 }
 
+export interface NarrationEventDetail {
+  status: 'start' | 'block' | 'pause' | 'resume' | 'end';
+  blockId?: string;
+  blockIndex?: number;
+  durationMs?: number;
+}
+
+export function dispatchNarration(detail: NarrationEventDetail) {
+  const event = new CustomEvent('seihouse-narration', { detail });
+  window.dispatchEvent(event);
+}
+
 const triggeredOnce = new Set<string>();
 
 export function dispatchNarrativeCue(cue: NarrativeCue) {

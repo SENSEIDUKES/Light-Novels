@@ -107,3 +107,16 @@ html, body {
 .system-block.holographic-panel .rarity-accent {
   animation: holographic-pulse 2.5s infinite ease-in-out;
 }
+
+/* SEN/Paced Mode Narration Sync Styles */
+.reading-focus-active {
+  color: var(--color-signal);
+  text-shadow: 0 0 8px rgba(250, 250, 250, 0.15);
+  transition: color 0.4s ease, text-shadow 0.4s ease;
+}
+
+.reading-focus-dimmed {
+  color: var(--color-neutral-600);
+  opacity: 0.6;
+  transition: color 0.4s ease, opacity 0.4s ease;
+}
