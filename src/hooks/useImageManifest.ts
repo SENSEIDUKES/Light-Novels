@@ -120,5 +120,98 @@ export function useImageManifest() {
     }
   };
 
-  return { manifestImage, generatingIds };
+  const manifestChapterHero = async (chapterNumber: number, promptText: string) => {
+    const genId = `chapter-hero-${chapterNumber}`;
+    if (generatingIds.has(genId)) return;
+    
+    setGeneratingIds(prev => new Set(prev).add(genId));
+    
+    try {
+      const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      const gemini = await secureStorage.getItem('@seihouse/api-key-gemini');
+      const openrouter = await secureStorage.getItem('@seihouse/api-key-openrouter');
+      const ollama = await secureStorage.getItem('@seihouse/api-key-ollama-host');
+      if (gemini) apiHeaders['x-gemini-key'] = gemini;
+      if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
+      if (ollama) apiHeaders['x-ollama-host'] = ollama;
+
+      const activeStory = stories.find(s => s.id === activeStoryId);
+      const res = await fetch('/api/generate-card-image', {
+        method: 'POST',
+        headers: apiHeaders,
+        body: JSON.stringify({
+          prompt: promptText,
+          type: 'chapterHero',
+          routingConfig
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Aetherial alignment gate failed to synchronize imagery.");
+      }
+
+      let newImageUrls = data.imageUrls;
+      if (!newImageUrls && data.imageUrl) newImageUrls = [data.imageUrl];
+      if (!newImageUrls && data.fallbackUrl) newImageUrls = [data.fallbackUrl];
+
+      if (!newImageUrls || newImageUrls.length === 0) {
+        throw new Error("No imagery frames returned.");
+      }
+      const selectedUrl = newImageUrls[0];
+
+      if (activeStory) {
+        const updatedStories = stories.map(s => {
+          if (s.id === activeStoryId) {
+            const updatedArcs = s.arcs.map(arc => ({
+              ...arc,
+              chapters: arc.chapters.map(ch => {
+                if (ch.number === chapterNumber) {
+                  return {
+                    ...ch,
+                    assetManifest: {
+                      ...(ch.assetManifest || {}),
+                      heroImage: selectedUrl
+                    }
+                  };
+                }
+                return ch;
+              })
+            }));
+            
+            return {
+              ...s,
+              arcs: updatedArcs
+            };
+          }
+          return s;
+        });
+
+        saveStories(updatedStories);
+      }
+      
+      setGeneratingIds(prev => {
+        const next = new Set(prev);
+        next.delete(genId);
+        return next;
+      });
+      return selectedUrl;
+    } catch (err: any) {
+      setGeneratingIds(prev => {
+        const next = new Set(prev);
+        next.delete(genId);
+        return next;
+      });
+      window.dispatchEvent(new CustomEvent('seihouse-toast', { 
+        detail: { 
+          title: "Hero Manifestation Collapse", 
+          message: err.message, 
+          type: "error" 
+        }
+      }));
+      throw err;
+    }
+  };
+
+  return { manifestImage, manifestChapterHero, generatingIds };
 }

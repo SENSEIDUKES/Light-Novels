@@ -135,7 +135,32 @@ export default function ReaderChamber({
   const saveStories = useAppStore(state => state.saveStories);
   const routingConfig = useAppStore(state => state.routingConfig);
 
-  const { manifestImage, generatingIds } = useImageManifest();
+  const { manifestImage, manifestChapterHero, generatingIds } = useImageManifest();
+
+  useEffect(() => {
+    // Only check if to generate hero image if chapter has content and it hasn't been generated yet, and we are not currently generating it.
+    if ((selectedChapter.generatedContent || selectedChapter.blocks) && !selectedChapter.assetManifest?.heroImage && !generatingIds.has(`chapter-hero-${selectedChapter.number}`)) {
+      const cue = selectedChapter.cuePayload;
+      
+      const momentousEvents = [
+        'breakthrough', 'turning-point', 'evolution', 'betrayal', 'ascension', 
+        'conquest', 'destruction', 'calamity', 'rival_battle', 'romance', 'first_kiss'
+      ];
+
+      const isMomentous = 
+          (cue?.beastEvent?.type && momentousEvents.includes(cue.beastEvent.type)) ||
+          selectedChapter.blocks?.some((b: any) => 
+               b.system?.promptType && momentousEvents.includes(b.system.promptType)
+          ) ||
+          (cue?.danger && cue.danger > 8) || 
+          (cue?.powerShift && cue.powerShift > 8);
+      
+      if (isMomentous) {
+        const promptText = `A cinematic visual memory of the defining moment that just happened: ${selectedChapter.summary || 'A critical climactic climax in the story.'} Render as a vivid frozen memory capturing the emotional core and exact action of the moment.`;
+        manifestChapterHero(selectedChapter.number, promptText).catch(e => console.error("Hero generation failed:", e));
+      }
+    }
+  }, [selectedChapter.number, selectedChapter.generatedContent, selectedChapter.blocks, selectedChapter.assetManifest?.heroImage, selectedChapter.cuePayload, selectedChapter.summary]);
 
   const handleManifestReveal = async (entry: any, type: string) => {
     if (generatingRevealId) return;
@@ -1435,6 +1460,31 @@ export default function ReaderChamber({
                 transition={{ duration: 0.5, ease: "easeOut" }}
                 className="max-w-2xl mx-auto"
               >
+                {selectedChapter.assetManifest?.heroImage && (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.8, ease: "easeOut" }}
+                    className="mb-12 w-full rounded-sm overflow-hidden shadow-[0_0_40px_rgba(4,172,255,0.1)] relative border border-neutral-800/80 group"
+                  >
+                    <div className="absolute top-4 left-4 z-20 px-3 py-1.5 bg-void/80 backdrop-blur-md text-[10px] sm:text-xs font-mono uppercase tracking-widest text-[#04ACFF] border border-[#04ACFF]/20 rounded-sm flex items-center gap-2 shadow-lg">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#04ACFF] animate-pulse" />
+                      Visual Memory Captured
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-void via-transparent to-void/30 opacity-90 z-10 pointer-events-none" />
+                    <img 
+                      src={selectedChapter.assetManifest.heroImage} 
+                      alt="Chapter Crux Manifestation" 
+                      className="w-full h-auto object-cover max-h-[65vh] mix-blend-screen opacity-90 transition-transform duration-1000 group-hover:scale-105"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute bottom-0 left-0 right-0 p-6 z-20 bg-gradient-to-t from-void flex flex-col justify-end">
+                      <p className="text-signal/80 text-sm sm:text-base italic font-serif leading-relaxed line-clamp-3">
+                        "{selectedChapter.summary}"
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
                 <div
                   className={`${
                     currentPrefs.fontSize === "xs"

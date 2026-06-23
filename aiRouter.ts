@@ -494,6 +494,8 @@ export async function routeImageGeneration(
 
   const styleEnhancer = type === "location"
     ? "mystical landscape, fantasy environment concept art, high-energy light novel scenery, dramatic lighting, celestial aura, beautiful composition, vibrant colors"
+    : type === "chapterHero"
+    ? "Visual Memory: stark, stylized cinematic illustration, dramatic crucial moment frozen in time. SEIHouse canonical brand palette: #000000, #FAFAFA, #8B0000, #04ACFF. Emotional core, meaning-first creator artwork, high contrast, immersive mood piece."
     : "professional anime character portrait, fantasy webnovel cover design, intricate details, sharp focus, celestial backlighting, clean high contrast colors";
   
   const rawPrompt = `${prompt}. Style: ${styleEnhancer}. Solo subject, centered, no borders, no text.`;
