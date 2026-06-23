@@ -306,6 +306,13 @@ export class PersistentStorageManager implements StorageAdapter {
   private syncQueue: SyncTask[] = [];
   private queueKey = '@seihouse/sync-queue';
 
+  // Transaction state
+  private activeTransaction: {
+    stories: Map<string, StoryWorld>;
+    chapters: Map<string, ChapterContent>;
+    deletedStoryIds: Set<string>;
+  } | null = null;
+
   constructor() {
     this.localAdapter = new LocalStorageFallbackAdapter();
     this.cloudAdapter = new FirebaseStorageAdapter();
@@ -492,8 +499,8 @@ export class PersistentStorageManager implements StorageAdapter {
   public async getSyncAudit(): Promise<SyncAuditResult> {
      const localStories = await this.localAdapter.getStories();
      let cloudStoriesCount = 0;
-     let mismatches = [];
-     let missingChapters = [];
+     const mismatches = [];
+     const missingChapters = [];
      
      if (this.isCloudAvailable) {
         const cloudStories = await this.cloudAdapter.getStories();
@@ -534,7 +541,7 @@ export class PersistentStorageManager implements StorageAdapter {
       for (const arc of story.arcs) {
          for (const chapter of arc.chapters) {
             if (chapter.hasContent) {
-               let localContent = await this.localAdapter.getChapterContent(storyId, chapter.number);
+               const localContent = await this.localAdapter.getChapterContent(storyId, chapter.number);
                if (!localContent && this.isCloudAvailable) {
                    // Try to recover from cloud
                    const cloudContent = await this.cloudAdapter.getChapterContent(storyId, chapter.number);
@@ -561,14 +568,68 @@ export class PersistentStorageManager implements StorageAdapter {
   }
 
   async getStories(): Promise<StoryWorld[]> {
-    return this.localAdapter.getStories();
+    const local = await this.localAdapter.getStories();
+    if (!this.activeTransaction) return local;
+
+    const tx = this.activeTransaction;
+    // merge local with transaction
+    const storiesMap = new Map(local.map(s => [s.id, s]));
+    for (const id of tx.deletedStoryIds) {
+      storiesMap.delete(id);
+    }
+    for (const [id, story] of tx.stories) {
+      storiesMap.set(id, JSON.parse(JSON.stringify(story)));
+    }
+    const result = Array.from(storiesMap.values());
+    result.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    return result;
+  }
+
+  startTransaction() {
+    this.activeTransaction = {
+      stories: new Map(),
+      chapters: new Map(),
+      deletedStoryIds: new Set()
+    };
+  }
+
+  async commitTransaction(): Promise<void> {
+    if (!this.activeTransaction) return;
+    const tx = this.activeTransaction;
+    this.activeTransaction = null;
+    
+    for (const id of tx.deletedStoryIds) {
+      await this.deleteStory(id);
+    }
+    for (const chapter of tx.chapters.values()) {
+      await this.saveChapterContent(chapter);
+    }
+    for (const story of tx.stories.values()) {
+      await this.saveStory(story);
+    }
+  }
+
+  rollbackTransaction(): void {
+    this.activeTransaction = null;
   }
 
   async getStory(id: string): Promise<StoryWorld | null> {
+    if (this.activeTransaction) {
+      if (this.activeTransaction.deletedStoryIds.has(id)) return null;
+      if (this.activeTransaction.stories.has(id)) {
+        return JSON.parse(JSON.stringify(this.activeTransaction.stories.get(id)));
+      }
+    }
     return this.localAdapter.getStory(id);
   }
 
   async saveStory(story: StoryWorld): Promise<void> {
+    if (this.activeTransaction) {
+      this.activeTransaction.stories.set(story.id, JSON.parse(JSON.stringify(story)));
+      this.activeTransaction.deletedStoryIds.delete(story.id);
+      return;
+    }
+
     const strippedStory: StoryWorld = JSON.parse(JSON.stringify(story)); // deep copy
 
     // Extract chapter contents and save them separately
@@ -621,6 +682,12 @@ export class PersistentStorageManager implements StorageAdapter {
   }
 
   async deleteStory(id: string): Promise<void> {
+    if (this.activeTransaction) {
+      this.activeTransaction.deletedStoryIds.add(id);
+      this.activeTransaction.stories.delete(id);
+      return;
+    }
+
     await this.localAdapter.deleteStory(id);
     if (this.isCloudAvailable) {
       try {
@@ -632,8 +699,15 @@ export class PersistentStorageManager implements StorageAdapter {
   }
 
   async getChapterContent(storyId: string, chapterNumber: number): Promise<ChapterContent | null> {
+    if (this.activeTransaction) {
+      const key = `${storyId}-${chapterNumber}`;
+      if (this.activeTransaction.chapters.has(key)) {
+        return JSON.parse(JSON.stringify(this.activeTransaction.chapters.get(key)));
+      }
+    }
+
     // Try local
-    let localItem = await this.localAdapter.getChapterContent(storyId, chapterNumber);
+    const localItem = await this.localAdapter.getChapterContent(storyId, chapterNumber);
     if (localItem) return localItem;
     
     // Try cloud if missing locally
@@ -654,6 +728,13 @@ export class PersistentStorageManager implements StorageAdapter {
 
   async saveChapterContent(content: ChapterContent): Promise<void> {
     content.updatedAt = new Date().toISOString();
+    
+    if (this.activeTransaction) {
+      const key = `${content.storyId}-${content.chapterNumber}`;
+      this.activeTransaction.chapters.set(key, JSON.parse(JSON.stringify(content)));
+      return;
+    }
+
     await this.localAdapter.saveChapterContent(content);
     if (this.isCloudAvailable && this.syncStatus !== 'syncing') {
       try {

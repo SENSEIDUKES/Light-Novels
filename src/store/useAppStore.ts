@@ -36,6 +36,7 @@ interface AppState {
   isSettingsOpen: boolean;
   isCodexSheetOpen: boolean;
   isReaderFullscreen: boolean;
+  isShortcutsOpen: boolean;
   routingConfig: MultiModelRouting;
   localGeminiKey: string;
   localOpenrouterKey: string;
@@ -72,6 +73,7 @@ interface AppState {
   setIsSettingsOpen: (isOpen: boolean) => void;
   setIsCodexSheetOpen: (isOpen: boolean) => void;
   setIsReaderFullscreen: (isFull: boolean) => void;
+  setIsShortcutsOpen: (isOpen: boolean) => void;
   setRoutingConfig: (config: MultiModelRouting) => void;
   setReaderMode: (mode: 'teleprompter' | 'sen' | 'basic-tts') => void;
   setImmersion: (immersion: Partial<{ master: boolean; audioCues: boolean; imagePopups: boolean; sceneMusic: boolean; autoScroll: boolean }>) => void;
@@ -117,6 +119,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isSettingsOpen: false,
   isCodexSheetOpen: false,
   isReaderFullscreen: false,
+  isShortcutsOpen: false,
   routingConfig: {
     storyMaker: { provider: 'gemini', model: 'gemini-2.5-flash-lite' },
     imageGenerator: { provider: 'gemini', model: 'google/gemini-3.1-flash-image' }
@@ -155,6 +158,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setIsSettingsOpen: (isSettingsOpen) => set({ isSettingsOpen }),
   setIsCodexSheetOpen: (isCodexSheetOpen) => set({ isCodexSheetOpen }),
   setIsReaderFullscreen: (isReaderFullscreen) => set({ isReaderFullscreen }),
+  setIsShortcutsOpen: (isShortcutsOpen) => set({ isShortcutsOpen }),
   setRoutingConfig: (routingConfig) => set({ routingConfig }),
   setReaderMode: (readerMode) => set({ readerMode }),
   setImmersion: (immersion) => set((state) => ({
@@ -172,11 +176,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set({ stories: markedStories });
     try {
+      storyStorage.startTransaction();
       for (const s of markedStories) {
         await storyStorage.saveStory(s);
       }
+      await storyStorage.commitTransaction();
       set({ lastSavedTime: new Date() });
     } catch (e) {
+      storyStorage.rollbackTransaction();
       console.error("Celestial local disk write breached, reverting to standard storage cache:", e);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(markedStories));
       set({ lastSavedTime: new Date() });
@@ -309,33 +316,42 @@ export const useAppStore = create<AppState>((set, get) => ({
             let updatedLoaded: Story[] = [...loaded];
             let changed = false;
             
-            for (const demo of unmigratedDemos) {
-              const isWorkedOn = demo.isEdited || demo.currentChapterNumber > 1 || demo.arcs.some(arc => 
-                arc.chapters.some(ch => ch.number > 1 && (ch.status === 'read' || ch.hasContent || ch.generatedContent))
-              );
+            storyStorage.startTransaction();
+            try {
+              for (const demo of unmigratedDemos) {
+                const isWorkedOn = demo.isEdited || demo.currentChapterNumber > 1 || demo.arcs.some(arc => 
+                  arc.chapters.some(ch => ch.number > 1 && (ch.status === 'read' || ch.hasContent || ch.generatedContent))
+                );
+                
+                if (isWorkedOn) {
+                  const userDemoId = `demo-matrix-${user.uid}`;
+                  updatedLoaded = updatedLoaded.map(s => {
+                    if (s.id === demo.id) {
+                      return { ...s, id: userDemoId, userId: user.uid };
+                    }
+                    return s;
+                  });
+                  await storyStorage.deleteStory(demo.id);
+                  changed = true;
+                } else {
+                  updatedLoaded = updatedLoaded.filter(s => s.id !== demo.id);
+                  await storyStorage.deleteStory(demo.id);
+                  changed = true;
+                }
+              }
               
-              if (isWorkedOn) {
-                const userDemoId = `demo-matrix-${user.uid}`;
-                updatedLoaded = updatedLoaded.map(s => {
-                  if (s.id === demo.id) {
-                    return { ...s, id: userDemoId, userId: user.uid };
-                  }
-                  return s;
-                });
-                await storyStorage.deleteStory(demo.id);
-                changed = true;
+              if (changed) {
+                loaded = updatedLoaded;
+                for (const s of loaded) {
+                  await storyStorage.saveStory(s);
+                }
+                await storyStorage.commitTransaction();
               } else {
-                updatedLoaded = updatedLoaded.filter(s => s.id !== demo.id);
-                await storyStorage.deleteStory(demo.id);
-                changed = true;
+                storyStorage.rollbackTransaction();
               }
-            }
-            
-            if (changed) {
-              loaded = updatedLoaded;
-              for (const s of loaded) {
-                await storyStorage.saveStory(s);
-              }
+            } catch (err) {
+              storyStorage.rollbackTransaction();
+              console.error("Failed to migrate demo stories during init", err);
             }
           }
         }
@@ -348,9 +364,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           await storyStorage.saveStory(randomDemo);
           set({ stories: [randomDemo] });
         } else {
-          const randomDemo = getRandomDemoStory();
-          await storyStorage.saveStory(randomDemo);
-          set({ stories: [randomDemo] });
+          set({ stories: [] });
         }
       }
     } catch (e) {
@@ -361,13 +375,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (saved) {
           set({ stories: JSON.parse(saved) });
         } else {
-          const randomDemo = getRandomDemoStory();
-          set({ stories: [randomDemo] });
-          localStorage.setItem(STORAGE_KEY, JSON.stringify([randomDemo]));
+          set({ stories: [] });
         }
       } catch (innerErr) {
-        const randomDemo = getRandomDemoStory();
-        set({ stories: [randomDemo] });
+        set({ stories: [] });
       }
     }
   },
@@ -384,40 +395,49 @@ export const useAppStore = create<AppState>((set, get) => ({
     let updatedActiveId = activeStoryId;
     let changed = false;
     
-    for (const demo of unmigratedDemos) {
-      const isWorkedOn = demo.isEdited || demo.currentChapterNumber > 1 || demo.arcs.some(arc => 
-        arc.chapters.some(ch => ch.number > 1 && (ch.status === 'read' || ch.hasContent || ch.generatedContent))
-      );
-      
-      if (isWorkedOn) {
-        const userDemoId = `demo-matrix-${user.uid}`;
-        updatedStories = updatedStories.map(s => {
-          if (s.id === demo.id) {
-            return { ...s, id: userDemoId, userId: user.uid };
+    storyStorage.startTransaction();
+    try {
+      for (const demo of unmigratedDemos) {
+        const isWorkedOn = demo.isEdited || demo.currentChapterNumber > 1 || demo.arcs.some(arc => 
+          arc.chapters.some(ch => ch.number > 1 && (ch.status === 'read' || ch.hasContent || ch.generatedContent))
+        );
+        
+        if (isWorkedOn) {
+          const userDemoId = `demo-matrix-${user.uid}`;
+          updatedStories = updatedStories.map(s => {
+            if (s.id === demo.id) {
+              return { ...s, id: userDemoId, userId: user.uid };
+            }
+            return s;
+          });
+          if (updatedActiveId === demo.id) {
+            updatedActiveId = userDemoId;
           }
-          return s;
-        });
-        if (updatedActiveId === demo.id) {
-          updatedActiveId = userDemoId;
+          await storyStorage.deleteStory(demo.id);
+          changed = true;
+        } else {
+          updatedStories = updatedStories.filter(s => s.id !== demo.id);
+          if (updatedActiveId === demo.id) {
+            updatedActiveId = null;
+            setCurrentScreen('home');
+          }
+          await storyStorage.deleteStory(demo.id);
+          changed = true;
         }
-        await storyStorage.deleteStory(demo.id);
-        changed = true;
+      }
+      
+      if (changed) {
+        if (activeStoryId !== updatedActiveId) {
+          setActiveStoryId(updatedActiveId);
+        }
+        await storyStorage.commitTransaction(); // Only clears tx deletions
+        await saveStories(updatedStories); // This will do its own transaction for saves, which is fine as the previous commit resolved the deletions
       } else {
-        updatedStories = updatedStories.filter(s => s.id !== demo.id);
-        if (updatedActiveId === demo.id) {
-          updatedActiveId = null;
-          setCurrentScreen('home');
-        }
-        await storyStorage.deleteStory(demo.id);
-        changed = true;
+        storyStorage.rollbackTransaction();
       }
-    }
-    
-    if (changed) {
-      if (activeStoryId !== updatedActiveId) {
-        setActiveStoryId(updatedActiveId);
-      }
-      await saveStories(updatedStories);
+    } catch (e) {
+      storyStorage.rollbackTransaction();
+      console.error("Migration transaction failed:", e);
     }
   }
 }));

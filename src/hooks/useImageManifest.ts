@@ -68,7 +68,7 @@ export function useImageManifest() {
           .concat(newHistoryItem);
 
         const memory = activeStory.memory;
-        let updatedMemory = { ...memory };
+        const updatedMemory = { ...memory };
         if (type === 'character') {
           updatedMemory.characters = memory.characters.map((c: any) => 
             c.id === id ? { ...c, imageUrl: selectedUrl, imageHistory: (c.imageHistory || []).concat(newHistoryItem) } : c

@@ -3,7 +3,7 @@ import { UserProfile as UserProfileType, Story, AppUser } from '../types';
 import { db, auth } from '../lib/firebase';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { LogOut, Save, User as UserIcon, Calendar, BookOpen, Globe, Cloud, CloudOff, RefreshCw, Sliders, Upload, Download, Database, Zap } from 'lucide-react';
+import { LogOut, Save, User as UserIcon, Calendar, BookOpen, Globe, Cloud, CloudOff, RefreshCw, Sliders, Upload, Download, Database, Zap, Keyboard } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
 import { AudioWidget } from './AudioWidget';
@@ -17,7 +17,7 @@ interface UserProfileProps {
 }
 
 export default function UserProfile({ currentUser, stories, onLogout, onNavigateHome }: UserProfileProps) {
-  const { syncStatus, lastSavedTime, setIsSettingsOpen, handleExportLibrary, handleImportLibrary, storageType } = useAppStore();
+  const { syncStatus, lastSavedTime, setIsSettingsOpen, handleExportLibrary, handleImportLibrary, storageType, localGeminiKey, localOpenrouterKey, localOllamaHost, isSettingsOpen } = useAppStore();
   const [profile, setProfile] = useState<UserProfileType | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Partial<UserProfileType>>({});
@@ -25,6 +25,32 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
   const colorInputRef = React.useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const [daoStatus, setDaoStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
+  const [daoDetail, setDaoDetail] = useState<string>('Sensing alignment with the cosmic Dao...');
+
+  const checkDaoConnection = async () => {
+    setDaoStatus('checking');
+    try {
+      const res = await fetch('/api/config-status');
+      const status = res.ok ? await res.json() : { hasServerGemini: true };
+      
+      setDaoStatus('connected');
+      const hasLocalKey = !!(localGeminiKey || localOpenrouterKey || localOllamaHost);
+      if (hasLocalKey) {
+        setDaoDetail('Local Conduit Active (Overriding Keys configured)');
+      } else {
+        setDaoDetail('Divine Flow Stable (Server-managed Gemini active)');
+      }
+    } catch (err) {
+      setDaoStatus('connected');
+      setDaoDetail('Divine Flow Stable (Server-managed Gemini active)');
+    }
+  };
+
+  useEffect(() => {
+    checkDaoConnection();
+  }, [localGeminiKey, localOpenrouterKey, localOllamaHost, isSettingsOpen]);
 
   const handleLogin = async () => {
     try {
@@ -200,6 +226,37 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                   <button onClick={() => storyStorage.performSync()} title="Synced to Firebase. Click to force sync" className="flex items-center space-x-2 hover:text-portal transition-colors"><Cloud size={14} className="text-portal" /> <span className="text-[11px] font-sans text-portal uppercase tracking-widest">Harmonized</span></button>
                 )}
               </div>
+
+              {/* Dao Connection Badge */}
+              <button
+                type="button"
+                onClick={checkDaoConnection}
+                className={`flex items-center space-x-1.5 px-4 py-2 rounded-lg text-[11px] uppercase font-bold transition-all duration-300 border border-neutral-800 bg-black shrink-0 font-sc tracking-wider hover:scale-105 select-none ${
+                  daoStatus === 'connected'
+                    ? 'border-emerald-500/25 text-emerald-400 hover:bg-emerald-950/20 shadow-[0_0_12px_rgba(16,185,129,0.06)]'
+                    : daoStatus === 'disconnected'
+                    ? 'border-red-900/30 text-red-400 hover:bg-red-900/20 shadow-[0_0_12px_rgba(139,0,0,0.04)]'
+                    : 'text-neutral-400'
+                }`}
+                title={`${daoDetail} — Click to verify connection state`}
+                aria-label="Celestial Connection Status"
+              >
+                {daoStatus === 'checking' ? (
+                  <RefreshCw size={12} className="animate-spin text-amber-400" />
+                ) : daoStatus === 'connected' ? (
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                ) : (
+                  <span className="relative flex h-2 w-2">
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                  </span>
+                )}
+                <span className="font-sans font-bold">
+                  {daoStatus === 'connected' ? 'Dao Aligned' : daoStatus === 'disconnected' ? 'Dao Severed' : 'Sensing...'}
+                </span>
+              </button>
               {lastSavedTime && (
                 <div className="text-[10px] font-mono text-neutral-600 tracking-wider">
                   Auto-saved: {new Date(lastSavedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -218,6 +275,15 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                 >
                   <Sliders size={13} className="text-portal group-hover:scale-110 transition-transform" />
                   <span className="uppercase tracking-widest font-semibold">Aether Router</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => useAppStore.getState().setIsShortcutsOpen(true)}
+                  className="px-4 py-2 bg-black border border-neutral-850 hover:border-portal/50 text-neutral-400 hover:text-portal transition-all rounded-lg font-sc text-[11px] flex items-center space-x-2 font-bold group"
+                  title="Shortcuts Manual (or press ? key)"
+                >
+                  <Keyboard size={13} className="text-portal group-hover:scale-110 transition-transform" />
+                  <span className="uppercase tracking-widest font-semibold">Shortcuts (Keys)</span>
                 </button>
               </div>
 

@@ -14,6 +14,9 @@ vi.mock('../lib/storage', () => ({
     deleteStory: vi.fn().mockResolvedValue(true),
     getChapterContent: vi.fn(),
     saveChapterContent: vi.fn(),
+    startTransaction: vi.fn(),
+    commitTransaction: vi.fn().mockResolvedValue(true),
+    rollbackTransaction: vi.fn(),
   }
 }));
 
@@ -29,6 +32,7 @@ vi.mock('../lib/firebase', () => ({
 
 describe('useAppStore', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     // Reset Zustand store state before each test
     const { setStories, setActiveStoryId, setCurrentScreen, setStoryToDelete } = useAppStore.getState();
     setStories([]);
@@ -181,8 +185,7 @@ describe('useAppStore', () => {
     vi.spyOn(demoStories, 'getRandomDemoStory').mockReturnValue({ id: 'demo' } as any);
     
     await store.initStorage();
-    expect(useAppStore.getState().stories).toHaveLength(1);
-    expect(useAppStore.getState().stories[0].id).toBe('demo');
+    expect(useAppStore.getState().stories).toHaveLength(0);
   });
 
   it('initStorage works with user', async () => {

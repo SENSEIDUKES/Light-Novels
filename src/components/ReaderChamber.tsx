@@ -1188,6 +1188,11 @@ export default function ReaderChamber({
 
   const handleGenerate = () => {
     if (isGenerating) return;
+    const { currentUser } = useAppStore.getState();
+    if (!currentUser) {
+      alert("You must sync your spirit (sign in) to forge new chapters.");
+      return;
+    }
     onGenerateChapter(selectedChapter.number);
   };
 
@@ -2069,7 +2074,7 @@ export default function ReaderChamber({
                       ? "VERSA is shaping..."
                       : activeAgentId === "scout"
                         ? "SCOUT is scanning..."
-                        : "Condensing Scroll..."}
+                        : "Condensing Narrative..."}
                   </span>
                 </>
               ) : (
@@ -2246,7 +2251,7 @@ export default function ReaderChamber({
                       <div className="flex items-center justify-between">
                         <div className="flex flex-col">
                           <span className="text-[10px] font-medium text-neutral-300">
-                            Autonomous Scroll
+                            Autonomous Reading
                           </span>
                           <span className="text-[8px] text-neutral-500">
                             Pages follow reading playhead
@@ -2403,7 +2408,7 @@ export default function ReaderChamber({
                 onClick={navigatePrev}
                 disabled={selectedChapterNum <= 1}
                 className="p-2 text-neutral-400 hover:text-portal transition-colors disabled:opacity-20 disabled:pointer-events-none"
-                title="Previous Scroll"
+                title="Previous Chapter"
               >
                 <ArrowLeft size={16} />
               </button>
@@ -2421,7 +2426,7 @@ export default function ReaderChamber({
                   !chapters.find((c) => c.number === selectedChapterNum + 1)
                 }
                 className="p-2 text-neutral-400 hover:text-human transition-colors disabled:opacity-20 disabled:pointer-events-none"
-                title="Next Scroll"
+                title="Next Chapter"
               >
                 <ArrowRight size={16} />
               </button>
@@ -2494,7 +2499,7 @@ export default function ReaderChamber({
                   <span>
                     {isPlayingText && !isPausedText
                       ? "Rhythmic Recitation Active"
-                      : "Listen to Scroll"}
+                      : "Listen to Chapter"}
                   </span>
                   {readerMode === 'basic-tts' && isPlayingText && (
                     <span className="text-[7.5px] uppercase font-mono tracking-wider text-[#000000] bg-portal px-1 rounded font-bold">
@@ -2567,7 +2572,7 @@ export default function ReaderChamber({
                         <div className="flex items-center justify-between">
                           <div className="flex flex-col">
                             <span className="text-[11px] font-medium text-neutral-300">
-                              Autonomous Scroll
+                              Autonomous Reading
                             </span>
                             <span className="text-[9px] text-neutral-500">
                               Pages follow reading playhead
@@ -2735,7 +2740,7 @@ export default function ReaderChamber({
                   className="px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-portal disabled:opacity-25 disabled:pointer-events-none transition-colors text-[10px] font-sc uppercase tracking-wider font-semibold"
                 >
                   <ArrowLeft size={14} />
-                  <span>Previous Scroll</span>
+                  <span>Previous Chapter</span>
                 </button>
                 <div className="w-[1px] h-4 bg-neutral-800"></div>
                 <button
@@ -2755,7 +2760,7 @@ export default function ReaderChamber({
                   className="px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-human disabled:opacity-25 disabled:pointer-events-none transition-colors text-[10px] font-sc uppercase tracking-wider font-semibold"
                 >
                   <ArrowRight size={14} />
-                  <span>Next Scroll</span>
+                  <span>Next Chapter</span>
                 </button>
               </div>
 
@@ -2816,7 +2821,7 @@ export default function ReaderChamber({
               className="bg-portal hover:bg-[#00c0ff] text-void text-xs font-sans font-medium px-4 py-1.5 rounded-full transition-colors flex items-center gap-1.5 cursor-pointer shadow-[0_0_10px_rgba(4,172,255,0.4)]"
             >
               <Play size={12} className="fill-current" />
-              Resume Scroll
+              Resume Reading
             </button>
           </motion.div>
         )}

@@ -9,6 +9,10 @@ export const useChapterGeneration = () => {
   const store = useAppStore();
 
   const handleGenerateChapter = async (chapterNumber: number) => {
+    if (store.isGenerating) {
+      console.warn("Generation already in progress.");
+      return;
+    }
     const activeStory = store.stories.find(s => s.id === store.activeStoryId);
     if (!activeStory) return;
     store.setGenerationPhase('chapter');
@@ -64,6 +68,7 @@ export const useChapterGeneration = () => {
       const decoder = new TextDecoder("utf-8");
       let accumulatedRaw = "";
       let buffer = "";
+      let streamError: Error | null = null;
 
       const textHeader = "---CHAPTER_BLOCKS---";
 
@@ -72,14 +77,17 @@ export const useChapterGeneration = () => {
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
         
-        let lines = buffer.split('\n');
+        const lines = buffer.split('\n');
         buffer = lines.pop() || "";
         
         for (const line of lines) {
           if (line.startsWith('data: ') && line !== 'data: [DONE]') {
             try {
               const parsed = JSON.parse(line.substring(6));
-              if (parsed.error) throw new Error(parsed.error);
+              if (parsed.error) {
+                streamError = new Error(parsed.error);
+                throw streamError;
+              }
               if (parsed.chunk) {
                 accumulatedRaw += parsed.chunk;
                 
@@ -111,6 +119,9 @@ export const useChapterGeneration = () => {
                 });
               }
             } catch (e: any) {
+              if (streamError) {
+                throw streamError;
+              }
               if (e.message && e.message !== "Unexpected end of JSON input") {
                 console.error("Stream parse error:", e);
               }
@@ -139,6 +150,11 @@ export const useChapterGeneration = () => {
       
       if (!data.chapterText) {
         data.chapterText = accumulatedRaw;
+      }
+
+      // Safeguard against missing/abruptly cut stream content to avoid silent incomplete saves
+      if (!data.chapterText || data.chapterText.trim().length < 150) {
+        throw new Error("Celestial stream dissipated prematurely. Chapter content is incomplete; creation has been safeguarded.");
       }
 
       store.setStreamingChapter({
@@ -442,7 +458,7 @@ export const useChapterGeneration = () => {
 
           if (memoryUpdates.relationshipUpdates && memoryUpdates.relationshipUpdates.length > 0) {
             const currentRelationships = cloned.relationships || [];
-            let updatedRelationships = [...currentRelationships];
+            const updatedRelationships = [...currentRelationships];
             
             memoryUpdates.relationshipUpdates.forEach((relUpdate: any) => {
               if (!relUpdate.sourceName || !relUpdate.targetName) return;

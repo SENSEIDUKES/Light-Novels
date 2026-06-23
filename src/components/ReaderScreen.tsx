@@ -21,9 +21,20 @@ export const ReaderScreen: React.FC<{
 }> = ({
   handleSteerArc, handleAlterFate, handleGenerateChapter, handleToggleRead, handleUpdateStoryDirect, setIsCodexSheetOpen, handleSealChapter, handleCheckConsistency
 }) => {
-  const { currentScreen, setCurrentScreen, activeStoryId, stories, selectedChapterNum, setSelectedChapterNum, isGenerating, routingConfig, streamingChapter, isReaderFullscreen } = useAppStore();
+  const { currentScreen, setCurrentScreen, activeStoryId, stories, selectedChapterNum, setSelectedChapterNum, isGenerating, routingConfig, streamingChapter, isReaderFullscreen, currentUser } = useAppStore();
   const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
   const [showRecap, setShowRecap] = useState(false);
+
+  // Listen to custom DOM event to toggle glossary sidelobe via global hotkey
+  useEffect(() => {
+    const handleToggleGlossary = () => {
+      setIsGlossaryOpen(prev => !prev);
+    };
+    window.addEventListener('toggle-glossary-panel', handleToggleGlossary);
+    return () => {
+      window.removeEventListener('toggle-glossary-panel', handleToggleGlossary);
+    };
+  }, []);
 
   const activeStory = stories.find(s => s.id === activeStoryId);
 
@@ -98,7 +109,28 @@ export const ReaderScreen: React.FC<{
         </div>
       )}
 
-      {selectedChapterNum === -1 ? (
+      {!currentUser && (selectedChapterNum === -1 || selectedChapterNum > 10) ? (
+        <div className="max-w-xl mx-auto mt-20 text-center bg-black/60 border border-neutral-900 p-10 rounded-xl shadow-2xl animate-fadeIn">
+          <h2 className="font-display font-bold text-3xl text-signal mb-4">Authentication Required</h2>
+          <p className="text-neutral-400 font-sans text-sm mb-8 leading-relaxed">
+            {selectedChapterNum === -1 
+              ? "You must sync your spirit (sign in) to forge new destinies and steer the narrative."
+              : "You have reached the limit of anonymous reading (10 chapters). Please sync your spirit (sign in) to continue your ascension and unlock unlimited chapters."}
+          </p>
+          <button
+            onClick={() => {
+              import('../lib/firebase').then(({ auth }) => {
+                import('firebase/auth').then(({ signInWithPopup, GoogleAuthProvider }) => {
+                  signInWithPopup(auth, new GoogleAuthProvider());
+                });
+              });
+            }}
+            className="px-8 py-3 bg-human text-signal font-sc font-bold uppercase tracking-widest text-sm rounded border border-human shadow-[0_0_15px_rgba(139,0,0,0.4)] hover:bg-void transition-all"
+          >
+            Sync Spirit (Sign In)
+          </button>
+        </div>
+      ) : selectedChapterNum === -1 ? (
         <div className="animate-fadeIn max-w-4xl mx-auto shadow-2xl">
           <SteerPortal
             isSteering={isGenerating}

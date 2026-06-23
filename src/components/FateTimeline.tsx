@@ -57,7 +57,7 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
       
       const children = (childrenMap.get(s.id) || []).sort((a,b) => (a.forkChapterNumber || 0) - (b.forkChapterNumber || 0));
       
-      let childNum = 0;
+      const childNum = 0;
       const childNodes = children.map(child => {
         const cx = nextX;
         nextX++;

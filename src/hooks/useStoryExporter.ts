@@ -59,7 +59,7 @@ export const useStoryExporter = () => {
       downloadAnchor.click();
       downloadAnchor.remove();
     } catch (err: any) {
-      store.setAppError("Failed to transcribe story ledger to outward scrolls: " + err.message);
+      store.setAppError("Failed to transcribe story ledger to output: " + err.message);
     }
   };
 

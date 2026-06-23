@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { Sparkles, ArrowRight, ShieldAlert, ChevronDown, ChevronUp, BookOpen, Layers, Target, Users, Zap, CheckCircle2 } from 'lucide-react';
+import { Sparkles, ArrowRight, ShieldAlert, ChevronDown, ChevronUp, BookOpen, Layers, Target, Users, Zap, CheckCircle2, Cloud, Wand2, Copy, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { IntakeData, WorldBlueprint } from '../types';
 import { useAppStore } from '../store/useAppStore';
+import { auth } from '../lib/firebase';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { getApiHeaders } from '../hooks/storyEngineHelpers';
 
 const renderSafeString = (val: any): React.ReactNode => {
   if (val === undefined || val === null) return '';
@@ -99,24 +102,136 @@ const FormSection = ({ id, title, icon, activeSection, setActiveSection, childre
   );
 };
 
-const TAG_PRESETS = [
-  'Romantic Comedy',
-  'Slice of Life',
-  'Dark Fantasy',
-  'Slow Burn',
-  'Harem Comedy',
-  'Overpowered MC',
-  'Kingdom Building',
-  'Tragedy / Angsty',
-  'School Life / Academy',
-  'Weapons Master',
-  'Beast Taming'
-];
+const CATEGORIZED_TAGS: Record<string, string[]> = {
+  'System & Progression': [
+    'game systems', 'power scaling', 'cultivation realms', 'breakthrough pressure', 'bottleneck arcs', 
+    'tribulation events', 'dao comprehension', 'martial techniques', 'bloodline awakening', 'artifact growth', 
+    'weapon spirits', 'inheritance trials', 'class evolution', 'skill trees', 'job classes', 
+    'level progression', 'stat growth', 'quest systems', 'achievement systems', 'reincarnation rules', 
+    'regression rules', 'time loops', 'save points', 'death penalties', 'respawn logic', 
+    'system corruption', 'system awakening', 'system missions', 'system rewards', 'system penalties', 
+    'system shop', 'system diagnostics', 'hidden stats', 'karma points', 'influence points', 
+    'admin points', 'military points', 'diplomacy points', 'logistics points'
+  ],
+  'Society & Economics': [
+    'kingdom economy', 'resource management', 'territory control', 'trade routes', 'supply chains', 
+    'infrastructure growth', 'settlement upgrades', 'city building', 'village growth', 'guild systems', 
+    'tax reform', 'law reform', 'public order', 'famine pressure', 'refugee crisis', 'war economy', 
+    'black market', 'scarcity economy', 'trade embargo', 'grain pricing', 'currency pressure', 
+    'debt crisis', 'guild economy', 'artisan production', 'labor shortage', 'port economy', 
+    'mining economy', 'rare materials', 'auction politics', 'tribute systems', 'foreign investment', 
+    'smuggling routes', 'banking influence', 'land rights', 'market control', 'industrial growth', 
+    'economic recovery', 'magical resources', 'contract enforcement'
+  ],
+  'Politics & War': [
+    'faction memory', 'loyalty tracking', 'reputation tracking', 'political pressure', 'military strategy', 
+    'court intrigue', 'border defense', 'warlord politics', 'noble resistance', 'imperial oversight', 
+    'rebellion risk', 'succession crisis', 'spy networks', 'intelligence war', 'diplomatic leverage', 
+    'treaty instability', 'alliance building', 'alliance decay', 'betrayal fallout', 'rival factions', 
+    'proxy war', 'hostage diplomacy', 'merchant politics', 'clan politics', 'sect politics', 
+    'council politics', 'propaganda war', 'public scandal', 'legitimacy crisis', 'hidden patrons', 
+    'puppet ruler', 'rebel recruitment', 'vassal management', 'occupied territory', 'conquered loyalty', 
+    'troop morale', 'unit progression', 'officer loyalty', 'siege warfare', 'guerrilla warfare', 
+    'border raids', 'campaign planning', 'battlefield tactics', 'fortress defense', 'supply raids', 
+    'mercenary contracts', 'military doctrine', 'weapon upgrades', 'elite units', 'special corps', 
+    'war exhaustion', 'strategic retreat', 'city evacuation', 'prisoner politics', 'veteran trauma', 
+    'enemy generals', 'battlefield reputation'
+  ],
+  'Romance & Affection': [
+    'romantic trust', 'slow-burn romance', 'memory romance', 'forbidden romance', 'political romance', 
+    'arranged marriage', 'enemies to lovers', 'rivals to lovers', 'protector bond', 'grief to love', 
+    'jealousy tracking', 'affection growth', 'confession timing', 'trust rupture', 'trust repair', 
+    'romantic sacrifice', 'duty versus love', 'love versus ambition', 'harem harmony', 'harem jealousy', 
+    'companion loyalty', 'companion arcs', 'companion growth', 'companion rivalry', 'companion betrayal', 
+    'companion trauma', 'companion ambition', 'party chemistry', 'party conflict', 'mentor bond', 
+    'disciple growth'
+  ],
+  'Fate & Karmic Bonds': [
+    'karmic bonds', 'soul bonds', 'fate bonds', 'destiny recovery', 'lost fate', 'stolen fate', 
+    'fate theft', 'fate repair', 'prophecy tracking', 'chosen one pressure', 'antihero rise', 
+    'villain redemption', 'revenge spiral', 'mercy consequences', 'moral debt', 'blood debt', 
+    'favor debt', 'life debt', 'oath tracking', 'promise tracking', 'curse tracking', 'blessing systems', 
+    'divine contracts', 'spirit contracts', 'found family', 'sworn brotherhood'
+  ],
+  'Exploration & Dungeons': [
+    'map expansion', 'ancient ruins', 'secret realms', 'sect rankings', 'arena rankings', 'tower climbs', 
+    'dungeon systems', 'loot economy', 'crafting systems', 'alchemy systems', 'forging systems', 
+    'enchantment systems', 'summoning systems', 'monster evolution', 'pet evolution', 'party roles', 
+    'raid mechanics', 'boss mechanics', 'player factions', 'NPC memory', 'NPC agendas', 'quest chains', 
+    'hidden quests', 'world events', 'tutorial systems', 'safe zones', 'guild ranks'
+  ],
+  'Urban & Modern': [
+    'urban cultivation', 'hidden society', 'corporate clans', 'district control', 'celebrity vessels', 
+    'debt curses', 'apartment spirits', 'subway realms', 'convenience spirits', 'hunter rankings', 
+    'gate outbreaks', 'tower gates', 'awakened citizens', 'association politics', 'media pressure', 
+    'viral reputation', 'idol factions', 'chaebol clans', 'underworld sects', 'modern artifacts', 
+    'phone talismans', 'contract rewriting', 'spiritual real estate', 'urban territory', 'revenge climb', 
+    'social status growth', 'family pressure'
+  ],
+  'Academy & Training': [
+    'school hierarchy', 'academy rankings', 'exam arcs', 'tournament arcs', 'rival schools', 
+    'student factions', 'teacher politics', 'discipline systems', 'training schedules', 'mission boards', 
+    'campus secrets', 'forbidden libraries', 'trial grounds'
+  ],
+  'Meta & Continuity': [
+    'emotional continuity', 'long-term consequences', 'recap tracking', 'arc continuity', 'chapter memory', 
+    'side plot tracking', 'recurring enemies', 'recurring allies', 'background wars', 'offscreen growth', 
+    'offscreen schemes', 'delayed payoffs', 'mystery clues', 'foreshadowing', 'hidden identities', 
+    'secret bloodlines', 'sealed memories', 'lost history', 'ancient grudges', 'regional politics', 
+    'cultural tension', 'religious pressure', 'mythic history', 'living codex', 'dynamic portraits', 
+    'relationship web', 'threat colors', 'faction colors', 'character status', 'world state', 
+    'story momentum', 'reader hooks', 'arc escalation', 'plot persistence', 'continuity guardrails', 
+    'trope control', 'tone control', 'pacing control', 'stakes escalation', 'chapter consequences'
+  ]
+};
+
+const TAG_PRESETS = Object.values(CATEGORIZED_TAGS).flat();
 
 export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGenerating: isGeneratingProp, error }: CreationPortalProps) {
-  const { isGenerating: storeIsGenerating, activeAgentId, generationPhase } = useAppStore();
+  const { isGenerating: storeIsGenerating, activeAgentId, generationPhase, currentUser, routingConfig } = useAppStore();
   const isGenerating = isGeneratingProp || storeIsGenerating;
   const [stage, setStage] = useState<'intake' | 'blueprint'>('intake');
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyBlueprint = () => {
+    if (!blueprint) return;
+    
+    const textToCopy = `
+# ${blueprint.title || 'Untitled World'}
+
+**Logline**: ${blueprint.logline || ''}
+
+## World Overview
+${blueprint.worldOverview || ''}
+
+## Society & Factions
+${blueprint.societyStructure || ''}
+${blueprint.majorFactions && blueprint.majorFactions.length > 0 ? `\n### Major Factions:\n${blueprint.majorFactions.map(f => `- ${f}`).join('\n')}` : ''}
+
+## Power System
+${blueprint.powerSystemOutline || ''}
+
+## Main Character Profile
+${blueprint.mcProfile || ''}
+
+## First Arc Promise
+${blueprint.firstArcPromise || ''}
+`.trim();
+
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handleLogin = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Login failed", error);
+    }
+  };
 
   const [blueprint, setBlueprint] = useState<WorldBlueprint | null>(null);
   
@@ -157,6 +272,59 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
   });
 
   const [customTagInput, setCustomTagInput] = useState('');
+  const [activeCategory, setActiveCategory] = useState<string>('All');
+  const [tagSearch, setTagSearch] = useState<string>('');
+  const [isSuggestingTags, setIsSuggestingTags] = useState(false);
+  const [tagSuggestions, setTagSuggestions] = useState<{ suggestedTags: string[]; reasoning: string } | null>(null);
+  const [tagSuggestionError, setTagSuggestionError] = useState<string | null>(null);
+
+  const handleSuggestTags = async () => {
+    if (!intake.corePremise?.trim()) {
+      setTagSuggestionError("Please select or describe a Core Premise first to generate celestial tag recommendations.");
+      return;
+    }
+    setIsSuggestingTags(true);
+    setTagSuggestionError(null);
+    try {
+      const apiHeaders = await getApiHeaders();
+      const response = await fetch('/api/suggest-tags', {
+        method: 'POST',
+        headers: apiHeaders,
+        body: JSON.stringify({
+          premise: intake.corePremise,
+          genrePath: intake.genrePath,
+          routingConfig: routingConfig?.storyMaker
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Sect channel unreachable. Code: ${response.status}`);
+      }
+
+      const resData = await response.json();
+      setTagSuggestions(resData);
+    } catch (err: any) {
+      console.error("Error fetching recommended tags:", err);
+      setTagSuggestionError(err.message || "Failed to contact the celestial scribe. Please try again.");
+    } finally {
+      setIsSuggestingTags(false);
+    }
+  };
+
+  const handleAddAllSuggestedTags = () => {
+    if (!tagSuggestions || !tagSuggestions.suggestedTags) return;
+    setIntake(prev => {
+      const activeTags = prev.storyTags || [];
+      const newTags = [...activeTags];
+      tagSuggestions.suggestedTags.forEach(tag => {
+        if (!newTags.includes(tag)) {
+          newTags.push(tag);
+        }
+      });
+      return { ...prev, storyTags: newTags };
+    });
+  };
+
   const [chapterCount, setChapterCount] = useState(10);
   const [activeSection, setActiveSection] = useState<'core' | 'world' | 'mc' | 'power' | 'plot'>('core');
 
@@ -211,6 +379,26 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
     if (!blueprint) return;
     await onStartStory(intake, blueprint, chapterCount);
   };
+
+  if (!currentUser) {
+    return (
+      <div className="max-w-xl mx-auto pb-20 pt-20 text-center" id="creation-portal-root">
+        <h1 className="font-display font-bold text-3xl sm:text-4xl text-signal tracking-tight mb-4">
+          Authentication Required
+        </h1>
+        <p className="font-sans font-light text-neutral-400 text-sm mx-auto leading-relaxed mb-8">
+          You must link your spirit to the matrix before forging a new destiny. Anonymous creation is sealed to prevent celestial authorization breaches.
+        </p>
+        <button
+          onClick={handleLogin}
+          className="font-sc px-8 py-3 rounded text-sm uppercase tracking-widest font-bold inline-flex items-center space-x-2 bg-human text-signal border border-human hover:bg-void hover:text-human hover:border-human shadow-[0_0_15px_rgba(139,0,0,0.3)] transition-all"
+        >
+          <Cloud size={18} />
+          <span>Sync Spirit (Sign In)</span>
+        </button>
+      </div>
+    );
+  }
 
   if (stage === 'blueprint' && blueprint) {
     return (
@@ -268,21 +456,41 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
               ← Refine Details
             </button>
 
-            <button
-              type="button"
-              onClick={handleStartStoryClick}
-              disabled={isGenerating}
-              className="w-full sm:w-auto font-sc px-6 py-3 rounded text-sm uppercase tracking-widest font-bold flex items-center justify-center space-x-2 bg-human text-signal border border-human hover:bg-void hover:text-human hover:border-human shadow-[0_0_15px_rgba(139,0,0,0.3)] transition-all"
-            >
-              {isGenerating ? (
-                <>
-                  <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }} className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full" />
-                  <span>{activeAgentId === 'versa' ? 'VERSA is writing...' : 'Generating...'}</span>
-                </>
-              ) : (
-                <><span>Accept Blueprint & Start Matrix</span><ArrowRight size={16} /></>
-              )}
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={handleStartStoryClick}
+                disabled={isGenerating}
+                className="w-full sm:w-auto font-sc px-6 py-3 rounded text-sm uppercase tracking-widest font-bold flex items-center justify-center space-x-2 bg-human text-signal border border-human hover:bg-void hover:text-human hover:border-human shadow-[0_0_15px_rgba(139,0,0,0.3)] transition-all cursor-pointer"
+              >
+                {isGenerating ? (
+                  <>
+                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }} className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full" />
+                    <span>{activeAgentId === 'versa' ? 'VERSA is writing...' : 'Generating...'}</span>
+                  </>
+                ) : (
+                  <><span>Accept Blueprint & Start Matrix</span><ArrowRight size={16} /></>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCopyBlueprint}
+                className="w-full sm:w-auto font-sc px-6 py-3 rounded text-sm uppercase tracking-widest font-bold flex items-center justify-center space-x-2 bg-neutral-950 text-portal border border-neutral-800 hover:border-portal hover:text-signal transition-all shadow-[0_0_15px_rgba(4,172,255,0.1)] cursor-pointer"
+              >
+                {copied ? (
+                  <>
+                    <Check size={16} />
+                    <span>Copied Blueprint</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={16} />
+                    <span>Copy Blueprint</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -337,73 +545,218 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
             <p className="text-neutral-500 font-sans text-xs mb-3">Add tags to further personalize your story (e.g. Slice of Life, Romantic Comedy, Overpowered MC) to help the AI tailor the universe according to your interests.</p>
             
             {/* Tag input and Add button */}
-            <div className="flex items-center gap-2 mb-3 max-w-md">
-              <input 
-                type="text" 
-                value={customTagInput} 
-                onChange={(e) => setCustomTagInput(e.target.value)} 
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddCustomTag();
-                  }
-                }}
-                placeholder="Type and hit Enter or click Add (e.g. space cultivation)" 
-                className="flex-1 bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded px-3 py-1.5 text-xs text-left" 
-              />
-              <button 
-                type="button" 
-                onClick={handleAddCustomTag}
-                className="px-3 py-1.5 bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-signal hover:border-portal rounded text-xs font-sc uppercase tracking-widest transition-colors"
+            <div className="flex flex-wrap items-center gap-2 mb-4 max-w-xl">
+              <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                <input 
+                  type="text" 
+                  value={customTagInput} 
+                  onChange={(e) => setCustomTagInput(e.target.value)} 
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddCustomTag();
+                    }
+                  }}
+                  placeholder="Type and hit Enter or click Add (e.g. space cultivation)" 
+                  className="flex-1 bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded px-3 py-1.5 text-xs text-left" 
+                />
+                <button 
+                  type="button" 
+                  onClick={handleAddCustomTag}
+                  className="px-3 py-1.5 bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-signal hover:border-portal rounded text-xs font-sc uppercase tracking-widest transition-colors"
+                >
+                  Add
+                </button>
+              </div>
+
+              {/* Suggest Tags Button */}
+              <button
+                type="button"
+                onClick={handleSuggestTags}
+                disabled={isSuggestingTags}
+                className="px-3 py-1.5 bg-neutral-950/60 border border-[#04ACFF]/50 hover:border-[#04ACFF] text-[#04ACFF] hover:bg-[#04ACFF]/10 disabled:opacity-50 disabled:pointer-events-none rounded text-xs font-sc uppercase tracking-widest transition-all duration-300 flex items-center gap-1.5 shadow-[0_0_12px_rgba(4,172,255,0.05)]"
               >
-                Add
+                <Wand2 size={13} className={isSuggestingTags ? "animate-spin" : "animate-pulse"} />
+                {isSuggestingTags ? "Channeling..." : "Suggest Tags"}
               </button>
             </div>
 
+            {/* Tag Suggestions Display Panel */}
+            <AnimatePresence>
+              {(tagSuggestions || tagSuggestionError) && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="mb-4 p-4 rounded-lg bg-neutral-950/80 border border-[#04ACFF]/20 space-y-3"
+                >
+                  <div className="flex justify-between items-center pb-2 border-b border-neutral-900">
+                    <div className="flex items-center gap-2">
+                      <Sparkles size={14} className="text-[#04ACFF] animate-pulse" />
+                      <span className="font-sc font-bold uppercase tracking-widest text-[11px] text-[#FAFAFA]">Celestial Recommendations</span>
+                    </div>
+                    {tagSuggestions && (
+                      <button
+                        type="button"
+                        onClick={handleAddAllSuggestedTags}
+                        className="text-[10px] font-sc uppercase tracking-widest text-[#04ACFF] hover:text-[#04ACFF]/80 transition-colors bg-neutral-900/50 border border-neutral-800/80 hover:border-[#04ACFF]/40 px-2 py-1 rounded"
+                      >
+                        + Add All Suggestions
+                      </button>
+                    )}
+                  </div>
+
+                  {tagSuggestionError && (
+                    <p className="text-xs text-[#8B0000] font-sans">{tagSuggestionError}</p>
+                  )}
+
+                  {tagSuggestions && (
+                    <div className="space-y-2.5">
+                      {tagSuggestions.reasoning && (
+                        <p className="text-xs text-neutral-400 font-sans italic pl-2 border-l border-neutral-800">
+                          &ldquo;{tagSuggestions.reasoning}&rdquo;
+                        </p>
+                      )}
+                      
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {tagSuggestions.suggestedTags && tagSuggestions.suggestedTags.length > 0 ? (
+                          tagSuggestions.suggestedTags.map((tag) => {
+                            const isSelected = intake.storyTags?.includes(tag);
+                            return (
+                              <button
+                                key={tag}
+                                type="button"
+                                onClick={() => handleTogglePresetTag(tag)}
+                                className={`px-2.5 py-1 rounded text-xs font-sans transition-all border duration-300 flex items-center gap-1 ${
+                                  isSelected 
+                                    ? 'bg-neutral-900 border-[#04ACFF] text-[#04ACFF] shadow-[0_0_8px_rgba(4,172,255,0.15)] font-semibold' 
+                                    : 'bg-void border-neutral-900 text-neutral-400 hover:text-[#FAFAFA] hover:border-neutral-800'
+                                }`}
+                              >
+                                {isSelected ? '✓' : '+'} {tag}
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <span className="text-xs text-neutral-600 italic">Precept alignment could not extract custom matches automatically.</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Selected Tags list */}
             {intake.storyTags && intake.storyTags.length > 0 ? (
-              <div className="flex flex-wrap gap-2 mb-4 p-2 bg-neutral-950/40 rounded border border-neutral-900/50">
-                {intake.storyTags.map((tag) => (
-                  <span key={tag} className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded bg-neutral-900 border border-portal/30 text-portal text-xs font-sans shadow-[0_0_8px_rgba(4,172,255,0.05)]">
-                    <span className="font-semibold">{tag}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTag(tag)}
-                      aria-label={`Remove tag ${tag}`}
-                      className="text-neutral-600 hover:text-signal focus:outline-none font-bold text-sm"
-                    >
-                      &times;
-                    </button>
-                  </span>
-                ))}
+              <div className="space-y-2 mb-4">
+                <div className="flex justify-between items-center">
+                  <span className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest">Active Celestial Tags ({intake.storyTags.length})</span>
+                  <button
+                    type="button"
+                    onClick={() => setIntake(prev => ({ ...prev, storyTags: [] }))}
+                    className="text-[10px] font-sc uppercase tracking-widest text-human hover:text-red-400 transition-colors"
+                  >
+                    Clear All
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2 p-2 bg-neutral-950/40 rounded border border-neutral-900/50">
+                  {intake.storyTags.map((tag) => (
+                    <span key={tag} className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded bg-[#04ACFF]/10 border border-[#04ACFF]/30 text-[#04ACFF] text-xs font-sans shadow-[0_0_8px_rgba(4,172,255,0.05)] animate-fadeIn">
+                      <span className="font-semibold">{tag}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTag(tag)}
+                        aria-label={`Remove tag ${tag}`}
+                        className="text-neutral-500 hover:text-[#FAFAFA] focus:outline-none font-bold text-sm"
+                      >
+                        &times;
+                      </button>
+                    </span>
+                  ))}
+                </div>
               </div>
             ) : (
-              <div className="text-neutral-600 text-xs font-sans italic mb-3">No custom tags added yet. Select presets below or add custom ones above.</div>
+              <div className="text-neutral-600 text-xs font-sans italic mb-3">No custom tags added yet. Select presets or search using the grimoire below.</div>
             )}
 
-            {/* Tag presets catalog */}
-            <div className="space-y-1.5">
-              <span className="block font-sc text-[10px] text-neutral-500 uppercase tracking-widest">Tag Presets</span>
-              <div className="flex flex-wrap gap-1.5">
-                {TAG_PRESETS.map((preset) => {
-                  const isSelected = intake.storyTags?.includes(preset);
-                  return (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => handleTogglePresetTag(preset)}
-                      className={`px-2.5 py-1 rounded-full text-xs font-sans border transition-all ${
-                        isSelected 
-                          ? 'bg-neutral-900 border-portal text-portal shadow-[0_0_8px_rgba(4,172,255,0.15)] font-medium' 
-                          : 'bg-transparent border-neutral-850 text-neutral-500 hover:text-neutral-300 hover:border-neutral-700'
-                      }`}
-                    >
-                      {isSelected ? '✓' : '+'} {preset}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            {/* Tag presets catalog with search and category filters */}
+            {(() => {
+              const filteredPresets = (
+                activeCategory === 'All'
+                  ? TAG_PRESETS
+                  : CATEGORIZED_TAGS[activeCategory] || []
+              ).filter(tag => 
+                tag.toLowerCase().includes(tagSearch.toLowerCase())
+              );
+
+              return (
+                <div className="space-y-4 border border-neutral-900 bg-neutral-950/50 p-4 rounded-lg">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-900">
+                    <div className="flex items-center space-x-2">
+                      <span className="block font-sc text-[11px] text-[#FAFAFA] uppercase tracking-widest font-bold">Celestial Grimoire</span>
+                      <span className="text-[10px] bg-neutral-900 border border-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded font-mono">
+                        {filteredPresets.length} / {TAG_PRESETS.length}
+                      </span>
+                    </div>
+                    {/* Search Bar */}
+                    <input
+                      type="text"
+                      value={tagSearch}
+                      onChange={(e) => setTagSearch(e.target.value)}
+                      placeholder="Filter celestial tags..."
+                      className="bg-void border border-neutral-850 hover:border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded px-3 py-1.5 text-xs max-w-xs w-full transition-colors"
+                      id="celestial-tag-search-input"
+                    />
+                  </div>
+
+                  {/* Category selector */}
+                  <div className="flex flex-wrap gap-1" id="tag-categories">
+                    {['All', ...Object.keys(CATEGORIZED_TAGS)].map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setActiveCategory(cat)}
+                        className={`px-2.5 py-1 text-[10px] font-sans font-medium uppercase tracking-wider rounded border transition-all ${
+                          activeCategory === cat
+                            ? 'border-[#04ACFF] bg-[#04ACFF]/10 text-[#04ACFF] font-bold shadow-[0_0_8px_rgba(4,172,255,0.15)]'
+                            : 'border-neutral-900 bg-void text-neutral-500 hover:text-neutral-350 hover:border-neutral-850'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Scrollable tagged buttons */}
+                  <div className="max-h-56 overflow-y-auto pr-1 flex flex-wrap gap-1.5 scrollbar-thin" id="filtered-tags-list">
+                    {filteredPresets.length === 0 ? (
+                      <div className="text-neutral-600 text-xs font-sans italic py-4 w-full text-center">
+                        No celestial tag matches your search within this category.
+                      </div>
+                    ) : (
+                      filteredPresets.map((preset) => {
+                        const isSelected = intake.storyTags?.includes(preset);
+                        return (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => handleTogglePresetTag(preset)}
+                            className={`px-2.5 py-1 rounded text-xs transition-all border duration-300 ${
+                              isSelected 
+                                ? 'bg-neutral-900 border-[#04ACFF] text-[#04ACFF] shadow-[0_0_8px_rgba(4,172,255,0.15)] font-semibold' 
+                                : 'bg-void border-neutral-900 text-neutral-400 hover:text-[#FAFAFA] hover:border-neutral-800'
+                            }`}
+                          >
+                            {isSelected ? '✓' : '+'} {preset}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           <div>

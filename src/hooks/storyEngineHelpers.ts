@@ -23,9 +23,9 @@ export const extractJsonBlocks = (rawStr: string): any[] => {
     }
   } catch(e) {}
 
-  let blocks: any[] = [];
+  const blocks: any[] = [];
   const lines = rawStr.split('\n');
-  for (let l of lines) {
+  for (const l of lines) {
     const trimmed = l.trim();
     if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
       try {
@@ -38,7 +38,7 @@ export const extractJsonBlocks = (rawStr: string): any[] => {
   }
   if (blocks.length > 0) return blocks;
 
-  let braceBlocks: any[] = [];
+  const braceBlocks: any[] = [];
   let depth = 0;
   let currentBlock = "";
   let inString = false;
@@ -71,7 +71,7 @@ export const extractJsonBlocks = (rawStr: string): any[] => {
         currentBlock += char;
         if (depth === 0) {
           try {
-            let fixStr = currentBlock.replace(/,\s*([\]}])/g, '$1');
+            const fixStr = currentBlock.replace(/,\s*([\]}])/g, '$1');
             const obj = JSON.parse(fixStr);
             if (obj && (typeof obj.text === 'string' || typeof obj.content === 'string')) {
               braceBlocks.push({ ...obj, text: obj.text || obj.content });
@@ -128,7 +128,7 @@ export const extractJsonMeta = (rawStr: string): any => {
         currentBlock += char;
         if (depth === 0) {
           try {
-            let fixStr = currentBlock.replace(/,\s*([\]}])/g, '$1');
+            const fixStr = currentBlock.replace(/,\s*([\]}])/g, '$1');
             const obj = JSON.parse(fixStr);
             if (currentBlock.length > longestLength) {
               longestLength = currentBlock.length;

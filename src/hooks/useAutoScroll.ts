@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, RefObject } from 'react';
+import { useEffect, useRef, useState, RefObject, useCallback } from 'react';
 import { NarrationEventDetail } from '../lib/narrativeCues';
 
 interface UseAutoScrollOptions {
@@ -23,41 +23,54 @@ export const calculatePacedVelocity = (distanceToCover: number, durationMs: numb
 };
 
 export function useAutoScroll({ containerRef, mode, wpm = 200, onManualPause }: UseAutoScrollOptions) {
-  const [isScrolling, setIsScrolling] = useState(false);
+  const [isScrolling, setIsScrollingState] = useState(false);
+  const isScrollingRef = useRef(false);
+
+  const setIsScrolling = useCallback((val: boolean) => {
+    setIsScrollingState(val);
+    isScrollingRef.current = val;
+  }, []);
+
   const [currentWpm, setWpm] = useState(wpm);
 
   useEffect(() => {
     setWpm(wpm);
   }, [wpm]);
+
   const rAFRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
   const targetVelocityRef = useRef<number>(0);
   const currentVelocityRef = useRef<number>(0);
 
-  const stopLoop = () => {
+  const stopLoop = useCallback(() => {
     if (rAFRef.current !== null) {
       cancelAnimationFrame(rAFRef.current);
       rAFRef.current = null;
     }
     lastTimeRef.current = null;
-  };
+  }, []);
 
-  const play = () => {
+  const play = useCallback(() => {
     if (mode === 'off') return;
     setIsScrolling(true);
-  };
+  }, [mode, setIsScrolling]);
 
-  const pause = () => {
+  const pause = useCallback(() => {
     setIsScrolling(false);
     stopLoop();
-  };
+  }, [setIsScrolling, stopLoop]);
 
-  const handleManualPause = () => {
-    if (isScrolling) {
+  const onManualPauseRef = useRef(onManualPause);
+  useEffect(() => {
+    onManualPauseRef.current = onManualPause;
+  }, [onManualPause]);
+
+  const handleManualPause = useCallback(() => {
+    if (isScrollingRef.current) {
       pause();
-      onManualPause?.();
+      onManualPauseRef.current?.();
     }
-  };
+  }, [pause]);
 
   // Listen for user interaction to manually pause scrolling
   useEffect(() => {
@@ -83,7 +96,7 @@ export function useAutoScroll({ containerRef, mode, wpm = 200, onManualPause }: 
       container.removeEventListener('touchmove', onUserInteraction);
       container.removeEventListener('keydown', onUserInteraction as EventListener);
     };
-  }, [isScrolling, onManualPause, containerRef]);
+  }, [containerRef, handleManualPause]);
 
   // Respect user's motion preferences
   const prefersReducedMotion = useRef(
@@ -99,13 +112,20 @@ export function useAutoScroll({ containerRef, mode, wpm = 200, onManualPause }: 
     };
     mediaQuery.addEventListener('change', onChange);
     return () => mediaQuery.removeEventListener('change', onChange);
-  }, []);
+  }, [pause]);
+
+  const tickRef = useRef<(time: number) => void>(() => {});
 
   // Main scroll loop
-  const tick = (time: number) => {
+  const tick = useCallback((time: number) => {
+    if (!isScrollingRef.current) {
+      stopLoop();
+      return;
+    }
+
     if (!lastTimeRef.current) {
       lastTimeRef.current = time;
-      rAFRef.current = requestAnimationFrame(tick);
+      rAFRef.current = requestAnimationFrame(tickRef.current);
       return;
     }
 
@@ -113,7 +133,7 @@ export function useAutoScroll({ containerRef, mode, wpm = 200, onManualPause }: 
     lastTimeRef.current = time;
 
     const container = containerRef.current;
-    if (container && isScrolling && !prefersReducedMotion.current) {
+    if (container && isScrollingRef.current && !prefersReducedMotion.current) {
       // Smooth ramp to target velocity over ~0.5s
       const dtSec = dt / 1000;
       const velocityDiff = targetVelocityRef.current - currentVelocityRef.current;
@@ -130,19 +150,26 @@ export function useAutoScroll({ containerRef, mode, wpm = 200, onManualPause }: 
       }
     }
 
-    if (isScrolling) {
-      rAFRef.current = requestAnimationFrame(tick);
+    if (isScrollingRef.current) {
+      rAFRef.current = requestAnimationFrame(tickRef.current);
+    } else {
+      stopLoop();
     }
-  };
+  }, [containerRef, stopLoop]);
+
+  useEffect(() => {
+    tickRef.current = tick;
+  }, [tick]);
 
   useEffect(() => {
     if (isScrolling && !prefersReducedMotion.current) {
-      rAFRef.current = requestAnimationFrame(tick);
+      stopLoop();
+      rAFRef.current = requestAnimationFrame(tickRef.current);
     } else {
       stopLoop();
     }
     return () => stopLoop();
-  }, [isScrolling]);
+  }, [isScrolling, stopLoop]);
 
   // Handle Mode changes & Narration event subscription
   useEffect(() => {
@@ -190,7 +217,7 @@ export function useAutoScroll({ containerRef, mode, wpm = 200, onManualPause }: 
       window.addEventListener('seihouse-narration', onNarration as EventListener);
       return () => window.removeEventListener('seihouse-narration', onNarration as EventListener);
     }
-  }, [mode, currentWpm, containerRef]);
+  }, [mode, currentWpm, containerRef, play, pause]);
 
   // Sync mode changes to targetVelocity if scrolling (for 'constant' mode updates like WPM slider)
   useEffect(() => {

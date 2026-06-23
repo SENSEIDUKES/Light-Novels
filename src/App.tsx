@@ -20,6 +20,7 @@ import { StoryDetailScreen } from './components/StoryDetailScreen';
 import { ReaderScreen } from './components/ReaderScreen';
 import { ModalsAndToasts } from './components/ModalsAndToasts';
 import { CodexSheetOverlay } from './components/CodexSheetOverlay';
+import { KeyboardShortcuts } from './components/KeyboardShortcuts';
 
 // Global FX & Audio
 import { AtmosphericAudio } from './components/AtmosphericAudio';
@@ -273,6 +274,7 @@ function App() {
       />
       <AILoadingVeil />
       <ModalsAndToasts />
+      <KeyboardShortcuts />
       <AtmosphericAudio />
     </div>
   );

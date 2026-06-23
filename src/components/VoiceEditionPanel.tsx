@@ -62,7 +62,7 @@ export const VoiceEditionPanel: React.FC<VoiceEditionPanelProps> = ({ selectedCh
       setProgress({ current: 0, total: blocks.length });
       
       const clips: VoiceClip[] = [];
-      let updatedCharacters = [...activeStory.memory.characters];
+      const updatedCharacters = [...activeStory.memory.characters];
       let hasCharacterUpdates = false;
 
       const generateAll = async () => {
@@ -79,7 +79,7 @@ export const VoiceEditionPanel: React.FC<VoiceEditionPanelProps> = ({ selectedCh
           } else {
             const speakerName = block.metadata?.speakerName;
             const speakerRole = block.metadata?.speakerRole;
-            let character = updatedCharacters.find(c => c.name === speakerName);
+            const character = updatedCharacters.find(c => c.name === speakerName);
 
             const preset = resolveKokoroVoicePreset({
               mode: "dialogue",

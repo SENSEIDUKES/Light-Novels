@@ -14,7 +14,10 @@ vi.mock('../lib/storage', () => {
          return useAppStore.getState().stories;
        }),
        deleteStory: vi.fn(),
-       saveStory: vi.fn()
+       saveStory: vi.fn(),
+       startTransaction: vi.fn(),
+       commitTransaction: vi.fn().mockResolvedValue(true),
+       rollbackTransaction: vi.fn()
      }
    }
 });

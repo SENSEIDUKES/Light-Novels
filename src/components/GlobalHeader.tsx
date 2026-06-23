@@ -1,44 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { Cloud, CloudOff, RefreshCw, User, LogOut, Plus, Sliders, ScrollText, Scroll, Link } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, User, LogOut, Plus, Sliders, ScrollText, Scroll, Link, Keyboard } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
 import { auth } from '../lib/firebase';
 import { signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { AudioWidget } from './AudioWidget';
+import { DaoInsights } from './DaoInsights';
 
 export const GlobalHeader: React.FC = () => {
   const { currentScreen, setCurrentScreen, setActiveStoryId, syncStatus, currentUser, lastSavedTime, activeStoryId, stories, setIsSettingsOpen } = useAppStore();
-
-  const [daoStatus, setDaoStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
-  const [daoDetail, setDaoDetail] = useState<string>('Sensing alignment with the cosmic Dao...');
-
-  const localGeminiKey = useAppStore(state => state.localGeminiKey);
-  const localOpenrouterKey = useAppStore(state => state.localOpenrouterKey);
-  const localOllamaHost = useAppStore(state => state.localOllamaHost);
-  const isSettingsOpen = useAppStore(state => state.isSettingsOpen);
-
-  const checkDaoConnection = async () => {
-    setDaoStatus('checking');
-    try {
-      const res = await fetch('/api/config-status');
-      const status = res.ok ? await res.json() : { hasServerGemini: true };
-      
-      setDaoStatus('connected');
-      const hasLocalKey = !!(localGeminiKey || localOpenrouterKey || localOllamaHost);
-      if (hasLocalKey) {
-        setDaoDetail('Local Conduit Active (Overriding Keys configured)');
-      } else {
-        setDaoDetail('Divine Flow Stable (Server-managed Gemini active)');
-      }
-    } catch (err) {
-      setDaoStatus('connected');
-      setDaoDetail('Divine Flow Stable (Server-managed Gemini active)');
-    }
-  };
+  const [qiCharge, setQiCharge] = useState(0);
+  const [isHolding, setIsHolding] = useState(false);
 
   useEffect(() => {
-    checkDaoConnection();
-  }, [localGeminiKey, localOpenrouterKey, localOllamaHost, isSettingsOpen]);
+    let intervalId: any;
+    if (isHolding) {
+      intervalId = setInterval(() => {
+        setQiCharge((prev) => Math.min(prev + 3, 100));
+      }, 20);
+    } else {
+      intervalId = setInterval(() => {
+        setQiCharge((prev) => Math.max(prev - 6, 0));
+      }, 20);
+    }
+    return () => clearInterval(intervalId);
+  }, [isHolding]);
 
   const handleLogin = async () => {
     try {
@@ -78,45 +64,49 @@ export const GlobalHeader: React.FC = () => {
             referrerPolicy="no-referrer"
           />
           <div className="min-w-0">
-            <span className="font-sc text-portal text-[6px] sm:text-[10px] tracking-[0.1em] sm:tracking-[0.25em] font-semibold block uppercase truncate">SEIHouse Appellation</span>
-            <h1 className="font-display font-bold text-xs sm:text-base md:text-lg text-signal tracking-wide leading-tight truncate">Celestial Scroll Library</h1>
+            <h1 className="font-display font-bold text-xs sm:text-base md:text-lg text-signal tracking-wide leading-tight truncate select-none">
+              <span
+                className="relative inline-block cursor-pointer transition-all duration-200"
+                onMouseDown={() => setIsHolding(true)}
+                onMouseUp={() => setIsHolding(false)}
+                onMouseLeave={() => setIsHolding(false)}
+                onTouchStart={(e) => {
+                  e.stopPropagation();
+                  setIsHolding(true);
+                }}
+                onTouchEnd={() => setIsHolding(false)}
+                onTouchCancel={() => setIsHolding(false)}
+                style={{
+                  textShadow: `0 0 ${4 + (qiCharge / 100) * 20}px rgba(4, 172, 255, ${0.4 + (qiCharge / 100) * 0.6}), 
+                               0 0 ${1 + (qiCharge / 100) * 8}px rgba(250, 250, 250, ${0.3 + (qiCharge / 100) * 0.7})`,
+                  color: `rgb(${250 - (qiCharge / 100) * 15}, ${250 - (qiCharge / 100) * 5}, 255)`,
+                  transform: `scale(${1 + (qiCharge / 100) * 0.08})`,
+                  transformOrigin: 'left center',
+                  transition: 'text-shadow 0.1s ease-out, transform 0.1s ease-out, color 0.1s ease-out'
+                }}
+              >
+                Celestial
+                
+                {/* Qi gathering particle ring effect */}
+                <span 
+                  className="absolute -inset-2 rounded-lg pointer-events-none transition-all duration-100 mix-blend-screen opacity-70"
+                  style={{
+                    boxShadow: `inset 0 0 ${(qiCharge / 100) * 16}px rgba(4, 172, 255, ${(qiCharge / 100) * 0.8}),
+                                0 0 ${(qiCharge / 100) * 20}px rgba(4, 172, 255, ${(qiCharge / 100) * 0.6})`,
+                    border: `1px dashed rgba(4, 172, 255, ${(qiCharge / 100) * 0.5})`,
+                    transform: `scale(${1.4 - (qiCharge / 100) * 0.4}) rotate(${qiCharge * 3.6}deg)`,
+                  }}
+                />
+              </span>
+              {' '}Library
+            </h1>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
-          {/* Connection to the Dao Badge */}
-          <button
-            onClick={checkDaoConnection}
-            className={`flex items-center space-x-1.5 px-2 py-1 rounded-full text-[9px] sm:text-[10px] uppercase font-bold transition-all duration-300 border border-neutral-900 shrink-0 font-sc tracking-wider hover:scale-105 select-none animate-fadeIn ${
-              daoStatus === 'connected'
-                ? 'bg-emerald-550/10 border-emerald-500/25 text-emerald-400 hover:bg-emerald-550/15 shadow-[0_0_12px_rgba(16,185,129,0.06)]'
-                : daoStatus === 'disconnected'
-                ? 'bg-red-950/20 border-red-900/30 text-red-400 hover:bg-red-900/20 shadow-[0_0_12px_rgba(139,0,0,0.04)]'
-                : 'bg-neutral-900/50 border-neutral-800 text-neutral-400'
-            }`}
-            title={`${daoDetail} — Click to verify connection state`}
-          >
-            {daoStatus === 'checking' ? (
-              <RefreshCw size={11} className="animate-spin text-amber-400" />
-            ) : daoStatus === 'connected' ? (
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-            ) : (
-              <span className="relative flex h-2 w-2">
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-              </span>
-            )}
-            
-            <span className="hidden sm:inline-block font-bold">
-              {daoStatus === 'connected' ? 'Connection to the Dao' : daoStatus === 'disconnected' ? 'Dao Severed' : 'Sensing Dao...'}
-            </span>
-            <span className="sm:hidden font-bold">
-              {daoStatus === 'connected' ? 'Dao Aligned' : daoStatus === 'disconnected' ? 'Dao Severed' : 'Sensing...'}
-            </span>
-          </button>
+        {/* Center Section: Insights from the Dao */}
+        <DaoInsights />
 
+        <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
           <div className="flex items-center shrink-0">
             {currentUser ? (
               <button 

@@ -324,7 +324,7 @@ export const ModalsAndToasts: React.FC = () => {
               exit={{ opacity: 0, scale: 0.95 }}
               className="bg-neutral-900 border border-red-900/50 rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl relative"
             >
-              <h3 className="text-xl font-display font-bold text-signal mb-2">Delete scroll?</h3>
+              <h3 className="text-xl font-display font-bold text-signal mb-2">Delete story?</h3>
               <p className="text-sm text-neutral-400 mb-4 font-serif">
                 This will forever sever karma. Are you true in your intent?
               </p>

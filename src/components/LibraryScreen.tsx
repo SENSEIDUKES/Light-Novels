@@ -6,12 +6,34 @@ import { ParticleSystem } from './ParticleSystem';
 import { Story } from '../types';
 import { getDaoRankData } from '../lib/qi';
 
+import { INITIAL_DEMO_STORIES } from '../store/demoStories';
+
 const HERO_VIDEOS = [
   "https://video.seihouse.org/LIGHT%20NOVEL/LIGHT_NOVEL_INTRO.mp4",
   "https://video.seihouse.org/LIGHT%20NOVEL/LIGHT_NOVEL_INTRO2.mp4"
 ];
 
-const PUBLISHED_WORLDS: any[] = [];
+const PUBLISHED_WORLDS: any[] = INITIAL_DEMO_STORIES.map(story => {
+  let reads = 1200;
+  let createdAt = story.createdAt;
+  if (story.id === 'demo-matrix-1') {
+    reads = 8920;
+    createdAt = new Date(Date.now() - 24 * 3600 * 1000).toISOString(); // 1 day ago
+  } else if (story.id === 'demo-matrix-2') {
+    reads = 4320;
+    createdAt = new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(); // 3 days ago
+  } else if (story.id === 'demo-matrix-3') {
+    reads = 6250;
+    createdAt = new Date(Date.now() - 12 * 3600 * 1000).toISOString(); // 12 hours ago
+  }
+  return {
+    ...story,
+    reads,
+    createdAt,
+    chapterCount: story.arcs.reduce((sum, a) => sum + a.chapters.length, 0),
+    powerStage: story.memory.currentPowerStage,
+  };
+});
 
 export const LibraryScreen: React.FC = () => {
   const { currentScreen, setCurrentScreen, stories, setActiveStoryId, setStoryToDelete, userProfile } = useAppStore();
@@ -19,7 +41,28 @@ export const LibraryScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'featured' | 'my-library'>(stories.length === 0 ? 'featured' : 'my-library');
   const heroVideoRef = useRef<HTMLVideoElement>(null);
 
+  // Filter and sort states for the 'Immortal Hub' tab
+  const [selectedGenre, setSelectedGenre] = useState<string>('All');
+  const [sortBy, setSortBy] = useState<'newest' | 'popularity' | 'genre'>('popularity');
+
   if (currentScreen !== 'home') return null;
+
+  const uniqueGenres = Array.from(new Set(PUBLISHED_WORLDS.map(w => w.genre)));
+  const genres = ['All', ...uniqueGenres];
+
+  const filteredAndSortedWorlds = PUBLISHED_WORLDS.filter(world => {
+    if (selectedGenre === 'All') return true;
+    return world.genre.toLowerCase() === selectedGenre.toLowerCase();
+  }).sort((a, b) => {
+    if (sortBy === 'newest') {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    } else if (sortBy === 'popularity') {
+      return b.reads - a.reads;
+    } else if (sortBy === 'genre') {
+      return a.genre.localeCompare(b.genre) || (b.reads - a.reads);
+    }
+    return 0;
+  });
 
   const sortedStoriesByDate = [...stories].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   const mostRecentStory = sortedStoriesByDate.length > 0 ? sortedStoriesByDate[0] : null;
@@ -125,7 +168,7 @@ export const LibraryScreen: React.FC = () => {
             activeTab === 'featured' ? 'border-portal text-portal' : 'border-transparent text-neutral-500 hover:text-neutral-300'
           }`}
         >
-          SEIHouse Featured Novels
+          Immortal Hub
         </button>
         <button 
           onClick={() => setActiveTab('my-library')}
@@ -221,7 +264,7 @@ export const LibraryScreen: React.FC = () => {
             <div className="text-center py-20 bg-[#111] border border-neutral-900 rounded-lg max-w-lg mx-auto shadow-inner">
               <BookOpen size={40} className="text-neutral-800 mx-auto mb-4 animate-bounce" />
               <h4 className="font-sc font-semibold text-neutral-400 text-sm uppercase tracking-wider mb-1">
-                No Scrolls Found
+                No Stories Found
               </h4>
               <p className="text-xs text-neutral-600 max-w-xs mx-auto mb-6">
                 Your cultivation path is empty. Manifest a new realm to begin reading.
@@ -271,9 +314,9 @@ export const LibraryScreen: React.FC = () => {
                       </div>
                       <button
                          onClick={(e) => handleDeleteStory(story.id, e)}
-                         aria-label={`Burn scroll for ${story.title}`}
+                         aria-label={`Burn story for ${story.title}`}
                          className="absolute top-2 left-2 p-1.5 text-neutral-400 bg-black/60 border border-neutral-800 backdrop-blur-sm hover:text-red-500 hover:border-red-900 rounded-xl opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all font-sc"
-                         title="Burn Scroll"
+                         title="Burn Story"
                       >
                          <Trash2 size={12} />
                       </button>
@@ -327,29 +370,91 @@ export const LibraryScreen: React.FC = () => {
 
       {activeTab === 'featured' && (
         <div className="space-y-6 animate-fadeIn" id="published-worlds-list">
-          {PUBLISHED_WORLDS.length === 0 ? (
+          {/* Filtering and Sorting Panels */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl bg-neutral-950/80 border border-neutral-900 shadow-xl backdrop-blur-md">
+            {/* Genre Filter */}
+            <div className="flex flex-col gap-2">
+              <span className="text-[11px] font-sc font-bold uppercase tracking-[0.2em] text-[#04ACFF]">
+                Realm Filter (Genre)
+              </span>
+              <div className="flex flex-wrap items-center gap-1.5" id="realm-genre-filters">
+                {genres.map((genre) => (
+                  <button
+                    key={genre}
+                    onClick={() => setSelectedGenre(genre)}
+                    className={`px-3 py-1.5 text-xs font-sans font-medium uppercase tracking-wider rounded-md border transition-all duration-300 ${
+                      selectedGenre === genre
+                        ? 'border-[#04ACFF] bg-[#04ACFF]/10 text-[#04ACFF] shadow-[0_0_12px_rgba(4,172,255,0.25)]'
+                        : 'border-neutral-900 bg-void text-neutral-400 hover:text-[#FAFAFA] hover:border-neutral-800'
+                    }`}
+                    id={`genre-filter-${genre.replace(/\s+/g, '-').toLowerCase()}`}
+                  >
+                    {genre}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Sorting */}
+            <div className="flex flex-col gap-2 min-w-[200px]">
+              <span className="text-[11px] font-sc font-bold uppercase tracking-[0.2em] text-[#FAFAFA]">
+                Ascension Order
+              </span>
+              <div className="relative">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="w-full bg-void border border-neutral-900 hover:border-neutral-800 px-3 py-2 text-xs font-sans font-medium uppercase tracking-wider text-[#FAFAFA] rounded-md focus:outline-none focus:border-[#04ACFF] cursor-pointer pr-10 appearance-none"
+                  id="immortal-hub-sort"
+                >
+                  <option value="popularity">Popularity (Most Reads)</option>
+                  <option value="newest">Newest (Recent Manifestation)</option>
+                  <option value="genre">Genre (Alphabetical Codex)</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-neutral-400">
+                  <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                    <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {filteredAndSortedWorlds.length === 0 ? (
             <div className="text-center py-20 bg-[#111] border border-neutral-900 rounded-lg max-w-lg mx-auto shadow-inner">
               <Globe size={40} className="text-neutral-800 mx-auto mb-4 animate-pulse" />
               <h4 className="font-sc font-semibold text-neutral-400 text-sm uppercase tracking-wider mb-1">
                 Awaiting Manifestations
               </h4>
               <p className="text-xs text-neutral-600 max-w-xs mx-auto mb-6">
-                The cosmic tapestry is currently silent. Curated worlds will be woven here soon.
+                No worlds matching this filter could be found inside the matrix. Try altering your filter parameters.
               </p>
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6">
-              {PUBLISHED_WORLDS.map((world) => (
+              {filteredAndSortedWorlds.map((world) => (
                 <div
                   key={world.id}
                   className="group cursor-pointer flex flex-col space-y-3"
-                  onClick={() => alert("Published Worlds are currently view-only in this realm. Future ascensions will unlock reading.")}
+                  onClick={() => {
+                    const existing = stories.find(s => s.id === world.id);
+                    if (!existing) {
+                      useAppStore.getState().setStories([world, ...stories]);
+                    }
+                    setActiveStoryId(world.id);
+                    setCurrentScreen('detail');
+                  }}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      alert("Published Worlds are currently view-only in this realm. Future ascensions will unlock reading.");
+                      const existing = stories.find(s => s.id === world.id);
+                      if (!existing) {
+                        useAppStore.getState().setStories([world, ...stories]);
+                      }
+                      setActiveStoryId(world.id);
+                      setCurrentScreen('detail');
                     }
                   }}
                   aria-label={`View published world ${world.title}`}

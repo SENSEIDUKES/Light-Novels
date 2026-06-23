@@ -514,31 +514,30 @@ export default function LivingCodex({
 
   // Generate Image Card API trigger
   const handleRevertImage = (id: string, type: string, newUrl: string) => {
-    // 1. Update memory
+    let finalMemory = { ...memory };
     if (type === 'character' || type === 'beast') {
       const updated = memory.characters.map(c => c.id === id ? { ...c, imageUrl: newUrl } : c);
-      onUpdateMemory({ ...memory, characters: updated });
+      finalMemory = { ...memory, characters: updated };
     } else if (type === 'location') {
       const updated = (memory.locations || []).map(l => l.id === id ? { ...l, imageUrl: newUrl } : l);
-      onUpdateMemory({ ...memory, locations: updated });
+      finalMemory = { ...memory, locations: updated };
     } else if (type === 'artifact') {
       const updated = (memory.artifacts || []).map(a => a.id === id ? { ...a, imageUrl: newUrl } : a);
-      onUpdateMemory({ ...memory, artifacts: updated });
+      finalMemory = { ...memory, artifacts: updated };
     }
 
-    // 2. Update activeStory image history isCurrent flags
-    if (activeStory.imageHistory) {
-      const updatedStoryHistory = activeStory.imageHistory.map(img => {
-        if (img.entityId === id) {
-          return { ...img, isCurrent: img.imageUrl === newUrl };
-        }
-        return img;
-      });
-      onUpdateStory({
-        ...activeStory,
-        imageHistory: updatedStoryHistory
-      });
-    }
+    const updatedStoryHistory = activeStory.imageHistory ? activeStory.imageHistory.map(img => {
+      if (img.entityId === id) {
+        return { ...img, isCurrent: img.imageUrl === newUrl };
+      }
+      return img;
+    }) : [];
+
+    onUpdateStory({
+      ...activeStory,
+      memory: finalMemory,
+      imageHistory: updatedStoryHistory
+    });
   };
 
   const renderImageHistoryGallery = (entityId: string, type: 'character' | 'location' | 'artifact' | 'beast', imageHistory: any[] | undefined) => {
@@ -640,25 +639,28 @@ export default function LivingCodex({
       .map(img => img.entityId === id ? { ...img, isCurrent: false } : img)
       .concat(newHistoryItem);
 
+    let finalMemory = { ...memory };
+
     if (type === 'character' || type === 'beast') {
       const updated = memory.characters.map(c => 
         c.id === id ? { ...c, imageUrl: selectedUrl, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber } : c
       );
-      onUpdateMemory({ ...memory, characters: updated });
+      finalMemory = { ...memory, characters: updated };
     } else if (type === 'location') {
       const updated = (memory.locations || []).map(l => 
         l.id === id ? { ...l, imageUrl: selectedUrl, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber } : l
       );
-      onUpdateMemory({ ...memory, locations: updated });
+      finalMemory = { ...memory, locations: updated };
     } else if (type === 'artifact') {
       const updated = (memory.artifacts || []).map(a => 
         a.id === id ? { ...a, imageUrl: selectedUrl, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber } : a
       );
-      onUpdateMemory({ ...memory, artifacts: updated });
+      finalMemory = { ...memory, artifacts: updated };
     }
 
     onUpdateStory({
       ...activeStory,
+      memory: finalMemory,
       imageHistory: updatedStoryHistory
     });
 

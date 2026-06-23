@@ -17,7 +17,16 @@ vi.mock('../lib/rag', () => ({
 }));
 
 vi.mock('../lib/storage', () => ({
-  storyStorage: { getStories: vi.fn().mockResolvedValue([]), saveStory: vi.fn() },
+  storyStorage: { 
+    getStories: vi.fn().mockResolvedValue([]), 
+    saveStory: vi.fn(),
+    getChapterContent: vi.fn(),
+    saveChapterContent: vi.fn(),
+    deleteStory: vi.fn(),
+    startTransaction: vi.fn(),
+    commitTransaction: vi.fn().mockResolvedValue(true),
+    rollbackTransaction: vi.fn(),
+  },
 }));
 
 vi.mock('../lib/qi', () => ({
@@ -156,12 +165,14 @@ describe('useStoryEngine hook functionalities', () => {
 
     // Mock readable stream
     const encoder = new TextEncoder();
+    const longChunk = 'This is a very long text chunk to bypass the minimum length requirement of one hundred and fifty characters to prevent throwing the stream dissipation error in the chapter generation sequence. '.repeat(5);
     const mockChunks = [
       'data: {"chunk": "{\\"text\\":\\"[System: Loading region]\\"}\\n"}\n',
       'data: {"chunk": "{\\"text\\":\\"[Audio: play_bg.mp3]\\"}\\n"}\n',
+      `data: {"chunk": "{\\"text\\":\\"${longChunk}\\"}\\n"}\n`,
       'data: [DONE]\n'
     ];
-    let chunkIndex = 0;
+    const chunkIndex = 0;
     const mockReader = {
       read: vi.fn()
     };

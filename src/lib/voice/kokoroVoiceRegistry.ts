@@ -188,7 +188,7 @@ export const KOKORO_VOICE_PRESETS: KokoroVoicePreset[] = [
     id: "en_male_older_narrator_1",
     provider: "kokoro",
     providerVoiceId: "bm_lewis",
-    displayName: "Elder Scroll Narrator",
+    displayName: "Elder Tome Narrator",
     language: "en",
     accent: "british",
     gender: "male",

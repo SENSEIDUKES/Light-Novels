@@ -72,7 +72,7 @@ export const AILoadingVeil: React.FC = () => {
             {generationPhase === 'blueprint' && "Establishing foundational laws, power limitations, and planetary properties."}
             {generationPhase === 'initial-arc' && "Transcribing the grand volume ledger, compiling chapter milestones and character templates."}
             {generationPhase === 'steer' && "Merging your custom instructions with fate timelines to trigger the subsequent 10 chapters."}
-            {generationPhase === 'cover' && "Translating core premise variables into bespoke high-fidelity digital art scrolls."}
+            {generationPhase === 'cover' && "Translating core premise variables into bespoke high-fidelity digital art."}
             {!generationPhase && "Interfacing with the SEIHouse deep narrative engine."}
           </p>
 

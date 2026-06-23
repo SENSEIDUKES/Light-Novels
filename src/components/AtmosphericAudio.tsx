@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SceneScoreEngine, SceneAudioTrack } from '../lib/audio/musicResolver';
+import { useAppStore } from '../store/useAppStore';
 
 type AtmosphereType = 'none' | 'wind' | 'rain' | 'temple' | 'crowd' | 'combat';
 type FXType = 'footsteps' | 'footsteps_snow' | 'footsteps_wood' | 'footsteps_stone' | 'creature' | 'system_alert' | 'combat_hit';
 
 export function AtmosphericAudio() {
+  const currentScreen = useAppStore(state => state.currentScreen);
   const [isMuted, setIsMuted] = useState(() => {
     return localStorage.getItem('seihouse-audio-muted') === 'true';
   });
@@ -19,9 +21,11 @@ export function AtmosphericAudio() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const activeSourcesRef = useRef<AudioScheduledSourceNode[]>([]);
   const activeIntervalsRef = useRef<NodeJS.Timeout[]>([]);
+  const masterGainRef = useRef<GainNode | null>(null);
 
   // BGM refs
   const bgmPlayerA = useRef<HTMLAudioElement | null>(null);
+
   const bgmPlayerB = useRef<HTMLAudioElement | null>(null);
   const activeBgmPlayer = useRef<'A' | 'B'>('A');
   const scoreEngineRef = useRef(new SceneScoreEngine());
@@ -50,9 +54,11 @@ export function AtmosphericAudio() {
   }, []);
 
   const syncBgmVolumes = () => {
-    const targetVolume = volume * 0.5 * bgmIntensityRef.current;
-    if (bgmPlayerA.current) bgmPlayerA.current.muted = isMuted;
-    if (bgmPlayerB.current) bgmPlayerB.current.muted = isMuted;
+    const isActuallyMuted = isMuted || currentScreen !== 'reader';
+    const targetVolume = isActuallyMuted ? 0 : (volume * 0.5 * bgmIntensityRef.current);
+    
+    if (bgmPlayerA.current) bgmPlayerA.current.muted = isActuallyMuted;
+    if (bgmPlayerB.current) bgmPlayerB.current.muted = isActuallyMuted;
     
     // Auto-sync active player volume if not currently cross-fading
     if (!bgmFadeInterval.current) {
@@ -78,7 +84,7 @@ export function AtmosphericAudio() {
     window.dispatchEvent(new CustomEvent('seihouse-audio-state', {
       detail: { isMuted, atmosphere, volume }
     }));
-  }, [isMuted, atmosphere, volume]);
+  }, [isMuted, atmosphere, volume, currentScreen]);
 
   // Handle incoming control events from UI
   useEffect(() => {
@@ -110,10 +116,26 @@ export function AtmosphericAudio() {
     return () => window.removeEventListener('seihouse-audio-control', handleControl);
   }, []);
 
+  const getDestination = (ctx: AudioContext) => {
+    if (!masterGainRef.current) {
+      masterGainRef.current = ctx.createGain();
+      masterGainRef.current.connect(ctx.destination);
+    }
+    return masterGainRef.current;
+  };
+
+  // Keep master gain synced with user volume slider
+  useEffect(() => {
+    if (audioCtxRef.current && masterGainRef.current) {
+      const targetGain = (isMuted || currentScreen !== 'reader') ? 0 : volume;
+      masterGainRef.current.gain.setTargetAtTime(targetGain, audioCtxRef.current.currentTime, 0.1);
+    }
+  }, [volume, isMuted, currentScreen]);
+
   // Main background synthesizer loop
   useEffect(() => {
     // If user has muted, or if atmosphere is set to none, stop sound synthesis
-    if (isMuted || atmosphere === 'none') {
+    if (isMuted || atmosphere === 'none' || currentScreen !== 'reader') {
       stopAll();
       return;
     }
@@ -122,6 +144,15 @@ export function AtmosphericAudio() {
       audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
     const ctx = audioCtxRef.current;
+    
+    // Ensure master gain acts immediately when resuming
+    if (!masterGainRef.current) {
+      getDestination(ctx);
+    }
+    if (masterGainRef.current) {
+       masterGainRef.current.gain.value = volume;
+    }
+
     if (ctx.state === 'suspended') {
       ctx.resume();
     }
@@ -144,7 +175,7 @@ export function AtmosphericAudio() {
     return () => {
       stopAll();
     };
-  }, [isMuted, atmosphere, volume]);
+  }, [isMuted, atmosphere, currentScreen]);
 
   function stopAll() {
     activeSourcesRef.current.forEach(source => {
@@ -200,11 +231,11 @@ export function AtmosphericAudio() {
     lfo.start();
 
     const masterGain = ctx.createGain();
-    masterGain.gain.value = volume * 0.3; // Wind is soft
+    masterGain.gain.value = 0.3; // Wind is soft
 
     source.connect(filter);
     filter.connect(masterGain);
-    masterGain.connect(ctx.destination);
+    masterGain.connect(getDestination(ctx));
 
     source.start();
     registerSource(source);
@@ -222,11 +253,11 @@ export function AtmosphericAudio() {
     filter.frequency.value = 1200;
 
     const masterGain = ctx.createGain();
-    masterGain.gain.value = volume * 0.4;
+    masterGain.gain.value = 0.4;
 
     source.connect(filter);
     filter.connect(masterGain);
-    masterGain.connect(ctx.destination);
+    masterGain.connect(getDestination(ctx));
 
     source.start();
     registerSource(source);
@@ -305,12 +336,12 @@ export function AtmosphericAudio() {
 
     const gainNode = ctx.createGain();
     gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(volume * 0.5, ctx.currentTime + 0.1);
+    gainNode.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.1);
     gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 6); // Long decay
 
     osc.connect(gainNode);
     osc2.connect(gainNode);
-    gainNode.connect(ctx.destination);
+    gainNode.connect(getDestination(ctx));
 
     osc.start();
     osc2.start();
@@ -337,11 +368,11 @@ export function AtmosphericAudio() {
     
     const gainNode = ctx.createGain();
     gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(volume * 0.2, ctx.currentTime + 0.05);
+    gainNode.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.05);
     gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5); 
 
     osc.connect(gainNode);
-    gainNode.connect(ctx.destination);
+    gainNode.connect(getDestination(ctx));
 
     osc.start();
     osc.stop(ctx.currentTime + 1.5);
@@ -355,11 +386,11 @@ export function AtmosphericAudio() {
     
     const gainNode = ctx.createGain();
     gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(volume * 0.3, ctx.currentTime + 0.05);
+    gainNode.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.05);
     gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
 
     osc.connect(gainNode);
-    gainNode.connect(ctx.destination);
+    gainNode.connect(getDestination(ctx));
 
     osc.start();
     osc.stop(ctx.currentTime + 0.5);
@@ -395,11 +426,11 @@ export function AtmosphericAudio() {
         osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.1);
         
         const thudGain = ctx.createGain();
-        thudGain.gain.setValueAtTime(volume * 0.5, ctx.currentTime);
+        thudGain.gain.setValueAtTime(0.5, ctx.currentTime);
         thudGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
         
         osc.connect(thudGain);
-        thudGain.connect(ctx.destination);
+        thudGain.connect(getDestination(ctx));
         osc.start();
         osc.stop(ctx.currentTime + 0.1);
     } else if (material === 'stone') {
@@ -412,11 +443,11 @@ export function AtmosphericAudio() {
     }
 
     const gainNode = ctx.createGain();
-    gainNode.gain.value = volume * (material === 'snow' ? 0.3 : 0.6); // snow is a bit quieter
+    gainNode.gain.value = material === 'snow' ? 0.3 : 0.6; // snow is a bit quieter
 
     source.connect(filter);
     filter.connect(gainNode);
-    gainNode.connect(ctx.destination);
+    gainNode.connect(getDestination(ctx));
 
     source.start();
   };
@@ -434,12 +465,12 @@ export function AtmosphericAudio() {
 
     const gainNode = ctx.createGain();
     gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(volume * 0.5, ctx.currentTime + 0.1);
+    gainNode.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.1);
     gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
 
     osc.connect(filter);
     filter.connect(gainNode);
-    gainNode.connect(ctx.destination);
+    gainNode.connect(getDestination(ctx));
 
     osc.start();
     osc.stop(ctx.currentTime + 0.8);
@@ -451,7 +482,7 @@ export function AtmosphericAudio() {
     const { size = 'human-sized', element = 'none', signatureSound = 'roar', threatTier = 'common' } = profile;
 
     // Adjust base pitch and volume by size/threat
-    let baseVol = volume * 0.5;
+    let baseVol = 0.5;
     let basePitch = 150;
     let decay = 1.0;
 
@@ -524,7 +555,7 @@ export function AtmosphericAudio() {
 
     osc.connect(filter);
     filter.connect(gainNode);
-    gainNode.connect(ctx.destination);
+    gainNode.connect(getDestination(ctx));
 
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + decay);
@@ -549,12 +580,12 @@ export function AtmosphericAudio() {
 
     const gainNode = ctx.createGain();
     gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(volume * 0.5, ctx.currentTime + 0.02);
+    gainNode.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.02);
     gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
 
     osc.connect(filter);
     filter.connect(gainNode);
-    gainNode.connect(ctx.destination);
+    gainNode.connect(getDestination(ctx));
 
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.3);
@@ -568,11 +599,11 @@ export function AtmosphericAudio() {
     
     const gainNode = ctx.createGain();
     gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(volume * 0.6, ctx.currentTime + 1.0);
+    gainNode.gain.linearRampToValueAtTime(0.6, ctx.currentTime + 1.0);
     gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5);
     
     osc.connect(gainNode);
-    gainNode.connect(ctx.destination);
+    gainNode.connect(getDestination(ctx));
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 1.5);
   };
@@ -590,12 +621,12 @@ export function AtmosphericAudio() {
 
     const gainNode = ctx.createGain();
     gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(volume * 0.8, ctx.currentTime + 0.01);
+    gainNode.gain.linearRampToValueAtTime(0.8, ctx.currentTime + 0.01);
     gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
 
     osc.connect(filter);
     filter.connect(gainNode);
-    gainNode.connect(ctx.destination);
+    gainNode.connect(getDestination(ctx));
     
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.5);
@@ -617,11 +648,11 @@ export function AtmosphericAudio() {
 
     const gainNode = ctx.createGain();
     gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(volume * 0.3, ctx.currentTime + 1.0);
+    gainNode.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 1.0);
     gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 2.0);
 
     osc.connect(gainNode);
-    gainNode.connect(ctx.destination);
+    gainNode.connect(getDestination(ctx));
 
     try {
       lfo.start(ctx.currentTime);
@@ -647,8 +678,8 @@ export function AtmosphericAudio() {
   useEffect(() => {
     const handleCue = (e: any) => {
       try {
-        // If manually muted by user, absolutely do not play or change state!
-        if (isMuted) return;
+        // If manually muted by user, or not in reader, absolutely do not play or change state!
+        if (isMuted || currentScreen !== 'reader') return;
 
         const cue = e.detail;
         const ctx = initAudioCtx();
@@ -773,7 +804,7 @@ export function AtmosphericAudio() {
     
     window.addEventListener('narrative-cue', handleCue);
     return () => window.removeEventListener('narrative-cue', handleCue);
-  }, [isMuted, volume]); // Observe changes to Mute preference directly
+  }, [isMuted, volume, currentScreen]); // Observe changes to Mute preference directly
 
   // Headless rendering to prevent blocking menu options
   return null;
