@@ -1567,7 +1567,7 @@ export default function ReaderChamber({
                     className="relative z-10 group-hover:animate-pulse"
                   />
                   <span className="relative z-10 drop-shadow-[0_0_8px_rgba(139,0,0,0.6)]">
-                    Sow Karma
+                    Manifest
                   </span>
                 </>
               )}
