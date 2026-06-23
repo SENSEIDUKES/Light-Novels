@@ -233,7 +233,9 @@ export interface ChapterContent {
   chapterNumber: number;
   generatedContent: string;
   blocks?: StoryBlock[];
+  archivedBlocks?: StoryBlock[]; // For offloading older dialogue/non-essential blocks
   summary?: string;
+  episodicSummary?: string; // Episodic summaries
   statsChangeMessage?: string;
   cuePayload?: StoryCuePayload;
   translations?: {
@@ -285,6 +287,7 @@ export interface StoryArc {
   chapters: Chapter[];
   isCompleted: boolean;
   summary?: string;
+  episodicSummaries?: string[];
 }
 
 export interface ReaderPreferences {

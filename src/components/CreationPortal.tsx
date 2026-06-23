@@ -134,6 +134,132 @@ const renderSafeString = (val: any): React.ReactNode => {
   return String(val);
 };
 
+const parseBlueprintData = (inputText: string): WorldBlueprint | null => {
+  const text = inputText.trim();
+  if (!text) return null;
+
+  // 1. Try JSON first
+  try {
+    const data = JSON.parse(text);
+    if (data && typeof data === 'object') {
+      return {
+        title: data.title || data.novelTitle || 'Imported World',
+        logline: data.logline || data.corePremise || '',
+        worldOverview: data.worldOverview || data.worldType || '',
+        startingLocation: data.startingLocation || '',
+        societyStructure: data.societyStructure || '',
+        powerSystemOutline: data.powerSystemOutline || data.startingPowerConcept || '',
+        mcProfile: data.mcProfile || data.startingIdentity || '',
+        majorFactions: Array.isArray(data.majorFactions) ? data.majorFactions : [],
+        initialCharacters: Array.isArray(data.initialCharacters) ? data.initialCharacters : [],
+        majorMysteries: Array.isArray(data.majorMysteries) ? data.majorMysteries : [],
+        firstArcPromise: data.firstArcPromise || '',
+        tropeRules: data.tropeRules || '',
+        styleBible: data.styleBible || '',
+        unresolvedPlotThreads: Array.isArray(data.unresolvedPlotThreads) ? data.unresolvedPlotThreads : [],
+      };
+    }
+  } catch (e) {
+    // Not valid JSON, try parsing markdown configuration of the copied blueprint
+  }
+
+  // 2. Try parsing marked-down text
+  const bp: WorldBlueprint = {
+    title: '',
+    logline: '',
+    worldOverview: '',
+    startingLocation: '',
+    societyStructure: '',
+    powerSystemOutline: '',
+    mcProfile: '',
+    majorFactions: [],
+    initialCharacters: [],
+    majorMysteries: [],
+    firstArcPromise: '',
+    tropeRules: '',
+    styleBible: '',
+    unresolvedPlotThreads: [],
+  };
+
+  const lines = text.split('\n');
+  let currentSection: string | null = null;
+  let sectionContent: string[] = [];
+
+  const flushContent = () => {
+    if (!currentSection) return;
+    const joined = sectionContent.join('\n').trim();
+    if (currentSection === 'title') {
+      bp.title = joined;
+    } else if (currentSection === 'overview') {
+      bp.worldOverview = joined;
+    } else if (currentSection === 'society') {
+      const parts = joined.split(/### Major Factions:/i);
+      bp.societyStructure = parts[0].trim();
+      if (parts[1]) {
+        const factionLines = parts[1].split('\n')
+          .map(l => l.trim())
+          .filter(l => l.startsWith('-') || l.startsWith('*'))
+          .map(l => l.replace(/^[-*]\s*/, '').trim());
+        bp.majorFactions = factionLines;
+      }
+    } else if (currentSection === 'power') {
+      bp.powerSystemOutline = joined;
+    } else if (currentSection === 'mc') {
+      bp.mcProfile = joined;
+    } else if (currentSection === 'arc') {
+      bp.firstArcPromise = joined;
+    }
+    sectionContent = [];
+  };
+
+  for (let line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('# ')) {
+      flushContent();
+      currentSection = 'title';
+      sectionContent.push(trimmed.slice(2).trim());
+      continue;
+    }
+
+    if (trimmed.toLowerCase().startsWith('**logline**:') || trimmed.toLowerCase().startsWith('**logline:**')) {
+      const parts = trimmed.split(':');
+      bp.logline = parts.slice(1).join(':').trim();
+      continue;
+    }
+
+    if (trimmed.startsWith('## ')) {
+      flushContent();
+      const heading = trimmed.slice(3).trim().toLowerCase();
+      if (heading.includes('overview')) {
+        currentSection = 'overview';
+      } else if (heading.includes('society') || heading.includes('factions')) {
+        currentSection = 'society';
+      } else if (heading.includes('power')) {
+        currentSection = 'power';
+      } else if (heading.includes('character') || heading.includes('profile')) {
+        currentSection = 'mc';
+      } else if (heading.includes('first arc') || heading.includes('arc promise')) {
+        currentSection = 'arc';
+      } else {
+        currentSection = null;
+      }
+      continue;
+    }
+
+    if (currentSection) {
+      sectionContent.push(line);
+    }
+  }
+  flushContent();
+
+  if (bp.title || bp.worldOverview || bp.powerSystemOutline || bp.mcProfile) {
+    if (!bp.title) bp.title = 'Imported World';
+    return bp;
+  }
+
+  return null;
+};
+
 interface CreationPortalProps {
   onStartStory: (intake: IntakeData, blueprint: WorldBlueprint, chapterCount: number) => Promise<void>;
   onGenerateBlueprint: (intake: IntakeData) => Promise<WorldBlueprint>;
@@ -218,6 +344,10 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
   const isGenerating = isGeneratingProp || storeIsGenerating;
   const [stage, setStage] = useState<'intake' | 'blueprint'>('intake');
   const [copied, setCopied] = useState(false);
+  const [copiedJson, setCopiedJson] = useState(false);
+  const [showImportPanel, setShowImportPanel] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importError, setImportError] = useState<string | null>(null);
 
   const handleCopyBlueprint = () => {
     if (!blueprint) return;
@@ -250,6 +380,35 @@ ${blueprint.firstArcPromise || ''}
     });
   };
 
+  const handleCopyBlueprintJson = () => {
+    if (!blueprint) return;
+    const textToCopy = JSON.stringify(blueprint, null, 2);
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      setCopiedJson(true);
+      setTimeout(() => setCopiedJson(false), 2000);
+    });
+  };
+
+  const [blueprint, setBlueprint] = useState<WorldBlueprint | null>(null);
+
+  const handleImportSubmit = () => {
+    if (!importText.trim()) {
+      setImportError('Please paste some seed data first.');
+      return;
+    }
+
+    const parsed = parseBlueprintData(importText);
+    if (parsed) {
+      setBlueprint(parsed);
+      setStage('blueprint');
+      setShowImportPanel(false);
+      setImportText('');
+      setImportError(null);
+    } else {
+      setImportError('Unable to align past records. Ensure headings match the copied blueprint format, or standard JSON representation.');
+    }
+  };
+
   const handleLogin = async () => {
     try {
       const provider = new GoogleAuthProvider();
@@ -258,8 +417,6 @@ ${blueprint.firstArcPromise || ''}
       console.error("Login failed", error);
     }
   };
-
-  const [blueprint, setBlueprint] = useState<WorldBlueprint | null>(null);
   
   const [intake, setIntake] = useState<IntakeData>({
     novelTitle: '',
@@ -429,50 +586,137 @@ ${blueprint.firstArcPromise || ''}
   if (stage === 'blueprint' && blueprint) {
     return (
       <div className="max-w-4xl mx-auto pb-20" id="creation-portal-root">
-        <div className="text-center mb-10">
-          <span className="font-sc text-portal tracking-[0.2em] text-sm uppercase block mb-2">World Blueprint Generated</span>
-          <h1 className="font-display font-bold text-3xl sm:text-4xl text-signal tracking-tight mb-4">
-            {renderSafeString(blueprint.title)}
-          </h1>
-          <p className="font-sans font-light text-neutral-400 text-sm max-w-xl mx-auto leading-relaxed">
-            {renderSafeString(blueprint.logline)}
-          </p>
+        <div className="text-center mb-10 space-y-4">
+          <span className="font-sc text-portal tracking-[0.2em] text-xs uppercase block">World Blueprint Generated</span>
+
+          <div className="max-w-xl mx-auto space-y-3">
+            <div>
+              <label className="block text-[10px] font-sc text-portal tracking-widest uppercase mb-1">World Seed Title</label>
+              <input
+                type="text"
+                value={blueprint.title}
+                onChange={(e) => setBlueprint({ ...blueprint, title: e.target.value })}
+                className="w-full text-center bg-void border border-neutral-900 focus:border-portal text-signal font-display font-bold text-2xl sm:text-3xl rounded-md px-4 py-2 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all"
+                placeholder="Give your world a name"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-sc text-portal tracking-widest uppercase mb-1">Cosmic Logline</label>
+              <textarea
+                value={blueprint.logline}
+                onChange={(e) => setBlueprint({ ...blueprint, logline: e.target.value })}
+                rows={2}
+                className="w-full text-center bg-void border border-neutral-900 focus:border-portal text-neutral-400 font-sans font-light text-xs sm:text-sm rounded-md px-4 py-1.5 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all resize-none"
+                placeholder="Describe the high-concept premise"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="bg-neutral-950/80 border border-portal/30 p-6 sm:p-10 rounded-lg shadow-[0_0_30px_rgba(4,172,255,0.05)] relative space-y-8">
           <div>
-            <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm mb-2">World Overview</h3>
-            <div className="text-neutral-300 font-sans text-sm leading-relaxed">{renderSafeString(blueprint.worldOverview)}</div>
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm">World Overview</h3>
+              <span className="text-[10px] text-portal font-mono">Editable</span>
+            </div>
+            <textarea
+              value={blueprint.worldOverview}
+              onChange={(e) => setBlueprint({ ...blueprint, worldOverview: e.target.value })}
+              rows={4}
+              className="w-full bg-void border border-neutral-900 focus:border-portal text-[#dfd8cf] font-serif text-sm leading-relaxed rounded-md p-4 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all"
+              placeholder="The settings, lore, and physical characteristics of this universe..."
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm flex items-center space-x-2">
+                    <Layers size={14} className="text-portal"/>
+                    <span>Society Structure</span>
+                  </h3>
+                  <span className="text-[9px] text-portal font-mono">Editable</span>
+                </div>
+                <textarea
+                  value={blueprint.societyStructure}
+                  onChange={(e) => setBlueprint({ ...blueprint, societyStructure: e.target.value })}
+                  rows={4}
+                  className="w-full bg-void border border-neutral-900 focus:border-portal text-neutral-300 font-sans text-xs rounded-md p-3 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all"
+                  placeholder="Feudal, corporate, sect-based, military rule..."
+                />
+              </div>
+
+              <div>
+                <h4 className="text-neutral-400 font-sc uppercase tracking-wider font-bold text-xs mb-2">Major Factions (One per line)</h4>
+                <textarea
+                  value={blueprint.majorFactions?.join('\n') || ''}
+                  onChange={(e) => setBlueprint({
+                    ...blueprint,
+                    majorFactions: e.target.value.split('\n').map(f => f.trim()).filter(Boolean)
+                  })}
+                  rows={4}
+                  className="w-full bg-void border border-neutral-900 focus:border-portal text-neutral-300 font-mono text-xs rounded-md p-3 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all"
+                  placeholder="e.g. Heavenly Sword Sect&#10;Deep Sea Alliance&#10;Abyssal Cult"
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm flex items-center space-x-2">
+                  <Zap size={14} className="text-portal"/>
+                  <span>Power System Outline</span>
+                </h3>
+                <span className="text-[9px] text-portal font-mono">Editable</span>
+              </div>
+              <textarea
+                value={blueprint.powerSystemOutline}
+                onChange={(e) => setBlueprint({ ...blueprint, powerSystemOutline: e.target.value })}
+                rows={10}
+                className="w-full bg-void border border-neutral-900 focus:border-portal text-neutral-300 font-mono text-xs leading-relaxed rounded-md p-3 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all scrollbar-thin"
+                placeholder="Explain the cultivation realms, power scaling, magical energy..."
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
-              <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm mb-2 flex items-center space-x-2"><Layers size={14} className="text-portal"/><span>Society & Factions</span></h3>
-              <div className="text-neutral-400 font-sans text-xs mb-3">{renderSafeString(blueprint.societyStructure)}</div>
-              <ul className="space-y-2">
-                {blueprint.majorFactions?.map((f, i) => (
-                  <li key={i} className="text-neutral-300 text-xs font-sans bg-void border border-neutral-800 p-2 rounded">{renderSafeString(f)}</li>
-                ))}
-              </ul>
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm flex items-center space-x-2">
+                  <Users size={14} className="text-portal"/>
+                  <span>Main Character Profile</span>
+                </h3>
+                <span className="text-[9px] text-portal font-mono">Editable</span>
+              </div>
+              <textarea
+                value={blueprint.mcProfile}
+                onChange={(e) => setBlueprint({ ...blueprint, mcProfile: e.target.value })}
+                rows={5}
+                className="w-full bg-void border border-neutral-900 focus:border-portal text-neutral-300 font-sans text-sm leading-relaxed rounded-md p-3 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all"
+                placeholder="Starting cultivation level, cheat, flaws, unique attributes..."
+              />
             </div>
+
             <div>
-              <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm mb-2 flex items-center space-x-2"><Zap size={14} className="text-portal"/><span>Power System</span></h3>
-              <div className="text-neutral-300 font-sans text-sm leading-relaxed whitespace-pre-wrap">{renderSafeString(blueprint.powerSystemOutline)}</div>
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm flex items-center space-x-2">
+                  <Target size={14} className="text-portal"/>
+                  <span>First Arc Promise</span>
+                </h3>
+                <span className="text-[9px] text-portal font-mono">Editable</span>
+              </div>
+              <textarea
+                value={blueprint.firstArcPromise}
+                onChange={(e) => setBlueprint({ ...blueprint, firstArcPromise: e.target.value })}
+                rows={5}
+                className="w-full bg-void border border-neutral-900 focus:border-portal text-neutral-300 font-sans text-sm leading-relaxed rounded-md p-3 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all"
+                placeholder="The initial central conflict, stakes, face-slapping event..."
+              />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm mb-2 flex items-center space-x-2"><Users size={14} className="text-portal"/><span>Main Character</span></h3>
-              <div className="text-neutral-300 font-sans text-sm leading-relaxed whitespace-pre-wrap">{renderSafeString(blueprint.mcProfile)}</div>
-            </div>
-            <div>
-              <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm mb-2 flex items-center space-x-2"><Target size={14} className="text-portal"/><span>First Arc Promise</span></h3>
-              <div className="text-neutral-300 font-sans text-sm leading-relaxed">{renderSafeString(blueprint.firstArcPromise)}</div>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center justify-between pt-6 border-t border-neutral-900 gap-4">
+          <div className="flex flex-col xl:flex-row items-center justify-between pt-6 border-t border-neutral-900 gap-4">
             <button
               type="button"
               onClick={() => setStage('intake')}
@@ -482,7 +726,7 @@ ${blueprint.firstArcPromise || ''}
               ← Refine Details
             </button>
 
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
               <button
                 type="button"
                 onClick={handleStartStoryClick}
@@ -502,7 +746,7 @@ ${blueprint.firstArcPromise || ''}
               <button
                 type="button"
                 onClick={handleCopyBlueprint}
-                className="w-full sm:w-auto font-sc px-6 py-3 rounded text-sm uppercase tracking-widest font-bold flex items-center justify-center space-x-2 bg-neutral-950 text-portal border border-neutral-800 hover:border-portal hover:text-signal transition-all shadow-[0_0_15px_rgba(4,172,255,0.1)] cursor-pointer"
+                className="w-full sm:w-auto font-sc px-5 py-3 rounded text-sm uppercase tracking-widest font-bold flex items-center justify-center space-x-2 bg-neutral-950 text-portal border border-neutral-800 hover:border-portal hover:text-signal transition-all shadow-[0_0_15px_rgba(4,172,255,0.1)] cursor-pointer"
               >
                 {copied ? (
                   <>
@@ -513,6 +757,24 @@ ${blueprint.firstArcPromise || ''}
                   <>
                     <Copy size={16} />
                     <span>Copy Blueprint</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCopyBlueprintJson}
+                className="w-full sm:w-auto font-sc px-5 py-3 rounded text-sm uppercase tracking-widest font-bold flex items-center justify-center space-x-2 bg-neutral-950 text-neutral-400 border border-neutral-850 hover:border-neutral-700 hover:text-signal transition-all cursor-pointer"
+              >
+                {copiedJson ? (
+                  <>
+                    <Check size={16} />
+                    <span>Copied JSON</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={16} />
+                    <span>Copy JSON</span>
                   </>
                 )}
               </button>
@@ -531,10 +793,77 @@ ${blueprint.firstArcPromise || ''}
         <h1 className="font-display font-bold text-4xl sm:text-5xl text-signal tracking-tight mb-4">
           Story Seed Intake
         </h1>
-        <p className="font-sans font-light text-neutral-400 text-sm max-w-xl mx-auto leading-relaxed">
+        <p className="font-sans font-light text-neutral-400 text-sm max-w-xl mx-auto leading-relaxed mb-6">
           Provide as much or as little detail as you want. Empty fields will be intelligently extrapolated using Chinese light-novel logic. We will first generate a World Blueprint for your review.
         </p>
+
+        {/* Import Trigger Button */}
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={() => setShowImportPanel(!showImportPanel)}
+            className="font-sc px-5 py-2.5 rounded text-xs uppercase tracking-widest font-bold flex items-center space-x-2 bg-neutral-950 text-portal border border-neutral-900 hover:border-portal hover:bg-portal/5 transition-all shadow-[0_0_12px_rgba(4,172,255,0.05)] cursor-pointer"
+          >
+            <Copy size={14} />
+            <span>Import World Seed / Blueprint</span>
+          </button>
+        </div>
       </div>
+
+      {/* Slide-out Import Panel */}
+      <AnimatePresence>
+        {showImportPanel && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-8 p-6 rounded-lg bg-neutral-950 border border-portal/30 space-y-4 max-w-2xl mx-auto shadow-[0_0_25px_rgba(4,172,255,0.08)] overflow-hidden"
+          >
+            <div className="flex justify-between items-center pb-2 border-b border-neutral-900">
+              <h3 className="font-sc font-bold uppercase tracking-widest text-[#FAFAFA] text-xs flex items-center space-x-2">
+                <Layers size={14} className="text-portal" />
+                <span>Import Seed or Blueprint Data</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowImportPanel(false)}
+                className="text-neutral-500 hover:text-[#FAFAFA] text-xs"
+              >
+                Close
+              </button>
+            </div>
+            
+            <p className="text-neutral-400 font-sans text-xs leading-relaxed">
+              Paste your copied World Blueprint Markdown (copied via &quot;Copy Blueprint&quot;) or the raw JSON config below. We will parse the fields and load you directly into the blueprint stage.
+            </p>
+
+            <textarea
+              value={importText}
+              onChange={(e) => {
+                setImportText(e.target.value);
+                setImportError(null);
+              }}
+              rows={6}
+              placeholder={`Paste copied World Blueprint details (Markdown) or JSON here...&#10;&#10;e.g.&#10;# Great Immortal Temple&#10;**Logline**: A regression tale...`}
+              className="w-full bg-void border border-neutral-900 focus:border-portal text-neutral-300 font-sans text-xs rounded-md p-3 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all"
+            />
+
+            {importError && (
+              <p className="text-xs text-human font-sans font-medium">{importError}</p>
+            )}
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleImportSubmit}
+                className="font-sc px-5 py-2 rounded text-xs uppercase tracking-widest font-bold bg-human text-[#FAFAFA] hover:bg-neutral-900 hover:text-human border border-human transition-colors cursor-pointer"
+              >
+                Activate Seed
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <form onSubmit={handleGenerateBlueprintClick} className="space-y-4">
         
