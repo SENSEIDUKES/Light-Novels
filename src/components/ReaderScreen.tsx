@@ -8,6 +8,7 @@ import { GlossarySidePanel } from './GlossarySidePanel';
 import { Story, StreamingChapter } from '../types';
 import { awardQi } from '../lib/qi';
 import { RecapScreen } from './RecapScreen';
+import { storyStorage } from '../lib/storage';
 
 export const ReaderScreen: React.FC<{
   handleSteerArc: (direction: string, customPrompt: string) => Promise<void>,
@@ -24,6 +25,8 @@ export const ReaderScreen: React.FC<{
   const { currentScreen, setCurrentScreen, activeStoryId, stories, selectedChapterNum, setSelectedChapterNum, isGenerating, routingConfig, streamingChapter, isReaderFullscreen, currentUser } = useAppStore();
   const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
   const [showRecap, setShowRecap] = useState(false);
+  const [localChapterCache, setLocalChapterCache] = useState<Record<number, any>>({});
+  const pendingFetches = React.useRef<Set<number>>(new Set());
 
   // Listen to custom DOM event to toggle glossary sidelobe via global hotkey
   useEffect(() => {
@@ -61,6 +64,27 @@ export const ReaderScreen: React.FC<{
       setShowRecap(false);
     }
   }, [activeStoryId, currentScreen, activeStory?.id]);
+
+  useEffect(() => {
+    if (activeStory && currentScreen === 'reader' && selectedChapterNum !== -1) {
+      const currentChapter = activeStory.arcs.flatMap(a => a.chapters).find(c => c.number === selectedChapterNum);
+      if (currentChapter && currentChapter.hasContent && !currentChapter.generatedContent && (!currentChapter.blocks || currentChapter.blocks.length === 0)) {
+        if (!localChapterCache[selectedChapterNum] && !pendingFetches.current.has(selectedChapterNum)) {
+          pendingFetches.current.add(selectedChapterNum);
+          storyStorage.getChapterContent(activeStory.id, selectedChapterNum).then(content => {
+            if (content) {
+              setLocalChapterCache(prev => ({
+                ...prev,
+                [selectedChapterNum]: content
+              }));
+            }
+          }).catch(console.error).finally(() => {
+            pendingFetches.current.delete(selectedChapterNum);
+          });
+        }
+      }
+    }
+  }, [activeStory, currentScreen, selectedChapterNum, localChapterCache]);
 
   if (currentScreen !== 'reader') return null;
 
@@ -143,11 +167,23 @@ export const ReaderScreen: React.FC<{
       ) : (
         <div className="mx-auto">
           <ReaderChamber
-            chapters={activeStory.arcs.flatMap(a => a.chapters).map(ch => 
-              (streamingChapter && ch.number === streamingChapter.number)
-                ? { ...ch, generatedContent: streamingChapter.content, blocks: streamingChapter.blocks, status: 'read' as const }
-                : ch
-            )}
+            chapters={activeStory.arcs.flatMap(a => a.chapters).map(ch => {
+              if (streamingChapter && ch.number === streamingChapter.number) {
+                return { ...ch, generatedContent: streamingChapter.content, blocks: streamingChapter.blocks, status: 'read' as const }
+              }
+              if (localChapterCache[ch.number]) {
+                const cached = localChapterCache[ch.number];
+                return { 
+                  ...ch, 
+                  generatedContent: cached.generatedContent, 
+                  blocks: cached.blocks, 
+                  summary: cached.summary || ch.summary, 
+                  statsChangeMessage: cached.statsChangeMessage || ch.statsChangeMessage, 
+                  cuePayload: cached.cuePayload || ch.cuePayload 
+                };
+              }
+              return ch;
+            })}
             arcTitle={activeStory.arcs.find(a => a.chapters.some(c => c.number === selectedChapterNum))?.title || activeStory.arcs[activeStory.arcs.length - 1].title}
             currentPowerStage={activeStory.memory.currentPowerStage}
             onGenerateChapter={handleGenerateChapter}
