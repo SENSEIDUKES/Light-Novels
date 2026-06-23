@@ -356,7 +356,9 @@ export class PersistentStorageManager implements StorageAdapter {
         if (task.type === 'story') {
           const localStory = await this.localAdapter.getStory(task.storyId);
           if (localStory) {
-            await this.cloudAdapter.saveStory(localStory);
+            const cloudPayload = JSON.parse(JSON.stringify(localStory));
+            this.stripDataUrls(cloudPayload);
+            await this.cloudAdapter.saveStory(cloudPayload);
           }
         } else if (task.type === 'chapter' && task.chapterNumber !== undefined) {
           const localChapter = await this.localAdapter.getChapterContent(task.storyId, task.chapterNumber);
@@ -446,7 +448,9 @@ export class PersistentStorageManager implements StorageAdapter {
         const cloudStory = cloudMap.get(localStory.id);
         if (!cloudStory) {
           // Exists locally but not in cloud. Push to cloud.
-          await this.cloudAdapter.saveStory(localStory);
+          const cloudPayload = JSON.parse(JSON.stringify(localStory));
+          this.stripDataUrls(cloudPayload);
+          await this.cloudAdapter.saveStory(cloudPayload);
         } else {
           // Exists in both. Check timestamps and revisions
           const localTime = new Date(localStory.updatedAt).getTime();
@@ -454,12 +458,14 @@ export class PersistentStorageManager implements StorageAdapter {
           
           if (localTime > cloudTime) {
              const timeDiff = localTime - cloudTime;
+             const cloudPayload = JSON.parse(JSON.stringify(localStory));
+             this.stripDataUrls(cloudPayload);
              if (timeDiff > 5000) { // Large gap means potential conflict if cloud also changed independently
                 // We overwrite cloud if we are newer, but if the cloud version has a significantly different version/content, we could branch it.
                 // For simplicity, local wins but we ensure we pushed it cleanly.
-                await this.cloudAdapter.saveStory(localStory);
+                await this.cloudAdapter.saveStory(cloudPayload);
              } else {
-                await this.cloudAdapter.saveStory(localStory);
+                await this.cloudAdapter.saveStory(cloudPayload);
              }
           } else if (cloudTime > localTime) {
              const timeDiff = cloudTime - localTime;
@@ -474,7 +480,10 @@ export class PersistentStorageManager implements StorageAdapter {
                  localCopy.id = `${localStory.id}-conflict-${Date.now()}`;
                  localCopy.title = `${localCopy.title} (Local Conflict Copied)`;
                  await this.localAdapter.saveStory(localCopy);
-                 await this.cloudAdapter.saveStory(localCopy); // Save the conflict copy to cloud too
+                 
+                 const localCopyCloudPayload = JSON.parse(JSON.stringify(localCopy));
+                 this.stripDataUrls(localCopyCloudPayload);
+                 await this.cloudAdapter.saveStory(localCopyCloudPayload); // Save the conflict copy to cloud too
              }
              
              await this.localAdapter.saveStory(cloudStory);
@@ -623,6 +632,45 @@ export class PersistentStorageManager implements StorageAdapter {
     return this.localAdapter.getStory(id);
   }
 
+  private stripDataUrls(story: StoryWorld) {
+    const isDataUrl = (url?: string) => url && url.startsWith('data:');
+    
+    if (isDataUrl(story.imageUrl)) story.imageUrl = "";
+    if (story.imageHistory) {
+       story.imageHistory = story.imageHistory.filter(img => !isDataUrl(img.imageUrl));
+    }
+    
+    if (story.memory) {
+      if (story.memory.characters) {
+        story.memory.characters.forEach(c => {
+          if (isDataUrl(c.imageUrl)) c.imageUrl = "";
+          if (c.imageHistory) c.imageHistory = c.imageHistory.filter(img => !isDataUrl(img.imageUrl));
+        });
+      }
+      if (story.memory.locations) {
+        story.memory.locations.forEach(c => {
+          if (isDataUrl(c.imageUrl)) c.imageUrl = "";
+          if (c.imageHistory) c.imageHistory = c.imageHistory.filter(img => !isDataUrl(img.imageUrl));
+        });
+      }
+      if (story.memory.artifacts) {
+        story.memory.artifacts.forEach(c => {
+          if (isDataUrl(c.imageUrl)) c.imageUrl = "";
+          if (c.imageHistory) c.imageHistory = c.imageHistory.filter(img => !isDataUrl(img.imageUrl));
+        });
+      }
+    }
+    if (story.arcs) {
+       story.arcs.forEach(arc => {
+          arc.chapters.forEach(ch => {
+             if (ch.assetManifest && isDataUrl(ch.assetManifest.heroImage)) {
+                 delete ch.assetManifest.heroImage;
+             }
+          });
+       });
+    }
+  }
+
   async saveStory(story: StoryWorld): Promise<void> {
     if (this.activeTransaction) {
       this.activeTransaction.stories.set(story.id, JSON.parse(JSON.stringify(story)));
@@ -669,7 +717,9 @@ export class PersistentStorageManager implements StorageAdapter {
     if (this.isCloudAvailable && this.syncStatus !== 'syncing') {
       this.setStatus('syncing');
       try {
-        await this.cloudAdapter.saveStory(strippedStory);
+        const cloudStory = JSON.parse(JSON.stringify(strippedStory));
+        this.stripDataUrls(cloudStory);
+        await this.cloudAdapter.saveStory(cloudStory);
         this.setStatus('synced');
       } catch (err) {
         console.error('Failed to save to cloud', err);

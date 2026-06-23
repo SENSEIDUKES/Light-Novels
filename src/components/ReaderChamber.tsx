@@ -179,7 +179,10 @@ export default function ReaderChamber({
     setSelectedDialogueVoiceURI,
     handleTogglePlayback,
     handleStopSpeaking,
-    setIsAutoScrollPausedByUser
+    setIsAutoScrollPausedByUser,
+    isAutoScrollPausedByUser,
+    playAutoScroll,
+    currentNarratedBlockIndex
   } = useReaderPlayback({
     selectedChapter,
     activeTranslationContent,

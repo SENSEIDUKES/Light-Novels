@@ -507,5 +507,10 @@ export function useReaderPlayback({
     volume, handleVolumeChange,
     handleTogglePlayback,
     handleStopSpeaking,
+    isAutoScrolling,
+    isAutoScrollPausedByUser,
+    setIsAutoScrollPausedByUser,
+    playAutoScroll,
+    pauseAutoScroll,
   };
 }

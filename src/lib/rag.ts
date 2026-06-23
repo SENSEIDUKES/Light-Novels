@@ -1,4 +1,4 @@
-import { Chapter, StoryWorld } from '../types';
+import { Chapter, StoryWorld, ChapterContent } from '../types';
 import { storyStorage } from './storage';
 
 export function cosineSimilarity(vecA: number[], vecB: number[]): number {
