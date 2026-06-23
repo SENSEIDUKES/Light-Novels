@@ -57,39 +57,8 @@ import { VoiceEditionPanel } from "./VoiceEditionPanel";
 import { ReaderPreferencesPanel } from "./ReaderPreferencesPanel";
 import { CosmicBookmarksPanel } from "./CosmicBookmarksPanel";
 import { CodexHovercard } from "./CodexHovercard";
-import { useImageManifest } from "../hooks/useImageManifest";
-
-const extractSFXCues = (text: string) => {
-  const sfxList: string[] = [];
-
-  // 1. Remove JSON-style signatures/metadata blocks (curly brace nested blocks containing metadata keys)
-  let cleanText = text.replace(
-    /\{[^{}]*?"(?:sceneType|intensity|tension|danger|mysticism|emotion|audioSignature|beastEvent|summary|statsChangeMessage|memoryUpdates)"[^{}]*?\}/gi,
-    "",
-  );
-
-  // Clean raw JSON structures enclosed in brackets (e.g. `[{"intensity": 0.8}]`, `[{"sceneType": ...}]` or nested JSON config arrays)
-  cleanText = cleanText.replace(/\[\s*\{[\s\S]*?\}\s*\]/g, "");
-  cleanText = cleanText.replace(/\[\s*\{[^{}]*?\}\s*\]/g, "");
-
-  // 2. Extract genuine audio/SFX cue identifiers, and completely strip all hidden system metadata tags from reader output.
-  // We match common hidden tags: SFX, Audio, Sound, Beat, Timing, Time, Duration, Mood, Emotion, Trigger, Narrative, JSON, SAP, Audio-Metadata, Metadata, Intensity, Tension, Danger.
-  const hiddenSystemTagsRegex =
-    /\[(?:SFX|Audio|Sound|Beat|Timing|Time|Duration|Trigger|SAP|Audio-Metadata|Metadata|Intensity|Tension|Danger|Mood|Emotion|Narrative):\s*([^\]]+)\]/gi;
-
-  cleanText = cleanText.replace(hiddenSystemTagsRegex, (match, val) => {
-    // If it is a real audio/sound effect signifier, record it to trigger underlying page-turn/particle effects.
-    if (match.match(/\[(?:SFX|Audio|Sound):\s*/i)) {
-      sfxList.push(val.trim().toLowerCase());
-    }
-    return ""; // completely erase from the rendered reader-facing paragraph
-  });
-
-  // 3. Strip any empty brackets or orphaned tag constructs that may have been parsed or typed (e.g. `[]`, `[ ]`)
-  cleanText = cleanText.replace(/\[\s*\]/g, "");
-
-  return { cleanText: cleanText.trim(), sfxList };
-};
+import { useReaderPlayback, extractSFXCues } from "../hooks/useReaderPlayback";
+import { useReaderVisuals } from "../hooks/useReaderVisuals";
 
 interface ReaderChamberProps {
   chapters: Chapter[];
@@ -132,25 +101,11 @@ export default function ReaderChamber({
     chapters.find((c) => c.number === selectedChapterNum) || chapters[0];
 
   const [filter, setFilter] = useState<"all" | "unlocked" | "locked">("all");
-  const [generatingRevealId, setGeneratingRevealId] = useState<string | null>(null);
   const stories = useAppStore(state => state.stories);
   const activeStoryId = useAppStore(state => state.activeStoryId);
   const saveStories = useAppStore(state => state.saveStories);
   const routingConfig = useAppStore(state => state.routingConfig);
 
-  const { manifestImage, manifestChapterHero, generatingIds } = useImageManifest();
-
-  const handleManifestReveal = async (entry: any, type: string) => {
-    if (generatingRevealId) return;
-    setGeneratingRevealId(entry.id);
-    try {
-      await manifestImage(entry, type);
-    } catch (err) {
-      console.error("Failed to manifest reveal card auras:", err);
-    } finally {
-      setGeneratingRevealId(null);
-    }
-  };
   const [isAlterFateOpen, setIsAlterFateOpen] = useState(false);
   const [isCheckingConsistency, setIsCheckingConsistency] = useState(false);
   const [consistencyWarnings, setConsistencyWarnings] = useState<string[] | null>(null);
@@ -160,6 +115,11 @@ export default function ReaderChamber({
   const setReaderMode = useAppStore((state) => state.setReaderMode);
   const setImmersion = useAppStore((state) => state.setImmersion);
 
+  const { handleManifestReveal, generatingRevealId, codexTerms } = useReaderVisuals({
+    selectedChapter,
+    activeStory,
+    readerMode
+  });
 
   // --- Translation States ---
   const maxChapterNum = chapters.length > 0 ? Math.max(...chapters.map(c => c.number)) : 0;
@@ -200,52 +160,31 @@ export default function ReaderChamber({
     string | null
   >(null);
 
-  useEffect(() => {
-    // Only check if to generate hero image if chapter has content and it hasn't been generated yet, and we are not currently generating it.
-    if ((selectedChapter.generatedContent || selectedChapter.blocks) && !selectedChapter.assetManifest?.heroImage && !generatingIds.has(`chapter-hero-${selectedChapter.number}`)) {
-      if (!activeStory) return;
-      
-      const currentArc = activeStory.arcs.find(a => a.chapters.some(c => c.number === selectedChapter.number));
-      if (!currentArc) return;
-
-      const existingHeroImagesCount = currentArc.chapters.filter(c => c.assetManifest && c.assetManifest.heroImage).length;
-      
-      // System limit: 1-2 most important moments per arc for cost and impact
-      if (existingHeroImagesCount >= 2) return;
-
-      const cue = selectedChapter.cuePayload;
-      
-      const momentousEvents = [
-        'breakthrough', 'turning-point', 'evolution', 'betrayal', 'ascension', 
-        'conquest', 'destruction', 'calamity', 'rival_battle', 'romance', 'first_kiss'
-      ];
-
-      let isMomentous = 
-          (cue?.beastEvent?.type && momentousEvents.includes(cue.beastEvent.type)) ||
-          selectedChapter.blocks?.some((b: any) => 
-               b.system?.promptType && momentousEvents.includes(b.system.promptType)
-          ) ||
-          (cue?.danger && cue.danger > 8) || 
-          (cue?.powerShift && cue.powerShift > 8);
-
-      // Special Rule: Arcs with 7+ chapters get a guaranteed hero pic within the first 3 chapters to incentivize going further
-      const isLongArc = currentArc.chapters.length >= 7;
-      const arcChapterIndex = currentArc.chapters.findIndex(c => c.number === selectedChapter.number);
-      
-      if (isLongArc && arcChapterIndex <= 2 && existingHeroImagesCount === 0) {
-        // Force the generation on the 3rd chapter if it hasn't happened yet, 
-        // or if there is moderate tension/power shift in chapter 1 or 2.
-        if (arcChapterIndex === 2 || (cue?.danger && cue.danger > 5) || (cue?.powerShift && cue.powerShift > 5)) {
-          isMomentous = true;
-        }
-      }
-      
-      if (isMomentous) {
-        const promptText = `A cinematic visual memory of the defining moment that just happened: ${selectedChapter.summary || 'A critical climactic climax in the story.'} Render as a vivid frozen memory capturing the emotional core and exact action of the moment.`;
-        manifestChapterHero(selectedChapter.number, promptText).catch(e => console.error("Hero generation failed:", e));
-      }
-    }
-  }, [selectedChapter.number, selectedChapter.generatedContent, selectedChapter.blocks, selectedChapter.assetManifest?.heroImage, selectedChapter.cuePayload, selectedChapter.summary, manifestChapterHero, generatingIds, activeStory]);
+  const {
+    isPlayingText,
+    isPausedText,
+    isAutoScrolling,
+    speechRate,
+    speechPitch,
+    speechVolume,
+    availableVoices,
+    selectedVoiceURI,
+    selectedDialogueVoiceURI,
+    activeChunks,
+    currentChunkIndex,
+    setSpeechRate,
+    setSpeechPitch,
+    setSpeechVolume,
+    setSelectedVoiceURI,
+    setSelectedDialogueVoiceURI,
+    handleTogglePlayback,
+    handleStopSpeaking,
+    setIsAutoScrollPausedByUser
+  } = useReaderPlayback({
+    selectedChapter,
+    activeTranslationContent,
+    containerRef: readerRef
+  });
 
   // --- Scroll position tracking ---
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -372,39 +311,9 @@ export default function ReaderChamber({
     return "bg-[#0a0a0a] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#141414] to-[#050505] text-[#e8e8e8] border-t border-neutral-800/60 shadow-[inset_0_0_120px_rgba(255,255,255,0.02)] ring-1 ring-white/5 selection:bg-neutral-700 selection:text-white"; // default void style
   };
 
-  // --- Text-to-Speech (TTS) Engine States ---
-  const [isPlayingText, setIsPlayingText] = useState(false);
-  const [isPausedText, setIsPausedText] = useState(false);
-  const [speechRate, setSpeechRate] = useState<number>(1.0);
-  const [speechPitch, setSpeechPitch] = useState<number>(1.0);
-  const [speechVolume, setSpeechVolume] = useState<number>(0.9);
-  const [availableVoices, setAvailableVoices] = useState<
-    SpeechSynthesisVoice[]
-  >([]);
-  const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>("");
-  const [selectedDialogueVoiceURI, setSelectedDialogueVoiceURI] =
-    useState<string>("");
+  // --- Rendering UI States ---
   const [showImmersionPopover, setShowImmersionPopover] = useState<boolean>(false);
   const [showVoiceDetail, setShowVoiceDetail] = useState<boolean>(false);
-
-  const [isAutoScrollPausedByUser, setIsAutoScrollPausedByUser] = useState(false);
-
-  useEffect(() => {
-    setIsAutoScrollPausedByUser(false);
-  }, [readerMode, selectedChapterNum]);
-
-  const { play: playAutoScroll, pause: pauseAutoScroll, isScrolling: isAutoScrolling } = useAutoScroll({
-    containerRef: readerRef,
-    mode: readerMode === "sen" && immersion.autoScroll 
-      ? "paced" 
-      : (readerMode === "teleprompter" && immersion.autoScroll && !isAutoScrollPausedByUser ? "constant" : "off"),
-    wpm: Math.round(speechRate * 150),
-    onManualPause: () => {
-      if (readerMode === "teleprompter") {
-        setIsAutoScrollPausedByUser(true);
-      }
-    }
-  });
 
   // --- Atmospheric Audio Sync States ---
   const [isMuted, setIsMuted] = useState(() => {
@@ -469,426 +378,6 @@ export default function ReaderChamber({
     );
   };
 
-  // Load SpeechSynthesis voices
-  useEffect(() => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      const loadVoices = () => {
-        const voices = window.speechSynthesis.getVoices();
-        setAvailableVoices(voices);
-
-        // Auto-select a nice voice
-        if (voices.length > 0) {
-          const defaultVoice =
-            voices.find(
-              (v) =>
-                v.lang.includes("en-US") &&
-                v.name.toLowerCase().includes("google"),
-            ) ||
-            voices.find((v) => v.lang.includes("en-US")) ||
-            voices.find((v) => v.lang.includes("en")) ||
-            voices.find((v) => v.lang.includes("zh")) ||
-            voices[0];
-          setSelectedVoiceURI(defaultVoice?.voiceURI || "");
-
-          const dialogueVoice =
-            voices.find(
-              (v) =>
-                v.voiceURI !== defaultVoice?.voiceURI &&
-                v.lang.includes("en"),
-            ) || defaultVoice;
-          setSelectedDialogueVoiceURI(dialogueVoice?.voiceURI || "");
-        }
-      };
-
-      loadVoices();
-      if (window.speechSynthesis.onvoiceschanged !== undefined) {
-        window.speechSynthesis.onvoiceschanged = loadVoices;
-      }
-    }
-  }, []);
-
-  // Track utterance chunks and current playing chunk
-  const chunksRef = useRef<{ text: string; isDialogue: boolean; paragraphIndex?: number }[]>([]);
-  const [activeChunks, setActiveChunks] = useState<{ text: string; isDialogue: boolean; paragraphIndex?: number }[]>([]);
-  const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
-  const [currentNarratedBlockIndex, setCurrentNarratedBlockIndex] = useState(-1);
-
-  const speechRateRef = useRef(speechRate);
-  const speechPitchRef = useRef(speechPitch);
-  const selectedVoiceURIRef = useRef(selectedVoiceURI);
-  const selectedDialogueVoiceURIRef = useRef(selectedDialogueVoiceURI);
-  const speechVolumeRef = useRef(speechVolume);
-  const availableVoicesRef = useRef(availableVoices);
-  const currentChunkIndexRef = useRef(currentChunkIndex);
-  const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const lastFiredParagraphIndexRef = useRef<number>(-1);
-  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
-  const activeClipsRef = useRef<any[]>([]);
-  const activeClipIndexRef = useRef<number>(0);
-
-  useEffect(() => {
-    speechRateRef.current = speechRate;
-  }, [speechRate]);
-  useEffect(() => {
-    speechPitchRef.current = speechPitch;
-  }, [speechPitch]);
-  useEffect(() => {
-    selectedVoiceURIRef.current = selectedVoiceURI;
-  }, [selectedVoiceURI]);
-  useEffect(() => {
-    selectedDialogueVoiceURIRef.current = selectedDialogueVoiceURI;
-  }, [selectedDialogueVoiceURI]);
-  useEffect(() => {
-    speechVolumeRef.current = speechVolume;
-  }, [speechVolume]);
-  useEffect(() => {
-    availableVoicesRef.current = availableVoices;
-  }, [availableVoices]);
-  useEffect(() => {
-    currentChunkIndexRef.current = currentChunkIndex;
-  }, [currentChunkIndex]);
-
-  const stopAllPlayback = () => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      if (currentUtteranceRef.current) {
-        currentUtteranceRef.current.onend = null;
-        currentUtteranceRef.current.onerror = null;
-      }
-      window.speechSynthesis.cancel();
-    }
-    if (activeAudioRef.current) {
-      activeAudioRef.current.onended = null;
-      activeAudioRef.current.onerror = null;
-      activeAudioRef.current.pause();
-      activeAudioRef.current = null;
-    }
-    setIsPlayingText(false);
-    setIsPausedText(false);
-    setCurrentChunkIndex(0);
-    setCurrentNarratedBlockIndex(-1);
-    lastFiredParagraphIndexRef.current = -1;
-    chunksRef.current = [];
-    setActiveChunks([]);
-    dispatchNarration({ status: 'end' });
-  };
-
-  const fireBlockSideEffects = (blockIndex: number, durationMs: number) => {
-    setCurrentNarratedBlockIndex(blockIndex);
-    
-    dispatchNarration({ 
-      status: 'block', 
-      blockIndex, 
-      durationMs 
-    });
-
-    if (
-      useAppStore.getState().readerMode === "sen" &&
-      blockIndex !== -1 &&
-      blockIndex > lastFiredParagraphIndexRef.current
-    ) {
-      lastFiredParagraphIndexRef.current = blockIndex;
-      const block = selectedChapter.blocks?.[blockIndex];
-      const { immersion } = useAppStore.getState();
-      
-      if (block && immersion.master) {
-        if (immersion.audioCues) {
-          const { sfxList } = extractSFXCues(block.text);
-          sfxList.forEach((sfx, i) => {
-            dispatchNarrativeCue({
-              id: `sfx-block-${selectedChapter.number}-${blockIndex}-${i}`,
-              type: "narrative.fx.play",
-              once: true,
-              value: sfx,
-            });
-          });
-        }
-        if (immersion.imagePopups && block.metadata) {
-          dispatchNarrativeCue({
-             id: block.id || `para-${selectedChapter.number}-${blockIndex}`,
-             type: "narrative.metadata.signature",
-             once: true,
-             metadata: block.metadata,
-          });
-        }
-      }
-    }
-  };
-
-  const startClipSequence = (clips: VoiceClip[], startIndex = 0) => {
-    if (startIndex >= clips.length) {
-      stopAllPlayback();
-      setReaderMode('teleprompter');
-      return;
-    }
-
-    setIsPlayingText(true);
-    setIsPausedText(false);
-    activeClipIndexRef.current = startIndex;
-
-    const clip = clips[startIndex];
-    const audio = new Audio(clip.audioUrl);
-    activeAudioRef.current = audio;
-
-    let blockIndex = selectedChapter.blocks?.findIndex(b => b.id === clip.blockId) ?? -1;
-    if (blockIndex === -1 && clip.blockId?.startsWith('para-')) {
-      blockIndex = parseInt(clip.blockId.replace('para-', ''), 10);
-    }
-
-    if (startIndex === 0) {
-      dispatchNarration({ status: 'start' });
-    }
-
-    audio.playbackRate = speechRate;
-    audio.volume = speechVolume;
-
-    audio.onloadedmetadata = () => {
-      if (blockIndex !== -1) {
-        let durationMs = (audio.duration * 1000) / audio.playbackRate;
-        if (!isFinite(durationMs)) {
-          const blockText = selectedChapter.blocks?.[blockIndex]?.text || "";
-          const wordCount = blockText.split(/\s+/).length || 10;
-          durationMs = (wordCount / (speechRateRef.current * 2.7)) * 1000 || 4000;
-        }
-
-        fireBlockSideEffects(blockIndex, durationMs);
-      }
-    };
-
-    audio.onended = () => {
-      startClipSequence(clips, startIndex + 1);
-    };
-
-    audio.onerror = (e) => {
-      console.warn("SEN clip audio failed, skipping:", e);
-      startClipSequence(clips, startIndex + 1);
-    };
-
-    audio.play().catch(err => {
-      console.warn("Audio play blocked/failed, skipping:", err);
-      startClipSequence(clips, startIndex + 1);
-    });
-  };
-
-  const handleTogglePlayback = () => {
-    if (isPlayingText) {
-      stopAllPlayback();
-      setReaderMode('teleprompter');
-      return;
-    }
-
-    const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
-    const isBrowserSupported = typeof window !== "undefined" && "speechSynthesis" in window;
-    const hasGeneratedAudio = !!(selectedChapter?.audioManifest?.clips && selectedChapter.audioManifest.clips.length > 0);
-    const generationAvailable = typeof navigator !== "undefined" && navigator.onLine;
-
-    const canRunSEN = !isOffline && isBrowserSupported && (hasGeneratedAudio || generationAvailable);
-
-    if (canRunSEN) {
-      setReaderMode('sen');
-      
-      if (hasGeneratedAudio && selectedChapter.audioManifest?.clips) {
-        activeClipsRef.current = selectedChapter.audioManifest.clips;
-        startClipSequence(selectedChapter.audioManifest.clips, 0);
-      } else {
-        handleSpeak();
-      }
-    } else {
-      setReaderMode('basic-tts');
-      handleSpeak();
-    }
-  };
-
-  // Stop speech if chapter changes or on unmount
-  useEffect(() => {
-    stopAllPlayback();
-  }, [selectedChapterNum]);
-
-  const speakChunk = (index: number) => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-    const synth = window.speechSynthesis;
-
-    if (index >= chunksRef.current.length) {
-      dispatchNarration({ status: 'end' });
-      setIsPlayingText(false);
-      setIsPausedText(false);
-      setCurrentChunkIndex(0);
-      setCurrentNarratedBlockIndex(-1);
-      return;
-    }
-
-    if (currentUtteranceRef.current) {
-      currentUtteranceRef.current.onend = null;
-      currentUtteranceRef.current.onerror = null;
-    }
-
-    synth.cancel();
-
-    const chunkData = chunksRef.current[index];
-    
-    // Some browsers (like Chrome) can silently freeze and never fire 'onend' 
-    // if the utterance contains no pronounceable word characters (e.g. "...", "-", "!").
-    const hasWordChars = /[a-zA-Z0-9\u00C0-\u017F\u4E00-\u9FA5\u3040-\u309F\u30A0-\u30FF]/.test(chunkData?.text || "");
-
-    if (!chunkData || !chunkData.text.trim() || !hasWordChars) {
-      setCurrentChunkIndex(index + 1);
-      setTimeout(() => {
-        speakChunk(index + 1);
-      }, 50);
-      return;
-    }
-
-    const wordCount = chunkData.text.split(/\s+/).length || 0;
-    const estimatedDurationMs = (wordCount / (speechRateRef.current * 2.7)) * 1000;
-    
-    const currentPara = chunkData.paragraphIndex ?? -1;
-    fireBlockSideEffects(currentPara, estimatedDurationMs);
-
-    const utterance = new SpeechSynthesisUtterance(chunkData.text);
-    currentUtteranceRef.current = utterance;
-
-    const voiceURI = chunkData.isDialogue
-      ? selectedDialogueVoiceURIRef.current
-      : selectedVoiceURIRef.current;
-
-    const voice = voiceURI
-      ? availableVoicesRef.current.find(
-          (v) => v.voiceURI === voiceURI,
-        )
-      : null;
-    if (voice) utterance.voice = voice;
-    utterance.rate = speechRateRef.current;
-    utterance.pitch = speechPitchRef.current;
-    utterance.volume = speechVolumeRef.current;
-
-    utterance.onend = () => {
-      const nextIndex = index + 1;
-      setCurrentChunkIndex(nextIndex);
-      setTimeout(() => {
-        speakChunk(nextIndex);
-      }, 50);
-    };
-
-    utterance.onerror = (e) => {
-      console.warn("Aetherial speech synthesis chunk interrupted/errored:", e);
-      if (e.error !== "interrupted" && e.error !== "canceled") {
-        setIsPlayingText(false);
-        setIsPausedText(false);
-      }
-    };
-
-    synth.speak(utterance);
-  };
-
-  const handleSpeak = () => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      return;
-    }
-
-    const synth = window.speechSynthesis;
-
-    if (isPlayingText) {
-      if (isPausedText) {
-        setIsPausedText(false);
-        dispatchNarration({ status: 'resume' });
-        speakChunk(currentChunkIndex);
-      } else {
-        if (currentUtteranceRef.current) {
-          currentUtteranceRef.current.onend = null;
-          currentUtteranceRef.current.onerror = null;
-        }
-        synth.cancel();
-        setIsPausedText(true);
-        dispatchNarration({ status: 'pause' });
-      }
-      return;
-    }
-
-    if (currentUtteranceRef.current) {
-      currentUtteranceRef.current.onend = null;
-      currentUtteranceRef.current.onerror = null;
-    }
-    synth.cancel();
-
-    if (!selectedChapter) return;
-
-    let paragraphs: string[] = [];
-    if (activeTranslationContent) {
-      paragraphs = activeTranslationContent.split("\n\n");
-    } else if (selectedChapter.blocks && selectedChapter.blocks.length > 0) {
-      paragraphs = selectedChapter.blocks.map((b: any) => b.text);
-    } else if (selectedChapter.generatedContent) {
-      paragraphs = selectedChapter.generatedContent.split("\n\n");
-    }
-
-    if (paragraphs.length === 0) return;
-
-    const newChunks: {
-      text: string;
-      isDialogue: boolean;
-      paragraphIndex?: number;
-    }[] = [];
-
-    newChunks.push({
-      text: `Chapter ${selectedChapter.number}. ${selectedChapter.title}.`,
-      isDialogue: false,
-      paragraphIndex: -1,
-    });
-
-    paragraphs.forEach((paragraph, index) => {
-      if (!paragraph.trim()) return;
-      const proseCleaned = extractSFXCues(paragraph).cleanText;
-      const cleanText = proseCleaned
-        .replace(/\[System Alert:[^\]]+\]/gi, "")
-        .replace(/\[System Breakthrough:[^\]]+\]/gi, "")
-        .replace(/\[System Notification:[^\]]+\]/gi, "")
-        .replace(/\[Aura[^\]]+\]/gi, "");
-
-      if (!cleanText.trim()) return;
-
-      const rawParts = cleanText.split(/(["“「][^"”」]+["”」])/g);
-      rawParts.forEach((part) => {
-        if (!part.trim()) return;
-        const isDialogue = /^["“「]/.test(part);
-        const subChunks = part.match(/[^.!?\n]+[.!?\n]*/g) || [part];
-        subChunks.forEach((sub) => {
-          if (sub.trim()) {
-            newChunks.push({
-              text: sub.trim(),
-              isDialogue,
-              paragraphIndex: index,
-            });
-          }
-        });
-      });
-    });
-
-    if (newChunks.length > 0) {
-      chunksRef.current = newChunks;
-      setActiveChunks(newChunks);
-      setCurrentChunkIndex(0);
-      lastFiredParagraphIndexRef.current = -1;
-      setIsPlayingText(true);
-      setIsPausedText(false);
-      dispatchNarration({ status: 'start' });
-      speakChunk(0);
-    }
-  };
-
-  const handleStopSpeaking = () => {
-    stopAllPlayback();
-  };
-
-  // Dynamic Settings sync (Debounced)
-  useEffect(() => {
-    if (!isPlayingText || isPausedText) return;
-
-    const timer = setTimeout(() => {
-      speakChunk(currentChunkIndexRef.current);
-    }, 450);
-
-    return () => clearTimeout(timer);
-  }, [speechRate, speechPitch, selectedVoiceURI, selectedDialogueVoiceURI, speechVolume]);
-
   // --- Cosmic Bookmarking System States & Handlers ---
   const [showBookmarksPanel, setShowBookmarksPanel] = useState(false);
   const [editingBookmarkParagraphIndex, setEditingBookmarkParagraphIndex] =
@@ -897,24 +386,6 @@ export default function ReaderChamber({
   const [pendingScrollToParagraph, setPendingScrollToParagraph] = useState<
     number | null
   >(null);
-
-  const codexTerms = useMemo(() => {
-    const terms: Array<{ term: string; type: 'character'|'faction'|'artifact'|'location'; entry: any }> = [];
-    if (!activeStory.memory) return terms;
-    activeStory.memory.characters?.forEach(c => {
-      if (c.name && c.name.length > 2) terms.push({ term: c.name, type: 'character', entry: c });
-    });
-    activeStory.memory.factions?.forEach(f => {
-      if (f.name && f.name.length > 2) terms.push({ term: f.name, type: 'faction', entry: f });
-    });
-    activeStory.memory.artifacts?.forEach(a => {
-      if (a.name && a.name.length > 2) terms.push({ term: a.name, type: 'artifact', entry: a });
-    });
-    activeStory.memory.locations?.forEach(l => {
-      if (l.name && l.name.length > 2) terms.push({ term: l.name, type: 'location', entry: l });
-    });
-    return terms.sort((a, b) => b.term.length - a.term.length);
-  }, [activeStory.memory]);
 
   const renderHighlightedText = (text: string, paragraphIndex: number) => {
     const isPlaying = isPlayingText || isPausedText;
@@ -1034,83 +505,6 @@ export default function ReaderChamber({
     if (window.getSelection()?.toString().length) return; // Prevent toggle when user is just selecting text
     setIsReaderFullscreen(!isReaderFullscreen);
   };
-
-  // IntersectionObserver for narrative cues
-  useEffect(() => {
-    if (readerMode === "sen") return;
-    const targets = document.querySelectorAll(".narrative-trigger");
-    const observer = new window.IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const type = entry.target.getAttribute(
-              "data-cue-type",
-            ) as NarrativeCueEventType;
-            const cueId = entry.target.getAttribute("data-cue-id");
-            if (type && cueId) {
-              let parsedValue: unknown =
-                entry.target.getAttribute("data-cue-value") || undefined;
-              let parsedMeta: unknown = undefined;
-
-              const metaRaw = entry.target.getAttribute("data-cue-metadata");
-              if (metaRaw) {
-                try {
-                  parsedMeta = JSON.parse(metaRaw);
-                  parsedValue = parsedValue || parsedMeta;
-                } catch (e) {}
-              }
-
-              if (typeof parsedValue === "string") {
-                try {
-                  parsedValue = JSON.parse(parsedValue);
-                } catch (e) {
-                  // Not JSON, leave as is
-                }
-              }
-
-              if (readerMode === "teleprompter") {
-                // In teleprompter mode: No audio, but image reveals still fire.
-                if (type.startsWith("narrative.fx")) {
-                  return; // No audio cues/SFX
-                }
-                if (type.startsWith("narrative.metadata") && !immersion.imagePopups) {
-                  return; // Gate image reveals on immersion.imagePopups
-                }
-              } else {
-                // Other non-SEN modes
-                if (type.startsWith("narrative.fx") && !immersion.audioCues) {
-                  return;
-                }
-                if (type.startsWith("narrative.metadata") && !immersion.imagePopups) {
-                  return;
-                }
-              }
-
-              dispatchNarrativeCue({
-                id: cueId,
-                type,
-                once: !!entry.target.getAttribute("data-cue-once"),
-                value: parsedValue,
-                metadata: parsedMeta,
-              });
-            }
-          }
-        });
-      },
-      { threshold: 0.5 },
-    );
-
-    targets.forEach((t) => observer.observe(t));
-    return () => observer.disconnect();
-  }, [
-    selectedChapterNum,
-    activeStory.currentChapterNumber,
-    selectedChapter.generatedContent,
-    selectedChapter.blocks,
-    readerMode,
-    immersion.imagePopups,
-    immersion.audioCues,
-  ]);
 
   // Scroll to paragraph effect
   useEffect(() => {

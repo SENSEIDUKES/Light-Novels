@@ -5,17 +5,23 @@ import App from './App.tsx';
 import ErrorBoundary from './components/ErrorBoundary.tsx';
 import './index.css';
 
-// Register Service Worker for PWA offline caching
+// Register Service Worker for PWA offline caching (disabled inside iframe environments like AI Studio)
 import { registerSW } from 'virtual:pwa-register';
 
-const updateSW = registerSW({
-  onNeedRefresh() {
-    console.log('New content available, please refresh.');
-  },
-  onOfflineReady() {
-    console.log('App ready to work offline.');
-  },
-});
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator && window.self === window.top) {
+  try {
+    registerSW({
+      onNeedRefresh() {
+        console.log('New content available, please refresh.');
+      },
+      onOfflineReady() {
+        console.log('App ready to work offline.');
+      },
+    });
+  } catch (err) {
+    console.warn('Service worker registration bypassed:', err);
+  }
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

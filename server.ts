@@ -310,7 +310,10 @@ app.post("/api/generate-chapter-stream", async (req, res) => {
     const lastSummary = pastSummaries && pastSummaries.length > 0 ? pastSummaries[pastSummaries.length - 1] : undefined;
 
     const currentChapterNum = currentChapter.number || 1;
-    const formattedThreads = (memory.unresolvedPlotThreads || []).map((t: any) => {
+    let rThreadsStream = memory.unresolvedPlotThreads || [];
+    if (rThreadsStream.length > 30) rThreadsStream = [...rThreadsStream.slice(0, 10), ...rThreadsStream.slice(-20)];
+    
+    const formattedThreads = rThreadsStream.map((t: any) => {
       if (typeof t === 'string') return t;
       if (t && t.description) {
         if (typeof t.originChapter === 'number' && currentChapterNum > t.originChapter) {
@@ -324,10 +327,12 @@ app.post("/api/generate-chapter-stream", async (req, res) => {
       return String(t);
     });
 
+    const safeStr = (s: string|undefined, max: number = 3000) => (s && s.length > max) ? s.substring(0, max) + "..." : s;
+
     const memoryJsonStr = JSON.stringify({
-      powerSystem: memory.powerSystem,
-      currentPowerStage: memory.currentPowerStage,
-      worldRules: memory.worldRules,
+      powerSystem: safeStr(memory.powerSystem, 4000),
+      currentPowerStage: safeStr(memory.currentPowerStage, 1000),
+      worldRules: Array.isArray(memory.worldRules) ? memory.worldRules.slice(0, 20).map(r => safeStr(r, 1000)) : safeStr(memory.worldRules, 4000),
       unresolvedPlotThreads: formattedThreads,
       characters: rankRelevantEntities(memory.characters, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
       factions: rankRelevantEntities(memory.factions, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
@@ -400,7 +405,10 @@ app.post("/api/generate-chapter", async (req, res) => {
     const lastSummary = pastSummaries && pastSummaries.length > 0 ? pastSummaries[pastSummaries.length - 1] : undefined;
 
     const currentChapterNum = currentChapter.number || 1;
-    const formattedThreads = (memory.unresolvedPlotThreads || []).map((t: any) => {
+    let rThreadsStream = memory.unresolvedPlotThreads || [];
+    if (rThreadsStream.length > 30) rThreadsStream = [...rThreadsStream.slice(0, 10), ...rThreadsStream.slice(-20)];
+    
+    const formattedThreads = rThreadsStream.map((t: any) => {
       if (typeof t === 'string') return t;
       if (t && t.description) {
         if (typeof t.originChapter === 'number' && currentChapterNum > t.originChapter) {
@@ -414,10 +422,12 @@ app.post("/api/generate-chapter", async (req, res) => {
       return String(t);
     });
 
+    const safeStr = (s: string|undefined, max: number = 3000) => (s && s.length > max) ? s.substring(0, max) + "..." : s;
+
     const memoryJsonStr = JSON.stringify({
-      powerSystem: memory.powerSystem,
-      currentPowerStage: memory.currentPowerStage,
-      worldRules: memory.worldRules,
+      powerSystem: safeStr(memory.powerSystem, 4000),
+      currentPowerStage: safeStr(memory.currentPowerStage, 1000),
+      worldRules: Array.isArray(memory.worldRules) ? memory.worldRules.slice(0, 20).map(r => safeStr(r, 1000)) : safeStr(memory.worldRules, 4000),
       unresolvedPlotThreads: formattedThreads,
       characters: rankRelevantEntities(memory.characters, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
       factions: rankRelevantEntities(memory.factions, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),

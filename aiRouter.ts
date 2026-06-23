@@ -105,6 +105,16 @@ export function cleanAndParseJSON(rawText: string) {
   }
 }
 
+// Helper to rigidly prevent 1M token crashes from rogue inputs
+function safeTruncate(text: string, maxLimit: number = 800000): string {
+  if (!text) return text;
+  if (text.length > maxLimit) {
+    console.warn(`[aiRouter] Truncating payload from ${text.length} to ${maxLimit} to prevent token limit crash.`);
+    return text.substring(0, maxLimit) + "\n...[TRUNCATED TO PRESERVE MERIDIANS]...";
+  }
+  return text;
+}
+
 // Master function to route and execute text generation (Streaming mode)
 export async function* routeTextGenerationStream(
   route: "storyMaker",
@@ -114,7 +124,11 @@ export async function* routeTextGenerationStream(
   routingConfig?: RouteConfig,
   customKeys?: { geminiApiKey?: string; openrouterApiKey?: string; ollamaHost?: string; }
 ): AsyncGenerator<string, void, unknown> {
+  const safeSystem = safeTruncate(systemInstruction, 100000);
+  const safePrompt = safeTruncate(userPrompt, 700000);
+
   let activeConfig: RouteConfig = (routingConfig as any)?.storyMaker || routingConfig || {
+
     provider: "gemini",
     model: "gemini-2.5-flash-lite"
   };
@@ -136,9 +150,9 @@ export async function* routeTextGenerationStream(
     try {
       const responseStream = await ai.models.generateContentStream({
         model: geminiModel,
-        contents: userPrompt,
+        contents: safePrompt,
         config: {
-          systemInstruction,
+          systemInstruction: safeSystem,
           temperature: temperature ?? DEFAULT_TEMPERATURE,
           responseMimeType: "text/plain",
           maxOutputTokens: maxOutputTokens ?? DEFAULT_MAX_TOKENS,
@@ -183,8 +197,8 @@ export async function* routeTextGenerationStream(
       const payload = {
         model: model || "deepseek/deepseek-chat",
         messages: [
-          { role: "system", content: systemInstruction },
-          { role: "user", content: userPrompt }
+          { role: "system", content: safeSystem },
+          { role: "user", content: safePrompt }
         ],
         stream: true,
         temperature: temperature ?? DEFAULT_TEMPERATURE,
@@ -250,8 +264,8 @@ export async function* routeTextGenerationStream(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: model || "llama3",
-          system: systemInstruction,
-          prompt: userPrompt,
+          system: safeSystem,
+          prompt: safePrompt,
           stream: true,
           options: { 
             num_predict: maxOutputTokens ?? DEFAULT_MAX_TOKENS,
@@ -307,6 +321,9 @@ export async function routeTextGeneration(
   customKeys?: { geminiApiKey?: string; openrouterApiKey?: string; ollamaHost?: string; },
   responseSchema?: any
 ): Promise<any> {
+  const safeSystem = safeTruncate(systemInstruction, 100000);
+  const safePrompt = safeTruncate(userPrompt, 700000);
+
   let activeConfig: RouteConfig = (routingConfig as any)?.storyMaker || routingConfig || {
     provider: "gemini",
     model: "gemini-2.5-flash-lite"
@@ -331,7 +348,7 @@ export async function routeTextGeneration(
     const geminiModel = (model || "google/gemini-2.5-flash-lite").replace(/^google\//, "");
     try {
       const config: any = {
-        systemInstruction,
+        systemInstruction: safeSystem,
         responseMimeType: "application/json",
         temperature: temperature ?? DEFAULT_TEMPERATURE,
         maxOutputTokens: maxOutputTokens ?? DEFAULT_MAX_TOKENS,
@@ -343,7 +360,7 @@ export async function routeTextGeneration(
 
       const response = await ai.models.generateContent({
         model: geminiModel,
-        contents: userPrompt,
+        contents: safePrompt,
         config
       });
 
@@ -387,8 +404,8 @@ export async function routeTextGeneration(
       const payload = {
         model: model || "deepseek/deepseek-chat",
         messages: [
-          { role: "system", content: systemInstruction },
-          { role: "user", content: userPrompt }
+          { role: "system", content: safeSystem },
+          { role: "user", content: safePrompt }
         ],
         response_format: { type: "json_object" },
         temperature: temperature ?? DEFAULT_TEMPERATURE,
@@ -438,8 +455,8 @@ export async function routeTextGeneration(
         },
         body: JSON.stringify({
           model: model || "llama3",
-          system: systemInstruction,
-          prompt: userPrompt,
+          system: safeSystem,
+          prompt: safePrompt,
           stream: false,
           format: "json",
           options: { 
