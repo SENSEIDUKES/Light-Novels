@@ -6,13 +6,13 @@ import { AgentBadge } from './AgentBadge';
 import { AGENTS } from '../lib/agents';
 
 export const AILoadingVeil: React.FC = () => {
-  const { isGenerating, generationPhase, generationProgressMessage, estimatedSecondsRemaining, activeAgentId } = useAppStore();
+  const { isGenerating, generationPhase, generationProgressMessage, estimatedSecondsRemaining, activeAgentId, streamingChapter } = useAppStore();
 
   const activeAgent = activeAgentId ? AGENTS[activeAgentId === 'versa' ? 'VERSA' : 'SCOUT'] : null;
 
   return (
     <AnimatePresence>
-      {(isGenerating && generationPhase !== 'chapter') && (
+      {(isGenerating && (generationPhase !== 'chapter' || !streamingChapter?.blocks?.length)) && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -58,6 +58,7 @@ export const AILoadingVeil: React.FC = () => {
               {generationPhase === 'initial-arc' && "Scripture Initiation"}
               {generationPhase === 'steer' && "Sovereign Shift"}
               {generationPhase === 'cover' && "Cover Reforging"}
+              {generationPhase === 'chapter' && "Chapter Manifestation"}
               {!generationPhase && "Consciousness Sync"}
             </span>
           </div>
@@ -73,6 +74,7 @@ export const AILoadingVeil: React.FC = () => {
             {generationPhase === 'initial-arc' && "Transcribing the grand volume ledger, compiling chapter milestones and character templates."}
             {generationPhase === 'steer' && "Merging your custom instructions with fate timelines to trigger the subsequent 10 chapters."}
             {generationPhase === 'cover' && "Translating core premise variables into bespoke high-fidelity digital art."}
+            {generationPhase === 'chapter' && "Weaving celestial threads into reality, condensing spiritual essence into narrative form."}
             {!generationPhase && "Interfacing with the SEIHouse deep narrative engine."}
           </p>
 

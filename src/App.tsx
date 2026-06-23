@@ -91,8 +91,6 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchInitiatedRef = React.useRef<Set<string>>(new Set());
-
   // Dynamically fetch missing content for active chapter
   useEffect(() => {
     // Narrow dependency to just ID and chapter num to avoid looping on whole stories array
@@ -101,11 +99,7 @@ function App() {
       const tgtArc = activeStory.arcs.find(a => a.chapters.some(c => c.number === store.selectedChapterNum));
       const tgtChapter = tgtArc?.chapters.find(c => c.number === store.selectedChapterNum);
       
-      if (tgtChapter && !tgtChapter.generatedContent && (!tgtChapter.blocks || tgtChapter.blocks.length === 0) && (tgtChapter.status === 'read' || tgtChapter.status === 'unlocked' || tgtChapter.status === 'generating')) {
-        const fetchKey = `${activeStory.id}-${store.selectedChapterNum}`;
-        if (fetchInitiatedRef.current.has(fetchKey)) return;
-        fetchInitiatedRef.current.add(fetchKey);
-
+      if (tgtChapter && !tgtChapter.generatedContent && (!tgtChapter.blocks || tgtChapter.blocks.length === 0) && (tgtChapter.status === 'read' || tgtChapter.status === 'unlocked' || tgtChapter.status === 'generating' || tgtChapter.hasContent)) {
         storyStorage.getChapterContent(activeStory.id, store.selectedChapterNum).then(content => {
           if (content) {
             const currentStore = useAppStore.getState();
@@ -135,6 +129,31 @@ function App() {
               return s;
             });
             currentStore.saveStories(updated); // Use saveStories instead of setStories so it persists correctly if necessary, or just setStories
+          } else {
+            // Failed to fetch or missing: un-mark hasContent so user can regenerate
+            const currentStore = useAppStore.getState();
+            const freshStories = [...currentStore.stories];
+            const updated = freshStories.map(s => {
+              if (s.id === activeStory.id) {
+                return {
+                  ...s,
+                  arcs: s.arcs.map(a => ({
+                    ...a,
+                    chapters: a.chapters.map(c => {
+                      if (c.number === store.selectedChapterNum) {
+                        return {
+                          ...c,
+                          hasContent: false
+                        };
+                      }
+                      return c;
+                    })
+                  }))
+                };
+              }
+              return s;
+            });
+            currentStore.saveStories(updated);
           }
         });
       }

@@ -15,6 +15,7 @@ export const useChapterGeneration = () => {
     }
     const activeStory = store.stories.find(s => s.id === store.activeStoryId);
     if (!activeStory) return;
+    store.setStreamingChapter(null);
     store.setGenerationPhase('chapter');
     store.setIsGenerating(true);
     store.setAppError(null);
@@ -105,13 +106,11 @@ export const useChapterGeneration = () => {
                 if (blocksData.length > 0) {
                    currentChapterText = blocksData.map(b => b.text).join('\n\n');
                 } else {
-                   currentChapterText = rawBlocksStr.replace(/```json/gi, '').replace(/```/g, '').trim();
+                   // Keep the text empty to show the fallback loading message instead of raw JSON
+                   currentChapterText = "";
                 }
 
-                if (!currentChapterText) {
-                   currentChapterText = accumulatedRaw;
-                }
-
+                // If no parsed text yet, leave it empty to trigger the fallback loading message
                 store.setStreamingChapter({
                   number: chapterNumber,
                   content: currentChapterText || "Condensing celestial aura...",

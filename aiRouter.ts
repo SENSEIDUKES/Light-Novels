@@ -165,10 +165,10 @@ export async function* routeTextGenerationStream(
       }
     } catch (error: any) {
       console.error("[aiRouter] Gemini provider encountered error during stream:", error);
-      if (error.status === 429 || (error.message && error.message.includes("429"))) {
+      if (error.status === 429 || error.status === 503 || (error.message && (error.message.includes("429") || error.message.includes("503")))) {
         const apiKey = customKeys?.openrouterApiKey || process.env.OPENROUTER_API_KEY;
         if (apiKey && apiKey !== "MY_OPENROUTER_API_KEY") {
-          console.warn("[aiRouter] Rate limit hit. Applying graceful fallback: Switching from Gemini to OpenRouter.");
+          console.warn("[aiRouter] Rate limit or high demand hit. Applying graceful fallback: Switching from Gemini to OpenRouter.");
           const fallbackModel = route === "storyMaker" ? ROUTER_PRESETS.storyMaker.openrouter[0] : "deepseek/deepseek-chat";
           
           yield* routeTextGenerationStream(
@@ -182,7 +182,7 @@ export async function* routeTextGenerationStream(
           return;
         }
 
-        throw new Error(`Rate limit exceeded [429]. The model '${model}' is currently busy or rate-limited. Please try again soon, or switch to a different model in the routing configuration.`);
+        throw new Error(`Model busy or rate-limited [${error.status || 429}]. The model '${model}' is currently busy or rate-limited. Please try again soon, or switch to a different model in the routing configuration.`);
       }
       throw error;
     }
@@ -389,7 +389,7 @@ export async function routeTextGeneration(
       console.error("[aiRouter] Gemini provider encountered error:", error);
       
       // If we failed even to query with responseSchema, try querying without it before failing completely
-      if (responseSchema && !error.message?.includes("429") && error.status !== 429) {
+      if (responseSchema && !error.message?.includes("429") && !error.message?.includes("503") && error.status !== 429 && error.status !== 503) {
         try {
           console.warn("[aiRouter] Schema query error. Retrying request without strict responseSchema...");
           const fallbackConfig = { ...config };
@@ -407,10 +407,10 @@ export async function routeTextGeneration(
         }
       }
 
-      if (error.status === 429 || (error.message && error.message.includes("429"))) {
+      if (error.status === 429 || error.status === 503 || (error.message && (error.message.includes("429") || error.message.includes("503")))) {
         const apiKey = customKeys?.openrouterApiKey || process.env.OPENROUTER_API_KEY;
         if (apiKey && apiKey !== "MY_OPENROUTER_API_KEY") {
-          console.warn("[aiRouter] Rate limit hit. Applying graceful fallback: Switching from Gemini to OpenRouter.");
+          console.warn("[aiRouter] Rate limit or high demand hit. Applying graceful fallback: Switching from Gemini to OpenRouter.");
           const fallbackModel = route === "storyMaker" ? ROUTER_PRESETS.storyMaker.openrouter[0] : "deepseek/deepseek-chat";
           
           return routeTextGeneration(
@@ -423,7 +423,7 @@ export async function routeTextGeneration(
           );
         }
 
-        throw new Error(`Rate limit exceeded [429]. The model '${model}' is currently busy or rate-limited. Please try again soon, or switch to a different model in the routing configuration.`);
+        throw new Error(`Model busy or rate-limited [${error.status || 429}]. The model '${model}' is currently busy or rate-limited. Please try again soon, or switch to a different model in the routing configuration.`);
       }
       throw error;
     }

@@ -91,7 +91,8 @@ export function useImageManifest() {
             return {
               ...s,
               memory: updatedMemory,
-              imageHistory: updatedStoryHistory
+              imageHistory: updatedStoryHistory,
+              updatedAt: new Date().toISOString()
             };
           }
           return s;
@@ -186,7 +187,8 @@ export function useImageManifest() {
             
             return {
               ...s,
-              arcs: updatedArcs
+              arcs: updatedArcs,
+              updatedAt: new Date().toISOString()
             };
           }
           return s;

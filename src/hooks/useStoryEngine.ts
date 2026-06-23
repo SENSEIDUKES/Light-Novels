@@ -143,6 +143,7 @@ export const useStoryEngine = () => {
   };
 
   const handleUpdateStoryDirect = async (updatedStory: StoryWorld) => {
+    updatedStory.updatedAt = new Date().toISOString();
     const updated = store.stories.map(s => s.id === updatedStory.id ? updatedStory : s);
     await store.saveStories(updated);
   };

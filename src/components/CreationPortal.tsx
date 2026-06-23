@@ -101,7 +101,7 @@ const CATEGORIZED_TAGS: Record<string, string[]> = {
   ]
 };
 
-const TAG_PRESETS = Object.values(CATEGORIZED_TAGS).flat();
+const TAG_PRESETS = Array.from(new Set(Object.values(CATEGORIZED_TAGS).flat()));
 
 const renderSafeString = (val: any): React.ReactNode => {
   if (val === undefined || val === null) return '';
@@ -1185,11 +1185,11 @@ ${blueprint.firstArcPromise || ''}
 
             {/* Tag presets catalog with search and category filters */}
             {(() => {
-              const filteredPresets = (
+              const filteredPresets = Array.from(new Set(
                 activeCategory === 'All'
                   ? TAG_PRESETS
                   : CATEGORIZED_TAGS[activeCategory] || []
-              ).filter(tag => 
+              )).filter(tag => 
                 tag.toLowerCase().includes(tagSearch.toLowerCase())
               );
 

@@ -47,7 +47,6 @@ import {
 } from "../lib/narrativeCues";
 import { useChapterTranslation } from "../hooks/useChapterTranslation";
 import { useAppStore } from "../store/useAppStore";
-import { useAutoScroll } from "../hooks/useAutoScroll";
 import { secureStorage } from "../lib/encryption";
 import { SystemBlock } from "./SystemBlock";
 
@@ -110,6 +109,7 @@ export default function ReaderChamber({
   const [isCheckingConsistency, setIsCheckingConsistency] = useState(false);
   const [consistencyWarnings, setConsistencyWarnings] = useState<string[] | null>(null);
   const readerRef = useRef<HTMLDivElement>(null);
+  const driftInnerRef = useRef<HTMLDivElement>(null);
   const readerMode = useAppStore((state) => state.readerMode);
   const immersion = useAppStore((state) => state.immersion);
   const setReaderMode = useAppStore((state) => state.setReaderMode);
@@ -182,11 +182,13 @@ export default function ReaderChamber({
     handleTogglePlayback,
     handleStopSpeaking,
     playAutoScroll,
+    pauseAutoScroll,
     currentNarratedBlockIndex
   } = useReaderPlayback({
     selectedChapter,
     activeTranslationContent,
     containerRef: readerRef,
+    innerRef: driftInnerRef,
     isAutoScrollPausedByUser,
     setIsAutoScrollPausedByUser
   });
@@ -528,6 +530,7 @@ export default function ReaderChamber({
           `para-${pendingScrollToParagraph}`,
         );
         if (element) {
+          pauseAutoScroll();
           element.scrollIntoView({ behavior: "smooth", block: "center" });
           element.classList.add(
             "bg-portal/10",
@@ -691,6 +694,7 @@ export default function ReaderChamber({
   const navigatePrev = () => {
     if (selectedChapterNum > 1) {
       setSelectedChapterNum(selectedChapterNum - 1);
+      pauseAutoScroll();
       readerRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   };
@@ -701,6 +705,7 @@ export default function ReaderChamber({
     );
     if (nextChapter) {
       setSelectedChapterNum(selectedChapterNum + 1);
+      pauseAutoScroll();
       readerRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   };
@@ -875,6 +880,7 @@ export default function ReaderChamber({
         onClick={handleTextClick}
         onScroll={handleViewportScroll}
       >
+        <div ref={driftInnerRef} style={{ willChange: 'transform' }}>
         {isTranslating ? (
           <div className="flex flex-col items-center justify-center h-full py-32 space-y-4">
             <Loader2 className="animate-spin text-portal w-10 h-10" />
@@ -1508,7 +1514,7 @@ export default function ReaderChamber({
               </button>
             </div>
           </>
-        ) : isGenerating ? (
+        ) : isGenerating || selectedChapter.hasContent ? (
           <div className="max-w-2xl mx-auto py-12 animate-pulse space-y-6">
             <div className="space-y-4">
               <div className="h-3 bg-neutral-800/50 rounded w-[85%]"></div>
@@ -1584,6 +1590,7 @@ export default function ReaderChamber({
             </button>
           </div>
         )}
+        </div>
       </div>
 
       {/* BOTTOM AUDIO / PLAYER NAVIGATION BAR */}

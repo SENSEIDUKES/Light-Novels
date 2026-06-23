@@ -357,7 +357,7 @@ export class PersistentStorageManager implements StorageAdapter {
           const localStory = await this.localAdapter.getStory(task.storyId);
           if (localStory) {
             const cloudPayload = JSON.parse(JSON.stringify(localStory));
-            this.stripDataUrls(cloudPayload);
+            await this.compressDataUrls(cloudPayload);
             await this.cloudAdapter.saveStory(cloudPayload);
           }
         } else if (task.type === 'chapter' && task.chapterNumber !== undefined) {
@@ -449,7 +449,7 @@ export class PersistentStorageManager implements StorageAdapter {
         if (!cloudStory) {
           // Exists locally but not in cloud. Push to cloud.
           const cloudPayload = JSON.parse(JSON.stringify(localStory));
-          this.stripDataUrls(cloudPayload);
+          await this.compressDataUrls(cloudPayload);
           await this.cloudAdapter.saveStory(cloudPayload);
         } else {
           // Exists in both. Check timestamps and revisions
@@ -459,7 +459,7 @@ export class PersistentStorageManager implements StorageAdapter {
           if (localTime > cloudTime) {
              const timeDiff = localTime - cloudTime;
              const cloudPayload = JSON.parse(JSON.stringify(localStory));
-             this.stripDataUrls(cloudPayload);
+             await this.compressDataUrls(cloudPayload);
              if (timeDiff > 5000) { // Large gap means potential conflict if cloud also changed independently
                 // We overwrite cloud if we are newer, but if the cloud version has a significantly different version/content, we could branch it.
                 // For simplicity, local wins but we ensure we pushed it cleanly.
@@ -482,7 +482,7 @@ export class PersistentStorageManager implements StorageAdapter {
                  await this.localAdapter.saveStory(localCopy);
                  
                  const localCopyCloudPayload = JSON.parse(JSON.stringify(localCopy));
-                 this.stripDataUrls(localCopyCloudPayload);
+                 await this.compressDataUrls(localCopyCloudPayload);
                  await this.cloudAdapter.saveStory(localCopyCloudPayload); // Save the conflict copy to cloud too
              }
              
@@ -632,32 +632,85 @@ export class PersistentStorageManager implements StorageAdapter {
     return this.localAdapter.getStory(id);
   }
 
-  private stripDataUrls(story: StoryWorld) {
-    const isDataUrl = (url?: string) => url && url.startsWith('data:');
+  private async compressDataUrls(story: StoryWorld) {
+    const isDataUrl = (url?: string) => url && url.startsWith('data:image/');
     
-    if (isDataUrl(story.imageUrl)) story.imageUrl = "";
+    const compress = async (dataUrl: string): Promise<string> => {
+      if (dataUrl.length < 60000) return dataUrl; // Skip if already small
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_SIZE = 400;
+          let width = img.width;
+          let height = img.height;
+          if (width > MAX_SIZE || height > MAX_SIZE) {
+            if (width > height) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            } else {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.6));
+        };
+        img.onerror = () => resolve(dataUrl);
+        img.src = dataUrl;
+      });
+    };
+
+    if (story.imageUrl && isDataUrl(story.imageUrl)) {
+      story.imageUrl = await compress(story.imageUrl);
+    }
     if (story.imageHistory) {
-       story.imageHistory = story.imageHistory.filter(img => !isDataUrl(img.imageUrl));
+      for (let i = 0; i < story.imageHistory.length; i++) {
+        if (isDataUrl(story.imageHistory[i].imageUrl)) {
+          story.imageHistory[i].imageUrl = await compress(story.imageHistory[i].imageUrl);
+        }
+      }
     }
     
     if (story.memory) {
       if (story.memory.characters) {
-        story.memory.characters.forEach(c => {
-          if (isDataUrl(c.imageUrl)) c.imageUrl = "";
-          if (c.imageHistory) c.imageHistory = c.imageHistory.filter(img => !isDataUrl(img.imageUrl));
-        });
+        for (const c of story.memory.characters) {
+          if (c.imageUrl && isDataUrl(c.imageUrl)) c.imageUrl = await compress(c.imageUrl);
+          if (c.imageHistory) {
+            for (let i = 0; i < c.imageHistory.length; i++) {
+              if (isDataUrl(c.imageHistory[i].imageUrl)) {
+                c.imageHistory[i].imageUrl = await compress(c.imageHistory[i].imageUrl);
+              }
+            }
+          }
+        }
       }
       if (story.memory.locations) {
-        story.memory.locations.forEach(c => {
-          if (isDataUrl(c.imageUrl)) c.imageUrl = "";
-          if (c.imageHistory) c.imageHistory = c.imageHistory.filter(img => !isDataUrl(img.imageUrl));
-        });
+        for (const c of story.memory.locations) {
+          if (c.imageUrl && isDataUrl(c.imageUrl)) c.imageUrl = await compress(c.imageUrl);
+          if (c.imageHistory) {
+            for (let i = 0; i < c.imageHistory.length; i++) {
+              if (isDataUrl(c.imageHistory[i].imageUrl)) {
+                c.imageHistory[i].imageUrl = await compress(c.imageHistory[i].imageUrl);
+              }
+            }
+          }
+        }
       }
       if (story.memory.artifacts) {
-        story.memory.artifacts.forEach(c => {
-          if (isDataUrl(c.imageUrl)) c.imageUrl = "";
-          if (c.imageHistory) c.imageHistory = c.imageHistory.filter(img => !isDataUrl(img.imageUrl));
-        });
+        for (const c of story.memory.artifacts) {
+          if (c.imageUrl && isDataUrl(c.imageUrl)) c.imageUrl = await compress(c.imageUrl);
+          if (c.imageHistory) {
+            for (let i = 0; i < c.imageHistory.length; i++) {
+              if (isDataUrl(c.imageHistory[i].imageUrl)) {
+                c.imageHistory[i].imageUrl = await compress(c.imageHistory[i].imageUrl);
+              }
+            }
+          }
+        }
       }
     }
     if (story.arcs) {
@@ -718,7 +771,7 @@ export class PersistentStorageManager implements StorageAdapter {
       this.setStatus('syncing');
       try {
         const cloudStory = JSON.parse(JSON.stringify(strippedStory));
-        this.stripDataUrls(cloudStory);
+        await this.compressDataUrls(cloudStory);
         await this.cloudAdapter.saveStory(cloudStory);
         this.setStatus('synced');
       } catch (err) {

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Chapter, VoiceClip } from "../types";
 import { useAppStore } from "../store/useAppStore";
 import { dispatchNarration, dispatchNarrativeCue } from "../lib/narrativeCues";
-import { useAutoScroll } from "./useAutoScroll";
+import { useReadingDrift } from "./useReadingDrift";
 
 export const extractSFXCues = (text: string) => {
   const sfxList: string[] = [];
@@ -34,12 +34,14 @@ export function useReaderPlayback({
   selectedChapter,
   activeTranslationContent,
   containerRef,
+  innerRef,
   isAutoScrollPausedByUser: externalIsAutoScrollPausedByUser,
   setIsAutoScrollPausedByUser: externalSetIsAutoScrollPausedByUser,
 }: {
   selectedChapter: Chapter;
   activeTranslationContent: string | null;
   containerRef: React.RefObject<HTMLDivElement | null>;
+  innerRef: React.RefObject<HTMLDivElement | null>;
   isAutoScrollPausedByUser?: boolean;
   setIsAutoScrollPausedByUser?: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
@@ -64,12 +66,13 @@ export function useReaderPlayback({
 
   useEffect(() => {
     actualSetIsAutoScrollPausedByUser(false);
-  }, [readerMode, selectedChapter?.number]);
+  }, [readerMode, selectedChapter?.number, actualSetIsAutoScrollPausedByUser]);
 
-  const { play: playAutoScroll, pause: pauseAutoScroll, isScrolling: isAutoScrolling } = useAutoScroll({
+  const { startDrift: playAutoScroll, stopDrift: pauseAutoScroll, isDrifting: isAutoScrolling } = useReadingDrift({
     containerRef,
+    innerRef,
     mode:
-      (readerMode === "sen" || readerMode === "basic-tts") && immersion.autoScroll
+      readerMode === "sen" && immersion.autoScroll
         ? "paced"
         : readerMode === "teleprompter" && immersion.autoScroll && !actualIsAutoScrollPausedByUser
         ? "constant"
@@ -507,7 +510,7 @@ export function useReaderPlayback({
       speakChunk(currentChunkIndexRef.current);
     }, 450);
     return () => clearTimeout(timer);
-  }, [speechRate, speechPitch, selectedVoiceURI, selectedDialogueVoiceURI, speechVolume]);
+  }, [speechRate, speechPitch, selectedVoiceURI, selectedDialogueVoiceURI, speechVolume, isPlayingText, isPausedText, speakChunk]);
 
   return {
     isPlayingText,
