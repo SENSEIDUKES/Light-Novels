@@ -1,6 +1,30 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Download } from 'lucide-react';
+
+const handleDownload = async (url: string, filename: string) => {
+  try {
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) throw new Error('CORS or Network error');
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+  } catch (e) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+};
 
 interface DestinyChoicePanelProps {
   isOpen: boolean;
@@ -64,7 +88,7 @@ export const DestinyChoicePanel: React.FC<DestinyChoicePanelProps> = ({
                     }
                   }}
                   aria-label={`Select form ${index + 1}`}
-                  className={`relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer transition-all duration-300 border-2 ${
+                  className={`relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer transition-all duration-300 border-2 group ${
                     isSelected ? 'border-portal shadow-[0_0_20px_rgba(4,172,255,0.3)] scale-105 z-10' : 'border-neutral-800 hover:border-neutral-700 opacity-70 hover:opacity-100'
                   }`}
                 >
@@ -74,6 +98,18 @@ export const DestinyChoicePanel: React.FC<DestinyChoicePanelProps> = ({
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
                   />
+                  
+                  {/* Premium floating Download button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownload(url, `sei_house_form_${['I', 'II', 'III'][index] || index + 1}.png`);
+                    }}
+                    className="absolute top-2 left-2 z-20 bg-black/85 hover:bg-portal hover:text-void border border-neutral-900 hover:border-portal text-neutral-300 p-1.5 rounded-md transition-all duration-200 shadow-md backdrop-blur opacity-80 hover:opacity-100 flex items-center justify-center"
+                    title="Download Form Draft"
+                  >
+                    <Download size={11} />
+                  </button>
                   
                   <div className={`absolute inset-x-0 bottom-0 py-2 text-center text-xs font-mono font-bold uppercase tracking-widest transition-colors ${
                     isSelected ? 'bg-portal/90 text-void' : 'bg-black/80 text-neutral-400'

@@ -1,10 +1,34 @@
 import React, { useState } from 'react';
 import { 
-  Users, MapPin, Sparkles, BookMarked, Eye, Trash2, HelpCircle, Compass, Award, RefreshCcw, Plus
+  Users, MapPin, Sparkles, BookMarked, Eye, Trash2, HelpCircle, Compass, Award, RefreshCcw, Plus, Download
 } from 'lucide-react';
 import { Character, Location, StoryMemory, StoryWorld } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AgentBadge } from '../AgentBadge';
+
+const handleDownload = async (url: string, filename: string) => {
+  try {
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) throw new Error('CORS or Network error');
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+  } catch (e) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+};
 
 interface LivingCodexCharactersProps {
   memory: StoryMemory;
@@ -114,12 +138,25 @@ export function LivingCodexCharacters({
                           <div className="h-44 w-full bg-void relative flex items-center justify-center overflow-hidden border-b border-neutral-900 group">
                             {renderImageHistoryGallery(char.id, char.isBeast ? 'beast' : 'character', activeStory.imageHistory?.filter(img => img.entityId === char.id))}
                             {displayedImage ? (
-                              <img 
-                                src={displayedImage} 
-                                alt={char.name}
-                                referrerPolicy="no-referrer"
-                                className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500 brightness-95"
-                              />
+                              <>
+                                <img 
+                                  src={displayedImage} 
+                                  alt={char.name}
+                                  referrerPolicy="no-referrer"
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500 brightness-95"
+                                />
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDownload(displayedImage, `${char.name.toLowerCase().replace(/\s+/g, '_')}_portrait.png`);
+                                  }}
+                                  className="absolute bottom-2 right-2 z-20 bg-black/85 hover:bg-portal hover:text-void border border-neutral-900 hover:border-portal text-neutral-300 p-1.5 rounded-md transition-all duration-200 opacity-0 group-hover:opacity-100 flex items-center gap-1 font-mono text-[8px] uppercase tracking-wider backdrop-blur cursor-pointer shadow-md"
+                                  title="Download Portrait"
+                                >
+                                  <Download size={10} />
+                                  <span>Get</span>
+                                </button>
+                              </>
                             ) : (
                               /* Abstract CSS Alchemical grid vector placeholder */
                               <div className="absolute inset-0 bg-gradient-to-b from-void via-human/10 to-void flex flex-col items-center justify-center p-4 text-center">
@@ -304,12 +341,25 @@ export function LivingCodexCharacters({
                             <div className="h-36 w-full bg-void relative flex items-center justify-center overflow-hidden border-b border-neutral-900 group">
                               {renderImageHistoryGallery(loc.id, 'location', activeStory.imageHistory?.filter(img => img.entityId === loc.id))}
                               {displayedImage ? (
-                                <img 
-                                  src={displayedImage} 
-                                  alt={loc.name}
-                                  referrerPolicy="no-referrer"
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500 brightness-90"
-                                />
+                               <>
+                                  <img 
+                                    src={displayedImage} 
+                                    alt={loc.name}
+                                    referrerPolicy="no-referrer"
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500 brightness-90"
+                                  />
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDownload(displayedImage, `${loc.name.toLowerCase().replace(/\s+/g, '_')}_landscape.png`);
+                                    }}
+                                    className="absolute bottom-2 right-2 z-20 bg-black/85 hover:bg-portal hover:text-void border border-neutral-900 hover:border-portal text-neutral-300 p-1.5 rounded-md transition-all duration-200 opacity-0 group-hover:opacity-100 flex items-center gap-1 font-mono text-[8px] uppercase tracking-wider backdrop-blur cursor-pointer shadow-md"
+                                    title="Download Scenery Vista"
+                                  >
+                                    <Download size={10} />
+                                    <span>Get</span>
+                                  </button>
+                                </>
                               ) : (
                                 <div className="absolute inset-0 bg-gradient-to-b from-void via-portal/5 to-void flex flex-col items-center justify-center p-3 text-center">
                                   <div className="absolute inset-0 bg-[radial-gradient(#1a1a1a_1px,transparent_1px)] [background-size:12px_12px] opacity-40"></div>

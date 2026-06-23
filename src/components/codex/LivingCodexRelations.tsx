@@ -1,7 +1,31 @@
 import React from 'react';
-import { Network, HelpCircle, ArrowLeftRight, Trash2 } from 'lucide-react';
+import { Network, HelpCircle, ArrowLeftRight, Trash2, Download } from 'lucide-react';
 import { VirtualizedList } from '../VirtualizedList';
 import { Character, StoryMemory } from '../../types';
+
+const handleDownload = async (url: string, filename: string) => {
+  try {
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) throw new Error('CORS or Network error');
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+  } catch (e) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+};
 
 interface LivingCodexRelationsProps {
   memory: StoryMemory;
@@ -183,8 +207,19 @@ export function LivingCodexRelations({
                       </div>
 
                       {selectedNodeChar.imageUrl && (
-                        <div className="h-28 w-full rounded overflow-hidden border border-neutral-900">
+                        <div className="h-28 w-full rounded overflow-hidden border border-neutral-900 relative group/rel">
                           <img src={selectedNodeChar.imageUrl} alt={selectedNodeChar.name} className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownload(selectedNodeChar.imageUrl, `${selectedNodeChar.name.toLowerCase().replace(/\s+/g, '_')}_portrait.png`);
+                            }}
+                            className="absolute bottom-1.5 right-1.5 z-20 bg-black/85 hover:bg-portal hover:text-void border border-neutral-900 hover:border-portal text-neutral-300 p-1.5 rounded transition-all duration-200 opacity-0 group-hover/rel:opacity-100 flex items-center gap-1 font-mono text-[8px] uppercase tracking-wider backdrop-blur cursor-pointer shadow"
+                            title="Download Portrait"
+                          >
+                            <Download size={8} />
+                            <span>Get</span>
+                          </button>
                         </div>
                       )}
                       

@@ -1,6 +1,30 @@
 import React from 'react';
-import { Plus, Sword, RefreshCcw, Sparkles } from 'lucide-react';
+import { Plus, Sword, RefreshCcw, Sparkles, Download } from 'lucide-react';
 import { Artifact, StoryWorld } from '../../types';
+
+const handleDownload = async (url: string, filename: string) => {
+  try {
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) throw new Error('CORS or Network error');
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+  } catch (e) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+};
 
 interface LivingCodexArtifactsProps {
   artifactsToRender: Artifact[];
@@ -135,6 +159,17 @@ export function LivingCodexArtifacts({
                     {displayedImage ? (
                       <div className="h-32 w-full border border-neutral-900 relative">
                         <img src={displayedImage} alt={art.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownload(displayedImage, `${art.name.toLowerCase().replace(/\s+/g, '_')}_relic.png`);
+                          }}
+                          className="absolute bottom-2 right-2 z-20 bg-black/85 hover:bg-portal hover:text-void border border-neutral-900 hover:border-portal text-neutral-300 p-1.5 rounded-md transition-all duration-200 opacity-0 group-hover:opacity-100 flex items-center gap-1 font-mono text-[8px] uppercase tracking-wider backdrop-blur cursor-pointer shadow-md"
+                          title="Download Relic Aura"
+                        >
+                          <Download size={10} />
+                          <span>Get</span>
+                        </button>
                         {activePreview && (
                           <div className="absolute inset-x-0 bottom-0 bg-neutral-950/90 text-[9px] font-mono font-bold uppercase py-1 text-center text-gold-accent border-t border-gold-accent/30 tracking-widest z-10 animate-pulse">
                             Evolution Preview
