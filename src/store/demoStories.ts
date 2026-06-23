@@ -228,6 +228,82 @@ export const INITIAL_DEMO_STORIES: Story[] = [
         ]
       }
     ]
+  },
+  {
+    id: 'demo-matrix-4', // Template ID
+    title: 'The Celestial Academy: Dawn of the Sovereign',
+    genre: 'Academy Cultivation',
+    mcName: 'Lu Chen',
+    customPremise: 'Entering the lowest class ranking at the Grand Azure Sect Academy, only to unlock a hidden library containing the direct instructions of the founder.',
+    createdAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+    updatedAt: new Date().toISOString(),
+    currentChapterNumber: 1,
+    imageUrl: 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&q=80',
+    intake: {
+      novelTitle: 'The Celestial Academy: Dawn of the Sovereign',
+      mcName: 'Lu Chen',
+      genrePath: 'Academy Cultivation',
+      corePremise: 'Entering the lowest class ranking at the Grand Azure Sect Academy, only to unlock a hidden library containing the direct instructions of the founder.',
+      storyTags: ['academy cultivation', 'class rankings', 'hidden instructors', 'sect schools', 'cozy / slice-of-life cultivation', 'school hierarchy']
+    },
+    memory: {
+      powerSystem: 'Outer Disciple Elite -> Hall Attendant -> Sect Proctor -> Grand Sovereign.',
+      currentPowerStage: 'Outer Disciple Class F (Unranked / Blocked Veins)',
+      worldRules: [
+        'Class rankings govern all resource allocations and medicinal bath access.',
+        'Sect schools hold annual examinations where seniors can challenge juniors publicly.',
+        'The forbidden founder\'s library remains sealed under heavenly punishment traps.'
+      ],
+      characters: [
+        {
+          id: 'char-4-1',
+          name: 'Instructor Han',
+          role: 'Sealed Scriptorium Guardian',
+          description: 'A lazy, sleeping library curator who is actually the retired Grand Ancestor of the Azure Sect.',
+          relationshipToMC: 'Sardonic Advisor / Hidden Supporter',
+          status: 'alive'
+        },
+        {
+          id: 'char-4-2',
+          name: 'Sect Senior Zhou',
+          role: 'Arrogant Dorm Rival',
+          description: 'No. 3 ranked outer disciple from a major cultivation clan who demands Lu Chen\'s daily script allowance.',
+          relationshipToMC: 'High Tension / Competitive Rivalry',
+          status: 'alive'
+        }
+      ],
+      unresolvedPlotThreads: [
+        'Secure top marks in the upcoming annual botanical pill examination.',
+        'Decrypt the second volume of the Founder\'s Azure Breath manual.',
+        'Survive the dorm competition ambush planned by Senior Zhou\'s lackeys.'
+      ],
+      resolvedPlotThreads: [
+        'Avoid expulsion by answering Instructor Han\'s trick riddle correctly.'
+      ]
+    },
+    arcs: [
+      {
+        title: 'Volume 1: Scriptorium Shadows and Class Rankings',
+        isCompleted: false,
+        chapters: [
+          {
+            number: 1,
+            title: 'Rank F Library Duty, The Secret Founder\'s Scroll',
+            premise: 'Lu Chen is assigned library cleaning duties as punishment for his Class F ranking. Under a loose floorboard in the forbidden archives, he uncovers an interactive scroll from the founder.',
+            status: 'read',
+            generatedContent: `The smell of aged paper and decay filled Lu Chen's senses as he dragged his worn broom across the floor of the Azure Scriptorium. Around him, high-born disciples of Class A strolled past in their pristine silk robes, laughing at his dusty coat. In this Academy, rank was law, and Class F was nothing but trash.\n\n"Hey, sweep boy!" Senior Zhou smirked, tossing a half-eaten spiritual peach onto the floor. "Make sure you clean that up. If the Scriptorium lacks focus, I'll have the disciplinary hall cut your qi bath allocation again."\n\nLu Chen held his peace, bowing slightly until Zhou walked away. His meridians had been blocked by back-stabbers, leaving his cultivation stalled, but his resolve remained unbroken.\n\nLate into the night, as he swept the dark corners of the Scriptorium, his broom caught on an uneven stone. Peering closer under the dusty floorboards, he noticed a concealed copper-banded iron chest. Inside sat a pristine, jade-entwined scroll that hummed with a quiet, blue portal of light.\n\nUnraveling it, a sharp, golden projection of characters floated before his eyes:\n\n"I am the Sect Founder, Shen Nong. If you find this, you are either incredibly lucky, or a crippled disciple with nowhere left to turn. Let us begin your real academy lesson. First of all, ignore the garbage techniques the current teachers are selling you..."\n\n Lu Chen held his breath. Inside his soul, a massive blueprint of his blocked meridians suddenly illuminated, revealing the true primordial pathways. Class F was about to turn the entire school ranking upside down.`,
+            summary: 'Lu Chen is banished to library duty in the Azure Academy Scriptorium. He discovers a secret scroll hidden under the floorboards written by the original Sect Founder, Shen Nong, which unlocks a pristine cultivation training path.',
+            statsChangeMessage: '[Preceptor Instruction: Founder\'s Primordial Pathway unlocked! Qi purity increased by 400%!]'
+          },
+          {
+            number: 2,
+            title: 'Sect Battlements and Scriptorium Riddles',
+            premise: 'Lu Chen uses the founder\'s insights to decipher complex garden designs, shocking Instructor Han during the herbal test.',
+            status: 'unread'
+          }
+        ]
+      }
+    ]
   }
 ];
 

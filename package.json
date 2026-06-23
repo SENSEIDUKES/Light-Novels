@@ -11,7 +11,8 @@
     "lint": "eslint . && tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "prepare": "node scripts/install-hooks.js"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

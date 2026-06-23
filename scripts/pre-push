@@ -1,0 +1,20 @@
+#!/bin/sh
+# Pre-push hook to run linting validation before code is pushed to remote
+
+echo "==========================================="
+echo "🛡️  SEIHouse Git Host Guardian: Pre-push hook"
+echo "==========================================="
+echo "Running validation checks: npm run lint..."
+
+npm run lint
+exit_code=$?
+
+if [ $exit_code -ne 0 ]; then
+  echo "❌ Error: Linter checks failed. Resolve all lint errors or validation issues before pushing!"
+  echo "==========================================="
+  exit $exit_code
+fi
+
+echo "✅ Pre-push validation passed. Proceeding with git push."
+echo "==========================================="
+exit 0

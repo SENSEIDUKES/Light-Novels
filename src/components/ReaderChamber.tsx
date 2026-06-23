@@ -128,6 +128,9 @@ export default function ReaderChamber({
   handleSealChapter,
   handleCheckConsistency,
 }: ReaderChamberProps) {
+  const selectedChapter =
+    chapters.find((c) => c.number === selectedChapterNum) || chapters[0];
+
   const [filter, setFilter] = useState<"all" | "unlocked" | "locked">("all");
   const [generatingRevealId, setGeneratingRevealId] = useState<string | null>(null);
   const stories = useAppStore(state => state.stories);
@@ -136,31 +139,6 @@ export default function ReaderChamber({
   const routingConfig = useAppStore(state => state.routingConfig);
 
   const { manifestImage, manifestChapterHero, generatingIds } = useImageManifest();
-
-  useEffect(() => {
-    // Only check if to generate hero image if chapter has content and it hasn't been generated yet, and we are not currently generating it.
-    if ((selectedChapter.generatedContent || selectedChapter.blocks) && !selectedChapter.assetManifest?.heroImage && !generatingIds.has(`chapter-hero-${selectedChapter.number}`)) {
-      const cue = selectedChapter.cuePayload;
-      
-      const momentousEvents = [
-        'breakthrough', 'turning-point', 'evolution', 'betrayal', 'ascension', 
-        'conquest', 'destruction', 'calamity', 'rival_battle', 'romance', 'first_kiss'
-      ];
-
-      const isMomentous = 
-          (cue?.beastEvent?.type && momentousEvents.includes(cue.beastEvent.type)) ||
-          selectedChapter.blocks?.some((b: any) => 
-               b.system?.promptType && momentousEvents.includes(b.system.promptType)
-          ) ||
-          (cue?.danger && cue.danger > 8) || 
-          (cue?.powerShift && cue.powerShift > 8);
-      
-      if (isMomentous) {
-        const promptText = `A cinematic visual memory of the defining moment that just happened: ${selectedChapter.summary || 'A critical climactic climax in the story.'} Render as a vivid frozen memory capturing the emotional core and exact action of the moment.`;
-        manifestChapterHero(selectedChapter.number, promptText).catch(e => console.error("Hero generation failed:", e));
-      }
-    }
-  }, [selectedChapter.number, selectedChapter.generatedContent, selectedChapter.blocks, selectedChapter.assetManifest?.heroImage, selectedChapter.cuePayload, selectedChapter.summary]);
 
   const handleManifestReveal = async (entry: any, type: string) => {
     if (generatingRevealId) return;
@@ -222,8 +200,52 @@ export default function ReaderChamber({
     string | null
   >(null);
 
-  const selectedChapter =
-    chapters.find((c) => c.number === selectedChapterNum) || chapters[0];
+  useEffect(() => {
+    // Only check if to generate hero image if chapter has content and it hasn't been generated yet, and we are not currently generating it.
+    if ((selectedChapter.generatedContent || selectedChapter.blocks) && !selectedChapter.assetManifest?.heroImage && !generatingIds.has(`chapter-hero-${selectedChapter.number}`)) {
+      if (!activeStory) return;
+      
+      const currentArc = activeStory.arcs.find(a => a.chapters.some(c => c.number === selectedChapter.number));
+      if (!currentArc) return;
+
+      const existingHeroImagesCount = currentArc.chapters.filter(c => c.assetManifest && c.assetManifest.heroImage).length;
+      
+      // System limit: 1-2 most important moments per arc for cost and impact
+      if (existingHeroImagesCount >= 2) return;
+
+      const cue = selectedChapter.cuePayload;
+      
+      const momentousEvents = [
+        'breakthrough', 'turning-point', 'evolution', 'betrayal', 'ascension', 
+        'conquest', 'destruction', 'calamity', 'rival_battle', 'romance', 'first_kiss'
+      ];
+
+      let isMomentous = 
+          (cue?.beastEvent?.type && momentousEvents.includes(cue.beastEvent.type)) ||
+          selectedChapter.blocks?.some((b: any) => 
+               b.system?.promptType && momentousEvents.includes(b.system.promptType)
+          ) ||
+          (cue?.danger && cue.danger > 8) || 
+          (cue?.powerShift && cue.powerShift > 8);
+
+      // Special Rule: Arcs with 7+ chapters get a guaranteed hero pic within the first 3 chapters to incentivize going further
+      const isLongArc = currentArc.chapters.length >= 7;
+      const arcChapterIndex = currentArc.chapters.findIndex(c => c.number === selectedChapter.number);
+      
+      if (isLongArc && arcChapterIndex <= 2 && existingHeroImagesCount === 0) {
+        // Force the generation on the 3rd chapter if it hasn't happened yet, 
+        // or if there is moderate tension/power shift in chapter 1 or 2.
+        if (arcChapterIndex === 2 || (cue?.danger && cue.danger > 5) || (cue?.powerShift && cue.powerShift > 5)) {
+          isMomentous = true;
+        }
+      }
+      
+      if (isMomentous) {
+        const promptText = `A cinematic visual memory of the defining moment that just happened: ${selectedChapter.summary || 'A critical climactic climax in the story.'} Render as a vivid frozen memory capturing the emotional core and exact action of the moment.`;
+        manifestChapterHero(selectedChapter.number, promptText).catch(e => console.error("Hero generation failed:", e));
+      }
+    }
+  }, [selectedChapter.number, selectedChapter.generatedContent, selectedChapter.blocks, selectedChapter.assetManifest?.heroImage, selectedChapter.cuePayload, selectedChapter.summary, manifestChapterHero, generatingIds, activeStory]);
 
   // --- Scroll position tracking ---
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
