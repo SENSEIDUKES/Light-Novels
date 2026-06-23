@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, ArrowRight, ShieldAlert, ChevronDown, ChevronUp, BookOpen, Layers, Target, Users, Zap, CheckCircle2, Cloud, Wand2, Copy, Check } from 'lucide-react';
+import { Sparkles, ArrowRight, ShieldAlert, ChevronDown, ChevronUp, BookOpen, Layers, Target, Users, Zap, CheckCircle2, Cloud, Wand2, Copy, Check, MapPin, HelpCircle, GitBranch, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { IntakeData, WorldBlueprint } from '../types';
 import { useAppStore } from '../store/useAppStore';
@@ -138,9 +138,15 @@ const parseBlueprintData = (inputText: string): WorldBlueprint | null => {
   const text = inputText.trim();
   if (!text) return null;
 
-  // 1. Try JSON first
+  // 1. Try JSON extraction first
   try {
-    const data = JSON.parse(text);
+    let jsonText = text;
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      jsonText = text.substring(firstBrace, lastBrace + 1);
+    }
+    const data = JSON.parse(jsonText);
     if (data && typeof data === 'object') {
       return {
         title: data.title || data.novelTitle || 'Imported World',
@@ -160,10 +166,10 @@ const parseBlueprintData = (inputText: string): WorldBlueprint | null => {
       };
     }
   } catch (e) {
-    // Not valid JSON, try parsing markdown configuration of the copied blueprint
+    // Treat as Markdown if JSON fails
   }
 
-  // 2. Try parsing marked-down text
+  // 2. Parsed Markdown state machine
   const bp: WorldBlueprint = {
     title: '',
     logline: '',
@@ -182,63 +188,53 @@ const parseBlueprintData = (inputText: string): WorldBlueprint | null => {
   };
 
   const lines = text.split('\n');
-  let currentSection: string | null = null;
-  let sectionContent: string[] = [];
+  let currentSection: 'overview' | 'society' | 'power' | 'mc' | 'arc' | null = null;
+  let isParsingFactions = false;
+  
+  const overviewLines: string[] = [];
+  const societyLines: string[] = [];
+  const factionsList: string[] = [];
+  const powerLines: string[] = [];
+  const mcLines: string[] = [];
+  const arcLines: string[] = [];
 
-  const flushContent = () => {
-    if (!currentSection) return;
-    const joined = sectionContent.join('\n').trim();
-    if (currentSection === 'title') {
-      bp.title = joined;
-    } else if (currentSection === 'overview') {
-      bp.worldOverview = joined;
-    } else if (currentSection === 'society') {
-      const parts = joined.split(/### Major Factions:/i);
-      bp.societyStructure = parts[0].trim();
-      if (parts[1]) {
-        const factionLines = parts[1].split('\n')
-          .map(l => l.trim())
-          .filter(l => l.startsWith('-') || l.startsWith('*'))
-          .map(l => l.replace(/^[-*]\s*/, '').trim());
-        bp.majorFactions = factionLines;
-      }
-    } else if (currentSection === 'power') {
-      bp.powerSystemOutline = joined;
-    } else if (currentSection === 'mc') {
-      bp.mcProfile = joined;
-    } else if (currentSection === 'arc') {
-      bp.firstArcPromise = joined;
-    }
-    sectionContent = [];
-  };
-
-  for (let line of lines) {
+  for (const line of lines) {
     const trimmed = line.trim();
+    if (!trimmed) {
+      // Keep empty line structural integrity within sections
+      if (currentSection === 'overview') overviewLines.push('');
+      else if (currentSection === 'society' && !isParsingFactions) societyLines.push('');
+      else if (currentSection === 'power') powerLines.push('');
+      else if (currentSection === 'mc') mcLines.push('');
+      else if (currentSection === 'arc') arcLines.push('');
+      continue;
+    }
+
     if (trimmed.startsWith('# ')) {
-      flushContent();
-      currentSection = 'title';
-      sectionContent.push(trimmed.slice(2).trim());
+      bp.title = trimmed.substring(2).trim();
+      currentSection = null;
       continue;
     }
 
     if (trimmed.toLowerCase().startsWith('**logline**:') || trimmed.toLowerCase().startsWith('**logline:**')) {
       const parts = trimmed.split(':');
       bp.logline = parts.slice(1).join(':').trim();
+      currentSection = null;
       continue;
     }
 
     if (trimmed.startsWith('## ')) {
-      flushContent();
-      const heading = trimmed.slice(3).trim().toLowerCase();
+      const heading = trimmed.substring(3).trim().toLowerCase();
+      isParsingFactions = false;
       if (heading.includes('overview')) {
         currentSection = 'overview';
-      } else if (heading.includes('society') || heading.includes('factions')) {
+      } else if (heading.includes('society') || heading.includes('faction') || heading.includes('structure')) {
         currentSection = 'society';
       } else if (heading.includes('power')) {
         currentSection = 'power';
-      } else if (heading.includes('character') || heading.includes('profile')) {
+      } else if (heading.includes('character') || heading.includes('mc') || heading.includes('profile')) {
         currentSection = 'mc';
-      } else if (heading.includes('first arc') || heading.includes('arc promise')) {
+      } else if (heading.includes('arc') || heading.includes('promise')) {
         currentSection = 'arc';
       } else {
         currentSection = null;
@@ -246,11 +242,42 @@ const parseBlueprintData = (inputText: string): WorldBlueprint | null => {
       continue;
     }
 
-    if (currentSection) {
-      sectionContent.push(line);
+    if (currentSection === 'society') {
+      if (trimmed.startsWith('### ') && (trimmed.toLowerCase().includes('faction') || trimmed.toLowerCase().includes('major faction'))) {
+        isParsingFactions = true;
+        continue;
+      }
+    }
+
+    if (currentSection === 'overview') {
+      overviewLines.push(line);
+    } else if (currentSection === 'society') {
+      if (isParsingFactions) {
+        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+          factionsList.push(trimmed.substring(2).trim());
+        } else if (trimmed.startsWith('1. ') || trimmed.startsWith('2. ') || trimmed.startsWith('3. ') || trimmed.startsWith('4. ') || trimmed.startsWith('5. ')) {
+          factionsList.push(trimmed.substring(3).trim());
+        } else {
+          factionsList.push(trimmed);
+        }
+      } else {
+        societyLines.push(line);
+      }
+    } else if (currentSection === 'power') {
+      powerLines.push(line);
+    } else if (currentSection === 'mc') {
+      mcLines.push(line);
+    } else if (currentSection === 'arc') {
+      arcLines.push(line);
     }
   }
-  flushContent();
+
+  bp.worldOverview = overviewLines.join('\n').trim();
+  bp.societyStructure = societyLines.join('\n').trim();
+  bp.majorFactions = factionsList.map(f => f.trim()).filter(Boolean);
+  bp.powerSystemOutline = powerLines.join('\n').trim();
+  bp.mcProfile = mcLines.join('\n').trim();
+  bp.firstArcPromise = arcLines.join('\n').trim();
 
   if (bp.title || bp.worldOverview || bp.powerSystemOutline || bp.mcProfile) {
     if (!bp.title) bp.title = 'Imported World';
@@ -560,7 +587,14 @@ ${blueprint.firstArcPromise || ''}
 
   const handleStartStoryClick = async () => {
     if (!blueprint) return;
-    await onStartStory(intake, blueprint, chapterCount);
+    const cleanBlueprint = {
+      ...blueprint,
+      majorFactions: (blueprint.majorFactions || []).map(f => f.trim()).filter(Boolean),
+      initialCharacters: (blueprint.initialCharacters || []).map(f => f.trim()).filter(Boolean),
+      majorMysteries: (blueprint.majorMysteries || []).map(f => f.trim()).filter(Boolean),
+      unresolvedPlotThreads: (blueprint.unresolvedPlotThreads || []).map(f => f.trim()).filter(Boolean),
+    };
+    await onStartStory(intake, cleanBlueprint, chapterCount);
   };
 
   if (!currentUser) {
@@ -614,20 +648,42 @@ ${blueprint.firstArcPromise || ''}
         </div>
 
         <div className="bg-neutral-950/80 border border-portal/30 p-6 sm:p-10 rounded-lg shadow-[0_0_30px_rgba(4,172,255,0.05)] relative space-y-8">
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm">World Overview</h3>
-              <span className="text-[10px] text-portal font-mono">Editable</span>
+          
+          {/* Section 1: Overview & Starting Location */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="md:col-span-2">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm">World Overview</h3>
+                <span className="text-[10px] text-portal font-mono">Editable</span>
+              </div>
+              <textarea
+                value={blueprint.worldOverview}
+                onChange={(e) => setBlueprint({ ...blueprint, worldOverview: e.target.value })}
+                rows={6}
+                className="w-full bg-void border border-neutral-900 focus:border-portal text-[#dfd8cf] font-serif text-sm leading-relaxed rounded-md p-4 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all resize-none"
+                placeholder="The settings, lore, and physical characteristics of this universe..."
+              />
             </div>
-            <textarea
-              value={blueprint.worldOverview}
-              onChange={(e) => setBlueprint({ ...blueprint, worldOverview: e.target.value })}
-              rows={4}
-              className="w-full bg-void border border-neutral-900 focus:border-portal text-[#dfd8cf] font-serif text-sm leading-relaxed rounded-md p-4 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all"
-              placeholder="The settings, lore, and physical characteristics of this universe..."
-            />
+
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm flex items-center space-x-1.5">
+                  <MapPin size={14} className="text-portal"/>
+                  <span>Starting Location</span>
+                </h3>
+                <span className="text-[10px] text-portal font-mono">Editable</span>
+              </div>
+              <textarea
+                value={blueprint.startingLocation || ''}
+                onChange={(e) => setBlueprint({ ...blueprint, startingLocation: e.target.value })}
+                rows={6}
+                className="w-full bg-void border border-neutral-900 focus:border-portal text-neutral-300 font-sans text-xs leading-relaxed rounded-md p-4 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all resize-none"
+                placeholder="The initial city, sect outpost, forest, or plane of existence where story begins..."
+              />
+            </div>
           </div>
 
+          {/* Section 2: Society Structure & Major Factions */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
               <div>
@@ -653,7 +709,7 @@ ${blueprint.firstArcPromise || ''}
                   value={blueprint.majorFactions?.join('\n') || ''}
                   onChange={(e) => setBlueprint({
                     ...blueprint,
-                    majorFactions: e.target.value.split('\n').map(f => f.trim()).filter(Boolean)
+                    majorFactions: e.target.value.split('\n')
                   })}
                   rows={4}
                   className="w-full bg-void border border-neutral-900 focus:border-portal text-neutral-300 font-mono text-xs rounded-md p-3 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all"
@@ -680,6 +736,7 @@ ${blueprint.firstArcPromise || ''}
             </div>
           </div>
 
+          {/* Section 3: MC Profile & First Arc Promise */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
               <div className="flex justify-between items-center mb-2">
@@ -712,6 +769,97 @@ ${blueprint.firstArcPromise || ''}
                 rows={5}
                 className="w-full bg-void border border-neutral-900 focus:border-portal text-neutral-300 font-sans text-sm leading-relaxed rounded-md p-3 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all"
                 placeholder="The initial central conflict, stakes, face-slapping event..."
+              />
+            </div>
+          </div>
+
+          {/* Section 4: Trope Rules & Style Bible */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm flex items-center space-x-2">
+                  <Wand2 size={14} className="text-portal"/>
+                  <span>Trope Guidance & Rules</span>
+                </h3>
+                <span className="text-[9px] text-portal font-mono">Editable</span>
+              </div>
+              <textarea
+                value={blueprint.tropeRules || ''}
+                onChange={(e) => setBlueprint({ ...blueprint, tropeRules: e.target.value })}
+                rows={4}
+                className="w-full bg-void border border-neutral-900 focus:border-portal text-neutral-300 font-sans text-xs rounded-md p-3 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all"
+                placeholder="Action tropes to leverage, wuxia style face-slapping metrics, subversions..."
+              />
+            </div>
+
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm flex items-center space-x-2">
+                  <FileText size={14} className="text-portal"/>
+                  <span>Stylistic Bible</span>
+                </h3>
+                <span className="text-[9px] text-portal font-mono">Editable</span>
+              </div>
+              <textarea
+                value={blueprint.styleBible || ''}
+                onChange={(e) => setBlueprint({ ...blueprint, styleBible: e.target.value })}
+                rows={4}
+                className="w-full bg-void border border-neutral-900 focus:border-portal text-neutral-300 font-mono text-xs rounded-md p-3 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all"
+                placeholder="Sovereign style rules, forbidden phrasing, key tone requirements..."
+              />
+            </div>
+          </div>
+
+          {/* Section 5: Characters, Mysteries & Plot Threads */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <h4 className="text-neutral-400 font-sc uppercase tracking-wider font-bold text-xs mb-2 flex items-center space-x-1">
+                <Users size={12} className="text-portal"/>
+                <span>Initial Characters (One per line)</span>
+              </h4>
+              <textarea
+                value={blueprint.initialCharacters?.join('\n') || ''}
+                onChange={(e) => setBlueprint({
+                  ...blueprint,
+                  initialCharacters: e.target.value.split('\n')
+                })}
+                rows={5}
+                className="w-full bg-void border border-neutral-900 focus:border-portal text-neutral-300 font-mono text-xs rounded-md p-3 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all"
+                placeholder="e.g. Elder Qin (Protector)&#10;Junior Sister Han (Ally)&#10;Young Master Ye (Rival)"
+              />
+            </div>
+
+            <div>
+              <h4 className="text-neutral-400 font-sc uppercase tracking-wider font-bold text-xs mb-2 flex items-center space-x-1">
+                <HelpCircle size={12} className="text-portal"/>
+                <span>Major Mysteries (One per line)</span>
+              </h4>
+              <textarea
+                value={blueprint.majorMysteries?.join('\n') || ''}
+                onChange={(e) => setBlueprint({
+                  ...blueprint,
+                  majorMysteries: e.target.value.split('\n')
+                })}
+                rows={5}
+                className="w-full bg-void border border-neutral-900 focus:border-portal text-neutral-300 font-mono text-xs rounded-md p-3 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all"
+                placeholder="e.g. True origin of the Sovereign Ring&#10;Why was the Sect Leader poisoned?&#10;The secrets of the Abyss"
+              />
+            </div>
+
+            <div>
+              <h4 className="text-neutral-400 font-sc uppercase tracking-wider font-bold text-xs mb-2 flex items-center space-x-1">
+                <GitBranch size={12} className="text-portal"/>
+                <span>Unresolved Plot Threads (One per line)</span>
+              </h4>
+              <textarea
+                value={blueprint.unresolvedPlotThreads?.join('\n') || ''}
+                onChange={(e) => setBlueprint({
+                  ...blueprint,
+                  unresolvedPlotThreads: e.target.value.split('\n')
+                })}
+                rows={5}
+                className="w-full bg-void border border-neutral-900 focus:border-portal text-neutral-300 font-mono text-xs rounded-md p-3 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all"
+                placeholder="e.g. Sever the engagement with Chu family&#10;Win the Inner Sect tournament&#10;Find the lightning herb"
               />
             </div>
           </div>

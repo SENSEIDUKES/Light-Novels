@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, BookOpen, MoreHorizontal, BookCheck, Download, Trash2, Zap, GitBranch, Scroll } from 'lucide-react';
+import { Sparkles, BookOpen, MoreHorizontal, BookCheck, Download, Trash2, Zap, GitBranch, Scroll, Cloud, Check, RefreshCw } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { DestinyChoicePanel } from './DestinyChoicePanel';
 import { FateTimeline } from './FateTimeline';
+import { storyStorage } from '../lib/storage';
 
 export const StoryDetailScreen: React.FC<{ 
   handleGenerateCover: () => Promise<{ imageUrls: string[], promptUsed: string } | undefined>,
