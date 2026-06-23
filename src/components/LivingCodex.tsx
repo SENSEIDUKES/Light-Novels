@@ -22,6 +22,7 @@ import { AgentBadge } from './AgentBadge';
 import { AGENTS } from '../lib/agents';
 import { DestinyChoicePanel } from './DestinyChoicePanel';
 import { motion, AnimatePresence } from 'motion/react';
+import { useAppStore } from '../store/useAppStore';
 
 interface LivingCodexProps {
   memory: StoryMemory;
@@ -326,8 +327,9 @@ export default function LivingCodex({
     };
 
     const currentBonds = activeStory.relationships || [];
+    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
     onUpdateStory({
-      ...activeStory,
+      ...currentActiveStory,
       relationships: [newRelationship, ...currentBonds]
     });
 
@@ -340,8 +342,9 @@ export default function LivingCodex({
 
   const handleDeleteCustomRelationship = (bondId: string) => {
     const currentBonds = activeStory.relationships || [];
+    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
     onUpdateStory({
-      ...activeStory,
+      ...currentActiveStory,
       relationships: currentBonds.filter(b => b.id !== bondId)
     });
   };
@@ -366,8 +369,9 @@ export default function LivingCodex({
     };
 
     const currentNodes = activeStory.karmaNodes || [];
+    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
     onUpdateStory({
-      ...activeStory,
+      ...currentActiveStory,
       karmaNodes: [newFateNode, ...currentNodes]
     });
 
@@ -379,16 +383,18 @@ export default function LivingCodex({
 
   const handleToggleFateNodeStatus = (fateId: string) => {
     const currentNodes = activeStory.karmaNodes || [];
+    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
     onUpdateStory({
-      ...activeStory,
+      ...currentActiveStory,
       karmaNodes: currentNodes.map(n => n.id === fateId ? { ...n, status: n.status === 'active' ? 'resolved' : 'active' } : n)
     });
   };
 
   const handleDeleteFateNode = (fateId: string) => {
     const currentNodes = activeStory.karmaNodes || [];
+    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
     onUpdateStory({
-      ...activeStory,
+      ...currentActiveStory,
       karmaNodes: currentNodes.filter(n => n.id !== fateId)
     });
   };
@@ -533,8 +539,9 @@ export default function LivingCodex({
       return img;
     }) : [];
 
+    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
     onUpdateStory({
-      ...activeStory,
+      ...currentActiveStory,
       memory: finalMemory,
       imageHistory: updatedStoryHistory
     });
@@ -658,8 +665,9 @@ export default function LivingCodex({
       finalMemory = { ...memory, artifacts: updated };
     }
 
+    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
     onUpdateStory({
-      ...activeStory,
+      ...currentActiveStory,
       memory: finalMemory,
       imageHistory: updatedStoryHistory
     });

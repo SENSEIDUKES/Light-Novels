@@ -11,8 +11,6 @@ interface UseAutoScrollOptions {
 // Math for velocity (exported for testing)
 export const calculateConstantVelocity = (wpm: number): number => {
   // px per second. Assume ~200 wpm = ~100 px / sec.
-  // 1 word = ~30px.
-  // v = (wpm / 60) * 30 -> wpm / 2
   return wpm / 2;
 };
 
@@ -41,6 +39,13 @@ export function useAutoScroll({ containerRef, mode, wpm = 200, onManualPause }: 
   const lastTimeRef = useRef<number | null>(null);
   const targetVelocityRef = useRef<number>(0);
   const currentVelocityRef = useRef<number>(0);
+  
+  // High-precision accumulator to solve subpixel scroll rounding drops
+  const floatScrollTopRef = useRef<number | null>(null);
+  
+  // Spring physics state for natural momentum tracking
+  const springPosRef = useRef<number | null>(null);
+  const springVelRef = useRef<number>(0);
 
   const stopLoop = useCallback(() => {
     if (rAFRef.current !== null) {
@@ -48,12 +53,24 @@ export function useAutoScroll({ containerRef, mode, wpm = 200, onManualPause }: 
       rAFRef.current = null;
     }
     lastTimeRef.current = null;
-  }, []);
+    
+    // Clear subpixel transform when stopped to avoid blurring
+    if (containerRef.current) {
+       const inner = containerRef.current.firstElementChild as HTMLElement;
+       if (inner) inner.style.transform = '';
+    }
+  }, [containerRef]);
 
   const play = useCallback(() => {
     if (mode === 'off') return;
+    if (containerRef.current) {
+        // Sync our float accumulator on start
+        floatScrollTopRef.current = containerRef.current.scrollTop;
+        springPosRef.current = containerRef.current.scrollTop;
+        springVelRef.current = 0;
+    }
     setIsScrolling(true);
-  }, [mode, setIsScrolling]);
+  }, [mode, setIsScrolling, containerRef]);
 
   const pause = useCallback(() => {
     setIsScrolling(false);
@@ -98,7 +115,6 @@ export function useAutoScroll({ containerRef, mode, wpm = 200, onManualPause }: 
     };
   }, [containerRef, handleManualPause]);
 
-  // Respect user's motion preferences
   const prefersReducedMotion = useRef(
     window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)').matches : false
   );
@@ -116,7 +132,7 @@ export function useAutoScroll({ containerRef, mode, wpm = 200, onManualPause }: 
 
   const tickRef = useRef<(time: number) => void>(() => {});
 
-  // Main scroll loop
+  // Main cinematic scroll loop
   const tick = useCallback((time: number) => {
     if (!isScrollingRef.current) {
       stopLoop();
@@ -134,10 +150,11 @@ export function useAutoScroll({ containerRef, mode, wpm = 200, onManualPause }: 
 
     const container = containerRef.current;
     if (container && isScrollingRef.current && !prefersReducedMotion.current) {
-      // Smooth ramp to target velocity over ~0.5s
       const dtSec = dt / 1000;
+      
+      // Accelerate rapidly towards target velocity for realistic TTS tracking
       const velocityDiff = targetVelocityRef.current - currentVelocityRef.current;
-      currentVelocityRef.current += velocityDiff * 2 * dtSec; 
+      currentVelocityRef.current += velocityDiff * (mode === 'paced' ? 5 : 2) * dtSec; 
       
       if (Math.abs(currentVelocityRef.current - targetVelocityRef.current) < 0.5) {
         currentVelocityRef.current = targetVelocityRef.current;
@@ -145,8 +162,51 @@ export function useAutoScroll({ containerRef, mode, wpm = 200, onManualPause }: 
 
       const step = currentVelocityRef.current * dtSec;
       
-      if (step > 0) {
-        container.scrollTop += step;
+      if (step > 0 && floatScrollTopRef.current !== null && springPosRef.current !== null) {
+        floatScrollTopRef.current += step;
+        
+        // Prevent logical target from overflowing bounds
+        const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
+        if (floatScrollTopRef.current > maxScroll) {
+            floatScrollTopRef.current = maxScroll;
+        }
+
+        // Spring interpolation towards the logical pacing target (floatScrollTopRef)
+        // using critically damped spring physics for natural momentum
+        const stiffness = 80; 
+        const damping = 18; // approx 2 * sqrt(stiffness)
+        
+        const displacement = floatScrollTopRef.current - springPosRef.current;
+        const springForce = displacement * stiffness;
+        const damperForce = springVelRef.current * damping;
+        const acceleration = springForce - damperForce;
+        
+        springVelRef.current += acceleration * dtSec;
+        springPosRef.current += springVelRef.current * dtSec;
+        
+        // Clamp spring position to valid scroll bounds
+        if (springPosRef.current < 0) {
+            springPosRef.current = 0;
+            springVelRef.current = 0;
+        } else if (springPosRef.current > maxScroll) {
+            springPosRef.current = maxScroll;
+            springVelRef.current = 0;
+        }
+
+        // Cinematic 'Fake Scroll': move words via transform for subpixel smoothness,
+        // and keep native scroll snapped to integers to retain scroll bounds capability.
+        const intScroll = Math.floor(springPosRef.current);
+        const fraction = springPosRef.current - intScroll;
+
+        if (container.scrollTop !== intScroll) {
+          container.scrollTop = intScroll;
+        }
+
+        // Apply visual subpixel translation to the words wrapper
+        const inner = container.firstElementChild as HTMLElement;
+        if (inner) {
+          inner.style.transform = `translateY(-${fraction}px)`;
+        }
       }
     }
 
@@ -155,7 +215,7 @@ export function useAutoScroll({ containerRef, mode, wpm = 200, onManualPause }: 
     } else {
       stopLoop();
     }
-  }, [containerRef, stopLoop]);
+  }, [containerRef, stopLoop, mode]);
 
   useEffect(() => {
     tickRef.current = tick;
@@ -197,16 +257,27 @@ export function useAutoScroll({ containerRef, mode, wpm = 200, onManualPause }: 
             const blockEl = container.querySelector(`[data-block-index="${blockIndex}"]`) as HTMLElement;
             if (blockEl) {
               const focusBandOffset = container.clientHeight ? container.clientHeight / 3 : 150;
-              const targetScrollTop = Math.max(0, blockEl.offsetTop - focusBandOffset);
+              const optimalTop = Math.max(0, blockEl.offsetTop - focusBandOffset);
               
-              // Nudge scrollTop toward the block's desired position to correct accumulated drift
-              container.scrollTop = container.scrollTop + (targetScrollTop - container.scrollTop) * 0.7;
+              if (floatScrollTopRef.current === null) {
+                  floatScrollTopRef.current = container.scrollTop;
+              }
+              if (springPosRef.current === null) {
+                  springPosRef.current = container.scrollTop;
+                  springVelRef.current = 0;
+              }
 
-              // the height of the block spread over its spoken duration
-              const distanceToCover = blockEl.offsetHeight; 
-              targetVelocityRef.current = calculatePacedVelocity(distanceToCover, durationMs);
+              // Smoothly converge current position towards the optimal cinematic block position
+              // We want to progress through the block exactly over durationMs
+              const distanceToCover = (optimalTop + blockEl.offsetHeight) - floatScrollTopRef.current;
+              
+              // Only move downward naturally
+              if (distanceToCover > 0) {
+                 targetVelocityRef.current = calculatePacedVelocity(distanceToCover, durationMs);
+              } else {
+                 targetVelocityRef.current = calculateConstantVelocity(currentWpm);
+              }
             } else {
-              // Fallback if element not yet rendered
               targetVelocityRef.current = calculateConstantVelocity(currentWpm);
             }
           }
@@ -219,7 +290,6 @@ export function useAutoScroll({ containerRef, mode, wpm = 200, onManualPause }: 
     }
   }, [mode, currentWpm, containerRef, play, pause]);
 
-  // Sync mode changes to targetVelocity if scrolling (for 'constant' mode updates like WPM slider)
   useEffect(() => {
     if (mode === 'constant' && isScrolling) {
       targetVelocityRef.current = calculateConstantVelocity(currentWpm);
@@ -228,3 +298,4 @@ export function useAutoScroll({ containerRef, mode, wpm = 200, onManualPause }: 
 
   return { isScrolling, play, pause, setWpm };
 }
+

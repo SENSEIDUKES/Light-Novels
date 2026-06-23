@@ -34,10 +34,14 @@ export function useReaderPlayback({
   selectedChapter,
   activeTranslationContent,
   containerRef,
+  isAutoScrollPausedByUser: externalIsAutoScrollPausedByUser,
+  setIsAutoScrollPausedByUser: externalSetIsAutoScrollPausedByUser,
 }: {
   selectedChapter: Chapter;
   activeTranslationContent: string | null;
   containerRef: React.RefObject<HTMLDivElement | null>;
+  isAutoScrollPausedByUser?: boolean;
+  setIsAutoScrollPausedByUser?: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const readerMode = useAppStore((state) => state.readerMode);
   const setReaderMode = useAppStore((state) => state.setReaderMode);
@@ -53,24 +57,27 @@ export function useReaderPlayback({
   const [selectedDialogueVoiceURI, setSelectedDialogueVoiceURI] = useState<string>("");
   const [showVoiceDetail, setShowVoiceDetail] = useState<boolean>(false);
 
-  const [isAutoScrollPausedByUser, setIsAutoScrollPausedByUser] = useState(false);
+  const [localIsAutoScrollPausedByUser, localSetIsAutoScrollPausedByUser] = useState(false);
+
+  const actualIsAutoScrollPausedByUser = externalIsAutoScrollPausedByUser !== undefined ? externalIsAutoScrollPausedByUser : localIsAutoScrollPausedByUser;
+  const actualSetIsAutoScrollPausedByUser = externalSetIsAutoScrollPausedByUser !== undefined ? externalSetIsAutoScrollPausedByUser : localSetIsAutoScrollPausedByUser;
 
   useEffect(() => {
-    setIsAutoScrollPausedByUser(false);
+    actualSetIsAutoScrollPausedByUser(false);
   }, [readerMode, selectedChapter?.number]);
 
   const { play: playAutoScroll, pause: pauseAutoScroll, isScrolling: isAutoScrolling } = useAutoScroll({
     containerRef,
     mode:
-      readerMode === "sen" && immersion.autoScroll
+      (readerMode === "sen" || readerMode === "basic-tts") && immersion.autoScroll
         ? "paced"
-        : readerMode === "teleprompter" && immersion.autoScroll && !isAutoScrollPausedByUser
+        : readerMode === "teleprompter" && immersion.autoScroll && !actualIsAutoScrollPausedByUser
         ? "constant"
         : "off",
     wpm: Math.round(speechRate * 150),
     onManualPause: () => {
       if (readerMode === "teleprompter") {
-        setIsAutoScrollPausedByUser(true);
+        actualSetIsAutoScrollPausedByUser(true);
       }
     },
   });
@@ -508,8 +515,8 @@ export function useReaderPlayback({
     handleTogglePlayback,
     handleStopSpeaking,
     isAutoScrolling,
-    isAutoScrollPausedByUser,
-    setIsAutoScrollPausedByUser,
+    isAutoScrollPausedByUser: actualIsAutoScrollPausedByUser,
+    setIsAutoScrollPausedByUser: actualSetIsAutoScrollPausedByUser,
     playAutoScroll,
     pauseAutoScroll,
   };

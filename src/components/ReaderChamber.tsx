@@ -160,6 +160,8 @@ export default function ReaderChamber({
     string | null
   >(null);
 
+  const [isAutoScrollPausedByUser, setIsAutoScrollPausedByUser] = useState(false);
+
   const {
     isPlayingText,
     isPausedText,
@@ -179,14 +181,14 @@ export default function ReaderChamber({
     setSelectedDialogueVoiceURI,
     handleTogglePlayback,
     handleStopSpeaking,
-    setIsAutoScrollPausedByUser,
-    isAutoScrollPausedByUser,
     playAutoScroll,
     currentNarratedBlockIndex
   } = useReaderPlayback({
     selectedChapter,
     activeTranslationContent,
-    containerRef: readerRef
+    containerRef: readerRef,
+    isAutoScrollPausedByUser,
+    setIsAutoScrollPausedByUser
   });
 
   // --- Scroll position tracking ---
@@ -204,12 +206,15 @@ export default function ReaderChamber({
     scrollTimeoutRef.current = setTimeout(() => {
       if (Math.abs(scrollTop - lastSavedScrollRef.current) > 100) {
         lastSavedScrollRef.current = scrollTop;
-        onUpdateStory({
-          ...activeStory,
-          lastReadChapter: selectedChapterNum,
-          lastReadScrollPosition: scrollTop,
-          lastReadAt: new Date().toISOString()
-        });
+        const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
+        if (currentActiveStory) {
+          onUpdateStory({
+            ...currentActiveStory,
+            lastReadChapter: useAppStore.getState().selectedChapterNum || selectedChapterNum,
+            lastReadScrollPosition: scrollTop,
+            lastReadAt: new Date().toISOString()
+          });
+        }
       }
     }, 2000); // 2000ms debounce
   };
@@ -295,10 +300,13 @@ export default function ReaderChamber({
       ...currentPrefs,
       [key]: value,
     };
-    onUpdateStory({
-      ...activeStory,
-      readerPreferences: updatedPrefs,
-    });
+    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
+    if (currentActiveStory) {
+      onUpdateStory({
+        ...currentActiveStory,
+        readerPreferences: updatedPrefs,
+      });
+    }
   };
 
   const getThemeClasses = () => {
@@ -606,10 +614,13 @@ export default function ReaderChamber({
         },
       ];
     }
-    onUpdateStory({
-      ...activeStory,
-      bookmarks: updated,
-    });
+    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
+    if (currentActiveStory) {
+      onUpdateStory({
+        ...currentActiveStory,
+        bookmarks: updated,
+      });
+    }
     setEditingBookmarkParagraphIndex(null);
     setBookmarkNoteText("");
   };
@@ -618,10 +629,13 @@ export default function ReaderChamber({
     const updated = activeBookmarks.filter(
       (b) => !(b.chapterNumber === chapterNum && b.paragraphIndex === paraIdx),
     );
-    onUpdateStory({
-      ...activeStory,
-      bookmarks: updated,
-    });
+    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
+    if (currentActiveStory) {
+      onUpdateStory({
+        ...currentActiveStory,
+        bookmarks: updated,
+      });
+    }
   };
 
   const handleJumpToBookmark = (b: Bookmark) => {
@@ -967,11 +981,11 @@ export default function ReaderChamber({
                                       data-cue-once="true"
                                     />
                                   ))}
-                                  <p
+                                  <div
                                     className={`text-justify indent-8 ${currentPrefs.paragraphSpacing === "normal" ? "mb-0" : currentPrefs.paragraphSpacing === "wide" ? "mb-2" : "mb-4"} ${getFocusClass(index)}`}
                                   >
                                     {renderHighlightedText(cleanText, index)}
-                                  </p>
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -1141,7 +1155,7 @@ export default function ReaderChamber({
                                   data-cue-once="true"
                                 />
                               ))}
-                              <p className={`text-justify indent-8 relative ${getFocusClass(index)}`}>
+                              <div className={`text-justify indent-8 relative ${getFocusClass(index)}`}>
                                 {renderHighlightedText(cleanText, index)}
                                 <button
                                   onClick={() => {
@@ -1173,7 +1187,7 @@ export default function ReaderChamber({
                                     }
                                   />
                                 </button>
-                              </p>
+                              </div>
 
                               {/* Inline Bookmark Editor */}
                               {isEditingThisBookmark && (
@@ -1316,7 +1330,7 @@ export default function ReaderChamber({
                                         data-cue-once="true"
                                       />
                                     ))}
-                                    <p
+                                    <div
                                       className={`text-justify indent-8 ${
                                         currentPrefs.paragraphSpacing ===
                                         "normal"
@@ -1328,7 +1342,7 @@ export default function ReaderChamber({
                                       }`}
                                     >
                                       {renderHighlightedText(cleanText, index)}
-                                    </p>
+                                    </div>
                                   </div>
                                 </div>
 

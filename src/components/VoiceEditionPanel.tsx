@@ -4,6 +4,7 @@ import { Play, Loader2, Music, Square } from 'lucide-react';
 import { Chapter, StoryWorld, VoiceClip, AudioManifest, StoryBlock } from '../types';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { resolveKokoroVoicePreset } from '../lib/voice/voiceResolver';
+import { useAppStore } from '../store/useAppStore';
 
 interface VoiceEditionPanelProps {
   selectedChapter: Chapter;
@@ -146,13 +147,14 @@ export const VoiceEditionPanel: React.FC<VoiceEditionPanelProps> = ({ selectedCh
              generatedAt: Date.now()
            };
 
+           const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
            const updatedStory: StoryWorld = {
-             ...activeStory,
+             ...currentActiveStory,
              memory: {
-               ...activeStory.memory,
-               characters: hasCharacterUpdates ? updatedCharacters : activeStory.memory.characters
+               ...currentActiveStory.memory,
+               characters: hasCharacterUpdates ? updatedCharacters : currentActiveStory.memory.characters
              },
-             arcs: activeStory.arcs.map(arc => ({
+             arcs: currentActiveStory.arcs.map(arc => ({
                ...arc,
                chapters: arc.chapters.map(ch => 
                  ch.number === selectedChapter.number ? { ...ch, audioManifest: newManifest } : ch

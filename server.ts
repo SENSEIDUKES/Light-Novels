@@ -74,7 +74,7 @@ app.post("/api/embed", async (req, res) => {
     const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { "User-Agent": "aistudio-build" } } });
     
     const response = await ai.models.embedContent({
-      model: "text-embedding-004",
+      model: "gemini-embedding-2-preview",
       contents: text
     });
     
