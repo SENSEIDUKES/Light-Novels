@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Sword, RefreshCcw, Sparkles, Download } from 'lucide-react';
+import { Plus, Sword, RefreshCcw, Sparkles, Download, Lock, Compass } from 'lucide-react';
 import { Artifact, StoryWorld } from '../../types';
 
 const handleDownload = async (url: string, filename: string) => {
@@ -141,8 +141,10 @@ export function LivingCodexArtifacts({
           artifactsToRender.map((art) => {
             const isGenerating = generatingId === art.id;
             const hasImage = !!art.imageUrl;
+            const currentChapter = activeStory.currentChapterNumber || 1;
+            const hasAppeared = art.firstAppeared === undefined || art.firstAppeared <= currentChapter;
             const activePreview = previews[art.id];
-            const canGenerate = !hasImage || art.evolutionReady;
+            const canGenerate = hasAppeared && (!hasImage || art.evolutionReady);
             const displayedImage = activePreview ? activePreview.urls[activePreview.selectedIndex] : art.imageUrl;
             const tierColor = 
               art.tier === 'Primordial' ? 'text-yellow-400 border-yellow-950 bg-yellow-950/20' :
@@ -184,11 +186,22 @@ export function LivingCodexArtifacts({
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-sc font-bold text-signal text-sm tracking-wide">{art.name}</h4>
-                    <span className={`text-[9px] border px-2 py-0.5 rounded font-mono uppercase tracking-widest ${tierColor}`}>
-                      {art.tier}
-                    </span>
+                  <div className="flex items-start justify-between mb-2">
+                    <h4 className="font-sc font-bold text-signal text-sm tracking-wide max-w-[60%]">{art.name}</h4>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className={`text-[9px] border px-2 py-0.5 rounded font-mono uppercase tracking-widest ${tierColor}`}>
+                        {art.tier}
+                      </span>
+                      {hasAppeared ? (
+                        <span className="text-[7.5px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border bg-portal/10 text-portal border-portal/30 shadow-[0_0_8px_rgba(4,172,255,0.2)] backdrop-blur-sm flex items-center gap-1" title="Discovered in the story">
+                          <Compass size={8} /> Unlocked
+                        </span>
+                      ) : (
+                        <span className="text-[7.5px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border bg-black/80 text-neutral-500 border-neutral-800 backdrop-blur-sm flex items-center gap-1" title="Requires further reading to manifest">
+                          <Lock size={8} /> Locked
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <p className="text-xs text-neutral-400 leading-normal font-sans font-light italic mt-1 bg-void/50 p-2 border border-neutral-950 rounded">
                     "{art.description || 'Mystical values remain currently secret from mortal cultivators.'}"
@@ -228,7 +241,7 @@ export function LivingCodexArtifacts({
                               ? 'bg-portal border-portal text-void shadow-[0_0_10px_rgba(4,172,255,0.4)]'
                               : 'bg-void border-portal/15 text-portal hover:border-portal hover:bg-portal/5 hover:shadow-[0_0_8px_rgba(4,172,255,0.2)]'
                           }`}
-                          title={!canGenerate ? "Progression required to awaken Relic." : ""}
+                          title={!hasAppeared ? "Unlock manifestation by encountering it in the story." : !canGenerate ? "Progression required to awaken Relic." : ""}
                         >
                           {isGenerating ? (
                             <>
@@ -238,7 +251,7 @@ export function LivingCodexArtifacts({
                           ) : (
                             <>
                               <Sparkles size={8} className={art.evolutionReady ? 'text-void' : 'text-gold-accent'} />
-                              <span>{art.evolutionReady ? 'Awaken Evolution' : hasImage ? 'Requires Progression' : 'Generate Aura'}</span>
+                              <span>{!hasAppeared ? 'Undiscovered' : art.evolutionReady ? 'Awaken Evolution' : hasImage ? 'Requires Progression' : 'Generate Aura'}</span>
                             </>
                           )}
                         </button>

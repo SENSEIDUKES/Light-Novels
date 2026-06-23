@@ -20,6 +20,8 @@ export interface UserProfile {
   qi?: number; // legacy
   dao_xp?: number;
   dao_rank?: string;
+  premiumTier?: 'free' | 'inner_sect' | 'core_disciple' | 'elder';
+  imageGenerationCount?: number;
 }
 
 export interface DaoXpEvent {

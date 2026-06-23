@@ -27,6 +27,7 @@ import { AtmosphericAudio } from './components/AtmosphericAudio';
 import { ParticleSystem } from './components/ParticleSystem';
 import CreationPortal from './components/CreationPortal';
 import { AILoadingVeil } from './components/AILoadingVeil';
+import { PricingScreen } from './components/PricingScreen';
 import UserProfile from './components/UserProfile';
 
 function App() {
@@ -250,6 +251,18 @@ function App() {
                 onLogout={() => { signOut(auth); store.setCurrentUser(null); }}
                 onNavigateHome={() => store.setCurrentScreen('home')}
               />
+            </motion.div>
+          )}
+          {store.currentScreen === 'pricing' && (
+            <motion.div
+              key="pricing"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="px-4 py-8 w-full"
+            >
+              <PricingScreen />
             </motion.div>
           )}
         </AnimatePresence>

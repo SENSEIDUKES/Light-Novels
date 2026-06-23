@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { secureStorage } from '../lib/encryption';
+import { checkAndConsumeImageQuota } from '../lib/quota';
 
 export function useImageManifest() {
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
@@ -15,6 +16,8 @@ export function useImageManifest() {
     setGeneratingIds(prev => new Set(prev).add(entry.id));
     
     try {
+      await checkAndConsumeImageQuota();
+
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
       const gemini = await secureStorage.getItem('@seihouse/api-key-gemini');
       const openrouter = await secureStorage.getItem('@seihouse/api-key-openrouter');
@@ -127,6 +130,8 @@ export function useImageManifest() {
     setGeneratingIds(prev => new Set(prev).add(genId));
     
     try {
+      await checkAndConsumeImageQuota();
+
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
       const gemini = await secureStorage.getItem('@seihouse/api-key-gemini');
       const openrouter = await secureStorage.getItem('@seihouse/api-key-openrouter');

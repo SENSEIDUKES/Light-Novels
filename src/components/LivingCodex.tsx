@@ -23,6 +23,7 @@ import { AGENTS } from '../lib/agents';
 import { DestinyChoicePanel } from './DestinyChoicePanel';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppStore } from '../store/useAppStore';
+import { checkAndConsumeImageQuota } from '../lib/quota';
 
 interface LivingCodexProps {
   memory: StoryMemory;
@@ -586,6 +587,8 @@ export default function LivingCodex({
     }
 
     try {
+      await checkAndConsumeImageQuota();
+
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
       const gemini = await secureStorage.getItem('@seihouse/api-key-gemini');
       const openrouter = await secureStorage.getItem('@seihouse/api-key-openrouter');

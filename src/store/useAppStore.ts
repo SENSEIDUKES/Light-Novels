@@ -8,7 +8,7 @@ import { getRandomDemoStory } from './demoStories';
 interface AppState {
   stories: Story[];
   activeStoryId: string | null;
-  currentScreen: 'home' | 'detail' | 'reader' | 'codex' | 'creator' | 'profile';
+  currentScreen: 'home' | 'detail' | 'reader' | 'codex' | 'creator' | 'profile' | 'pricing';
   storyToDelete: string | null;
   
   // Generation triggers
@@ -55,7 +55,7 @@ interface AppState {
   // Actions
   setStories: (stories: Story[]) => void;
   setActiveStoryId: (id: string | null) => void;
-  setCurrentScreen: (screen: 'home' | 'detail' | 'reader' | 'codex' | 'creator' | 'profile') => void;
+  setCurrentScreen: (screen: 'home' | 'detail' | 'reader' | 'codex' | 'creator' | 'profile' | 'pricing') => void;
   setStoryToDelete: (id: string | null) => void;
   setIsGenerating: (isGenerating: boolean) => void;
   setAppError: (error: string | null) => void;

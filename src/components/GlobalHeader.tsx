@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Cloud, CloudOff, RefreshCw, User, LogOut, Plus, Sliders, ScrollText, Scroll, Link, Keyboard } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, User, LogOut, Plus, Sliders, ScrollText, Scroll, Link, Keyboard, Gem } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
 import { auth } from '../lib/firebase';
@@ -42,7 +42,7 @@ export const GlobalHeader: React.FC = () => {
   }
 
   return (
-    <header className="border-b border-neutral-900 bg-black/90 backdrop-blur-md sticky top-0 z-40 py-1.5 sm:py-3 animate-fadeIn">
+    <header className="relative border-b border-portal/10 bg-black/80 backdrop-blur-xl sticky top-0 z-40 py-2 sm:py-3 animate-fadeIn shadow-[0_4px_30px_rgba(4,172,255,0.08)] before:absolute before:inset-x-0 before:bottom-0 before:h-[1px] before:bg-gradient-to-r before:from-transparent before:via-portal/40 before:to-transparent">
       <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 flex items-center justify-between">
         <div 
           className="flex items-center space-x-2 sm:space-x-3 cursor-pointer min-w-0 mr-2" 
@@ -107,6 +107,23 @@ export const GlobalHeader: React.FC = () => {
         <DaoInsights />
 
         <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
+          <button
+            onClick={() => setCurrentScreen('pricing')}
+            className="group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-500 hover:scale-105 mr-2 sm:mr-4"
+            title="Spirit Stones"
+            aria-label="Spirit Stones"
+          >
+            {/* Qi Cyclone Aurora */}
+            <div className={`absolute inset-[-4px] rounded-full border border-dashed animate-[spin_6s_linear_infinite] transition-colors duration-500 ${currentScreen === 'pricing' ? 'border-purple-400/50' : 'border-purple-500/40 group-hover:border-purple-400/50'}`} />
+            <div className={`absolute inset-[-8px] rounded-full border border-dotted animate-[spin_10s_linear_infinite_reverse] transition-colors duration-500 ${currentScreen === 'pricing' ? 'border-purple-300/40' : 'border-purple-400/30 group-hover:border-purple-300/40'}`} />
+            
+            {/* Inner Glow */}
+            <div className={`absolute inset-0 rounded-full blur-md animate-pulse transition-colors duration-500 ${currentScreen === 'pricing' ? 'bg-purple-500/30 shadow-[0_0_20px_rgba(168,85,247,0.6)]' : 'bg-purple-600/20 shadow-[0_0_20px_rgba(147,51,234,0.5)] group-hover:bg-purple-500/30 group-hover:shadow-[0_0_20px_rgba(168,85,247,0.6)]'}`} />
+            
+            <div className={`relative transition-colors duration-700 ${currentScreen === 'pricing' ? 'text-purple-300' : 'text-purple-400 group-hover:text-purple-300'}`}>
+              <Gem size={24} className={currentScreen === 'pricing' ? 'drop-shadow-[0_0_10px_rgba(168,85,247,0.9)]' : 'drop-shadow-[0_0_8px_rgba(147,51,234,0.8)] group-hover:drop-shadow-[0_0_10px_rgba(168,85,247,0.9)]'} strokeWidth={1.5} />
+            </div>
+          </button>
           <div className="flex items-center shrink-0">
             {currentUser ? (
               <button 
@@ -149,33 +166,27 @@ export const GlobalHeader: React.FC = () => {
           {currentScreen !== 'home' ? (
             <button
               onClick={() => { setCurrentScreen('home'); setActiveStoryId(null); }}
-              className="group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-500 hover:scale-105 ml-2 sm:ml-4"
+              className="group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-300 hover:scale-105 ml-2 sm:ml-4"
               title="Return to Library"
               aria-label="Return to Library"
             >
-              <div className="absolute inset-[-4px] rounded-full border border-dashed border-human/40 group-hover:border-portal/40 animate-[spin_6s_linear_infinite] transition-colors duration-500" />
-              <div className="absolute inset-[-8px] rounded-full border border-dotted border-human/30 group-hover:border-portal/30 animate-[spin_10s_linear_infinite_reverse] transition-colors duration-500" />
+              <div className="absolute inset-0 bg-human/10 group-hover:bg-portal/20 rounded-full blur-sm transition-colors duration-500" />
               
-              <div className="absolute inset-0 bg-human/20 group-hover:bg-portal/20 rounded-full blur-md animate-pulse shadow-[0_0_20px_rgba(139,0,0,0.5)] group-hover:shadow-[0_0_20px_rgba(4,172,255,0.5)] transition-colors duration-500" />
-              
-              <div className="relative text-human group-hover:text-portal transition-colors duration-700">
-                <ScrollText size={24} className="drop-shadow-[0_0_8px_rgba(139,0,0,0.8)] group-hover:drop-shadow-[0_0_8px_rgba(4,172,255,0.8)] transition-all duration-500" strokeWidth={1.5} />
+              <div className="relative text-human group-hover:text-portal transition-colors duration-500">
+                <ScrollText size={24} className="drop-shadow-[0_0_4px_rgba(139,0,0,0.5)] group-hover:drop-shadow-[0_0_8px_rgba(4,172,255,0.6)] transition-all duration-500" strokeWidth={1.5} />
               </div>
             </button>
           ) : (
             <button
               onClick={() => setCurrentScreen('creator')}
-              className="group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-500 hover:scale-105 ml-2 sm:ml-4"
+              className="group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-300 hover:scale-105 ml-2 sm:ml-4"
               title="Create Story"
               aria-label="Create Story"
             >
-              <div className="absolute inset-[-4px] rounded-full border border-dashed border-human/40 group-hover:border-portal/40 animate-[spin_6s_linear_infinite] transition-colors duration-500" />
-              <div className="absolute inset-[-8px] rounded-full border border-dotted border-human/30 group-hover:border-portal/30 animate-[spin_10s_linear_infinite_reverse] transition-colors duration-500" />
+              <div className="absolute inset-0 bg-human/10 group-hover:bg-portal/20 rounded-full blur-sm transition-colors duration-500" />
               
-              <div className="absolute inset-0 bg-human/20 group-hover:bg-portal/20 rounded-full blur-md animate-pulse shadow-[0_0_20px_rgba(139,0,0,0.5)] group-hover:shadow-[0_0_20px_rgba(4,172,255,0.5)] transition-colors duration-500" />
-              
-              <div className="relative text-human group-hover:text-portal transition-colors duration-700">
-                <Scroll size={24} className="drop-shadow-[0_0_8px_rgba(139,0,0,0.8)] group-hover:drop-shadow-[0_0_8px_rgba(4,172,255,0.8)] transition-all duration-500" strokeWidth={1.5} />
+              <div className="relative text-human group-hover:text-portal transition-colors duration-500">
+                <Scroll size={24} className="drop-shadow-[0_0_4px_rgba(139,0,0,0.5)] group-hover:drop-shadow-[0_0_8px_rgba(4,172,255,0.6)] transition-all duration-500" strokeWidth={1.5} />
               </div>
             </button>
           )}

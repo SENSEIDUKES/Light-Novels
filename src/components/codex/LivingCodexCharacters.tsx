@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  Users, MapPin, Sparkles, BookMarked, Eye, Trash2, HelpCircle, Compass, Award, RefreshCcw, Plus, Download
+  Users, MapPin, Sparkles, BookMarked, Eye, Trash2, HelpCircle, Compass, Award, RefreshCcw, Plus, Download, Lock
 } from 'lucide-react';
 import { Character, Location, StoryMemory, StoryWorld } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -124,9 +124,11 @@ export function LivingCodexCharacters({
                     {charsToRender.map((char) => {
                       const isGenerating = generatingId === char.id;
                       const hasImage = !!char.imageUrl;
+                      const currentChapter = activeStory.currentChapterNumber || 1;
+                      const hasAppeared = char.firstAppeared === undefined || char.firstAppeared <= currentChapter;
                       const cScore = (getPowerRankScore || (() => ({ score: 0, title: '' })))(char.powerLevel);
                       const activePreview = previews[char.id];
-                      const canGenerate = !hasImage || char.evolutionReady;
+                      const canGenerate = hasAppeared && (!hasImage || char.evolutionReady);
                       const displayedImage = activePreview ? activePreview.urls[activePreview.selectedIndex] : char.imageUrl;
                       
                       return (
@@ -170,19 +172,30 @@ export function LivingCodexCharacters({
                             )}
 
                             {/* Status label floating top right */}
-                            <div className="absolute top-2 right-2 flex space-x-1">
-                              {char.relevanceState && char.relevanceState.toLowerCase() !== 'active' && (
-                                <span className="text-[7.5px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border border-neutral-800 bg-neutral-900/80 text-neutral-400">
-                                  {char.relevanceState}
+                            <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
+                              <div className="flex space-x-1">
+                                {char.relevanceState && char.relevanceState.toLowerCase() !== 'active' && (
+                                  <span className="text-[7.5px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border border-neutral-800 bg-neutral-900/80 text-neutral-400">
+                                    {char.relevanceState}
+                                  </span>
+                                )}
+                                <span className={`text-[8px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border ${
+                                  char.status === 'alive' ? 'bg-green-950/40 text-green-400 border-green-900' :
+                                  char.status === 'deceased' ? 'bg-red-950/40 text-human border-red-900' :
+                                  'bg-neutral-950 text-neutral-500 border-neutral-800'
+                                }`}>
+                                  {char.status}
+                                </span>
+                              </div>
+                              {hasAppeared ? (
+                                <span className="text-[7.5px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border bg-portal/10 text-portal border-portal/30 shadow-[0_0_8px_rgba(4,172,255,0.2)] backdrop-blur-sm flex items-center gap-1" title="Discovered in the story">
+                                  <Compass size={8} /> Unlocked
+                                </span>
+                              ) : (
+                                <span className="text-[7.5px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border bg-black/80 text-neutral-500 border-neutral-800 backdrop-blur-sm flex items-center gap-1" title="Requires further reading to manifest">
+                                  <Lock size={8} /> Locked
                                 </span>
                               )}
-                              <span className={`text-[8px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border ${
-                                char.status === 'alive' ? 'bg-green-950/40 text-green-400 border-green-900' :
-                                char.status === 'deceased' ? 'bg-red-950/40 text-human border-red-900' :
-                                'bg-neutral-950 text-neutral-500 border-neutral-800'
-                              }`}>
-                                {char.status}
-                              </span>
                             </div>
 
                             {/* Combat power ranking level index label floating top left */}
@@ -236,7 +249,7 @@ export function LivingCodexCharacters({
                                     ? 'bg-portal border-portal text-void shadow-[0_0_10px_rgba(4,172,255,0.4)]'
                                     : 'bg-void border-portal/15 text-portal hover:border-portal hover:bg-portal/5 hover:shadow-[0_0_8px_rgba(4,172,255,0.2)]'
                                 }`}
-                                title={!canGenerate ? "Evolution requires further story progression." : ""}
+                                title={!hasAppeared ? "Unlock manifestation by encountering them in the story." : !canGenerate ? "Evolution requires further story progression." : ""}
                               >
                                   {isGenerating ? (
                                     <>
@@ -246,7 +259,7 @@ export function LivingCodexCharacters({
                                   ) : (
                                     <>
                                       <Sparkles size={10} className={char.evolutionReady ? 'text-void' : 'text-portal'} />
-                                      <span>{char.evolutionReady ? 'Awaken Evolution' : hasImage ? 'Requires Progression' : 'Awaken Portrait'}</span>
+                                      <span>{!hasAppeared ? 'Undiscovered' : char.evolutionReady ? 'Awaken Evolution' : hasImage ? 'Requires Progression' : 'Awaken Portrait'}</span>
                                     </>
                                   )}
                                 </button>
@@ -331,8 +344,10 @@ export function LivingCodexCharacters({
                       locationsToRender.map((loc) => {
                         const isGenerating = generatingId === loc.id;
                         const hasImage = !!loc.imageUrl;
+                        const currentChapter = activeStory.currentChapterNumber || 1;
+                        const hasAppeared = loc.firstAppeared === undefined || loc.firstAppeared <= currentChapter;
                         const activePreview = previews[loc.id];
-                        const canGenerate = !hasImage || loc.evolutionReady;
+                        const canGenerate = hasAppeared && (!hasImage || loc.evolutionReady);
                         const displayedImage = activePreview ? activePreview.urls[activePreview.selectedIndex] : loc.imageUrl;
 
                         return (
@@ -369,13 +384,24 @@ export function LivingCodexCharacters({
                               )}
 
                               {/* Safety index rating badge */}
-                              <span className={`absolute top-2 right-2 text-[7.5px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border ${
-                                loc.safetyLevel === 'Safe' ? 'bg-green-950/30 text-green-400 border-green-900' :
-                                loc.safetyLevel === 'Dangerous' ? 'bg-yellow-950/30 text-yellow-500 border-yellow-900' :
-                                'bg-red-950/30 text-human border-red-900 animate-pulse'
-                              }`}>
-                                {loc.safetyLevel}
-                              </span>
+                              <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
+                                <span className={`text-[7.5px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border ${
+                                  loc.safetyLevel === 'Safe' ? 'bg-green-950/30 text-green-400 border-green-900' :
+                                  loc.safetyLevel === 'Dangerous' ? 'bg-yellow-950/30 text-yellow-500 border-yellow-900' :
+                                  'bg-red-950/30 text-human border-red-900 animate-pulse'
+                                }`}>
+                                  {loc.safetyLevel}
+                                </span>
+                                {hasAppeared ? (
+                                  <span className="text-[7.5px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border bg-portal/10 text-portal border-portal/30 shadow-[0_0_8px_rgba(4,172,255,0.2)] backdrop-blur-sm flex items-center gap-1" title="Discovered in the story">
+                                    <Compass size={8} /> Unlocked
+                                  </span>
+                                ) : (
+                                  <span className="text-[7.5px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border bg-black/80 text-neutral-500 border-neutral-800 backdrop-blur-sm flex items-center gap-1" title="Requires further reading to manifest">
+                                    <Lock size={8} /> Locked
+                                  </span>
+                                )}
+                              </div>
 
                               {/* Realm indicator top left */}
                               {loc.realm && (
@@ -428,7 +454,7 @@ export function LivingCodexCharacters({
                                         ? 'bg-portal border-portal text-void shadow-[0_0_10px_rgba(4,172,255,0.4)]'
                                         : 'bg-void border-portal/15 text-portal hover:border-portal hover:bg-portal/5 hover:shadow-[0_0_8px_rgba(4,172,255,0.2)]'
                                     }`}
-                                    title={!canGenerate ? "Progression required to awaken further vistas." : ""}
+                                    title={!hasAppeared ? "Unlock manifestation by encountering it in the story." : !canGenerate ? "Progression required to awaken further vistas." : ""}
                                   >
                                         {isGenerating ? (
                                           <>
@@ -438,7 +464,7 @@ export function LivingCodexCharacters({
                                         ) : (
                                           <>
                                             <Compass size={8} className={loc.evolutionReady ? 'text-void' : 'text-portal'} />
-                                            <span>{loc.evolutionReady ? 'Awaken Evolution' : hasImage ? 'Requires Progression' : 'Awaken Vistas'}</span>
+                                            <span>{!hasAppeared ? 'Undiscovered' : loc.evolutionReady ? 'Awaken Evolution' : hasImage ? 'Requires Progression' : 'Awaken Vistas'}</span>
                                           </>
                                         )}
                                       </button>
