@@ -959,13 +959,20 @@ export default function ReaderChamber({
                             cleanText.endsWith("]");
                           if (isSystemLine) {
                             return (
-                              <SystemBlock key={index} content={cleanText} />
+                              <SystemBlock
+                                key={index}
+                                id={`para-${index}`}
+                                data-block-index={index}
+                                content={cleanText}
+                              />
                             );
                           }
 
                           return (
                             <div
                               key={index}
+                              id={`para-${index}`}
+                              data-block-index={index}
                               className="group relative transition-all duration-300 border border-transparent rounded-lg p-2.5 -mx-2.5 mb-2"
                             >
                               <div className="flex items-start">
@@ -1255,6 +1262,8 @@ export default function ReaderChamber({
                               return (
                                 <SystemBlock
                                   key={index}
+                                  id={`para-${index}`}
+                                  data-block-index={index}
                                   content={cleanText}
                                   data-cue-type="narrative.metadata.signature"
                                   data-cue-id={`system-line-${selectedChapter.number}-${index}`}
@@ -1275,6 +1284,7 @@ export default function ReaderChamber({
                               <div
                                 key={index}
                                 id={`para-${index}`}
+                                data-block-index={index}
                                 data-cue-type="narrative.paragraph.enter"
                                 data-cue-id={`para-${selectedChapter.number}-${index}`}
                                 data-cue-once="true"

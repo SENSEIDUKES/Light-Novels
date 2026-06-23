@@ -455,8 +455,20 @@ export function useReaderPlayback({
 
   const handleTogglePlayback = () => {
     if (isPlayingText) {
-      stopAllPlayback();
-      setReaderMode('teleprompter');
+      if (activeAudioRef.current) {
+        const audio = activeAudioRef.current;
+        if (!audio.paused) {
+          audio.pause();
+          setIsPausedText(true);
+          dispatchNarration({ status: 'pause' });
+        } else {
+          audio.play().catch(err => console.warn("Audio resume failed:", err));
+          setIsPausedText(false);
+          dispatchNarration({ status: 'resume' });
+        }
+      } else {
+        handleSpeak();
+      }
       return;
     }
 
@@ -482,6 +494,7 @@ export function useReaderPlayback({
 
   const handleStopSpeaking = () => {
     stopAllPlayback();
+    setReaderMode('teleprompter');
   };
 
   useEffect(() => {
