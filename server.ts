@@ -76,7 +76,11 @@ app.post("/api/embed", async (req, res) => {
     
     const response = await ai.models.embedContent({
       model: "gemini-embedding-2-preview",
-      contents: text
+      contents: text,
+      config: {
+        outputDimensionality: 256,
+        taskType: "RETRIEVAL_DOCUMENT"
+      }
     });
     
     const embedValues = response.embeddings?.[0]?.values || (response as any).embedding?.values;
