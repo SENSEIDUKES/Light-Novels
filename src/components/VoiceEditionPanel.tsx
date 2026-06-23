@@ -13,6 +13,7 @@ interface VoiceEditionPanelProps {
 }
 
 export const VoiceEditionPanel: React.FC<VoiceEditionPanelProps> = ({ selectedChapter, activeStory, onUpdateStory }) => {
+  const { localDeepinfraKey, localOpenrouterKey } = useAppStore();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPlayingLive, setIsPlayingLive] = useState(false);
   const [isPlayingManifest, setIsPlayingManifest] = useState(false);
@@ -101,9 +102,13 @@ export const VoiceEditionPanel: React.FC<VoiceEditionPanelProps> = ({ selectedCh
           }
           
           try {
+            const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (localDeepinfraKey) apiHeaders['x-deepinfra-key'] = localDeepinfraKey;
+            if (localOpenrouterKey) apiHeaders['x-openrouter-key'] = localOpenrouterKey;
+
             const res = await fetch('/api/generate-audio', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: apiHeaders,
               body: JSON.stringify({
                 text: block.text,
                 speakerVoice,

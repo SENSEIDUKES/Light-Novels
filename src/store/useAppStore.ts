@@ -41,6 +41,7 @@ interface AppState {
   localGeminiKey: string;
   localOpenrouterKey: string;
   localOllamaHost: string;
+  localDeepinfraKey: string;
 
   readerMode: 'teleprompter' | 'sen' | 'basic-tts';
   immersion: {
@@ -121,12 +122,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   isReaderFullscreen: false,
   isShortcutsOpen: false,
   routingConfig: {
-    storyMaker: { provider: 'gemini', model: 'gemini-2.5-flash-lite' },
+    storyMaker: { provider: 'gemini', model: 'google/gemini-2.5-flash-lite' },
     imageGenerator: { provider: 'gemini', model: 'google/gemini-3.1-flash-image' }
   },
   localGeminiKey: '',
   localOpenrouterKey: '',
   localOllamaHost: '',
+  localDeepinfraKey: '',
 
   readerMode: 'teleprompter',
   immersion: {
@@ -304,7 +306,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       const gemini = await secureStorage.getItem('@seihouse/api-key-gemini');
       const openrouter = await secureStorage.getItem('@seihouse/api-key-openrouter');
       const ollama = await secureStorage.getItem('@seihouse/api-key-ollama-host');
-      set({ localGeminiKey: gemini, localOpenrouterKey: openrouter, localOllamaHost: ollama });
+      const deepinfra = await secureStorage.getItem('@seihouse/api-key-deepinfra');
+      set({
+        localGeminiKey: gemini || '',
+        localOpenrouterKey: openrouter || '',
+        localOllamaHost: ollama || '',
+        localDeepinfraKey: deepinfra || ''
+      });
 
       let loaded = await storyStorage.getStories();
       const user = auth.currentUser;

@@ -7,8 +7,9 @@ import { secureStorage } from '../lib/encryption';
 
 const DEFAULT_PRESETS = {
   storyMaker: {
-    gemini: ["google/gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
+    gemini: ["gemini-3.5-flash", "gemini-3.5-pro", "google/gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
     openrouter: [
+      "google/gemini-3.5-flash",
       "google/gemini-2.5-flash-lite",
       "meta-llama/llama-3-8b-instruct:free",
       "mistralai/mistral-7b-instruct:free",
@@ -29,7 +30,7 @@ export const ModalsAndToasts: React.FC = () => {
   const { 
     isSettingsOpen, setIsSettingsOpen, 
     routingConfig, setRoutingConfig,
-    localGeminiKey, localOpenrouterKey, localOllamaHost,
+    localGeminiKey, localOpenrouterKey, localOllamaHost, localDeepinfraKey,
     storyToDelete, cancelDeleteStory, confirmDeleteStory,
     appError, setAppError
   } = useAppStore();
@@ -289,6 +290,22 @@ export const ModalsAndToasts: React.FC = () => {
                           const val = e.target.value;
                           useAppStore.setState({ localOllamaHost: val });
                           secureStorage.setItem('@seihouse/api-key-ollama-host', val);
+                        }}
+                        className="w-full bg-void text-xs text-neutral-300 border border-neutral-900 focus:border-portal p-1.5 rounded focus:outline-none font-mono placeholder:text-neutral-700"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-[10px] font-mono text-neutral-400">DeepInfra Key Override (Kokoro TTS)</label>
+                      </div>
+                      <input
+                        type="password"
+                        placeholder="Paste your DeepInfra API key..."
+                        value={localDeepinfraKey}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          useAppStore.setState({ localDeepinfraKey: val });
+                          secureStorage.setItem('@seihouse/api-key-deepinfra', val);
                         }}
                         className="w-full bg-void text-xs text-neutral-300 border border-neutral-900 focus:border-portal p-1.5 rounded focus:outline-none font-mono placeholder:text-neutral-700"
                       />

@@ -128,7 +128,6 @@ export async function* routeTextGenerationStream(
   const safePrompt = safeTruncate(userPrompt, 700000);
 
   let activeConfig: RouteConfig = (routingConfig as any)?.storyMaker || routingConfig || {
-
     provider: "gemini",
     model: "gemini-2.5-flash-lite"
   };
@@ -346,18 +345,18 @@ export async function routeTextGeneration(
     // -------------------------------------------------------------
     const ai = getAIClient(customKeys?.geminiApiKey);
     const geminiModel = (model || "google/gemini-2.5-flash-lite").replace(/^google\//, "");
-    try {
-      const config: any = {
-        systemInstruction: safeSystem,
-        responseMimeType: "application/json",
-        temperature: temperature ?? DEFAULT_TEMPERATURE,
-        maxOutputTokens: maxOutputTokens ?? DEFAULT_MAX_TOKENS,
-      };
-      
-      if (responseSchema) {
-        config.responseSchema = responseSchema;
-      }
+    const config: any = {
+      systemInstruction: safeSystem,
+      responseMimeType: "application/json",
+      temperature: temperature ?? DEFAULT_TEMPERATURE,
+      maxOutputTokens: maxOutputTokens ?? DEFAULT_MAX_TOKENS,
+    };
+    
+    if (responseSchema) {
+      config.responseSchema = responseSchema;
+    }
 
+    try {
       const response = await ai.models.generateContent({
         model: geminiModel,
         contents: safePrompt,
@@ -368,9 +367,46 @@ export async function routeTextGeneration(
         throw new Error("No text response received from Gemini.");
       }
 
-      return cleanAndParseJSON(response.text);
+      try {
+        return cleanAndParseJSON(response.text);
+      } catch (parseError) {
+        if (responseSchema) {
+          console.warn("[aiRouter] JSON parse failed with responseSchema. Retrying without strict responseSchema...");
+          const fallbackConfig = { ...config };
+          delete fallbackConfig.responseSchema;
+          const fallbackResponse = await ai.models.generateContent({
+            model: geminiModel,
+            contents: safePrompt + "\n\nCRITICAL: Return a valid JSON object matching the requested schema fields exactly. Do not wrap or truncate.",
+            config: fallbackConfig
+          });
+          if (fallbackResponse.text) {
+            return cleanAndParseJSON(fallbackResponse.text);
+          }
+        }
+        throw parseError;
+      }
     } catch (error: any) {
       console.error("[aiRouter] Gemini provider encountered error:", error);
+      
+      // If we failed even to query with responseSchema, try querying without it before failing completely
+      if (responseSchema && !error.message?.includes("429") && error.status !== 429) {
+        try {
+          console.warn("[aiRouter] Schema query error. Retrying request without strict responseSchema...");
+          const fallbackConfig = { ...config };
+          delete fallbackConfig.responseSchema;
+          const fallbackResponse = await ai.models.generateContent({
+            model: geminiModel,
+            contents: safePrompt + "\n\nCRITICAL: Return a valid JSON object matching the requested schema fields exactly.",
+            config: fallbackConfig
+          });
+          if (fallbackResponse.text) {
+            return cleanAndParseJSON(fallbackResponse.text);
+          }
+        } catch (innerError) {
+          console.error("[aiRouter] Fallback query without schema also failed:", innerError);
+        }
+      }
+
       if (error.status === 429 || (error.message && error.message.includes("429"))) {
         const apiKey = customKeys?.openrouterApiKey || process.env.OPENROUTER_API_KEY;
         if (apiKey && apiKey !== "MY_OPENROUTER_API_KEY") {

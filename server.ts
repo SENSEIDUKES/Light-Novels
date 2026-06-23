@@ -41,6 +41,7 @@ function getCustomKeys(req: express.Request) {
     geminiApiKey: (req.header("x-gemini-key") as string) || undefined,
     openrouterApiKey: (req.header("x-openrouter-key") as string) || undefined,
     ollamaHost: (req.header("x-ollama-host") as string) || undefined,
+    deepinfraApiKey: (req.header("x-deepinfra-key") as string) || undefined,
   };
 }
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -126,6 +127,8 @@ app.post("/api/models", async (req, res) => {
       if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
         return res.json({
           models: [
+            "gemini-3.5-flash",
+            "gemini-3.5-pro",
             "google/gemini-2.5-flash-lite",
             "google/gemini-3.1-flash-image",
             "gemini-2.5-flash",
@@ -1079,37 +1082,167 @@ ${englishText}
 // 7. Generate Audio (TTS) for the Voice Edition
 app.post("/api/generate-audio", async (req, res) => {
   try {
-    const { text, speakerVoice, routingConfig } = req.body;
+    const { text, speakerVoice } = req.body;
     if (!text || !speakerVoice) {
       return res.status(400).json({ error: "Missing required fields: text, speakerVoice" });
     }
 
     const customKeys = getCustomKeys(req);
-    const apiKey = customKeys?.geminiApiKey || process.env.GEMINI_API_KEY;
+    const deepinfraKey = customKeys?.deepinfraApiKey || process.env.DEEPINFRA_API_KEY;
+    const openrouterKey = customKeys?.openrouterApiKey || process.env.OPENROUTER_API_KEY;
 
-    if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
-      throw new Error("GEMINI_API_KEY is missing or invalid.");
+    let base64Audio = "";
+
+    // 1. Try OpenRouter (if user provides OpenRouter Key)
+    if (openrouterKey && openrouterKey !== "MY_OPENROUTER_API_KEY" && openrouterKey.trim() !== "") {
+      console.log(`[TTS] Requesting OpenRouter for voice '${speakerVoice}' using Kokoro...`);
+      try {
+        const response = await fetch("https://openrouter.ai/api/v1/audio/speech", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${openrouterKey}`
+          },
+          body: JSON.stringify({
+            model: "hexgrad/kokoro-82m",
+            input: text,
+            voice: speakerVoice
+          })
+        });
+
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          base64Audio = Buffer.from(arrayBuffer).toString("base64");
+          console.log("[TTS] OpenRouter TTS generation succeeded!");
+        } else {
+          const errText = await response.text();
+          console.warn(`[TTS] OpenRouter TTS generation failed (status ${response.status}): ${errText}`);
+        }
+      } catch (orErr) {
+        console.error("[TTS] OpenRouter TTS generation threw an error:", orErr);
+      }
     }
 
-    const { GoogleGenAI, Modality } = await import("@google/genai");
-    const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { "User-Agent": "aistudio-build" } } });
+    // 2. Try DeepInfra (if user provides DeepInfra Key)
+    if (!base64Audio && deepinfraKey && deepinfraKey !== "MY_DEEPINFRA_API_KEY" && deepinfraKey.trim() !== "") {
+      console.log(`[TTS] Requesting DeepInfra for voice '${speakerVoice}'...`);
+      try {
+        const response = await fetch("https://api.deepinfra.com/v1/audio/speech", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `bearer ${deepinfraKey}`
+          },
+          body: JSON.stringify({
+            model: "hexgrad/Kokoro-82M",
+            input: text,
+            voice: speakerVoice
+          })
+        });
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-tts-preview",
-      contents: [{ parts: [{ text }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: speakerVoice }
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          base64Audio = Buffer.from(arrayBuffer).toString("base64");
+          console.log("[TTS] DeepInfra TTS generation succeeded!");
+        } else {
+          const errText = await response.text();
+          console.warn(`[TTS] DeepInfra TTS generation failed: ${errText}`);
+        }
+      } catch (diErr) {
+        console.error("[TTS] DeepInfra TTS generation threw an error:", diErr);
+      }
+    }
+
+    // Fallback 1: ylacombe/kokoro-82m Gradio Space
+    if (!base64Audio) {
+      console.log(`[TTS] Falling back to public Hugging Face Space (ylacombe/kokoro-82m) for voice '${speakerVoice}'...`);
+      try {
+        const lang = speakerVoice.startsWith("es_") ? "es" : "en";
+        const hfResponse = await fetch("https://ylacombe-kokoro-82m.hf.space/api/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            data: [
+              text,
+              speakerVoice,
+              1.0, // speed
+              lang
+            ]
+          })
+        });
+
+        if (hfResponse.ok) {
+          const hfJson: any = await hfResponse.json();
+          if (hfJson && hfJson.data && hfJson.data[0]) {
+            const audioDataObj = hfJson.data[0];
+            if (typeof audioDataObj === "string") {
+              if (audioDataObj.startsWith("data:audio")) {
+                base64Audio = audioDataObj.split(",")[1];
+              }
+            } else if (audioDataObj && audioDataObj.data) {
+              const b64 = audioDataObj.data;
+              base64Audio = b64.includes("base64,") ? b64.split("base64,")[1] : b64;
+            } else if (audioDataObj && audioDataObj.url) {
+              const fileResp = await fetch(audioDataObj.url);
+              if (fileResp.ok) {
+                const fileBuf = await fileResp.arrayBuffer();
+                base64Audio = Buffer.from(fileBuf).toString("base64");
+              }
+            }
+          }
+        } else {
+          console.warn(`[TTS] Space ylacombe/kokoro-82m returned status: ${hfResponse.status}`);
+        }
+      } catch (hfErr) {
+        console.error("[TTS] ylacombe/kokoro-82m Space fallback failed:", hfErr);
+      }
+    }
+
+    // Fallback 2: gokaygokay/Kokoro-82M Gradio Space
+    if (!base64Audio) {
+      console.log(`[TTS] Falling back to secondary Hugging Face Space (gokaygokay-kokoro-82m)...`);
+      try {
+        const lang = speakerVoice.startsWith("es_") ? "es" : "en";
+        const hfResponse = await fetch("https://gokaygokay-kokoro-82m.hf.space/api/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            data: [
+              text,
+              speakerVoice,
+              1.0, // speed
+              lang
+            ]
+          })
+        });
+
+        if (hfResponse.ok) {
+          const hfJson: any = await hfResponse.json();
+          if (hfJson && hfJson.data && hfJson.data[0]) {
+            const audioDataObj = hfJson.data[0];
+            if (typeof audioDataObj === "string") {
+              if (audioDataObj.startsWith("data:audio")) {
+                base64Audio = audioDataObj.split(",")[1];
+              }
+            } else if (audioDataObj && audioDataObj.data) {
+              const b64 = audioDataObj.data;
+              base64Audio = b64.includes("base64,") ? b64.split("base64,")[1] : b64;
+            } else if (audioDataObj && audioDataObj.url) {
+              const fileResp = await fetch(audioDataObj.url);
+              if (fileResp.ok) {
+                const fileBuf = await fileResp.arrayBuffer();
+                base64Audio = Buffer.from(fileBuf).toString("base64");
+              }
+            }
           }
         }
+      } catch (hfErr2) {
+        console.error("[TTS] gokaygokay-kokoro-82m Space fallback failed:", hfErr2);
       }
-    });
+    }
 
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (!base64Audio) {
-      throw new Error("Failed to generate audio from Gemini.");
+      throw new Error("Could not generate audio using DeepInfra or public Kokoro TTS fallbacks.");
     }
 
     return res.json({ base64Audio });
