@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
-import { AILoadingVeil } from './AILoadingVeil';
+import AILoadingVeil from './AILoadingVeil';
 
 describe('AILoadingVeil', () => {
   it('renders without crashing when generating', () => {

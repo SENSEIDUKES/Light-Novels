@@ -3,7 +3,7 @@ import { UserProfile as UserProfileType, Story, AppUser } from '../types';
 import { db, auth } from '../lib/firebase';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { LogOut, Save, User as UserIcon, Calendar, BookOpen, Globe, Cloud, CloudOff, RefreshCw, Sliders, Upload, Download, Database, Zap, Keyboard, Flame } from 'lucide-react';
+import { LogOut, Save, User as UserIcon, Calendar, BookOpen, Globe, Cloud, CloudOff, RefreshCw, Sliders, Upload, Download, Database, Zap, Keyboard, Flame, Award, Shield, Compass, Key, Sparkles, Search, Sword, HelpCircle } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
 import { AudioWidget } from './AudioWidget';
@@ -17,7 +17,7 @@ interface UserProfileProps {
 }
 
 export default function UserProfile({ currentUser, stories, onLogout, onNavigateHome }: UserProfileProps) {
-  const { syncStatus, lastSavedTime, setIsSettingsOpen, handleExportLibrary, handleImportLibrary, storageType, localGeminiKey, localOpenrouterKey, localOllamaHost, isSettingsOpen } = useAppStore();
+  const { syncStatus, lastSavedTime, setIsSettingsOpen, handleExportLibrary, handleImportLibrary, storageType, localGeminiKey, localOpenrouterKey, localOllamaHost, isSettingsOpen, activeStoryId } = useAppStore();
   const [profile, setProfile] = useState<UserProfileType | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Partial<UserProfileType>>({});
@@ -25,6 +25,179 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
   const colorInputRef = React.useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Spiritual progression values derived from story/profile
+  const activeStory = stories.find(s => s.id === activeStoryId);
+  const currentPowerStage = activeStory?.memory?.currentPowerStage || '';
+  const equippedArtifact = profile?.cosmicInventory?.find(a => a.id === profile?.equippedArtifactId);
+
+  // Cultivator Portrait Builder states
+  const [showPortraitModal, setShowPortraitModal] = useState(false);
+  const [portraitUploadFile, setPortraitUploadFile] = useState<File | null>(null);
+  const [portraitUploadBase64, setPortraitUploadBase64] = useState<string>('');
+  const [portraitDesc, setPortraitDesc] = useState('');
+  const [isGeneratingPortrait, setIsGeneratingPortrait] = useState(false);
+  const [generatedPortraitUrl, setGeneratedPortraitUrl] = useState('');
+  const [portraitError, setPortraitError] = useState('');
+  const [dragActive, setDragActive] = useState(false);
+  const [generationStep, setGenerationStep] = useState(0);
+
+  const generationSteps = [
+    "Initializing Divine Mirror protocol...",
+    "Analyzing mortal physical structures and features...",
+    "Casting spiritual grid onto character aesthetics...",
+    "Weaving high-tier celestial robes and artifacts...",
+    "Channeling raw elemental Qi (Lightning, Fire, Frost)...",
+    "Solidifying final immortal cultivator projection..."
+  ];
+
+  const handleFileChange = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      setPortraitError("The Divine Mirror only accepts visual images.");
+      return;
+    }
+    setPortraitError("");
+    setPortraitUploadFile(file);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPortraitUploadBase64(reader.result as string);
+    };
+    reader.onerror = () => {
+      setPortraitError("Failed to read mortal image stream.");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileChange(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleGeneratePortrait = async () => {
+    if (!portraitUploadBase64) {
+      setPortraitError("You must project an image into the mirror first.");
+      return;
+    }
+    setIsGeneratingPortrait(true);
+    setPortraitError("");
+    setGeneratedPortraitUrl("");
+    setGenerationStep(0);
+
+    const stepInterval = setInterval(() => {
+      setGenerationStep(prev => (prev < generationSteps.length - 1 ? prev + 1 : prev));
+    }, 2500);
+
+    try {
+      const response = await fetch("/api/generate-cultivator-portrait", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image: portraitUploadBase64,
+          description: portraitDesc,
+          daoRank: profile?.dao_rank || "Mortal Reader",
+          daoXp: profile?.dao_xp || 0,
+          powerStage: currentPowerStage,
+          equippedArtifact: equippedArtifact ? {
+            name: equippedArtifact.name,
+            description: equippedArtifact.description,
+            rarity: equippedArtifact.rarity
+          } : null,
+          routingConfig: {
+            provider: "gemini",
+            model: "google/gemini-3.1-flash-image"
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "Celestial mapping failed");
+      }
+
+      const data = await response.json();
+      if (data.imageUrl) {
+        setGeneratedPortraitUrl(data.imageUrl);
+      } else {
+        throw new Error("No image URL returned from celestial plane.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setPortraitError(err.message || "Celestial connection timed out. Please retry.");
+    } finally {
+      clearInterval(stepInterval);
+      setIsGeneratingPortrait(false);
+    }
+  };
+
+  const handleApplyPortrait = async () => {
+    if (!generatedPortraitUrl) return;
+    
+    setFormData(prev => ({
+      ...prev,
+      avatarUrl: generatedPortraitUrl
+    }));
+
+    if (currentUser) {
+      try {
+        setIsLoading(true);
+        await setDoc(doc(db, 'users', currentUser.uid), {
+          avatarUrl: generatedPortraitUrl,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+        
+        if (profile) {
+          setProfile({
+            ...profile,
+            avatarUrl: generatedPortraitUrl
+          });
+        }
+      } catch (err) {
+        console.error("Failed to save avatarUrl:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      const localProfileStr = localStorage.getItem('seihouse-local-user-profile');
+      const localProfile = localProfileStr ? JSON.parse(localProfileStr) : null;
+      const updatedLocalProfile = {
+        ...(localProfile || {}),
+        avatarUrl: generatedPortraitUrl,
+        updatedAt: new Date().toISOString()
+      };
+      localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedLocalProfile));
+      if (profile) {
+        setProfile({
+          ...profile,
+          avatarUrl: generatedPortraitUrl
+        });
+      }
+    }
+    
+    setShowPortraitModal(false);
+    setPortraitUploadFile(null);
+    setPortraitUploadBase64('');
+    setPortraitDesc('');
+    setGeneratedPortraitUrl('');
+  };
+
+  const [inventorySearch, setInventorySearch] = useState('');
+  const [rarityFilter, setRarityFilter] = useState('all');
+  const [milestoneFilter, setMilestoneFilter] = useState('all');
+  const [inspectArtifact, setInspectArtifact] = useState<any | null>(null);
 
   const [daoStatus, setDaoStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
   const [daoDetail, setDaoDetail] = useState<string>('Sensing alignment with the cosmic Dao...');
@@ -107,14 +280,120 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     return () => unsubscribe();
   }, [currentUser]);
 
+  useEffect(() => {
+    if (!currentUser) {
+      const localInvStr = localStorage.getItem('seihouse-local-cosmic-inventory');
+      const localInventory = localInvStr ? JSON.parse(localInvStr) : [];
+      
+      const localProfileStr = localStorage.getItem('seihouse-local-user-profile');
+      const localProfile = localProfileStr ? JSON.parse(localProfileStr) : null;
+      
+      const guestProfile: UserProfileType = {
+        uid: 'anonymous',
+        username: localProfile?.username || 'Mortal Reader',
+        displayName: localProfile?.displayName || 'Mortal Reader',
+        displayNameColor: localProfile?.displayNameColor || '#E5E7EB',
+        avatarUrl: localProfile?.avatarUrl || '',
+        preferredLanguage: localProfile?.preferredLanguage || 'English',
+        defaultTranslationLanguage: localProfile?.defaultTranslationLanguage || 'English',
+        savedStoryCount: 0,
+        activeStories: [],
+        inactiveStories: [],
+        joinedDate: localProfile?.joinedDate || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        cosmicInventory: localInventory,
+        equippedArtifactId: localProfile?.equippedArtifactId || ''
+      };
+      
+      setProfile(guestProfile);
+      setFormData(guestProfile);
+      setIsLoading(false);
+    }
+  }, [currentUser]);
+
+  const handleAttuneArtifact = async (artifactId: string) => {
+    const isAttuned = profile?.equippedArtifactId === artifactId;
+    const nextAttunementId = isAttuned ? "" : artifactId;
+    
+    if (currentUser) {
+      try {
+        await setDoc(doc(db, 'users', currentUser.uid), { equippedArtifactId: nextAttunementId }, { merge: true });
+      } catch (e) {
+        console.error("Failed to save attunement to Firestore:", e);
+      }
+    } else {
+      const localProfileStr = localStorage.getItem('seihouse-local-user-profile');
+      const localProfile = localProfileStr ? JSON.parse(localProfileStr) : null;
+      
+      const localInvStr = localStorage.getItem('seihouse-local-cosmic-inventory');
+      const localInventory = localInvStr ? JSON.parse(localInvStr) : [];
+
+      const updatedLocalProfile = {
+        uid: 'anonymous',
+        username: localProfile?.username || 'Mortal Reader',
+        displayName: localProfile?.displayName || 'Mortal Reader',
+        displayNameColor: localProfile?.displayNameColor || '#E5E7EB',
+        avatarUrl: localProfile?.avatarUrl || '',
+        preferredLanguage: localProfile?.preferredLanguage || 'English',
+        defaultTranslationLanguage: localProfile?.defaultTranslationLanguage || 'English',
+        savedStoryCount: 0,
+        activeStories: [],
+        inactiveStories: [],
+        joinedDate: localProfile?.joinedDate || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        cosmicInventory: localInventory,
+        equippedArtifactId: nextAttunementId
+      };
+      
+      localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedLocalProfile));
+      setProfile(updatedLocalProfile);
+      setFormData(updatedLocalProfile);
+      useAppStore.setState({ userProfile: updatedLocalProfile });
+    }
+  };
+
   // Derived metrics from actual stories state instead of just the profile fields
   // In a real app we might sync these, but here reading from the stories array is more accurate for the current session
   const userStories = stories.filter(s => s.userId === currentUser?.uid || (!s.userId));
   const activeStoriesCount = userStories.length;
   
-  const currentStreak = profile?.writingStreak || 0;
+  const currentStreak = profile?.daoPillarStreak || profile?.writingStreak || 0;
+  const isCracked = profile?.daoPillarCracked || false;
   const daysTo3 = currentStreak === 0 ? 3 : (currentStreak % 3 === 0 ? 3 : 3 - (currentStreak % 3));
   const daysTo10 = currentStreak === 0 ? 10 : (currentStreak % 10 === 0 ? 10 : 10 - (currentStreak % 10));
+
+  const handleRepairPillar = async () => {
+    if (!profile) return;
+    const repairCost = 50;
+    if ((profile.qi || 0) >= repairCost) {
+      const updatedProfile = {
+        ...profile,
+        qi: (profile.qi || 0) - repairCost,
+        daoPillarCracked: false,
+        daoPillarStreak: currentStreak > 0 ? currentStreak : 1
+      };
+      
+      setProfile(updatedProfile);
+      useAppStore.getState().setUserProfile(updatedProfile);
+      
+      if (currentUser) {
+        try {
+          await setDoc(doc(db, 'users', currentUser.uid), {
+            qi: updatedProfile.qi,
+            daoPillarCracked: false,
+            daoPillarStreak: updatedProfile.daoPillarStreak
+          }, { merge: true });
+        } catch (e) {
+          console.error("Failed to repair pillar in db:", e);
+        }
+      } else {
+        localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedProfile));
+      }
+      setError('');
+    } else {
+      setError('Insufficient Qi to repair Dao Pillar (Requires 50).');
+    }
+  };
 
   const handleSave = async () => {
     if (!currentUser || !profile) return;
@@ -349,6 +628,8 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     return <div className="p-8 text-center text-neutral-500 font-sc tracking-widest uppercase animate-pulse">Accessing Celestial Record...</div>;
   }
 
+  const attunedArtifact = (profile?.cosmicInventory || []).find(a => a.id === profile?.equippedArtifactId);
+
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-8">
       <div className="bg-void border border-neutral-900 rounded-2xl overflow-hidden shadow-[0_0_40px_rgba(4,172,255,0.03)] backdrop-blur-sm relative">
@@ -394,26 +675,38 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
             <>
               {/* Top Section - Avatar & Quick Info */}
               <div className="flex flex-col md:flex-row gap-8 md:items-end border-b border-neutral-900/50 pb-10">
-                <div className={`w-28 h-28 rounded-full border p-1 flex-shrink-0 relative group transition-all duration-700 ${getAuraGlowStyle(profile?.displayNameColor || '#E5E7EB')}`}>
-                  <div className="w-full h-full rounded-full overflow-hidden bg-black flex items-center justify-center relative">
-                    {formData.avatarUrl ? (
-                      <img src={formData.avatarUrl} alt="Avatar" className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 transition-all duration-500" referrerPolicy="no-referrer" />
-                    ) : (
-                      <UserIcon size={36} className="text-neutral-700" />
-                    )}
-                    
-                    {/* Floating particle animations for Heavenly Chronicler and above */}
-                    {(profile?.displayNameColor === '#FFD700' || profile?.displayNameColor === 'gradient-violet-gold' || profile?.displayNameColor === 'animated-custom') && (
-                      <div className="absolute inset-0 bg-black/10 pointer-events-none mix-blend-screen overflow-hidden">
-                        <div className="absolute bottom-1 inset-x-0 h-8 flex justify-around opacity-75">
-                          <span className="w-1 h-1 rounded-full bg-yellow-400 animate-ping" style={{ animationDuration: '3s' }}></span>
-                          <span className="w-1.5 h-1.5 rounded-full bg-yellow-300 animate-bounce" style={{ animationDuration: '2s' }}></span>
-                          <span className="w-1 h-1 rounded-full bg-amber-400 animate-pulse" style={{ animationDuration: '2.5s' }}></span>
+                <div className="flex flex-col items-center flex-shrink-0">
+                  <div className={`w-28 h-28 rounded-full border p-1 relative group transition-all duration-700 ${getAuraGlowStyle(profile?.displayNameColor || '#E5E7EB')}`}>
+                    <div className="w-full h-full rounded-full overflow-hidden bg-black flex items-center justify-center relative">
+                      {formData.avatarUrl ? (
+                        <img src={formData.avatarUrl} alt="Avatar" className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 transition-all duration-500" referrerPolicy="no-referrer" />
+                      ) : (
+                        <UserIcon size={36} className="text-neutral-700" />
+                      )}
+                      
+                      {/* Floating particle animations for Heavenly Chronicler and above */}
+                      {(profile?.displayNameColor === '#FFD700' || profile?.displayNameColor === 'gradient-violet-gold' || profile?.displayNameColor === 'animated-custom') && (
+                        <div className="absolute inset-0 bg-black/10 pointer-events-none mix-blend-screen overflow-hidden">
+                          <div className="absolute bottom-1 inset-x-0 h-8 flex justify-around opacity-75">
+                            <span className="w-1 h-1 rounded-full bg-yellow-400 animate-ping" style={{ animationDuration: '3s' }}></span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-yellow-300 animate-bounce" style={{ animationDuration: '2s' }}></span>
+                            <span className="w-1 h-1 rounded-full bg-amber-400 animate-pulse" style={{ animationDuration: '2.5s' }}></span>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
+                    <div className="absolute inset-0 rounded-full border border-inherit opacity-40 scale-110 animate-[spin_15s_linear_infinite]"></div>
                   </div>
-                  <div className="absolute inset-0 rounded-full border border-inherit opacity-40 scale-110 animate-[spin_15s_linear_infinite]"></div>
+                  
+                  {/* Cultivator Portrait Generator Button */}
+                  <button
+                    onClick={() => setShowPortraitModal(true)}
+                    className="mt-3 px-3 py-1.5 border border-portal/30 hover:border-portal text-portal font-sc text-[10px] font-bold uppercase tracking-widest rounded-lg bg-portal/5 hover:bg-portal/10 transition-all flex items-center gap-1.5 shadow-[0_0_15px_rgba(4,172,255,0.05)] hover:shadow-[0_0_20px_rgba(4,172,255,0.15)] group"
+                    title="Divine Mirror: Cast your mortal likeness into the cosmic loom"
+                  >
+                    <Sparkles size={11} className="text-portal animate-pulse group-hover:scale-110 transition-transform" />
+                    Immortal Mirror
+                  </button>
                 </div>
                 <div className="flex-1 space-y-5">
                   <div className="flex flex-col gap-3 mb-2">
@@ -425,6 +718,12 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                         <Zap size={10} className="text-portal" /> {daoData.currentQi} Qi
                       </div>
                     </div>
+                    {attunedArtifact && (
+                      <div className="flex items-center gap-2 text-[10px] text-amber-400 font-sc uppercase font-bold tracking-widest border border-amber-500/20 px-3 py-1.5 rounded bg-amber-950/20 shadow-[0_0_15px_rgba(245,158,11,0.15)] max-w-fit">
+                        <Award size={12} className="text-amber-400 animate-pulse" />
+                        <span>Soul Attuned: {attunedArtifact.name} ({attunedArtifact.attributeBoost})</span>
+                      </div>
+                    )}
                     {daoData.nextRank && (
                       <div className="flex-1 max-w-[300px]">
                         <div className="flex justify-between text-[9px] text-neutral-500 mb-1.5 font-sc uppercase tracking-widest">
@@ -703,39 +1002,389 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                   </div>
                 </div>
 
-                {/* Writing Streak Card - Premium Span */}
-                <div className="bg-[#030303] border border-neutral-900 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 md:col-span-2 relative overflow-hidden shadow-[0_0_20px_rgba(249,115,22,0.03)] border-l-4 border-l-orange-500/40">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-orange-500/10 border border-orange-500/20 rounded-lg">
-                      <Flame size={18} className="text-orange-500 animate-pulse" />
+                {/* Dao Pillar (Daily Streak) */}
+                <div className={`bg-[#030303] border rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 md:col-span-2 relative overflow-hidden shadow-[0_0_20px_rgba(249,115,22,0.03)] border-l-4 ${isCracked ? 'border-human/40 border-l-human/80 border-t-human/20 border-r-human/20 border-b-human/20' : 'border-l-orange-500/40 border-neutral-900'}`}>
+                  {isCracked && (
+                    <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCI+PGxpbmUgeDE9IjAiIHkxPSIwIiB4Mj0iODAiIHkyPSI4MCIgc3Ryb2tlPSIjZmY0NDQ0MjAiIHN0cm9rZS13aWR0aD0iMSIvPjwvc3ZnPg==')] opacity-30 pointer-events-none mix-blend-overlay"></div>
+                  )}
+                  <div className="flex items-center gap-3 relative z-10">
+                    <div className={`p-2.5 rounded-lg border ${isCracked ? 'bg-human/10 border-human/30' : 'bg-orange-500/10 border-orange-500/20'}`}>
+                      <Flame size={18} className={`${isCracked ? 'text-human animate-bounce' : 'text-orange-500 animate-pulse'}`} />
                     </div>
                     <div>
-                      <span className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 font-sc block">Daily Cultivation Streak</span>
-                      <div className="text-2xl font-black text-orange-500 font-sans tracking-wide">
+                      <span className={`text-[10px] uppercase font-bold tracking-widest font-sc block ${isCracked ? 'text-human' : 'text-neutral-500'}`}>
+                        {isCracked ? 'Dao Pillar Cracked!' : 'Daily Dao Pillar'}
+                      </span>
+                      <div className={`text-2xl font-black font-sans tracking-wide ${isCracked ? 'text-human opacity-50 line-through' : 'text-orange-500'}`}>
                         {currentStreak} {currentStreak === 1 ? 'Day' : 'Days'}
                       </div>
                     </div>
                   </div>
                   
-                  <div className="flex flex-col sm:items-end justify-center text-xs text-neutral-400 font-mono space-y-1">
-                    <div className="flex flex-wrap gap-2 sm:justify-end">
-                      <span className="px-2 py-0.5 rounded bg-orange-500/10 border border-orange-500/30 text-[10px] text-orange-400 font-sc uppercase tracking-wider">
-                        {daysTo3} {daysTo3 === 1 ? 'day' : 'days'} to +20 Qi
-                      </span>
-                      <span className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-400 font-sc uppercase tracking-wider">
-                        {daysTo10} {daysTo10 === 1 ? 'day' : 'days'} to +100 Qi
-                      </span>
-                    </div>
-                    {profile?.lastInteractionDate ? (
-                      <span className="text-[10px] text-neutral-500">
-                        Matrix Linked: <span className="text-neutral-300">{profile.lastInteractionDate}</span>
-                      </span>
+                  <div className="flex flex-col sm:items-end justify-center text-xs text-neutral-400 font-mono space-y-2 relative z-10">
+                    {isCracked ? (
+                      <button
+                        onClick={handleRepairPillar}
+                        className="px-4 py-2 bg-human/20 hover:bg-human/30 text-human font-bold text-[10px] font-sc uppercase tracking-widest border border-human/50 rounded-lg transition-colors flex items-center gap-2"
+                      >
+                        <Zap size={12} className="text-human" />
+                        Repair Pillar (50 Qi)
+                      </button>
                     ) : (
-                      <span className="text-[10px] text-neutral-500 italic">Interacts today to forge your path</span>
+                      <>
+                        <div className="flex flex-wrap gap-2 sm:justify-end">
+                          <span className="px-2 py-0.5 rounded bg-orange-500/10 border border-orange-500/30 text-[10px] text-orange-400 font-sc uppercase tracking-wider">
+                            {daysTo3} {daysTo3 === 1 ? 'day' : 'days'} to +20 Qi
+                          </span>
+                          <span className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-400 font-sc uppercase tracking-wider">
+                            {daysTo10} {daysTo10 === 1 ? 'day' : 'days'} to +100 Qi
+                          </span>
+                        </div>
+                        {profile?.lastReadDate ? (
+                          <span className="text-[10px] text-neutral-500">
+                            Last Refined: <span className="text-neutral-300">{profile.lastReadDate}</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-neutral-500 italic">Read a chapter today to start building your pillar.</span>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
               </div>
+
+              {/* Cosmic Inventory Section */}
+              <div className="pt-10 border-t border-neutral-900/50 mt-10">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                  <h3 className="text-[11px] uppercase font-bold tracking-widest text-neutral-500 font-sc flex items-center gap-2">
+                    <Award size={14} className="text-portal animate-pulse" />
+                    Cosmic Inventory (Sacred Treasury)
+                  </h3>
+                  <div className="text-[10px] text-neutral-400 font-mono bg-neutral-900/40 border border-neutral-850 px-3 py-1 rounded-full flex items-center gap-1.5 w-fit">
+                    <Sparkles size={11} className="text-portal" />
+                    <span>Unlocked: {(profile?.cosmicInventory || []).length} Relics</span>
+                  </div>
+                </div>
+
+                {/* Search & Filters */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+                  {/* Search bar */}
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500">
+                      <Search size={14} />
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="Search sacred relics..."
+                      value={inventorySearch}
+                      onChange={(e) => setInventorySearch(e.target.value)}
+                      className="w-full bg-black/50 border border-neutral-900 rounded-lg pl-9 pr-4 py-2 text-xs text-signal focus:border-portal/50 outline-none transition-all placeholder:text-neutral-600 font-sans"
+                    />
+                  </div>
+
+                  {/* Rarity Filter */}
+                  <div>
+                    <select
+                      value={rarityFilter}
+                      onChange={(e) => setRarityFilter(e.target.value)}
+                      className="w-full bg-black/50 border border-neutral-900 rounded-lg px-3 py-2 text-xs text-neutral-400 focus:border-portal/50 outline-none transition-all appearance-none cursor-pointer font-sans"
+                    >
+                      <option value="all">All Rarities</option>
+                      <option value="Common">Common</option>
+                      <option value="Rare">Rare</option>
+                      <option value="Epic">Epic</option>
+                      <option value="Legendary">Legendary</option>
+                      <option value="Mythic">Mythic</option>
+                      <option value="Transcendent">Transcendent</option>
+                    </select>
+                  </div>
+
+                  {/* Milestone Filter */}
+                  <div>
+                    <select
+                      value={milestoneFilter}
+                      onChange={(e) => setMilestoneFilter(e.target.value)}
+                      className="w-full bg-black/50 border border-neutral-900 rounded-lg px-3 py-2 text-xs text-neutral-400 focus:border-portal/50 outline-none transition-all appearance-none cursor-pointer font-sans"
+                    >
+                      <option value="all">All Milestones</option>
+                      <option value="rank_up">Dao Breakthroughs</option>
+                      <option value="chapter_seal">Chapter Sealing</option>
+                      <option value="chapter_5">Story Depth (Ch. 5)</option>
+                      <option value="challenge_complete">Fate Survival Runs</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Artifacts Grid */}
+                {(() => {
+                  const artifacts = profile?.cosmicInventory || [];
+                  const filteredArtifacts = artifacts.filter(art => {
+                    const matchesSearch = 
+                      art.name.toLowerCase().includes(inventorySearch.toLowerCase()) ||
+                      art.description.toLowerCase().includes(inventorySearch.toLowerCase()) ||
+                      (art.attributeBoost && art.attributeBoost.toLowerCase().includes(inventorySearch.toLowerCase())) ||
+                      art.milestoneName.toLowerCase().includes(inventorySearch.toLowerCase());
+                      
+                    const matchesRarity = rarityFilter === 'all' || art.rarity === rarityFilter;
+                    const matchesMilestone = milestoneFilter === 'all' || art.milestoneType === milestoneFilter;
+                    
+                    return matchesSearch && matchesRarity && matchesMilestone;
+                  });
+
+                  const renderArtifactIcon = (name: string, rarity: string) => {
+                    const lower = name.toLowerCase();
+                    const size = 20;
+                    let className = "";
+                    
+                    if (rarity === 'Transcendent') className = "text-cyan-400 animate-pulse drop-shadow-[0_0_10px_rgba(6,182,212,0.6)]";
+                    else if (rarity === 'Mythic') className = "text-red-500 animate-pulse drop-shadow-[0_0_8px_rgba(220,38,38,0.5)]";
+                    else if (rarity === 'Legendary') className = "text-amber-500 drop-shadow-[0_0_6px_rgba(245,158,11,0.4)]";
+                    else if (rarity === 'Epic') className = "text-purple-400";
+                    else if (rarity === 'Rare') className = "text-emerald-400";
+                    else className = "text-neutral-500";
+
+                    if (lower.includes('medallion') || lower.includes('badge')) return <Award size={size} className={className} />;
+                    if (lower.includes('seal') || lower.includes('signet')) return <Shield size={size} className={className} />;
+                    if (lower.includes('gourd') || lower.includes('nectar') || lower.includes('cauldron') || lower.includes('potion')) return <Zap size={size} className={className} />;
+                    if (lower.includes('spindle') || lower.includes('thread') || lower.includes('matrix')) return <RefreshCw size={size} className={className} />;
+                    if (lower.includes('pen') || lower.includes('brush') || lower.includes('scribe')) return <Save size={size} className={className} />;
+                    if (lower.includes('crown') || lower.includes('circlet') || lower.includes('tiara')) return <Sliders size={size} className={className} />;
+                    if (lower.includes('compass')) return <Compass size={size} className={className} />;
+                    if (lower.includes('mirror')) return <Globe size={size} className={className} />;
+                    if (lower.includes('key')) return <Key size={size} className={className} />;
+                    return <Sparkles size={size} className={className} />;
+                  };
+
+                  if (filteredArtifacts.length === 0) {
+                    return (
+                      <div className="border border-dashed border-neutral-900 rounded-xl p-8 text-center bg-black/10">
+                        <HelpCircle size={32} className="text-neutral-700 mx-auto mb-2.5 animate-pulse" />
+                        <p className="text-xs font-serif text-neutral-500">
+                          No sacred relics manifest under current filters. Ascend your Dao level, seal chapters, or succeed in challenges to gain relics!
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filteredArtifacts.map((art) => {
+                        const isEquipped = profile?.equippedArtifactId === art.id;
+                        const isTranscendent = art.rarity === 'Transcendent';
+                        const isMythic = art.rarity === 'Mythic';
+                        const isLegendary = art.rarity === 'Legendary';
+                        const isEpic = art.rarity === 'Epic';
+                        const isRare = art.rarity === 'Rare';
+
+                        let borderClass = 'border-neutral-900 hover:border-neutral-800';
+                        let bgGlowClass = 'bg-[#030303]';
+                        let rarityTextClass = 'text-neutral-500';
+
+                        if (isTranscendent) {
+                          borderClass = 'border-cyan-500/30 hover:border-cyan-400/50';
+                          bgGlowClass = 'bg-cyan-950/5 shadow-[0_0_20px_rgba(6,182,212,0.15)]';
+                          rarityTextClass = 'bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-rose-400 to-yellow-400 font-extrabold animate-pulse';
+                        } else if (isMythic) {
+                          borderClass = 'border-red-950/60 hover:border-red-500/30';
+                          bgGlowClass = 'bg-red-950/5 shadow-[0_0_15px_rgba(220,38,38,0.1)]';
+                          rarityTextClass = 'text-red-400 font-extrabold animate-pulse';
+                        } else if (isLegendary) {
+                          borderClass = 'border-amber-950/80 hover:border-amber-500/30';
+                          bgGlowClass = 'bg-amber-950/5 shadow-[0_0_12px_rgba(245,158,11,0.08)]';
+                          rarityTextClass = 'text-amber-400 font-bold';
+                        } else if (isEpic) {
+                          borderClass = 'border-purple-950/80 hover:border-purple-500/20';
+                          bgGlowClass = 'bg-purple-950/5 shadow-[0_0_10px_rgba(139,92,246,0.05)]';
+                          rarityTextClass = 'text-purple-400';
+                        } else if (isRare) {
+                          borderClass = 'border-emerald-950/80 hover:border-emerald-500/20';
+                          bgGlowClass = 'bg-emerald-950/5';
+                          rarityTextClass = 'text-emerald-400';
+                        }
+
+                        return (
+                          <div
+                            key={art.id}
+                            className={`border rounded-xl p-4 flex flex-col justify-between transition-all duration-300 relative group cursor-pointer ${borderClass} ${bgGlowClass}`}
+                            onClick={() => setInspectArtifact(art)}
+                          >
+                            {/* Equipped indicator */}
+                            {isEquipped && (
+                              <div className="absolute top-2 right-2 flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                              </div>
+                            )}
+
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg bg-black/40 border border-neutral-900 flex items-center justify-center relative overflow-hidden group-hover:border-neutral-850 transition-all shrink-0">
+                                  {renderArtifactIcon(art.name, art.rarity)}
+                                  {isEquipped && (
+                                    <div className="absolute inset-0 border border-amber-500/40 rounded-lg animate-pulse"></div>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <h4 className="text-[13px] font-sans font-medium text-signal truncate group-hover:text-portal transition-colors flex items-center gap-1.5">
+                                    {art.name}
+                                  </h4>
+                                  <span className={`text-[9px] uppercase tracking-widest font-mono font-medium block ${rarityTextClass}`}>
+                                    {art.rarity}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <p className="text-[11px] font-serif text-neutral-400 line-clamp-2 leading-relaxed italic">
+                                "{art.description}"
+                              </p>
+                            </div>
+
+                            <div className="mt-4 pt-3 border-t border-neutral-900/40 flex items-center justify-between text-[9px] text-neutral-500 font-mono">
+                              <div className="flex items-center gap-1 text-portal/70">
+                                <Sparkles size={10} />
+                                <span>{art.attributeBoost}</span>
+                              </div>
+                              <span className="text-neutral-600 truncate max-w-[100px] text-right">
+                                {art.milestoneName}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Detailed Artifact Inspect Modal */}
+              {inspectArtifact && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setInspectArtifact(null)}>
+                  <div 
+                    className="w-full max-w-md bg-void border border-neutral-900 rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(4,172,255,0.1)] relative"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Top glow indicator */}
+                    <div className={`absolute top-0 inset-x-0 h-[2px] ${
+                      inspectArtifact.rarity === 'Transcendent' 
+                        ? 'bg-gradient-to-r from-transparent via-cyan-400 to-transparent' 
+                        : inspectArtifact.rarity === 'Mythic' 
+                        ? 'bg-gradient-to-r from-transparent via-red-500 to-transparent' 
+                        : inspectArtifact.rarity === 'Legendary' 
+                        ? 'bg-gradient-to-r from-transparent via-amber-500 to-transparent'
+                        : inspectArtifact.rarity === 'Epic'
+                        ? 'bg-gradient-to-r from-transparent via-purple-500 to-transparent'
+                        : inspectArtifact.rarity === 'Rare'
+                        ? 'bg-gradient-to-r from-transparent via-emerald-500 to-transparent'
+                        : 'bg-gradient-to-r from-transparent via-neutral-500 to-transparent'
+                    }`}></div>
+                    
+                    <div className="p-6 space-y-6">
+                      {/* Icon & Title */}
+                      <div className="flex flex-col items-center text-center space-y-4">
+                        <div className="w-16 h-16 rounded-2xl bg-black/60 border border-neutral-900 flex items-center justify-center relative shadow-inner overflow-hidden">
+                          {(() => {
+                            const lower = inspectArtifact.name.toLowerCase();
+                            const size = 28;
+                            let className = "";
+                            const rarity = inspectArtifact.rarity;
+                            
+                            if (rarity === 'Transcendent') className = "text-cyan-400 animate-pulse drop-shadow-[0_0_10px_rgba(6,182,212,0.6)]";
+                            else if (rarity === 'Mythic') className = "text-red-500 animate-pulse drop-shadow-[0_0_8px_rgba(220,38,38,0.5)]";
+                            else if (rarity === 'Legendary') className = "text-amber-500 drop-shadow-[0_0_6px_rgba(245,158,11,0.4)]";
+                            else if (rarity === 'Epic') className = "text-purple-400";
+                            else if (rarity === 'Rare') className = "text-emerald-400";
+                            else className = "text-neutral-500";
+
+                            if (lower.includes('medallion') || lower.includes('badge')) return <Award size={size} className={className} />;
+                            if (lower.includes('seal') || lower.includes('signet')) return <Shield size={size} className={className} />;
+                            if (lower.includes('gourd') || lower.includes('nectar') || lower.includes('cauldron') || lower.includes('potion')) return <Zap size={size} className={className} />;
+                            if (lower.includes('spindle') || lower.includes('thread') || lower.includes('matrix')) return <RefreshCw size={size} className={className} />;
+                            if (lower.includes('pen') || lower.includes('brush') || lower.includes('scribe')) return <Save size={size} className={className} />;
+                            if (lower.includes('crown') || lower.includes('circlet') || lower.includes('tiara')) return <Sliders size={size} className={className} />;
+                            if (lower.includes('compass')) return <Compass size={size} className={className} />;
+                            if (lower.includes('mirror')) return <Globe size={size} className={className} />;
+                            if (lower.includes('key')) return <Key size={size} className={className} />;
+                            return <Sparkles size={size} className={className} />;
+                          })()}
+                          <div className="absolute inset-0 bg-gradient-to-t from-portal/5 via-transparent to-transparent"></div>
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <span className={`text-[10px] uppercase font-bold tracking-widest font-mono block px-3 py-1 rounded-full bg-neutral-900/50 border border-neutral-850 max-w-fit mx-auto ${
+                            inspectArtifact.rarity === 'Transcendent' 
+                              ? 'text-cyan-400 border-cyan-950 bg-cyan-950/20' 
+                              : inspectArtifact.rarity === 'Mythic' 
+                              ? 'text-red-400 border-red-950 bg-red-950/20' 
+                              : inspectArtifact.rarity === 'Legendary' 
+                              ? 'text-amber-400 border-amber-950 bg-amber-950/20'
+                              : inspectArtifact.rarity === 'Epic'
+                              ? 'text-purple-400 border-purple-950 bg-purple-950/20'
+                              : inspectArtifact.rarity === 'Rare'
+                              ? 'text-emerald-400 border-emerald-950 bg-emerald-950/20'
+                              : 'text-neutral-400'
+                          }`}>
+                            {inspectArtifact.rarity} Relic
+                          </span>
+                          <h3 className="font-display text-xl text-signal">{inspectArtifact.name}</h3>
+                          <p className="text-[10px] text-neutral-500 font-mono">
+                            Acquired on {new Date(inspectArtifact.unlockedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Lore / Story description */}
+                      <div className="bg-[#030303] border border-neutral-900 p-4 rounded-xl space-y-2 shadow-inner">
+                        <h4 className="text-[9px] uppercase font-bold tracking-widest text-neutral-500 font-sc">Sacred Relic Lore</h4>
+                        <p className="text-xs font-serif text-neutral-300 leading-relaxed italic">
+                          "{inspectArtifact.description}"
+                        </p>
+                      </div>
+
+                      {/* Meridian Attribute Boost */}
+                      <div className="bg-[#030303] border border-neutral-900 p-4 rounded-xl flex items-center justify-between">
+                        <div>
+                          <h4 className="text-[9px] uppercase font-bold tracking-widest text-neutral-500 font-sc">Karmic Resonance</h4>
+                          <p className="text-[10px] text-neutral-500 font-sans mt-0.5">Continuous soul-meridian boost</p>
+                        </div>
+                        <div className="px-3 py-1.5 bg-portal/10 border border-portal/30 rounded-lg text-xs font-bold font-mono text-portal animate-pulse flex items-center gap-1.5 shadow-[0_0_10px_rgba(4,172,255,0.1)]">
+                          <Sparkles size={12} />
+                          <span>{inspectArtifact.attributeBoost}</span>
+                        </div>
+                      </div>
+
+                      {/* Milestone Details */}
+                      <div className="text-[10px] text-neutral-500 font-mono flex justify-between items-center px-1">
+                        <span>Unlock Catalyst:</span>
+                        <span className="text-neutral-300 font-sans font-medium">{inspectArtifact.milestoneName}</span>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex gap-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleAttuneArtifact(inspectArtifact.id);
+                          }}
+                          className={`flex-1 py-2.5 border rounded-full font-sc uppercase tracking-widest text-[11px] font-bold transition-all ${
+                            profile?.equippedArtifactId === inspectArtifact.id
+                              ? 'bg-transparent border-amber-500/40 text-amber-500 hover:bg-amber-500/10'
+                              : 'bg-portal/10 border border-portal/30 text-portal hover:bg-portal hover:text-void shadow-[0_0_15px_rgba(4,172,255,0.1)]'
+                          }`}
+                        >
+                          {profile?.equippedArtifactId === inspectArtifact.id ? 'Sever Attunement' : 'Attune Soul to Relic'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setInspectArtifact(null)}
+                          className="px-6 py-2.5 border border-neutral-800 text-neutral-400 hover:text-signal hover:border-neutral-700 rounded-full font-sc uppercase tracking-widest text-[11px] font-bold transition-all"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Own Stories Section */}
               <div className="pt-10 border-t border-neutral-900/50 mt-10">
@@ -845,6 +1494,288 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
               </div>
             </>
           )}
+
+      {/* Divine Mirror of the Soul Modal */}
+      {showPortraitModal && (
+        <div className="fixed inset-0 bg-void/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-void border border-neutral-900 w-full max-w-lg rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(4,172,255,0.12)] flex flex-col relative max-h-[90vh] text-signal font-sans">
+            {/* Ethereal top border light */}
+            <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-portal to-transparent"></div>
+            
+            {/* Header */}
+            <div className="p-6 border-b border-neutral-900/50 flex justify-between items-center bg-black/30 shrink-0">
+              <div>
+                <h3 className="font-display text-2xl text-signal font-bold tracking-wide flex items-center gap-2">
+                  <Sparkles className="text-portal animate-pulse" size={18} />
+                  Divine Mirror of the Soul
+                </h3>
+                <p className="text-[11px] text-portal/70 font-sc font-bold uppercase tracking-widest mt-1">
+                  Weave Mortal likeness into Immortal Essence
+                </p>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowPortraitModal(false);
+                  setPortraitUploadFile(null);
+                  setPortraitUploadBase64('');
+                  setPortraitDesc('');
+                  setGeneratedPortraitUrl('');
+                  setPortraitError('');
+                }}
+                className="text-neutral-500 hover:text-signal transition-colors p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="p-6 space-y-6 overflow-y-auto flex-1">
+              
+              {/* Spiritual Attunements Panel */}
+              <div className="p-4 bg-neutral-950/80 border border-neutral-900 rounded-xl space-y-3 shadow-inner">
+                <div className="flex justify-between items-center pb-2 border-b border-neutral-900/50">
+                  <span className="text-[10px] font-sc font-bold uppercase tracking-widest text-neutral-400">Spiritual Attunements Channeled</span>
+                  <span className="text-[9px] font-mono text-portal font-bold bg-portal/10 border border-portal/30 px-2 py-0.5 rounded-full uppercase animate-pulse">Loom Ready</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-sc font-bold uppercase tracking-wider text-neutral-500 block">Sect Dao Rank</span>
+                    <div className="flex items-center gap-1.5 text-xs font-semibold">
+                      <Award size={12} className="text-portal" />
+                      <span className="text-signal truncate" title={profile?.dao_rank || 'Mortal Reader'}>
+                        {profile?.dao_rank || 'Mortal Reader'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-sc font-bold uppercase tracking-wider text-neutral-500 block">Active Power Stage</span>
+                    <div className="flex items-center gap-1.5 text-xs font-semibold flex-row">
+                      <Flame size={12} className="text-human" />
+                      <span className="text-signal truncate" title={currentPowerStage || 'Mortal Seeker'}>
+                        {currentPowerStage || 'Mortal Seeker'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-sc font-bold uppercase tracking-wider text-neutral-500 block">Equipped Artifact</span>
+                    <div className="flex items-center gap-1.5 text-xs font-semibold">
+                      <Compass size={12} className="text-amber-500" />
+                      <span className="text-signal truncate" title={equippedArtifact?.name || 'No Relic'}>
+                        {equippedArtifact?.name || 'No Relic'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[10px] font-serif italic text-neutral-500 leading-normal border-t border-neutral-900/50 pt-2">
+                  "The Divine Mirror automatically reads your achievements and weaves robes, relics, and celestial auras directly into your final likeness."
+                </p>
+              </div>
+
+              {portraitError && (
+                <div className="p-3.5 bg-human/10 border border-human/30 text-human rounded-lg text-xs font-mono text-center">
+                  {portraitError}
+                </div>
+              )}
+
+              {/* Upload and Side-by-side View */}
+              {!generatedPortraitUrl && !isGeneratingPortrait ? (
+                <div className="space-y-4">
+                  <label htmlFor="portrait-file-input" className="block text-xs font-sc font-bold uppercase tracking-widest text-neutral-400">
+                    Mortal likeness projection
+                  </label>
+                  
+                  {portraitUploadBase64 ? (
+                    <div className="relative group rounded-xl overflow-hidden border border-neutral-900 bg-black/60 p-4 flex flex-col items-center justify-center">
+                      <img 
+                        src={portraitUploadBase64} 
+                        alt="Mortal Looks Preview" 
+                        className="w-32 h-32 object-cover rounded-full border border-neutral-800/80 grayscale filter group-hover:grayscale-0 transition-all duration-500 animate-[pulse_3s_infinite]"
+                      />
+                      <button 
+                        onClick={() => {
+                          setPortraitUploadFile(null);
+                          setPortraitUploadBase64('');
+                        }}
+                        className="mt-3 text-[10px] font-sc font-bold uppercase tracking-widest text-human/80 hover:text-human border border-human/20 hover:border-human/50 px-2.5 py-1 bg-human/5 rounded transition-all"
+                      >
+                        Reset Likeness
+                      </button>
+                    </div>
+                  ) : (
+                    <div 
+                      onDragEnter={handleDrag}
+                      onDragOver={handleDrag}
+                      onDragLeave={handleDrag}
+                      onDrop={handleDrop}
+                      onClick={() => document.getElementById('portrait-file-input')?.click()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          document.getElementById('portrait-file-input')?.click();
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 ${
+                        dragActive 
+                          ? 'border-portal bg-portal/5 shadow-[0_0_20px_rgba(4,172,255,0.1)]' 
+                          : 'border-neutral-800 hover:border-portal/50 hover:bg-neutral-900/20'
+                      }`}
+                    >
+                      <input 
+                        type="file" 
+                        id="portrait-file-input" 
+                        className="hidden" 
+                        accept="image/*"
+                        onChange={(e) => e.target.files && e.target.files[0] && handleFileChange(e.target.files[0])}
+                      />
+                      <Upload size={28} className="text-neutral-500 mb-3 animate-pulse" />
+                      <p className="text-xs text-neutral-300 font-sans">
+                        Drag & drop your portrait here, or <span className="text-portal font-semibold">click to browse</span>
+                      </p>
+                      <p className="text-[10px] text-neutral-500 font-mono mt-1">
+                        PNG, JPG or WEBP (Standard Photo)
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              {/* Form Input for Custom Affiliation/Details */}
+              {!generatedPortraitUrl && !isGeneratingPortrait ? (
+                <div className="space-y-2">
+                  <label htmlFor="portrait-desc-input" className="block text-xs font-sc font-bold uppercase tracking-widest text-neutral-400">
+                    Spiritual Path & Attunements (Optional Description)
+                  </label>
+                  <textarea
+                    id="portrait-desc-input"
+                    value={portraitDesc}
+                    onChange={(e) => setPortraitDesc(e.target.value)}
+                    placeholder="e.g., A thunder-infused cultivator with glowing crimson eyes, clad in midnight-black battle robes. Wielding a jade lightning sword."
+                    rows={3}
+                    maxLength={200}
+                    className="w-full bg-black border border-neutral-800 rounded-xl px-4 py-3 text-sm text-signal focus:outline-none focus:border-portal/70 transition-colors placeholder-neutral-600 font-sans"
+                  />
+                  <div className="flex justify-between text-[10px] text-neutral-500 font-mono">
+                    <span>Incorporate custom Xianxia visual themes</span>
+                    <span>{portraitDesc.length}/200</span>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Generation Progress Overlay */}
+              {isGeneratingPortrait && (
+                <div className="py-12 flex flex-col items-center justify-center text-center space-y-6">
+                  {/* Glowing custom loader spinner */}
+                  <div className="relative w-16 h-16">
+                    <div className="absolute inset-0 rounded-full border-4 border-portal/10 border-t-portal animate-spin"></div>
+                    <div className="absolute inset-2 rounded-full border border-human/10 border-b-human animate-[spin_3s_linear_infinite_reverse]"></div>
+                    <div className="absolute inset-4 rounded-full bg-void flex items-center justify-center">
+                      <Sparkles size={16} className="text-portal animate-pulse" />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2 max-w-sm">
+                    <h4 className="font-display text-lg text-signal animate-pulse">Refining Soul Signature</h4>
+                    <p className="text-xs text-neutral-400 font-mono min-h-[1.5rem] tracking-wide">
+                      {generationSteps[generationStep]}
+                    </p>
+                  </div>
+                  
+                  <div className="w-48 h-[2px] bg-neutral-900 rounded-full overflow-hidden relative">
+                    <div 
+                      className="absolute left-0 top-0 h-full bg-gradient-to-r from-portal to-human transition-all duration-1000"
+                      style={{ width: `${((generationStep + 1) / generationSteps.length) * 100}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Successful Portrait View */}
+              {generatedPortraitUrl && !isGeneratingPortrait && (
+                <div className="space-y-6 flex flex-col items-center justify-center">
+                  <div className="text-center">
+                    <p className="text-[10px] font-sc font-bold uppercase tracking-[0.25em] text-portal mb-2">Immortal Manifestation</p>
+                    <h4 className="font-display text-2xl text-signal">Cultivator Portrait Forged</h4>
+                  </div>
+                  
+                  <div className="relative w-64 h-64 rounded-full p-1.5 border border-portal/40 shadow-[0_0_30px_rgba(4,172,255,0.15)] bg-black/40 overflow-hidden flex items-center justify-center group">
+                    <img 
+                      src={generatedPortraitUrl} 
+                      alt="Cultivator Portrait" 
+                      className="w-full h-full object-cover rounded-full border border-neutral-900 transition-transform duration-700 group-hover:scale-105"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 rounded-full border border-portal/20 pointer-events-none scale-105 animate-[spin_20s_linear_infinite]"></div>
+                  </div>
+
+                  <p className="text-xs text-neutral-400 font-serif text-center max-w-sm italic leading-relaxed">
+                    "Your features have been aligned with the ancient celestial laws, weaving your mortal likeness into the divine fabric."
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Control Panel */}
+            <div className="border-t border-neutral-900/50 bg-black/20 shrink-0">
+              <div className="p-6 flex gap-3">
+                {generatedPortraitUrl ? (
+                  <>
+                    <button 
+                      onClick={handleApplyPortrait}
+                      className="flex-1 py-3 bg-portal hover:bg-portal/90 text-void font-sc font-bold uppercase text-[11px] tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(4,172,255,0.25)] flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Save size={13} /> Attune as Avatar
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setGeneratedPortraitUrl('');
+                        setPortraitError('');
+                      }}
+                      className="px-5 py-3 border border-neutral-800 hover:border-neutral-600 text-neutral-300 font-sc font-bold uppercase text-[11px] tracking-widest rounded-xl transition-all cursor-pointer"
+                    >
+                      Re-forge
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button 
+                      disabled={!portraitUploadBase64 || isGeneratingPortrait}
+                      onClick={handleGeneratePortrait}
+                      className={`flex-1 py-3 font-sc font-bold uppercase text-[11px] tracking-widest rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                        portraitUploadBase64 && !isGeneratingPortrait
+                          ? 'bg-portal hover:bg-portal/90 text-void shadow-[0_0_20px_rgba(4,172,255,0.25)] cursor-pointer'
+                          : 'bg-neutral-900 text-neutral-600 cursor-not-allowed border border-neutral-800'
+                      }`}
+                    >
+                      <Sparkles size={13} /> Forge Portrait
+                    </button>
+                    <button 
+                      disabled={isGeneratingPortrait}
+                      onClick={() => {
+                        setShowPortraitModal(false);
+                        setPortraitUploadFile(null);
+                        setPortraitUploadBase64('');
+                        setPortraitDesc('');
+                        setGeneratedPortraitUrl('');
+                        setPortraitError('');
+                      }}
+                      className="px-5 py-3 border border-neutral-800 hover:border-neutral-600 hover:text-signal text-neutral-400 font-sc font-bold uppercase text-[11px] tracking-widest rounded-xl transition-all disabled:opacity-50 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                )}
+              </div>
+              
+              {/* Privacy Shield Notice (Moved to Bottom) */}
+              <div className="px-6 py-3 bg-neutral-900/30 border-t border-neutral-900/50 flex items-center justify-center gap-2 text-[10px] text-neutral-500 font-serif">
+                <Shield size={12} className="text-portal/60" />
+                <span>Absolute Privacy: Images are transient and never stored or displayed publicly.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
           {/* Settings & boring things at the very bottom! */}
           {renderBoringThings()}

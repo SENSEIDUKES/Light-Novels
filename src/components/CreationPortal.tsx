@@ -28,6 +28,11 @@ interface CreationPortalProps {
   error: string | null;
 }
 
+const getRandomName = () => {
+  const names = ['Ye Chen', 'Xiao Yan', 'Lin Dong', 'Wang Lin', 'Meng Hao', 'Bai Xiaochun', 'Su Ming', 'Li Qiye', 'Chu Feng', 'Ji Ning'];
+  return names[Math.floor(Math.random() * names.length)];
+};
+
 export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGenerating: isGeneratingProp, error }: CreationPortalProps) {
   const { isGenerating: storeIsGenerating, activeAgentId, currentUser } = useAppStore();
   const isGenerating = isGeneratingProp || storeIsGenerating;
@@ -37,10 +42,10 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
   const [chapterCount, setChapterCount] = useState(10);
   const [activeSection, setActiveSection] = useState<FormSectionId>('core');
 
-  const [intake, setIntake] = useState<IntakeData>({
+  const [intake, setIntake] = useState<IntakeData>(() => ({
     novelTitle: '',
-    mcName: 'Han Feng',
-    genrePath: 'Xianxia',
+    mcName: getRandomName(),
+    genrePath: 'Fate Survival',
     corePremise: PREMISE_SUGGESTIONS[0],
     desiredPlotDirection: '',
     storyTags: [],
@@ -75,7 +80,7 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
     mustIncludeElements: '',
     fatePressure: 'Balanced',
     makeItWorkInstruction: '',
-  });
+  }));
 
   const updateIntake = (field: keyof IntakeData, value: any) => {
     setIntake(prev => ({ ...prev, [field]: value }));
@@ -98,6 +103,7 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
 
   const handleGenerateBlueprintClick = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isGenerating || useAppStore.getState().isGenerating) return;
     if (!intake.corePremise?.trim() || !intake.genrePath) return;
     try {
       const bp = await onGenerateBlueprint(intake);
@@ -109,6 +115,7 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
   };
 
   const handleStartStoryClick = async () => {
+    if (isGenerating || useAppStore.getState().isGenerating) return;
     if (!blueprint) return;
     const cleanBlueprint = {
       ...blueprint,

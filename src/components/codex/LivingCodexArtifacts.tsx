@@ -146,15 +146,21 @@ export function LivingCodexArtifacts({
             const activePreview = previews[art.id];
             const canGenerate = hasAppeared && (!hasImage || art.evolutionReady);
             const displayedImage = activePreview ? activePreview.urls[activePreview.selectedIndex] : art.imageUrl;
+            const isMythicOrTranscendent = art.tier === 'Primordial' || art.tier === 'Heaven';
             const tierColor = 
-              art.tier === 'Primordial' ? 'text-yellow-400 border-yellow-950 bg-yellow-950/20' :
-              art.tier === 'Heaven' ? 'text-portal border-cyan-950 bg-cyan-950/20 animate-pulse' :
-              art.tier === 'Earth' ? 'text-green-400 border-green-950 bg-green-950/20' :
+              art.tier === 'Primordial' ? 'text-yellow-400 border-yellow-500/50 shadow-[0_0_15px_rgba(250,204,21,0.2)] bg-gradient-to-br from-yellow-950/40 to-neutral-950/90' :
+              art.tier === 'Heaven' ? 'text-cyan-400 border-cyan-500/50 shadow-[0_0_15px_rgba(34,211,238,0.2)] animate-pulse bg-gradient-to-br from-cyan-950/40 to-neutral-950/90' :
+              art.tier === 'Earth' ? 'text-emerald-400 border-emerald-900 bg-emerald-950/20' :
               'text-neutral-500 border-neutral-900 bg-neutral-950';
 
             return (
-              <div key={art.id} className={`p-4 bg-neutral-950/80 border ${art.evolutionReady && !activePreview ? 'border-portal/50 shadow-[0_0_15px_rgba(4,172,255,0.15)]' : 'border-neutral-900'} rounded-lg hover:border-neutral-850 flex flex-col justify-between transition-all`}>
-                <div>
+              <div key={art.id} className={`collectible-card p-4 border flex flex-col justify-between transition-all overflow-hidden relative group/card ${tierColor} ${art.evolutionReady && !activePreview ? 'ring-2 ring-portal/50' : ''}`}>
+                {/* Holographic foil effect for higher tiers */}
+                {isMythicOrTranscendent && (
+                  <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjMDAwIi8+CjxwYXRoIGQ9Ik0wIDRMMCAwTDQgNEwwIDQiIGZpbGw9IiMzMzMiLz4KPC9zdmc+')] opacity-20 mix-blend-color-dodge pointer-events-none"></div>
+                )}
+                
+                <div className="relative z-10">
                   <div className="relative group overflow-hidden rounded mb-3">
                     {/* Render relational artifact card portrait if available */}
                     {renderImageHistoryGallery(art.id, 'artifact', activeStory.imageHistory?.filter(img => img.entityId === art.id))}

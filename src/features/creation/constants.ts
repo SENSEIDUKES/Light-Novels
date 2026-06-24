@@ -99,6 +99,7 @@ export const CATEGORIZED_TAGS: Record<string, string[]> = {
 export const TAG_PRESETS = Array.from(new Set(Object.values(CATEGORIZED_TAGS).flat()));
 
 export const GENRE_PRESETS = [
+  { id: 'Fate Survival', name: 'Fate Survival', icon: '💀' },
   { id: 'Xianxia', name: 'Xianxia', icon: '⚔️' },
   { id: 'Xuanhuan', name: 'Xuanhuan', icon: '🔥' },
   { id: 'LitRPG / System', name: 'System', icon: '⚡' },
@@ -113,8 +114,7 @@ export const GENRE_PRESETS = [
   { id: 'Cosmic Cultivation', name: 'Cosmic', icon: '🌌' },
   { id: 'Political Intrigue', name: 'Political Intrigue', icon: '👑' },
   { id: 'Cozy Slice-of-Life', name: 'Cozy/Slice-of-Life', icon: '🏡' },
-  { id: 'Mystery Cultivation', name: 'Mystery', icon: '🔍' },
-  { id: 'Fate Survival', name: 'Fate Survival', icon: '💀' }
+  { id: 'Mystery Cultivation', name: 'Mystery', icon: '🔍' }
 ];
 
 export const PREMISE_SUGGESTIONS = [

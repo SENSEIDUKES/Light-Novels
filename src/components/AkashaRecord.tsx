@@ -543,7 +543,15 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
               
               <div className="mb-6">
                 <label className="text-[10px] text-neutral-500 uppercase tracking-widest font-mono block mb-2" htmlFor="a11y-control-${labelCounter}">
-                  Type <span className="text-red-400 font-bold">DELETE</span> to confirm
+                  Type <span className="text-red-400 font-bold">DELETE</span> to confirm{' '}
+                  <button
+                    type="button"
+                    onClick={() => setDeleteInput('DELETE')}
+                    className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-sc font-bold border border-portal/30 bg-portal/10 text-portal hover:bg-portal hover:text-black rounded transition-all duration-300 cursor-pointer"
+                    title="Auto-fill delete text"
+                  >
+                    Auto-Fill
+                  </button>
                 </label>
                 <input
                   type="text"

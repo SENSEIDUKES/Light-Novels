@@ -1106,6 +1106,98 @@ app.post("/api/generate-card-image", async (req, res) => {
   }
 });
 
+// 4.5 Generate Cultivator Portrait from uploaded image and description
+app.post("/api/generate-cultivator-portrait", async (req, res) => {
+  const { image, description, daoRank, daoXp, powerStage, equippedArtifact, routingConfig } = req.body;
+  try {
+    if (!image) {
+      return res.status(400).json({ error: "Missing image parameter for portrait generation" });
+    }
+
+    const customKeys = getCustomKeys(req);
+    const apiKey = customKeys?.geminiApiKey || process.env.GEMINI_API_KEY;
+    let refinedPrompt = "";
+
+    if (apiKey && apiKey !== "MY_GEMINI_API_KEY" && apiKey.trim() !== "") {
+      try {
+        let base64Data = image;
+        let mimeType = "image/jpeg";
+        if (image.includes(";base64,")) {
+          const parts = image.split(";base64,");
+          mimeType = parts[0].replace("data:", "");
+          base64Data = parts[1];
+        }
+
+        const { GoogleGenAI } = await import("@google/genai");
+        const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { "User-Agent": "aistudio-build" } } });
+
+        const systemInstruction = `You are a mystical portrait artist of the immortal realms.
+Your task is to analyze the user's uploaded portrait photo, their custom preferences, and their spiritual progression metrics to forge a stunning, anime/light novel-style "Cultivator Portrait" that is deeply attuned to their achievements.
+
+SPIRITUAL PROGRESSION RULES (Incorporate these elements into the prompt based on the user's details):
+- DAO RANK ATTUNEMENT (Dresses, robes, and environmental grandeur):
+  * "Mortal Reader" -> Simple, humble coarse linen apprentice garments, a simple wooden hairpin, basic mountain landscape.
+  * "Wandering Disciple" -> Light blue and white flowing silk robes, soft radiant blue aura, holding a simple steel cultivator sword or wooden talisman.
+  * "Outer Sect Scribe" -> Cyan-tinted scholarly robes, surrounded by drifting scrolls, glowing ink droplets, holding an elegant calligraphy brush.
+  * "Inner Sect Scholar" -> Deep emerald-green research silk robes, glowing jade ornaments, floating ancient texts with green spiritual scripture.
+  * "Dao Adept" -> Royal violet star robes, crackles of violet lightning or spiritual flame, a crown of celestial quartz.
+  * "Spirit Author" -> Imperial gold-threaded robes, a divine brush of pure amber light tracing glowing sigils in the sky, surrounded by mythical qi phantoms.
+  * "Heavenly Chronicler" -> Brilliant gold-leaf vestments, a celestial halo behind their head, constellations, gold particle sparks and starry nebulae in the background.
+  * "Sage of Branching Paths" -> Shifting translucent prism or rainbow-gradient silk, holding a faceted glass lotus/mirror, standing amidst branching pathways of light and parallel reality portals.
+  * "Dao Master" -> Primordial nebulae/void dark robes, a dual yin-yang cosmic matrix spinning in their background, shattering glass-like reality patterns, eyes glowing with pure, unmitigated divine consciousness.
+
+- CULTIVATION POWER STAGE (Aura and visual power level):
+  * Reflect the user's current novel power stage "${powerStage || 'None'}" in their energy lines (e.g., if it mentions "Qi Condensation", show delicate visible wisps of Qi; if "Foundation Establishment", show a solid glowing core; if "Nascent Soul", show a mini radiant projection of their soul; if "Core Formation", a spinning golden sphere at the dantian).
+
+- EQUIPPED COSMIC ARTIFACT (To be actively held or floating beside them):
+  * If an artifact is equipped (${equippedArtifact ? `"${equippedArtifact.name}": ${equippedArtifact.description} (${equippedArtifact.rarity} rarity)` : 'None'}), you MUST seamlessly paint this artifact into the scene. For example, if it's a sword, they are wielding it; if it's a mirror/gourd/talisman, it is floating near their hand, glowing with power proportional to its rarity.
+
+GENERAL CONSTRAINTS:
+1. The prompt MUST retain the user's apparent gender, facial structure, expression, hair style (adapted elegantly to Xianxia style), and overall physical vibe from their uploaded photo, but ascended into an immortal form.
+2. The response must be ONLY the raw prompt string for the image generator (no introduction, explanation, or markdown quotes). Keep it under 200 words.`;
+
+        const response = await ai.models.generateContent({
+          model: "gemini-3.5-flash",
+          contents: [
+            {
+              inlineData: {
+                mimeType: mimeType,
+                data: base64Data
+              }
+            },
+            {
+              text: `Analyze this image, my description: "${description || 'None'}", Dao Rank: "${daoRank || 'Mortal Reader'}" (XP: ${daoXp || 0}), Power Stage: "${powerStage || 'None'}", Equipped Artifact: ${equippedArtifact ? equippedArtifact.name : 'None'}, and write a detailed progression-attuned anime-style image generator prompt.`
+            }
+          ],
+          config: {
+            systemInstruction: systemInstruction,
+          }
+        });
+
+        refinedPrompt = response.text || "";
+      } catch (geminiError: any) {
+        console.warn("Gemini vision analysis failed, falling back to description-based prompt:", geminiError);
+      }
+    }
+
+    // Fallback prompt generation if Gemini is missing or failed
+    if (!refinedPrompt) {
+      refinedPrompt = `A majestic celestial cultivator matching rank "${daoRank || 'Mortal Reader'}" and power stage "${powerStage || 'None'}", professional anime character portrait, fantasy webnovel style, intricate details, sharp focus, celestial backlighting, clean high contrast colors. User traits: ${description || "mystical eyes, elegant robes, swirling Qi aura, starry background"}${equippedArtifact ? `, holding or floating with ${equippedArtifact.name}` : ''}`;
+    }
+
+    // Generate the actual portrait image using Pollinations AI or Gemini Image Gen via routeImageGeneration
+    const result = await routeImageGeneration(refinedPrompt, "portrait", routingConfig, customKeys);
+    return res.json({ 
+      imageUrl: result.imageUrls?.[0], 
+      promptUsed: refinedPrompt,
+      note: "No personal data, images, or files are stored on our servers. This transformation occurs dynamically in real-time."
+    });
+  } catch (error: any) {
+    console.error("Error generating cultivator portrait:", error);
+    return res.status(500).json({ error: error.message || "Celestial alignment interrupted." });
+  }
+});
+
 // 5. Generate Story-Specific Glossary terms and lore definitions
 app.post("/api/generate-custom-glossary", async (req, res) => {
   const { storyTitle, mcName, genre, customPremise, characterNames, factionNames, routingConfig } = req.body;

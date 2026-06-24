@@ -3,29 +3,45 @@ import { retrieveRelevantContext, generateEmbedding } from '../lib/rag';
 import { Story, StoryMemory, Chapter } from '../types';
 import { storyStorage } from '../lib/storage';
 import { awardQi } from '../lib/qi';
+import { unlockCosmicArtifact } from '../lib/artifacts';
 import { getApiHeaders, extractJsonBlocks, runMemoryLinter } from './storyEngineHelpers';
 
 export const useChapterGeneration = () => {
   const store = useAppStore();
 
   const handleGenerateChapter = async (chapterNumber: number) => {
-    if (store.isGenerating) {
-      console.warn("Generation already in progress.");
+    const currentStoreState = useAppStore.getState();
+    if (currentStoreState.isGenerating) {
+      console.warn("Generation already in progress. Ignoring duplicate click.");
       return;
     }
-    const activeStory = store.stories.find(s => s.id === store.activeStoryId);
-    if (!activeStory) return;
-    store.setStreamingChapter(null);
-    store.setGenerationPhase('chapter');
-    store.setIsGenerating(true);
-    store.setAppError(null);
+    // Synchronously set generating state on the global store before any async operations
+    currentStoreState.setIsGenerating(true);
+    currentStoreState.setGeneratingChapterNum(chapterNumber);
+
+    const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
+    if (!activeStory) {
+      currentStoreState.setIsGenerating(false);
+      currentStoreState.setGeneratingChapterNum(null);
+      return;
+    }
+    currentStoreState.setGenerationPhase('chapter');
+    currentStoreState.setAppError(null);
 
     const selectedArcIndex = activeStory.arcs.findIndex(arc => arc.chapters.some(c => c.number === chapterNumber));
-    if (selectedArcIndex === -1) return;
+    if (selectedArcIndex === -1) {
+      currentStoreState.setIsGenerating(false);
+      currentStoreState.setGeneratingChapterNum(null);
+      return;
+    }
 
     const currentArc = activeStory.arcs[selectedArcIndex];
     const targetChapter = currentArc.chapters.find(c => c.number === chapterNumber);
-    if (!targetChapter) return;
+    if (!targetChapter) {
+      currentStoreState.setIsGenerating(false);
+      currentStoreState.setGeneratingChapterNum(null);
+      return;
+    }
 
     try {
       store.setActiveAgentId('scout');
@@ -111,13 +127,6 @@ export const useChapterGeneration = () => {
                    // Keep the text empty to show the fallback loading message instead of raw JSON
                    currentChapterText = "";
                 }
-
-                // If no parsed text yet, leave it empty to trigger the fallback loading message
-                store.setStreamingChapter({
-                  number: chapterNumber,
-                  content: currentChapterText || "Condensing celestial aura...",
-                  blocks: blocksData.length > 0 ? blocksData : undefined
-                });
               }
             } catch (e: any) {
               if (streamError) {
@@ -157,12 +166,6 @@ export const useChapterGeneration = () => {
       if (!data.chapterText || data.chapterText.trim().length < 150) {
         throw new Error("Celestial stream dissipated prematurely. Chapter content is incomplete; creation has been safeguarded.");
       }
-
-      store.setStreamingChapter({
-         number: chapterNumber,
-         content: data.chapterText,
-         blocks: data.blocks
-      });
 
       const extractResponse = await fetch('/api/extract-chapter-metadata', {
         method: 'POST',
@@ -519,6 +522,21 @@ export const useChapterGeneration = () => {
 
       await store.saveStories(updatedStories);
       awardQi('chapter_generated');
+      
+      // Scan chapter content for epic story-event artifacts
+      import('../lib/artifacts').then(({ scanChapterForArtifacts }) => {
+        const fullText = (data.chapterText || "") + " " + (data.blocks || []).map((b: any) => b.text).join(" ");
+        scanChapterForArtifacts(activeStory.id, activeStory.title, chapterNumber, fullText, data).catch((err) => {
+          console.error("Failed to scan chapter for artifacts:", err);
+        });
+      });
+      
+      // Award Compass of Pathless Destinies on reaching Chapter 5
+      if (chapterNumber === 5) {
+        unlockCosmicArtifact('chapter_5', activeStory.id, activeStory.title).catch((err) => {
+          console.error('Failed to unlock Chapter 5 artifact:', err);
+        });
+      }
 
     } catch (err: any) {
       console.error(err);
@@ -526,7 +544,7 @@ export const useChapterGeneration = () => {
     } finally {
       store.setIsGenerating(false);
       store.setGenerationPhase(null);
-      store.setStreamingChapter(null);
+      store.setGeneratingChapterNum(null);
       store.setActiveAgentId(null);
     }
   };

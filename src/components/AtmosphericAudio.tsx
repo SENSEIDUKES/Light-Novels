@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SceneScoreEngine, SceneAudioTrack } from '../lib/audio/musicResolver';
 import { useAppStore } from '../store/useAppStore';
+import { vibrate } from '../lib/vibration';
 
 type AtmosphereType = 'none' | 'wind' | 'rain' | 'temple' | 'crowd' | 'combat';
 type FXType = 'footsteps' | 'footsteps_snow' | 'footsteps_wood' | 'footsteps_stone' | 'creature' | 'system_alert' | 'combat_hit';
@@ -362,6 +363,7 @@ export function AtmosphericAudio() {
   };
 
   const triggerChime = (ctx: AudioContext) => {
+    vibrate('chime');
     const osc = ctx.createOscillator();
     osc.type = 'sine';
     osc.frequency.setValueAtTime(880, ctx.currentTime); 
@@ -379,6 +381,7 @@ export function AtmosphericAudio() {
   };
 
   const triggerSystemAlert = (ctx: AudioContext) => {
+    vibrate('softTap');
     const osc = ctx.createOscillator();
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(800, ctx.currentTime);
@@ -397,6 +400,7 @@ export function AtmosphericAudio() {
   };
 
   const triggerFootstep = (ctx: AudioContext, material: 'generic' | 'snow' | 'wood' | 'stone' = 'generic') => {
+    vibrate('footstep');
     const bufferSize = ctx.sampleRate * 0.1; 
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const output = buffer.getChannelData(0);
@@ -453,6 +457,7 @@ export function AtmosphericAudio() {
   };
 
   const triggerCreature = (ctx: AudioContext) => {
+    vibrate('roar');
     const osc = ctx.createOscillator();
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(100, ctx.currentTime);
@@ -477,6 +482,7 @@ export function AtmosphericAudio() {
   };
 
   const triggerBeastEvent = (ctx: AudioContext, event: { type: string, profile: import('../types').BeastSonicProfile }) => {
+    vibrate('roar');
     if (!event || !event.profile) return;
     const { type, profile } = event;
     const { size = 'human-sized', element = 'none', signatureSound = 'roar', threatTier = 'common' } = profile;
@@ -569,6 +575,7 @@ export function AtmosphericAudio() {
   };
 
   const triggerCombatHit = (ctx: AudioContext) => {
+    vibrate('combatHit');
     const osc = ctx.createOscillator();
     osc.type = 'square';
     osc.frequency.setValueAtTime(300, ctx.currentTime);
@@ -592,6 +599,7 @@ export function AtmosphericAudio() {
   };
 
   const triggerQiSurge = (ctx: AudioContext) => {
+    vibrate('surge');
     const osc = ctx.createOscillator();
     osc.type = 'sine';
     osc.frequency.setValueAtTime(50, ctx.currentTime);
@@ -609,6 +617,7 @@ export function AtmosphericAudio() {
   };
 
   const triggerMajorHit = (ctx: AudioContext) => {
+    vibrate('heavyTap');
     const osc = ctx.createOscillator();
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(100, ctx.currentTime);
@@ -633,6 +642,7 @@ export function AtmosphericAudio() {
   };
 
   const triggerFateShift = (ctx: AudioContext) => {
+    vibrate('shift');
     const osc = ctx.createOscillator();
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(800, ctx.currentTime);

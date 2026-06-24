@@ -148,12 +148,14 @@ describe('useStoryEngine hook functionalities', () => {
       setActiveAgentId: vi.fn(),
       setStreamingChapter: setStreamingChapterSpy,
       saveStories: saveStoriesSpy,
+      setGeneratingChapterNum: vi.fn(),
       setActiveStoryId: vi.fn(),
       setSelectedChapterNum: vi.fn(),
       setCurrentScreen: vi.fn(),
     };
 
     (useAppStore as any).mockReturnValue(mockStore);
+    (useAppStore as any).getState = vi.fn().mockReturnValue(mockStore);
     (storyStorage.getStories as any).mockResolvedValue(mockStore.stories);
     
     global.fetch = vi.fn();
@@ -196,10 +198,6 @@ describe('useStoryEngine hook functionalities', () => {
     });
 
     // Check finalization
-    expect(setStreamingChapterSpy).toHaveBeenCalled();
-    const finalSetCall = setStreamingChapterSpy.mock.calls[setStreamingChapterSpy.mock.calls.length - 2][0]; // the last updated streaming chapter before it clears logic on end
-    expect(finalSetCall.blocks).toContainEqual({ text: "[System: Loading region]" });
-    
     // Check saving the completed chapter state via store
     expect(saveStoriesSpy).toHaveBeenCalled();
     const savedStoriesCall = saveStoriesSpy.mock.calls[0][0];

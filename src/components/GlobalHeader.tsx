@@ -1,16 +1,46 @@
-import React, { useState, useEffect } from 'react';
-import { Cloud, CloudOff, RefreshCw, User, LogOut, Plus, Sliders, ScrollText, Scroll, Link, Keyboard, Gem } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Cloud, CloudOff, RefreshCw, User, LogOut, Plus, Sliders, ScrollText, Scroll, Link, Keyboard, Gem, BookOpen } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
 import { auth } from '../lib/firebase';
 import { signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { AudioWidget } from './AudioWidget';
 import { DaoInsights } from './DaoInsights';
+import { vibrate } from '../lib/vibration';
 
 export const GlobalHeader: React.FC = () => {
-  const { currentScreen, setCurrentScreen, setActiveStoryId, syncStatus, currentUser, lastSavedTime, activeStoryId, stories, setIsSettingsOpen } = useAppStore();
+  const { 
+    currentScreen, 
+    setCurrentScreen, 
+    setActiveStoryId, 
+    syncStatus, 
+    currentUser, 
+    lastSavedTime, 
+    activeStoryId, 
+    stories, 
+    setIsSettingsOpen,
+    setIsCodexSheetOpen,
+    setIsShortcutsOpen 
+  } = useAppStore();
   const [qiCharge, setQiCharge] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
+  const [isHubOpen, setIsHubOpen] = useState(false);
+  const hubRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (hubRef.current && !hubRef.current.contains(event.target as Node)) {
+        setIsHubOpen(false);
+      }
+    };
+    if (isHubOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isHubOpen]);
 
   useEffect(() => {
     let intervalId: any;
@@ -46,12 +76,13 @@ export const GlobalHeader: React.FC = () => {
       <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 flex items-center justify-between">
         <div 
           className="flex items-center space-x-2 sm:space-x-3 cursor-pointer min-w-0 mr-2" 
-          onClick={() => { setCurrentScreen('home'); setActiveStoryId(null); }}
+          onClick={() => { vibrate('softTap'); setCurrentScreen('home'); setActiveStoryId(null); }}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
+              vibrate('softTap');
               setCurrentScreen('home'); setActiveStoryId(null);
             }
           }}
@@ -109,26 +140,26 @@ export const GlobalHeader: React.FC = () => {
 
         <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
           <button
-            onClick={() => setCurrentScreen('pricing')}
+            onClick={() => { vibrate('softTap'); setCurrentScreen('pricing'); }}
             className="group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-500 hover:scale-105 mr-2 sm:mr-4"
             title="Spirit Stones"
             aria-label="Spirit Stones"
           >
             {/* Qi Cyclone Aurora */}
-            <div className={`absolute inset-[-4px] rounded-full border border-dashed animate-[spin_6s_linear_infinite] transition-colors duration-500 ${currentScreen === 'pricing' ? 'border-purple-400/50' : 'border-purple-500/40 group-hover:border-purple-400/50'}`} />
-            <div className={`absolute inset-[-8px] rounded-full border border-dotted animate-[spin_10s_linear_infinite_reverse] transition-colors duration-500 ${currentScreen === 'pricing' ? 'border-purple-300/40' : 'border-purple-400/30 group-hover:border-purple-300/40'}`} />
+            <div className={`absolute inset-[-4px] rounded-full border border-dashed animate-[spin_6s_linear_infinite] transition-colors duration-500 ${currentScreen === 'pricing' ? 'border-portal/50' : 'border-human/40 group-hover:border-portal/50'}`} />
+            <div className={`absolute inset-[-8px] rounded-full border border-dotted animate-[spin_10s_linear_infinite_reverse] transition-colors duration-500 ${currentScreen === 'pricing' ? 'border-portal/40' : 'border-human/30 group-hover:border-portal/40'}`} />
             
             {/* Inner Glow */}
-            <div className={`absolute inset-0 rounded-full blur-md animate-pulse transition-colors duration-500 ${currentScreen === 'pricing' ? 'bg-purple-500/30 shadow-[0_0_20px_rgba(168,85,247,0.6)]' : 'bg-purple-600/20 shadow-[0_0_20px_rgba(147,51,234,0.5)] group-hover:bg-purple-500/30 group-hover:shadow-[0_0_20px_rgba(168,85,247,0.6)]'}`} />
+            <div className={`absolute inset-0 rounded-full blur-md animate-pulse transition-colors duration-500 ${currentScreen === 'pricing' ? 'bg-portal/20 shadow-[0_0_20px_rgba(4,172,255,0.5)]' : 'bg-human/20 shadow-[0_0_20px_rgba(139,0,0,0.5)] group-hover:bg-portal/20 group-hover:shadow-[0_0_20px_rgba(4,172,255,0.5)]'}`} />
             
-            <div className={`relative transition-colors duration-700 ${currentScreen === 'pricing' ? 'text-purple-300' : 'text-purple-400 group-hover:text-purple-300'}`}>
-              <Gem size={24} className={currentScreen === 'pricing' ? 'drop-shadow-[0_0_10px_rgba(168,85,247,0.9)]' : 'drop-shadow-[0_0_8px_rgba(147,51,234,0.8)] group-hover:drop-shadow-[0_0_10px_rgba(168,85,247,0.9)]'} strokeWidth={1.5} />
+            <div className={`relative transition-colors duration-700 ${currentScreen === 'pricing' ? 'text-portal' : 'text-human group-hover:text-portal'}`}>
+              <Gem size={24} className={currentScreen === 'pricing' ? 'drop-shadow-[0_0_10px_rgba(4,172,255,0.9)]' : 'drop-shadow-[0_0_8px_rgba(139,0,0,0.8)] group-hover:drop-shadow-[0_0_10px_rgba(4,172,255,0.9)]'} strokeWidth={1.5} />
             </div>
           </button>
           <div className="flex items-center shrink-0">
             {currentUser ? (
               <button 
-                onClick={() => setCurrentScreen('profile')} 
+                onClick={() => { vibrate('softTap'); setCurrentScreen('profile'); }} 
                 className="group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-500 hover:scale-105"
                 title={`Spirit Linked: ${currentUser.email}`}
                 aria-label="Open User Profile"
@@ -146,7 +177,7 @@ export const GlobalHeader: React.FC = () => {
               </button>
             ) : (
               <button 
-                onClick={() => setCurrentScreen('profile')} 
+                onClick={() => { vibrate('softTap'); setCurrentScreen('profile'); }} 
                 className={`group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-300 hover:bg-neutral-900 border border-transparent ${currentScreen === 'profile' ? 'text-portal' : 'text-human hover:text-portal'}`}
                 title="Open Celestial Tools"
                 aria-label="Open Celestial Tools"
@@ -164,33 +195,261 @@ export const GlobalHeader: React.FC = () => {
             </div>
           )}
 
-          {currentScreen !== 'home' ? (
+          {/* Command Hub Navigation Menu */}
+          <div className="relative" ref={hubRef}>
             <button
-              onClick={() => { setCurrentScreen('home'); setActiveStoryId(null); }}
+              onClick={() => { vibrate('softTap'); setIsHubOpen(!isHubOpen); }}
               className="group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-300 hover:scale-105 ml-2 sm:ml-4"
-              title="Return to Library"
-              aria-label="Return to Library"
+              title="Command Hub"
+              aria-label="Command Hub"
             >
-              <div className="absolute inset-0 bg-human/10 group-hover:bg-portal/20 rounded-full blur-sm transition-colors duration-500" />
+              <div className={`absolute inset-0 rounded-full blur-sm transition-colors duration-500 ${isHubOpen ? 'bg-portal/30' : 'bg-human/10 group-hover:bg-portal/20'}`} />
               
               <div className="relative text-human group-hover:text-portal transition-colors duration-500">
-                <ScrollText size={24} className="drop-shadow-[0_0_4px_rgba(139,0,0,0.5)] group-hover:drop-shadow-[0_0_8px_rgba(4,172,255,0.6)] transition-all duration-500" strokeWidth={1.5} />
+                {currentScreen !== 'home' ? (
+                  <ScrollText 
+                    size={24} 
+                    className={`transition-all duration-500 ${
+                      isHubOpen 
+                        ? 'text-portal drop-shadow-[0_0_12px_rgba(4,172,255,0.85)] scale-110' 
+                        : 'drop-shadow-[0_0_4px_rgba(139,0,0,0.5)] group-hover:drop-shadow-[0_0_8px_rgba(4,172,255,0.6)]'
+                    }`} 
+                    strokeWidth={1.5} 
+                  />
+                ) : (
+                  <Scroll 
+                    size={24} 
+                    className={`transition-all duration-500 ${
+                      isHubOpen 
+                        ? 'text-portal drop-shadow-[0_0_12px_rgba(4,172,255,0.85)] scale-110' 
+                        : 'drop-shadow-[0_0_4px_rgba(139,0,0,0.5)] group-hover:drop-shadow-[0_0_8px_rgba(4,172,255,0.6)]'
+                    }`} 
+                    strokeWidth={1.5} 
+                  />
+                )}
               </div>
             </button>
-          ) : (
-            <button
-              onClick={() => setCurrentScreen('creator')}
-              className="group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-300 hover:scale-105 ml-2 sm:ml-4"
-              title="Create Story"
-              aria-label="Create Story"
-            >
-              <div className="absolute inset-0 bg-human/10 group-hover:bg-portal/20 rounded-full blur-sm transition-colors duration-500" />
-              
-              <div className="relative text-human group-hover:text-portal transition-colors duration-500">
-                <Scroll size={24} className="drop-shadow-[0_0_4px_rgba(139,0,0,0.5)] group-hover:drop-shadow-[0_0_8px_rgba(4,172,255,0.6)] transition-all duration-500" strokeWidth={1.5} />
-              </div>
-            </button>
-          )}
+
+            {/* Command Hub Dropdown Overlay */}
+            <AnimatePresence>
+              {isHubOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 15, scale: 0.95 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  className="absolute right-0 mt-3 w-72 origin-top-right z-50 rounded-xl bg-black/95 border border-portal/30 backdrop-blur-2xl shadow-[0_10px_40px_rgba(0,0,0,0.95),0_0_20px_rgba(4,172,255,0.15)] overflow-hidden text-[#dfd8cf]"
+                >
+                  {/* Brand Top Accent Bar */}
+                  <div className="h-[2px] bg-gradient-to-r from-human via-portal to-human" />
+                  
+                  {/* Dropdown Header */}
+                  <div className="p-4 border-b border-portal/10 bg-white/[0.02]">
+                    <div className="flex items-center justify-between">
+                      <span className="font-sc font-bold tracking-widest text-portal text-sm">Celestial Hub</span>
+                      <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-portal/10 text-portal uppercase tracking-wider">Online</span>
+                    </div>
+                    <p className="font-sans font-light text-[10px] text-neutral-400 mt-1">Direct system portal navigation</p>
+                  </div>
+
+                  {/* Navigation Links */}
+                  <div className="p-2 space-y-1 max-h-[360px] overflow-y-auto">
+                    <span className="block px-3 pt-2 pb-1 font-sc font-semibold text-[9px] tracking-widest text-human/70 uppercase">Primary Sects</span>
+                    
+                    {/* Library Vault (Home) */}
+                    <button
+                      onClick={() => {
+                        vibrate('softTap');
+                        setCurrentScreen('home');
+                        setActiveStoryId(null);
+                        setIsHubOpen(false);
+                      }}
+                      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-all ${
+                        currentScreen === 'home' 
+                          ? 'bg-portal/10 text-portal border border-portal/20' 
+                          : 'hover:bg-white/[0.04] text-neutral-300 hover:text-signal'
+                      }`}
+                    >
+                      <BookOpen size={16} className={currentScreen === 'home' ? 'text-portal' : 'text-neutral-500'} />
+                      <div className="min-w-0">
+                        <div className="font-sans font-medium text-xs">Library Floor</div>
+                        <div className="font-sans text-[9px] text-neutral-500 truncate">Browse your accumulated scroll logs</div>
+                      </div>
+                    </button>
+
+                    {/* Story Creator */}
+                    <button
+                      onClick={() => {
+                        vibrate('mediumTap');
+                        setCurrentScreen('creator');
+                        setIsHubOpen(false);
+                      }}
+                      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-all ${
+                        currentScreen === 'creator' 
+                          ? 'bg-portal/10 text-portal border border-portal/20' 
+                          : 'hover:bg-white/[0.04] text-neutral-300 hover:text-signal'
+                      }`}
+                    >
+                      <Plus size={16} className={currentScreen === 'creator' ? 'text-portal' : 'text-neutral-500'} />
+                      <div className="min-w-0">
+                        <div className="font-sans font-medium text-xs">Story Weaver</div>
+                        <div className="font-sans text-[9px] text-neutral-500 truncate">Forge a new cosmic story seed</div>
+                      </div>
+                    </button>
+
+                    {/* Challenges */}
+                    <button
+                      onClick={() => {
+                        vibrate('softTap');
+                        setCurrentScreen('challenge');
+                        setIsHubOpen(false);
+                      }}
+                      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-all ${
+                        currentScreen === 'challenge' 
+                          ? 'bg-portal/10 text-portal border border-portal/20' 
+                          : 'hover:bg-white/[0.04] text-neutral-300 hover:text-signal'
+                      }`}
+                    >
+                      <Sliders size={16} className={currentScreen === 'challenge' ? 'text-portal' : 'text-neutral-500'} />
+                      <div className="min-w-0">
+                        <div className="font-sans font-medium text-xs">Fate Survival Arena</div>
+                        <div className="font-sans text-[9px] text-neutral-500 truncate">Alter karma & survive simulations</div>
+                      </div>
+                    </button>
+
+                    {/* Pricing */}
+                    <button
+                      onClick={() => {
+                        vibrate('softTap');
+                        setCurrentScreen('pricing');
+                        setIsHubOpen(false);
+                      }}
+                      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-all ${
+                        currentScreen === 'pricing' 
+                          ? 'bg-portal/10 text-portal border border-portal/20' 
+                          : 'hover:bg-white/[0.04] text-neutral-300 hover:text-signal'
+                      }`}
+                    >
+                      <Gem size={16} className={currentScreen === 'pricing' ? 'text-portal' : 'text-neutral-500'} />
+                      <div className="min-w-0">
+                        <div className="font-sans font-medium text-xs">Spirit Stones</div>
+                        <div className="font-sans text-[9px] text-neutral-500 truncate">Replenish your creative Qi</div>
+                      </div>
+                    </button>
+
+                    {/* Profile */}
+                    <button
+                      onClick={() => {
+                        vibrate('softTap');
+                        setCurrentScreen('profile');
+                        setIsHubOpen(false);
+                      }}
+                      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-all ${
+                        currentScreen === 'profile' 
+                          ? 'bg-portal/10 text-portal border border-portal/20' 
+                          : 'hover:bg-white/[0.04] text-neutral-300 hover:text-signal'
+                      }`}
+                    >
+                      <User size={16} className={currentScreen === 'profile' ? 'text-portal' : 'text-neutral-500'} />
+                      <div className="min-w-0">
+                        <div className="font-sans font-medium text-xs">Celestial Profile</div>
+                        <div className="font-sans text-[9px] text-neutral-500 truncate">Manage spirit link settings</div>
+                      </div>
+                    </button>
+
+                    {/* Conditional Active Story Segment */}
+                    {activeStory && (
+                      <>
+                        <div className="border-t border-portal/10 my-2 pt-2" />
+                        <span className="block px-3 pb-1 font-sc font-semibold text-[9px] tracking-widest text-portal/70 uppercase">Active Tome Commands</span>
+                        
+                        {/* Story Detail Screen */}
+                        <button
+                          onClick={() => {
+                            vibrate('softTap');
+                            setCurrentScreen('detail');
+                            setIsHubOpen(false);
+                          }}
+                          className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-all ${
+                            currentScreen === 'detail' 
+                              ? 'bg-portal/10 text-portal border border-portal/20' 
+                              : 'hover:bg-white/[0.04] text-neutral-300 hover:text-signal'
+                          }`}
+                        >
+                          <ScrollText size={16} className={currentScreen === 'detail' ? 'text-portal' : 'text-neutral-500'} />
+                          <div className="min-w-0">
+                            <div className="font-sans font-medium text-xs">Tome Chambers</div>
+                            <div className="font-sans text-[9px] text-neutral-500 truncate">Explore {activeStory.mcName}'s world logs</div>
+                          </div>
+                        </button>
+
+                        {/* Story Reader Screen */}
+                        <button
+                          onClick={() => {
+                            vibrate('softTap');
+                            setCurrentScreen('reader');
+                            setIsHubOpen(false);
+                          }}
+                          className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-all ${
+                            currentScreen === 'reader' 
+                              ? 'bg-portal/10 text-portal border border-portal/20' 
+                              : 'hover:bg-white/[0.04] text-neutral-300 hover:text-signal'
+                          }`}
+                        >
+                          <Scroll size={16} className={currentScreen === 'reader' ? 'text-portal' : 'text-neutral-500'} />
+                          <div className="min-w-0">
+                            <div className="font-sans font-medium text-xs">Chamber Reader</div>
+                            <div className="font-sans text-[9px] text-neutral-500 truncate">Engage active chapter flow</div>
+                          </div>
+                        </button>
+
+                        {/* Open Living Codex Sheet Overlay */}
+                        <button
+                          onClick={() => {
+                            vibrate('softTap');
+                            setIsCodexSheetOpen(true);
+                            setIsHubOpen(false);
+                          }}
+                          className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-all hover:bg-white/[0.04] text-neutral-300 hover:text-signal"
+                        >
+                          <Sliders size={16} className="text-neutral-500" />
+                          <div className="min-w-0">
+                            <div className="font-sans font-medium text-xs">Living Codex</div>
+                            <div className="font-sans text-[9px] text-neutral-500 truncate">Inspect memories & relationships</div>
+                          </div>
+                        </button>
+                      </>
+                    )}
+
+                    {/* System Controls */}
+                    <div className="border-t border-portal/10 my-2 pt-2" />
+                    <span className="block px-3 pb-1 font-sc font-semibold text-[9px] tracking-widest text-neutral-500 uppercase">System Matrix</span>
+
+                    {/* Keyboard Shortcuts */}
+                    <button
+                      onClick={() => {
+                        vibrate('softTap');
+                        setIsShortcutsOpen(true);
+                        setIsHubOpen(false);
+                      }}
+                      className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-all hover:bg-white/[0.04] text-neutral-300 hover:text-signal"
+                    >
+                      <Keyboard size={16} className="text-neutral-500" />
+                      <div className="min-w-0">
+                        <div className="font-sans font-medium text-xs">Shortcut Spells</div>
+                        <div className="font-sans text-[9px] text-neutral-500 truncate">View keyboard system keys</div>
+                      </div>
+                    </button>
+                  </div>
+                  
+                  {/* Subtle Footer */}
+                  <div className="p-2 bg-neutral-950 border-t border-portal/10 text-center">
+                    <span className="font-sc font-medium text-[8px] text-neutral-600 tracking-wider">SEIHouse Core Infinitum</span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </header>

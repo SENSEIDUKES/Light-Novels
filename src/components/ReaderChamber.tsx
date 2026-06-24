@@ -57,6 +57,7 @@ import { VoiceEditionPanel } from "./VoiceEditionPanel";
 import { ReaderPreferencesPanel } from "./ReaderPreferencesPanel";
 import { CosmicBookmarksPanel } from "./CosmicBookmarksPanel";
 import { CodexHovercard } from "./CodexHovercard";
+import { WorldEntityCard } from "./WorldEntityCard";
 import { useReaderPlayback, extractSFXCues } from "../hooks/useReaderPlayback";
 import { useReaderVisuals } from "../hooks/useReaderVisuals";
 
@@ -332,17 +333,72 @@ export default function ReaderChamber({
     }
   };
 
+  const isBossFight = useMemo(() => {
+    return selectedChapter.summary?.toLowerCase().includes('boss fight') ||
+      selectedChapter.blocks?.some(b => b.metadata?.music?.mood === 'boss-fight') ||
+      (selectedChapter.cuePayload?.danger && selectedChapter.cuePayload.danger > 8) ||
+      false;
+  }, [selectedChapter.summary, selectedChapter.blocks, selectedChapter.cuePayload]);
+
+  const isDemonicRealm = useMemo(() => {
+    return selectedChapter.summary?.toLowerCase().includes('demonic realm') ||
+      selectedChapter.summary?.toLowerCase().includes('demonic sect') ||
+      selectedChapter.blocks?.some(b => b.metadata?.music?.mood === 'horror') ||
+      selectedChapter.blocks?.some(b => b.metadata?.music?.mood === 'dread') ||
+      false;
+  }, [selectedChapter.summary, selectedChapter.blocks]);
+
+  const isMysticalRealm = useMemo(() => {
+    return selectedChapter.summary?.toLowerCase().includes('mystical') ||
+      selectedChapter.summary?.toLowerCase().includes('spirit forest') ||
+      selectedChapter.summary?.toLowerCase().includes('secret realm') ||
+      selectedChapter.blocks?.some(b => b.metadata?.music?.mood === 'mystical') ||
+      false;
+  }, [selectedChapter.summary, selectedChapter.blocks]);
+
+  const isHolyRealm = useMemo(() => {
+    return selectedChapter.summary?.toLowerCase().includes('holy') ||
+      selectedChapter.summary?.toLowerCase().includes('heavenly') ||
+      selectedChapter.summary?.toLowerCase().includes('divine') ||
+      selectedChapter.summary?.toLowerCase().includes('tribulation') ||
+      selectedChapter.blocks?.some(b => b.metadata?.music?.mood === 'ethereal') ||
+      selectedChapter.blocks?.some(b => b.metadata?.music?.mood === 'triumphant') ||
+      false;
+  }, [selectedChapter.summary, selectedChapter.blocks]);
+
+  const getDynamicShadingClasses = () => {
+    if (isBossFight) return "shadow-[inset_0_0_150px_rgba(220,38,38,0.15)] ring-1 ring-red-900/30 animate-[pulse_4s_ease-in-out_infinite]";
+    if (isDemonicRealm) return "shadow-[inset_0_0_150px_rgba(88,28,135,0.15)] ring-1 ring-purple-900/30 animate-[pulse_6s_ease-in-out_infinite]";
+    if (isMysticalRealm) return "shadow-[inset_0_0_150px_rgba(16,185,129,0.15)] ring-1 ring-emerald-900/30 animate-[pulse_8s_ease-in-out_infinite]";
+    if (isHolyRealm) return "shadow-[inset_0_0_150px_rgba(255,255,255,0.15)] ring-1 ring-white/30 animate-[pulse_5s_ease-in-out_infinite]";
+    return "";
+  };
+
   const getThemeClasses = () => {
     const t = currentPrefs.themeOverride || "void";
-    if (t === "crimson")
-      return "bg-[#0f0404] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1d0a0a] to-[#0a0202] text-[#e0cfcf] border-t border-[#8B0000]/30 shadow-[inset_0_0_120px_rgba(139,0,0,0.08)] ring-1 ring-[#8B0000]/10 selection:bg-[#8B0000]/40 selection:text-white";
-    if (t === "abyss")
-      return "bg-[#05080f] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0a1222] to-[#020408] text-[#ccd4e0] border-t border-[#04ACFF]/20 shadow-[inset_0_0_120px_rgba(4,172,255,0.06)] ring-1 ring-[#04ACFF]/10 selection:bg-[#04ACFF]/40 selection:text-white";
-    if (t === "sepia")
-      return "bg-[#1a1614] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#2a2420] to-[#14100e] text-[#d6c5b3] border-t border-[#8b5a2b]/30 shadow-[inset_0_0_120px_rgba(139,90,43,0.08)] ring-1 ring-[#8b5a2b]/10 selection:bg-[#8b5a2b]/40 selection:text-white";
-    if (t === "emerald")
-      return "bg-[#050f0a] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0a1c12] to-[#020805] text-[#b9d6c1] border-t border-[#0f5132]/40 shadow-[inset_0_0_120px_rgba(15,81,50,0.1)] ring-1 ring-[#0f5132]/20 selection:bg-[#0f5132]/40 selection:text-white";
-    return "bg-[#0a0a0a] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#141414] to-[#050505] text-[#e8e8e8] border-t border-neutral-800/60 shadow-[inset_0_0_120px_rgba(255,255,255,0.02)] ring-1 ring-white/5 selection:bg-neutral-700 selection:text-white"; // default void style
+    const baseClasses = (() => {
+      if (t === "crimson")
+        return "bg-[#0f0404] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1d0a0a] to-[#0a0202] text-[#e0cfcf] border-t border-[#8B0000]/30 selection:bg-[#8B0000]/40 selection:text-white";
+      if (t === "abyss")
+        return "bg-[#05080f] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0a1222] to-[#020408] text-[#ccd4e0] border-t border-[#04ACFF]/20 selection:bg-[#04ACFF]/40 selection:text-white";
+      if (t === "sepia")
+        return "bg-[#1a1614] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#2a2420] to-[#14100e] text-[#d6c5b3] border-t border-[#8b5a2b]/30 selection:bg-[#8b5a2b]/40 selection:text-white";
+      if (t === "emerald")
+        return "bg-[#050f0a] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0a1c12] to-[#020805] text-[#b9d6c1] border-t border-[#0f5132]/40 selection:bg-[#0f5132]/40 selection:text-white";
+      return "bg-[#0a0a0a] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#141414] to-[#050505] text-[#e8e8e8] border-t border-neutral-800/60 selection:bg-neutral-700 selection:text-white"; // default void style
+    })();
+    
+    const dynamicShading = getDynamicShadingClasses();
+    if (dynamicShading) {
+      return `${baseClasses} ${dynamicShading}`;
+    }
+    
+    // Add default static shadow if no dynamic shading
+    if (t === "crimson") return `${baseClasses} shadow-[inset_0_0_120px_rgba(139,0,0,0.08)] ring-1 ring-[#8B0000]/10`;
+    if (t === "abyss") return `${baseClasses} shadow-[inset_0_0_120px_rgba(4,172,255,0.06)] ring-1 ring-[#04ACFF]/10`;
+    if (t === "sepia") return `${baseClasses} shadow-[inset_0_0_120px_rgba(139,90,43,0.08)] ring-1 ring-[#8b5a2b]/10`;
+    if (t === "emerald") return `${baseClasses} shadow-[inset_0_0_120px_rgba(15,81,50,0.1)] ring-1 ring-[#0f5132]/20`;
+    return `${baseClasses} shadow-[inset_0_0_120px_rgba(255,255,255,0.02)] ring-1 ring-white/5`;
   };
 
   // --- Rendering UI States ---
@@ -380,6 +436,40 @@ export default function ReaderChamber({
     window.addEventListener("seihouse-audio-state", handleEvents);
     return () =>
       window.removeEventListener("seihouse-audio-state", handleEvents);
+  }, []);
+
+  // --- Climax Screen Shake State ---
+  const [isShaking, setIsShaking] = useState(false);
+
+  useEffect(() => {
+    const handleCue = (e: any) => {
+      const cue = e.detail;
+      if (cue.type === 'narrative.metadata.signature') {
+        const meta = cue.metadata || cue.value;
+        if (meta) {
+          const isIntense = 
+            (meta.danger && meta.danger >= 0.8 && meta.intensity && meta.intensity >= 0.8) ||
+            (meta.powerShift && meta.powerShift >= 0.8) ||
+            (meta.tension && meta.tension >= 0.8) ||
+            (meta.beastEvent?.profile?.threatTier === 'boss');
+
+          const isIntenseScale10 =
+            (meta.danger && meta.danger >= 8 && meta.intensity && meta.intensity >= 8) ||
+            (meta.powerShift && meta.powerShift >= 8) ||
+            (meta.tension && meta.tension >= 8);
+
+          if (isIntense || isIntenseScale10) {
+            setIsShaking(true);
+            setTimeout(() => {
+              setIsShaking(false);
+            }, 600);
+          }
+        }
+      }
+    };
+    
+    window.addEventListener('narrative-cue', handleCue);
+    return () => window.removeEventListener('narrative-cue', handleCue);
   }, []);
 
   const handleMuteToggle = (mutedVal: boolean) => {
@@ -669,7 +759,7 @@ export default function ReaderChamber({
   };
 
   const handleGenerate = () => {
-    if (isGenerating) return;
+    if (isGenerating || useAppStore.getState().isGenerating) return;
     const { currentUser } = useAppStore.getState();
     if (!currentUser) {
       alert("You must sync your spirit (sign in) to forge new chapters.");
@@ -769,7 +859,7 @@ export default function ReaderChamber({
 
   return (
     <div
-      className={`flex flex-col min-h-[85dvh] rounded-t-xl transition-colors duration-500 relative overflow-hidden ${getThemeClasses()}`}
+      className={`flex flex-col min-h-[85dvh] rounded-t-xl transition-colors duration-500 relative overflow-hidden ${getThemeClasses()} ${isShaking ? "animate-screen-shake" : ""}`}
       id="reader-chamber-root"
     >
       <ParticleSystem
@@ -1208,71 +1298,82 @@ export default function ReaderChamber({
                           const isPlaying = isPlayingText || isPausedText;
                           const isRevealed = !isSenMode || !immersion.imagePopups || (!isPlaying) || index <= currentParaIdx;
 
-                          const revealCard = (revealTerm && (!isSenMode || immersion.imagePopups)) ? (
-                            <motion.div
-                              initial={{ opacity: 0, scale: 0.95 }}
-                              whileInView={!isSenMode ? { opacity: 1, scale: 1 } : undefined}
-                              animate={isSenMode ? (isRevealed ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.95 }) : undefined}
-                              viewport={{ once: true, margin: "-50px" }}
-                              transition={{ duration: 0.5, ease: "easeOut" }}
-                              className="w-full max-w-sm mx-auto my-6 p-4 min-h-[300px] rounded-xl border border-portal/30 bg-void/80 backdrop-blur-md shadow-[0_0_25px_rgba(4,172,255,0.15)] flex flex-col items-center justify-center text-center group/reveal"
-                            >
-                              {revealImageUrl ? (
-                                <div className="relative w-[180px] h-[180px] shrink-0 rounded-lg overflow-hidden border border-neutral-900 bg-neutral-950 mb-3 shadow-inner">
-                                  <img
-                                    src={revealImageUrl}
-                                    alt={revealTerm.entry.name}
-                                    loading="lazy"
-                                    referrerPolicy="no-referrer"
-                                    className="w-full h-full object-cover transition-transform duration-500 group-hover/reveal:scale-105"
-                                  />
-                                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-                                </div>
-                              ) : (
-                                revealTerm.type !== 'faction' && (
-                                  <button
-                                    onClick={() => handleManifestReveal(revealTerm.entry, revealTerm.type)}
-                                    disabled={generatingRevealId === revealTerm.entry.id}
-                                    className="relative w-[180px] h-[180px] shrink-0 mb-3 overflow-hidden rounded-lg bg-[#010b14] border border-portal/40 hover:border-portal flex flex-col items-center justify-center cursor-pointer transition-all duration-500 group/revealmanifest shadow-[0_0_15px_rgba(4,172,255,0.15)] hover:shadow-[0_0_25px_rgba(4,172,255,0.35)]"
-                                  >
-                                    <div className="absolute inset-x-0 bottom-0 top-0 h-full w-full bg-[radial-gradient(circle_at_center,rgba(4,172,255,0.18)_0%,transparent_70%)] animate-pulse pointer-events-none" />
-                                    <div className="absolute w-20 h-20 rounded-full border border-dashed border-portal/25 animate-[spin_12s_linear_infinite] group-hover/revealmanifest:border-portal/50" />
-                                    <div className="absolute w-[88px] h-[88px] rounded-full border border-dotted border-portal/15 animate-[spin_20s_linear_infinite_reverse]" />
-                                    
-                                    {generatingRevealId === revealTerm.entry.id ? (
-                                      <div className="flex flex-col items-center gap-1.5 z-10">
-                                        <Loader2 size={18} className="text-portal animate-spin" />
-                                        <span className="font-mono text-[9px] text-portal/90 uppercase tracking-widest animate-pulse font-medium">
-                                          Summoning...
-                                        </span>
-                                      </div>
-                                    ) : (
-                                      <div className="flex flex-col items-center gap-1.5 z-10 transition-transform duration-300 group-hover/revealmanifest:scale-105">
-                                        <span className="text-portal text-sm group-hover/revealmanifest:animate-bounce">✦</span>
-                                        <span className="font-sc text-[10px] text-signal tracking-widest font-bold uppercase">
-                                          Manifest
-                                        </span>
-                                        <span className="font-mono text-[8px] text-neutral-500 tracking-wider">
-                                          Awaken Portrait
-                                        </span>
-                                      </div>
-                                    )}
-                                  </button>
-                                )
-                              )}
-                              <span className="font-mono text-[9px] text-portal uppercase tracking-widest mb-1 font-bold">
-                                Reveal · {revealTerm.type}
-                              </span>
-                              <h4 className="font-display font-medium text-lg text-signal tracking-wide">
-                                {revealTerm.entry.name}
-                              </h4>
-                              {revealTerm.entry.description && (
-                                <p className="font-serif italic text-xs text-neutral-400 mt-1 max-w-[280px] line-clamp-2">
-                                  {revealTerm.entry.description}
-                                </p>
-                              )}
-                            </motion.div>
-                          ) : null;
+                          let revealCard = null;
+                          if (block.worldCard) {
+                            const cardWithImage = { ...block.worldCard };
+                            if (!cardWithImage.imageUrl && revealImageUrl) {
+                              cardWithImage.imageUrl = revealImageUrl;
+                            }
+                            revealCard = (isRevealed || !isSenMode || immersion.imagePopups) ? (
+                              <WorldEntityCard card={cardWithImage} />
+                            ) : null;
+                          } else if (revealTerm && (!isSenMode || immersion.imagePopups)) {
+                            revealCard = (
+                              <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                whileInView={!isSenMode ? { opacity: 1, scale: 1 } : undefined}
+                                animate={isSenMode ? (isRevealed ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.95 }) : undefined}
+                                viewport={{ once: true, margin: "-50px" }}
+                                transition={{ duration: 0.5, ease: "easeOut" }}
+                                className="w-full max-w-sm mx-auto my-6 p-4 min-h-[300px] rounded-xl border border-portal/30 bg-void/80 backdrop-blur-md shadow-[0_0_25px_rgba(4,172,255,0.15)] flex flex-col items-center justify-center text-center group/reveal"
+                              >
+                                {revealImageUrl ? (
+                                  <div className="relative w-[180px] h-[180px] shrink-0 rounded-lg overflow-hidden border border-neutral-900 bg-neutral-950 mb-3 shadow-inner">
+                                    <img
+                                      src={revealImageUrl}
+                                      alt={revealTerm.entry.name}
+                                      loading="lazy"
+                                      referrerPolicy="no-referrer"
+                                      className="w-full h-full object-cover transition-transform duration-500 group-hover/reveal:scale-105"
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+                                  </div>
+                                ) : (
+                                  revealTerm.type !== 'faction' && (
+                                    <button
+                                      onClick={() => handleManifestReveal(revealTerm.entry, revealTerm.type)}
+                                      disabled={generatingRevealId === revealTerm.entry.id}
+                                      className="relative w-[180px] h-[180px] shrink-0 mb-3 overflow-hidden rounded-lg bg-[#010b14] border border-portal/40 hover:border-portal flex flex-col items-center justify-center cursor-pointer transition-all duration-500 group/revealmanifest shadow-[0_0_15px_rgba(4,172,255,0.15)] hover:shadow-[0_0_25px_rgba(4,172,255,0.35)]"
+                                    >
+                                      <div className="absolute inset-x-0 bottom-0 top-0 h-full w-full bg-[radial-gradient(circle_at_center,rgba(4,172,255,0.18)_0%,transparent_70%)] animate-pulse pointer-events-none" />
+                                      <div className="absolute w-20 h-20 rounded-full border border-dashed border-portal/25 animate-[spin_12s_linear_infinite] group-hover/revealmanifest:border-portal/50" />
+                                      <div className="absolute w-[88px] h-[88px] rounded-full border border-dotted border-portal/15 animate-[spin_20s_linear_infinite_reverse]" />
+                                      
+                                      {generatingRevealId === revealTerm.entry.id ? (
+                                        <div className="flex flex-col items-center gap-1.5 z-10">
+                                          <Loader2 size={18} className="text-portal animate-spin" />
+                                          <span className="font-mono text-[9px] text-portal/90 uppercase tracking-widest animate-pulse font-medium">
+                                            Summoning...
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <div className="flex flex-col items-center gap-1.5 z-10 transition-transform duration-300 group-hover/revealmanifest:scale-105">
+                                          <span className="text-portal text-sm group-hover/revealmanifest:animate-bounce">✦</span>
+                                          <span className="font-sc text-[10px] text-signal tracking-widest font-bold uppercase">
+                                            Manifest
+                                          </span>
+                                          <span className="font-mono text-[8px] text-neutral-500 tracking-wider">
+                                            Awaken Portrait
+                                          </span>
+                                        </div>
+                                      )}
+                                    </button>
+                                  )
+                                )}
+                                <span className="font-mono text-[9px] text-portal uppercase tracking-widest mb-1 font-bold">
+                                  Reveal · {revealTerm.type}
+                                </span>
+                                <h4 className="font-display font-medium text-lg text-signal tracking-wide">
+                                  {revealTerm.entry.name}
+                                </h4>
+                                {revealTerm.entry.description && (
+                                  <p className="font-serif italic text-xs text-neutral-400 mt-1 max-w-[280px] line-clamp-2">
+                                    {revealTerm.entry.description}
+                                  </p>
+                                )}
+                              </motion.div>
+                            );
+                          }
 
                           const isSystemLine =
                             cleanText.startsWith("[") &&

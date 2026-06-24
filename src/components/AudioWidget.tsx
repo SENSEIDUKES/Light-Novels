@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
+import { vibrate } from '../lib/vibration';
 
 export function AudioWidget() {
   const [audioMuted, setAudioMuted] = useState(() => {
@@ -24,6 +25,7 @@ export function AudioWidget() {
   }, []);
 
   const handleMuteToggle = () => {
+    vibrate('softTap');
     const newMuted = !audioMuted;
     setAudioMuted(newMuted);
     localStorage.setItem('seihouse-audio-muted', String(newMuted));

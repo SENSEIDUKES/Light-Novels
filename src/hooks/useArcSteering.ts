@@ -9,11 +9,21 @@ export const useArcSteering = () => {
   const store = useAppStore();
 
   const handleSteerArc = async (direction: string, customPrompt: string) => {
-    const activeStory = store.stories.find(s => s.id === store.activeStoryId);
-    if (!activeStory) return;
-    store.setGenerationPhase('steer');
-    store.setIsGenerating(true);
-    store.setAppError(null);
+    const currentStoreState = useAppStore.getState();
+    if (currentStoreState.isGenerating) {
+      console.warn("Generation already in progress. Ignoring duplicate click.");
+      return;
+    }
+    // Synchronously set generating state on the global store before any async operations
+    currentStoreState.setIsGenerating(true);
+
+    const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
+    if (!activeStory) {
+      currentStoreState.setIsGenerating(false);
+      return;
+    }
+    currentStoreState.setGenerationPhase('steer');
+    currentStoreState.setAppError(null);
 
     const totalPreviousChapters = activeStory.arcs.reduce((acc, arc) => acc + arc.chapters.length, 0);
     const queryIntent = `Overall Arc Direction: ${direction}. Extra Context: ${customPrompt || ''}`;
@@ -114,8 +124,19 @@ export const useArcSteering = () => {
   };
 
   const handleAlterFate = async (chapterNumber: number, direction: string, customPrompt: string) => {
-    const activeStory = store.stories.find(s => s.id === store.activeStoryId);
-    if (!activeStory) return;
+    const currentStoreState = useAppStore.getState();
+    if (currentStoreState.isGenerating) {
+      console.warn("Generation already in progress. Ignoring duplicate click.");
+      return;
+    }
+    // Synchronously set generating state on the global store before any async/complex operations
+    currentStoreState.setIsGenerating(true);
+
+    const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
+    if (!activeStory) {
+      currentStoreState.setIsGenerating(false);
+      return;
+    }
     
     const clonedArcsRaw = await Promise.all(activeStory.arcs.map(async arc => {
       const slicedChapters = arc.chapters.filter(ch => ch.number <= chapterNumber);
@@ -155,13 +176,12 @@ export const useArcSteering = () => {
       updatedAt: new Date().toISOString()
     };
 
-    const updated = [newStory, ...store.stories];
-    await store.saveStories(updated);
-    store.setActiveStoryId(newStory.id);
+    const updated = [newStory, ...currentStoreState.stories];
+    await currentStoreState.saveStories(updated);
+    currentStoreState.setActiveStoryId(newStory.id);
     
-    store.setGenerationPhase('steer');
-    store.setIsGenerating(true);
-    store.setAppError(null);
+    currentStoreState.setGenerationPhase('steer');
+    currentStoreState.setAppError(null);
 
     const totalPreviousChapters = clonedArcs.reduce((acc, arc) => acc + arc.chapters.length, 0);
     const queryIntent = `Overall Arc Direction: ${direction}. Extra Context: ${customPrompt || ''}`;

@@ -4,6 +4,20 @@ export interface StreamingChapter {
   blocks?: StoryBlock[];
 }
 
+export interface CosmicArtifact {
+  id: string;
+  name: string;
+  description: string;
+  unlockedAt: string;
+  sourceStoryId?: string;
+  sourceStoryTitle?: string;
+  milestoneType: 'chapter_seal' | 'rank_up' | 'challenge_complete' | 'first_breakthrough' | 'streak_attained' | 'codex_linked';
+  milestoneName: string;
+  imageUrl?: string;
+  rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary' | 'Mythic' | 'Transcendent';
+  attributeBoost?: string;
+}
+
 export interface UserProfile {
   uid: string;
   username: string;
@@ -24,7 +38,16 @@ export interface UserProfile {
   imageGenerationCount?: number;
   imageQuotaResetAt?: string;
   writingStreak?: number;
+  
+  // Idle Cultivation & Dao Pillar
+  lastSessionEnd?: string;
+  daoPillarStreak?: number;
+  daoPillarCracked?: boolean;
+  lastReadDate?: string;
+  
   lastInteractionDate?: string;
+  cosmicInventory?: CosmicArtifact[];
+  equippedArtifactId?: string;
 }
 
 export interface DaoXpEvent {
@@ -206,12 +229,26 @@ export interface SystemEvent {
   fateResult?: FateResultData;
 }
 
+export interface WorldCardEvent {
+  id?: string;
+  entityType: 'character' | 'creature' | 'artifact' | 'location' | 'system' | 'fate_event';
+  entityName: string;
+  displayTitle: string;
+  imageUrl?: string;
+  quote?: string;
+  audioText?: string;
+  audioType: 'tts_line' | 'roar' | 'ambience' | 'chime';
+  voicePreset?: string;
+  codexEntryId?: string;
+}
+
 export interface StoryBlock {
   id: string;
   type: string;
   text: string;
   metadata?: StoryBlockMetadata;
   system?: SystemEvent;
+  worldCard?: WorldCardEvent;
 }
 
 export interface StoryCuePayload {

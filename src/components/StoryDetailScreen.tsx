@@ -7,6 +7,7 @@ import { DestinyChoicePanel } from './DestinyChoicePanel';
 import { FateTimeline } from './FateTimeline';
 import { storyStorage } from '../lib/storage';
 import { getAuraTextStyle } from '../lib/qi';
+import { vibrate } from '../lib/vibration';
 
 export const StoryDetailScreen: React.FC<{ 
   handleGenerateCover: () => Promise<{ imageUrls: string[], promptUsed: string } | undefined>,
@@ -190,6 +191,7 @@ export const StoryDetailScreen: React.FC<{
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
               <button 
                 onClick={async () => {
+                  vibrate('mediumTap');
                   const result = await handleGenerateCover();
                   if (result) setCoverPreview({ urls: result.imageUrls, prompt: result.promptUsed, selectedIndex: 0 });
                 }}
@@ -206,6 +208,7 @@ export const StoryDetailScreen: React.FC<{
           <div className="block md:hidden mt-2 mb-3">
             <button
               onClick={async () => {
+                vibrate('mediumTap');
                 const result = await handleGenerateCover();
                 if (result) setCoverPreview({ urls: result.imageUrls, prompt: result.promptUsed, selectedIndex: 0 });
               }}
@@ -346,6 +349,7 @@ export const StoryDetailScreen: React.FC<{
           <div className="pt-6 flex flex-wrap gap-3 items-center relative">
             <button
               onClick={() => {
+                vibrate('softTap');
                 if (activeStory.lastReadChapter && activeStory.lastReadChapter > 0) {
                   setSelectedChapterNum(activeStory.lastReadChapter);
                 } else {
@@ -361,7 +365,7 @@ export const StoryDetailScreen: React.FC<{
             </button>
 
             <button
-              onClick={() => setIsCodexSheetOpen(true)}
+              onClick={() => { vibrate('softTap'); setIsCodexSheetOpen(true); }}
               className="px-6 py-2.5 bg-void border border-portal text-portal font-sc font-bold uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-all flex items-center space-x-2 text-xs"
             >
               <Sparkles size={16} />
@@ -369,7 +373,7 @@ export const StoryDetailScreen: React.FC<{
             </button>
 
             <button
-              onClick={() => setIsTimelineOpen(true)}
+              onClick={() => { vibrate('softTap'); setIsTimelineOpen(true); }}
               className="px-6 py-2.5 bg-void border border-jade-accent text-jade-accent font-sc font-bold uppercase tracking-wider rounded hover:bg-jade-accent hover:text-void transition-all flex items-center space-x-2 text-xs"
             >
               <GitBranch size={16} />
@@ -378,7 +382,7 @@ export const StoryDetailScreen: React.FC<{
 
             <div className="relative">
               <button
-                onClick={() => setIsStoryMenuOpen(!isStoryMenuOpen)}
+                onClick={() => { vibrate('softTap'); setIsStoryMenuOpen(!isStoryMenuOpen); }}
                 aria-expanded={isStoryMenuOpen}
                 aria-label="More options"
                 className="p-2.5 bg-void border border-neutral-800 text-neutral-400 hover:text-signal rounded hover:bg-neutral-900 hover:border-neutral-750 transition-all flex items-center justify-center"
@@ -437,6 +441,7 @@ export const StoryDetailScreen: React.FC<{
             {isCurrentArcFinished && (
               <button
                 onClick={() => {
+                  vibrate('softTap');
                   setSelectedChapterNum(-1);
                   setCurrentScreen('reader');
                 }}

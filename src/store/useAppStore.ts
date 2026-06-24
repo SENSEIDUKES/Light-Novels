@@ -26,6 +26,8 @@ interface AppState {
   generationProgressMessage: string;
   estimatedSecondsRemaining: number | null;
   streamingChapter: StreamingChapter | null;
+  isVeilMinimized: boolean;
+  generatingChapterNum: number | null;
 
   activeAgentId: 'versa' | 'scout' | null;
 
@@ -60,12 +62,18 @@ interface AppState {
     autoScroll: boolean;
   };
 
+  // Draft Recovery
+  draftRecoverySession: any | null;
+  setDraftRecoverySession: (session: any | null) => void;
+
   // Actions
   setStories: (stories: Story[]) => void;
   setActiveStoryId: (id: string | null) => void;
   setCurrentScreen: (screen: 'home' | 'detail' | 'reader' | 'codex' | 'creator' | 'profile' | 'pricing' | 'challenge') => void;
   setStoryToDelete: (id: string | null) => void;
   setIsGenerating: (isGenerating: boolean) => void;
+  setIsVeilMinimized: (minimized: boolean) => void;
+  setGeneratingChapterNum: (num: number | null) => void;
   setAppError: (error: string | null) => void;
   setGenerationPhase: (phase: 'blueprint' | 'initial-arc' | 'chapter' | 'steer' | 'cover' | null) => void;
   setGenerationProgressMessage: (msg: string) => void;
@@ -112,12 +120,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeChallenge: null,
   activeChallengeRun: null,
   
+  // Draft Recovery
+  draftRecoverySession: null,
+  setDraftRecoverySession: (session) => set({ draftRecoverySession: session }),
+
   isGenerating: false,
   appError: null,
   generationPhase: null,
   generationProgressMessage: '',
   estimatedSecondsRemaining: null,
   streamingChapter: null,
+  isVeilMinimized: false,
+  generatingChapterNum: null,
   activeAgentId: null,
 
   syncStatus: 'offline',
@@ -266,6 +280,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         await awardDirectQi(qiEarned, `complete-${activeChallenge.id}-${outcome}-${Date.now()}`);
       }
       
+      // Award Cosmic Artifact on pure Success
+      if (outcome === 'success') {
+        import('../lib/artifacts').then(({ unlockCosmicArtifact }) => {
+          unlockCosmicArtifact('challenge_complete', activeChallenge.id, activeChallenge.title).catch(err => {
+            console.error('Failed to unlock Fate Challenge artifact:', err);
+          });
+        });
+      }
+      
       // Award locally
       const localProfile = get().userProfile;
       if (localProfile) {
@@ -289,6 +312,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setStoryToDelete: (id) => set({ storyToDelete: id }),
   setIsGenerating: (isGenerating) => set({ isGenerating }),
+  setIsVeilMinimized: (isVeilMinimized) => set({ isVeilMinimized }),
+  setGeneratingChapterNum: (generatingChapterNum) => set({ generatingChapterNum }),
   setAppError: (appError) => set({ appError }),
   setGenerationPhase: (generationPhase) => set({ generationPhase }),
   setGenerationProgressMessage: (generationProgressMessage) => set({ generationProgressMessage }),

@@ -26,10 +26,11 @@ import { KeyboardShortcuts } from './components/KeyboardShortcuts';
 import { AtmosphericAudio } from './components/AtmosphericAudio';
 import { ParticleSystem } from './components/ParticleSystem';
 import CreationPortal from './components/CreationPortal';
-import { AILoadingVeil } from './components/AILoadingVeil';
+import AILoadingVeil from './components/AILoadingVeil';
 import { PricingScreen } from './components/PricingScreen';
 import UserProfile from './components/UserProfile';
 import { ChallengeScreen } from './components/ChallengeScreen';
+import { IdleCultivationModal } from './components/IdleCultivationModal';
 
 function App() {
   const store = useAppStore();
@@ -37,6 +38,49 @@ function App() {
   const storyExporter = useStoryExporter();
 
   const [isInitializing, setIsInitializing] = useState(true);
+
+  // Save active generation state to localStorage on any store change
+  useEffect(() => {
+    const unsubscribe = useAppStore.subscribe((state) => {
+      if (state.isGenerating) {
+        const activeGen = {
+          isGenerating: state.isGenerating,
+          generationPhase: state.generationPhase,
+          activeStoryId: state.activeStoryId,
+          generatingChapterNum: state.generatingChapterNum,
+          timestamp: Date.now()
+        };
+        localStorage.setItem('seihouse_active_generation', JSON.stringify(activeGen));
+      } else {
+        localStorage.removeItem('seihouse_active_generation');
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Check for unsaved chapter session after initialization
+  useEffect(() => {
+    if (isInitializing) return;
+
+    const savedGen = localStorage.getItem('seihouse_active_generation');
+    if (savedGen) {
+      try {
+        const parsed = JSON.parse(savedGen);
+        if (parsed && parsed.isGenerating && Date.now() - parsed.timestamp < 10 * 60 * 1000) {
+          const activeStory = store.stories.find(s => s.id === parsed.activeStoryId);
+          if (activeStory) {
+            if (parsed.generationPhase === 'chapter' && parsed.generatingChapterNum) {
+              store.setDraftRecoverySession(parsed);
+            }
+          } else {
+            localStorage.removeItem('seihouse_active_generation');
+          }
+        }
+      } catch (err) {
+        console.error("Failed to restore active generation state:", err);
+      }
+    }
+  }, [isInitializing, store.stories]);
 
   // Initialize Data Persistence
   useEffect(() => {
@@ -160,6 +204,60 @@ function App() {
       }
     }
   }, [store.activeStoryId, store.selectedChapterNum]); // Removed store.stories
+
+  // --- IDLE CULTIVATION ---
+  const [idleQiEarned, setIdleQiEarned] = useState<number | null>(null);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        localStorage.setItem('seihouse-last-session-end', new Date().toISOString());
+      } else if (document.visibilityState === 'visible') {
+        checkIdleQi();
+      }
+    };
+    
+    const handleBeforeUnload = () => {
+      localStorage.setItem('seihouse-last-session-end', new Date().toISOString());
+    };
+
+    const checkIdleQi = () => {
+      const lastSessionStr = localStorage.getItem('seihouse-last-session-end');
+      if (lastSessionStr && idleQiEarned === null) {
+        const lastSession = new Date(lastSessionStr).getTime();
+        const now = Date.now();
+        const diffMs = now - lastSession;
+        
+        const minTimeMs = 60 * 1000; // 1 minute (for testing/realism combo, scale down from 10 mins)
+        const maxTimeMs = 24 * 60 * 60 * 1000; // 24 hours
+        
+        if (diffMs > minTimeMs) {
+           const cappedDiff = Math.min(diffMs, maxTimeMs);
+           // Calculate Qi: 1 Qi per 10 minutes -> 6 Qi per hour -> 144 Qi per 24 hours.
+           const qiEarned = Math.floor(cappedDiff / (10 * 60 * 1000));
+           
+           if (qiEarned > 0) {
+             setIdleQiEarned(qiEarned);
+             localStorage.removeItem('seihouse-last-session-end');
+           }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Initial check on load
+    if (!isInitializing) {
+      checkIdleQi();
+    }
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isInitializing, idleQiEarned]);
+  // ------------------------
 
   if (isInitializing) {
     return (
@@ -321,6 +419,7 @@ function App() {
       <ModalsAndToasts />
       <KeyboardShortcuts />
       <AtmosphericAudio />
+      <IdleCultivationModal qiEarned={idleQiEarned} onClose={() => setIdleQiEarned(null)} />
     </div>
   );
 }

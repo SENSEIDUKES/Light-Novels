@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BookOpen, Sparkles, Wand2 } from 'lucide-react';
+import { BookOpen, Sparkles, Wand2, Cloud, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { IntakeData } from '../../../types';
 import { FormSection, FormSectionId } from './FormSection';
@@ -121,9 +121,23 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
               key={p.id}
               type="button"
               onClick={() => updateIntake('genrePath', p.id)}
-              className={`px-3 py-1.5 rounded border text-xs font-sans transition-colors ${intake.genrePath === p.id ? 'bg-neutral-900 border-portal text-signal' : 'bg-transparent border-neutral-800 text-neutral-500 hover:text-neutral-300'}`}
+              className={`px-3 py-1.5 rounded border text-xs font-sans transition-colors flex items-center gap-1.5 ${intake.genrePath === p.id ? 'bg-neutral-900 border-portal text-signal shadow-[0_0_10px_rgba(4,172,255,0.1)]' : 'bg-transparent border-neutral-800 text-neutral-500 hover:text-neutral-300'}`}
             >
-              {p.icon} {p.name}
+              {p.id === 'Fate Survival' ? (
+                <div className="relative flex items-center justify-center">
+                  <Cloud size={14} className={intake.genrePath === p.id ? "text-red-500" : "text-neutral-500"} />
+                  <motion.div
+                    className="absolute"
+                    animate={{ opacity: [0, 0, 1, 0, 1, 0] }}
+                    transition={{ duration: 2.5, repeat: Infinity, times: [0, 0.8, 0.85, 0.9, 0.95, 1], ease: "steps(1)" }}
+                  >
+                    <Zap size={8} className="text-yellow-400 fill-yellow-400 mt-[2px]" />
+                  </motion.div>
+                </div>
+              ) : (
+                p.icon
+              )} 
+              {p.name}
             </button>
           ))}
         </div>

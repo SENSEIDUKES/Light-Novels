@@ -108,11 +108,14 @@ export const FateSurvivalExplanation: React.FC<{ compact?: boolean }> = ({ compa
 
       {/* Definition */}
       <div className="space-y-3 mb-6">
-        <p className="font-serif text-sm sm:text-[15px] text-neutral-200 leading-relaxed italic border-l-2 border-human pl-4 py-0.5">
-          "A story mode/genre where the world, relationship, character, kingdom, timeline, or destiny is moving toward a known or hidden <strong>“fated outcome,”</strong> and the reader/player must use limited choices, clues, sacrifices, and interventions to alter that outcome before it becomes irreversible."
+        <p className="font-display text-lg sm:text-xl text-signal leading-relaxed font-bold border-l-2 border-human pl-4 py-0.5">
+          "Read the story. Survive the world."
         </p>
-        <p className="font-sans text-xs text-neutral-400 leading-relaxed">
-          This paradigm preserves the absolute dramatic core of tension and danger while expanding the canvas far beyond the physical bounds of a traditional <span className="text-human font-bold">"death game."</span>
+        <p className="font-serif text-sm text-neutral-400 leading-relaxed italic">
+          A story mode/genre where the world, relationship, character, kingdom, timeline, or destiny is moving toward a known or hidden <strong>“fated outcome,”</strong> and the reader/player must use limited choices, clues, sacrifices, and interventions to alter that outcome before it becomes irreversible.
+        </p>
+        <p className="font-sans text-xs text-neutral-500 leading-relaxed mt-4">
+          A Curated Experience Designed by Ⓢ SEIHOUSE PRODUCTIONS LLC
         </p>
       </div>
 

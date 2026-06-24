@@ -1,5 +1,6 @@
 import { doc, setDoc, increment, collection, addDoc, query, where, getDocs, Timestamp, getDoc } from 'firebase/firestore';
 import { db, auth } from './firebase';
+import { checkAndAwardRankArtifacts } from './artifacts';
 
 export const DAO_RANKS = [
   { threshold: 0, name: 'Mortal Reader' },
@@ -191,6 +192,9 @@ export async function awardQi(event: QiEvent, sourceId?: string, sourceType?: st
 
     const newXp = currentXp + amount + bonusQi;
     const newRank = getDaoRankData(newXp).rank;
+    
+    // Automatically check and award persistent Cosmic Artifacts for this rank
+    checkAndAwardRankArtifacts(newRank);
 
     await setDoc(userRef, {
       dao_xp: newXp,
@@ -379,6 +383,9 @@ export async function awardDirectQi(amount: number, reason: string) {
 
     const newXp = currentXp + amount;
     const newRank = getDaoRankData(newXp).rank;
+    
+    // Automatically check and award persistent Cosmic Artifacts for this rank
+    checkAndAwardRankArtifacts(newRank);
 
     await setDoc(userRef, {
       dao_xp: newXp,

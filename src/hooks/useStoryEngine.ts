@@ -2,7 +2,8 @@ import { useAppStore } from '../store/useAppStore';
 import { Story, IntakeData, WorldBlueprint, Chapter, StoryArc, StoryMemory, StoryWorld, GeneratedImage } from '../types';
 import { storyStorage } from '../lib/storage';
 import { awardQi } from '../lib/qi';
-import { auth } from '../lib/firebase';
+import { unlockCosmicArtifact } from '../lib/artifacts';
+import { auth, db } from '../lib/firebase';
 import { getApiHeaders, extractJsonBlocks, extractJsonMeta } from './storyEngineHelpers';
 import { useChapterGeneration } from './useChapterGeneration';
 import { useArcSteering } from './useArcSteering';
@@ -15,16 +16,21 @@ export const useStoryEngine = () => {
   const { handleSteerArc, handleAlterFate } = useArcSteering();
 
   const handleGenerateBlueprint = async (intake: IntakeData): Promise<WorldBlueprint> => {
-    store.setGenerationPhase('blueprint');
-    store.setActiveAgentId('versa');
-    store.setIsGenerating(true);
-    store.setAppError(null);
+    const currentStoreState = useAppStore.getState();
+    if (currentStoreState.isGenerating) {
+      console.warn("Generation already in progress. Ignoring duplicate click.");
+      return {} as any;
+    }
+    currentStoreState.setIsGenerating(true);
+    currentStoreState.setGenerationPhase('blueprint');
+    currentStoreState.setActiveAgentId('versa');
+    currentStoreState.setAppError(null);
     try {
       const apiHeaders = await getApiHeaders();
       const response = await fetch('/api/generate-blueprint', {
         method: 'POST',
         headers: apiHeaders,
-        body: JSON.stringify({ intake, routingConfig: store.routingConfig.storyMaker })
+        body: JSON.stringify({ intake, routingConfig: currentStoreState.routingConfig.storyMaker })
       });
 
       if (!response.ok) {
@@ -34,20 +40,25 @@ export const useStoryEngine = () => {
       return await response.json();
     } catch (err: any) {
       console.error(err);
-      store.setAppError(err.message || "Failed to generate world blueprint.");
+      currentStoreState.setAppError(err.message || "Failed to generate world blueprint.");
       throw err;
     } finally {
-      store.setIsGenerating(false);
-      store.setGenerationPhase(null);
-      store.setActiveAgentId(null);
+      currentStoreState.setIsGenerating(false);
+      currentStoreState.setGenerationPhase(null);
+      currentStoreState.setActiveAgentId(null);
     }
   };
 
   const handleStartStory = async (intake: IntakeData, blueprint: WorldBlueprint, chapterCount: number) => {
-    store.setGenerationPhase('initial-arc');
-    store.setActiveAgentId('versa');
-    store.setIsGenerating(true);
-    store.setAppError(null);
+    const currentStoreState = useAppStore.getState();
+    if (currentStoreState.isGenerating) {
+      console.warn("Generation already in progress. Ignoring duplicate click.");
+      return;
+    }
+    currentStoreState.setIsGenerating(true);
+    currentStoreState.setGenerationPhase('initial-arc');
+    currentStoreState.setActiveAgentId('versa');
+    currentStoreState.setAppError(null);
 
     try {
       const apiHeaders = await getApiHeaders();
@@ -162,7 +173,61 @@ export const useStoryEngine = () => {
             chapters: arc.chapters.map(ch => {
               if (ch.number === charNum) {
                 const newStatus = ch.status === 'read' ? 'unread' : 'read';
-                if (newStatus === 'read') awardQi('chapter_finished');
+                if (newStatus === 'read') {
+                  awardQi('chapter_finished');
+                  
+                  // Handle Dao Pillar (Daily Reading Streak)
+                  const currentUserProfile = useAppStore.getState().userProfile;
+                  if (currentUserProfile) {
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const lastReadStr = currentUserProfile.lastReadDate;
+                    
+                    let newStreak = currentUserProfile.daoPillarStreak || 0;
+                    let isCracked = currentUserProfile.daoPillarCracked || false;
+                    
+                    if (lastReadStr !== todayStr) {
+                      if (lastReadStr) {
+                        const lastReadDate = new Date(lastReadStr);
+                        const todayDate = new Date(todayStr);
+                        const diffTime = Math.abs(todayDate.getTime() - lastReadDate.getTime());
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                        
+                        if (diffDays === 1) {
+                          newStreak += 1;
+                        } else {
+                          // Broke streak
+                          if (newStreak >= 7) {
+                            isCracked = true;
+                          }
+                          newStreak = 1;
+                        }
+                      } else {
+                        newStreak = 1;
+                      }
+                      
+                      const updatedProfile = {
+                        ...currentUserProfile,
+                        lastReadDate: todayStr,
+                        daoPillarStreak: newStreak,
+                        daoPillarCracked: isCracked
+                      };
+                      useAppStore.getState().setUserProfile(updatedProfile);
+                      // Fire and forget Firestore update
+                      if (auth.currentUser) {
+                        import('firebase/firestore').then(({ doc, setDoc }) => {
+                          setDoc(doc(db, 'users', auth.currentUser!.uid), {
+                            lastReadDate: todayStr,
+                            daoPillarStreak: newStreak,
+                            daoPillarCracked: isCracked
+                          }, { merge: true });
+                        });
+                      } else {
+                        localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedProfile));
+                      }
+                    }
+                  }
+                }
+                
                 return {
                   ...ch,
                   status: newStatus as 'unread' | 'read'
@@ -180,11 +245,20 @@ export const useStoryEngine = () => {
   };
 
   const handleGenerateCover = async (): Promise<{ imageUrls: string[], promptUsed: string } | undefined> => {
-    const activeStory = store.stories.find(s => s.id === store.activeStoryId);
-    if (!activeStory) return undefined;
-    store.setGenerationPhase('cover');
-    store.setIsGenerating(true);
-    store.setAppError(null);
+    const currentStoreState = useAppStore.getState();
+    if (currentStoreState.isGenerating) {
+      console.warn("Generation already in progress. Ignoring duplicate click.");
+      return undefined;
+    }
+    currentStoreState.setIsGenerating(true);
+
+    const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
+    if (!activeStory) {
+      currentStoreState.setIsGenerating(false);
+      return undefined;
+    }
+    currentStoreState.setGenerationPhase('cover');
+    currentStoreState.setAppError(null);
     try {
       const apiHeaders = await getApiHeaders();
       const styleConfig = activeStory.blueprint?.styleBible || "Chinese light novel world aesthetic, xianxia / wuxia fantasy illustration, cinematic, mystical, premium webnovel art.";
@@ -327,6 +401,22 @@ export const useStoryEngine = () => {
 
     await handleUpdateStoryDirect({ ...activeStory, arcs: newArcs });
     awardQi('chapter_sealed');
+    
+    // Scan sealed chapter content for artifacts
+    const sealedCh = newArcs.flatMap(a => a.chapters).find(c => c.number === chapterNumber);
+    if (sealedCh) {
+      const fullText = (sealedCh.generatedContent || "") + " " + (sealedCh.blocks || []).map((b: any) => b.text).join(" ");
+      import('../lib/artifacts').then(({ scanChapterForArtifacts }) => {
+        scanChapterForArtifacts(activeStory.id, activeStory.title, chapterNumber, fullText, sealedCh).catch((err) => {
+          console.error("Failed to scan sealed chapter for artifacts:", err);
+        });
+      });
+    }
+    
+    // Unlock Mirror of Karmic Reflections artifact on first chapter seal
+    unlockCosmicArtifact('chapter_seal', activeStory.id, activeStory.title).catch((err) => {
+      console.error('Failed to unlock Chapter Seal artifact:', err);
+    });
   };
 
   return {
