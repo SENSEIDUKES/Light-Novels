@@ -19,7 +19,21 @@ vi.mock('../store/useAppStore', () => ({
 
 describe('SteerPortal', () => {
   it('renders without crashing', () => {
-    const { container } = render(<SteerPortal onSteer={vi.fn()} />);
+    const mockStory = { 
+      id: 'test-story', 
+      title: 'Test', 
+      arcs: [], 
+      memory: { unresolvedPlotThreads: [], factions: [], characters: [] } 
+    };
+    const { container } = render(
+      <SteerPortal 
+        onSteerArc={vi.fn()}
+        isSteering={false}
+        currentArcIndex={0}
+        activeStory={mockStory}
+        routingConfig={{}}
+      />
+    );
     expect(container).toBeDefined();
   });
 });

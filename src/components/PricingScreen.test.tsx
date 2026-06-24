@@ -11,7 +11,7 @@ vi.mock('../store/useAppStore', () => ({
 describe('PricingScreen', () => {
   it('renders without crashing', () => {
     const { container } = render(
-      <PricingScreen onBack={vi.fn()} onLogin={vi.fn()} currentUser={null} />
+      <PricingScreen />
     );
     expect(container).toBeDefined();
   });

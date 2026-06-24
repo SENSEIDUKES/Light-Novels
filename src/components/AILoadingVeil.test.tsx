@@ -4,12 +4,12 @@ import { AILoadingVeil } from './AILoadingVeil';
 
 describe('AILoadingVeil', () => {
   it('renders without crashing when generating', () => {
-    const { container } = render(<AILoadingVeil isGenerating={true} activeStory={null} />);
+    const { container } = render(<AILoadingVeil />);
     expect(container).toBeDefined();
   });
 
   it('renders without crashing when not generating', () => {
-    const { container } = render(<AILoadingVeil isGenerating={false} activeStory={null} />);
+    const { container } = render(<AILoadingVeil />);
     expect(container).toBeDefined();
   });
 });

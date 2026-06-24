@@ -37,7 +37,7 @@ describe('Qi', () => {
 
   describe('awardQi', () => {
     it('handles errors gracefully', async () => {
-      await expect(awardQi('user', 10)).resolves.toBeUndefined();
+      await expect(awardQi('chapter_read', '10')).resolves.toBeUndefined();
     });
   });
 });

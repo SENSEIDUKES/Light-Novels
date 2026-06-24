@@ -30,9 +30,7 @@ vi.mock('../store/useAppStore', () => ({
 describe('ModalsAndToasts', () => {
   it('renders without crashing', () => {
     const { container } = render(
-      <ModalsAndToasts 
-        currentUser={null}
-      />
+      <ModalsAndToasts />
     );
     expect(container).toBeDefined();
   });

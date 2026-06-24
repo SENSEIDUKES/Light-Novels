@@ -13,7 +13,14 @@ vi.mock('../store/useAppStore', () => ({
 
 describe('CreationPortal', () => {
   it('renders without crashing', () => {
-    const { container } = render(<CreationPortal />);
+    const { container } = render(
+      <CreationPortal 
+        onStartStory={vi.fn()}
+        onGenerateBlueprint={vi.fn()}
+        isGenerating={false}
+        error={null}
+      />
+    );
     expect(container).toBeDefined();
   });
 });

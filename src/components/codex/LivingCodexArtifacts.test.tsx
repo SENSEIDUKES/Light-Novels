@@ -4,7 +4,22 @@ import { LivingCodexArtifacts } from './LivingCodexArtifacts';
 
 describe('LivingCodexArtifacts', () => {
   it('renders without crashing', () => {
-    const { container } = render(<LivingCodexArtifacts memory={{ artifacts: [] } as any} onUpdateMemory={vi.fn()} pushNotification={vi.fn()} />);
+    const { container } = render(
+      <LivingCodexArtifacts 
+        artifactsToRender={[]} 
+        showAddArtifactForm={false} 
+        setShowAddArtifactForm={vi.fn()} 
+        newArtifact={{}} 
+        setNewArtifact={vi.fn()} 
+        handleAddArtifact={vi.fn()} 
+        setDeletePrompt={vi.fn()} 
+        handleAwakenCardImage={vi.fn()} 
+        renderImageHistoryGallery={vi.fn()} 
+        generatingId={null} 
+        previews={{}} 
+        activeStory={{} as any} 
+      />
+    );
     expect(container).toBeDefined();
   });
 });

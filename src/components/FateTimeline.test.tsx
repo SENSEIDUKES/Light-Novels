@@ -6,9 +6,9 @@ describe('FateTimeline', () => {
   it('renders without crashing', () => {
     const { container } = render(
       <FateTimeline 
-        story={{ id: 'test', arcs: [], memory: { unresolvedPlotThreads: [] } } as any}
-        onSelectChapter={vi.fn()}
-        selectedChapterNum={1}
+        isOpen={true}
+        onClose={vi.fn()}
+        activeStoryId="test"
       />
     );
     expect(container).toBeDefined();

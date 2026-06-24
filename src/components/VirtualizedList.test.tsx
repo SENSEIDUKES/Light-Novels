@@ -19,7 +19,7 @@ describe('VirtualizedList', () => {
         items={[{ id: 1 }]}
         renderItem={(item) => <div>{item.id}</div>}
         itemHeight={50}
-        windowHeight={500}
+        containerHeight={500}
       />
     );
     expect(container).toBeDefined();

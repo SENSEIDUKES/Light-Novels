@@ -131,7 +131,7 @@ export function useImageManifest() {
     setGeneratingIds(prev => new Set(prev).add(genId));
     
     try {
-      await checkAndConsumeImageQuota();
+      await checkAndConsumeImageQuota({ automatic: true });
 
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
       const gemini = await secureStorage.getItem('@seihouse/api-key-gemini');
@@ -209,13 +209,7 @@ export function useImageManifest() {
         next.delete(genId);
         return next;
       });
-      window.dispatchEvent(new CustomEvent('seihouse-toast', { 
-        detail: { 
-          title: "Hero Manifestation Collapse", 
-          message: err.message, 
-          type: "error" 
-        }
-      }));
+      console.warn("Hero generation failed:", err);
       throw err;
     }
   };

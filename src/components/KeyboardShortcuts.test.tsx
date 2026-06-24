@@ -4,7 +4,7 @@ import { KeyboardShortcuts } from './KeyboardShortcuts';
 
 describe('KeyboardShortcuts', () => {
   it('renders without crashing', () => {
-    const { container } = render(<KeyboardShortcuts onSave={vi.fn()} />);
+    const { container } = render(<KeyboardShortcuts />);
     expect(container).toBeDefined();
   });
 });

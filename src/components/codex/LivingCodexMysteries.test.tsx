@@ -4,7 +4,12 @@ import { LivingCodexMysteries } from './LivingCodexMysteries';
 
 describe('LivingCodexMysteries', () => {
   it('renders without crashing', () => {
-    const { container } = render(<LivingCodexMysteries memory={{ mysteries: [] } as any} onUpdateMemory={vi.fn()} pushNotification={vi.fn()} />);
+    const mockMemory = { characters: [], currentPowerStage: 'Foundation', powerSystem: '', worldRules: [], unresolvedPlotThreads: [], resolvedPlotThreads: [] };
+    const { container } = render(
+      <LivingCodexMysteries 
+        memory={mockMemory}
+      />
+    );
     expect(container).toBeDefined();
   });
 });

@@ -22,6 +22,7 @@ export interface UserProfile {
   dao_rank?: string;
   premiumTier?: 'free' | 'inner_sect' | 'core_disciple' | 'elder';
   imageGenerationCount?: number;
+  imageQuotaResetAt?: string;
 }
 
 export interface DaoXpEvent {

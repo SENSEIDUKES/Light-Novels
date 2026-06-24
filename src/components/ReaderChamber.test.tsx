@@ -23,7 +23,7 @@ describe('ReaderChamber', () => {
   });
 
   it('renders without crashing', () => {
-    const chapters = [{ number: 1, title: 'Ch 1', status: 'read', generatedContent: 'Hello' }];
+    const chapters = [{ number: 1, title: 'Ch 1', status: 'read' as const, premise: 'Some premise', generatedContent: 'Hello' }];
     const mockStory = { 
       id: 'test-story', 
       title: 'Test', 
@@ -34,13 +34,16 @@ describe('ReaderChamber', () => {
     const { container } = render(
       <ReaderChamber 
         chapters={chapters} 
+        currentPowerStage="Foundation"
         selectedChapterNum={1} 
         setSelectedChapterNum={vi.fn()} 
         onGenerateChapter={vi.fn()} 
         isGenerating={false}
         onToggleRead={vi.fn()}
+        arcTitle="First Arc"
         onSwitchTab={vi.fn()}
         activeStory={mockStory as any}
+        onUpdateStory={vi.fn()}
       />
     );
     expect(container).toBeDefined();

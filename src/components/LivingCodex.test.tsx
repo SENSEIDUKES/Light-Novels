@@ -13,7 +13,18 @@ vi.mock('../store/useAppStore', () => ({
 
 describe('LivingCodex', () => {
   it('renders without crashing', () => {
-    const { container } = render(<LivingCodex isOpen={true} onClose={vi.fn()} />);
+    const mockMemory = { characters: [], unresolvedPlotThreads: [], resolvedPlotThreads: [], powerSystem: '', currentPowerStage: '', worldRules: [] };
+    const mockStory = { id: 'test', title: 'test', genre: '', mcName: 'testMc', customPremise: '', createdAt: '', updatedAt: '', memory: mockMemory, arcs: [], currentChapterNumber: 1 };
+    const { container } = render(
+      <LivingCodex 
+        memory={mockMemory}
+        arcs={[]}
+        onUpdateMemory={vi.fn()}
+        mcName="testMc"
+        activeStory={mockStory}
+        onUpdateStory={vi.fn()}
+      />
+    );
     expect(container).toBeDefined();
   });
 });

@@ -59,6 +59,19 @@ export const ModalsAndToasts: React.FC = () => {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    const handleToast = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.message) {
+        setAppError(customEvent.detail.message);
+      }
+    };
+    window.addEventListener('seihouse-toast', handleToast);
+    return () => {
+      window.removeEventListener('seihouse-toast', handleToast);
+    };
+  }, [setAppError]);
+
   const fetchDynamicModels = async (route: 'storyMaker' | 'imageGenerator', provider: 'gemini' | 'openrouter' | 'ollama') => {
     const key = `${route}-${provider}`;
     setLoadingModels(prev => ({ ...prev, [key]: true }));

@@ -4,7 +4,14 @@ import { LivingCodexGlossary } from './LivingCodexGlossary';
 
 describe('LivingCodexGlossary', () => {
   it('renders without crashing', () => {
-    const { container } = render(<LivingCodexGlossary memory={{ glossary: [] } as any} onUpdateMemory={vi.fn()} pushNotification={vi.fn()} />);
+    const mockMemory = { characters: [], currentPowerStage: 'Foundation', powerSystem: '', worldRules: [], unresolvedPlotThreads: [], resolvedPlotThreads: [] };
+    const { container } = render(
+      <LivingCodexGlossary 
+        memory={mockMemory} 
+        arcs={[]}
+        mcName="testMc"
+      />
+    );
     expect(container).toBeDefined();
   });
 });

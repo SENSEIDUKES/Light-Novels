@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { rankRelevantEntities, filterRelevantEntities, summarizePlotThreads } from './helpers';
+import { rankRelevantEntities, filterRelevantEntities } from './helpers';
 
 describe('Server Helpers', () => {
   describe('rankRelevantEntities', () => {

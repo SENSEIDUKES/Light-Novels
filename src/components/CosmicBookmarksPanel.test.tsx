@@ -19,7 +19,12 @@ describe('CosmicBookmarksPanel', () => {
   it('renders without crashing', () => {
     const { container } = render(
       <CosmicBookmarksPanel 
-        onClose={vi.fn()}
+        showBookmarksPanel={true}
+        setShowBookmarksPanel={vi.fn()}
+        activeBookmarks={[]}
+        chapters={[]}
+        handleRemoveBookmark={vi.fn()}
+        handleJumpToBookmark={vi.fn()}
       />
     );
     expect(container).toBeDefined();

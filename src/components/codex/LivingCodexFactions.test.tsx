@@ -4,7 +4,18 @@ import { LivingCodexFactions } from './LivingCodexFactions';
 
 describe('LivingCodexFactions', () => {
   it('renders without crashing', () => {
-    const { container } = render(<LivingCodexFactions memory={{ factions: [] } as any} onUpdateMemory={vi.fn()} pushNotification={vi.fn()} />);
+    const { container } = render(
+      <LivingCodexFactions 
+        factionsToRender={[]}
+        memoryCharacters={[]}
+        showAddFactionForm={false}
+        setShowAddFactionForm={vi.fn()}
+        newFaction={{}}
+        setNewFaction={vi.fn()}
+        handleAddFaction={vi.fn()}
+        setDeletePrompt={vi.fn()}
+      />
+    );
     expect(container).toBeDefined();
   });
 });

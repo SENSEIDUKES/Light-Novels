@@ -77,8 +77,9 @@ export function useReaderVisuals({
     setGeneratingRevealId(entry.id);
     try {
       await manifestImage(entry, type);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to manifest reveal card auras:", err);
+      useAppStore.getState().setAppError(err.message || "Celestial alignment gate failed to synchronize imagery.");
     } finally {
       setGeneratingRevealId(null);
     }

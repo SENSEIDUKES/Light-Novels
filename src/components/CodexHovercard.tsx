@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Shield, MapPin, Swords, User, Loader2 } from 'lucide-react';
 import { Character, Faction, Artifact, Location } from '../types';
 import { useImageManifest } from '../hooks/useImageManifest';
+import { useAppStore } from '../store/useAppStore';
 
 interface CodexHovercardProps {
   term: string;
@@ -23,7 +24,12 @@ export const CodexHovercard: React.FC<CodexHovercardProps> = ({ term, type, entr
     e.stopPropagation();
     if (isGeneratingImage) return;
 
-    await manifestImage(entry, type);
+    try {
+      await manifestImage(entry, type);
+    } catch (err: any) {
+      console.error("Failed to manifest card:", err);
+      useAppStore.getState().setAppError(err.message || "Celestial alignment gate failed to synchronize imagery.");
+    }
   };
 
   const getIcon = () => {
