@@ -125,7 +125,8 @@ service cloud.firestore {
           'imageUrl', 'intake', 'blueprint', 'relationships', 'karmaNodes', 'readerPreferences', 
           'bookmarks', 'memory', 'arcs', 'parentStoryId', 'forkChapterNumber', 'imageHistory', 
           'lastImageChapter', 'evolutionReady', 'evolutionReason', 'availableVisualUpdate',
-          'isEdited', 'userId'
+          'isEdited', 'userId', 'hardcoreFateMode', 'fatePressure', 'lastReadChapter', 
+          'lastReadScrollPosition', 'lastReadAt'
         ])
         && (!('title' in incoming().diff(existing()).affectedKeys()) || (incoming().title is string && incoming().title.size() <= 500))
         && (!('updatedAt' in incoming().diff(existing()).affectedKeys()) || (incoming().updatedAt is string && incoming().updatedAt.size() <= 40));
@@ -147,7 +148,7 @@ service cloud.firestore {
           && incoming().storyId == existing().storyId
           && incoming().chapterNumber == existing().chapterNumber
           && (isValidChapter(incoming()))
-          && incoming().diff(existing()).affectedKeys().hasOnly(['generatedContent', 'blocks', 'summary', 'statsChangeMessage', 'cuePayload', 'translations', 'updatedAt', 'revisionId', 'syncStatus']);
+          && incoming().diff(existing()).affectedKeys().hasOnly(['generatedContent', 'blocks', 'archivedBlocks', 'summary', 'episodicSummary', 'statsChangeMessage', 'cuePayload', 'translations', 'audioManifest', 'updatedAt', 'revisionId', 'syncStatus', 'imageUrl']);
           
         allow delete: if isSignedIn() && isValidId(chapterId) && get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid;
       }

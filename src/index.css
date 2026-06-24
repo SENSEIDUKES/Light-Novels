@@ -124,3 +124,59 @@ html, body {
   opacity: 0.6;
   transition: color 0.4s ease, opacity 0.4s ease;
 }
+
+/* Dao Aura custom animations */
+@keyframes aura-shimmer {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.aura-animated-custom {
+  background: linear-gradient(to right, #00ffff, #ff007f, #ffd700, #00ffff);
+  background-size: 300% auto;
+  animation: aura-shimmer 4s linear infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.aura-gradient-violet-gold {
+  background: linear-gradient(to right, #8b5cf6, #ec4899, #ffd700);
+  background-size: 200% auto;
+  animation: aura-shimmer 3s ease infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@keyframes menacing-pulse-red {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(225, 29, 72, 0.25), inset 0 0 6px rgba(225, 29, 72, 0.15);
+    border-color: rgba(225, 29, 72, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(225, 29, 72, 0.75), inset 0 0 12px rgba(225, 29, 72, 0.35);
+    border-color: rgba(225, 29, 72, 1);
+  }
+}
+
+@keyframes menacing-pulse-amber {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.25), inset 0 0 6px rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(245, 158, 11, 0.75), inset 0 0 12px rgba(245, 158, 11, 0.35);
+    border-color: rgba(245, 158, 11, 1);
+  }
+}
+
+.animate-menacing-red {
+  animation: menacing-pulse-red 3s infinite ease-in-out;
+}
+
+.animate-menacing-amber {
+  animation: menacing-pulse-amber 3s infinite ease-in-out;
+}
+

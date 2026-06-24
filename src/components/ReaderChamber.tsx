@@ -48,7 +48,7 @@ import {
 import { useChapterTranslation } from "../hooks/useChapterTranslation";
 import { useAppStore } from "../store/useAppStore";
 import { secureStorage } from "../lib/encryption";
-import { SystemBlock } from "./SystemBlock";
+import { SystemBlock, SYSTEM_COLORS_LEGEND } from "./SystemBlock";
 
 import { AlterFatePanel } from "./AlterFatePanel";
 import { VoiceEditionPanel } from "./VoiceEditionPanel";
@@ -98,6 +98,25 @@ export default function ReaderChamber({
 }: ReaderChamberProps) {
   const selectedChapter =
     chapters.find((c) => c.number === selectedChapterNum) || chapters[0];
+
+  const [showLegend, setShowLegend] = useState(() => {
+    return localStorage.getItem("seihouse-system-legend-dismissed") !== "true";
+  });
+
+  const hasSystemBlocks = useMemo(() => {
+    if (selectedChapter.blocks && selectedChapter.blocks.length > 0) {
+      return selectedChapter.blocks.some(
+        (b) => !!b.system || (b.text && b.text.trim().startsWith("[") && b.text.trim().endsWith("]"))
+      );
+    }
+    if (selectedChapter.generatedContent) {
+      const paragraphs = selectedChapter.generatedContent.split("\n\n");
+      return paragraphs.some(
+        (p) => p.trim().startsWith("[") && p.trim().endsWith("]")
+      );
+    }
+    return false;
+  }, [selectedChapter.blocks, selectedChapter.generatedContent]);
 
   const [filter, setFilter] = useState<"all" | "unlocked" | "locked">("all");
   const stories = useAppStore(state => state.stories);
@@ -866,6 +885,16 @@ export default function ReaderChamber({
             handleAtmosphereChange={handleAtmosphereChange}
             volume={volume}
             handleVolumeChange={handleVolumeChange}
+            showLegend={showLegend}
+            onToggleLegend={() => {
+              const nextState = !showLegend;
+              setShowLegend(nextState);
+              if (!nextState) {
+                localStorage.setItem("seihouse-system-legend-dismissed", "true");
+              } else {
+                localStorage.removeItem("seihouse-system-legend-dismissed");
+              }
+            }}
           />
         )}
       </AnimatePresence>
@@ -924,6 +953,126 @@ export default function ReaderChamber({
                     </div>
                   </motion.div>
                 )}
+
+                {activeStory.genre === 'Fate Survival' && (
+                  <div className="mb-8 p-5 rounded-lg bg-neutral-950 border border-red-950/40 relative overflow-hidden shadow-[0_0_25px_rgba(139,0,0,0.15)] animate-fadeIn">
+                    <div className="absolute top-0 right-0 h-16 w-16 bg-gradient-to-br from-red-600/10 to-transparent pointer-events-none rounded-bl-full" />
+                    <div className="flex items-center justify-between border-b border-red-950/20 pb-2 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-red-500 animate-pulse text-xs">💀</span>
+                        <h4 className="font-sc font-bold text-xs sm:text-sm text-red-500 tracking-[0.2em] uppercase">
+                          Fate Survival Mode Active
+                        </h4>
+                      </div>
+                      <div className="px-2 py-0.5 rounded bg-red-950/30 border border-red-900/30 text-red-400 font-mono text-[9px] tracking-wider uppercase">
+                        DOOM DEADLINE: CHAPTER 7
+                      </div>
+                    </div>
+                    
+                    <p className="text-neutral-300 font-serif text-sm italic mb-4 leading-relaxed">
+                      "This character is destined to die. Can you change fate before it happens?"
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-sans">
+                      <div className="space-y-1.5 p-3 rounded bg-black/40 border border-neutral-900">
+                        <div className="text-[10px] uppercase font-mono tracking-wider text-neutral-500">
+                          Target Profile
+                        </div>
+                        <div className="font-display font-medium text-signal">
+                          MC: <span className="text-neutral-200 font-bold">{activeStory.mcName}</span>
+                        </div>
+                        <div className="text-neutral-400">
+                          Current Stage: <span className="text-gold-accent font-mono">{activeStory.memory?.currentPowerStage || currentPowerStage}</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5 p-3 rounded bg-black/40 border border-neutral-900">
+                        <div className="text-[10px] uppercase font-mono tracking-wider text-neutral-500">
+                          Chronos Calibration
+                        </div>
+                        <div className="font-display font-medium text-signal">
+                          Remaining Steps: <span className="text-red-500 font-bold">{Math.max(0, 7 - selectedChapterNum)} Chapters</span>
+                        </div>
+                        <div className="text-neutral-400">
+                          Status: <span className="text-red-400 font-bold uppercase tracking-wider">{selectedChapterNum >= 7 ? 'Critical Apex' : 'Fate Approaching'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 p-3 rounded-md bg-void border border-neutral-900 text-[11px] leading-relaxed text-neutral-400 font-sans">
+                      <strong className="text-neutral-300">How to intervene:</strong> Read carefully for death flags. When you notice a critical choice or warning block, use the <span className="text-portal font-semibold">Alter Fate (Branch)</span> panel at the bottom to inject customized actions and force a timeline shift!
+                    </div>
+                  </div>
+                )}
+
+                {activeStory.hardcoreFateMode && (
+                  <div className="mb-8 p-5 rounded-lg bg-neutral-950 border border-red-950/40 relative overflow-hidden shadow-[0_0_20px_rgba(139,0,0,0.1)] animate-fadeIn">
+                    <div className="absolute top-0 right-0 h-16 w-16 bg-gradient-to-br from-red-600/10 to-transparent pointer-events-none rounded-bl-full" />
+                    <div className="flex items-center justify-between border-b border-red-950/20 pb-2 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-red-500 animate-pulse text-xs">☠️</span>
+                        <h4 className="font-sc font-bold text-xs sm:text-sm text-red-500 tracking-[0.2em] uppercase">
+                          Hardcore Fate Mode Engaged
+                        </h4>
+                      </div>
+                      <div className="px-2 py-0.5 rounded bg-red-950/30 border border-red-900/30 text-red-400 font-mono text-[9px] tracking-wider uppercase animate-pulse">
+                        HIGH DANGER
+                      </div>
+                    </div>
+                    
+                    <p className="text-neutral-300 font-sans text-xs leading-relaxed">
+                      The system is authorized to introduce irreversible consequences, death flags on allies, sudden betrayals, and forced tradeoffs. There are no safe choices. Protect your timeline!
+                    </p>
+                  </div>
+                )}
+
+                {showLegend && hasSystemBlocks && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="mb-8 p-5 bg-[#080808]/90 border border-portal/30 rounded-lg max-w-2xl mx-auto shadow-[0_0_30px_rgba(4,172,255,0.1)] relative z-10"
+                  >
+                    <div className="flex items-center justify-between border-b border-portal/20 pb-2 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-portal text-sm animate-pulse">✦</span>
+                        <h4 className="font-display font-medium text-xs sm:text-sm text-signal tracking-widest uppercase">
+                          Aetherial System Codes
+                        </h4>
+                      </div>
+                      <button
+                        onClick={() => {
+                          localStorage.setItem("seihouse-system-legend-dismissed", "true");
+                          setShowLegend(false);
+                        }}
+                        className="text-[9px] uppercase font-mono tracking-wider text-portal hover:text-signal transition-colors px-2.5 py-1 border border-portal/30 hover:border-portal rounded-sm bg-portal/5 hover:bg-portal/15 cursor-pointer shadow-[0_0_10px_rgba(4,172,255,0.1)]"
+                      >
+                        Dismiss & Learn by Feeling
+                      </button>
+                    </div>
+                    
+                    <p className="text-neutral-400 text-xs font-serif italic mb-4 leading-relaxed">
+                      The Heavenly System speaks through colors. The resonance of each hue carries deep narrative significance. Learn to feel the thread of your fate.
+                    </p>
+                    
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
+                      {SYSTEM_COLORS_LEGEND.map((m) => (
+                        <div
+                          key={m.type}
+                          className={`p-2 border rounded-md ${m.bgColor} ${m.borderColor} flex flex-col justify-between min-h-[50px] transition-all hover:scale-[1.02]`}
+                        >
+                          <span className={`text-[10px] font-bold uppercase tracking-wider ${m.textColor}`}>
+                            {m.name}
+                          </span>
+                          <span className="text-[9px] text-neutral-400 font-mono tracking-tight line-clamp-1 mt-1">
+                            {m.playerMeaning}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+
                 <div
                   className={`${
                     currentPrefs.fontSize === "xs"

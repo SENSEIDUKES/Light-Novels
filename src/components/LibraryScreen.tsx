@@ -4,7 +4,7 @@ import { Sparkles, BookOpen, Trash2, Play, Globe, Eye } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { ParticleSystem } from './ParticleSystem';
 import { Story } from '../types';
-import { getDaoRankData } from '../lib/qi';
+import { getDaoRankData, getAuraTextStyle } from '../lib/qi';
 
 import { INITIAL_DEMO_STORIES } from '../store/demoStories';
 
@@ -206,7 +206,14 @@ export const LibraryScreen: React.FC = () => {
                   </h4>
                   {userProfile ? (
                     <p className="text-[10px] text-portal/80 font-sc tracking-widest uppercase truncate font-bold mt-1">
-                      By <span style={{ color: userProfile.displayNameColor || undefined }}>{userProfile.displayName || userProfile.username}</span> · {userProfile.dao_rank || getDaoRankData(userProfile.dao_xp || userProfile.qi || 0).rank}
+                      By {(() => {
+                        const styleObj = getAuraTextStyle(userProfile.displayNameColor);
+                        return (
+                          <span className={styleObj.className} style={styleObj.style}>
+                            {userProfile.displayName || userProfile.username}
+                          </span>
+                        );
+                      })()} · {userProfile.dao_rank || getDaoRankData(userProfile.dao_xp || userProfile.qi || 0).rank}
                     </p>
                   ) : (
                     <p className="text-[10px] text-portal/80 font-sc tracking-widest uppercase truncate font-bold mt-1">
@@ -324,6 +331,11 @@ export const LibraryScreen: React.FC = () => {
                         <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-jade-accent px-1.5 py-0.5 bg-black/80 border border-neutral-800 rounded mb-1 inline-block">
                           {story.genre}
                         </span>
+                        {story.hardcoreFateMode && (
+                          <span className="ml-1.5 text-[9px] font-mono font-bold uppercase tracking-widest text-red-500 px-1.5 py-0.5 bg-black/80 border border-red-950/40 rounded mb-1 inline-block animate-pulse">
+                            ☠️ HARDCORE
+                          </span>
+                        )}
                       </div>
                     </div>
                     
@@ -333,7 +345,14 @@ export const LibraryScreen: React.FC = () => {
                       </h4>
                       {userProfile ? (
                         <p className="text-[10px] text-portal/80 font-sc tracking-widest uppercase truncate font-bold mt-0.5">
-                          By <span style={{ color: userProfile.displayNameColor || undefined }}>{userProfile.displayName || userProfile.username}</span> · {userProfile.dao_rank || getDaoRankData(userProfile.dao_xp || userProfile.qi || 0).rank}
+                          By {(() => {
+                            const styleObj = getAuraTextStyle(userProfile.displayNameColor);
+                            return (
+                              <span className={styleObj.className} style={styleObj.style}>
+                                {userProfile.displayName || userProfile.username}
+                              </span>
+                            );
+                          })()} · {userProfile.dao_rank || getDaoRankData(userProfile.dao_xp || userProfile.qi || 0).rank}
                         </p>
                       ) : (
                         <p className="text-[10px] text-portal/80 font-sc tracking-widest uppercase truncate font-bold mt-0.5">

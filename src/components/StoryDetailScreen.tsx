@@ -5,6 +5,7 @@ import { useAppStore } from '../store/useAppStore';
 import { DestinyChoicePanel } from './DestinyChoicePanel';
 import { FateTimeline } from './FateTimeline';
 import { storyStorage } from '../lib/storage';
+import { getAuraTextStyle } from '../lib/qi';
 
 export const StoryDetailScreen: React.FC<{ 
   handleGenerateCover: () => Promise<{ imageUrls: string[], promptUsed: string } | undefined>,
@@ -17,7 +18,7 @@ export const StoryDetailScreen: React.FC<{
 }> = ({
   handleGenerateCover, handleApplyCover, handleExportFullTome, handleExportEPUB, handleExportSingleStory, handleDeleteStory, setIsCodexSheetOpen
 }) => {
-  const { currentScreen, setCurrentScreen, activeStoryId, stories, isGenerating, setSelectedChapterNum, userProfile } = useAppStore();
+  const { currentScreen, setCurrentScreen, activeStoryId, stories, isGenerating, setSelectedChapterNum, userProfile, saveStories } = useAppStore();
   const [isStoryMenuOpen, setIsStoryMenuOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [coverPreview, setCoverPreview] = useState<{ urls: string[], prompt: string, selectedIndex: number } | null>(null);
@@ -273,7 +274,16 @@ export const StoryDetailScreen: React.FC<{
         <div className="flex-1 space-y-4">
           <div className="space-y-1">
             <h2 className="font-display font-bold text-3xl sm:text-4xl text-signal leading-tight">{activeStory.title}</h2>
-            <p className="font-sans text-xs text-neutral-400">Written by <span className={userProfile?.displayNameColor ? "font-bold" : "text-gold-accent font-bold"} style={userProfile?.displayNameColor ? { color: userProfile.displayNameColor } : undefined}>{userProfile?.displayName || userProfile?.username || 'Aetherial Resonance'}</span> • {activeStory.createdAt.split('T')[0]}</p>
+            <p className="font-sans text-xs text-neutral-400">
+              Written by {(() => {
+                const styleObj = getAuraTextStyle(userProfile?.displayNameColor);
+                return (
+                  <span className={`${styleObj.className || ''} font-bold`} style={styleObj.style}>
+                    {userProfile?.displayName || userProfile?.username || 'Aetherial Resonance'}
+                  </span>
+                );
+              })()} • {activeStory.createdAt.split('T')[0]}
+            </p>
           </div>
 
           <div className="flex flex-wrap gap-2">

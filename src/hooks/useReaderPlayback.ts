@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Chapter, VoiceClip } from "../types";
 import { useAppStore } from "../store/useAppStore";
 import { dispatchNarration, dispatchNarrativeCue } from "../lib/narrativeCues";
@@ -177,6 +177,11 @@ export function useReaderPlayback({
     }
   }, []);
 
+  const selectedChapterRef = useRef(selectedChapter);
+  useEffect(() => {
+    selectedChapterRef.current = selectedChapter;
+  }, [selectedChapter]);
+
   const chunksRef = useRef<{ text: string; isDialogue: boolean; paragraphIndex?: number }[]>([]);
   const [activeChunks, setActiveChunks] = useState<{ text: string; isDialogue: boolean; paragraphIndex?: number }[]>([]);
   const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
@@ -227,13 +232,13 @@ export function useReaderPlayback({
     dispatchNarration({ status: 'end' });
   };
 
-  const fireBlockSideEffects = (blockIndex: number, durationMs: number) => {
+  const fireBlockSideEffects = useCallback((blockIndex: number, durationMs: number) => {
     setCurrentNarratedBlockIndex(blockIndex);
     dispatchNarration({ status: 'block', blockIndex, durationMs });
 
     if (useAppStore.getState().readerMode === "sen" && blockIndex !== -1 && blockIndex > lastFiredParagraphIndexRef.current) {
       lastFiredParagraphIndexRef.current = blockIndex;
-      const block = selectedChapter?.blocks?.[blockIndex];
+      const block = selectedChapterRef.current?.blocks?.[blockIndex];
       const { immersion } = useAppStore.getState();
       
       if (block && immersion.master) {
@@ -241,7 +246,7 @@ export function useReaderPlayback({
           const { sfxList } = extractSFXCues(block.text);
           sfxList.forEach((sfx, i) => {
             dispatchNarrativeCue({
-              id: `sfx-block-${selectedChapter.number}-${blockIndex}-${i}`,
+              id: `sfx-block-${selectedChapterRef.current?.number}-${blockIndex}-${i}`,
               type: "narrative.fx.play",
               once: true,
               value: sfx,
@@ -250,7 +255,7 @@ export function useReaderPlayback({
         }
         if (immersion.imagePopups && block.metadata) {
           dispatchNarrativeCue({
-             id: block.id || `para-${selectedChapter.number}-${blockIndex}`,
+             id: block.id || `para-${selectedChapterRef.current?.number}-${blockIndex}`,
              type: "narrative.metadata.signature",
              once: true,
              metadata: block.metadata,
@@ -258,7 +263,7 @@ export function useReaderPlayback({
         }
       }
     }
-  };
+  }, []);
 
   const startClipSequence = (clips: VoiceClip[], startIndex = 0) => {
     if (startIndex >= clips.length) {
@@ -307,7 +312,9 @@ export function useReaderPlayback({
     });
   };
 
-  const speakChunk = (index: number) => {
+  const speakChunkRef = useRef<(index: number) => void>(() => {});
+
+  const speakChunk = useCallback((index: number) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
     const synth = window.speechSynthesis;
 
@@ -331,7 +338,7 @@ export function useReaderPlayback({
 
     if (!chunkData || !chunkData.text.trim() || !hasWordChars) {
       setCurrentChunkIndex(index + 1);
-      setTimeout(() => speakChunk(index + 1), 50);
+      setTimeout(() => speakChunkRef.current(index + 1), 50);
       return;
     }
 
@@ -359,7 +366,7 @@ export function useReaderPlayback({
     utterance.onend = () => {
       const nextIndex = index + 1;
       setCurrentChunkIndex(nextIndex);
-      setTimeout(() => speakChunk(nextIndex), 50);
+      setTimeout(() => speakChunkRef.current(nextIndex), 50);
     };
 
     utterance.onerror = (e) => {
@@ -371,7 +378,11 @@ export function useReaderPlayback({
     };
 
     synth.speak(utterance);
-  };
+  }, [fireBlockSideEffects]);
+
+  useEffect(() => {
+    speakChunkRef.current = speakChunk;
+  }, [speakChunk]);
 
   const handleSpeak = () => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
@@ -502,15 +513,21 @@ export function useReaderPlayback({
 
   useEffect(() => {
     stopAllPlayback();
-  }, [selectedChapter?.number]);
+    pauseAutoScroll();
+  }, [selectedChapter?.number, pauseAutoScroll]);
 
   useEffect(() => {
     if (!isPlayingText || isPausedText) return;
+    if (activeAudioRef.current) {
+      activeAudioRef.current.playbackRate = speechRate;
+      activeAudioRef.current.volume = isMuted ? 0 : speechVolume;
+      return;
+    }
     const timer = setTimeout(() => {
       speakChunk(currentChunkIndexRef.current);
     }, 450);
     return () => clearTimeout(timer);
-  }, [speechRate, speechPitch, selectedVoiceURI, selectedDialogueVoiceURI, speechVolume, isPlayingText, isPausedText, speakChunk]);
+  }, [speechRate, speechPitch, selectedVoiceURI, selectedDialogueVoiceURI, speechVolume, isPlayingText, isPausedText, speakChunk, isMuted]);
 
   return {
     isPlayingText,

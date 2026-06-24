@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, ArrowRight, ShieldAlert, ChevronDown, ChevronUp, BookOpen, Layers, Target, Users, Zap, CheckCircle2, Cloud, Wand2, Copy, Check, MapPin, HelpCircle, GitBranch, FileText } from 'lucide-react';
+import { Sparkles, ArrowRight, ShieldAlert, ChevronDown, ChevronUp, BookOpen, Layers, Target, Users, Zap, CheckCircle2, Cloud, Wand2, Copy, Check, MapPin, HelpCircle, GitBranch, FileText, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { IntakeData, WorldBlueprint } from '../types';
 import { useAppStore } from '../store/useAppStore';
@@ -17,6 +17,10 @@ const CATEGORIZED_TAGS: Record<string, string[]> = {
     'system corruption', 'system awakening', 'system missions', 'system rewards', 'system penalties', 
     'system shop', 'system diagnostics', 'hidden stats', 'karma points', 'influence points', 
     'admin points', 'military points', 'diplomacy points', 'logistics points'
+  ],
+  'Fate Survival': [
+    'death flags', 'doom timers', 'fate intervention', 'changing timelines', 'assassination plots',
+    'survival games', 'foreknowledge', 'destined death', 'saving the doomed'
   ],
   'Society & Economics': [
     'kingdom economy', 'resource management', 'territory control', 'trade routes', 'supply chains', 
@@ -309,10 +313,12 @@ const GENRE_PRESETS = [
   { id: 'Cosmic Cultivation', name: 'Cosmic', icon: '🌌' },
   { id: 'Political Intrigue', name: 'Political Intrigue', icon: '👑' },
   { id: 'Cozy Slice-of-Life', name: 'Cozy/Slice-of-Life', icon: '🏡' },
-  { id: 'Mystery Cultivation', name: 'Mystery', icon: '🔍' }
+  { id: 'Mystery Cultivation', name: 'Mystery', icon: '🔍' },
+  { id: 'Fate Survival', name: 'Fate Survival', icon: '💀' }
 ];
 
 const PREMISE_SUGGESTIONS = [
+  "In seven chapters, the prince will be assassinated. Every timeline says he dies. Can you change fate before it happens?",
   "Awakening a mysterious black tripod cauldron inside the family trash heap that grinds low-grade herbs into peerless tier-9 celestial elixirs.",
   "Dying in a grand sect betrayal only to regress 10 years to the moment of spiritual root measurement, choosing the forbidden Demonic Scripture.",
   "The world gets integrated into a cosmic tower system, but a bug grants me a hidden attribute: Infinite Comprehension Speed index.",
@@ -326,11 +332,11 @@ const PREMISE_SUGGESTIONS = [
 ];
 
 interface FormSectionProps {
-  id: 'core' | 'world' | 'mc' | 'power' | 'plot';
+  id: 'core' | 'world' | 'mc' | 'characters' | 'factions' | 'power' | 'plot' | 'makeitwork';
   title: string;
   icon: React.ReactNode;
-  activeSection: 'core' | 'world' | 'mc' | 'power' | 'plot';
-  setActiveSection: (id: 'core' | 'world' | 'mc' | 'power' | 'plot') => void;
+  activeSection: 'core' | 'world' | 'mc' | 'characters' | 'factions' | 'power' | 'plot' | 'makeitwork';
+  setActiveSection: (id: 'core' | 'world' | 'mc' | 'characters' | 'factions' | 'power' | 'plot' | 'makeitwork') => void;
   children: React.ReactNode;
 }
 
@@ -463,6 +469,8 @@ ${blueprint.firstArcPromise || ''}
     secretAdvantage: '',
     startingWeakness: '',
     moralAlignment: '',
+    customCharacters: [],
+    customFactions: [],
     startingPowerConcept: '',
     powerFlavor: '',
     powerPace: '',
@@ -479,7 +487,17 @@ ${blueprint.firstArcPromise || ''}
     betrayalLevel: '',
     thingsToAvoid: '',
     mustIncludeElements: '',
+    fatePressure: 'Balanced',
+    makeItWorkInstruction: '',
   });
+
+  const handleFatePressureChange = (pressure: 'Relaxed' | 'Balanced' | 'Hardcore' | 'Dao Master') => {
+    setIntake(prev => ({
+      ...prev,
+      fatePressure: pressure,
+      hardcoreFateMode: pressure === 'Hardcore' || pressure === 'Dao Master'
+    }));
+  };
 
   const [customTagInput, setCustomTagInput] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('All');
@@ -536,7 +554,7 @@ ${blueprint.firstArcPromise || ''}
   };
 
   const [chapterCount, setChapterCount] = useState(10);
-  const [activeSection, setActiveSection] = useState<'core' | 'world' | 'mc' | 'power' | 'plot'>('core');
+  const [activeSection, setActiveSection] = useState<'core' | 'world' | 'mc' | 'characters' | 'factions' | 'power' | 'plot' | 'makeitwork'>('core');
 
   const updateIntake = (field: keyof IntakeData, value: string) => {
     setIntake(prev => ({ ...prev, [field]: value }));
@@ -1322,6 +1340,178 @@ ${blueprint.firstArcPromise || ''}
           </div>
         </FormSection>
 
+        <FormSection id="characters" title="3.5. Character Intake (Optional)" icon={<Users size={18} />} activeSection={activeSection} setActiveSection={setActiveSection}>
+          <div className="space-y-4">
+            <p className="text-neutral-500 font-sans text-xs">
+              Pre-define characters for your world. Include core traits or relationships to the main character. If left blank or partially filled, the AI will guess.
+            </p>
+            {intake.customCharacters?.map((char, index) => (
+              <div key={char.id} className="border border-neutral-800 bg-neutral-950/50 p-4 rounded-lg space-y-3 relative">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="text-signal font-sc text-xs uppercase tracking-widest font-bold">Character {index + 1}</h4>
+                  <button type="button" onClick={() => {
+                    const newChars = [...(intake.customCharacters || [])];
+                    newChars.splice(index, 1);
+                    updateIntake('customCharacters', newChars as any);
+                  }} className="text-neutral-500 hover:text-human text-xs transition-colors font-sc uppercase tracking-widest">Remove</button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1">Name</label>
+                    <input type="text" value={char.name} onChange={(e) => {
+                      const newChars = [...(intake.customCharacters || [])];
+                      newChars[index].name = e.target.value;
+                      updateIntake('customCharacters', newChars as any);
+                    }} placeholder="e.g. Lin Yue" className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1">Age</label>
+                    <input type="text" value={char.age} onChange={(e) => {
+                      const newChars = [...(intake.customCharacters || [])];
+                      newChars[index].age = e.target.value;
+                      updateIntake('customCharacters', newChars as any);
+                    }} placeholder="e.g. 18, Ancient..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1">Skin Tone</label>
+                    <input type="text" value={char.skinTone} onChange={(e) => {
+                      const newChars = [...(intake.customCharacters || [])];
+                      newChars[index].skinTone = e.target.value;
+                      updateIntake('customCharacters', newChars as any);
+                    }} placeholder="e.g. Pale, Olive..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1">Eye Color</label>
+                    <input type="text" value={char.eyeColor} onChange={(e) => {
+                      const newChars = [...(intake.customCharacters || [])];
+                      newChars[index].eyeColor = e.target.value;
+                      updateIntake('customCharacters', newChars as any);
+                    }} placeholder="e.g. Crimson, Blue..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1">Power Type</label>
+                    <input type="text" value={char.powerType} onChange={(e) => {
+                      const newChars = [...(intake.customCharacters || [])];
+                      newChars[index].powerType = e.target.value;
+                      updateIntake('customCharacters', newChars as any);
+                    }} placeholder="e.g. Frost Dao, Sword..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1">Rank / Level</label>
+                    <input type="text" value={char.rankLevel} onChange={(e) => {
+                      const newChars = [...(intake.customCharacters || [])];
+                      newChars[index].rankLevel = e.target.value;
+                      updateIntake('customCharacters', newChars as any);
+                    }} placeholder="e.g. Foundation Est." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1">Role</label>
+                    <input type="text" value={char.role} onChange={(e) => {
+                      const newChars = [...(intake.customCharacters || [])];
+                      newChars[index].role = e.target.value;
+                      updateIntake('customCharacters', newChars as any);
+                    }} placeholder="e.g. Sect Elder, Rogue..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1">Connection to MC</label>
+                    <input type="text" value={char.connectionToMC} onChange={(e) => {
+                      const newChars = [...(intake.customCharacters || [])];
+                      newChars[index].connectionToMC = e.target.value;
+                      updateIntake('customCharacters', newChars as any);
+                    }} placeholder="e.g. Rival, Foe, Ally..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" />
+                  </div>
+                </div>
+              </div>
+            ))}
+            {(!intake.customCharacters || intake.customCharacters.length < 8) && (
+              <button
+                type="button"
+                onClick={() => {
+                  const newChars = [...(intake.customCharacters || []), { id: crypto.randomUUID(), name: '', age: '', skinTone: '', eyeColor: '', powerType: '', rankLevel: '', role: '', connectionToMC: '' }];
+                  updateIntake('customCharacters', newChars as any);
+                }}
+                className="w-full py-2 border border-dashed border-neutral-800 hover:border-[#04ACFF]/50 hover:bg-[#04ACFF]/5 text-neutral-400 hover:text-[#04ACFF] font-sc text-xs uppercase tracking-widest transition-all rounded"
+              >
+                + Add Character ({intake.customCharacters?.length || 0}/8)
+              </button>
+            )}
+          </div>
+        </FormSection>
+
+        <FormSection id="factions" title="3.8. Faction/Sect Intake (Optional)" icon={<Shield size={18} />} activeSection={activeSection} setActiveSection={setActiveSection}>
+          <div className="space-y-4">
+            <p className="text-neutral-500 font-sans text-xs">
+              Pre-define factions or sects for your world. Include their alignment, power level, and connection to the main character.
+            </p>
+            {intake.customFactions?.map((faction, index) => (
+              <div key={faction.id} className="border border-neutral-800 bg-neutral-950/50 p-4 rounded-lg space-y-3 relative">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="text-signal font-sc text-xs uppercase tracking-widest font-bold">Faction {index + 1}</h4>
+                  <button type="button" onClick={() => {
+                    const newFactions = [...(intake.customFactions || [])];
+                    newFactions.splice(index, 1);
+                    updateIntake('customFactions', newFactions as any);
+                  }} className="text-neutral-500 hover:text-human text-xs transition-colors font-sc uppercase tracking-widest">Remove</button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1">Name</label>
+                    <input type="text" value={faction.name} onChange={(e) => {
+                      const newFactions = [...(intake.customFactions || [])];
+                      newFactions[index].name = e.target.value;
+                      updateIntake('customFactions', newFactions as any);
+                    }} placeholder="e.g. Heavenly Sword Sect" className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1">Role</label>
+                    <input type="text" value={faction.role} onChange={(e) => {
+                      const newFactions = [...(intake.customFactions || [])];
+                      newFactions[index].role = e.target.value;
+                      updateIntake('customFactions', newFactions as any);
+                    }} placeholder="e.g. Ruling Power, Assassin Guild..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1">Power Level</label>
+                    <input type="text" value={faction.powerLevel} onChange={(e) => {
+                      const newFactions = [...(intake.customFactions || [])];
+                      newFactions[index].powerLevel = e.target.value;
+                      updateIntake('customFactions', newFactions as any);
+                    }} placeholder="e.g. Mid Tier, Universal Force..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1">Alignment (Good/Bad)</label>
+                    <input type="text" value={faction.alignment} onChange={(e) => {
+                      const newFactions = [...(intake.customFactions || [])];
+                      newFactions[index].alignment = e.target.value;
+                      updateIntake('customFactions', newFactions as any);
+                    }} placeholder="e.g. Righteous, Demonic, Neutral..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1">Connection to MC</label>
+                    <input type="text" value={faction.connectionToMC} onChange={(e) => {
+                      const newFactions = [...(intake.customFactions || [])];
+                      newFactions[index].connectionToMC = e.target.value;
+                      updateIntake('customFactions', newFactions as any);
+                    }} placeholder="e.g. MC's starting sect, Sworn enemies..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" />
+                  </div>
+                </div>
+              </div>
+            ))}
+            {(!intake.customFactions || intake.customFactions.length < 5) && (
+              <button
+                type="button"
+                onClick={() => {
+                  const newFactions = [...(intake.customFactions || []), { id: crypto.randomUUID(), name: '', role: '', powerLevel: '', alignment: '', connectionToMC: '' }];
+                  updateIntake('customFactions', newFactions as any);
+                }}
+                className="w-full py-2 border border-dashed border-neutral-800 hover:border-[#04ACFF]/50 hover:bg-[#04ACFF]/5 text-neutral-400 hover:text-[#04ACFF] font-sc text-xs uppercase tracking-widest transition-all rounded"
+              >
+                + Add Faction ({intake.customFactions?.length || 0}/5)
+              </button>
+            )}
+          </div>
+        </FormSection>
+
         <FormSection id="power" title="4. Power System Seed" icon={<Zap size={18} />} activeSection={activeSection} setActiveSection={setActiveSection}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -1376,6 +1566,122 @@ ${blueprint.firstArcPromise || ''}
             <div>
               <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Things to Avoid</label>
               <input type="text" value={intake.thingsToAvoid} onChange={(e) => updateIntake('thingsToAvoid', e.target.value)} placeholder="e.g., No sci-fi logic..." className="w-full bg-neutral-950 border border-neutral-800 text-signal text-sm rounded px-3 py-2" />
+            </div>
+            
+            <div className="md:col-span-2 pt-4 border-t border-neutral-900/40 mt-4">
+              <label className="block font-sc text-xs text-[#FAFAFA] uppercase tracking-widest mb-3">
+                ⚖️ Fate Pressure Settings
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="fate-pressure-selector">
+                {/* Relaxed */}
+                <div
+                  onClick={() => handleFatePressureChange('Relaxed')}
+                  className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                    intake.fatePressure === 'Relaxed'
+                      ? 'bg-emerald-950/10 border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.1)] animate-fadeIn'
+                      : 'bg-neutral-950 border-neutral-850 hover:border-neutral-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`font-sc font-bold text-xs uppercase tracking-wider ${
+                      intake.fatePressure === 'Relaxed' ? 'text-emerald-400' : 'text-neutral-300'
+                    }`}>
+                      Relaxed
+                    </span>
+                    {intake.fatePressure === 'Relaxed' && <span className="text-emerald-400 text-xs">●</span>}
+                  </div>
+                  <p className="text-neutral-500 text-[11px] leading-relaxed">
+                    Story rarely punishes the reader. Safe, smooth progression, and minimal setbacks. Perfect for cozy reading.
+                  </p>
+                </div>
+
+                {/* Balanced */}
+                <div
+                  onClick={() => handleFatePressureChange('Balanced')}
+                  className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                    intake.fatePressure === 'Balanced'
+                      ? 'bg-neutral-900/40 border-signal/40 shadow-[0_0_15px_rgba(255,255,255,0.05)]'
+                      : 'bg-neutral-950 border-neutral-850 hover:border-neutral-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`font-sc font-bold text-xs uppercase tracking-wider ${
+                      intake.fatePressure === 'Balanced' ? 'text-signal' : 'text-neutral-300'
+                    }`}>
+                      Balanced
+                    </span>
+                    {intake.fatePressure === 'Balanced' && <span className="text-signal text-xs">●</span>}
+                  </div>
+                  <p className="text-neutral-500 text-[11px] leading-relaxed">
+                    Normal stakes and consequences. Natural progression setbacks, and standard narrative agency.
+                  </p>
+                </div>
+
+                {/* Hardcore */}
+                <div
+                  onClick={() => handleFatePressureChange('Hardcore')}
+                  className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                    intake.fatePressure === 'Hardcore'
+                      ? 'bg-red-950/10 border-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.1)]'
+                      : 'bg-neutral-950 border-neutral-850 hover:border-neutral-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`font-sc font-bold text-xs uppercase tracking-wider ${
+                      intake.fatePressure === 'Hardcore' ? 'text-red-400' : 'text-neutral-300'
+                    }`}>
+                      💀 Hardcore
+                    </span>
+                    {intake.fatePressure === 'Hardcore' && <span className="text-red-400 text-xs">●</span>}
+                  </div>
+                  <p className="text-neutral-500 text-[11px] leading-relaxed">
+                    System can force hard choices. Betrayals, death flags, world calamities, and forced resource tradeoffs.
+                  </p>
+                </div>
+
+                {/* Dao Master */}
+                <div
+                  onClick={() => handleFatePressureChange('Dao Master')}
+                  className={`p-4 rounded-lg border cursor-pointer transition-all relative overflow-hidden ${
+                    intake.fatePressure === 'Dao Master'
+                      ? 'bg-red-950/20 border-red-600/60 shadow-[0_0_20px_rgba(220,38,38,0.15)]'
+                      : 'bg-neutral-950 border-neutral-850 hover:border-neutral-700'
+                  }`}
+                >
+                  {intake.fatePressure === 'Dao Master' && (
+                    <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-red-600/10 to-transparent pointer-events-none rounded-bl-full" />
+                  )}
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`font-sc font-bold text-xs uppercase tracking-wider ${
+                      intake.fatePressure === 'Dao Master' ? 'text-red-500 animate-pulse' : 'text-neutral-300'
+                    }`}>
+                      🔥 Dao Master
+                    </span>
+                    {intake.fatePressure === 'Dao Master' && <span className="text-red-600 text-xs animate-ping">●</span>}
+                  </div>
+                  <p className="text-neutral-500 text-[11px] leading-relaxed">
+                    No undo, death can end the run. Brutal difficulty, absolute choice locked consequences, and permanent stakes.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection id="makeitwork" title="6. Make it Work (Absolute Custom Rule)" icon={<Wand2 size={18} />} activeSection={activeSection} setActiveSection={setActiveSection}>
+          <div className="space-y-4">
+            <p className="text-neutral-500 font-sans text-xs leading-relaxed">
+              Have a weird concept or unusual instruction? Put it here. The AI will take this as an <strong>absolute truth</strong> of the universe and seamlessly integrate it without making it a joke or breaking immersion.
+            </p>
+            <div>
+              <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">The Instruction</label>
+              <textarea 
+                value={intake.makeItWorkInstruction} 
+                onChange={(e) => updateIntake('makeItWorkInstruction', e.target.value)} 
+                rows={3} 
+                placeholder="e.g., 'Toe Kung Foo is the ultimate way', or 'Everyone communicates purely through interpretive dance...'" 
+                className="w-full bg-neutral-950 border border-neutral-800 text-signal text-sm rounded px-3 py-2 resize-none" 
+              />
             </div>
           </div>
         </FormSection>

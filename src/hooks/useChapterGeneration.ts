@@ -49,6 +49,8 @@ export const useChapterGeneration = () => {
           customPremise: activeStory.customPremise,
           memory: activeStory.memory,
           pastSummaries,
+          hardcoreFateMode: activeStory.hardcoreFateMode,
+          fatePressure: activeStory.fatePressure,
           currentChapter: {
             number: targetChapter.number,
             title: targetChapter.title,

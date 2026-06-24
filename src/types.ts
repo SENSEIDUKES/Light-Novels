@@ -325,6 +325,27 @@ export interface CharacterRelationship {
   updatedAt: string;
 }
 
+export interface IntakeCharacter {
+  id: string;
+  name: string;
+  age?: string;
+  skinTone?: string;
+  eyeColor?: string;
+  powerType?: string;
+  rankLevel?: string;
+  role?: string;
+  connectionToMC?: string;
+}
+
+export interface IntakeFaction {
+  id: string;
+  name: string;
+  role?: string;
+  powerLevel?: string;
+  alignment?: string;
+  connectionToMC?: string;
+}
+
 export interface IntakeData {
   // 1. Core Seed
   novelTitle?: string;
@@ -349,6 +370,12 @@ export interface IntakeData {
   startingWeakness?: string;
   moralAlignment?: string;
 
+  // 3.5. Character Intake
+  customCharacters?: IntakeCharacter[];
+
+  // 3.8. Faction Intake
+  customFactions?: IntakeFaction[];
+
   // 4. Power System Seed
   startingPowerConcept?: string;
   powerFlavor?: string;
@@ -368,6 +395,11 @@ export interface IntakeData {
   betrayalLevel?: string;
   thingsToAvoid?: string;
   mustIncludeElements?: string;
+  hardcoreFateMode?: boolean;
+  fatePressure?: 'Relaxed' | 'Balanced' | 'Hardcore' | 'Dao Master';
+
+  // 6. Make it Work (Absolute Custom Rule)
+  makeItWorkInstruction?: string;
 }
 
 export interface WorldBlueprint {
@@ -410,6 +442,8 @@ export interface StoryWorld {
   intake?: IntakeData;
   blueprint?: WorldBlueprint;
   isEdited?: boolean; // Track if the user has modified/actively worked on the demo story
+  hardcoreFateMode?: boolean;
+  fatePressure?: 'Relaxed' | 'Balanced' | 'Hardcore' | 'Dao Master';
   
   // Local-first persistent storage properties
   relationships?: CharacterRelationship[];

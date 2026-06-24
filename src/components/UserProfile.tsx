@@ -7,7 +7,7 @@ import { LogOut, Save, User as UserIcon, Calendar, BookOpen, Globe, Cloud, Cloud
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
 import { AudioWidget } from './AudioWidget';
-import { getDaoRankData } from '../lib/qi';
+import { getDaoRankData, AURA_TIERS, getAuraTextStyle, getAuraGlowStyle } from '../lib/qi';
 
 interface UserProfileProps {
   currentUser: AppUser | null;
@@ -387,15 +387,26 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
             <>
               {/* Top Section - Avatar & Quick Info */}
               <div className="flex flex-col md:flex-row gap-8 md:items-end border-b border-neutral-900/50 pb-10">
-                <div className="w-28 h-28 rounded-full border border-portal/30 p-1 flex-shrink-0 relative group shadow-[0_0_40px_rgba(4,172,255,0.08)]">
-                  <div className="w-full h-full rounded-full overflow-hidden bg-black flex items-center justify-center">
+                <div className={`w-28 h-28 rounded-full border p-1 flex-shrink-0 relative group transition-all duration-700 ${getAuraGlowStyle(profile?.displayNameColor || '#E5E7EB')}`}>
+                  <div className="w-full h-full rounded-full overflow-hidden bg-black flex items-center justify-center relative">
                     {formData.avatarUrl ? (
                       <img src={formData.avatarUrl} alt="Avatar" className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 transition-all duration-500" referrerPolicy="no-referrer" />
                     ) : (
                       <UserIcon size={36} className="text-neutral-700" />
                     )}
+                    
+                    {/* Floating particle animations for Heavenly Chronicler and above */}
+                    {(profile?.displayNameColor === '#FFD700' || profile?.displayNameColor === 'gradient-violet-gold' || profile?.displayNameColor === 'animated-custom') && (
+                      <div className="absolute inset-0 bg-black/10 pointer-events-none mix-blend-screen overflow-hidden">
+                        <div className="absolute bottom-1 inset-x-0 h-8 flex justify-around opacity-75">
+                          <span className="w-1 h-1 rounded-full bg-yellow-400 animate-ping" style={{ animationDuration: '3s' }}></span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-yellow-300 animate-bounce" style={{ animationDuration: '2s' }}></span>
+                          <span className="w-1 h-1 rounded-full bg-amber-400 animate-pulse" style={{ animationDuration: '2.5s' }}></span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="absolute inset-0 rounded-full border border-portal/10 scale-110 animate-[spin_10s_linear_infinite]"></div>
+                  <div className="absolute inset-0 rounded-full border border-inherit opacity-40 scale-110 animate-[spin_15s_linear_infinite]"></div>
                 </div>
                 <div className="flex-1 space-y-5">
                   <div className="flex flex-col gap-3 mb-2">
@@ -461,125 +472,154 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                             />
                           </div>
                           
-                          {/* Beautiful Dynamic Color Palette Options */}
-                          <div className="bg-[#080808] border border-neutral-900 rounded-lg p-3 space-y-2">
-                            <div className="text-[9px] uppercase tracking-wider text-neutral-500 font-sc font-bold">Select Celestial Aura Color:</div>
-                            <div className="flex flex-wrap items-center gap-2.5">
-                              {/* SEIHouse Canonical Colors */}
-                              <button
-                                type="button"
-                                onClick={() => setFormData(prev => ({ ...prev, displayNameColor: '#FAFAFA' }))}
-                                className={`w-8 h-8 rounded-full border transition-all duration-200 transform hover:scale-110 flex items-center justify-center ${
-                                  (formData.displayNameColor || '#FAFAFA') === '#FAFAFA' ? 'border-portal scale-110 ring-2 ring-portal/20' : 'border-neutral-800'
-                                }`}
-                                style={{ backgroundColor: '#FAFAFA' }}
-                                title="Signal / Clarity (#FAFAFA)"
-                              >
-                                {(formData.displayNameColor || '#FAFAFA') === '#FAFAFA' && <span className="w-1.5 h-1.5 rounded-full bg-black"></span>}
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => setFormData(prev => ({ ...prev, displayNameColor: '#8B0000' }))}
-                                className={`w-8 h-8 rounded-full border transition-all duration-200 transform hover:scale-110 flex items-center justify-center ${
-                                  formData.displayNameColor === '#8B0000' ? 'border-portal scale-110 ring-2 ring-portal/20' : 'border-neutral-800'
-                                }`}
-                                style={{ backgroundColor: '#8B0000' }}
-                                title="Human / Emotional Core (#8B0000)"
-                              >
-                                {formData.displayNameColor === '#8B0000' && <span className="w-1.5 h-1.5 rounded-full bg-white"></span>}
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => setFormData(prev => ({ ...prev, displayNameColor: '#04ACFF' }))}
-                                className={`w-8 h-8 rounded-full border transition-all duration-200 transform hover:scale-110 flex items-center justify-center ${
-                                  formData.displayNameColor === '#04ACFF' ? 'border-portal scale-110 ring-2 ring-portal/20' : 'border-neutral-800'
-                                }`}
-                                style={{ backgroundColor: '#04ACFF' }}
-                                title="Portal / Consciousness Signal (#04ACFF)"
-                              >
-                                {formData.displayNameColor === '#04ACFF' && <span className="w-1.5 h-1.5 rounded-full bg-black"></span>}
-                              </button>
-
-                              {/* Other beautiful high-contrast themes */}
-                              <button
-                                type="button"
-                                onClick={() => setFormData(prev => ({ ...prev, displayNameColor: '#FFD700' }))}
-                                className={`w-8 h-8 rounded-full border transition-all duration-200 transform hover:scale-110 flex items-center justify-center ${
-                                  formData.displayNameColor === '#FFD700' ? 'border-portal scale-110 ring-2 ring-portal/20' : 'border-neutral-800'
-                                }`}
-                                style={{ backgroundColor: '#FFD700' }}
-                                title="Ascendant Gold (#FFD700)"
-                              >
-                                {formData.displayNameColor === '#FFD700' && <span className="w-1.5 h-1.5 rounded-full bg-black"></span>}
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => setFormData(prev => ({ ...prev, displayNameColor: '#10B981' }))}
-                                className={`w-8 h-8 rounded-full border transition-all duration-200 transform hover:scale-110 flex items-center justify-center ${
-                                  formData.displayNameColor === '#10B981' ? 'border-portal scale-110 ring-2 ring-portal/20' : 'border-neutral-800'
-                                }`}
-                                style={{ backgroundColor: '#10B981' }}
-                                title="Qi Emerald (#10B981)"
-                              >
-                                {formData.displayNameColor === '#10B981' && <span className="w-1.5 h-1.5 rounded-full bg-black"></span>}
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => setFormData(prev => ({ ...prev, displayNameColor: '#A855F7' }))}
-                                className={`w-8 h-8 rounded-full border transition-all duration-200 transform hover:scale-110 flex items-center justify-center ${
-                                  formData.displayNameColor === '#A855F7' ? 'border-portal scale-110 ring-2 ring-portal/20' : 'border-neutral-800'
-                                }`}
-                                style={{ backgroundColor: '#A855F7' }}
-                                title="Aether Violet (#A855F7)"
-                              >
-                                {formData.displayNameColor === '#A855F7' && <span className="w-1.5 h-1.5 rounded-full bg-white"></span>}
-                              </button>
-
-                              {/* Rainbow / Custom trigger */}
-                              <button
-                                type="button"
-                                onClick={() => colorInputRef.current?.click()}
-                                className={`w-8 h-8 rounded-full border transition-all duration-200 transform hover:scale-110 flex items-center justify-center relative bg-gradient-to-tr from-red-500 via-green-500 to-blue-500 ${
-                                  !['#FAFAFA', '#8B0000', '#04ACFF', '#FFD700', '#10B981', '#A855F7'].includes(formData.displayNameColor || '#FAFAFA') ? 'border-portal scale-110 ring-2 ring-portal/30' : 'border-neutral-800'
-                                }`}
-                                title="Custom Color Spectrum..."
-                              >
-                                <input 
-                                  ref={colorInputRef}
-                                  type="color" 
-                                  name="displayNameColor"
-                                  value={formData.displayNameColor || '#8B0000'}
-                                  onChange={handleChange}
-                                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                                />
-                                {!['#FAFAFA', '#8B0000', '#04ACFF', '#FFD700', '#10B981', '#A855F7'].includes(formData.displayNameColor || '#FAFAFA') && (
-                                  <span className="w-2 h-2 rounded-full border border-black bg-white" style={{ backgroundColor: formData.displayNameColor }}></span>
-                                )}
-                              </button>
-                            </div>
-                            <div className="flex items-center justify-between pt-1 border-t border-neutral-900/50">
-                              <span className="text-[9px] font-mono text-neutral-500">Current Hex Aura:</span>
-                              <span className="text-[10px] font-mono uppercase font-bold" style={{ color: formData.displayNameColor || '#FAFAFA' }}>
-                                {formData.displayNameColor || '#FAFAFA'}
+                          {/* Beautiful Gamified Dynamic Color Palette Options */}
+                          <div className="bg-[#080808] border border-neutral-900 rounded-lg p-4 space-y-3">
+                            <div className="flex justify-between items-center border-b border-neutral-900 pb-2">
+                              <span className="text-[10px] uppercase tracking-wider text-neutral-400 font-sc font-bold flex items-center gap-1.5">
+                                <Zap size={11} className="text-portal animate-pulse" /> Celestial Aura Colors
                               </span>
+                              <span className="text-[9px] font-mono text-neutral-500">Current XP: {profile?.dao_xp || profile?.qi || 0} Qi</span>
                             </div>
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[280px] overflow-y-auto pr-1 custom-scrollbar">
+                              {AURA_TIERS.map((tier) => {
+                                const currentXp = profile?.dao_xp || profile?.qi || 0;
+                                const isUnlocked = currentXp >= tier.unlockedAt;
+                                const isSelected = formData.displayNameColor === tier.colorHex;
+                                const textStyles = getAuraTextStyle(tier.colorHex);
+                                
+                                return (
+                                  <button
+                                    key={tier.rank}
+                                    type="button"
+                                    disabled={!isUnlocked}
+                                    onClick={() => {
+                                      if (isUnlocked) {
+                                        setFormData(prev => ({ ...prev, displayNameColor: tier.colorHex }));
+                                      }
+                                    }}
+                                    className={`p-2.5 border rounded-lg text-left transition-all relative flex flex-col justify-between min-h-[75px] group/item ${
+                                      !isUnlocked
+                                        ? 'bg-neutral-950/40 border-neutral-900/60 opacity-40 cursor-not-allowed'
+                                        : isSelected
+                                        ? 'bg-portal/5 border-portal shadow-[0_0_12px_rgba(4,172,255,0.1)]'
+                                        : 'bg-black/30 border-neutral-850 hover:border-neutral-700 hover:bg-neutral-900/30'
+                                    }`}
+                                  >
+                                    <div className="flex justify-between items-start w-full gap-2">
+                                      <span 
+                                        className={`text-[11px] font-bold uppercase tracking-wider ${isUnlocked ? '' : 'text-neutral-500'}`} 
+                                        style={!tier.textColor.includes('text') && !tier.textColor.includes('bg-') && isUnlocked ? { color: tier.colorHex } : undefined}
+                                      >
+                                        <span className={isUnlocked && (tier.textColor.includes('text-') || tier.textColor.includes('bg-')) ? tier.textColor : ''}>
+                                          {tier.rank}
+                                        </span>
+                                      </span>
+                                      {isSelected && (
+                                        <span className="text-[8px] uppercase tracking-widest px-1.5 py-0.5 rounded bg-portal text-void font-bold scale-90 shrink-0">
+                                          Equipped
+                                        </span>
+                                      )}
+                                      {!isUnlocked && (
+                                        <span className="text-[8px] text-neutral-500 font-mono shrink-0">
+                                          Locked ({tier.unlockedAt} Qi)
+                                        </span>
+                                      )}
+                                    </div>
+                                    
+                                    <div className="mt-1 flex flex-col gap-0.5">
+                                      <span className="text-[10px] text-neutral-400 font-serif italic line-clamp-1">
+                                        "{tier.rewardFeeling}"
+                                      </span>
+                                      <span className="text-[8px] text-neutral-600 font-mono tracking-tighter">
+                                        {tier.name}
+                                      </span>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {/* Transcendent Custom spectrum input - only active for Dao Master */}
+                            {(() => {
+                              const currentXp = profile?.dao_xp || profile?.qi || 0;
+                              const isDaoMaster = currentXp >= 25000;
+                              const isCustomSelected = !AURA_TIERS.some(t => t.colorHex === formData.displayNameColor);
+                              
+                              return (
+                                <div className={`pt-2.5 border-t border-neutral-900 flex flex-col gap-2 ${isDaoMaster ? '' : 'opacity-40'}`}>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-mono text-neutral-500 uppercase font-bold">
+                                      Transcendent Custom Spectrum
+                                    </span>
+                                    {!isDaoMaster && (
+                                      <span className="text-[8px] bg-neutral-900 text-neutral-500 px-2 py-0.5 rounded border border-neutral-850">
+                                        Requires Dao Master (25k Qi)
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <div className="relative">
+                                      <button
+                                        type="button"
+                                        disabled={!isDaoMaster}
+                                        onClick={() => {
+                                          if (isDaoMaster) {
+                                            colorInputRef.current?.click();
+                                          }
+                                        }}
+                                        className={`w-9 h-9 rounded-full border transition-all duration-200 transform hover:scale-105 flex items-center justify-center relative bg-gradient-to-tr from-red-500 via-green-500 via-blue-500 to-yellow-500 ${
+                                          isCustomSelected ? 'border-portal scale-110 ring-2 ring-portal/30' : 'border-neutral-800'
+                                        }`}
+                                        title={isDaoMaster ? "Custom Color Spectrum..." : "Locked until Dao Master"}
+                                      >
+                                        {isCustomSelected && (
+                                          <span className="w-2.5 h-2.5 rounded-full border border-black bg-white" style={{ backgroundColor: formData.displayNameColor }}></span>
+                                        )}
+                                      </button>
+                                      <input 
+                                        ref={colorInputRef}
+                                        type="color" 
+                                        name="displayNameColor"
+                                        disabled={!isDaoMaster}
+                                        value={isCustomSelected && formData.displayNameColor ? formData.displayNameColor : '#00FFFF'}
+                                        onChange={handleChange}
+                                        className="absolute inset-0 opacity-0 cursor-pointer w-0 h-0 pointer-events-none"
+                                      />
+                                    </div>
+                                    <div className="flex flex-col">
+                                      <span className="text-[10px] font-mono text-neutral-400">
+                                        Hex Code: <span className="uppercase font-bold" style={isCustomSelected ? { color: formData.displayNameColor } : undefined}>{formData.displayNameColor || '#FAFAFA'}</span>
+                                      </span>
+                                      <span className="text-[8px] text-neutral-600 font-sans italic">
+                                        {isDaoMaster ? "Click sphere to define your custom frequency" : "Transcend normal UI limits"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       ) : (
                         <div className="flex items-center justify-between bg-black/30 border border-neutral-900/50 p-3.5 rounded-lg">
-                          <div 
-                            className="text-lg font-serif italic" 
-                            style={{ color: profile?.displayNameColor || '#fa0202' }}
-                          >
-                            {profile?.displayName || 'Unknown Ascendant'}
+                          <div className="text-lg font-serif italic flex items-center">
+                            {(() => {
+                              const styleObj = getAuraTextStyle(profile?.displayNameColor);
+                              return (
+                                <span className={styleObj.className} style={styleObj.style}>
+                                  {profile?.displayName || 'Unknown Ascendant'}
+                                </span>
+                              );
+                            })()}
                           </div>
                           {profile?.displayNameColor && (
                             <div className="flex items-center gap-1.5">
-                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: profile.displayNameColor }}></div>
+                              {!profile.displayNameColor.startsWith('#') ? (
+                                <div className="w-3.5 h-3.5 rounded-full bg-gradient-to-tr from-purple-500 to-yellow-500 animate-pulse"></div>
+                              ) : (
+                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: profile.displayNameColor }}></div>
+                              )}
                               <span className="text-[9px] font-mono uppercase tracking-wider text-neutral-600">{profile.displayNameColor}</span>
                             </div>
                           )}

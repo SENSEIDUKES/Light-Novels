@@ -12,6 +12,8 @@ interface ReaderPreferencesPanelProps {
   handleAtmosphereChange: (val: string) => void;
   volume: number;
   handleVolumeChange: (vol: number) => void;
+  showLegend?: boolean;
+  onToggleLegend?: () => void;
 }
 
 export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
@@ -22,7 +24,9 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
   atmosphere,
   handleAtmosphereChange,
   volume,
-  handleVolumeChange
+  handleVolumeChange,
+  showLegend,
+  onToggleLegend
 }) => {
   return (
     <motion.div
@@ -238,6 +242,21 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
           </div>
         </div>
       </div>
+
+      {onToggleLegend && (
+        <div className="border-t border-neutral-900/60 mt-4 pt-3 max-w-2xl mx-auto flex justify-end">
+          <button
+            onClick={onToggleLegend}
+            className={`px-3 py-1 text-[10px] rounded border flex items-center gap-1.5 transition-all uppercase font-mono tracking-wider cursor-pointer ${
+              showLegend
+                ? "bg-portal/10 border-portal text-portal hover:bg-portal/20"
+                : "bg-void border-neutral-800 text-neutral-400 hover:text-signal hover:border-neutral-700"
+            }`}
+          >
+            <span>✦ {showLegend ? "Hide System Colors Legend" : "Show System Colors Legend"}</span>
+          </button>
+        </div>
+      )}
     </motion.div>
   );
 };

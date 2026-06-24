@@ -30,6 +30,9 @@ CONTENT AND AGE SAFETY PROTOCOLS:
 ${intakeJson}
 
 Pay extreme attention to the "storyTags" field if provided! Integrate these sub-genres or styles into the actual world design, not just the surface tone.
+If the user provides "makeItWorkInstruction" in the intake form, YOU MUST treat it as a foundational, absolute truth of the universe, no matter how unusual or weird it is. Integrate it seriously and seamlessly into the lore, mechanics, society, and tone so it feels completely natural and non-comedic. DO NOT treat it as a joke.
+If the user provides "customCharacters" in the intake form, YOU MUST include them in the "initialCharacters" array and thoroughly integrate them into the society and power system. Do not invent completely new main characters if the user explicitly provided them, but you may expand their descriptions or fill in the blanks if they are partially complete.
+If the user provides "customFactions" in the intake form, YOU MUST include them in the "majorFactions" array and thoroughly integrate them into the society, plot direction, and power system. Do not invent completely new major factions if the user explicitly provided them, but you may expand their lore or fill in the blanks if they are partially complete.
 
 Examples:
 - If "slice of life" is included, add daily training rituals, food, friendships, small-town warmth, and peaceful progression.
@@ -225,6 +228,8 @@ ${chapterText}
 
 Extract updates for the permanent story memory so we can track newly met characters, dead characters, relationship updates, unresolved issues, or potential MC advancement. Also, provide a short summary of events, and an arc summary.
 
+IMPORTANT STATE PERSISTENCE: You MUST scan the Chapter Text for any System Alerts or Fate Events (e.g., bracketed text like "[Death Flag Detected: ...]", "[Fortuitous Encounter: ...]" OR JSON objects like {"system": {"title": "Death Flag Detected...", ...}}). If any such events or alerts occurred in the text, you MUST automatically inject their core message/threat into the "newUnresolvedPlotThreads" array so the system remembers to honor them in future chapters.
+
 Within the "cuePayload" object:
 1. List all notable codex entities referenced in the 'entities' array. Each entity must have the shape: { "name": string, "type": "character"|"artifact"|"location"|"beast"|"faction", "mention": "reveal"|"reference" }. Set mention to "reveal" ONLY for the first dramatic appearance of the entity in the story, otherwise use "reference".
 2. Emit a backing 'music' object: { "mood": "war"|"duel"|"serenity"|"romance"|"dread"|"mystery"|"triumph"|"tribulation"|"travel"|"tragedy"|"fighting"|"adventure"|"ambient"|"boss-fight"|"tension"|"sad"|"mystical"|"excitement"|"tired"|"horror", "region": "chinese"|"japanese"|"western" (optional), "intensity": number (optional, 0 to 1) }.
@@ -313,7 +318,7 @@ You must return a JSON object with the following fields:
     ],
     "powerSystemViolationFlags": ["Array of string warnings ONLY IF the MC breaks the power progression rules, such as skipping tiers (e.g. going directly from Level 1 to Level 5, or Qi Condensation to Nascent Soul). DO NOT flag normal incremental progression (e.g. Level 5 to 6) as a violation. If progression is normal or no violation, leave empty."],
     "newUnresolvedPlotThreads": [
-      "Any new mysteries or immediate promises/goals that started in this chapter"
+      "Any new mysteries, active Fate Events (e.g. '[Death Flag Detected: ...]'), or immediate promises/goals that started in this chapter"
     ],
     "resolvedPlotThreads": [
       "The exact string of any unresolved plot thread that was successfully closed or completed in this chapter. Each list entry must be a strict exact match of an existing unresolved plot thread."

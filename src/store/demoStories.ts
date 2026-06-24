@@ -2,6 +2,274 @@ import { Story } from '../types';
 
 export const INITIAL_DEMO_STORIES: Story[] = [
   {
+    id: 'challenge-prince-die',
+    title: 'The Prince Who Dies in Every Timeline',
+    genre: 'Fate Survival',
+    mcName: 'Prince Lin',
+    customPremise: 'In seven chapters, the prince will be assassinated. Every timeline says he dies. Can you change fate before it happens?',
+    createdAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+    updatedAt: new Date().toISOString(),
+    currentChapterNumber: 1,
+    imageUrl: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&q=80',
+    intake: {
+      novelTitle: 'The Prince Who Dies in Every Timeline',
+      mcName: 'Prince Lin',
+      genrePath: 'Fate Survival',
+      corePremise: 'In seven chapters, the prince will be assassinated. Every timeline says he dies. Can you change fate before it happens?',
+      storyTags: ['fate survival', 'doom countdown', 'time loop', 'regressor', 'changing timelines', 'assassination plots']
+    },
+    memory: {
+      powerSystem: 'Temporal Resistance (Tiers I-V) & Fate Disruption Aura.',
+      currentPowerStage: 'Tier I: Blind Seeker (Fragile Destiny Line)',
+      worldRules: [
+        'The Seven-Step Countdown: Prince Lin\'s heart is destined to be pierced in the 7th chapter.',
+        'Chronos Paradox: Any direct advice given to the guard corps will be erased by the shadow covenant.',
+        'Karmic Backlash: Every attempt to save him increases the active suspicion of the Prime Minister.',
+        'The Seven-Step Countdown: The doom counter is active. Chapter 7 is the absolute temporal limit.'
+      ],
+      characters: [
+        {
+          id: 'char-prince-1',
+          name: 'Master Xun',
+          role: 'Covenant Whisperer / Hidden Advisor',
+          description: 'A blind scholar who remembers past timelines and assists Lin with divine advice.',
+          relationshipToMC: 'Playful Bond / Absolute Ally',
+          status: 'alive'
+        },
+        {
+          id: 'char-prince-2',
+          name: 'Prime Minister Gao',
+          role: 'The Hidden Puppeteer',
+          description: 'The greedy mastermind who orchestrates the assassination and controls the Shadow Guild.',
+          relationshipToMC: 'Extreme Hostility / Hidden Enemy',
+          status: 'alive'
+        }
+      ],
+      unresolvedPlotThreads: [
+        {
+          id: 'thread-prince-1',
+          description: 'Identify the hidden poisoner in the Palace imperial kitchen.',
+          status: 'active',
+          originChapter: 1
+        },
+        {
+          id: 'thread-prince-2',
+          description: 'Find the legendary Chronos Key to delay the Seven-Step countdown.',
+          status: 'active',
+          originChapter: 1
+        },
+        {
+          id: 'thread-prince-3',
+          description: 'Acquire the Golden Amulet of Warding to block the pierce of the shadow blade.',
+          status: 'active',
+          originChapter: 1
+        }
+      ],
+      resolvedPlotThreads: []
+    },
+    arcs: [
+      {
+        title: 'Act I: The Seven-Step Countdown',
+        isCompleted: false,
+        chapters: [
+          {
+            number: 1,
+            title: 'The Birthday Banquet and the Whisper of Death',
+            premise: 'Prince Lin hosts a celestial banquet to celebrate his birthday. Hidden in the shadow, a poison-tipped dagger has already been blessed. The countdown has begun.',
+            status: 'read',
+            generatedContent: `The laughter of a hundred lords filled the grand Jade Hall, yet to Prince Lin, it sounded like the chatter of gulls before a storm. Above him, a banner of gold and lapis lazuli proclaimed his twentieth year—the year he was prophesied to take the Dragon Throne.\n\nBut Lin knew the truth. Behind the smiles of the high court, a shadow was creeping closer. In three hours, a poisoner would offer the ceremonial wine. In seven days, the Shadow Guild would strike. Every timeline he had regressed from ended with a cold blade piercing his chest.\n\n"Your Highness," Prime Minister Gao spoke, bowing with a flawless, practiced smile. "A toast to your eternal health. May your reign be as endless as the stars."\n\nHe offered a goblet of crimson glass. Inside, the vintage smelled of spiced berries, but Lin’s temporal senses detected the faint, almond-like tang of frozen hemlock. If he drank, he would die tonight, restarting the loop. If he refused openly, the Prime Minister\'s guards would seize the hall.\n\nWith a silent prayer to the Chronos wheel, Lin gestured with his wide sleeve, apparently stumbling in his excitement. The goblet slipped from his hand, shattering against the obsidian floor. The red wine pooled like fresh blood.\n\n"Forgive my clumsiness," Lin laughed, wiping his robe. Prime Minister Gao’s eyes narrowed for a fraction of a second, the hidden puppeteer realizing his first trap had been evaded. But as Lin looked up, a crimson prompt appeared in his vision: \n\n[Doom Clock activated: 6 Chapters remain. Suspect profile: Imperial Butler is compromised. Current Danger Level: 35%]`,
+            summary: 'Prince Lin celebrates his birthday. A poisoned cup of hemlock is offered by Prime Minister Gao, but Lin uses his regressor knowledge to deliberately spill the cup. Although saved from poison, the countdown continues.',
+            statsChangeMessage: '[Doom Clock activated: 6 Chapters remain. Suspect profile: Imperial Butler is compromised. Current Danger Level: 35%]'
+          },
+          { number: 2, title: 'The Shadow in the Library: A Silent Poison', premise: 'Prince Lin seeks information on the prime minister\'s shadow guild in the imperial archives, unaware a silent gaseous trap has been laid.', status: 'unread' },
+          { number: 3, title: 'The Midnight Betrayal of the Guard Captain', premise: 'A trusted defender is offered a massive bribe to leave the gate unlocked at midnight. Can Prince Lin intercept the exchange?', status: 'unread' },
+          { number: 4, title: 'The False Envoy\'s Golden Tribute', premise: 'A foreign delegation presents a gift that hides a clockwork assassin. Lin must identify the trick before the chest is opened.', status: 'unread' },
+          { number: 5, title: 'The Solstice Ritual and the Silent Spell', premise: 'During the high temple blessing, the high priest casts an invisible doom curse on Lin. He must steer the blessing to reflect the spell.', status: 'unread' },
+          { number: 6, title: 'Dawn of the Seventh Day: Complete Isolation', premise: 'The palace is sealed by the Prime Minister under false pretenses of a quarantine. Lin must coordinate with Master Xun to breach the block.', status: 'unread' },
+          { number: 7, title: 'The Assassination Hour: Red Moon over the Palace', premise: 'The final confrontation. The shadow assassins launch a coordinated strike on the inner chamber. Lin must use all his gathered tools to break the loop.', status: 'unread' }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'challenge-saintess-executed',
+    title: 'The Saintess Executed at Dawn',
+    genre: 'Fate Survival',
+    mcName: 'Saintess Sylvia',
+    customPremise: 'At the break of dawn, the grand inquisitor will execute Saintess Sylvia for heresy she did not commit. Can you break her chains before sunrise?',
+    createdAt: new Date(Date.now() - 18 * 3600 * 1000).toISOString(),
+    updatedAt: new Date().toISOString(),
+    currentChapterNumber: 1,
+    imageUrl: 'https://images.unsplash.com/photo-1548623917-2fbf0f687511?auto=format&fit=crop&q=80',
+    intake: {
+      novelTitle: 'The Saintess Executed at Dawn',
+      mcName: 'Saintess Sylvia',
+      genrePath: 'Fate Survival',
+      corePremise: 'At the break of dawn, the grand inquisitor will execute Saintess Sylvia for heresy she did not commit. Can you break her chains before sunrise?',
+      storyTags: ['fate survival', 'execution countdown', 'heresy trial', 'church intrigue', 'divine light magic', 'prison break']
+    },
+    memory: {
+      powerSystem: 'Divine Resonance (0% to 100%) & Sacred Light Weaver.',
+      currentPowerStage: '0% Resonance (Sealed Divinity / Shaded Soul)',
+      worldRules: [
+        'Sunrise Execution: The grand guillotine is prepped. The trial ends when dawn breaks (Chapter 7).',
+        'Anti-Magic Shackle: High-inquisitor runes prevent Sylvia from calling upon the light directly.',
+        'The Web of Heresy: Any citizen attempting to speak on her behalf is branded a co-conspirator.'
+      ],
+      characters: [
+        {
+          id: 'char-saint-1',
+          name: 'Inquisitor Malakor',
+          role: 'The Grand Executioner',
+          description: 'A ruthless fanatic who fabricates heretical texts to seize the church\'s treasury.',
+          relationshipToMC: 'Extreme Hostility / Sworn Enemy',
+          status: 'alive'
+        },
+        {
+          id: 'char-saint-2',
+          name: 'Lucian',
+          role: 'The Rogue Templar',
+          description: 'A secret sympathizer seeking to smuggle Sylvia out of the Holy Citadel.',
+          relationshipToMC: 'Playful Bond / Absolute Ally',
+          status: 'alive'
+        }
+      ],
+      unresolvedPlotThreads: [
+        {
+          id: 'thread-saint-1',
+          description: 'Smuggle the Sacred Heart relic back into the cathedral to restore Sylvia\'s divinity.',
+          status: 'active',
+          originChapter: 1
+        },
+        {
+          id: 'thread-saint-2',
+          description: 'Obtain the key to the Anti-Magic Shackles from Malakor\'s study.',
+          status: 'active',
+          originChapter: 1
+        },
+        {
+          id: 'thread-saint-3',
+          description: 'Expose the forged heretical treaty to the High Cardinal before sunrise.',
+          status: 'active',
+          originChapter: 1
+        }
+      ],
+      resolvedPlotThreads: []
+    },
+    arcs: [
+      {
+        title: 'Act I: Before the Dawn Breaks',
+        isCompleted: false,
+        chapters: [
+          {
+            number: 1,
+            title: 'Midnight Bells and the Guillotine\'s Shadow',
+            premise: 'Locked in the Obsidian Cell, Sylvia watches the crescent moon rise. High above her dungeon window, she hears the clink of the heavy blades being sharpened.',
+            status: 'read',
+            generatedContent: `The cold stone of the Holy Citadel\'s deepest dungeon offered no comfort to Saintess Sylvia. Her wrists, bound in cold black anti-magic iron, burned with runic scars. Outside her narrow barred window, the hollow sound of iron hammers echoed through the courtyard. They were building the scaffold.\n\n"Heretic," Grand Inquisitor Malakor had spat when he threw her into the abyss. He had forged the treaties, claimed she was communicating with demonic realms, all to seize the ancient relics of the Sun Cathedral.\n\nSylvia closed her eyes. Her light magic was completely sealed by the shackles. Without her divine resonance, she was just an ordinary girl, scheduled to ascend the scaffold when the first rays of dawn touched the spires.\n\nSuddenly, a faint tapping sound came from the stone wall. A loose block slid aside, and a young templar recruit named Lucian peered through, his face pale with worry. He could not pull her through the narrow crack, but he held out a small copper band etched with secret runes.\n\n"My Saintess," he whispered. "I cannot break these walls, but this ring bypasses the citadel\'s silence ward. We can communicate across the Citadel. Tell me how to steer the templars. I will be your hands on the outside."\n\nSylvia touched the ring. Instantly, a warm current entered her mind, and a bright red prompt materialized in her vision:\n\n[Execution Countdown: 6 Segments remain. Holy Resonance: 5%. Inquisitor Vigilance: Low. Lucian mind-link activated.]`,
+            summary: 'Saintess Sylvia is locked in the Holy Citadel\'s dungeon awaiting dawn execution. Lucian, a rogue templar, passes her a telepathic copper ring, enabling her to coordinate with the outside world.',
+            statsChangeMessage: '[Execution Countdown: 6 Segments remain. Holy Resonance: 5%. Inquisitor Vigilance: Low.]'
+          },
+          { number: 2, title: 'Secrets of the Scriptorium: The Forger\'s Signature', premise: 'Sylvia directs Lucian to search the high archives for the ink used to forge the heretical pacts, aiming to prove the inquisitor\'s guilt.', status: 'unread' },
+          { number: 3, title: 'The Midnight Interrogation of the Holy Sister', premise: 'Inquisitor Malakor conducts a surprise cell inspection, trying to locate any communication runes. Sylvia must hide her telepathic connection.', status: 'unread' },
+          { number: 4, title: 'The Rogue Templar\'s Rescue Diversion', premise: 'Lucian attempts to create a fire in the armory to draw guard attention, but gets cornered. Sylvia must guide him through the corridors.', status: 'unread' },
+          { number: 5, title: 'The Sacred Heart Relic Recovered', premise: 'Lucian reaches the high altar to retrieve the Sacred Heart relic. He must smuggle it into the prison sector to break Sylvia\'s shackles.', status: 'unread' },
+          { number: 6, title: 'The Cardinal\'s Doubt and Malakor\'s Fury', premise: 'The High Cardinal arrives early to inspect the prisoner. Sylvia has one chance to sow seed of doubt before Malakor silences her.', status: 'unread' },
+          { number: 7, title: 'The Execution Scaffold: Exposing the Liars', premise: 'Dawn has arrived. Sylvia is led to the guillotine. Lucian must trigger the exposing light ritual at the exact second to save her life.', status: 'unread' }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'challenge-kingdom-falls',
+    title: 'The Kingdom That Falls in Seven Days',
+    genre: 'Fate Survival',
+    mcName: 'Commander Alistair',
+    customPremise: 'On the seventh day, the Iron-Clad Horde will breach the Capital walls. Can you root out the rot and secure the city\'s survival?',
+    createdAt: new Date(Date.now() - 12 * 3600 * 1000).toISOString(),
+    updatedAt: new Date().toISOString(),
+    currentChapterNumber: 1,
+    imageUrl: 'https://images.unsplash.com/photo-1464746133101-a2c3f88e0dd9?auto=format&fit=crop&q=80',
+    intake: {
+      novelTitle: 'The Kingdom That Falls in Seven Days',
+      mcName: 'Commander Alistair',
+      genrePath: 'Fate Survival',
+      corePremise: 'On the seventh day, the Iron-Clad Horde will breach the Capital walls. Can you root out the rot and secure the city\'s survival?',
+      storyTags: ['fate survival', 'siege survival', 'military strategy', 'traitor purge', 'fortress defense', 'political betrayal']
+    },
+    memory: {
+      powerSystem: 'Defensive Fortitude & Tactical Willpower.',
+      currentPowerStage: 'Garrison Commander (Undermanned Force)',
+      worldRules: [
+        'Tectonic Siege: The Iron-Clad Horde approaches with world-shattering siege engines, arriving on Day 7.',
+        'Rotted Foundation: Outer grain stores are targeted for arson on Day 3.',
+        'Absolute Isolation: Allied reinforcing armies will only march if the signal beacons are lit on Day 5.'
+      ],
+      characters: [
+        {
+          id: 'char-king-1',
+          name: 'Adjutant Robert',
+          role: 'Loyal Vanguard',
+          description: 'A young, brave lieutenant who will die defending the South Gate unless reinforced.',
+          relationshipToMC: 'Playful Bond / Absolute Ally',
+          status: 'alive'
+        },
+        {
+          id: 'char-king-2',
+          name: 'Baron Vane',
+          role: 'The Golden Traitor',
+          description: 'A corrupt senator feeding intelligence and grain supplies to the Horde.',
+          relationshipToMC: 'Extreme Hostility / Hidden Enemy',
+          status: 'alive'
+        }
+      ],
+      unresolvedPlotThreads: [
+        {
+          id: 'thread-king-1',
+          description: 'Unmask Baron Vane\'s smuggler networks before the grain supplies are burned.',
+          status: 'active',
+          originChapter: 1
+        },
+        {
+          id: 'thread-king-2',
+          description: 'Light the Beacon of Valerius on the high peak to request outer reinforcement.',
+          status: 'active',
+          originChapter: 1
+        },
+        {
+          id: 'thread-king-3',
+          description: 'Reconstruct the ancient ballistas on the city walls before the Horde arrives.',
+          status: 'active',
+          originChapter: 1
+        }
+      ],
+      resolvedPlotThreads: []
+    },
+    arcs: [
+      {
+        title: 'Act I: The Siege Calendar',
+        isCompleted: false,
+        chapters: [
+          {
+            number: 1,
+            title: 'Empty Silos and the Vulture\'s Feast',
+            premise: 'Commander Alistair conducts a midnight inspection of the royal granaries, only to find them empty. At the Senate, Baron Vane votes to cut guard salaries.',
+            status: 'read',
+            generatedContent: `The stone ramparts of the capital fortress were cold, but not as cold as the dread in Commander Alistair\'s chest. Standing atop the South Gate, he looked out at the dark horizon. Somewhere in that blackness, sixty thousand riders of the Iron-Clad Horde were marching. They would arrive in seven days.\n\nHe had just returned from inspecting the city silos. They were completely bare. The grain meant to feed the fifty thousand citizens during a year-long siege had been secretly carted away and sold. At the Senate hall, Baron Vane sat on a gilded chair, smiling as he voted to reduce the garrison\'s rations.\n\n"We must accept our fate, Commander," Vane had said with a smooth chuckle. "The Horde is unstoppable. Why waste precious coin on soldiers whose deaths are already decreed?"\n\nAlistair spat on the flagstones. The Senate had been bought. If the Horde arrived with the silos empty and guards starving, the walls would fall within hours of their arrival. He had to act.\n\nIn the darkness, his young lieutenant, Robert, approached with a nervous salute. "Commander, my scouts found a secret trade ledger in the lower docks. Someone is smuggling food *out* of the city through the canal gates. It bears Vane\'s crest."\n\nAlistair clutched the hilt of his broadsword. The countdown had begun, and a red blueprint illuminated in his mind:\n\n[Siege Timer: 6 Days remain. Wall Integrity: 100%. Food Stores: Critical (2 days remaining). Smuggler network identified.]`,
+            summary: 'Commander Alistair discovers the royal granaries are empty due to Baron Vane\'s embezzlement. Lieutenant Robert secures a smuggler ledger, giving Alistair his first lead to reclaim the food stores.',
+            statsChangeMessage: '[Siege Timer: 6 Days remain. Wall Integrity: 100%. Food Stores: Critical (2 days remaining).]'
+          },
+          { number: 2, title: 'Smugglers in the Slums: Reclaiming the Grain', premise: 'Alistair leads a midnight raid on Baron Vane\'s hidden docks in the canal sewers to reclaim the stolen flour and barley.', status: 'unread' },
+          { number: 3, title: 'Day of the Red Dust: The Well Water Poison', premise: 'Baron Vane\'s agents poison the city\'s central aqueduct. Alistair must locate the antidote before half the guard falls ill.', status: 'unread' },
+          { number: 4, title: 'Beacons in the Dark: The Climb to the High Peak', premise: 'Alistair sends Robert to light the ancient mountain beacon to summon the Western Alliance, who are currently unaware of the invasion.', status: 'unread' },
+          { number: 5, title: 'The Treason of the West Gate Garrison', premise: 'A bribed officer attempts to unlock the canal gate to let in a vanguard horde detachment. Alistair must defend the gate in close combat.', status: 'unread' },
+          { number: 6, title: 'Siege Engines on the Horizon', premise: 'The Horde arrives at the gates. They launch burning boulders of pitch. Alistair must deploy the reconstructed ballistas to destroy their catapults.', status: 'unread' },
+          { number: 7, title: 'Day of Iron: Defending the Shattered Wall', premise: 'The final siege begins. The South wall collapses under tectonic battering rams. Alistair must lead a desperate shield wall defense to hold until the reinforcements arrive.', status: 'unread' }
+        ]
+      }
+    ]
+  },
+  {
     id: 'demo-matrix-1', // Template ID
     title: 'Immortal Calamity: Echoes of the Cauldron',
     genre: 'Xianxia',

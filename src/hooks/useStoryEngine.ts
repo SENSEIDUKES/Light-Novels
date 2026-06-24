@@ -80,6 +80,8 @@ export const useStoryEngine = () => {
         customPremise: intake.corePremise || blueprint.logline || '',
         intake: intake,
         blueprint: blueprint,
+        hardcoreFateMode: !!intake.hardcoreFateMode,
+        fatePressure: intake.fatePressure || 'Balanced',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         currentChapterNumber: 1,

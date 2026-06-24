@@ -1,0 +1,27 @@
+import { describe, it, expect, vi } from 'vitest';
+import { render } from '@testing-library/react';
+import { CosmicBookmarksPanel } from './CosmicBookmarksPanel';
+
+vi.mock('../store/useAppStore', () => ({
+  useAppStore: () => ({
+    stories: [{
+      id: 'test-story',
+      title: 'Test',
+      arcs: [],
+      memory: { unresolvedPlotThreads: [] }
+    }],
+    activeStoryId: 'test-story',
+    setSelectedChapterNum: vi.fn()
+  })
+}));
+
+describe('CosmicBookmarksPanel', () => {
+  it('renders without crashing', () => {
+    const { container } = render(
+      <CosmicBookmarksPanel 
+        onClose={vi.fn()}
+      />
+    );
+    expect(container).toBeDefined();
+  });
+});
