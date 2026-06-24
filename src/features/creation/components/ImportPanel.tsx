@@ -36,6 +36,8 @@ export const parseBlueprintData = (inputText: string): WorldBlueprint | null => 
         firstArcPromise: data.firstArcPromise || '',
         tropeRules: data.tropeRules || '',
         styleBible: data.styleBible || '',
+        destinedEnding: data.destinedEnding || '',
+        estimatedArcs: data.estimatedArcs || 10,
         unresolvedPlotThreads: Array.isArray(data.unresolvedPlotThreads) ? data.unresolvedPlotThreads : [],
       };
     }
@@ -57,6 +59,8 @@ export const parseBlueprintData = (inputText: string): WorldBlueprint | null => 
     firstArcPromise: '',
     tropeRules: '',
     styleBible: '',
+    destinedEnding: '',
+    estimatedArcs: 10,
     unresolvedPlotThreads: [],
   };
 

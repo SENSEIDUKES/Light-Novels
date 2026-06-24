@@ -29,44 +29,44 @@ export const CustomFactionsForm = ({ intake, updateIntake, activeSection, setAct
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               <div>
-                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1">Name</label>
+                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-${labelCounter}">Name</label>
                 <input type="text" value={faction.name || ''} onChange={(e) => {
                   const newFactions = [...(intake.customFactions || [])];
                   newFactions[index].name = e.target.value;
                   updateIntake('customFactions', newFactions);
-                }} placeholder="e.g. Heavenly Sword Sect" className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" />
+                }} placeholder="e.g. Heavenly Sword Sect" className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-${labelCounter}" />
               </div>
               <div>
-                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1">Role</label>
+                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-${labelCounter}">Role</label>
                 <input type="text" value={faction.role || ''} onChange={(e) => {
                   const newFactions = [...(intake.customFactions || [])];
                   newFactions[index].role = e.target.value;
                   updateIntake('customFactions', newFactions);
-                }} placeholder="e.g. Ruling Power, Assassin Guild..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" />
+                }} placeholder="e.g. Ruling Power, Assassin Guild..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-${labelCounter}" />
               </div>
               <div>
-                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1">Power Level</label>
+                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-${labelCounter}">Power Level</label>
                 <input type="text" value={faction.powerLevel || ''} onChange={(e) => {
                   const newFactions = [...(intake.customFactions || [])];
                   newFactions[index].powerLevel = e.target.value;
                   updateIntake('customFactions', newFactions);
-                }} placeholder="e.g. Mid Tier, Universal Force..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" />
+                }} placeholder="e.g. Mid Tier, Universal Force..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-${labelCounter}" />
               </div>
               <div>
-                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1">Alignment (Good/Bad)</label>
+                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-${labelCounter}">Alignment (Good/Bad)</label>
                 <input type="text" value={faction.alignment || ''} onChange={(e) => {
                   const newFactions = [...(intake.customFactions || [])];
                   newFactions[index].alignment = e.target.value;
                   updateIntake('customFactions', newFactions);
-                }} placeholder="e.g. Righteous, Demonic, Neutral..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" />
+                }} placeholder="e.g. Righteous, Demonic, Neutral..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-${labelCounter}" />
               </div>
               <div className="md:col-span-2">
-                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1">Connection to MC</label>
+                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-${labelCounter}">Connection to MC</label>
                 <input type="text" value={faction.connectionToMC || ''} onChange={(e) => {
                   const newFactions = [...(intake.customFactions || [])];
                   newFactions[index].connectionToMC = e.target.value;
                   updateIntake('customFactions', newFactions);
-                }} placeholder="e.g. MC's starting sect, Sworn enemies..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" />
+                }} placeholder="e.g. MC's starting sect, Sworn enemies..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-${labelCounter}" />
               </div>
             </div>
           </div>

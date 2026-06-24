@@ -170,7 +170,7 @@ export function LivingCodexRelations({
                           key={`node-${char.id}`} 
                           transform={`translate(${cx}, ${cy})`}
                           className="cursor-pointer group"
-                          onClick={() => setSelectedNodeChar(char)}
+                          onClick={() => setSelectedNodeChar(char)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedNodeChar(char); } }}
                         >
                           {/* Inner pulsing layer */}
                           <circle cx="0" cy="0" r={isSelected ? "17" : "13"} fill="#000000" stroke={strokeColor} strokeWidth={isSelected ? "3" : "1.5"} />
@@ -286,11 +286,11 @@ export function LivingCodexRelations({
 
                   <div className="space-y-3">
                     <div>
-                      <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1">Source Character</label>
+                      <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1" htmlFor="a11y-control-${labelCounter}">Source Character</label>
                       <select
                         value={bondSourceId}
                         onChange={(e) => setBondSourceId(e.target.value)}
-                        className="w-full bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none"
+                        className="w-full bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none" id="a11y-control-${labelCounter}"
                       >
                         <option value="">-- Choose Soul --</option>
                         {memory.characters.map(c => (
@@ -300,11 +300,11 @@ export function LivingCodexRelations({
                     </div>
 
                     <div>
-                      <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1">Target Character</label>
+                      <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1" htmlFor="a11y-control-${labelCounter}">Target Character</label>
                       <select
                         value={bondTargetId}
                         onChange={(e) => setBondTargetId(e.target.value)}
-                        className="w-full bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none"
+                        className="w-full bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none" id="a11y-control-${labelCounter}"
                       >
                         <option value="">-- Choose Soul --</option>
                         {memory.characters.map(c => (
@@ -315,12 +315,13 @@ export function LivingCodexRelations({
 
                     <div>
                       <div className="flex justify-between items-center mb-1">
-                        <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">Affinity Score</label>
+                        <label htmlFor="bond-affinity-score" className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">Affinity Score</label>
                         <span className={`text-[10px] font-mono font-bold ${bondAffinity < 0 ? 'text-human' : bondAffinity > 0 ? 'text-portal' : 'text-neutral-500'}`}>
                           {bondAffinity > 0 ? `+${bondAffinity}` : bondAffinity}%
                         </span>
                       </div>
                       <input
+                        id="bond-affinity-score"
                         type="range"
                         min="-100"
                         max="100"
@@ -336,12 +337,12 @@ export function LivingCodexRelations({
                     </div>
 
                     <div>
-                      <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1">Causal Narrative / Link Description</label>
+                      <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1" htmlFor="a11y-control-${labelCounter}">Causal Narrative / Link Description</label>
                       <textarea
                         placeholder="e.g. Sworn companion, linked by the blood of the Azure Wyrm..."
                         value={bondDesc}
                         onChange={(e) => setBondDesc(e.target.value)}
-                        className="w-full h-16 bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none resize-none font-serif"
+                        className="w-full h-16 bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none resize-none font-serif" id="a11y-control-${labelCounter}"
                       />
                     </div>
 

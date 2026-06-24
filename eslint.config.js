@@ -4,6 +4,7 @@ import tseslint from 'typescript-eslint';
 import reactPlugin from 'eslint-plugin-react';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import reactRefreshPlugin from 'eslint-plugin-react-refresh';
+import jsxA11yPlugin from 'eslint-plugin-jsx-a11y';
 import globals from 'globals';
 
 export default [
@@ -12,6 +13,7 @@ export default [
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
+  jsxA11yPlugin.flatConfigs.recommended,
   {
     files: ['**/*.{js,jsx,mjs,cjs,ts,tsx}'],
     languageOptions: {

@@ -66,6 +66,7 @@ export const GlobalHeader: React.FC = () => {
           <div className="min-w-0">
             <h1 className="font-display font-bold text-xs sm:text-base md:text-lg text-signal tracking-wide leading-tight truncate select-none">
               <span
+                role="presentation"
                 className="relative inline-block cursor-pointer transition-all duration-200"
                 onMouseDown={() => setIsHolding(true)}
                 onMouseUp={() => setIsHolding(false)}

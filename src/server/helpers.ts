@@ -149,6 +149,10 @@ export function cleanBlueprint(bp: Record<string, unknown> | null | undefined): 
     }
   }
 
+  if ('destinedEnding' in bp && bp.destinedEnding !== undefined && bp.destinedEnding !== null) {
+    cleaned.destinedEnding = ensureString(bp.destinedEnding);
+  }
+
   for (const field of arrayFields) {
     if (field in bp) {
       const val = bp[field as string];
@@ -160,6 +164,12 @@ export function cleanBlueprint(bp: Record<string, unknown> | null | undefined): 
     } else {
       (cleaned as any)[field] = [];
     }
+  }
+
+  if ('estimatedArcs' in bp && typeof bp.estimatedArcs === 'number') {
+    cleaned.estimatedArcs = bp.estimatedArcs;
+  } else {
+    cleaned.estimatedArcs = 5;
   }
 
   return cleaned;

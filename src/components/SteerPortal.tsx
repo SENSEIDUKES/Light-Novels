@@ -125,7 +125,9 @@ export default function SteerPortal({
           customPremise: activeStory.customPremise,
           memory: activeStory.memory,
           pastSummaries,
-          currentArcCount: totalPreviousChapters,
+          currentArcCount: activeStory.arcs.length,
+          estimatedArcs: activeStory.blueprint?.estimatedArcs,
+          destinedEnding: activeStory.blueprint?.destinedEnding,
           routingConfig: routingConfig?.storyMaker
         })
       });
@@ -191,10 +193,10 @@ export default function SteerPortal({
         {/* Dynamic Direction Suggestions Section */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <label className="block text-xs uppercase tracking-widest font-sc text-neutral-300 font-semibold flex items-center space-x-2">
+            <span className="block text-xs uppercase tracking-widest font-sc text-neutral-300 font-semibold flex items-center space-x-2">
               <Compass size={14} className="text-portal animate-spin-slow" />
               <span>Divine Paths of Ascension (Suggested Directions)</span>
-            </label>
+            </span>
             {!isLoading && (
               <button
                 type="button"

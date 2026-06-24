@@ -74,7 +74,7 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
       {isOpen && (
         <div
           onClick={onClose}
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity"
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClose(); } }}
         />
       )}
       <AnimatePresence>
@@ -104,11 +104,11 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
 
             {/* Language Selection */}
             <div className="p-4 border-b border-neutral-900">
-              <label className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2 block font-mono">Translation Target</label>
+              <label className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2 block font-mono" htmlFor="a11y-control-${labelCounter}">Translation Target</label>
               <select
                 value={targetLang}
                 onChange={(e) => setTargetLang(e.target.value)}
-                className="w-full bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none focus:border-portal"
+                className="w-full bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none focus:border-portal" id="a11y-control-${labelCounter}"
               >
                 <option value="zh-CN">Chinese (Simplified)</option>
                 <option value="zh-TW">Chinese (Traditional)</option>

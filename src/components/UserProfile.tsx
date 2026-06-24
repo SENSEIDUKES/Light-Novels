@@ -3,7 +3,7 @@ import { UserProfile as UserProfileType, Story, AppUser } from '../types';
 import { db, auth } from '../lib/firebase';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { LogOut, Save, User as UserIcon, Calendar, BookOpen, Globe, Cloud, CloudOff, RefreshCw, Sliders, Upload, Download, Database, Zap, Keyboard } from 'lucide-react';
+import { LogOut, Save, User as UserIcon, Calendar, BookOpen, Globe, Cloud, CloudOff, RefreshCw, Sliders, Upload, Download, Database, Zap, Keyboard, Flame } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
 import { AudioWidget } from './AudioWidget';
@@ -111,6 +111,10 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
   // In a real app we might sync these, but here reading from the stories array is more accurate for the current session
   const userStories = stories.filter(s => s.userId === currentUser?.uid || (!s.userId));
   const activeStoriesCount = userStories.length;
+  
+  const currentStreak = profile?.writingStreak || 0;
+  const daysTo3 = currentStreak === 0 ? 3 : (currentStreak % 3 === 0 ? 3 : 3 - (currentStreak % 3));
+  const daysTo10 = currentStreak === 0 ? 10 : (currentStreak % 10 === 0 ? 10 : 10 - (currentStreak % 10));
 
   const handleSave = async () => {
     if (!currentUser || !profile) return;
@@ -178,6 +182,169 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
 
   const daoData = getDaoRankData(profile?.dao_xp || profile?.qi || 0);
 
+  const renderBoringThings = () => (
+    <>
+      {/* Celestial Tools Section (Always Visible) */}
+      <div className="border-t border-neutral-900/50 pt-10">
+        <h3 className="text-[11px] uppercase font-bold tracking-widest text-neutral-500 font-sc mb-6 flex items-center gap-2">
+          <Sliders size={14} className="text-portal" />
+          Environment & Sync Settings
+        </h3>
+        <div className="flex flex-wrap items-center gap-4 bg-[#030303] p-5 rounded-xl border border-neutral-900 shadow-inner">
+          <div className="flex items-center space-x-2 border border-neutral-800 px-4 py-2 rounded-lg bg-black">
+            {syncStatus === 'offline' ? (
+              <button onClick={() => storyStorage.performSync()} title="Offline / Local Only. Click to sync" className="flex items-center space-x-2 hover:text-portal transition-colors"><CloudOff size={14} className="text-neutral-600" /> <span className="text-[11px] font-sans text-neutral-500 uppercase tracking-widest">Offline Flow</span></button>
+            ) : syncStatus === 'syncing' ? (
+              <span title="Syncing..." className="flex items-center space-x-2"><RefreshCw size={14} className="text-portal animate-spin" /> <span className="text-[11px] font-sans text-portal uppercase tracking-widest">Channeling...</span></span>
+            ) : syncStatus === 'error' ? (
+              <button onClick={() => storyStorage.performSync()} title="Sync Error. Click to retry" className="flex items-center space-x-2 hover:text-portal transition-colors"><CloudOff size={14} className="text-human" /> <span className="text-[11px] font-sans text-human uppercase tracking-widest">Disharmony</span></button>
+            ) : (
+              <button onClick={() => storyStorage.performSync()} title="Synced to Firebase. Click to force sync" className="flex items-center space-x-2 hover:text-portal transition-colors"><Cloud size={14} className="text-portal" /> <span className="text-[11px] font-sans text-portal uppercase tracking-widest">Harmonized</span></button>
+            )}
+          </div>
+
+          {/* Dao Connection Badge */}
+          <button
+            type="button"
+            onClick={checkDaoConnection}
+            className={`flex items-center space-x-1.5 px-4 py-2 rounded-lg text-[11px] uppercase font-bold transition-all duration-300 border border-neutral-800 bg-black shrink-0 font-sc tracking-wider hover:scale-105 select-none ${
+              daoStatus === 'connected'
+                ? 'border-emerald-500/25 text-emerald-400 hover:bg-emerald-950/20 shadow-[0_0_12px_rgba(16,185,129,0.06)]'
+                : daoStatus === 'disconnected'
+                ? 'border-red-900/30 text-red-400 hover:bg-red-900/20 shadow-[0_0_12px_rgba(139,0,0,0.04)]'
+                : 'text-neutral-400'
+            }`}
+            title={`${daoDetail} — Click to verify connection state`}
+            aria-label="Celestial Connection Status"
+          >
+            {daoStatus === 'checking' ? (
+              <RefreshCw size={12} className="animate-spin text-amber-400" />
+            ) : daoStatus === 'connected' ? (
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+            ) : (
+              <span className="relative flex h-2 w-2">
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+              </span>
+            )}
+            <span className="font-sans font-bold">
+              {daoStatus === 'connected' ? 'Dao Aligned' : daoStatus === 'disconnected' ? 'Dao Severed' : 'Sensing...'}
+            </span>
+          </button>
+          {lastSavedTime && (
+            <div className="text-[10px] font-mono text-neutral-600 tracking-wider">
+              Auto-saved: {new Date(lastSavedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </div>
+          )}
+
+          <div className="w-[1px] h-8 bg-neutral-900 hidden sm:block mx-2"></div>
+          
+          <div className="shrink-0 flex items-center gap-3">
+            <AudioWidget />
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              className="px-4 py-2 bg-black border border-neutral-850 hover:border-portal/50 text-neutral-400 hover:text-portal transition-all rounded-lg font-sc text-[11px] flex items-center space-x-2 font-bold group"
+              title="Aether Router Configuration"
+            >
+              <Sliders size={13} className="text-portal group-hover:scale-110 transition-transform" />
+              <span className="uppercase tracking-widest font-semibold text-[11px]">Aether Router</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => useAppStore.getState().setIsShortcutsOpen(true)}
+              className="px-4 py-2 bg-black border border-neutral-850 hover:border-portal/50 text-neutral-400 hover:text-portal transition-all rounded-lg font-sc text-[11px] flex items-center space-x-2 font-bold group"
+              title="Shortcuts Manual (or press ? key)"
+            >
+              <Keyboard size={13} className="text-portal group-hover:scale-110 transition-transform" />
+              <span className="uppercase tracking-widest font-semibold text-[11px]">Shortcuts</span>
+            </button>
+          </div>
+
+          <div className="w-[1px] h-8 bg-neutral-900 hidden sm:block mx-2"></div>
+        </div>
+      </div>
+
+      {/* Backup & Import Section */}
+      <div className="border-t border-neutral-900/50 pt-10">
+        <h3 className="text-[11px] uppercase font-bold tracking-widest text-neutral-500 font-sc mb-6 flex items-center gap-2">
+          <Database size={14} className="text-portal" />
+          Archives & World Transmigration
+        </h3>
+        <div className="flex flex-col md:flex-row items-center justify-between gap-8 bg-[#030303] p-6 rounded-xl border border-neutral-900 shadow-inner">
+          <div className="space-y-2">
+            <div className="flex items-center space-x-3">
+              <h4 className="font-display text-xl text-signal">Aetherial Memory Sanctum</h4>
+              <span className="text-[9px] px-2.5 py-1 bg-portal/10 border border-portal/30 text-portal font-sans rounded-full font-bold uppercase tracking-widest animate-pulse">
+                {storageType}
+              </span>
+            </div>
+            <p className="text-sm font-serif text-neutral-400 max-w-xl leading-relaxed">
+              Every character bio, relationship map, karma fate node, chapter summary, and reader preference is preserved in the deep local archives. Guard them closely.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto flex-wrap">
+            <button
+              onClick={handleRunAudit}
+              disabled={isAuditing}
+              className="flex items-center justify-center space-x-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-portal border border-neutral-800 hover:border-portal/50 px-5 py-3 rounded-lg text-[11px] font-sc font-bold uppercase tracking-wider disabled:opacity-20 disabled:cursor-not-allowed transition-all group"
+            >
+              <Database size={14} className="text-portal group-hover:scale-110 transition-transform" />
+              <span>Audit Sync Health</span>
+            </button>
+
+            <label className="flex items-center justify-center space-x-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-portal border border-neutral-800 hover:border-portal/50 px-5 py-3 rounded-lg text-[11px] font-sc font-bold uppercase tracking-wider cursor-pointer transition-all group">
+              <Upload size={14} className="text-portal group-hover:-translate-y-0.5 transition-transform" />
+              <span>Import World Scroll</span>
+              <input 
+                type="file" 
+                accept=".json" 
+                onChange={handleImportLibrary} 
+                className="hidden" 
+              />
+            </label>
+
+            <button
+              onClick={handleExportLibrary}
+              disabled={stories.length === 0}
+              className="flex items-center justify-center space-x-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-signal border border-neutral-800 hover:border-human/50 px-5 py-3 rounded-lg text-[11px] font-sc font-bold uppercase tracking-wider disabled:opacity-20 disabled:cursor-not-allowed transition-all group"
+            >
+              <Download size={14} className="text-human group-hover:translate-y-0.5 transition-transform" />
+              <span>Backup Full Library</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Audit Results */}
+        {auditResult && (
+           <div className="mt-4 p-4 border border-portal/30 bg-black rounded-lg text-[11px] font-mono text-neutral-400 space-y-2">
+             <div className="text-portal font-sc uppercase tracking-widest border-b border-neutral-800 pb-2 mb-2 font-bold">Sync Health Diagnostic</div>
+             <div className="grid grid-cols-2 gap-4">
+                 <div>Local Realms: <span className="text-signal">{auditResult.localStories}</span></div>
+                 <div>Cloud Realms: <span className="text-signal">{auditResult.cloudStories}</span></div>
+                 <div>Pending Writes: <span className="text-signal">{auditResult.pendingWrites}</span></div>
+                 <div>Missing Chapter Contents: <span className={auditResult.missingChapters.length > 0 ? "text-human" : "text-signal"}>{auditResult.missingChapters.length}</span></div>
+             </div>
+             {auditResult.missingChapters.length > 0 && (
+                 <div className="pt-2 border-t border-neutral-800 mt-2">
+                     <div className="text-human mb-2">Warning: {auditResult.missingChapters.length} chapters are marked as generated but lack local cache content.</div>
+                     <button onClick={handleRecover} disabled={isAuditing} className="px-4 py-1.5 bg-human/10 text-human border border-human/30 hover:bg-human/20 rounded uppercase tracking-widest font-sc cursor-pointer">
+                         Attempt Cloud Recovery
+                     </button>
+                 </div>
+             )}
+             {auditResult.recovered !== undefined && (
+                 <div className="text-portal mt-2">Recovered {auditResult.recovered} missing chapters from the cloud.</div>
+             )}
+           </div>
+        )}
+      </div>
+    </>
+  );
+
   if (isLoading && !profile && currentUser) {
     return <div className="p-8 text-center text-neutral-500 font-sc tracking-widest uppercase animate-pulse">Accessing Celestial Record...</div>;
   }
@@ -207,166 +374,6 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
         )}
 
         <div className="p-6 md:p-10 space-y-12">
-          
-          {/* Celestial Tools Section (Always Visible) */}
-          <div className="border-b border-neutral-900/50 pb-10">
-            <h3 className="text-[11px] uppercase font-bold tracking-widest text-neutral-500 font-sc mb-6 flex items-center gap-2">
-              <Sliders size={14} className="text-portal" />
-              Environment & Sync Settings
-            </h3>
-            <div className="flex flex-wrap items-center gap-4 bg-[#030303] p-5 rounded-xl border border-neutral-900 shadow-inner">
-              <div className="flex items-center space-x-2 border border-neutral-800 px-4 py-2 rounded-lg bg-black">
-                {syncStatus === 'offline' ? (
-                  <button onClick={() => storyStorage.performSync()} title="Offline / Local Only. Click to sync" className="flex items-center space-x-2 hover:text-portal transition-colors"><CloudOff size={14} className="text-neutral-600" /> <span className="text-[11px] font-sans text-neutral-500 uppercase tracking-widest">Offline Flow</span></button>
-                ) : syncStatus === 'syncing' ? (
-                  <span title="Syncing..." className="flex items-center space-x-2"><RefreshCw size={14} className="text-portal animate-spin" /> <span className="text-[11px] font-sans text-portal uppercase tracking-widest">Channeling...</span></span>
-                ) : syncStatus === 'error' ? (
-                  <button onClick={() => storyStorage.performSync()} title="Sync Error. Click to retry" className="flex items-center space-x-2 hover:text-portal transition-colors"><CloudOff size={14} className="text-human" /> <span className="text-[11px] font-sans text-human uppercase tracking-widest">Disharmony</span></button>
-                ) : (
-                  <button onClick={() => storyStorage.performSync()} title="Synced to Firebase. Click to force sync" className="flex items-center space-x-2 hover:text-portal transition-colors"><Cloud size={14} className="text-portal" /> <span className="text-[11px] font-sans text-portal uppercase tracking-widest">Harmonized</span></button>
-                )}
-              </div>
-
-              {/* Dao Connection Badge */}
-              <button
-                type="button"
-                onClick={checkDaoConnection}
-                className={`flex items-center space-x-1.5 px-4 py-2 rounded-lg text-[11px] uppercase font-bold transition-all duration-300 border border-neutral-800 bg-black shrink-0 font-sc tracking-wider hover:scale-105 select-none ${
-                  daoStatus === 'connected'
-                    ? 'border-emerald-500/25 text-emerald-400 hover:bg-emerald-950/20 shadow-[0_0_12px_rgba(16,185,129,0.06)]'
-                    : daoStatus === 'disconnected'
-                    ? 'border-red-900/30 text-red-400 hover:bg-red-900/20 shadow-[0_0_12px_rgba(139,0,0,0.04)]'
-                    : 'text-neutral-400'
-                }`}
-                title={`${daoDetail} — Click to verify connection state`}
-                aria-label="Celestial Connection Status"
-              >
-                {daoStatus === 'checking' ? (
-                  <RefreshCw size={12} className="animate-spin text-amber-400" />
-                ) : daoStatus === 'connected' ? (
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                  </span>
-                ) : (
-                  <span className="relative flex h-2 w-2">
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                  </span>
-                )}
-                <span className="font-sans font-bold">
-                  {daoStatus === 'connected' ? 'Dao Aligned' : daoStatus === 'disconnected' ? 'Dao Severed' : 'Sensing...'}
-                </span>
-              </button>
-              {lastSavedTime && (
-                <div className="text-[10px] font-mono text-neutral-600 tracking-wider">
-                  Auto-saved: {new Date(lastSavedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                </div>
-              )}
-
-              <div className="w-[1px] h-8 bg-neutral-900 hidden sm:block mx-2"></div>
-              
-              <div className="shrink-0 flex items-center gap-3">
-                <AudioWidget />
-                <button
-                  type="button"
-                  onClick={() => setIsSettingsOpen(true)}
-                  className="px-4 py-2 bg-black border border-neutral-850 hover:border-portal/50 text-neutral-400 hover:text-portal transition-all rounded-lg font-sc text-[11px] flex items-center space-x-2 font-bold group"
-                  title="Aether Router Configuration"
-                >
-                  <Sliders size={13} className="text-portal group-hover:scale-110 transition-transform" />
-                  <span className="uppercase tracking-widest font-semibold">Aether Router</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => useAppStore.getState().setIsShortcutsOpen(true)}
-                  className="px-4 py-2 bg-black border border-neutral-850 hover:border-portal/50 text-neutral-400 hover:text-portal transition-all rounded-lg font-sc text-[11px] flex items-center space-x-2 font-bold group"
-                  title="Shortcuts Manual (or press ? key)"
-                >
-                  <Keyboard size={13} className="text-portal group-hover:scale-110 transition-transform" />
-                  <span className="uppercase tracking-widest font-semibold">Shortcuts (Keys)</span>
-                </button>
-              </div>
-
-              <div className="w-[1px] h-8 bg-neutral-900 hidden sm:block mx-2"></div>
-            </div>
-          </div>
-
-          {/* Backup & Import Section */}
-          <div className="border-b border-neutral-900/50 pb-10">
-            <h3 className="text-[11px] uppercase font-bold tracking-widest text-neutral-500 font-sc mb-6 flex items-center gap-2">
-              <Database size={14} className="text-portal" />
-              Archives & World Transmigration
-            </h3>
-            <div className="flex flex-col md:flex-row items-center justify-between gap-8 bg-[#030303] p-6 rounded-xl border border-neutral-900 shadow-inner">
-              <div className="space-y-2">
-                <div className="flex items-center space-x-3">
-                  <h4 className="font-display text-xl text-signal">Aetherial Memory Sanctum</h4>
-                  <span className="text-[9px] px-2.5 py-1 bg-portal/10 border border-portal/30 text-portal font-sans rounded-full font-bold uppercase tracking-widest animate-pulse">
-                    {storageType}
-                  </span>
-                </div>
-                <p className="text-sm font-serif text-neutral-400 max-w-xl leading-relaxed">
-                  Every character bio, relationship map, karma fate node, chapter summary, and reader preference is preserved in the deep local archives. Guard them closely.
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto flex-wrap">
-                <button
-                  onClick={handleRunAudit}
-                  disabled={isAuditing}
-                  className="flex items-center justify-center space-x-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-portal border border-neutral-800 hover:border-portal/50 px-5 py-3 rounded-lg text-[11px] font-sc font-bold uppercase tracking-wider disabled:opacity-20 disabled:cursor-not-allowed transition-all group"
-                >
-                  <Database size={14} className="text-portal group-hover:scale-110 transition-transform" />
-                  <span>Audit Sync Health</span>
-                </button>
-
-                <label className="flex items-center justify-center space-x-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-portal border border-neutral-800 hover:border-portal/50 px-5 py-3 rounded-lg text-[11px] font-sc font-bold uppercase tracking-wider cursor-pointer transition-all group">
-                  <Upload size={14} className="text-portal group-hover:-translate-y-0.5 transition-transform" />
-                  <span>Import World Scroll</span>
-                  <input 
-                    type="file" 
-                    accept=".json" 
-                    onChange={handleImportLibrary} 
-                    className="hidden" 
-                  />
-                </label>
-
-                <button
-                  onClick={handleExportLibrary}
-                  disabled={stories.length === 0}
-                  className="flex items-center justify-center space-x-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-signal border border-neutral-800 hover:border-human/50 px-5 py-3 rounded-lg text-[11px] font-sc font-bold uppercase tracking-wider disabled:opacity-20 disabled:cursor-not-allowed transition-all group"
-                >
-                  <Download size={14} className="text-human group-hover:translate-y-0.5 transition-transform" />
-                  <span>Backup Full Library</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Audit Results */}
-            {auditResult && (
-               <div className="mt-4 p-4 border border-portal/30 bg-black rounded-lg text-[11px] font-mono text-neutral-400 space-y-2">
-                 <div className="text-portal font-sc uppercase tracking-widest border-b border-neutral-800 pb-2 mb-2 font-bold">Sync Health Diagnostic</div>
-                 <div className="grid grid-cols-2 gap-4">
-                     <div>Local Realms: <span className="text-signal">{auditResult.localStories}</span></div>
-                     <div>Cloud Realms: <span className="text-signal">{auditResult.cloudStories}</span></div>
-                     <div>Pending Writes: <span className="text-signal">{auditResult.pendingWrites}</span></div>
-                     <div>Missing Chapter Contents: <span className={auditResult.missingChapters.length > 0 ? "text-human" : "text-signal"}>{auditResult.missingChapters.length}</span></div>
-                 </div>
-                 {auditResult.missingChapters.length > 0 && (
-                     <div className="pt-2 border-t border-neutral-800 mt-2">
-                         <div className="text-human mb-2">Warning: {auditResult.missingChapters.length} chapters are marked as generated but lack local cache content.</div>
-                         <button onClick={handleRecover} disabled={isAuditing} className="px-4 py-1.5 bg-human/10 text-human border border-human/30 hover:bg-human/20 rounded uppercase tracking-widest font-sc cursor-pointer">
-                             Attempt Cloud Recovery
-                         </button>
-                     </div>
-                 )}
-                 {auditResult.recovered !== undefined && (
-                     <div className="text-portal mt-2">Recovered {auditResult.recovered} missing chapters from the cloud.</div>
-                 )}
-               </div>
-            )}
-          </div>
-
           {!currentUser ? (
             <div className="py-16 flex flex-col items-center justify-center text-center space-y-8">
               <CloudOff size={56} className="text-neutral-800 drop-shadow-[0_0_30px_rgba(4,172,255,0.08)]" />
@@ -432,9 +439,10 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-[#030303] p-5 rounded-xl border border-neutral-900">
                     <div>
-                      <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 font-sc block mb-2">Username (Dao Name)</label>
+                      <label htmlFor="user-username" className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 font-sc block mb-2">Username (Dao Name)</label>
                       {isEditing ? (
                         <input 
+                          id="user-username"
                           type="text" 
                           name="username" 
                           value={formData.username || ''} 
@@ -448,7 +456,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                     </div>
                     <div>
                       <div className="flex justify-between items-center mb-2">
-                        <label className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 font-sc">Display Name</label>
+                        <label htmlFor="user-displayname" className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 font-sc">Display Name</label>
                         {!isEditing && (
                           <button 
                             onClick={() => setIsEditing(true)} 
@@ -463,6 +471,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                         <div className="space-y-3">
                           <div className="flex gap-2">
                             <input 
+                              id="user-displayname"
                               type="text" 
                               name="displayName" 
                               value={formData.displayName || ''} 
@@ -635,7 +644,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                 <div className="bg-[#030303] border border-neutral-900 rounded-xl p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-neutral-900 rounded-lg"><Globe size={14} className="text-portal" /></div>
-                    <label className="text-[11px] uppercase font-bold tracking-widest text-neutral-400 font-sc">Preferred Language</label>
+                    <span className="text-[11px] uppercase font-bold tracking-widest text-neutral-400 font-sc">Preferred Language</span>
                   </div>
                   {isEditing ? (
                     <select 
@@ -657,7 +666,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                 <div className="bg-[#030303] border border-neutral-900 rounded-xl p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-neutral-900 rounded-lg"><Globe size={14} className="text-human" /></div>
-                    <label className="text-[11px] uppercase font-bold tracking-widest text-neutral-400 font-sc">Translation Default</label>
+                    <span className="text-[11px] uppercase font-bold tracking-widest text-neutral-400 font-sc">Translation Default</span>
                   </div>
                   {isEditing ? (
                     <select 
@@ -679,7 +688,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                 <div className="bg-[#030303] border border-neutral-900 rounded-xl p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-neutral-900 rounded-lg"><Calendar size={14} className="text-neutral-400" /></div>
-                    <label className="text-[11px] uppercase font-bold tracking-widest text-neutral-400 font-sc">Ascent Commenced</label>
+                    <span className="text-[11px] uppercase font-bold tracking-widest text-neutral-400 font-sc">Ascent Commenced</span>
                   </div>
                   <div className="text-[11px] text-neutral-300 font-sans tracking-wide">{new Date(profile?.joinedDate || Date.now()).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</div>
                 </div>
@@ -687,10 +696,43 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                 <div className="bg-[#030303] border border-neutral-900 rounded-xl p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-neutral-900 rounded-lg"><BookOpen size={14} className="text-portal" /></div>
-                    <label className="text-[11px] uppercase font-bold tracking-widest text-neutral-400 font-sc">Scrolls Accumulated</label>
+                    <span className="text-[11px] uppercase font-bold tracking-widest text-neutral-400 font-sc">Scrolls Accumulated</span>
                   </div>
                   <div className="text-[11px] text-portal font-sans font-black tracking-widest uppercase">
                     {activeStoriesCount} Realms
+                  </div>
+                </div>
+
+                {/* Writing Streak Card - Premium Span */}
+                <div className="bg-[#030303] border border-neutral-900 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 md:col-span-2 relative overflow-hidden shadow-[0_0_20px_rgba(249,115,22,0.03)] border-l-4 border-l-orange-500/40">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+                      <Flame size={18} className="text-orange-500 animate-pulse" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 font-sc block">Daily Cultivation Streak</span>
+                      <div className="text-2xl font-black text-orange-500 font-sans tracking-wide">
+                        {currentStreak} {currentStreak === 1 ? 'Day' : 'Days'}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col sm:items-end justify-center text-xs text-neutral-400 font-mono space-y-1">
+                    <div className="flex flex-wrap gap-2 sm:justify-end">
+                      <span className="px-2 py-0.5 rounded bg-orange-500/10 border border-orange-500/30 text-[10px] text-orange-400 font-sc uppercase tracking-wider">
+                        {daysTo3} {daysTo3 === 1 ? 'day' : 'days'} to +20 Qi
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-400 font-sc uppercase tracking-wider">
+                        {daysTo10} {daysTo10 === 1 ? 'day' : 'days'} to +100 Qi
+                      </span>
+                    </div>
+                    {profile?.lastInteractionDate ? (
+                      <span className="text-[10px] text-neutral-500">
+                        Matrix Linked: <span className="text-neutral-300">{profile.lastInteractionDate}</span>
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-neutral-500 italic">Interacts today to forge your path</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -803,6 +845,9 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
               </div>
             </>
           )}
+
+          {/* Settings & boring things at the very bottom! */}
+          {renderBoringThings()}
         </div>
       </div>
     </div>

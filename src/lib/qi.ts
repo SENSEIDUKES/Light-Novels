@@ -52,7 +52,9 @@ export type QiEvent =
   | 'chapter_sealed'
   | 'branch_created'
   | 'branch_published'
-  | 'story_liked';
+  | 'story_liked'
+  | 'streak_reward_3'
+  | 'streak_reward_10';
 
 const QI_VALUES: Record<QiEvent, number> = {
   chapter_read: 2,
@@ -62,7 +64,9 @@ const QI_VALUES: Record<QiEvent, number> = {
   chapter_sealed: 15,
   branch_created: 30,
   branch_published: 50,
-  story_liked: 5
+  story_liked: 5,
+  streak_reward_3: 20,
+  streak_reward_10: 100
 };
 
 const DAILY_CAPS: Partial<Record<QiEvent, number>> = {
@@ -122,13 +126,78 @@ export async function awardQi(event: QiEvent, sourceId?: string, sourceType?: st
     } else if (currentXp === undefined) {
       currentXp = 0;
     }
-    const newXp = currentXp + amount;
+
+    // Support streak tracking
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+
+    const lastInteractionDate = data?.lastInteractionDate || '';
+    let currentStreak = data?.writingStreak || 0;
+    
+    let newStreak = currentStreak;
+    let streakChanged = false;
+    let bonusQi = 0;
+    let streakEventName: 'streak_reward_3' | 'streak_reward_10' | null = null;
+    
+    if (lastInteractionDate !== todayStr) {
+      if (lastInteractionDate) {
+        const lastDate = new Date(lastInteractionDate + 'T00:00:00');
+        const todayDate = new Date(todayStr + 'T00:00:00');
+        const diffTime = todayDate.getTime() - lastDate.getTime();
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 1) {
+          newStreak = currentStreak + 1;
+        } else {
+          newStreak = 1;
+        }
+      } else {
+        newStreak = 1;
+      }
+      streakChanged = true;
+    } else if (currentStreak === 0) {
+      newStreak = 1;
+      streakChanged = true;
+    }
+
+    if (streakChanged) {
+      if (newStreak % 10 === 0) {
+        bonusQi = 100;
+        streakEventName = 'streak_reward_10';
+      } else if (newStreak % 3 === 0) {
+        bonusQi = 20;
+        streakEventName = 'streak_reward_3';
+      }
+    }
+
+    if (bonusQi > 0 && streakEventName) {
+      try {
+        const streakEventDoc = {
+          user_id: user.uid,
+          event_type: streakEventName,
+          xp_amount: bonusQi,
+          source_id: `streak_${newStreak}`,
+          source_type: 'streak_bonus',
+          created_at: new Date().toISOString()
+        };
+        await addDoc(collection(db, 'dao_xp_events'), streakEventDoc);
+      } catch (e) {
+        console.error('Failed to log streak reward event:', e);
+      }
+    }
+
+    const newXp = currentXp + amount + bonusQi;
     const newRank = getDaoRankData(newXp).rank;
 
     await setDoc(userRef, {
       dao_xp: newXp,
       qi: newXp, // keep backwards compatibility for now just in case
       dao_rank: newRank,
+      writingStreak: newStreak,
+      lastInteractionDate: todayStr,
       updatedAt: new Date().toISOString()
     }, { merge: true });
 
@@ -280,4 +349,47 @@ export function getAuraGlowStyle(colorHexOrAura?: string): string {
   }
   return '';
 }
+
+export async function awardDirectQi(amount: number, reason: string) {
+  const user = auth.currentUser;
+  if (!user) return; 
+  if (!amount || amount <= 0) return;
+
+  try {
+    const eventDoc = {
+      user_id: user.uid,
+      event_type: 'challenge_reward',
+      xp_amount: amount,
+      source_id: reason,
+      source_type: 'fate_challenge',
+      created_at: new Date().toISOString()
+    };
+    await addDoc(collection(db, 'dao_xp_events'), eventDoc);
+
+    const userRef = doc(db, 'users', user.uid);
+    const uDoc = await getDoc(userRef);
+    const data = uDoc.data();
+    
+    let currentXp = data?.dao_xp;
+    if (currentXp === undefined && data?.qi !== undefined) {
+      currentXp = data.qi;
+    } else if (currentXp === undefined) {
+      currentXp = 0;
+    }
+
+    const newXp = currentXp + amount;
+    const newRank = getDaoRankData(newXp).rank;
+
+    await setDoc(userRef, {
+      dao_xp: newXp,
+      qi: newXp,
+      dao_rank: newRank,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+  } catch (error) {
+    console.error('Failed to award direct Qi:', error);
+  }
+}
+
 

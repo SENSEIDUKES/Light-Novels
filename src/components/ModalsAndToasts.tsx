@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import FocusLock from 'react-focus-lock';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertCircle, X, Sliders } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
@@ -133,8 +134,9 @@ export const ModalsAndToasts: React.FC = () => {
     <>
       <AnimatePresence>
         {isSettingsOpen && (
-          <motion.div
-            key="settings-modal-backdrop"
+          <FocusLock>
+            <motion.div
+              key="settings-modal-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -142,7 +144,7 @@ export const ModalsAndToasts: React.FC = () => {
           >
             <div
               className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-              onClick={() => setIsSettingsOpen(false)}
+              onClick={() => setIsSettingsOpen(false)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsSettingsOpen(false); } }}
             />
             
             <motion.div
@@ -261,9 +263,10 @@ export const ModalsAndToasts: React.FC = () => {
                   <div className="space-y-3">
                     <div>
                       <div className="flex justify-between items-center mb-1">
-                        <label className="text-[10px] font-mono text-neutral-400">Gemini Key Override</label>
+                        <label htmlFor="gemini-key-override" className="text-[10px] font-mono text-neutral-400">Gemini Key Override</label>
                       </div>
                       <input
+                        id="gemini-key-override"
                         type="password"
                         placeholder="Paste your Gemini AI key..."
                         value={localGeminiKey}
@@ -277,9 +280,10 @@ export const ModalsAndToasts: React.FC = () => {
                     </div>
                     <div>
                       <div className="flex justify-between items-center mb-1">
-                        <label className="text-[10px] font-mono text-neutral-400">OpenRouter Key Override</label>
+                        <label htmlFor="openrouter-key-override" className="text-[10px] font-mono text-neutral-400">OpenRouter Key Override</label>
                       </div>
                       <input
+                        id="openrouter-key-override"
                         type="password"
                         placeholder="Paste your OpenRouter key..."
                         value={localOpenrouterKey}
@@ -293,9 +297,10 @@ export const ModalsAndToasts: React.FC = () => {
                     </div>
                     <div>
                       <div className="flex justify-between items-center mb-1">
-                        <label className="text-[10px] font-mono text-neutral-400">Ollama Host Override</label>
+                        <label htmlFor="ollama-host-override" className="text-[10px] font-mono text-neutral-400">Ollama Host Override</label>
                       </div>
                       <input
+                        id="ollama-host-override"
                         type="text"
                         placeholder="e.g. http://localhost:11434"
                         value={localOllamaHost}
@@ -309,9 +314,10 @@ export const ModalsAndToasts: React.FC = () => {
                     </div>
                     <div>
                       <div className="flex justify-between items-center mb-1">
-                        <label className="text-[10px] font-mono text-neutral-400">DeepInfra Key Override (Kokoro TTS)</label>
+                        <label htmlFor="deepinfra-key-override" className="text-[10px] font-mono text-neutral-400">DeepInfra Key Override (Kokoro TTS)</label>
                       </div>
                       <input
+                        id="deepinfra-key-override"
                         type="password"
                         placeholder="Paste your DeepInfra API key..."
                         value={localDeepinfraKey}
@@ -336,13 +342,15 @@ export const ModalsAndToasts: React.FC = () => {
               </div>
             </motion.div>
           </motion.div>
+          </FocusLock>
         )}
       </AnimatePresence>
 
       <AnimatePresence>
         {storyToDelete && (
-          <motion.div
-            key="delete-modal-backdrop"
+          <FocusLock>
+            <motion.div
+              key="delete-modal-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -360,7 +368,7 @@ export const ModalsAndToasts: React.FC = () => {
               </p>
               
               <div className="mb-6">
-                <label className="text-[10px] text-neutral-500 uppercase tracking-widest font-mono block mb-2">
+                <label className="text-[10px] text-neutral-500 uppercase tracking-widest font-mono block mb-2" htmlFor="a11y-control-${labelCounter}">
                   Type <span className="text-red-400 font-bold">DELETE</span> to confirm
                 </label>
                 <input
@@ -368,7 +376,7 @@ export const ModalsAndToasts: React.FC = () => {
                   placeholder="DELETE"
                   value={deleteText}
                   onChange={(e) => setDeleteText(e.target.value)}
-                  className="w-full bg-void text-xs text-signal border border-neutral-700 focus:border-red-500 p-2 rounded focus:outline-none font-mono placeholder:text-neutral-700"
+                  className="w-full bg-void text-xs text-signal border border-neutral-700 focus:border-red-500 p-2 rounded focus:outline-none font-mono placeholder:text-neutral-700" id="a11y-control-${labelCounter}"
                 />
               </div>
 
@@ -394,6 +402,7 @@ export const ModalsAndToasts: React.FC = () => {
               </div>
             </motion.div>
           </motion.div>
+          </FocusLock>
         )}
       </AnimatePresence>
 

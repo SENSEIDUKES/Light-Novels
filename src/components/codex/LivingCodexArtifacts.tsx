@@ -77,22 +77,22 @@ export function LivingCodexArtifacts({
           <h4 className="font-sc font-extrabold text-xs text-human tracking-wider uppercase">Forge relic description</h4>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] text-neutral-400 block mb-1">Artifact Name</label>
+              <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-${labelCounter}">Artifact Name</label>
               <input 
                 type="text"
                 value={newArtifact.name}
                 onChange={(e) => setNewArtifact({ ...newArtifact, name: e.target.value })}
                 placeholder="e.g. Heavenly Cauldron"
                 className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs"
-                required
+                required id="a11y-control-${labelCounter}"
               />
             </div>
             <div>
-              <label className="text-[10px] text-neutral-400 block mb-1">Spiritual Tier Rank</label>
+              <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-${labelCounter}">Spiritual Tier Rank</label>
               <select
                 value={newArtifact.tier}
                 onChange={(e) => setNewArtifact({ ...newArtifact, tier: e.target.value })}
-                className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs"
+                className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs" id="a11y-control-${labelCounter}"
               >
                 <option value="Mortal">Mortal (Ordinary)</option>
                 <option value="Earth">Earth Rank (Spiritual)</option>
@@ -103,24 +103,24 @@ export function LivingCodexArtifacts({
           </div>
 
           <div>
-            <label className="text-[10px] text-neutral-400 block mb-1 font-sc">Current Bearer / Owner</label>
+            <label className="text-[10px] text-neutral-400 block mb-1 font-sc" htmlFor="a11y-control-${labelCounter}">Current Bearer / Owner</label>
             <input 
               type="text"
               value={newArtifact.currentOwner}
               onChange={(e) => setNewArtifact({ ...newArtifact, currentOwner: e.target.value })}
               placeholder="e.g. Han Feng or Elder Qin"
-              className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs"
+              className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs" id="a11y-control-${labelCounter}"
             />
           </div>
 
           <div>
-            <label className="text-[10px] text-neutral-400 block mb-1 font-sc">Description / Unique Capacity</label>
+            <label className="text-[10px] text-neutral-400 block mb-1 font-sc" htmlFor="a11y-control-${labelCounter}">Description / Unique Capacity</label>
             <textarea 
               value={newArtifact.description}
               onChange={(e) => setNewArtifact({ ...newArtifact, description: e.target.value })}
               placeholder="What cosmic impact does this weapon hold? e.g. Speeds alchemical processes by tenfold..."
               rows={2}
-              className="bg-neutral-950 border border-neutral-800 text-signal p-2 rounded w-full text-xs resize-none"
+              className="bg-neutral-950 border border-neutral-800 text-signal p-2 rounded w-full text-xs resize-none" id="a11y-control-${labelCounter}"
             />
           </div>
 

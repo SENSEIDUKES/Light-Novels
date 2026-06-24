@@ -148,7 +148,7 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
         >
           <div
             className="absolute inset-0 bg-neutral-950/90 backdrop-blur-sm"
-            onClick={onClose}
+            onClick={onClose} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClose(); } }}
           />
           
           <motion.div

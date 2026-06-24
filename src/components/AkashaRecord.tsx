@@ -542,7 +542,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
               </p>
               
               <div className="mb-6">
-                <label className="text-[10px] text-neutral-500 uppercase tracking-widest font-mono block mb-2">
+                <label className="text-[10px] text-neutral-500 uppercase tracking-widest font-mono block mb-2" htmlFor="a11y-control-${labelCounter}">
                   Type <span className="text-red-400 font-bold">DELETE</span> to confirm
                 </label>
                 <input
@@ -550,7 +550,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                   placeholder="DELETE"
                   value={deleteInput}
                   onChange={(e) => setDeleteInput(e.target.value)}
-                  className="w-full bg-void text-xs text-signal border border-neutral-700 focus:border-red-500 p-2 rounded focus:outline-none font-mono placeholder:text-neutral-700"
+                  className="w-full bg-void text-xs text-signal border border-neutral-700 focus:border-red-500 p-2 rounded focus:outline-none font-mono placeholder:text-neutral-700" id="a11y-control-${labelCounter}"
                 />
               </div>
 

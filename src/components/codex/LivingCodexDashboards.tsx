@@ -179,7 +179,7 @@ export function LivingCodexDashboards({
                                     stroke={nodeColor}
                                     strokeWidth={isHovered ? "2.5" : "1.2"}
                                     className="cursor-pointer transition-all duration-200 hover:scale-125"
-                                    onClick={() => setHoveredAffPoint(c.p)}
+                                    onClick={() => setHoveredAffPoint(c.p)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHoveredAffPoint(c.p); } }}
                                   />
                                   {total <= 15 && (
                                     <text
@@ -319,7 +319,7 @@ export function LivingCodexDashboards({
                                   stroke={breakthroughNode ? "#ca8a04" : "#ca8a04"}
                                   strokeWidth={isHovered ? "2.5" : breakthroughNode ? "1.5" : "1.2"}
                                   className={`cursor-pointer transition-all duration-200 ${breakthroughNode ? 'animate-pulse' : ''} hover:scale-125`}
-                                  onClick={() => setHoveredPowerPoint(c.p)}
+                                  onClick={() => setHoveredPowerPoint(c.p)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHoveredPowerPoint(c.p); } }}
                                 />
                                 {total <= 15 && (
                                   <text

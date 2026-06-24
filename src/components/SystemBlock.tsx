@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Skull, AlertTriangle } from 'lucide-react';
 import { SystemEvent } from '../types';
+import { FateResultCard } from './FateResultCard';
 
 export interface SystemColorMeaning {
   type: string;
@@ -225,6 +226,14 @@ export function SystemBlock({ content, system, className, ...props }: SystemBloc
 
   // If structured system object exists, render holographic panel
   if (system) {
+    if (system.fateResult) {
+      return (
+        <div {...safeProps}>
+          <FateResultCard data={system.fateResult} />
+        </div>
+      );
+    }
+
     let colorStyles = getSystemPromptColor(system.promptType, system.title + ' ' + (system.kind || ''));
     const meaning = getSystemColorMeaning(system.promptType, system.title + ' ' + (system.kind || ''));
 

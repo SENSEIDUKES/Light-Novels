@@ -23,6 +23,8 @@ export interface UserProfile {
   premiumTier?: 'free' | 'inner_sect' | 'core_disciple' | 'elder';
   imageGenerationCount?: number;
   imageQuotaResetAt?: string;
+  writingStreak?: number;
+  lastInteractionDate?: string;
 }
 
 export interface DaoXpEvent {
@@ -186,12 +188,22 @@ export interface StoryBlockMetadata {
   music?: { mood: 'war'|'duel'|'serenity'|'romance'|'dread'|'mystery'|'triumph'|'tribulation'|'travel'|'tragedy'|'fighting'|'adventure'|'ambient'|'boss-fight'|'tension'|'sad'|'mystical'|'excitement'|'tired'|'horror'; region?: 'chinese'|'japanese'|'western'; intensity?: number; customUrl?: string; trackId?: string };
 }
 
+export interface FateResultData {
+  outcome: 'FATE AVERTED' | 'FATE SCARRED' | 'DOOM MANIFESTED';
+  timelineScar: string;
+  permanentCosts: string[];
+  newStoryState: string;
+  newActiveStats: string[];
+  genreShift: string;
+}
+
 export interface SystemEvent {
-  kind: 'status' | 'skill_acquired' | 'level_up' | 'quest' | 'appraisal';
+  kind: 'status' | 'skill_acquired' | 'level_up' | 'quest' | 'appraisal' | 'fate_result';
   promptType?: 'neutral' | 'codex_update' | 'friendly_scan' | 'enemy_scan' | 'warning' | 'critical_danger' | 'progression' | 'breakthrough' | 'reward' | 'romance' | 'karmic_bond' | 'mystery' | 'fate_event' | 'corruption' | 'death_event' | 'quest_update' | 'choice_consequence' | 'system_error';
   title: string;
   rows?: {label: string; value: string}[];
   rarity?: string;
+  fateResult?: FateResultData;
 }
 
 export interface StoryBlock {
@@ -355,6 +367,8 @@ export interface IntakeData {
   corePremise?: string;
   desiredPlotDirection?: string;
   storyTags?: string[];
+  destinedEnding?: string;
+  estimatedArcs?: number;
 
   // 2. World Setting
   worldType?: string;
@@ -417,6 +431,8 @@ export interface WorldBlueprint {
   firstArcPromise: string;
   tropeRules: string;
   styleBible: string;
+  destinedEnding?: string;
+  estimatedArcs: number;
   unresolvedPlotThreads: string[];
 }
 
@@ -494,5 +510,65 @@ export interface RouteConfig {
 export interface MultiModelRouting {
   storyMaker: RouteConfig;
   imageGenerator: RouteConfig;
+}
+
+// Fate Survival Challenge Types
+export interface FateChoice {
+  id: string;
+  label: string;
+  description?: string;
+  effects: {
+    survival?: number;
+    relationship?: number;
+    danger?: number;
+    fateResistance?: number;
+    trust?: number;
+  };
+}
+
+export interface FateChoicePoint {
+  id: string;
+  stepNumber: number;
+  prompt: string;
+  choices: FateChoice[];
+}
+
+export interface FateSurvivalChallenge {
+  id: string;
+  title: string;
+  genre: string;
+  description: string;
+  fatedOutcome: string;
+  startingScenario: string;
+  totalSteps: number;
+  choicePoints: FateChoicePoint[];
+  successCondition: string;
+  failureCondition: string;
+  rewards: {
+    attemptQi: number;
+    failureQi: number;
+    partialSuccessQi: number;
+    successQi: number;
+  };
+}
+
+export interface FateSurvivalRun {
+  id: string;
+  challengeId: string;
+  userId: string;
+  currentStep: number;
+  status: "not_started" | "active" | "completed" | "failed";
+  selectedChoices: string[]; // Store IDs of chosen choices
+  state: {
+    survival: number;
+    relationship: number;
+    danger: number;
+    fateResistance: number;
+    trust: number;
+  };
+  result?: "failure" | "partial_success" | "success";
+  qiAwarded?: number;
+  createdAt: string;
+  completedAt?: string;
 }
 

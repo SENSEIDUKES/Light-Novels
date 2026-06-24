@@ -26,7 +26,7 @@ export const CosmicBookmarksPanel: React.FC<CosmicBookmarksPanelProps> = ({
       {showBookmarksPanel && (
         <div
           onClick={() => setShowBookmarksPanel(false)}
-          className="fixed inset-0 bg-black/80 z-40 backdrop-blur-sm transition-opacity"
+          className="fixed inset-0 bg-black/80 z-40 backdrop-blur-sm transition-opacity" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowBookmarksPanel(false); } }}
         />
       )}
       <AnimatePresence>

@@ -6,6 +6,7 @@ import { FormSection, FormSectionId } from './FormSection';
 import { GENRE_PRESETS, PREMISE_SUGGESTIONS, TAG_PRESETS, CATEGORIZED_TAGS } from '../constants';
 import { getApiHeaders } from '../../../hooks/storyEngineHelpers';
 import { useAppStore } from '../../../store/useAppStore';
+import { FateSurvivalExplanation } from '../../../components/FateSurvivalExplanation';
 
 interface CoreSeedFormProps {
   intake: IntakeData;
@@ -103,18 +104,18 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
     <FormSection id="core" title="1. Core Seed" icon={<BookOpen size={18} />} activeSection={activeSection} setActiveSection={setActiveSection}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Optional Novel Title</label>
-          <input type="text" value={intake.novelTitle || ''} onChange={(e) => updateIntake('novelTitle', e.target.value)} placeholder="Will be generated if empty" className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded px-4 py-2 text-sm" />
+          <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2" htmlFor="a11y-control-${labelCounter}">Optional Novel Title</label>
+          <input type="text" value={intake.novelTitle || ''} onChange={(e) => updateIntake('novelTitle', e.target.value)} placeholder="Will be generated if empty" className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded px-4 py-2 text-sm" id="a11y-control-${labelCounter}" />
         </div>
         <div>
-          <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Main Character Name</label>
-          <input type="text" value={intake.mcName || ''} onChange={(e) => updateIntake('mcName', e.target.value)} placeholder="e.g., Lin Fan" className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded px-4 py-2 text-sm" />
+          <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2" htmlFor="a11y-control-${labelCounter}">Main Character Name</label>
+          <input type="text" value={intake.mcName || ''} onChange={(e) => updateIntake('mcName', e.target.value)} placeholder="e.g., Lin Fan" className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded px-4 py-2 text-sm" id="a11y-control-${labelCounter}" />
         </div>
       </div>
       
       <div>
-        <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Genre Path</label>
-        <div className="flex flex-wrap gap-2">
+        <span className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Genre Path</span>
+        <div className="flex flex-wrap gap-2 mb-3">
           {GENRE_PRESETS.map((p) => (
             <button
               key={p.id}
@@ -126,15 +127,30 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
             </button>
           ))}
         </div>
+
+        <AnimatePresence>
+          {intake.genrePath === 'Fate Survival' && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="mt-3 mb-4 overflow-hidden"
+            >
+              <FateSurvivalExplanation />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <div className="pt-2 border-t border-neutral-900/60">
-        <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Story Refinement Tags (Optional)</label>
+        <label htmlFor="custom-tag-input" className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Story Refinement Tags (Optional)</label>
         <p className="text-neutral-500 font-sans text-xs mb-3">Add tags to further personalize your story (e.g. Slice of Life, Romantic Comedy, Overpowered MC) to help the AI tailor the universe according to your interests.</p>
         
         <div className="flex flex-wrap items-center gap-2 mb-4 max-w-xl">
           <div className="flex items-center gap-2 flex-1 min-w-[200px]">
             <input 
+              id="custom-tag-input"
               type="text" 
               value={customTagInput} 
               onChange={(e) => setCustomTagInput(e.target.value)} 
@@ -329,19 +345,46 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
 
       <div>
         <div className="flex justify-between items-end mb-2">
-          <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest">Core Premise / Secret Catalyst *</label>
+          <label htmlFor="core-premise-input" className="block font-sc text-xs text-neutral-400 uppercase tracking-widest">Core Premise / Secret Catalyst *</label>
           <div className="flex gap-1">
             {PREMISE_SUGGESTIONS.map((_, idx) => (
               <button key={idx} type="button" onClick={() => updateIntake('corePremise', PREMISE_SUGGESTIONS[idx])} className="bg-neutral-900 hover:bg-neutral-800 text-[10px] text-neutral-400 px-1.5 py-0.5 rounded font-mono">#{idx + 1}</button>
             ))}
           </div>
         </div>
-        <textarea required value={intake.corePremise || ''} onChange={(e) => updateIntake('corePremise', e.target.value)} rows={3} placeholder="The main hook or cheat..." className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm resize-none" />
+        <textarea id="core-premise-input" required value={intake.corePremise || ''} onChange={(e) => updateIntake('corePremise', e.target.value)} rows={3} placeholder="The main hook or cheat..." className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm resize-none" />
       </div>
 
       <div>
-        <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Desired General Plot Direction (Optional)</label>
-        <textarea value={intake.desiredPlotDirection || ''} onChange={(e) => updateIntake('desiredPlotDirection', e.target.value)} rows={2} placeholder="e.g. Revenge focused, slow sect building, kingdom conquering..." className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm resize-none" />
+        <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2" htmlFor="a11y-control-${labelCounter}">Desired General Plot Direction (Optional)</label>
+        <textarea value={intake.desiredPlotDirection || ''} onChange={(e) => updateIntake('desiredPlotDirection', e.target.value)} rows={2} placeholder="e.g. Revenge focused, slow sect building, kingdom conquering..." className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm resize-none" id="a11y-control-${labelCounter}" />
+      </div>
+
+      <div>
+        <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2" htmlFor="a11y-control-${labelCounter}">Estimated Arcs (Story Length)</label>
+        <p className="text-neutral-500 font-sans text-xs mb-3 leading-relaxed">
+          How long should this story run? (Highschool Drama ~3-4, Epic Fantasy ~10-20+). Leave blank for the system to guess based on premise.
+        </p>
+        <input 
+          type="number" 
+          value={intake.estimatedArcs || ''} 
+          onChange={(e) => updateIntake('estimatedArcs', e.target.value ? parseInt(e.target.value) : undefined)} 
+          placeholder="e.g. 5" 
+          min="1"
+          max="100"
+          className="w-full sm:w-1/3 bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm" id="a11y-control-${labelCounter}" 
+        />
+      </div>
+
+      <div>
+        <label className="block flex gap-2 items-center font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2" htmlFor="a11y-control-${labelCounter}">
+          Destined Ending (Optional)
+          <span className="text-[9px] font-mono lowercase bg-portal/10 text-portal px-1.5 py-0.5 rounded border border-portal/20">NEW</span>
+        </label>
+        <p className="text-neutral-500 font-sans text-xs mb-3 leading-relaxed">
+          The intended final destination of this story or arc. If left blank, the system will recommend a fitting destined ending (e.g., Kingdom Collapse, Final Ascension, or Fated Separation) based on your genre and premise. You can alter this outcome later!
+        </p>
+        <textarea value={intake.destinedEnding || ''} onChange={(e) => updateIntake('destinedEnding', e.target.value)} rows={2} placeholder="e.g. The kingdom falls, the MC ascends to godhood, or the lovers are separated..." className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm resize-none" id="a11y-control-${labelCounter}" />
       </div>
     </FormSection>
   );

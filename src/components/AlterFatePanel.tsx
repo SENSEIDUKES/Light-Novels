@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import FocusLock from 'react-focus-lock';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, GitBranch, ShieldAlert, ArrowRight, X } from 'lucide-react';
 
@@ -37,6 +38,7 @@ export const AlterFatePanel: React.FC<AlterFatePanelProps> = ({ isOpen, onClose,
   return (
     <AnimatePresence>
       {isOpen && (
+        <FocusLock>
         <motion.div
           key="alter-fate-backdrop"
           initial={{ opacity: 0 }}
@@ -98,14 +100,14 @@ export const AlterFatePanel: React.FC<AlterFatePanelProps> = ({ isOpen, onClose,
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] uppercase font-sc tracking-widest text-neutral-400 font-bold">
+              <label className="text-[10px] uppercase font-sc tracking-widest text-neutral-400 font-bold" htmlFor="a11y-control-${labelCounter}">
                 Divine Command (Prompt)
               </label>
               <textarea
                 value={customPrompt}
                 onChange={(e) => setCustomPrompt(e.target.value)}
                 placeholder="Declare the new destiny parameter. E.g. 'Turn the jade beauty into a rival instead of a love interest.'"
-                className="w-full h-24 bg-neutral-950 border border-neutral-800 focus:border-portal focus:ring-1 focus:ring-portal text-signal text-xs p-3 rounded resize-none"
+                className="w-full h-24 bg-neutral-950 border border-neutral-800 focus:border-portal focus:ring-1 focus:ring-portal text-signal text-xs p-3 rounded resize-none" id="a11y-control-${labelCounter}"
               />
             </div>
           </div>
@@ -126,6 +128,7 @@ export const AlterFatePanel: React.FC<AlterFatePanelProps> = ({ isOpen, onClose,
           </div>
         </motion.div>
         </motion.div>
+        </FocusLock>
       )}
     </AnimatePresence>
   );

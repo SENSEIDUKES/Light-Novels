@@ -5,6 +5,7 @@ import { useAppStore } from '../store/useAppStore';
 import { ParticleSystem } from './ParticleSystem';
 import { Story } from '../types';
 import { getDaoRankData, getAuraTextStyle } from '../lib/qi';
+import { PRESET_CHALLENGES } from '../data/challenges';
 
 import { INITIAL_DEMO_STORIES } from '../store/demoStories';
 
@@ -38,7 +39,7 @@ const PUBLISHED_WORLDS: any[] = INITIAL_DEMO_STORIES.map(story => {
 export const LibraryScreen: React.FC = () => {
   const { currentScreen, setCurrentScreen, stories, setActiveStoryId, setStoryToDelete, userProfile } = useAppStore();
   const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
-  const [activeTab, setActiveTab] = useState<'featured' | 'my-library'>(stories.length === 0 ? 'featured' : 'my-library');
+  const [activeTab, setActiveTab] = useState<'featured' | 'my-library' | 'challenges'>(stories.length === 0 ? 'featured' : 'my-library');
   const heroVideoRef = useRef<HTMLVideoElement>(null);
 
   // Filter and sort states for the 'Immortal Hub' tab
@@ -177,6 +178,14 @@ export const LibraryScreen: React.FC = () => {
           }`}
         >
           My Library {stories.length > 0 && `(${stories.length})`}
+        </button>
+        <button 
+          onClick={() => setActiveTab('challenges')}
+          className={`pb-3 px-1 text-sm font-sc font-bold uppercase tracking-wider border-b-2 transition-all ml-2 md:ml-4 ${
+            activeTab === 'challenges' ? 'border-portal text-portal' : 'border-transparent text-neutral-500 hover:text-neutral-300'
+          }`}
+        >
+          ☠️ Fate Survival
         </button>
       </div>
 
@@ -384,6 +393,58 @@ export const LibraryScreen: React.FC = () => {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {activeTab === 'challenges' && (
+        <div className="space-y-6 animate-fadeIn" id="challenges-list">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {PRESET_CHALLENGES.map((challenge) => {
+              const startChallenge = useAppStore.getState().startChallenge;
+              return (
+                <div 
+                  key={challenge.id}
+                  className="bg-neutral-950/40 border border-neutral-900 rounded-2xl p-6 sm:p-8 flex flex-col justify-between space-y-6 hover:border-portal/40 hover:shadow-[0_0_20px_rgba(4,172,255,0.05)] transition-all duration-300 relative overflow-hidden"
+                >
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-start gap-4">
+                      <div>
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#04acff] px-2 py-0.5 bg-[#04acff]/10 border border-[#04acff]/20 rounded">
+                          {challenge.genre}
+                        </span>
+                        <h4 className="font-display font-bold text-xl sm:text-2xl text-signal mt-2 leading-tight">
+                          {challenge.title}
+                        </h4>
+                      </div>
+                      <div className="text-right whitespace-nowrap">
+                        <span className="text-xs font-mono font-bold text-neutral-400 block uppercase">Rewards</span>
+                        <span className="text-sm font-bold text-portal block">+{challenge.rewards.successQi} Qi Success</span>
+                        <span className="text-[10px] text-neutral-500 block">+{challenge.rewards.attemptQi} Qi Start</span>
+                      </div>
+                    </div>
+
+                    <p className="text-xs sm:text-sm text-neutral-400 font-sans leading-relaxed">
+                      {challenge.description}
+                    </p>
+
+                    <div className="p-3 bg-neutral-900/40 border border-[#111111] rounded-lg space-y-1">
+                      <span className="text-[9px] font-mono text-neutral-500 uppercase block font-bold">The Destined Outcome</span>
+                      <p className="text-xs font-serif italic text-neutral-400">"{challenge.fatedOutcome}"</p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      onClick={() => startChallenge(challenge)}
+                      className="w-full py-2.5 bg-[#04acff] hover:bg-[#04acff]/90 text-void font-sc font-bold uppercase tracking-widest text-xs rounded-xl transition-all shadow-[0_0_15px_rgba(4,172,255,0.2)] hover:shadow-[0_0_20px_rgba(4,172,255,0.4)]"
+                    >
+                      Brave the Fate Ring
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

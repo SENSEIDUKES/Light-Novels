@@ -132,7 +132,11 @@ export const SearchableModelSelector: React.FC<SearchableModelSelectorProps> = (
                 setSearch(search.trim());
                 setIsOpen(false);
               }}
-              className="p-2 hover:bg-neutral-800 hover:text-[#FAFAFA] cursor-pointer font-mono text-[10px] text-portal flex items-center justify-between transition-colors bg-neutral-900"
+              className="p-2 hover:bg-neutral-800 hover:text-[#FAFAFA] cursor-pointer font-mono text-[10px] text-portal flex items-center justify-between transition-colors bg-neutral-900" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); (() => {
+                                          onChange(search.trim());
+                                          setSearch(search.trim());
+                                          setIsOpen(false);
+                                        })(); } }}
             >
               <span className="truncate pr-2 font-bold tracking-wide">Use custom: {search.trim()}</span>
               <span className={`text-[8px] bg-neutral-950 border ${bgBadgeClass} px-1 rounded font-sans shrink-0`}>CUSTOM</span>
@@ -156,7 +160,11 @@ export const SearchableModelSelector: React.FC<SearchableModelSelectorProps> = (
                   }}
                   className={`p-2 hover:bg-neutral-900 hover:text-[#FAFAFA] cursor-pointer font-mono text-[10px] text-neutral-400 flex items-center justify-between transition-colors ${
                     value === model ? 'bg-neutral-900 text-signal font-semibold' : ''
-                  }`}
+                  }`} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); (() => {
+                                          onChange(model);
+                                          setSearch(model);
+                                          setIsOpen(false);
+                                        })(); } }}
                 >
                   <span className="truncate pr-2">{model}</span>
                   {isPreset ? (

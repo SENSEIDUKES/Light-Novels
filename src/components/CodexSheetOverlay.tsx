@@ -25,7 +25,7 @@ export const CodexSheetOverlay: React.FC<{
         >
           <div
             onClick={() => setIsCodexSheetOpen(false)}
-            className="absolute inset-0 bg-black/90 sm:backdrop-blur-sm pointer-events-auto"
+            className="absolute inset-0 bg-black/90 sm:backdrop-blur-sm pointer-events-auto" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsCodexSheetOpen(false); } }}
           />
           
           <motion.div

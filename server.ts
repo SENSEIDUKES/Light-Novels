@@ -806,7 +806,10 @@ app.post("/api/generate-next-directions", async (req, res) => {
     customPremise, 
     memory, 
     pastSummaries, 
-    routingConfig 
+    routingConfig,
+    destinedEnding,
+    currentArcCount,
+    estimatedArcs
   } = req.body;
 
   try {
@@ -824,6 +827,7 @@ app.post("/api/generate-next-directions", async (req, res) => {
       powerSystem: memory.powerSystem,
       currentPowerStage: memory.currentPowerStage,
       worldRules: memory.worldRules,
+      destinedEnding: destinedEnding || memory.destinedEnding || undefined,
       unresolvedPlotThreads: memory.unresolvedPlotThreads,
       characters: rankRelevantEntities(memory.characters, mcName, lastSummary, "", [memory.unresolvedPlotThreads?.join(" "), customPremise]),
       factions: rankRelevantEntities(memory.factions, mcName, lastSummary, "", [memory.unresolvedPlotThreads?.join(" "), customPremise]),
@@ -837,7 +841,10 @@ app.post("/api/generate-next-directions", async (req, res) => {
       genre,
       customPremise,
       memoryJsonStr,
-      pastSummariesStr
+      pastSummariesStr,
+      destinedEnding || memory.destinedEnding,
+      currentArcCount,
+      estimatedArcs
     );
 
     const data = await routeTextGeneration(

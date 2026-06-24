@@ -1,15 +1,23 @@
 import { create } from 'zustand';
-import { Story, StoryMemory, Chapter, StoryArc, StoryWorld, ReaderPreferences, KarmaFateNode, CharacterRelationship, MultiModelRouting, RouteConfig, IntakeData, WorldBlueprint, StoryBlock, StreamingChapter, AppUser, UserProfile } from '../types';
+import { Story, StoryMemory, Chapter, StoryArc, StoryWorld, ReaderPreferences, KarmaFateNode, CharacterRelationship, MultiModelRouting, RouteConfig, IntakeData, WorldBlueprint, StoryBlock, StreamingChapter, AppUser, UserProfile, FateSurvivalChallenge, FateSurvivalRun } from '../types';
 import { SyncStatus } from '../lib/storage';
 import { secureStorage } from '../lib/encryption';
 import { auth } from '../lib/firebase';
 import { getRandomDemoStory } from './demoStories';
+import { awardDirectQi } from '../lib/qi';
 
 interface AppState {
   stories: Story[];
   activeStoryId: string | null;
-  currentScreen: 'home' | 'detail' | 'reader' | 'codex' | 'creator' | 'profile' | 'pricing';
+  currentScreen: 'home' | 'detail' | 'reader' | 'codex' | 'creator' | 'profile' | 'pricing' | 'challenge';
   storyToDelete: string | null;
+  
+  // Fate Survival Challenge Mode
+  activeChallenge: FateSurvivalChallenge | null;
+  activeChallengeRun: FateSurvivalRun | null;
+  startChallenge: (challenge: FateSurvivalChallenge) => void;
+  progressChallenge: (choiceId: string) => void;
+  resetChallenge: () => void;
   
   // Generation triggers
   isGenerating: boolean;
@@ -55,7 +63,7 @@ interface AppState {
   // Actions
   setStories: (stories: Story[]) => void;
   setActiveStoryId: (id: string | null) => void;
-  setCurrentScreen: (screen: 'home' | 'detail' | 'reader' | 'codex' | 'creator' | 'profile' | 'pricing') => void;
+  setCurrentScreen: (screen: 'home' | 'detail' | 'reader' | 'codex' | 'creator' | 'profile' | 'pricing' | 'challenge') => void;
   setStoryToDelete: (id: string | null) => void;
   setIsGenerating: (isGenerating: boolean) => void;
   setAppError: (error: string | null) => void;
@@ -100,6 +108,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentScreen: 'home',
   storyToDelete: null,
   
+  // Fate Survival Challenge Mode
+  activeChallenge: null,
+  activeChallengeRun: null,
+  
   isGenerating: false,
   appError: null,
   generationPhase: null,
@@ -142,6 +154,139 @@ export const useAppStore = create<AppState>((set, get) => ({
   setStories: (stories) => set({ stories }),
   setActiveStoryId: (id) => set({ activeStoryId: id }),
   setCurrentScreen: (screen) => set({ currentScreen: screen }),
+  
+  startChallenge: async (challenge) => {
+    const run: FateSurvivalRun = {
+      id: 'run-' + Date.now(),
+      challengeId: challenge.id,
+      userId: auth.currentUser?.uid || 'anonymous',
+      currentStep: 1,
+      status: 'active',
+      selectedChoices: [],
+      state: {
+        survival: 5,
+        relationship: 5,
+        danger: 0,
+        fateResistance: 0,
+        trust: 5,
+      },
+      createdAt: new Date().toISOString(),
+    };
+    set({
+      activeChallenge: challenge,
+      activeChallengeRun: run,
+      currentScreen: 'challenge',
+    });
+    
+    // Award starting Qi (attemptQi)
+    if (auth.currentUser) {
+      await awardDirectQi(challenge.rewards.attemptQi, `attempt-${challenge.id}-${Date.now()}`);
+    }
+    
+    // Always award to local profile state so the UI updates instantly
+    const localProfile = get().userProfile;
+    if (localProfile) {
+      const updatedProfile = {
+        ...localProfile,
+        dao_xp: (localProfile.dao_xp || 0) + challenge.rewards.attemptQi,
+        qi: (localProfile.qi || 0) + challenge.rewards.attemptQi,
+      };
+      set({ userProfile: updatedProfile });
+    }
+  },
+
+  progressChallenge: async (choiceId) => {
+    // 1. Capture the immediate state and validate synchronously
+    const { activeChallenge, activeChallengeRun } = get();
+    if (!activeChallenge || !activeChallengeRun) return;
+    if (activeChallengeRun.status !== 'active') return;
+
+    // Find the choice
+    const currentChoicePoint = activeChallenge.choicePoints.find(
+      cp => cp.stepNumber === activeChallengeRun.currentStep
+    );
+    const choice = currentChoicePoint?.choices.find(c => c.id === choiceId);
+    if (!choice) return;
+
+    // Apply effects
+    const nextState = { ...activeChallengeRun.state };
+    if (choice.effects) {
+      nextState.survival = Math.max(0, (nextState.survival || 5) + (choice.effects.survival || 0));
+      nextState.relationship = Math.max(0, (nextState.relationship || 5) + (choice.effects.relationship || 0));
+      nextState.danger = Math.max(0, (nextState.danger || 0) + (choice.effects.danger || 0));
+      nextState.fateResistance = Math.max(0, (nextState.fateResistance || 0) + (choice.effects.fateResistance || 0));
+      nextState.trust = Math.max(0, (nextState.trust || 5) + (choice.effects.trust || 0));
+    }
+
+    const nextStep = activeChallengeRun.currentStep + 1;
+    const isCompleted = nextStep > activeChallenge.totalSteps - 1; 
+    
+    let updatedRun: FateSurvivalRun = {
+      ...activeChallengeRun,
+      currentStep: nextStep,
+      selectedChoices: [...activeChallengeRun.selectedChoices, choiceId],
+      state: nextState,
+    };
+
+    let qiEarned = 0;
+    let outcome: 'success' | 'partial_success' | 'failure' = 'failure';
+
+    if (isCompleted) {
+      // Determine success / partial / failure
+      if (nextState.fateResistance >= 6 && nextState.danger <= 4) {
+        outcome = 'success';
+      } else if (nextState.fateResistance >= 3 && nextState.danger <= 7) {
+        outcome = 'partial_success';
+      }
+
+      if (outcome === 'success') {
+        qiEarned = activeChallenge.rewards.successQi;
+      } else if (outcome === 'partial_success') {
+        qiEarned = activeChallenge.rewards.partialSuccessQi;
+      } else {
+        qiEarned = activeChallenge.rewards.failureQi;
+      }
+
+      updatedRun = {
+        ...updatedRun,
+        status: outcome === 'failure' ? 'failed' : 'completed',
+        result: outcome,
+        qiAwarded: qiEarned,
+        completedAt: new Date().toISOString(),
+      };
+    }
+
+    // 2. Set the updated run immediately to block double-clicks
+    set({ activeChallengeRun: updatedRun });
+
+    // 3. Process asynchronous rewards if completed
+    if (isCompleted) {
+      // Award completion Qi remotely
+      if (auth.currentUser) {
+        await awardDirectQi(qiEarned, `complete-${activeChallenge.id}-${outcome}-${Date.now()}`);
+      }
+      
+      // Award locally
+      const localProfile = get().userProfile;
+      if (localProfile) {
+        const updatedProfile = {
+          ...localProfile,
+          dao_xp: (localProfile.dao_xp || 0) + qiEarned,
+          qi: (localProfile.qi || 0) + qiEarned,
+        };
+        set({ userProfile: updatedProfile });
+      }
+    }
+  },
+
+  resetChallenge: () => {
+    set({
+      activeChallenge: null,
+      activeChallengeRun: null,
+      currentScreen: 'home',
+    });
+  },
+
   setStoryToDelete: (id) => set({ storyToDelete: id }),
   setIsGenerating: (isGenerating) => set({ isGenerating }),
   setAppError: (appError) => set({ appError }),

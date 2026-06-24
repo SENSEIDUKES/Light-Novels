@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import FocusLock from 'react-focus-lock';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Keyboard, Home, PenTool, User, Sliders, BookOpen, Minimize2, Maximize2, HelpCircle, BookText, ScrollText } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
@@ -201,8 +202,9 @@ export const KeyboardShortcuts: React.FC = () => {
   return (
     <AnimatePresence>
       {isShortcutsOpen && (
-        <motion.div
-          key="shortcuts-modal-backdrop"
+        <FocusLock>
+          <motion.div
+            key="shortcuts-modal-backdrop"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -211,7 +213,7 @@ export const KeyboardShortcuts: React.FC = () => {
           {/* Backdrop Blur */}
           <div
             className="absolute inset-0 bg-black/85 backdrop-blur-md"
-            onClick={() => setIsShortcutsOpen(false)}
+            onClick={() => setIsShortcutsOpen(false)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsShortcutsOpen(false); } }}
           />
 
           {/* Modal Container */}
@@ -406,6 +408,7 @@ export const KeyboardShortcuts: React.FC = () => {
             </div>
           </motion.div>
         </motion.div>
+        </FocusLock>
       )}
     </AnimatePresence>
   );

@@ -93,7 +93,7 @@ export const CodexHovercard: React.FC<CodexHovercardProps> = ({ term, type, entr
         onTouchEnd={(e) => {
           e.preventDefault();
           handleToggle(e);
-        }}
+        }} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); (handleToggle)(e as any); } }}
       >
         {children}
       </span>
@@ -108,7 +108,7 @@ export const CodexHovercard: React.FC<CodexHovercardProps> = ({ term, type, entr
             className={`absolute z-[100] top-full mt-2 left-1/2 -translate-x-1/2 w-64 p-3 bg-void border rounded-xl shadow-2xl backdrop-blur-md ${getBorderColor()}`}
             style={{ pointerEvents: 'auto' }}
             onClick={(e) => e.stopPropagation()}
-            onTouchEnd={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ((e) => e.stopPropagation())(e as any); } }}
           >
             {imageUrl ? (
               <div className="w-full aspect-[2/1] mb-2.5 overflow-hidden rounded-lg bg-neutral-900 border border-neutral-800 flex-shrink-0">

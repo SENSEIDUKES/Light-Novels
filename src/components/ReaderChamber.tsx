@@ -49,6 +49,7 @@ import { useChapterTranslation } from "../hooks/useChapterTranslation";
 import { useAppStore } from "../store/useAppStore";
 import { secureStorage } from "../lib/encryption";
 import { SystemBlock, SYSTEM_COLORS_LEGEND } from "./SystemBlock";
+import { FateSurvivalExplanation } from "./FateSurvivalExplanation";
 
 import { AlterFatePanel } from "./AlterFatePanel";
 import { VoiceEditionPanel } from "./VoiceEditionPanel";
@@ -125,6 +126,7 @@ export default function ReaderChamber({
   const routingConfig = useAppStore(state => state.routingConfig);
 
   const [isAlterFateOpen, setIsAlterFateOpen] = useState(false);
+  const [showFateCodex, setShowFateCodex] = useState(false);
   const [isCheckingConsistency, setIsCheckingConsistency] = useState(false);
   const [consistencyWarnings, setConsistencyWarnings] = useState<string[] | null>(null);
   const readerRef = useRef<HTMLDivElement>(null);
@@ -907,7 +909,7 @@ export default function ReaderChamber({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onClick={handleTextClick}
-        onScroll={handleViewportScroll}
+        onScroll={handleViewportScroll} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); (handleTextClick)(e as any); } }}
       >
         <div ref={driftInnerRef} style={{ willChange: 'transform' }}>
         {isTranslating ? (
@@ -970,10 +972,10 @@ export default function ReaderChamber({
                     </div>
                     
                     <p className="text-neutral-300 font-serif text-sm italic mb-4 leading-relaxed">
-                      "This character is destined to die. Can you change fate before it happens?"
+                      "The timeline is moving toward a fated outcome. You must use limited choices, clues, and intervention to alter destiny before it becomes irreversible."
                     </p>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-sans">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-sans mb-4">
                       <div className="space-y-1.5 p-3 rounded bg-black/40 border border-neutral-900">
                         <div className="text-[10px] uppercase font-mono tracking-wider text-neutral-500">
                           Target Profile
@@ -999,8 +1001,34 @@ export default function ReaderChamber({
                       </div>
                     </div>
 
-                    <div className="mt-4 p-3 rounded-md bg-void border border-neutral-900 text-[11px] leading-relaxed text-neutral-400 font-sans">
-                      <strong className="text-neutral-300">How to intervene:</strong> Read carefully for death flags. When you notice a critical choice or warning block, use the <span className="text-portal font-semibold">Alter Fate (Branch)</span> panel at the bottom to inject customized actions and force a timeline shift!
+                    <div className="space-y-3">
+                      <div className="p-3 rounded-md bg-void border border-neutral-900 text-[11px] leading-relaxed text-neutral-400 font-sans">
+                        <strong className="text-neutral-300">How to intervene:</strong> Read carefully for death or crisis flags. The danger is not always physical—you could be surviving a Death, Love, Kingdom, Villain, Betrayal, Poverty, War, Regression, Reputation, or World Fate. Use the <span className="text-portal font-semibold">Alter Fate (Branch)</span> panel below to force a timeline shift!
+                      </div>
+
+                      <div className="flex justify-start">
+                        <button
+                          type="button"
+                          onClick={() => setShowFateCodex(!showFateCodex)}
+                          className="px-3 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-signal text-xs font-sc uppercase tracking-wider transition-all duration-300 flex items-center gap-1.5"
+                        >
+                          <span>{showFateCodex ? "✦ Hide Fate Codex" : "🔍 Inspect Fate Codex"}</span>
+                        </button>
+                      </div>
+
+                      <AnimatePresence>
+                        {showFateCodex && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="overflow-hidden pt-2"
+                          >
+                            <FateSurvivalExplanation compact={true} />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </div>
                 )}
@@ -1361,7 +1389,6 @@ export default function ReaderChamber({
                                     }
                                     placeholder="Add a contemplation or heavenly mechanic note here..."
                                     className="w-full bg-neutral-900 border border-neutral-800 rounded p-3 text-sm text-signal placeholder-neutral-600 focus:outline-none focus:border-portal mb-3 min-h-[80px]"
-                                    autoFocus
                                   />
                                   <div className="flex justify-end space-x-2">
                                     <button
@@ -2011,13 +2038,13 @@ export default function ReaderChamber({
                       {showVoiceDetail && (
                         <div className="space-y-2 mt-2 animate-fade-in text-neutral-400">
                           <div>
-                            <label className="block text-[8px] text-neutral-500 mb-1">
+                            <label className="block text-[8px] text-neutral-500 mb-1" htmlFor="a11y-control-${labelCounter}">
                               Narrator Voice
                             </label>
                             <select
                               value={selectedVoiceURI}
                               onChange={(e) => setSelectedVoiceURI(e.target.value)}
-                              className="w-full bg-void border border-neutral-850 rounded text-[10px] p-1 focus:border-portal focus:outline-none"
+                              className="w-full bg-void border border-neutral-850 rounded text-[10px] p-1 focus:border-portal focus:outline-none" id="a11y-control-${labelCounter}"
                             >
                               {availableVoices.map((v) => (
                                 <option key={v.voiceURI} value={v.voiceURI}>
@@ -2028,13 +2055,13 @@ export default function ReaderChamber({
                           </div>
                           
                           <div>
-                            <label className="block text-[8px] text-neutral-500 mb-1">
+                            <label className="block text-[8px] text-neutral-500 mb-1" htmlFor="a11y-control-${labelCounter}">
                               Dialogue Voice
                             </label>
                             <select
                               value={selectedDialogueVoiceURI}
                               onChange={(e) => setSelectedDialogueVoiceURI(e.target.value)}
-                              className="w-full bg-void border border-neutral-850 rounded text-[10px] p-1 focus:border-portal focus:outline-none"
+                              className="w-full bg-void border border-neutral-850 rounded text-[10px] p-1 focus:border-portal focus:outline-none" id="a11y-control-${labelCounter}"
                             >
                               {availableVoices.map((v) => (
                                 <option key={v.voiceURI} value={v.voiceURI}>
@@ -2332,13 +2359,13 @@ export default function ReaderChamber({
                         {showVoiceDetail && (
                           <div className="space-y-2.5 mt-2 animate-fade-in text-neutral-400">
                             <div>
-                              <label className="block text-[9px] text-neutral-500 mb-1">
+                              <label className="block text-[9px] text-neutral-500 mb-1" htmlFor="a11y-control-${labelCounter}">
                                 Narrator Voice
                               </label>
                               <select
                                 value={selectedVoiceURI}
                                 onChange={(e) => setSelectedVoiceURI(e.target.value)}
-                                className="w-full bg-void border border-neutral-850 rounded text-[10px] p-1 focus:border-portal focus:outline-none"
+                                className="w-full bg-void border border-neutral-850 rounded text-[10px] p-1 focus:border-portal focus:outline-none" id="a11y-control-${labelCounter}"
                               >
                                 {availableVoices.map((v) => (
                                   <option key={v.voiceURI} value={v.voiceURI}>
@@ -2349,13 +2376,13 @@ export default function ReaderChamber({
                             </div>
                             
                             <div>
-                              <label className="block text-[9px] text-neutral-500 mb-1">
+                              <label className="block text-[9px] text-neutral-500 mb-1" htmlFor="a11y-control-${labelCounter}">
                                 Dialogue Voice
                               </label>
                               <select
                                 value={selectedDialogueVoiceURI}
                                 onChange={(e) => setSelectedDialogueVoiceURI(e.target.value)}
-                                className="w-full bg-void border border-neutral-850 rounded text-[10px] p-1 focus:border-portal focus:outline-none"
+                                className="w-full bg-void border border-neutral-850 rounded text-[10px] p-1 focus:border-portal focus:outline-none" id="a11y-control-${labelCounter}"
                               >
                                 {availableVoices.map((v) => (
                                   <option key={v.voiceURI} value={v.voiceURI}>

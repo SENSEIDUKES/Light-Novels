@@ -61,23 +61,23 @@ ${blueprint.firstArcPromise || ''}
 
         <div className="max-w-xl mx-auto space-y-3">
           <div>
-            <label className="block text-[10px] font-sc text-portal tracking-widest uppercase mb-1">World Seed Title</label>
+            <label className="block text-[10px] font-sc text-portal tracking-widest uppercase mb-1" htmlFor="a11y-control-${labelCounter}">World Seed Title</label>
             <input
               type="text"
               value={blueprint.title}
               onChange={(e) => setBlueprint({ ...blueprint, title: e.target.value })}
               className="w-full text-center bg-void border border-neutral-900 focus:border-portal text-signal font-display font-bold text-2xl sm:text-3xl rounded-md px-4 py-2 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all"
-              placeholder="Give your world a name"
+              placeholder="Give your world a name" id="a11y-control-${labelCounter}"
             />
           </div>
           <div>
-            <label className="block text-[10px] font-sc text-portal tracking-widest uppercase mb-1">Cosmic Logline</label>
+            <label className="block text-[10px] font-sc text-portal tracking-widest uppercase mb-1" htmlFor="a11y-control-${labelCounter}">Cosmic Logline</label>
             <textarea
               value={blueprint.logline}
               onChange={(e) => setBlueprint({ ...blueprint, logline: e.target.value })}
               rows={2}
               className="w-full text-center bg-void border border-neutral-900 focus:border-portal text-neutral-400 font-sans font-light text-xs sm:text-sm rounded-md px-4 py-1.5 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all resize-none"
-              placeholder="Describe the high-concept premise"
+              placeholder="Describe the high-concept premise" id="a11y-control-${labelCounter}"
             />
           </div>
         </div>
@@ -242,6 +242,43 @@ ${blueprint.firstArcPromise || ''}
               rows={4}
               className="w-full bg-void border border-neutral-900 focus:border-portal text-neutral-300 font-mono text-xs rounded-md p-3 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all"
               placeholder="Sovereign style rules, forbidden phrasing, key tone requirements..."
+            />
+          </div>
+        </div>
+
+        {/* Section 4.5: Destined Ending & Estimated Arcs */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="md:col-span-3">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm flex items-center space-x-2">
+                <span className="text-portal">✦</span>
+                <span>Destined Ending</span>
+              </h3>
+              <span className="text-[9px] text-portal font-mono">Editable</span>
+            </div>
+            <textarea
+              value={blueprint.destinedEnding || ''}
+              onChange={(e) => setBlueprint({ ...blueprint, destinedEnding: e.target.value })}
+              rows={3}
+              className="w-full bg-void border border-neutral-900 focus:border-portal text-neutral-300 font-sans text-sm rounded-md p-3 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all"
+              placeholder="The intended fated destination of the story (e.g. Kingdom Collapse, Final Ascension)..."
+            />
+          </div>
+          <div className="md:col-span-1">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-signal font-sc uppercase tracking-widest font-bold text-sm flex items-center space-x-2">
+                <span>Estimated Arcs</span>
+              </h3>
+              <span className="text-[9px] text-portal font-mono">Editable</span>
+            </div>
+            <input
+              type="number"
+              value={blueprint.estimatedArcs || ''}
+              onChange={(e) => setBlueprint({ ...blueprint, estimatedArcs: parseInt(e.target.value) || 5 })}
+              className="w-full bg-void border border-neutral-900 focus:border-portal text-neutral-300 font-mono text-sm rounded-md p-3 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all text-center"
+              placeholder="e.g. 5"
+              min="1"
+              max="100"
             />
           </div>
         </div>

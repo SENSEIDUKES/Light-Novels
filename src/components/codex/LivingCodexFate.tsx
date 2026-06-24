@@ -71,22 +71,22 @@ export function LivingCodexFate({
           
           <form onSubmit={handleAddCharacter} className="space-y-3">
             <div>
-              <label className="text-[10px] text-neutral-400 block mb-1">True Name</label>
+              <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-${labelCounter}">True Name</label>
               <input 
                 type="text"
                 value={newChar.name || ''}
                 onChange={(e) => setNewChar({ ...newChar, name: e.target.value })}
                 placeholder="Name"
                 className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs"
-                required
+                required id="a11y-control-${labelCounter}"
               />
             </div>
             <div>
-              <label className="text-[10px] text-neutral-400 block mb-1">Destined Role</label>
+              <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-${labelCounter}">Destined Role</label>
               <select
                 value={newChar.role || 'ally'}
                 onChange={(e) => setNewChar({ ...newChar, role: e.target.value as any })}
-                className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs"
+                className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs" id="a11y-control-${labelCounter}"
               >
                 <option value="ally">Ally / Trusted Companion</option>
                 <option value="enemy">Sworn Enemy / Rival</option>
@@ -96,13 +96,13 @@ export function LivingCodexFate({
               </select>
             </div>
             <div>
-              <label className="text-[10px] text-neutral-400 block mb-1">Essence Description</label>
+              <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-${labelCounter}">Essence Description</label>
               <textarea 
                 value={newChar.description || ''}
                 onChange={(e) => setNewChar({ ...newChar, description: e.target.value })}
                 placeholder="Background, abilities, or aura style..."
                 className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full h-20 resize-none text-xs"
-                required
+                required id="a11y-control-${labelCounter}"
               />
             </div>
             <button
@@ -126,22 +126,22 @@ export function LivingCodexFate({
           
           <form onSubmit={handleAddLocation} className="space-y-3">
             <div>
-              <label className="text-[10px] text-neutral-400 block mb-1">Domain Name</label>
+              <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-${labelCounter}">Domain Name</label>
               <input 
                 type="text"
                 value={newLocation.name || ''}
                 onChange={(e) => setNewLocation({ ...newLocation, name: e.target.value })}
                 placeholder="e.g. Primordial Fog Valley"
                 className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs"
-                required
+                required id="a11y-control-${labelCounter}"
               />
             </div>
             <div>
-              <label className="text-[10px] text-neutral-400 block mb-1">Safety Stratum</label>
+              <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-${labelCounter}">Safety Stratum</label>
               <select
                 value={newLocation.safetyLevel || 'Safe'}
                 onChange={(e) => setNewLocation({ ...newLocation, safetyLevel: e.target.value as any })}
-                className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs"
+                className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs" id="a11y-control-${labelCounter}"
               >
                 <option value="Safe">Safe / Sanctuaries</option>
                 <option value="Dangerous">Dangerous / Contested Space</option>
@@ -150,13 +150,13 @@ export function LivingCodexFate({
               </select>
             </div>
             <div>
-              <label className="text-[10px] text-neutral-400 block mb-1">Spatial Identity</label>
+              <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-${labelCounter}">Spatial Identity</label>
               <textarea 
                 value={newLocation.description || ''}
                 onChange={(e) => setNewLocation({ ...newLocation, description: e.target.value })}
                 placeholder="A description of its visual aura, elements, and environmental laws..."
                 className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full h-20 resize-none text-xs"
-                required
+                required id="a11y-control-${labelCounter}"
               />
             </div>
             <button
@@ -180,22 +180,22 @@ export function LivingCodexFate({
           
           <form onSubmit={handleAddFaction} className="space-y-3">
             <div>
-              <label className="text-[10px] text-neutral-400 block mb-1">Sect Name</label>
+              <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-${labelCounter}">Sect Name</label>
               <input 
                 type="text"
                 value={newFaction.name || ''}
                 onChange={(e) => setNewFaction({ ...newFaction, name: e.target.value })}
                 placeholder="e.g. Celestial Sword Clan"
                 className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs"
-                required
+                required id="a11y-control-${labelCounter}"
               />
             </div>
             <div>
-              <label className="text-[10px] text-neutral-400 block mb-1">Alignment / Dao</label>
+              <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-${labelCounter}">Alignment / Dao</label>
               <select
                 value={newFaction.alignment || 'Neutral'}
                 onChange={(e) => setNewFaction({ ...newFaction, alignment: e.target.value as any })}
-                className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs"
+                className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs" id="a11y-control-${labelCounter}"
               >
                 <option value="Orthodox">Orthodox (Righteous Path)</option>
                 <option value="Unorthodox">Unorthodox (Demonic / Heretic)</option>
@@ -203,13 +203,13 @@ export function LivingCodexFate({
               </select>
             </div>
             <div>
-              <label className="text-[10px] text-neutral-400 block mb-1">Laws & Influence</label>
+              <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-${labelCounter}">Laws & Influence</label>
               <textarea 
                 value={newFaction.description || ''}
                 onChange={(e) => setNewFaction({ ...newFaction, description: e.target.value })}
                 placeholder="Core philosophy, signature techniques, or reputation in the world..."
                 className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full h-20 resize-none text-xs"
-                required
+                required id="a11y-control-${labelCounter}"
               />
             </div>
             <button
@@ -233,13 +233,13 @@ export function LivingCodexFate({
           
           <form onSubmit={handleAddWorldRule} className="space-y-3 flex flex-col h-full">
             <div className="flex-1">
-              <label className="text-[10px] text-neutral-400 block mb-1">Declare Universal Rule</label>
+              <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-${labelCounter}">Declare Universal Rule</label>
               <textarea 
                 value={newWorldRule}
                 onChange={(e) => setNewWorldRule(e.target.value)}
                 placeholder="E.g. No one can fly past the 9th realm, or trope intensity setting..."
                 className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full h-28 resize-none text-xs"
-                required
+                required id="a11y-control-${labelCounter}"
               />
               <p className="text-[9px] text-neutral-500 mt-2 font-sans italic">
                 These rules overwrite standard genre logic and dictate the engine's bounds dynamically. You can adjust plot hooks, story directions, or constraints directly.

@@ -269,7 +269,7 @@ export const DaoInsights: React.FC = () => {
         onClick={() => setIsOpen(true)}
         className="flex flex-col flex-1 min-w-0 items-center justify-center max-w-[200px] sm:max-w-[340px] xl:max-w-md mx-2 sm:mx-4 px-2 py-1 bg-neutral-950/40 border border-neutral-900 hover:border-portal/30 hover:bg-neutral-950/70 rounded-xl transition-all duration-300 cursor-pointer select-none group text-center overflow-hidden h-10 sm:h-12"
         role="button"
-        title="Insights From The Dao — Click to Seek Divine Fortune"
+        title="Insights From The Dao — Click to Seek Divine Fortune" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsOpen(true); } }}
       >
         <div className="flex items-center space-x-1 mb-0.5 shrink-0">
           <Sparkles size={11} className="text-portal shrink-0 group-hover:rotate-12 transition-transform" />
@@ -309,7 +309,7 @@ export const DaoInsights: React.FC = () => {
               {/* Backdrop Blur */}
               <div
                 className="absolute inset-0 bg-black/85 backdrop-blur-md"
-                onClick={() => setIsOpen(false)}
+                onClick={() => setIsOpen(false)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsOpen(false); } }}
               />
 
               {/* Modal Body */}
@@ -393,7 +393,7 @@ export const DaoInsights: React.FC = () => {
                 <div 
                   onClick={copyToClipboard}
                   className="relative bg-neutral-950 hover:bg-neutral-950/80 border border-neutral-900 hover:border-portal/40 cursor-pointer rounded-xl p-6 mb-6 overflow-hidden min-h-[140px] flex flex-col justify-between group transition-all"
-                  title="Click to copy quote"
+                  title="Click to copy quote" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copyToClipboard(); } }}
                 >
                   {/* Visual Accent behind quote */}
                   <div className="absolute -top-12 -right-12 w-24 h-24 bg-portal/2 rounded-full blur-2xl group-hover:bg-portal/4 transition-colors" />

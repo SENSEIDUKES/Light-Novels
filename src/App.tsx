@@ -29,6 +29,7 @@ import CreationPortal from './components/CreationPortal';
 import { AILoadingVeil } from './components/AILoadingVeil';
 import { PricingScreen } from './components/PricingScreen';
 import UserProfile from './components/UserProfile';
+import { ChallengeScreen } from './components/ChallengeScreen';
 
 function App() {
   const store = useAppStore();
@@ -282,6 +283,18 @@ function App() {
               className="px-4 py-8 w-full"
             >
               <PricingScreen />
+            </motion.div>
+          )}
+          {store.currentScreen === 'challenge' && (
+            <motion.div
+              key="challenge"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.3 }}
+              className="w-full"
+            >
+              <ChallengeScreen />
             </motion.div>
           )}
         </AnimatePresence>

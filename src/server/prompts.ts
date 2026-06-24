@@ -60,8 +60,19 @@ You must return a JSON object with the following fields:
   "firstArcPromise": "What readers can expect in the first 10 chapters",
   "tropeRules": "Specific tropes to include or avoid",
   "styleBible": "Tone, themes, and stylistic notes reflecting the storyTags",
+  "destinedEnding": "The fated or intended destination of the story, or a fitting recommendation based on the genre/tags if none was provided. This is a soft narrative destination.",
+  "estimatedArcs": 10,
   "unresolvedPlotThreads": ["Plot 1", "Plot 2"]
 }
+
+Important Rules for destinedEnding & estimatedArcs:
+- If "destinedEnding" is already present in the intake JSON, preserve its meaning but flesh it out slightly.
+- If "destinedEnding" is blank or missing, you MUST recommend a fitting destined ending based on the genre, tags, premise, world state, and main conflict.
+  - e.g., Kingdom story -> kingdom's survival, collapse, or transformation.
+  - e.g., Romance story -> destined separation, union, or sacrifice.
+  - e.g., Fate Survival -> altering the fated apocalypse, dodging the death flag.
+- Do not make destinedEnding a rigid script, just a narrative goalpost.
+- If "estimatedArcs" is missing or 0 in the intake JSON, output a realistic number of arcs (e.g. Highschool Drama ~3-4, Epic Fantasy/Kingdom Building ~15-20+).
 Do not add any text before or after the JSON.`
   },
 
@@ -133,7 +144,8 @@ OUTPUT FORMAT TARGET:
 You MUST output strictly the chapter text structured as NDJSON (Newline Delimited JSON). Start it with ---CHAPTER_BLOCKS--- on a new line. Each paragraph of your chapter should be a single JSON object on one line containing an "id" (unique string), "type" (either "paragraph" or "dialogue"), "text" (the paragraph content), and optional "metadata" for audio narrative cues.
 For dialogue blocks, the "metadata" must contain "speakerName" (the name of the character speaking), "mode": "dialogue", and "speakerRole" (e.g. villain, main_character, face_slap, friend). DO NOT output direct voice IDs.
 You can include a "beastEvent" object inside the block "metadata" when encountering significant beast moments (reveals, major strikes, deaths, power surges). A beastEvent needs a "type" ("reveal", "power-up", "technique", "injury", "turning-point", "death", "breakthrough") and a "profile" (containing size, bodyType, element, movement, intelligence, threatTier, signatureSound matching the predefined schema). Use this sparingly and only on significant narrative beats.
-For LitRPG or System moments, you MUST include a "system" object on the block (parallel to "metadata") to render a holographic status panel. The "system" object must contain "kind" (one of "status", "skill_acquired", "level_up", "quest", "appraisal"), a "promptType" string (one of "neutral", "codex_update", "friendly_scan", "enemy_scan", "warning", "critical_danger", "progression", "breakthrough", "reward", "romance", "karmic_bond", "mystery", "fate_event", "corruption", "death_event", "quest_update", "choice_consequence", "system_error"), a string "title", an optional array of "rows" (each with "label" and "value" strings), and an optional string "rarity". Use this structured object instead of plain text brackets like [System Alert].This promptType classification determines the box color in the UI.
+For LitRPG or System moments, you MUST include a "system" object on the block (parallel to "metadata") to render a holographic status panel. The "system" object must contain "kind" (one of "status", "skill_acquired", "level_up", "quest", "appraisal", "fate_result"), a "promptType" string (one of "neutral", "codex_update", "friendly_scan", "enemy_scan", "warning", "critical_danger", "progression", "breakthrough", "reward", "romance", "karmic_bond", "mystery", "fate_event", "corruption", "death_event", "quest_update", "choice_consequence", "system_error"), a string "title", an optional array of "rows" (each with "label" and "value" strings), and an optional string "rarity". Use this structured object instead of plain text brackets like [System Alert].This promptType classification determines the box color in the UI.
+If the chapter resolves a major Fate Deadline or Doom Deadline, you MUST emit a "fate_result" system block. For "fate_result", you MUST also include a "fateResult" object with fields "outcome" (must be exactly 'FATE AVERTED' or 'FATE SCARRED' or 'DOOM MANIFESTED'), "timelineScar", "permanentCosts" (array of strings), "newStoryState", "newActiveStats" (array of strings), and "genreShift". This introduces permanent consequences or "Fate scars".
 For each block, list all notable codex entities referenced in the 'entities' array inside "metadata". Each entity in the array must have the shape: { "name": string, "type": "character"|"artifact"|"location"|"beast"|"faction", "mention": "reveal"|"reference" }. Set mention to "reveal" ONLY value for a first dramatic appearance of the entity in the story, otherwise use "reference".
 Additionally, emit a per-scene 'music' object inside "metadata" when the scene's backing soundtrack can be described or changes: { "mood": "war"|"duel"|"serenity"|"romance"|"dread"|"mystery"|"triumph"|"tribulation"|"travel"|"tragedy"|"fighting"|"adventure"|"ambient"|"boss-fight"|"tension"|"sad"|"mystical"|"excitement"|"tired"|"horror", "region": "chinese"|"japanese"|"western" (optional), "intensity": number (optional, 0 to 1) }.
 
@@ -394,13 +406,15 @@ Do not add any text before or after the JSON. Ensure the JSON is well-formed.`
     system: `You are a visionary series consultant and master of fate for bestselling serialized Chinese web-novels. 
 Your task is to analyze the current state of a light novel's lore, characters, power levels, and history, and generate 4 to 6 highly creative and compelling next-step plot direction options for the upcoming Volume/Arc. 
 You must output strictly raw JSON matching the requested structure. Keep proposals immersive, keeping true to the tropes of light novels — level progressions, face-slapping, spiritual bond cultivation, romantic tension, or adult-only double cultivation politics, or glowing system holographic screens.`,
-    userPrompt: (mcName: string, genre: string, customPremise: string, memoryJson: string, pastSummariesJson: string) => `Analyze the current state of the light novel and write exactly 4 to 6 potential sequential plot directions.
+    userPrompt: (mcName: string, genre: string, customPremise: string, memoryJson: string, pastSummariesJson: string, destinedEnding?: string, currentArcCount?: number, estimatedArcs?: number) => `Analyze the current state of the light novel and write exactly 4 to 6 potential sequential plot directions.
 
 STORY PROGRESS DETAILS:
 - MC Name: ${mcName}
 - Genre/Style: ${genre}
 - Core Premise: ${customPremise}
-
+- Current Arc Number: ${currentArcCount || 1}
+- Estimated Total Arcs: ${estimatedArcs || 'Unknown'}
+${destinedEnding ? `- Destined Ending: ${destinedEnding}\n` : ''}
 CURRENT STORY MEMORY (You must ensure deep lore continuity with these):
 ${memoryJson}
 
@@ -408,9 +422,14 @@ CHRONOLOGY / PAST STORY CONTEXT SUMMARY:
 ${pastSummariesJson}
 
 Create exactly 4 to 6 potential direction options. Each option must have:
-1. "title": A poetic, high-energy light novel style volume/arc title (e.g., 'Return of the Frost King', 'Unveiled System: The Golden Meridian Chamber', 'Ascension to the Obsidian Hellfire Planet').
+1. "title": A poetic, high-energy light novel style volume/arc title.
 2. "directionType": Must be exactly one of: 'action' | 'darker' | 'romance' | 'twist' | 'new location' | 'continue'.
-3. "description": A short, intriguing 1-2 sentence overview/hint of what might happen, referencing existing characters/rules/factions where applicable to maintain deep lore coherence (e.g., '${mcName} must venture into the Frost Forest using the newly mastered pills, but discovers that the Phoenix Sect has set up a demonic blockade.').
+3. "description": A short, intriguing 1-2 sentence overview of what might happen. References existing characters/rules/factions where applicable to maintain deep lore coherence.
+
+${destinedEnding ? `IMPORTANT DESTINED ENDING RULES:
+The story's ultimate goal is: "${destinedEnding}". Since the story is progressing, provide at least one option that directly advances toward, triggers, or confronts this destined ending, and one option that explicitly swerves, delays, or alters the trajectory of this fate.` : ''}
+
+${(currentArcCount && estimatedArcs && currentArcCount >= estimatedArcs - 1) ? `CRITICAL PACING NOTE: The story is approaching or at its final intended arc (${currentArcCount}/${estimatedArcs}). Recommend directions that naturally wrap up the conflict, begin a sequel arc, follow the aftermath, or shift into a new genre direction.` : ''}
 
 Return strictly a JSON object with this shape:
 {

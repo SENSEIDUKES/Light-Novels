@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import FocusLock from 'react-focus-lock';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, BookOpen, MoreHorizontal, BookCheck, Download, Trash2, Zap, GitBranch, Scroll, Cloud, Check, RefreshCw } from 'lucide-react';
+import { Sparkles, BookOpen, MoreHorizontal, BookCheck, Download, Trash2, Zap, GitBranch, Scroll, Cloud, Check, RefreshCw, Compass } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { DestinyChoicePanel } from './DestinyChoicePanel';
 import { FateTimeline } from './FateTimeline';
@@ -66,8 +67,9 @@ export const StoryDetailScreen: React.FC<{
       {/* Unified Export Tome Modal */}
       <AnimatePresence>
         {isExportModalOpen && (
-          <motion.div
-            key="export-modal-backdrop"
+          <FocusLock>
+            <motion.div
+              key="export-modal-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -169,6 +171,7 @@ export const StoryDetailScreen: React.FC<{
               </div>
             </motion.div>
           </motion.div>
+          </FocusLock>
         )}
       </AnimatePresence>
 
@@ -263,7 +266,7 @@ export const StoryDetailScreen: React.FC<{
                   aria-label={`Apply cover image from chapter ${img.chapterNumber || 'Unknown'}`}
                   title={`Generated at Chapter ${img.chapterNumber || 'Unknown'}\nPrompt: ${img.promptUsed}`}
                 >
-                  <img src={img.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <img src={img.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
                 </div>
               ))}
             </div>
@@ -328,6 +331,18 @@ export const StoryDetailScreen: React.FC<{
             </p>
           </div>
 
+          {activeStory.blueprint?.destinedEnding && (
+            <div className="pt-2">
+              <h3 className="font-sc font-bold text-portal text-xs uppercase tracking-widest mb-2 border-b border-neutral-800 pb-1 flex items-center gap-1.5">
+                <Sparkles size={12} />
+                Destined Ending
+              </h3>
+              <p className="font-sans text-sm text-neutral-300 leading-relaxed bg-portal/5 border border-portal/10 p-3 rounded-lg">
+                {activeStory.blueprint.destinedEnding}
+              </p>
+            </div>
+          )}
+
           <div className="pt-6 flex flex-wrap gap-3 items-center relative">
             <button
               onClick={() => {
@@ -376,7 +391,7 @@ export const StoryDetailScreen: React.FC<{
               {isStoryMenuOpen && (
                 <div 
                   className="fixed inset-0 z-40" 
-                  onClick={() => setIsStoryMenuOpen(false)} 
+                  onClick={() => setIsStoryMenuOpen(false)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsStoryMenuOpen(false); } }} 
                 />
               )}
               <AnimatePresence>
@@ -425,10 +440,10 @@ export const StoryDetailScreen: React.FC<{
                   setSelectedChapterNum(-1);
                   setCurrentScreen('reader');
                 }}
-                className="px-6 py-2.5 bg-void border border-gold-accent text-gold-accent font-sc font-bold uppercase tracking-wider rounded hover:bg-gold-accent/10 transition-all flex items-center space-x-2 text-xs ml-auto"
+                className="px-6 py-2.5 bg-void border border-portal text-portal font-sc font-bold uppercase tracking-wider rounded hover:bg-portal/10 transition-all flex items-center space-x-2 text-xs ml-auto shadow-[0_0_15px_rgba(4,172,255,0.15)]"
               >
-                <Zap size={16} />
-                <span>Generate Next Arc</span>
+                <Compass size={16} />
+                <span>Continue Fate</span>
               </button>
             )}
           </div>
