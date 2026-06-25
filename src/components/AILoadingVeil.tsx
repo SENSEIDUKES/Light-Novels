@@ -157,9 +157,14 @@ export default function AILoadingVeil() {
 
           {/* Floating Widget Body */}
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-500/20 to-portal/20 border border-amber-500/30 flex items-center justify-center shrink-0">
-              {activeAgentId === 'scout' ? (
-                <BrainCircuit size={16} className="text-amber-500 animate-pulse" />
+            <div className="w-8 h-8 rounded-full bg-neutral-900 border border-neutral-700 flex items-center justify-center shrink-0 overflow-hidden relative">
+              {activeAgent ? (
+                <img 
+                  src={activeAgent.logoUrl} 
+                  alt={activeAgent.name}
+                  className="w-full h-full object-contain relative z-10"
+                  style={activeAgent.id === 'versa' ? { filter: 'drop-shadow(0 0 5px rgba(139, 0, 0, 0.6))' } : { filter: 'drop-shadow(0 0 5px rgba(4, 172, 255, 0.6))' }}
+                />
               ) : (
                 <Compass size={16} className="text-portal animate-pulse" />
               )}

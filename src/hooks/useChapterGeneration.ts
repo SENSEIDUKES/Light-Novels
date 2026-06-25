@@ -6,9 +6,18 @@ import { awardQi } from '../lib/qi';
 import { unlockCosmicArtifact } from '../lib/artifacts';
 import { getApiHeaders, extractJsonBlocks, runMemoryLinter } from './storyEngineHelpers';
 
+/**
+ * Hook responsible for streaming generation of an individual chapter.
+ * Handles pacing logic, RAG history fetching, memory updating, and UI stream coordination.
+ */
 export const useChapterGeneration = () => {
   const store = useAppStore();
 
+  /**
+   * Generates content and metadata for a specific chapter within the active story.
+   * Leverages streaming from the backend to provide real-time reader feedback.
+   * @param {number} chapterNumber - The index of the chapter to generate.
+   */
   const handleGenerateChapter = async (chapterNumber: number) => {
     const currentStoreState = useAppStore.getState();
     if (currentStoreState.isGenerating) {
@@ -55,6 +64,38 @@ export const useChapterGeneration = () => {
         5
       );
 
+      // Intelligent Tension Meter logic
+      const recentChapters = activeStory.arcs
+        .flatMap(a => a.chapters)
+        .filter(c => c.number < targetChapter.number && c.hasContent)
+        .sort((a, b) => b.number - a.number)
+        .slice(0, 5); // analyze up to the last 5 chapters
+        
+      let pacingDirective = '';
+      if (recentChapters.length > 0) {
+        let accumulatedTension = 0;
+        recentChapters.forEach((c, index) => {
+          const tension = c.cuePayload?.tension ?? 5;
+          const danger = c.cuePayload?.danger ?? 5;
+          const combined = (tension + danger) / 2;
+          
+          // Exponential decay weight: more recent chapters have higher impact
+          const weight = Math.pow(0.8, index);
+          accumulatedTension += combined * weight;
+        });
+
+        const maxPossibleTension = 10 * ((1 - Math.pow(0.8, recentChapters.length)) / (1 - 0.8));
+        const normalizedFatigue = (accumulatedTension / maxPossibleTension) * 10;
+
+        if (normalizedFatigue >= 8.5) {
+          pacingDirective = "CRITICAL PACING MANDATE: Tension fatigue is extremely high. You MUST pivot into a 'breathing room' chapter. Focus on downtime: pill refinement, recovering, sect politics, marketplace shopping, or deepening relationships. DO NOT introduce major combat or deadly threats.";
+        } else if (normalizedFatigue >= 7.0) {
+          pacingDirective = "PACING SUGGESTION: Tension has been high recently. Consider naturally transitioning into a lower-stakes scenario soon, allowing characters to process recent events, sort loot, or cultivate quietly before the next major conflict.";
+        } else if (normalizedFatigue <= 3.5) {
+          pacingDirective = "PACING SUGGESTION: The story has been peaceful for a while. To prevent stagnation, it is time to introduce a new inciting incident, unexpected danger, or rising tension to keep the reader engaged.";
+        }
+      }
+
       store.setActiveAgentId('versa');
       const response = await fetch('/api/generate-chapter-stream', {
         method: 'POST',
@@ -67,6 +108,7 @@ export const useChapterGeneration = () => {
           pastSummaries,
           hardcoreFateMode: activeStory.hardcoreFateMode,
           fatePressure: activeStory.fatePressure,
+          pacingDirective,
           currentChapter: {
             number: targetChapter.number,
             title: targetChapter.title,

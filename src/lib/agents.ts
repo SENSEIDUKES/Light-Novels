@@ -15,7 +15,7 @@ export const AGENTS = {
     title: 'The Writer',
     purpose: 'Language / lyrics',
     role: 'Wordsmith. Drafts, rewrites, sharpens phrasing.',
-    logoUrl: 'https://images.seihouse.org/AGENT%20EMBLEM/Versa/master-versa-emblem.png',
+    logoUrl: 'https://images.seihouse.org/AGENT%20EMBLEM/Versa/VERSA_OFFICAL.png',
     colorClass: 'text-human'
   } as AgentProfile,
   SCOUT: {

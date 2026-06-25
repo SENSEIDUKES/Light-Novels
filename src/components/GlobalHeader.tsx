@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Cloud, CloudOff, RefreshCw, User, LogOut, Plus, Sliders, ScrollText, Scroll, Link, Keyboard, Gem, BookOpen } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, User, LogOut, Plus, Sliders, ScrollText, Scroll, Link, Keyboard, Gem, BookOpen, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
@@ -139,23 +139,6 @@ export const GlobalHeader: React.FC = () => {
         <DaoInsights />
 
         <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
-          <button
-            onClick={() => { vibrate('softTap'); setCurrentScreen('pricing'); }}
-            className="group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-500 hover:scale-105 mr-2 sm:mr-4"
-            title="Spirit Stones"
-            aria-label="Spirit Stones"
-          >
-            {/* Qi Cyclone Aurora */}
-            <div className={`absolute inset-[-4px] rounded-full border border-dashed animate-[spin_6s_linear_infinite] transition-colors duration-500 ${currentScreen === 'pricing' ? 'border-portal/50' : 'border-human/40 group-hover:border-portal/50'}`} />
-            <div className={`absolute inset-[-8px] rounded-full border border-dotted animate-[spin_10s_linear_infinite_reverse] transition-colors duration-500 ${currentScreen === 'pricing' ? 'border-portal/40' : 'border-human/30 group-hover:border-portal/40'}`} />
-            
-            {/* Inner Glow */}
-            <div className={`absolute inset-0 rounded-full blur-md animate-pulse transition-colors duration-500 ${currentScreen === 'pricing' ? 'bg-portal/20 shadow-[0_0_20px_rgba(4,172,255,0.5)]' : 'bg-human/20 shadow-[0_0_20px_rgba(139,0,0,0.5)] group-hover:bg-portal/20 group-hover:shadow-[0_0_20px_rgba(4,172,255,0.5)]'}`} />
-            
-            <div className={`relative transition-colors duration-700 ${currentScreen === 'pricing' ? 'text-portal' : 'text-human group-hover:text-portal'}`}>
-              <Gem size={24} className={currentScreen === 'pricing' ? 'drop-shadow-[0_0_10px_rgba(4,172,255,0.9)]' : 'drop-shadow-[0_0_8px_rgba(139,0,0,0.8)] group-hover:drop-shadow-[0_0_10px_rgba(4,172,255,0.9)]'} strokeWidth={1.5} />
-            </div>
-          </button>
           <div className="flex items-center shrink-0">
             {currentUser ? (
               <button 
@@ -297,23 +280,23 @@ export const GlobalHeader: React.FC = () => {
                       </div>
                     </button>
 
-                    {/* Challenges */}
+                    {/* Sects */}
                     <button
                       onClick={() => {
                         vibrate('softTap');
-                        setCurrentScreen('challenge');
+                        setCurrentScreen('sects');
                         setIsHubOpen(false);
                       }}
                       className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-all ${
-                        currentScreen === 'challenge' 
+                        currentScreen === 'sects' 
                           ? 'bg-portal/10 text-portal border border-portal/20' 
                           : 'hover:bg-white/[0.04] text-neutral-300 hover:text-signal'
                       }`}
                     >
-                      <Sliders size={16} className={currentScreen === 'challenge' ? 'text-portal' : 'text-neutral-500'} />
+                      <Users size={16} className={currentScreen === 'sects' ? 'text-portal' : 'text-neutral-500'} />
                       <div className="min-w-0">
-                        <div className="font-sans font-medium text-xs">Fate Survival Arena</div>
-                        <div className="font-sans text-[9px] text-neutral-500 truncate">Alter karma & survive simulations</div>
+                        <div className="font-sans font-medium text-xs">Sects</div>
+                        <div className="font-sans text-[9px] text-neutral-500 truncate">Earn rewards & shape worlds together</div>
                       </div>
                     </button>
 

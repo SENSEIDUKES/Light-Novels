@@ -5,9 +5,19 @@ import { storyStorage } from '../lib/storage';
 import { awardQi } from '../lib/qi';
 import { getApiHeaders } from './storyEngineHelpers';
 
+/**
+ * Custom hook managing branching narratives and Arc-level destiny steering.
+ * Allows users to forcefully inject a custom direction to the next story volume
+ * or branch out from a specific chapter to rewrite history.
+ */
 export const useArcSteering = () => {
   const store = useAppStore();
 
+  /**
+   * Appends a new arc to the active story driven by a specific directional prompt.
+   * @param {string} direction - The high-level intent (e.g., 'darker', 'romance').
+   * @param {string} customPrompt - Custom user-provided narrative instructions.
+   */
   const handleSteerArc = async (direction: string, customPrompt: string) => {
     const currentStoreState = useAppStore.getState();
     if (currentStoreState.isGenerating) {
@@ -123,6 +133,12 @@ export const useArcSteering = () => {
     }
   };
 
+  /**
+   * Forks the active story at a specified chapter and steers the narrative down a new path.
+   * @param {number} chapterNumber - The chapter to fork from.
+   * @param {string} direction - The new narrative direction to take.
+   * @param {string} customPrompt - Additional user narrative constraints.
+   */
   const handleAlterFate = async (chapterNumber: number, direction: string, customPrompt: string) => {
     const currentStoreState = useAppStore.getState();
     if (currentStoreState.isGenerating) {

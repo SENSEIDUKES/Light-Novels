@@ -8,8 +8,10 @@ import React from 'react';
 // usually tests fine unless it requires intersection observers.
 vi.mock('motion/react', () => ({
   motion: {
-    div: ({ children, className, ...props }: any) => <div className={className} data-testid="motion-div" {...props}>{children}</div>
-  }
+    div: ({ children, className, ...props }: any) => <div className={className} data-testid="motion-div" {...props}>{children}</div>,
+    p: ({ children, className, ...props }: any) => <p className={className} data-testid="motion-p" {...props}>{children}</p>
+  },
+  AnimatePresence: ({ children }: any) => <>{children}</>
 }));
 
 describe('AgentBadge', () => {
@@ -21,7 +23,7 @@ describe('AgentBadge', () => {
     expect(screen.getByText('Wordsmith. Drafts, rewrites, sharpens phrasing.')).toBeDefined();
     
     const img = screen.getByRole('img');
-    expect(img).toHaveProperty('src', 'https://images.seihouse.org/AGENT%20EMBLEM/Versa/master-versa-emblem.png');
+    expect(img).toHaveProperty('src', 'https://images.seihouse.org/AGENT%20EMBLEM/Versa/VERSA_OFFICAL.png');
     expect(img).toHaveProperty('alt', 'VERSA');
   });
 
@@ -40,7 +42,7 @@ describe('AgentBadge', () => {
   it('does not show working indicators when isWorking is false', () => {
     render(<AgentBadge agent={AGENTS.VERSA} isWorking={false} />);
     const motionDivs = screen.queryAllByTestId('motion-div');
-    expect(motionDivs.length).toBe(0);
+    expect(motionDivs.length).toBe(1); // The character art container is always a motion.div
   });
 
   it('shows working indicators when isWorking is true', () => {

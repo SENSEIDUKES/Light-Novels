@@ -575,6 +575,10 @@ export const INITIAL_DEMO_STORIES: Story[] = [
   }
 ];
 
+/**
+ * Returns a randomized active instance of a predefined demo story template.
+ * @returns {Story} A new initialized Demo Story matrix.
+ */
 export function getRandomDemoStory(): Story {
   const index = Math.floor(Math.random() * INITIAL_DEMO_STORIES.length);
   const template = INITIAL_DEMO_STORIES[index];

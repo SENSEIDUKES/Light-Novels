@@ -5,6 +5,7 @@ import { IntakeData, WorldBlueprint } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { auth } from '../lib/firebase';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { AGENTS } from '../lib/agents';
 
 // Feature components
 import { FormSectionId } from '../features/creation/components/FormSection';
@@ -214,7 +215,11 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
           >
             {isGenerating ? (
               <>
-                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }} className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full" />
+                {activeAgentId === 'versa' ? (
+                  <img src={AGENTS.VERSA.logoUrl} className="w-5 h-5 object-contain animate-pulse" alt="VERSA" />
+                ) : (
+                  <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }} className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full" />
+                )}
                 <span>{activeAgentId === 'versa' ? 'VERSA is drafting...' : 'Generating Blueprint...'}</span>
               </>
             ) : (

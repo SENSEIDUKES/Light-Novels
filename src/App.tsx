@@ -30,6 +30,7 @@ import AILoadingVeil from './components/AILoadingVeil';
 import { PricingScreen } from './components/PricingScreen';
 import UserProfile from './components/UserProfile';
 import { ChallengeScreen } from './components/ChallengeScreen';
+import { SectsScreen } from './components/SectsScreen';
 import { IdleCultivationModal } from './components/IdleCultivationModal';
 
 function App() {
@@ -393,6 +394,18 @@ function App() {
               className="w-full"
             >
               <ChallengeScreen />
+            </motion.div>
+          )}
+          {store.currentScreen === 'sects' && (
+            <motion.div
+              key="sects"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.3 }}
+              className="w-full"
+            >
+              <SectsScreen />
             </motion.div>
           )}
         </AnimatePresence>

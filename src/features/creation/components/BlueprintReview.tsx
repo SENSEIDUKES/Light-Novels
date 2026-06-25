@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { MapPin, Layers, Zap, Users, Target, Wand2, FileText, HelpCircle, GitBranch, ArrowRight, Check, Copy } from 'lucide-react';
 import { WorldBlueprint } from '../../../types';
 import { useAppStore } from '../../../store/useAppStore';
+import { AGENTS } from '../../../lib/agents';
 
 interface BlueprintReviewProps {
   blueprint: WorldBlueprint;
@@ -356,7 +357,11 @@ ${blueprint.firstArcPromise || ''}
             >
               {isGenerating ? (
                 <>
-                  <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }} className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full" />
+                  {activeAgentId === 'versa' ? (
+                    <img src={AGENTS.VERSA.logoUrl} className="w-5 h-5 object-contain animate-pulse" alt="VERSA" />
+                  ) : (
+                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }} className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full" />
+                  )}
                   <span>{activeAgentId === 'versa' ? 'VERSA is writing...' : 'Generating...'}</span>
                 </>
               ) : (

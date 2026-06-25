@@ -6,7 +6,7 @@ export function rankRelevantEntities(
   lastChapterSummary: string | undefined,
   currentContext: string,
   bonusContexts: (string | undefined | null)[],
-  maxFeatures: number = 10
+  maxFeatures: number = 8
 ) {
   if (!entities || !Array.isArray(entities)) return [];
 
@@ -14,14 +14,19 @@ export function rankRelevantEntities(
 
   const tokenize = (txt: string) => (txt || "").toLowerCase().split(/\W+/).filter(w => w.length > 3 && !STOP_WORDS.has(w));
   
-  const premiseTokens = tokenize(currentContext);
-  const bonusTokens = tokenize(bonusContexts.filter(Boolean).join(" "));
+  const premiseText = (currentContext || "").toLowerCase();
+  const lastSummaryText = (lastChapterSummary || "").toLowerCase();
+  const bonusText = bonusContexts.filter(Boolean).join(" ").toLowerCase();
+
+  const premiseTokens = tokenize(premiseText);
+  const lastSummaryTokens = tokenize(lastSummaryText);
+  const bonusTokens = tokenize(bonusText);
 
   const scoredEntities = entities.map(entity => {
     let score = 0;
     let isForced = false;
 
-    if (!entity.name) return { entity, score: 100, isForced: true };
+    if (!entity.name) return { entity, score: 0, isForced: false };
 
     const nameLower = entity.name.toLowerCase();
     const mcNameLower = (mcName || "").toLowerCase();
@@ -32,8 +37,8 @@ export function rankRelevantEntities(
        score = 1000;
     }
     
-    // Always include Last Chapter Cast
-    if (lastChapterSummary && lastChapterSummary.toLowerCase().includes(nameLower)) {
+    // Always include if exactly mentioned in last chapter
+    if (lastSummaryText && lastSummaryText.includes(nameLower)) {
        isForced = true;
        score = 500;
     }
@@ -45,28 +50,39 @@ export function rankRelevantEntities(
 
     if (!isForced) {
       // Direct premise name match
-      if (currentContext && currentContext.toLowerCase().includes(nameLower)) {
+      if (premiseText && premiseText.includes(nameLower)) {
+         score += 100;
+      }
+      
+      // Bonus text name match
+      if (bonusText && bonusText.includes(nameLower)) {
          score += 50;
       }
 
-      // Context words overlap scoring
+      // Name tokens overlap (only match on the name itself, NOT the description)
+      const nameTokens = tokenize(nameLower);
       const entityText = `${entity.name} ${entity.description || ''} ${entity.role || ''} ${entity.abilityDescription || ''}`;
       const entityTokens = tokenize(entityText);
       const entitySet = new Set(entityTokens);
       
       for (const pt of premiseTokens) {
-        if (entitySet.has(pt)) score += 2;
-        if (nameLower.includes(pt)) score += 5;
+        if (nameTokens.includes(pt)) score += 10;
+        else if (entitySet.has(pt)) score += 2;
+      }
+      for (const st of lastSummaryTokens) {
+        if (nameTokens.includes(st)) score += 5;
+        else if (entitySet.has(st)) score += 1;
       }
       for (const bt of bonusTokens) {
-         if (entitySet.has(bt)) score += 1;
-         if (nameLower.includes(bt)) score += 2;
+         if (nameTokens.includes(bt)) score += 2;
+         else if (entitySet.has(bt)) score += 1;
       }
     }
 
     return { entity, score, isForced };
   });
 
+  // Ruthlessly filter: must have a score > 0 (meaning name was matched) or be forced
   const salient = scoredEntities.filter(e => e.score > 0 || e.isForced)
                                 .sort((a, b) => b.score - a.score);
   

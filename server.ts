@@ -53,6 +53,19 @@ app.use(express.json({ limit: "20mb" }));
 // API ROUTES
 // ==========================================
 
+// 0. Health Check route
+app.get("/__health", (req, res) => {
+  res.json({
+    status: "ok",
+    version: process.env.npm_package_version || "1.0.0",
+    services: {
+      gemini: !!process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "MY_GEMINI_API_KEY",
+      openrouter: !!process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_API_KEY !== "MY_OPENROUTER_API_KEY",
+      deepl: !!process.env.DEEPL_AUTH_KEY,
+    }
+  });
+});
+
 // 0. Get available router presets
 app.get("/api/router-presets", (req, res) => {
   res.json(ROUTER_PRESETS);
@@ -305,7 +318,8 @@ app.post("/api/generate-chapter-stream", async (req, res) => {
       currentChapter,
       routingConfig,
       hardcoreFateMode,
-      fatePressure
+      fatePressure,
+      pacingDirective
     } = req.body;
 
     const activeFatePressure = fatePressure || (hardcoreFateMode ? 'Hardcore' : 'Balanced');
@@ -365,6 +379,16 @@ app.post("/api/generate-chapter-stream", async (req, res) => {
     );
 
     let finalUserPrompt = userPrompt;
+    if (pacingDirective) {
+      finalUserPrompt += `
+      
+=========================================
+AI DIRECTOR PACING INSTRUCTION
+=========================================
+${pacingDirective}
+=========================================`;
+    }
+
     if (activeFatePressure === 'Relaxed') {
       finalUserPrompt += `
       
@@ -488,7 +512,8 @@ app.post("/api/generate-chapter", async (req, res) => {
       currentChapter,
       routingConfig,
       hardcoreFateMode,
-      fatePressure
+      fatePressure,
+      pacingDirective
     } = req.body;
 
     const activeFatePressure = fatePressure || (hardcoreFateMode ? 'Hardcore' : 'Balanced');
@@ -548,6 +573,16 @@ app.post("/api/generate-chapter", async (req, res) => {
     );
 
     let finalUserPrompt = userPrompt;
+    if (pacingDirective) {
+      finalUserPrompt += `
+      
+=========================================
+AI DIRECTOR PACING INSTRUCTION
+=========================================
+${pacingDirective}
+=========================================`;
+    }
+
     if (activeFatePressure === 'Relaxed') {
       finalUserPrompt += `
       

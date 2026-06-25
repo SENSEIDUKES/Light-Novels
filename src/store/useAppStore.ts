@@ -9,7 +9,7 @@ import { awardDirectQi } from '../lib/qi';
 interface AppState {
   stories: Story[];
   activeStoryId: string | null;
-  currentScreen: 'home' | 'detail' | 'reader' | 'codex' | 'creator' | 'profile' | 'pricing' | 'challenge';
+  currentScreen: 'home' | 'detail' | 'reader' | 'codex' | 'creator' | 'profile' | 'pricing' | 'challenge' | 'sects';
   storyToDelete: string | null;
   
   // Fate Survival Challenge Mode
@@ -69,7 +69,7 @@ interface AppState {
   // Actions
   setStories: (stories: Story[]) => void;
   setActiveStoryId: (id: string | null) => void;
-  setCurrentScreen: (screen: 'home' | 'detail' | 'reader' | 'codex' | 'creator' | 'profile' | 'pricing' | 'challenge') => void;
+  setCurrentScreen: (screen: 'home' | 'detail' | 'reader' | 'codex' | 'creator' | 'profile' | 'pricing' | 'challenge' | 'sects') => void;
   setStoryToDelete: (id: string | null) => void;
   setIsGenerating: (isGenerating: boolean) => void;
   setIsVeilMinimized: (minimized: boolean) => void;
@@ -110,6 +110,10 @@ import { storyStorage } from '../lib/storage';
 
 const STORAGE_KEY = '@seihouse/fiction-generator-stories-v2';
 
+/**
+ * Global application store managed by Zustand.
+ * Handles story state, challenge modes, UI view routing, generation phases, and user sync.
+ */
 export const useAppStore = create<AppState>((set, get) => ({
   stories: [],
   activeStoryId: null,
@@ -169,6 +173,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   setActiveStoryId: (id) => set({ activeStoryId: id }),
   setCurrentScreen: (screen) => set({ currentScreen: screen }),
   
+  /**
+   * Starts a new Fate Survival Challenge, creating an active run instance.
+   * @param {FateSurvivalChallenge} challenge - The target challenge object to start.
+   */
   startChallenge: async (challenge) => {
     const run: FateSurvivalRun = {
       id: 'run-' + Date.now(),
@@ -209,6 +217,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  /**
+   * Advances the current Fate Survival Challenge by making a decision.
+   * Resolves consequences and advances the step counter or completes the challenge.
+   * @param {string} choiceId - The ID of the selected choice.
+   */
   progressChallenge: async (choiceId) => {
     // 1. Capture the immediate state and validate synchronously
     const { activeChallenge, activeChallengeRun } = get();
@@ -337,6 +350,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     immersion: { ...state.immersion, ...immersion }
   })),
 
+  /**
+   * Flushes current stories to local persistence securely.
+   * Wraps standard updates in a transaction mechanism where possible.
+   * @param {Story[]} updated - The new array of story objects.
+   */
   saveStories: async (updated: Story[]) => {
     const activeId = get().activeStoryId;
     const markedStories = updated.map(s => {
@@ -362,6 +380,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  /**
+   * Exports the entire local library matrix to a JSON file.
+   */
   handleExportLibrary: async () => {
     const { stories, setAppError } = get();
     try {
@@ -468,6 +489,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   cancelDeleteStory: () => set({ storyToDelete: null }),
 
+  /**
+   * Initializes standard local storage, migrating demo stories to the user's namespace
+   * and fetching API keys if saved securely.
+   */
   initStorage: async () => {
     try {
       await storyStorage.init();

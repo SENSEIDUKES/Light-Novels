@@ -253,7 +253,7 @@ export function LivingCodexCharacters({
                               >
                                   {isGenerating ? (
                                     <>
-                                      <RefreshCcw size={10} className="animate-spin" />
+                                      <img src={AGENTS.VERSA.logoUrl} className="w-4 h-4 object-contain animate-pulse" alt="VERSA" />
                                       <span>VERSA is working...</span>
                                     </>
                                   ) : (

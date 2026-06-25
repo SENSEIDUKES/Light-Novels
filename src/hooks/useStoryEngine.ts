@@ -10,11 +10,22 @@ import { useArcSteering } from './useArcSteering';
 
 export { extractJsonBlocks, extractJsonMeta };
 
+/**
+ * Core hook orchestrating the high-level generation lifecycle of the story engine.
+ * Exposes methods to generate blueprints, initialize stories, trigger chapter generations,
+ * steer story arcs, and manage consistency validation.
+ * @returns Object containing async handlers for various generation phases.
+ */
 export const useStoryEngine = () => {
   const store = useAppStore();
   const { handleGenerateChapter } = useChapterGeneration();
   const { handleSteerArc, handleAlterFate } = useArcSteering();
 
+  /**
+   * Generates the foundational WorldBlueprint based on user IntakeData.
+   * @param {IntakeData} intake - The base user configuration.
+   * @returns {Promise<WorldBlueprint>} The generated blueprint schema.
+   */
   const handleGenerateBlueprint = async (intake: IntakeData): Promise<WorldBlueprint> => {
     const currentStoreState = useAppStore.getState();
     if (currentStoreState.isGenerating) {
@@ -49,6 +60,12 @@ export const useStoryEngine = () => {
     }
   };
 
+  /**
+   * Initiates a new story instance from a WorldBlueprint.
+   * @param {IntakeData} intake - Original user setup data.
+   * @param {WorldBlueprint} blueprint - The generated world context.
+   * @param {number} chapterCount - Number of chapters to plan for the initial arc.
+   */
   const handleStartStory = async (intake: IntakeData, blueprint: WorldBlueprint, chapterCount: number) => {
     const currentStoreState = useAppStore.getState();
     if (currentStoreState.isGenerating) {
@@ -139,6 +156,10 @@ export const useStoryEngine = () => {
 
 
 
+  /**
+   * Replaces the story's memory explicitly.
+   * @param {StoryMemory} updatedMemory - The new memory object.
+   */
   const handleUpdateMemoryManual = async (updatedMemory: StoryMemory) => {
     const activeStory = store.stories.find(s => s.id === store.activeStoryId);
     if (!activeStory) return;
@@ -155,6 +176,10 @@ export const useStoryEngine = () => {
     await store.saveStories(updated);
   };
 
+  /**
+   * Overwrites the active story object completely in the local store.
+   * @param {StoryWorld} updatedStory - The comprehensive story object to persist.
+   */
   const handleUpdateStoryDirect = async (updatedStory: StoryWorld) => {
     updatedStory.updatedAt = new Date().toISOString();
     const updated = store.stories.map(s => s.id === updatedStory.id ? updatedStory : s);
@@ -323,6 +348,11 @@ export const useStoryEngine = () => {
     });
   };
 
+  /**
+   * Validates consistency of a generated chapter against the world's memory state.
+   * @param {number} chapterNumber - Target chapter number.
+   * @returns {Promise<string[]>} List of consistency warnings.
+   */
   const handleCheckConsistency = async (chapterNumber: number): Promise<string[]> => {
     const activeStory = store.stories.find(s => s.id === store.activeStoryId);
     if (!activeStory) return [];
