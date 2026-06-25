@@ -32,34 +32,102 @@ export const CodexHovercard: React.FC<CodexHovercardProps> = ({ term, type, entr
     }
   };
 
+  const activeStoryId = useAppStore((state) => state.activeStoryId);
+  const activeStory = useAppStore((state) => 
+    state.stories.find((s) => s.id === activeStoryId)
+  );
+
+  const getDynamicTheme = () => {
+    const fallback = { 
+      text: 'text-portal', 
+      bg: 'bg-portal/10', 
+      border: 'border-portal/30', 
+      hoverBg: 'hover:bg-portal/20',
+      icon: 'text-portal'
+    };
+
+    if (type === 'character') {
+      const char = entry as Character;
+      const rel = (char.relationshipToMC || '').toLowerCase();
+      const role = (char.role || '').toLowerCase();
+      const isMC = activeStory?.mcName === char.name || rel.includes('self') || role.includes('main character') || rel.includes('mc');
+      
+      if (isMC) {
+        return fallback; // Blue
+      } else if (rel.includes('lover') || rel.includes('wife') || rel.includes('husband') || rel.includes('fiance') || rel.includes('partner') || rel.includes('spouse') || rel.includes('concubine') || rel.includes('dao companion')) {
+        return { text: 'text-pink-400', bg: 'bg-pink-400/10', border: 'border-pink-400/30', hoverBg: 'hover:bg-pink-400/20', icon: 'text-pink-400' };
+      } else if (rel.includes('mentor') || rel.includes('master') || rel.includes('teacher') || role.includes('mentor') || role.includes('elder')) {
+        return { text: 'text-[#d4af37]', bg: 'bg-[#d4af37]/10', border: 'border-[#d4af37]/30', hoverBg: 'hover:bg-[#d4af37]/20', icon: 'text-[#d4af37]' };
+      } else if (rel.includes('friend') || rel.includes('ally') || rel.includes('brother') || rel.includes('sister') || rel.includes('companion') || rel.includes('comrade')) {
+        return { text: 'text-green-400', bg: 'bg-green-400/10', border: 'border-green-400/30', hoverBg: 'hover:bg-green-400/20', icon: 'text-green-400' };
+      } else if (rel.includes('enemy') || rel.includes('rival') || rel.includes('nemesis') || rel.includes('antagonist') || rel.includes('hostile') || rel.includes('villain')) {
+        return { text: 'text-red-500', bg: 'bg-red-500/10', border: 'border-red-500/30', hoverBg: 'hover:bg-red-500/20', icon: 'text-red-500' };
+      } else if (rel.includes('unknown') || rel.includes('stranger') || rel.includes('neutral') || rel.includes('mystery')) {
+        return { text: 'text-neutral-400', bg: 'bg-neutral-400/10', border: 'border-neutral-400/30', hoverBg: 'hover:bg-neutral-400/20', icon: 'text-neutral-400' };
+      }
+      return fallback;
+    }
+
+    if (type === 'location') {
+      const loc = entry as Location;
+      const desc = (loc.description || '').toLowerCase();
+      const safety = (loc.safetyLevel || '').toLowerCase();
+      const realm = (loc.realm || '').toLowerCase();
+      
+      const isSpecial = desc.includes('special') || desc.includes('sacred') || desc.includes('divine') || desc.includes('secret') || desc.includes('hidden') || desc.includes('forbidden') || realm.includes('divine') || realm.includes('heaven') || safety.includes('lethal');
+      
+      if (isSpecial) {
+        return { text: 'text-[#d4af37]', bg: 'bg-[#d4af37]/10', border: 'border-[#d4af37]/30', hoverBg: 'hover:bg-[#d4af37]/20', icon: 'text-[#d4af37]' };
+      }
+      return { text: 'text-purple-400', bg: 'bg-purple-400/10', border: 'border-purple-400/30', hoverBg: 'hover:bg-purple-400/20', icon: 'text-purple-400' };
+    }
+
+    if (type === 'artifact') {
+      const art = entry as Artifact;
+      const tier = (art.tier || '').toLowerCase();
+      const desc = (art.description || '').toLowerCase();
+      
+      if (tier.includes('legendary') || tier.includes('divine') || tier.includes('mythic') || tier.includes('primordial') || tier.includes('supreme')) {
+        return { text: 'text-[#d4af37]', bg: 'bg-[#d4af37]/10', border: 'border-[#d4af37]/30', hoverBg: 'hover:bg-[#d4af37]/20', icon: 'text-[#d4af37]' };
+      } else if (tier.includes('great') || tier.includes('epic') || tier.includes('heaven') || tier.includes('saint')) {
+        return { text: 'text-orange-400', bg: 'bg-orange-400/10', border: 'border-orange-400/30', hoverBg: 'hover:bg-orange-400/20', icon: 'text-orange-400' };
+      } else if (tier.includes('good') || tier.includes('rare') || tier.includes('earth') || tier.includes('spirit')) {
+        return { text: 'text-[#04ACFF]', bg: 'bg-[#04ACFF]/10', border: 'border-[#04ACFF]/30', hoverBg: 'hover:bg-[#04ACFF]/20', icon: 'text-[#04ACFF]' };
+      } else if (tier.includes('decent') || tier.includes('uncommon') || tier.includes('mortal') || tier.includes('profane')) {
+        return { text: 'text-[#0f5132]', bg: 'bg-[#0f5132]/20', border: 'border-[#0f5132]/40', hoverBg: 'hover:bg-[#0f5132]/40', icon: 'text-[#0f5132]' };
+      } else if (tier.includes('basic') || tier.includes('common') || tier.includes('trash') || tier === '') {
+        // Since many default to empty tier, we'll check description for keywords just in case, but default to Basic White
+        if (desc.includes('legendary') || desc.includes('divine')) {
+          return { text: 'text-[#d4af37]', bg: 'bg-[#d4af37]/10', border: 'border-[#d4af37]/30', hoverBg: 'hover:bg-[#d4af37]/20', icon: 'text-[#d4af37]' };
+        }
+        return { text: 'text-white', bg: 'bg-white/10', border: 'border-white/30', hoverBg: 'hover:bg-white/20', icon: 'text-white' };
+      }
+      return { text: 'text-white', bg: 'bg-white/10', border: 'border-white/30', hoverBg: 'hover:bg-white/20', icon: 'text-white' };
+    }
+
+    if (type === 'faction') {
+      return { text: 'text-[#b9d6c1]', bg: 'bg-[#0f5132]/20', border: 'border-[#0f5132]/30', hoverBg: 'hover:bg-[#0f5132]/40', icon: 'text-[#0f5132]' };
+    }
+
+    return fallback;
+  };
+
+  const theme = getDynamicTheme();
+
   const getIcon = () => {
     switch (type) {
-      case 'character': return <User size={14} className="text-portal" />;
-      case 'faction': return <Shield size={14} className="text-[#0f5132]" />; // emerald/jade substitute
-      case 'artifact': return <Swords size={14} className="text-[#d4af37]" />; // gold-accent substitute
-      case 'location': return <MapPin size={14} className="text-[#8b5a2b]" />; // amber/sepia substitute
+      case 'character': return <User size={14} className={theme.icon} />;
+      case 'faction': return <Shield size={14} className={theme.icon} />;
+      case 'artifact': return <Swords size={14} className={theme.icon} />;
+      case 'location': return <MapPin size={14} className={theme.icon} />;
       default: return null;
     }
   };
 
-  const getBorderColor = () => {
-    switch (type) {
-      case 'character': return 'border-portal/30';
-      case 'faction': return 'border-[#0f5132]/30';
-      case 'artifact': return 'border-[#d4af37]/30';
-      case 'location': return 'border-[#8b5a2b]/30';
-      default: return 'border-neutral-700';
-    }
-  };
+  const getBorderColor = () => theme.border;
 
   const getTextStyles = () => {
-    switch (type) {
-      case 'character': return 'text-portal bg-portal/10 font-medium px-1 rounded-sm cursor-pointer hover:bg-portal/20 transition-colors border-b border-portal/30';
-      case 'faction': return 'text-[#b9d6c1] bg-[#0f5132]/20 font-medium px-1 rounded-sm cursor-pointer hover:bg-[#0f5132]/40 transition-colors border-b border-[#0f5132]/30';
-      case 'artifact': return 'text-[#d4af37] bg-[#d4af37]/10 font-medium px-1 rounded-sm cursor-pointer hover:bg-[#d4af37]/20 transition-colors border-b border-[#d4af37]/30';
-      case 'location': return 'text-[#d6c5b3] bg-[#8b5a2b]/20 font-medium px-1 rounded-sm cursor-pointer hover:bg-[#8b5a2b]/40 transition-colors border-b border-[#8b5a2b]/30';
-      default: return 'text-neutral-300 bg-neutral-800 px-1 rounded cursor-pointer';
-    }
+    return `${theme.text} ${theme.bg} font-medium px-1 rounded-sm cursor-pointer ${theme.hoverBg} transition-colors border-b ${theme.border}`;
   };
 
   useEffect(() => {

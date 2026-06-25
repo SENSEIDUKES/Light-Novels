@@ -259,16 +259,16 @@ export function SystemBlock({ content, system, className, ...props }: SystemBloc
         animate={{ opacity: 1, y: 0, scale: 1 }}
         whileHover={{ scale: 1.02 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className={`system-block holographic-panel cursor-pointer my-8 rounded-md border font-mono p-4 max-w-xl mx-auto transition-all duration-300 ${colorStyles} ${className || ''}`}
+        className={`system-block holographic-panel cursor-pointer my-6 md:my-8 rounded-md border font-mono p-3 md:p-4 max-w-xl mx-auto transition-all duration-300 ${colorStyles} ${className || ''}`}
         {...safeProps}
       >
-        <div className="flex flex-col space-y-4">
+        <div className="flex flex-col space-y-3">
           <div className="flex items-center justify-between border-b pb-2 border-inherit/30">
             <div className="flex items-center space-x-2">
               {isDeathFlag && <Skull className="w-5 h-5 text-red-500 animate-pulse shrink-0" />}
               {isIronFate && <AlertTriangle className="w-5 h-5 text-amber-500 animate-bounce shrink-0" />}
               <div className="flex flex-col">
-                <span className="font-bold uppercase tracking-widest text-xs md:text-sm">{system.title}</span>
+                <span className="font-bold uppercase tracking-widest text-xs md:text-sm leading-tight">{system.title}</span>
                 <span className="text-[9px] uppercase tracking-wider opacity-60 font-mono mt-0.5">
                   ✦ {meaning.name} ✦
                 </span>
@@ -282,9 +282,9 @@ export function SystemBlock({ content, system, className, ...props }: SystemBloc
           </div>
           
           {system.rows && system.rows.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {system.rows.map((row, idx) => (
-                <div key={idx} className="flex justify-between items-center text-xs md:text-sm">
+                <div key={idx} className="flex justify-between items-center text-[11px] md:text-xs">
                   <span className="opacity-70 uppercase tracking-widest">{row.label}</span>
                   <span className="font-semibold tracking-wide text-right">{row.value}</span>
                 </div>
@@ -293,7 +293,7 @@ export function SystemBlock({ content, system, className, ...props }: SystemBloc
           )}
           
           {content && content.trim() !== '' && (
-            <div className="mt-2 text-[11px] md:text-xs opacity-70 border-t border-inherit/30 pt-2 text-center italic">
+            <div className="mt-1.5 text-[11px] md:text-xs opacity-70 border-t border-inherit/30 pt-2 text-center italic leading-relaxed">
               {content.replace(/^\[|\]$/g, '').trim()}
             </div>
           )}
@@ -314,10 +314,10 @@ export function SystemBlock({ content, system, className, ...props }: SystemBloc
   }
 
   return (
-    <div {...props} className={`my-8 p-6 bg-black/50 border font-mono text-xs md:text-sm rounded-lg text-center tracking-widest leading-relaxed transition-all duration-500 hover:brightness-125 hover:shadow-[0_0_25px_rgba(255,255,255,0.1)] ${fallbackColorStyles} ${className || ''}`}>
-      <div className="flex flex-col items-center justify-center mb-2">
-        {isDeathFlag && <Skull className="w-6 h-6 text-red-500 animate-pulse mb-1.5" />}
-        {isIronFate && <AlertTriangle className="w-6 h-6 text-amber-500 animate-bounce mb-1.5" />}
+    <div {...props} className={`my-6 md:my-8 p-4 md:p-5 bg-black/50 border font-mono text-[11px] md:text-sm rounded-lg text-center tracking-widest leading-relaxed transition-all duration-500 hover:brightness-125 hover:shadow-[0_0_25px_rgba(255,255,255,0.1)] ${fallbackColorStyles} ${className || ''}`}>
+      <div className="flex flex-col items-center justify-center mb-1.5 md:mb-2">
+        {isDeathFlag && <Skull className="w-5 h-5 md:w-6 md:h-6 text-red-500 animate-pulse mb-1.5" />}
+        {isIronFate && <AlertTriangle className="w-5 h-5 md:w-6 md:h-6 text-amber-500 animate-bounce mb-1.5" />}
         <div className="text-[9px] uppercase tracking-wider opacity-60 font-semibold">
           ✦ {meaning.name} ✦
         </div>

@@ -213,8 +213,8 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
               <option value="rain" className="bg-void">
                 Heavy Rain
               </option>
-              <option value="temple" className="bg-void">
-                Temple Bells
+              <option value="ocean" className="bg-void">
+                Ocean Waves
               </option>
             </select>
           </div>

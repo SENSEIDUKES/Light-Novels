@@ -40,6 +40,7 @@ export const ROUTER_PRESETS = {
   storyMaker: {
     gemini: ["google/gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
     openrouter: [
+      "@preset/light-novel-story",
       "google/gemini-2.5-flash-lite",
       "deepseek/deepseek-chat",
       "google/gemini-2.5-flash",
@@ -49,7 +50,7 @@ export const ROUTER_PRESETS = {
   },
   imageGenerator: {
     gemini: ["gemini-2.5-flash-image", "google/gemini-3.1-flash-image", "imagen-3.0-generate-002"],
-    openrouter: ["google/gemini-3.1-flash-image", "stable-diffusion-xl", "playgroundai/playground-v2.5", "shuttle-ai/shuttle-3-diffusion"],
+    openrouter: ["black-forest-labs/flux.2-klein-4b", "google/gemini-3.1-flash-image", "stable-diffusion-xl", "playgroundai/playground-v2.5", "shuttle-ai/shuttle-3-diffusion"],
     ollama: ["local-sd-mortal", "local-sd-celestial"]
   }
 };
@@ -648,19 +649,54 @@ export async function routeImageGeneration(
       };
     }
   } else if (provider === "openrouter") {
-    // -------------------------------------------------------------
-    // OPENROUTER IMAGE GEN (PROMPT TUNNEL via Pollinations AI)
-    // -------------------------------------------------------------
-    // OpenRouter is designed primarily for text-based models (and multimodal inputs).
-    // It does not natively support text-to-image API generation endpoints (returning 404).
-    // To supply a world-class, premium visual experience, we redirect OpenRouter image generator 
-    // selections to our dynamic keyless neural engine (Pollinations AI + FLUX) so that 
-    // your custom prompt actually synthesizes three magnificent unique visual renders!
-    const imageUrls = getFallbackImages(3);
-    return {
-      imageUrls,
-      note: `Synthesized via neural core using direct client-side visualizer (based on prompt: "${rawPrompt}").`
+    const apiKey = customKeys?.openrouterApiKey || process.env.OPENROUTER_API_KEY;
+    if (!apiKey || apiKey === "MY_OPENROUTER_API_KEY") {
+      throw new Error("OpenRouter API key is missing.");
+    }
+    const imageModel = model || "black-forest-labs/flux.2-klein-4b";
+    const generateOne = async () => {
+      const response = await fetch("https://openrouter.ai/api/v1/images", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+          "HTTP-Referer": "https://ai.studio/build",
+          "X-Title": "SEIHouse Celestial Scroll"
+        },
+        body: JSON.stringify({
+          model: imageModel,
+          prompt: rawPrompt,
+          size: "1024x1024",
+          quality: "medium",
+          output_format: "png"
+        })
+      });
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`OpenRouter image error [${response.status}] using ${imageModel}: ${errText}`);
+      }
+      const result = await response.json();
+      const b64 = result.data?.[0]?.b64_json;
+      if (!b64) {
+        throw new Error("OpenRouter image response missing data[0].b64_json");
+      }
+      return `data:image/png;base64,${b64}`;
     };
+    try {
+      const imageUrls = await Promise.all([
+        generateOne(),
+        generateOne(),
+        generateOne()
+      ]);
+      return { imageUrls };
+    } catch (error: any) {
+      console.warn("[aiRouter] OpenRouter image gen failed, serving fallback:", error);
+      return {
+        imageUrls: getFallbackImages(3),
+        note: `OpenRouter image generation failed for ${imageModel}. Falling back to Pollinations. Reason: ${error.message}`,
+        isFallback: true
+      };
+    }
   } else if (provider === "ollama") {
     // -------------------------------------------------------------
     // OLLAMA LOCAL IMAGE GEN (LOCAL TEXT EXPLANATION)

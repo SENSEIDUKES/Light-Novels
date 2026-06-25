@@ -49,7 +49,9 @@ export const chapterGenerationSchema = z.object({
   fatePressure: z.string().optional(),
   pacingDirective: z.string().optional(),
   styleBible: z.string().optional(),
-  tropeRules: z.array(z.string()).optional(),
+  tropeRules: z.union([z.string(), z.array(z.string())])
+    .transform((val) => (Array.isArray(val) ? val.join("\n") : val))
+    .optional(),
   storyTags: z.array(z.string()).optional(),
 });
 
@@ -143,9 +145,17 @@ export const validateBody = (schema: z.ZodSchema) => {
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {
+        const flattened = error.flatten();
+        const errorDetail = Object.entries(flattened.fieldErrors)
+          .map(([field, errs]) => {
+            const errList = Array.isArray(errs) ? errs : [];
+            return `${field}: ${errList.join(", ")}`;
+          })
+          .join("; ");
+        console.error("Zod Validation Error on Route:", req.originalUrl, "Payload:", req.body, "Errors:", JSON.stringify(flattened, null, 2));
         return res.status(400).json({
-          error: "Invalid request payload",
-          details: error.flatten(),
+          error: `Invalid request payload: ${errorDetail || error.message}`,
+          details: flattened,
         });
       }
       next(error);

@@ -13,6 +13,7 @@ const DEFAULT_PRESETS = {
   storyMaker: {
     gemini: ["gemini-3.5-flash", "gemini-3.5-pro", "google/gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
     openrouter: [
+      "@preset/light-novel-story",
       "google/gemini-3.5-flash",
       "google/gemini-2.5-flash-lite",
       "meta-llama/llama-3-8b-instruct:free",

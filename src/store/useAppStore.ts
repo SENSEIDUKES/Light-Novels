@@ -154,7 +154,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isShortcutsOpen: false,
   routingConfig: {
     storyMaker: { provider: 'gemini', model: 'google/gemini-2.5-flash-lite' },
-    imageGenerator: { provider: 'gemini', model: 'google/gemini-3.1-flash-image' }
+    imageGenerator: { provider: 'openrouter', model: 'black-forest-labs/flux.2-klein-4b' }
   },
   localGeminiKey: '',
   localOpenrouterKey: '',

@@ -333,44 +333,44 @@ export default function ReaderChamber({
     }
   };
 
-  const isBossFight = useMemo(() => {
-    return selectedChapter.summary?.toLowerCase().includes('boss fight') ||
-      selectedChapter.blocks?.some(b => b.metadata?.music?.mood === 'boss-fight') ||
-      (selectedChapter.cuePayload?.danger && selectedChapter.cuePayload.danger > 8) ||
-      false;
-  }, [selectedChapter.summary, selectedChapter.blocks, selectedChapter.cuePayload]);
+  const isDeathOrCriticalHealthScene = useMemo(() => {
+    const textToMatch = `${selectedChapter.title || ""} ${selectedChapter.summary || ""}`.toLowerCase();
+    const deathKeywords = [
+      "death", "die", "dying", "killed", "fatal", "perish", 
+      "critical health", "near-death", "near death", "slain", "demise", 
+      "sacrificed", "mortal wound", "critical damage", "heart stops", 
+      "breathes last", "breath last"
+    ];
+    const hasKeyword = deathKeywords.some(keyword => textToMatch.includes(keyword));
 
-  const isDemonicRealm = useMemo(() => {
-    return selectedChapter.summary?.toLowerCase().includes('demonic realm') ||
-      selectedChapter.summary?.toLowerCase().includes('demonic sect') ||
-      selectedChapter.blocks?.some(b => b.metadata?.music?.mood === 'horror') ||
-      selectedChapter.blocks?.some(b => b.metadata?.music?.mood === 'dread') ||
-      false;
-  }, [selectedChapter.summary, selectedChapter.blocks]);
+    const hasDeathOrCriticalBlock = selectedChapter.blocks?.some(b => {
+      const blockText = (b.text || "").toLowerCase();
+      const systemTitle = (b.system?.title || "").toLowerCase();
+      const systemKind = (b.system?.kind || "").toLowerCase();
+      
+      return blockText.includes("death flag") || 
+             blockText.includes("critical health") ||
+             blockText.includes("near death") ||
+             systemTitle.includes("death flag") ||
+             systemTitle.includes("critical health") ||
+             systemKind.includes("death flag") ||
+             systemKind.includes("critical health") ||
+             b.system?.promptType === "corruption";
+    });
 
-  const isMysticalRealm = useMemo(() => {
-    return selectedChapter.summary?.toLowerCase().includes('mystical') ||
-      selectedChapter.summary?.toLowerCase().includes('spirit forest') ||
-      selectedChapter.summary?.toLowerCase().includes('secret realm') ||
-      selectedChapter.blocks?.some(b => b.metadata?.music?.mood === 'mystical') ||
-      false;
-  }, [selectedChapter.summary, selectedChapter.blocks]);
+    const cue = selectedChapter.cuePayload;
+    const isCriticalDangerCue = cue && (
+      cue.danger >= 9.5 || 
+      (cue.danger >= 8 && (cue.emotion === "sorrow" || cue.emotion === "grief" || cue.emotion === "fear"))
+    );
 
-  const isHolyRealm = useMemo(() => {
-    return selectedChapter.summary?.toLowerCase().includes('holy') ||
-      selectedChapter.summary?.toLowerCase().includes('heavenly') ||
-      selectedChapter.summary?.toLowerCase().includes('divine') ||
-      selectedChapter.summary?.toLowerCase().includes('tribulation') ||
-      selectedChapter.blocks?.some(b => (b.metadata?.music?.mood as string) === 'ethereal') ||
-      selectedChapter.blocks?.some(b => (b.metadata?.music?.mood as string) === 'triumphant') ||
-      false;
-  }, [selectedChapter.summary, selectedChapter.blocks]);
+    return hasKeyword || hasDeathOrCriticalBlock || isCriticalDangerCue || false;
+  }, [selectedChapter.title, selectedChapter.summary, selectedChapter.blocks, selectedChapter.cuePayload]);
 
   const getDynamicShadingClasses = () => {
-    if (isBossFight) return "shadow-[inset_0_0_150px_rgba(220,38,38,0.15)] ring-1 ring-red-900/30 animate-[pulse_4s_ease-in-out_infinite]";
-    if (isDemonicRealm) return "shadow-[inset_0_0_150px_rgba(88,28,135,0.15)] ring-1 ring-purple-900/30 animate-[pulse_6s_ease-in-out_infinite]";
-    if (isMysticalRealm) return "shadow-[inset_0_0_150px_rgba(16,185,129,0.15)] ring-1 ring-emerald-900/30 animate-[pulse_8s_ease-in-out_infinite]";
-    if (isHolyRealm) return "shadow-[inset_0_0_150px_rgba(255,255,255,0.15)] ring-1 ring-white/30 animate-[pulse_5s_ease-in-out_infinite]";
+    if (isDeathOrCriticalHealthScene) {
+      return "shadow-[inset_0_0_180px_rgba(139,0,0,0.35)] ring-1 ring-red-900/50 animate-[pulse_3.5s_ease-in-out_infinite]";
+    }
     return "";
   };
 
@@ -440,6 +440,7 @@ export default function ReaderChamber({
 
   // --- Climax Screen Shake State ---
   const [isShaking, setIsShaking] = useState(false);
+  const chapterShakeRef = useRef<number | null>(null);
 
   useEffect(() => {
     const handleCue = (e: any) => {
@@ -459,10 +460,13 @@ export default function ReaderChamber({
             (meta.tension && meta.tension >= 8);
 
           if (isIntense || isIntenseScale10) {
-            setIsShaking(true);
-            setTimeout(() => {
-              setIsShaking(false);
-            }, 600);
+            if (chapterShakeRef.current !== selectedChapterNum) {
+              chapterShakeRef.current = selectedChapterNum;
+              setIsShaking(true);
+              setTimeout(() => {
+                setIsShaking(false);
+              }, 600);
+            }
           }
         }
       }
@@ -470,7 +474,7 @@ export default function ReaderChamber({
     
     window.addEventListener('narrative-cue', handleCue);
     return () => window.removeEventListener('narrative-cue', handleCue);
-  }, []);
+  }, [selectedChapterNum]);
 
   const handleMuteToggle = (mutedVal: boolean) => {
     setIsMuted(mutedVal);

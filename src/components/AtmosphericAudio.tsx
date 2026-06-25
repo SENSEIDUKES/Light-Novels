@@ -3,8 +3,8 @@ import { SceneScoreEngine, SceneAudioTrack } from '../lib/audio/musicResolver';
 import { useAppStore } from '../store/useAppStore';
 import { vibrate } from '../lib/vibration';
 
-type AtmosphereType = 'none' | 'wind' | 'rain' | 'temple' | 'crowd' | 'combat';
-type FXType = 'footsteps' | 'footsteps_snow' | 'footsteps_wood' | 'footsteps_stone' | 'creature' | 'system_alert' | 'combat_hit';
+type AtmosphereType = 'none' | 'wind' | 'rain' | 'ocean' | 'crowd' | 'combat';
+type FXType = 'footsteps' | 'footsteps_snow' | 'footsteps_wood' | 'footsteps_stone' | 'system_alert' | 'combat_hit';
 
 export function AtmosphericAudio() {
   const currentScreen = useAppStore(state => state.currentScreen);
@@ -164,9 +164,8 @@ export function AtmosphericAudio() {
       playWind(ctx);
     } else if (atmosphere === 'rain') {
       playRain(ctx);
-    } else if (atmosphere === 'temple') {
-      playWind(ctx); // Wind as background
-      playTempleBells(ctx);
+    } else if (atmosphere === 'ocean') {
+      playOceanWaves(ctx);
     } else if (atmosphere === 'crowd') {
       playCrowd(ctx);
     } else if (atmosphere === 'combat') {
@@ -325,41 +324,51 @@ export function AtmosphericAudio() {
     registerInterval(intv);
   };
 
-  const triggerBell = (ctx: AudioContext) => {
-    const osc = ctx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(440, ctx.currentTime); // Root note A4
+  function playOceanWaves(ctx: AudioContext) {
+    const buffer = createNoiseBuffer(ctx, 'pink');
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 400;
+
+    // Wave crashing simulation
+    const lfo = ctx.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.value = 0.08; // Slow ocean roll
     
-    // Slight detune for a second oscillator to create beating (gong-like)
-    const osc2 = ctx.createOscillator();
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(442, ctx.currentTime);
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 600;
 
-    const gainNode = ctx.createGain();
-    gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.1);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 6); // Long decay
+    lfo.connect(lfoGain);
+    lfoGain.connect(filter.frequency);
+    lfo.start();
 
-    osc.connect(gainNode);
-    osc2.connect(gainNode);
-    gainNode.connect(getDestination(ctx));
+    // Volume swells
+    const volLfo = ctx.createOscillator();
+    volLfo.type = 'sine';
+    volLfo.frequency.value = 0.08;
 
-    osc.start();
-    osc2.start();
-    osc.stop(ctx.currentTime + 6);
-    osc2.stop(ctx.currentTime + 6);
-  };
+    const volLfoGain = ctx.createGain();
+    volLfoGain.gain.value = 0.2;
 
-  function playTempleBells(ctx: AudioContext) {
-    // Initial bell
-    triggerBell(ctx);
-    // Random bell rings
-    const intv = setInterval(() => {
-      if (Math.random() > 0.3) {
-          triggerBell(ctx);
-      }
-    }, 10000);
-    registerInterval(intv);
+    const masterGain = ctx.createGain();
+    masterGain.gain.value = 0.25;
+
+    volLfo.connect(volLfoGain);
+    volLfoGain.connect(masterGain.gain);
+    volLfo.start();
+
+    source.connect(filter);
+    filter.connect(masterGain);
+    masterGain.connect(getDestination(ctx));
+
+    source.start();
+    registerSource(source);
+    registerSource(lfo);
+    registerSource(volLfo);
   };
 
   const triggerChime = (ctx: AudioContext) => {
@@ -454,124 +463,6 @@ export function AtmosphericAudio() {
     gainNode.connect(getDestination(ctx));
 
     source.start();
-  };
-
-  const triggerCreature = (ctx: AudioContext) => {
-    vibrate('roar');
-    const osc = ctx.createOscillator();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(100, ctx.currentTime);
-    osc.frequency.linearRampToValueAtTime(50, ctx.currentTime + 0.8);
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(800, ctx.currentTime);
-    filter.frequency.linearRampToValueAtTime(200, ctx.currentTime + 0.8);
-
-    const gainNode = ctx.createGain();
-    gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.1);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
-
-    osc.connect(filter);
-    filter.connect(gainNode);
-    gainNode.connect(getDestination(ctx));
-
-    osc.start();
-    osc.stop(ctx.currentTime + 0.8);
-  };
-
-  const triggerBeastEvent = (ctx: AudioContext, event: { type: string, profile: import('../types').BeastSonicProfile }) => {
-    vibrate('roar');
-    if (!event || !event.profile) return;
-    const { type, profile } = event;
-    const { size = 'human-sized', element = 'none', signatureSound = 'roar', threatTier = 'common' } = profile;
-
-    // Adjust base pitch and volume by size/threat
-    let baseVol = 0.5;
-    let basePitch = 150;
-    let decay = 1.0;
-
-    if (size === 'tiny') { basePitch = 800; baseVol *= 0.3; decay = 0.3; }
-    else if (size === 'giant') { basePitch = 60; baseVol *= 1.5; decay = 2.0; }
-    else if (size === 'world-scale') { basePitch = 30; baseVol *= 2.0; decay = 4.0; }
-
-    if (threatTier === 'boss' || threatTier === 'calamity' || threatTier === 'mythic') {
-      baseVol *= 1.3;
-    }
-
-    baseVol = Math.max(0.001, Math.min(1.5, baseVol)); // Clamp volume to prevent clipping/errors
-    basePitch = Math.max(10, Math.min(10000, basePitch));
-
-    const osc = ctx.createOscillator();
-    const filter = ctx.createBiquadFilter();
-    const gainNode = ctx.createGain();
-
-    // Map signature sound
-    if (signatureSound === 'screech') {
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(Math.max(10, basePitch * 3), ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(basePitch, ctx.currentTime + decay);
-        filter.type = 'highpass';
-        filter.frequency.value = 1000;
-    } else if (signatureSound === 'roar') {
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(basePitch, ctx.currentTime);
-        osc.frequency.linearRampToValueAtTime(Math.max(10, basePitch * 0.5), ctx.currentTime + decay);
-        filter.type = 'lowpass';
-        filter.frequency.value = 600;
-    } else if (signatureSound === 'chitter') {
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(Math.max(10, basePitch * 4), ctx.currentTime);
-        osc.frequency.linearRampToValueAtTime(Math.max(10, basePitch * 3), ctx.currentTime + decay);
-        filter.type = 'bandpass';
-        filter.frequency.value = 2000;
-        decay = 0.2;
-    } else if (signatureSound === 'pulse') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(basePitch, ctx.currentTime);
-        filter.type = 'lowpass';
-        filter.frequency.value = 300;
-        
-        // Add a pulsing LFO
-        const lfo = ctx.createOscillator();
-        lfo.type = 'sine';
-        lfo.frequency.value = 4;
-        const lfoGain = ctx.createGain();
-        lfoGain.gain.value = baseVol * 0.5;
-        try {
-          lfo.connect(lfoGain);
-          lfoGain.connect(gainNode.gain);
-          lfo.start(ctx.currentTime);
-          lfo.stop(ctx.currentTime + decay);
-        } catch (e) {
-          console.error("Audio API warning on pulse mode", e);
-        }
-    } else {
-       // hum, chant, or fallback
-       osc.type = 'sine';
-       osc.frequency.setValueAtTime(basePitch, ctx.currentTime);
-       filter.type = 'lowpass';
-       filter.frequency.value = 800;
-    }
-
-    gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(baseVol, ctx.currentTime + 0.1);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + decay);
-
-    osc.connect(filter);
-    filter.connect(gainNode);
-    gainNode.connect(getDestination(ctx));
-
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + decay);
-
-    // Element flavor layered on top
-    if (element === 'lightning') {
-        triggerSystemAlert(ctx); // Use system alert as a quick metallic crackle proxy
-    } else if (element === 'ice') {
-        triggerChime(ctx);
-    }
   };
 
   const triggerCombatHit = (ctx: AudioContext) => {
@@ -698,9 +589,7 @@ export function AtmosphericAudio() {
           const meta = cue.metadata || cue.value;
           
           if (meta) {
-             if (meta.beastEvent && meta.beastEvent.profile) {
-                triggerBeastEvent(ctx, meta.beastEvent);
-             } else if (meta.powerShift && meta.powerShift > 0.6) {
+             if (meta.powerShift && meta.powerShift > 0.6) {
                 triggerQiSurge(ctx);
              } else if (meta.danger && meta.danger > 0.8 && meta.intensity && meta.intensity > 0.8) {
                 triggerMajorHit(ctx);
@@ -756,8 +645,10 @@ export function AtmosphericAudio() {
 
              if (meta.environment?.includes('rain') || meta.sceneType === 'travel') {
                setAtmosphere('rain');
+             } else if (meta.environment?.includes('ocean') || meta.environment?.includes('sea') || meta.environment?.includes('water')) {
+               setAtmosphere('ocean');
              } else if (meta.mysticism && meta.mysticism > 0.5) {
-               setAtmosphere('temple');
+               setAtmosphere('wind');
              } else if (meta.danger && meta.danger > 0.5) {
                setAtmosphere('wind');
              } else if (meta.environment?.includes('mountain')) {
@@ -773,10 +664,12 @@ export function AtmosphericAudio() {
               syncBgmVolumes();
             }
             
-            if (meta.element === 'water' || meta.emotion === 'sorrow') {
+            if (meta.element === 'water' && (meta.environment === 'sea' || meta.environment === 'ocean' || meta.environment === 'coast')) {
+              setAtmosphere('ocean');
+            } else if (meta.element === 'water' || meta.emotion === 'sorrow') {
               setAtmosphere('rain');
             } else if (meta.mysticism && meta.mysticism > 0.7) {
-              setAtmosphere('temple');
+              setAtmosphere('wind');
             } else if (meta.danger && meta.danger > 0.6) {
               setAtmosphere('wind');
             } else if (meta.tension && meta.tension > 0.8) {
@@ -799,8 +692,6 @@ export function AtmosphericAudio() {
                 triggerFootstep(ctx, 'wood');
             } else if (fxType === 'footsteps_stone') {
                 triggerFootstep(ctx, 'stone');
-            } else if (fxType === 'creature') {
-                triggerCreature(ctx);
             } else if (fxType === 'system_alert') {
                 triggerSystemAlert(ctx);
             } else if (fxType === 'combat_hit') {

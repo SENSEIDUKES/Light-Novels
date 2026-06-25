@@ -89,7 +89,7 @@ service cloud.firestore {
         && incoming().uid == existing().uid
         && incoming().joinedDate == existing().joinedDate
         && isValidUserProfile(incoming())
-        && incoming().diff(existing()).affectedKeys().hasOnly(['username', 'displayName', 'displayNameColor', 'avatarUrl', 'preferredLanguage', 'defaultTranslationLanguage', 'savedStoryCount', 'activeStories', 'inactiveStories', 'updatedAt', 'qi', 'dao_xp', 'dao_rank'])
+        && incoming().diff(existing()).affectedKeys().hasOnly(['username', 'displayName', 'displayNameColor', 'avatarUrl', 'preferredLanguage', 'defaultTranslationLanguage', 'savedStoryCount', 'activeStories', 'inactiveStories', 'updatedAt', 'qi', 'dao_xp', 'dao_rank', 'cosmicInventory', 'inventory', 'writingStreak', 'lastInteractionDate'])
         && (!('updatedAt' in incoming().diff(existing()).affectedKeys()) || (incoming().updatedAt is string && incoming().updatedAt.size() <= 40));
     }
 
