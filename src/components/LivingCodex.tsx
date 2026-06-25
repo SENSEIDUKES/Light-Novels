@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Users, Network, Zap, Shield, Sparkles, Sword, HelpCircle, 
-  MapPin, Plus, Trash2, Heart, ShieldAlert, BookOpen, Clock, 
-  Check, Eye, RefreshCcw, Search, Compass, Award, Image, 
-  BookMarked, ArrowRight, ArrowLeftRight, Activity, History
+  Users, Network, Zap, Sword, 
+  MapPin, ShieldAlert, 
+  Compass, 
+  BookMarked, Activity, History
 } from 'lucide-react';
 import { vibrate } from '../lib/vibration';
-import { StoryMemory, Character, Faction, Location, Artifact, StoryArc, StoryWorld, CharacterRelationship, KarmaFateNode, Chapter, MultiModelRouting, GeneratedImage } from '../types';
+import { StoryMemory, Character, StoryArc, StoryWorld, Chapter, MultiModelRouting, GeneratedImage } from '../types';
 import { secureStorage } from '../lib/encryption';
 import { CodexProvider } from './codex/CodexContext';
 import { LivingCodexCharacters } from './codex/LivingCodexCharacters';
@@ -19,9 +19,6 @@ import { LivingCodexArtifacts } from './codex/LivingCodexArtifacts';
 import { LivingCodexFactions } from './codex/LivingCodexFactions';
 import { LivingCodexDashboards } from './codex/LivingCodexDashboards';
 import { LivingCodexFate } from './codex/LivingCodexFate';
-import { VirtualizedList } from './VirtualizedList';
-import { AgentBadge } from './AgentBadge';
-import { AGENTS } from '../lib/agents';
 import { DestinyChoicePanel } from './DestinyChoicePanel';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppStore } from '../store/useAppStore';
@@ -40,43 +37,7 @@ interface LivingCodexProps {
 }
 
 // 1. Static high-fidelity Chinese cultivation vocabulary (Glossary defaults)
-const DEFAULT_CULTIVATION_GLOSSARY = [
-  {
-    term: "Qi (气)",
-    category: "Vital Energy",
-    definition: "The fundamental spiritual life energy flowing through all celestial creation. Cultivators refine raw worldly Qi inside their dantian to grow standard power."
-  },
-  {
-    term: "Dantian (丹田)",
-    category: "Anatomy",
-    definition: "The spiritual elixir field located near the core of the physical body. It functions as the central crucible of alchemical cultivation storage."
-  },
-  {
-    term: "Heavenly Tribulation (天劫)",
-    category: "Cosmic Phenomenon",
-    definition: "Savage, lightning-infused trials triggered by the Heavenly Tao when a cultivator breaks through critical tier thresholds, trying to disintegrate them for defying physical laws."
-  },
-  {
-    term: "Jade Slip (玉简)",
-    category: "Substance",
-    definition: "Exquisite spiritual jade plates onto which supreme grandmaster mental brands are inscribed, utilized to safely store cultivation martial manuals."
-  },
-  {
-    term: "Kowtow (叩头)",
-    category: "Culture",
-    definition: "Kneeling and knocking the forehead to the ground. A submissive form of showing utmost respect or pleading for grand master mercy."
-  },
-  {
-    term: "Dao (道)",
-    category: "Cosmic Law",
-    definition: "The infinite, incomprehensible 'Way' or natural order governing absolute physical and spiritual dimensions. Cultivators seek total enlightenment of their chosen Dao paths."
-  },
-  {
-    term: "Spiritual Meridians (经脉)",
-    category: "Anatomy",
-    definition: "The internal energetic high-speed channels of the body through which refined Qi flows. Blocked or destroyed meridians lead to crippled cultivation ruins."
-  }
-];
+
 
 export default function LivingCodex({ 
   memory: rawMemory = {} as StoryMemory, 
@@ -111,9 +72,7 @@ export default function LivingCodex({
   const [showDeepMemory, setShowDeepMemory] = useState(false);
   const [codexNotification, setCodexNotification] = useState<string | null>(null);
   const [selectedChartCharId, setSelectedChartCharId] = useState<string>('');
-  const [hoveredPowerPoint, setHoveredPowerPoint] = useState<any | null>(null);
-  const [hoveredAffPoint, setHoveredAffPoint] = useState<any | null>(null);
-
+    
   useEffect(() => {
     if (!selectedChartCharId && memory.characters && memory.characters.length > 0) {
       setSelectedChartCharId(memory.characters[0].id);
@@ -292,43 +251,7 @@ export default function LivingCodex({
     setTimeout(() => setCodexNotification(null), 3000);
   };
 
-  const handleAddCustomRelationship = () => {
-    if (!bondSourceId || !bondTargetId) {
-      pushNotification("Two sovereign characters are required to bind a causal relation.");
-      return;
-    }
-    if (bondSourceId === bondTargetId) {
-      pushNotification("A cultivator cannot bond with their own split soul.");
-      return;
-    }
-    const sourceChar = memory.characters.find(c => c.id === bondSourceId);
-    const targetChar = memory.characters.find(c => c.id === bondTargetId);
-    if (!sourceChar || !targetChar) return;
-
-    const newRelationship: CharacterRelationship = {
-      id: `bond_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      sourceCharId: bondSourceId,
-      sourceCharName: sourceChar.name,
-      targetCharId: bondTargetId,
-      targetCharName: targetChar.name,
-      affinity: bondAffinity,
-      description: bondDesc || `${sourceChar.name} and ${targetChar.name} are bound through shared tribulation.`,
-      updatedAt: new Date().toISOString()
-    };
-
-    const currentBonds = activeStory.relationships || [];
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
-    onUpdateStory({
-      ...currentActiveStory,
-      relationships: [newRelationship, ...currentBonds]
-    });
-
-    setBondSourceId('');
-    setBondTargetId('');
-    setBondDesc('');
-    setBondAffinity(0);
-    pushNotification(`Successfully bound a karma link between ${sourceChar.name} and ${targetChar.name}!`);
-  };
+  
 
   const handleDeleteCustomRelationship = (bondId: string) => {
     const currentBonds = activeStory.relationships || [];
@@ -339,46 +262,9 @@ export default function LivingCodex({
     });
   };
 
-  const handleAddCustomFateNode = () => {
-    if (!fateSource || !fateTarget || !fateDesc) {
-      pushNotification("All decree fields (Source, Target, Description) are required to engrave karma fate nodes.");
-      return;
-    }
+  
 
-    const newFateNode: KarmaFateNode = {
-      id: `fate_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      sourceId: `src_${Date.now()}`,
-      sourceName: fateSource,
-      targetId: `tgt_${Date.now()}`,
-      targetName: fateTarget,
-      description: fateDesc,
-      severity: fateSeverity,
-      type: fateType,
-      status: 'active',
-      createdAt: new Date().toISOString()
-    };
-
-    const currentNodes = activeStory.karmaNodes || [];
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
-    onUpdateStory({
-      ...currentActiveStory,
-      karmaNodes: [newFateNode, ...currentNodes]
-    });
-
-    setFateSource('');
-    setFateTarget('');
-    setFateDesc('');
-    pushNotification("Fate decree successfully engraved into the Akasha tablet!");
-  };
-
-  const handleToggleFateNodeStatus = (fateId: string) => {
-    const currentNodes = activeStory.karmaNodes || [];
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
-    onUpdateStory({
-      ...currentActiveStory,
-      karmaNodes: currentNodes.map(n => n.id === fateId ? { ...n, status: n.status === 'active' ? 'resolved' : 'active' } : n)
-    });
-  };
+  
 
   const handleDeleteFateNode = (fateId: string) => {
     const currentNodes = activeStory.karmaNodes || [];
@@ -390,71 +276,28 @@ export default function LivingCodex({
   };
 
   // Active sub-navigation for Characters ("Detailed list" vs "Illustrated Canvas Cards")
-  const [charViewStyle, setCharViewStyle] = useState<'cards' | 'profiles'>('cards');
-
+  
   // Interactive state for visual generation triggers
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [previews, setPreviews] = useState<Record<string, { urls: string[], prompt: string, selectedIndex: number, type: 'character' | 'location' | 'artifact' | 'beast' }>>({});
 
   // Form states primitive handlers
-  const [showAddFactionForm, setShowAddFactionForm] = useState(false);
-  const [newFaction, setNewFaction] = useState<Partial<Faction>>({
-    name: '',
-    description: '',
-    alignment: 'Neutral',
-    headquarters: '',
-    status: 'Active'
-  });
+  
 
-  const [showAddArtifactForm, setShowAddArtifactForm] = useState(false);
-  const [newArtifact, setNewArtifact] = useState({
-    name: '',
-    description: '',
-    tier: 'Mortal',
-    currentOwner: ''
-  });
+  
 
-  const [showAddAbilityForm, setShowAddAbilityForm] = useState(false);
-  const [newAbility, setNewAbility] = useState('');
+  
 
   const getPowerStageLevel = (stageName?: string) => {
     // dummy helper if not defined elsewhere
     return { score: 1, title: stageName || '' };
   };
 
-  const handleAddCharacter = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!newChar.name) return;
-    
-    const newCharacter: Character = {
-      id: crypto.randomUUID(),
-      name: newChar.name,
-      description: newChar.description || '',
-      role: newChar.role || 'ally',
-      relationshipToMC: 'neutral',
-      status: 'alive'
-    };
-    
-    const updatedChars = [...(activeStory.memory.characters || []), newCharacter];
-    onUpdateMemory({ ...memory, characters: updatedChars });
-    setShowAddCharForm(false);
-    setNewChar({ name: '', description: '', role: 'ally' });
-  };
+  
 
   // Local state for direct editing of Character abilities / power
-  const [editingCharId, setEditingCharId] = useState<string | null>(null);
-  const [editingCharData, setEditingCharData] = useState<{
-    powerLevel: string;
-    abilitiesInput: string;
-    faction: string;
-    status: Character['status'];
-  }>({
-    powerLevel: '',
-    abilitiesInput: '',
-    faction: '',
-    status: 'unknown'
-  });
+  
 
   const [deletePrompt, setDeletePrompt] = useState<{
     id: string;
@@ -667,28 +510,7 @@ export default function LivingCodex({
   };
 
   // Action: Add Faction
-  const handleAddFaction = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newFaction.name.trim()) return;
-
-    const currentFactions = memory.factions || [];
-    const factionObj: Faction = {
-      id: `fct-${Date.now()}`,
-      name: newFaction.name.trim(),
-      description: newFaction.description.trim(),
-      alignment: newFaction.alignment,
-      headquarters: newFaction.headquarters.trim() || undefined,
-      status: newFaction.status
-    };
-
-    onUpdateMemory({
-      ...memory,
-      factions: [...currentFactions, factionObj]
-    });
-
-    setNewFaction({ name: '', description: '', alignment: 'Neutral', headquarters: '', status: 'Active' });
-    setShowAddFactionForm(false);
-  };
+  
 
   // Action: Delete Faction
   const handleDeleteFaction = (id: string) => {
@@ -700,27 +522,7 @@ export default function LivingCodex({
   };
 
   // Action: Add Artifact
-  const handleAddArtifact = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newArtifact.name.trim()) return;
-
-    const currentArtifacts = memory.artifacts || [];
-    const artifactObj: Artifact = {
-      id: `art-${Date.now()}`,
-      name: newArtifact.name.trim(),
-      description: newArtifact.description.trim(),
-      tier: newArtifact.tier,
-      currentOwner: newArtifact.currentOwner.trim() || 'Unknown'
-    };
-
-    onUpdateMemory({
-      ...memory,
-      artifacts: [...currentArtifacts, artifactObj]
-    });
-
-    setNewArtifact({ name: '', description: '', tier: 'Mortal', currentOwner: '' });
-    setShowAddArtifactForm(false);
-  };
+  
 
   // Action: Delete Artifact
   const handleDeleteArtifact = (id: string) => {
@@ -732,40 +534,9 @@ export default function LivingCodex({
   };
 
   // Action: Add Location
-  const handleAddLocation = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!newLocation.name?.trim()) return;
+  
 
-    const currentLocations = memory.locations || [];
-    const locationObj: Location = {
-      id: `loc-${Date.now()}`,
-      name: newLocation.name.trim(),
-      description: newLocation.description?.trim() || '',
-      realm: newLocation.realm?.trim() || undefined,
-      safetyLevel: newLocation.safetyLevel || 'Safe'
-    };
 
-    onUpdateMemory({
-      ...memory,
-      locations: [...currentLocations, locationObj]
-    });
-
-    setNewLocation({ name: '', description: '', realm: '', safetyLevel: 'Safe' });
-    setShowAddLocationForm(false);
-  };
-
-  // Action: Add World Rule (Fate)
-  const handleAddWorldRule = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newWorldRule.trim()) return;
-    
-    const currentRules = memory.worldRules || [];
-    onUpdateMemory({
-      ...memory,
-      worldRules: [...currentRules, newWorldRule.trim()]
-    });
-    setNewWorldRule('');
-  };
 
   // Action: Delete Location
   const handleDeleteLocation = (id: string) => {
@@ -777,55 +548,13 @@ export default function LivingCodex({
   };
 
   // Action: Add MC Ability
-  const handleAddMCAbility = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newAbility.trim()) return;
-
-    const currentAbilities = memory.abilities || [];
-    if (!currentAbilities.includes(newAbility.trim())) {
-      onUpdateMemory({
-        ...memory,
-        abilities: [...currentAbilities, newAbility.trim()]
-      });
-    }
-
-    setNewAbility('');
-    setShowAddAbilityForm(false);
-  };
+  
 
   // Action: Delete MC Ability
-  const handleDeleteMCAbility = (abilityName: string) => {
-    const currentAbilities = memory.abilities || [];
-    onUpdateMemory({
-      ...memory,
-      abilities: currentAbilities.filter(ab => ab !== abilityName)
-    });
-  };
+  
 
   // Action: Save character edit overlay content
-  const handleSaveCharEdit = (charId: string) => {
-    const updatedChars = memory.characters.map(char => {
-      if (char.id === charId) {
-        return {
-          ...char,
-          powerLevel: editingCharData.powerLevel.trim() || undefined,
-          faction: editingCharData.faction.trim() || undefined,
-          status: editingCharData.status,
-          abilities: editingCharData.abilitiesInput.trim() 
-            ? editingCharData.abilitiesInput.split(',').map(a => a.trim()).filter(Boolean) 
-            : undefined
-        };
-      }
-      return char;
-    });
-
-    onUpdateMemory({
-      ...memory,
-      characters: updatedChars
-    });
-
-    setEditingCharId(null);
-  };
+  
 
   
   const activePreviewId = Object.keys(previews)[0];
@@ -851,7 +580,21 @@ export default function LivingCodex({
   const hasDormantState = dormantChars.length > 0 || dormantLocs.length > 0 || dormantFactions.length > 0 || dormantArtifacts.length > 0;
 
   return (
-    <div className="bg-black border border-neutral-900 rounded-lg p-4 sm:p-6 shadow-2xl flex flex-col md:flex-row gap-6 relative min-h-[690px] overflow-hidden" id="living-codex-container">
+    <CodexProvider value={{     memory,
+    arcs,
+    activeStory,
+    mcName,
+    routingConfig,
+    onUpdateMemory,
+    onUpdateStory,
+    pushNotification,
+    getPowerRankScore,
+    handleAwakenCardImage,
+    previews,
+    setPreviews,
+    generatingId,
+    renderImageHistoryGallery }}>
+      <div className="bg-black border border-neutral-900 rounded-lg p-4 sm:p-6 shadow-2xl flex flex-col md:flex-row gap-6 relative min-h-[690px] overflow-hidden" id="living-codex-container">
       <DestinyChoicePanel 
         isOpen={!!activePreview}
         imageUrls={activePreview?.urls || []}
@@ -1263,5 +1006,6 @@ export default function LivingCodex({
       </AnimatePresence>
 
     </div>
+    </CodexProvider>
   );
 }

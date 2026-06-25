@@ -62,29 +62,10 @@ export function LivingCodexCharacters({
   const [editingCharId, setEditingCharId] = useState<string | null>(null);
   const [editingCharData, setEditingCharData] = useState<any>({});
 
-  const [showAddCharForm, setShowAddCharForm] = useState(false);
-  const [newChar, setNewChar] = useState<Partial<Character>>({ name: '', description: '', role: 'ally' });
-  const [showAddLocationForm, setShowAddLocationForm] = useState(false);
+      const [showAddLocationForm, setShowAddLocationForm] = useState(false);
   const [newLocation, setNewLocation] = useState<Partial<Location>>({ name: '', description: '', realm: '', safetyLevel: 'Safe' });
 
-  const handleAddCharacter = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!newChar.name) return;
-    
-    const newCharacter: Character = {
-      id: crypto.randomUUID(),
-      name: newChar.name,
-      description: newChar.description || '',
-      role: newChar.role || 'ally',
-      relationshipToMC: 'neutral',
-      status: 'alive'
-    };
-    
-    const updatedChars = [...(activeStory.memory.characters || []), newCharacter];
-    onUpdateMemory({ ...memory, characters: updatedChars });
-    setShowAddCharForm(false);
-    setNewChar({ name: '', description: '', role: 'ally' });
-  };
+  
 
   const handleAddLocation = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
