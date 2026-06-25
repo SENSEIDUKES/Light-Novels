@@ -63,7 +63,7 @@ export function LivingCodexArtifacts({
           <p className="text-[10px] text-neutral-500 font-sans">Behold artifacts, weapons, secret arrays, or sacred medicinal pills currently existing in memory.</p>
         </div>
         <button
-          onClick={() => setShowAddArtifactForm(!showAddArtifactForm)}
+           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowAddArtifactForm(!showAddArtifactForm)}
           className="px-2 py-1 bg-void hover:bg-neutral-900 font-sc font-bold border border-neutral-850 hover:border-neutral-700 text-neutral-400 hover:text-signal rounded text-[9px] uppercase tracking-wider flex items-center space-x-1"
         >
           <Plus size={10} />
@@ -125,7 +125,7 @@ export function LivingCodexArtifacts({
           </div>
 
           <div className="flex justify-end space-x-2 pt-1">
-            <button type="button" onClick={() => setShowAddArtifactForm(false)} className="text-neutral-500">Abort</button>
+            <button type="button"  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowAddArtifactForm(false)} className="text-neutral-500">Abort</button>
             <button type="submit" className="bg-human text-signal px-4 py-1 rounded font-bold font-sc uppercase">Forge Relic</button>
           </div>
         </form>
@@ -168,7 +168,7 @@ export function LivingCodexArtifacts({
                       <div className="h-32 w-full border border-neutral-900 relative">
                         <img src={displayedImage} alt={art.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                         <button
-                          onClick={(e) => {
+                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={(e) => {
                             e.stopPropagation();
                             handleDownload(displayedImage, `${art.name.toLowerCase().replace(/\s+/g, '_')}_relic.png`);
                           }}
@@ -230,7 +230,7 @@ export function LivingCodexArtifacts({
                   
                   <div className="flex justify-between items-center mt-1 gap-2 border-t border-neutral-900/50 pt-2">
                         <button
-                          onClick={() => setDeletePrompt({ id: art.id, type: 'artifact', name: art.name })}
+                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setDeletePrompt({ id: art.id, type: 'artifact', name: art.name })}
                           className="text-[9px] text-neutral-600 hover:text-human uppercase font-mono flex-shrink-0"
                         >
                           Shatter

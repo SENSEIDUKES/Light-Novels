@@ -46,7 +46,7 @@ export function AudioWidget() {
   return (
     <div className="flex items-center space-x-2 bg-void/80 border border-neutral-850 px-2 py-1.5 rounded transition-all group hover:border-portal min-w-[30px] sm:min-w-[40px]">
       <button 
-        onClick={handleMuteToggle} 
+         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleMuteToggle} 
         className="text-neutral-400 hover:text-portal transition-colors"
         title={audioMuted ? "Unmute Audio" : "Mute Audio"}
         aria-label={audioMuted ? "Unmute Audio" : "Mute Audio"}

@@ -106,7 +106,7 @@ export function LivingCodexGlossary({ memory, arcs, mcName, routingConfig }: Liv
           <p className="text-[10px] text-neutral-500 font-sans">Look up traditional light novel cultivation slang and dynamically extract story-specific concepts using Gemini.</p>
         </div>
         <button
-          onClick={handleGenerateCustomGlossary}
+           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleGenerateCustomGlossary}
           disabled={isExtractingGlossary}
           className={`px-3 py-1.5 rounded font-mono border font-bold text-[9px] uppercase tracking-wider flex items-center space-x-1 transition-all ${
             isExtractingGlossary

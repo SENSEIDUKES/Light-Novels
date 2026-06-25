@@ -19,7 +19,7 @@ export const FormSection = ({ id, title, icon, activeSection, setActiveSection, 
     <div className="border border-neutral-900 rounded-lg overflow-hidden bg-void transition-colors mb-4">
       <button
         type="button"
-        onClick={() => setActiveSection(id)}
+         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setActiveSection(id)}
         aria-expanded={isActive}
         className={`w-full flex items-center justify-between p-4 px-6 text-left transition-colors ${isActive ? 'bg-neutral-900/50 text-signal border-b border-neutral-900' : 'bg-void text-neutral-400 hover:bg-neutral-950 hover:text-neutral-200'}`}
       >

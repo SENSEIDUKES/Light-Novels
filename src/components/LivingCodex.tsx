@@ -915,7 +915,7 @@ export default function LivingCodex({
         <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 gap-1.5 md:gap-1.5 md:space-y-1.5 no-scrollbar whitespace-nowrap w-full" id="codex-tab-scroller">
           {/* Portraits Link */}
           <button
-            onClick={() => { vibrate('softTap'); setActivePage('portraits'); }}
+             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => { vibrate('softTap'); setActivePage('portraits'); }}
             className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
               activePage === 'portraits' 
                 ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
@@ -928,7 +928,7 @@ export default function LivingCodex({
 
           {/* Karma Link */}
           <button
-            onClick={() => {
+             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
               vibrate('softTap');
               setActivePage('karma');
               setSelectedNodeChar(null);
@@ -945,7 +945,7 @@ export default function LivingCodex({
 
           {/* Power Rankings Link */}
           <button
-            onClick={() => { vibrate('softTap'); setActivePage('power'); }}
+             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => { vibrate('softTap'); setActivePage('power'); }}
             className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
               activePage === 'power' 
                 ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
@@ -958,7 +958,7 @@ export default function LivingCodex({
 
           {/* Artifacts Gallery Link */}
           <button
-            onClick={() => { vibrate('softTap'); setActivePage('artifacts'); }}
+             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => { vibrate('softTap'); setActivePage('artifacts'); }}
             className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
               activePage === 'artifacts' 
                 ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
@@ -971,7 +971,7 @@ export default function LivingCodex({
 
           {/* Fate Panel Link */}
           <button
-            onClick={() => { vibrate('softTap'); setActivePage('fate'); }}
+             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => { vibrate('softTap'); setActivePage('fate'); }}
             className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
               activePage === 'fate' 
                 ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
@@ -984,7 +984,7 @@ export default function LivingCodex({
 
           {/* Lore Link */}
           <button
-            onClick={() => { vibrate('softTap'); setActivePage('lore'); }}
+             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => { vibrate('softTap'); setActivePage('lore'); }}
             className={`flex items-center space-x-1.5 md:space-x-3 px-3 py-1.5 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
               activePage === 'lore' 
                 ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
@@ -998,7 +998,7 @@ export default function LivingCodex({
           {/* Back navigation shortcut in horizontal list on mobile */}
           {onSwitchTab && onJumpToChapter && (
             <button
-              onClick={() => onSwitchTab('reader')}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => onSwitchTab('reader')}
               className="flex sm:hidden items-center space-x-1.5 px-3 py-1.5 rounded text-[10px] tracking-wider font-mono uppercase bg-void text-portal border border-portal/20 flex-shrink-0"
             >
               <span>← Reader</span>
@@ -1009,7 +1009,7 @@ export default function LivingCodex({
         {/* Deep Memory Controls */}
         <div className="pt-4 border-t border-neutral-900 mt-4 hidden sm:block">
            <button
-             onClick={() => setShowDeepMemory(!showDeepMemory)}
+              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowDeepMemory(!showDeepMemory)}
              className={`w-full flex items-center justify-between px-3 py-2 rounded text-[10px] font-mono tracking-wider transition-all border ${
                showDeepMemory
                  ? 'bg-portal/10 border-portal text-portal shadow-sm shadow-portal/20'
@@ -1037,7 +1037,7 @@ export default function LivingCodex({
         {onSwitchTab && onJumpToChapter && (
           <div className="pt-4 border-t border-neutral-900 mt-4 hidden sm:block">
             <button
-              onClick={() => {
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                 onSwitchTab('reader');
               }}
               className="w-full py-2 bg-void text-portal border border-portal/20 hover:border-portal/40 rounded text-[10px] uppercase font-mono tracking-widest flex items-center justify-center space-x-1"
@@ -1071,7 +1071,7 @@ export default function LivingCodex({
               <ShieldAlert size={14} className="text-human" />
               <span>{generationError}</span>
             </span>
-            <button onClick={() => setGenerationError(null)} className="text-neutral-500 hover:text-neutral-300 font-bold">×</button>
+            <button  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setGenerationError(null)} className="text-neutral-500 hover:text-neutral-300 font-bold">×</button>
           </div>
         )}
 
@@ -1090,7 +1090,7 @@ export default function LivingCodex({
                     <span>{warning}</span>
                   </div>
                   <button 
-                    onClick={() => {
+                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                       const updatedWarnings = [...(memory.memoryWarnings || [])];
                       updatedWarnings.splice(idx, 1);
                       onUpdateMemory({ ...memory, memoryWarnings: updatedWarnings });
@@ -1105,7 +1105,7 @@ export default function LivingCodex({
             </div>
             <div className="pt-2">
               <button 
-                onClick={() => {
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                   const updatedMemory = { ...memory, memoryWarnings: [] };
                   onUpdateMemory(updatedMemory);
                 }}
@@ -1306,7 +1306,7 @@ export default function LivingCodex({
                   Type <span className="text-red-400 font-bold">DELETE</span> to confirm{' '}
                   <button
                     type="button"
-                    onClick={() => setDeleteInput('DELETE')}
+                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setDeleteInput('DELETE')}
                     className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-sc font-bold border border-portal/30 bg-portal/10 text-portal hover:bg-portal hover:text-black rounded transition-all duration-300 cursor-pointer"
                     title="Auto-fill delete text"
                   >
@@ -1324,7 +1324,7 @@ export default function LivingCodex({
 
               <div className="flex justify-end space-x-3">
                 <button
-                  onClick={() => {
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                     setDeletePrompt(null);
                     setDeleteInput('');
                   }}

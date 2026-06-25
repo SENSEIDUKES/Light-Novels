@@ -120,7 +120,7 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
             <button
               key={p.id}
               type="button"
-              onClick={() => updateIntake('genrePath', p.id)}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => updateIntake('genrePath', p.id)}
               className={`px-3 py-1.5 rounded border text-xs font-sans transition-colors flex items-center gap-1.5 ${intake.genrePath === p.id ? 'bg-neutral-900 border-portal text-signal shadow-[0_0_10px_rgba(4,172,255,0.1)]' : 'bg-transparent border-neutral-800 text-neutral-500 hover:text-neutral-300'}`}
             >
               {p.id === 'Fate Survival' ? (
@@ -129,7 +129,7 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
                   <motion.div
                     className="absolute"
                     animate={{ opacity: [0, 0, 1, 0, 1, 0] }}
-                    transition={{ duration: 2.5, repeat: Infinity, times: [0, 0.8, 0.85, 0.9, 0.95, 1], ease: "steps(1)" }}
+                    transition={{ duration: 2.5, repeat: Infinity, times: [0, 0.8, 0.85, 0.9, 0.95, 1], ease: "linear" }}
                   >
                     <Zap size={8} className="text-yellow-400 fill-yellow-400 mt-[2px]" />
                   </motion.div>
@@ -213,7 +213,7 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
                 {tagSuggestions && (
                   <button
                     type="button"
-                    onClick={handleAddAllSuggestedTags}
+                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleAddAllSuggestedTags}
                     className="text-[10px] font-sc uppercase tracking-widest text-[#04ACFF] hover:text-[#04ACFF]/80 transition-colors bg-neutral-900/50 border border-neutral-800/80 hover:border-[#04ACFF]/40 px-2 py-1 rounded"
                   >
                     + Add All Suggestions
@@ -241,7 +241,7 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
                           <button
                             key={tag}
                             type="button"
-                            onClick={() => handleTogglePresetTag(tag)}
+                             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleTogglePresetTag(tag)}
                             className={`px-2.5 py-1 rounded text-xs font-sans transition-all border duration-300 flex items-center gap-1 ${
                               isSelected 
                                 ? 'bg-neutral-900 border-[#04ACFF] text-[#04ACFF] shadow-[0_0_8px_rgba(4,172,255,0.15)] font-semibold' 
@@ -268,7 +268,7 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
               <span className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest">Active Celestial Tags ({intake.storyTags.length})</span>
               <button
                 type="button"
-                onClick={() => updateIntake('storyTags', [])}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => updateIntake('storyTags', [])}
                 className="text-[10px] font-sc uppercase tracking-widest text-human hover:text-red-400 transition-colors"
               >
                 Clear All
@@ -280,7 +280,7 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
                   <span className="font-semibold">{tag}</span>
                   <button
                     type="button"
-                    onClick={() => handleRemoveTag(tag)}
+                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleRemoveTag(tag)}
                     aria-label={`Remove tag ${tag}`}
                     className="text-neutral-500 hover:text-[#FAFAFA] focus:outline-none font-bold text-sm"
                   >
@@ -317,7 +317,7 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
               <button
                 key={cat}
                 type="button"
-                onClick={() => setActiveCategory(cat)}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setActiveCategory(cat)}
                 className={`px-2.5 py-1 text-[10px] font-sans font-medium uppercase tracking-wider rounded border transition-all ${
                   activeCategory === cat
                     ? 'border-[#04ACFF] bg-[#04ACFF]/10 text-[#04ACFF] font-bold shadow-[0_0_8px_rgba(4,172,255,0.15)]'
@@ -341,7 +341,7 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
                   <button
                     key={preset}
                     type="button"
-                    onClick={() => handleTogglePresetTag(preset)}
+                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleTogglePresetTag(preset)}
                     className={`px-2.5 py-1 rounded text-xs transition-all border duration-300 ${
                       isSelected 
                         ? 'bg-neutral-900 border-[#04ACFF] text-[#04ACFF] shadow-[0_0_8px_rgba(4,172,255,0.15)] font-semibold' 
@@ -362,7 +362,7 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
           <label htmlFor="core-premise-input" className="block font-sc text-xs text-neutral-400 uppercase tracking-widest">Core Premise / Secret Catalyst *</label>
           <div className="flex gap-1">
             {PREMISE_SUGGESTIONS.map((_, idx) => (
-              <button key={idx} type="button" onClick={() => updateIntake('corePremise', PREMISE_SUGGESTIONS[idx])} className="bg-neutral-900 hover:bg-neutral-800 text-[10px] text-neutral-400 px-1.5 py-0.5 rounded font-mono">#{idx + 1}</button>
+              <button key={idx} type="button"  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => updateIntake('corePremise', PREMISE_SUGGESTIONS[idx])} className="bg-neutral-900 hover:bg-neutral-800 text-[10px] text-neutral-400 px-1.5 py-0.5 rounded font-mono">#{idx + 1}</button>
             ))}
           </div>
         </div>

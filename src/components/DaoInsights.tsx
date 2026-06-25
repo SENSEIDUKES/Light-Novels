@@ -325,7 +325,7 @@ export const DaoInsights: React.FC = () => {
 
                 {/* Close Button */}
                 <button
-                  onClick={() => setIsOpen(false)}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setIsOpen(false)}
                   className="absolute top-4 right-4 p-1.5 bg-neutral-950 border border-neutral-850 hover:bg-neutral-900 rounded-md text-neutral-400 hover:text-signal transition-all"
                   aria-label="Close divination overlay"
                 >
@@ -365,7 +365,7 @@ export const DaoInsights: React.FC = () => {
                   {(['all', 'comedic', 'inspirational', 'comforting'] as const).map(cat => (
                     <button
                       key={cat}
-                      onClick={() => {
+                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                         setCategoryFilter(cat);
                         setCopied(false);
                       }}
@@ -467,7 +467,7 @@ export const DaoInsights: React.FC = () => {
                   {/* UNIFIED DESIGNER DAO INSIGHTS BUTTON */}
                   <button
                     type="button"
-                    onClick={seekDaoInsights}
+                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={seekDaoInsights}
                     disabled={isRolling || isAiGenerating}
                     className="w-full px-5 py-3 bg-portal/5 border border-portal/40 hover:border-portal text-portal shadow-[0_0_20px_rgba(4,172,255,0.15)] hover:bg-portal/10 disabled:opacity-50 hover:text-signal rounded-xl font-sans text-sm flex items-center justify-center space-x-2.5 font-bold tracking-wider uppercase transition-all duration-300 transform active:scale-[0.98]"
                     title="Channel cosmic energy from the Dao to seek divine insights and fortune!"

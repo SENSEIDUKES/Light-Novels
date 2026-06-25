@@ -67,7 +67,7 @@ export const PlotControlForm = ({ intake, updateIntake, activeSection, setActive
             <button
               key={level}
               type="button"
-              onClick={() => handleFatePressureChange(level)}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleFatePressureChange(level)}
               className={`px-4 py-2 rounded text-xs font-sc uppercase tracking-widest font-bold transition-all ${
                 intake.fatePressure === level
                   ? level === 'Dao Master' || level === 'Hardcore'

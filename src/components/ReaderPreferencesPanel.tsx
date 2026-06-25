@@ -44,7 +44,7 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
             {(["serif", "sans", "mono"] as const).map((f) => (
               <button
                 key={f}
-                onClick={() => handleUpdatePreference("fontFamily", f)}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleUpdatePreference("fontFamily", f)}
                 className={`px-2 py-1 text-[10px] rounded border text-left flex items-center justify-between transition-all capitalize ${
                   currentPrefs.fontFamily === f
                     ? "bg-portal/10 border-portal text-portal font-bold"
@@ -72,7 +72,7 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
             {(["xs", "sm", "base", "lg", "xl"] as const).map((s) => (
               <button
                 key={s}
-                onClick={() => handleUpdatePreference("fontSize", s)}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleUpdatePreference("fontSize", s)}
                 className={`px-2 py-1 text-[10px] rounded border text-left flex items-center justify-between transition-all uppercase ${
                   currentPrefs.fontSize === s
                     ? "bg-portal/10 border-portal text-portal font-bold"
@@ -95,7 +95,7 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
               (l) => (
                 <button
                   key={l}
-                  onClick={() => handleUpdatePreference("lineHeight", l)}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleUpdatePreference("lineHeight", l)}
                   className={`px-2 py-1 text-[10px] rounded border text-left flex items-center justify-between transition-all capitalize ${
                     currentPrefs.lineHeight === l
                       ? "bg-portal/10 border-portal text-portal font-bold"
@@ -118,7 +118,7 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
             {(["normal", "wide", "double"] as const).map((p) => (
               <button
                 key={p}
-                onClick={() =>
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() =>
                   handleUpdatePreference("paragraphSpacing", p)
                 }
                 className={`px-2 py-1 text-[10px] rounded border text-left flex items-center justify-between transition-all capitalize ${
@@ -146,7 +146,7 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
             ).map((t) => (
               <button
                 key={t}
-                onClick={() => handleUpdatePreference("themeOverride", t)}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleUpdatePreference("themeOverride", t)}
                 className={`px-2 py-1 text-[10px] rounded border text-left flex items-center justify-between transition-all capitalize ${
                   currentPrefs.themeOverride === t
                     ? "bg-portal/10 border-portal text-portal font-bold"
@@ -179,7 +179,7 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
         <div className="flex flex-wrap items-center justify-center gap-2">
           {/* Mute button */}
           <button
-            onClick={() => handleMuteToggle(!isMuted)}
+             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleMuteToggle(!isMuted)}
             className={`px-3 py-1.5 text-[10px] rounded border flex items-center gap-1.5 transition-all uppercase font-sc font-bold tracking-wider ${
               isMuted
                 ? "bg-red-950/20 border-red-900/40 text-red-500 hover:bg-neutral-900"
@@ -246,7 +246,7 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
       {onToggleLegend && (
         <div className="border-t border-neutral-900/60 mt-4 pt-3 max-w-2xl mx-auto flex justify-end">
           <button
-            onClick={onToggleLegend}
+             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={onToggleLegend}
             className={`px-3 py-1 text-[10px] rounded border flex items-center gap-1.5 transition-all uppercase font-mono tracking-wider cursor-pointer ${
               showLegend
                 ? "bg-portal/10 border-portal text-portal hover:bg-portal/20"

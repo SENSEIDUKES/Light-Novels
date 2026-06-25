@@ -129,7 +129,7 @@ export const DestinyChoicePanel: React.FC<DestinyChoicePanelProps> = ({
           
           <div className="p-4 border-t border-neutral-900 bg-void flex justify-between gap-4">
             <button 
-              onClick={onDiscard}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={onDiscard}
               className="px-6 py-2.5 rounded font-mono text-[11px] uppercase tracking-wider bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-signal transition-colors border border-neutral-800"
             >
               Discard Traces

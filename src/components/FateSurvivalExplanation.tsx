@@ -147,7 +147,7 @@ export const FateSurvivalExplanation: React.FC<{ compact?: boolean }> = ({ compa
               <div key={fate.type} className="flex flex-col">
                 <button
                   type="button"
-                  onClick={() => setSelectedFate(isSelected ? null : index)}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setSelectedFate(isSelected ? null : index)}
                   className={`w-full text-left p-2.5 rounded-lg border bg-gradient-to-r transition-all duration-300 flex items-center justify-between ${
                     isSelected 
                       ? `${fate.color} shadow-[0_0_12px_rgba(139,0,0,0.15)] scale-[1.01]` 

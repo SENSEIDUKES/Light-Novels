@@ -151,7 +151,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
       {/* Navigation tabs */}
       <div className="grid grid-cols-4 gap-1 p-1 bg-neutral-900/60 rounded mb-4" id="akasha-tab-row">
         <button
-          onClick={() => setActiveTab('status')}
+           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setActiveTab('status')}
           className={`py-1.5 text-center text-xs rounded transition-all font-sc uppercase tracking-wider ${
             activeTab === 'status' ? 'bg-void text-portal font-semibold shadow-sm' : 'text-neutral-500 hover:text-neutral-300'
           }`}
@@ -228,7 +228,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                 Encountered Living Spirits ({memory.characters.length})
               </span>
               <button
-                onClick={() => setShowAddChar(!showAddChar)}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowAddChar(!showAddChar)}
                 className="text-xs text-portal hover:text-signal transition-colors flex items-center space-x-1"
               >
                 <UserPlus size={12} />
@@ -273,7 +273,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                 <div className="flex justify-between items-center pt-1">
                   <button
                     type="button"
-                    onClick={() => setShowAddChar(false)}
+                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowAddChar(false)}
                     className="text-neutral-500 hover:text-neutral-300"
                   >
                     Cancel
@@ -321,7 +321,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                       <div className="flex items-center space-x-1 flex-shrink-0">
                         <button
                           title={char.status === 'alive' ? "Click to set Deceased" : "Click to set Alive"}
-                          onClick={() => handleToggleCharStatus(char.name)}
+                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleToggleCharStatus(char.name)}
                           className={`text-[9px] px-1 py-0.5 rounded ${
                             char.status === 'alive' ? 'bg-green-950/40 text-green-400 border border-green-900' : 'bg-red-950/40 text-red-500 border border-red-950'
                           }`}
@@ -352,7 +352,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                 Immutable World Precepts ({memory.worldRules.length})
               </span>
               <button
-                onClick={() => setShowAddLaw(!showAddLaw)}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowAddLaw(!showAddLaw)}
                 className="text-xs text-portal hover:text-signal transition-colors flex items-center space-x-1"
               >
                 <UserPlus size={12} />
@@ -373,7 +373,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                 <div className="flex justify-end space-x-2 pt-1 text-xs">
                   <button
                     type="button"
-                    onClick={() => setShowAddLaw(false)}
+                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowAddLaw(false)}
                     className="text-neutral-500 hover:text-neutral-300"
                   >
                     Cancel
@@ -399,7 +399,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                       <p className="font-serif italic">{typeof rule === 'object' ? JSON.stringify(rule) : String(rule)}</p>
                     </div>
                     <button
-                      onClick={() => setDeletePrompt({ id: idx, type: 'law' })}
+                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setDeletePrompt({ id: idx, type: 'law' })}
                       className="text-neutral-700 hover:text-red-500 flex-shrink-0 transition-colors opacity-0 group-hover:opacity-100"
                       title="Shatter Law"
                     >
@@ -422,7 +422,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                   Open Karma Bonds / Plots ({memory.unresolvedPlotThreads.length})
                 </span>
                 <button
-                  onClick={() => setShowAddThread(!showAddThread)}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowAddThread(!showAddThread)}
                   className="text-xs text-portal hover:text-signal transition-colors flex items-center space-x-1"
                 >
                   <UserPlus size={12} />
@@ -443,7 +443,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                   <div className="flex justify-end space-x-2 pt-1 text-xs">
                     <button
                       type="button"
-                      onClick={() => setShowAddThread(false)}
+                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowAddThread(false)}
                       className="text-neutral-500 hover:text-neutral-300"
                     >
                       Cancel
@@ -469,7 +469,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                         <span className="truncate" title={typeof thread === 'object' ? JSON.stringify(thread.provenance, null, 2) : ''}>{typeof thread === 'object' && 'description' in thread ? thread.description : String(thread)}</span>
                       </div>
                       <button
-                        onClick={() => handleResolveThread(idx)}
+                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleResolveThread(idx)}
                         className="text-[10px] text-green-400 bg-green-950/20 px-1.5 py-0.5 rounded hover:bg-green-950/60 border border-green-900/40 flex-shrink-0 transition-all uppercase tracking-wider font-semibold"
                         title="Cut Karma / Achieve"
                       >
@@ -498,7 +498,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                       </div>
                       <div className="flex items-center space-x-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
-                          onClick={() => handleUnresolveThread(idx)}
+                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleUnresolveThread(idx)}
                           className="text-[9px] text-portal hover:underline uppercase tracking-wider"
                           title="Reopen Threat"
                         >
@@ -546,7 +546,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                   Type <span className="text-red-400 font-bold">DELETE</span> to confirm{' '}
                   <button
                     type="button"
-                    onClick={() => setDeleteInput('DELETE')}
+                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setDeleteInput('DELETE')}
                     className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-sc font-bold border border-portal/30 bg-portal/10 text-portal hover:bg-portal hover:text-black rounded transition-all duration-300 cursor-pointer"
                     title="Auto-fill delete text"
                   >
@@ -564,7 +564,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
 
               <div className="flex justify-end space-x-3">
                 <button
-                  onClick={() => {
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                     setDeletePrompt(null);
                     setDeleteInput('');
                   }}

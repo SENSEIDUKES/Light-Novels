@@ -5,6 +5,7 @@ import {
 import { Character, Location, StoryMemory, StoryWorld } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AgentBadge } from '../AgentBadge';
+import { AGENTS } from '../../lib/agents';
 
 const handleDownload = async (url: string, filename: string) => {
   try {
@@ -96,7 +97,7 @@ export function LivingCodexCharacters({
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setCharViewStyle('cards')}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setCharViewStyle('cards')}
                   className={`px-3 py-1 text-[10px] font-mono rounded border capitalize transition-all ${
                     charViewStyle === 'cards' ? 'bg-portal/10 text-portal border-portal-300' : 'text-neutral-500 border-neutral-900 hover:text-neutral-300'
                   }`}
@@ -148,7 +149,7 @@ export function LivingCodexCharacters({
                                   className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500 brightness-95"
                                 />
                                 <button
-                                  onClick={(e) => {
+                                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={(e) => {
                                     e.stopPropagation();
                                     handleDownload(displayedImage, `${char.name.toLowerCase().replace(/\s+/g, '_')}_portrait.png`);
                                   }}
@@ -238,7 +239,7 @@ export function LivingCodexCharacters({
                                 </div>
                               )}
                               <button
-                                onClick={() => handleAwakenCardImage(char.id, char.isBeast ? 'beast' : 'character', char as any)}
+                                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleAwakenCardImage(char.id, char.isBeast ? 'beast' : 'character', char as any)}
                                 disabled={isGenerating || !canGenerate}
                                 className={`w-full py-1.5 rounded text-[9px] uppercase font-mono tracking-widest flex items-center justify-center space-x-1 border font-bold transition-all ${
                                   isGenerating
@@ -329,7 +330,7 @@ export function LivingCodexCharacters({
                         </div>
                       </div>
                       <div className="flex justify-end space-x-2 pt-1">
-                        <button type="button" onClick={() => setShowAddLocationForm(false)} className="text-neutral-500">Cancel</button>
+                        <button type="button"  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowAddLocationForm(false)} className="text-neutral-500">Cancel</button>
                         <button type="submit" className="bg-portal text-void font-bold px-3 py-1 rounded font-sc uppercase text-[10px] tracking-wider">Formulate</button>
                       </div>
                     </form>
@@ -364,7 +365,7 @@ export function LivingCodexCharacters({
                                     className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500 brightness-90"
                                   />
                                   <button
-                                    onClick={(e) => {
+                                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={(e) => {
                                       e.stopPropagation();
                                       handleDownload(displayedImage, `${loc.name.toLowerCase().replace(/\s+/g, '_')}_landscape.png`);
                                     }}
@@ -437,7 +438,7 @@ export function LivingCodexCharacters({
                                 )}
                                 <div className="flex items-center justify-between gap-2">
                                   <button
-                                    onClick={() => setDeletePrompt({ id: loc.id, type: 'location', name: loc.name })}
+                                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setDeletePrompt({ id: loc.id, type: 'location', name: loc.name })}
                                     className="text-[9px] text-neutral-600 hover:text-human uppercase font-mono flex-shrink-0"
                                   >
                                     Purge Node
@@ -544,7 +545,7 @@ export function LivingCodexCharacters({
                             </div>
                           </div>
                           <div className="flex justify-end space-x-2 pt-2">
-                            <button onClick={() => setEditingCharId(null)} className="text-neutral-500">Abort</button>
+                            <button  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setEditingCharId(null)} className="text-neutral-500">Abort</button>
                             <button onClick={() => handleSaveCharEdit()} className="bg-portal text-void px-2 py-0.5 rounded font-bold">Save</button>
                           </div>
                         </div>
@@ -552,7 +553,7 @@ export function LivingCodexCharacters({
                         <div className="border-t border-neutral-900 mt-4 pt-3 flex justify-between items-center text-[10px]">
                           <span className="text-neutral-500">Relation to MC: <strong className="text-neutral-300 font-medium">{char.relationshipToMC || 'Neutral'}</strong></span>
                           <button
-                            onClick={() => {
+                             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                               setEditingCharId(char.id);
                               setEditingCharData({
                                 powerLevel: char.powerLevel || '',

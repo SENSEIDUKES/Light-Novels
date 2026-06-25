@@ -21,7 +21,7 @@ export const CustomFactionsForm = ({ intake, updateIntake, activeSection, setAct
           <div key={faction.id} className="border border-neutral-800 bg-neutral-950/50 p-4 rounded-lg space-y-3 relative">
             <div className="flex justify-between items-center mb-2">
               <h4 className="text-signal font-sc text-xs uppercase tracking-widest font-bold">Faction {index + 1}</h4>
-              <button type="button" onClick={() => {
+              <button type="button"  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                 const newFactions = [...(intake.customFactions || [])];
                 newFactions.splice(index, 1);
                 updateIntake('customFactions', newFactions);
@@ -74,7 +74,7 @@ export const CustomFactionsForm = ({ intake, updateIntake, activeSection, setAct
         {(!intake.customFactions || intake.customFactions.length < 5) && (
           <button
             type="button"
-            onClick={() => {
+             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
               const newFactions = [...(intake.customFactions || []), { id: crypto.randomUUID(), name: '', role: '', powerLevel: '', alignment: '', connectionToMC: '' }];
               updateIntake('customFactions', newFactions);
             }}

@@ -472,20 +472,20 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
         <div className="flex flex-wrap items-center gap-4 bg-[#030303] p-5 rounded-xl border border-neutral-900 shadow-inner">
           <div className="flex items-center space-x-2 border border-neutral-800 px-4 py-2 rounded-lg bg-black">
             {syncStatus === 'offline' ? (
-              <button onClick={() => storyStorage.performSync()} title="Offline / Local Only. Click to sync" className="flex items-center space-x-2 hover:text-portal transition-colors"><CloudOff size={14} className="text-neutral-600" /> <span className="text-[11px] font-sans text-neutral-500 uppercase tracking-widest">Offline Flow</span></button>
+              <button  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => storyStorage.performSync()} title="Offline / Local Only. Click to sync" className="flex items-center space-x-2 hover:text-portal transition-colors"><CloudOff size={14} className="text-neutral-600" /> <span className="text-[11px] font-sans text-neutral-500 uppercase tracking-widest">Offline Flow</span></button>
             ) : syncStatus === 'syncing' ? (
               <span title="Syncing..." className="flex items-center space-x-2"><RefreshCw size={14} className="text-portal animate-spin" /> <span className="text-[11px] font-sans text-portal uppercase tracking-widest">Channeling...</span></span>
             ) : syncStatus === 'error' ? (
-              <button onClick={() => storyStorage.performSync()} title="Sync Error. Click to retry" className="flex items-center space-x-2 hover:text-portal transition-colors"><CloudOff size={14} className="text-human" /> <span className="text-[11px] font-sans text-human uppercase tracking-widest">Disharmony</span></button>
+              <button  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => storyStorage.performSync()} title="Sync Error. Click to retry" className="flex items-center space-x-2 hover:text-portal transition-colors"><CloudOff size={14} className="text-human" /> <span className="text-[11px] font-sans text-human uppercase tracking-widest">Disharmony</span></button>
             ) : (
-              <button onClick={() => storyStorage.performSync()} title="Synced to Firebase. Click to force sync" className="flex items-center space-x-2 hover:text-portal transition-colors"><Cloud size={14} className="text-portal" /> <span className="text-[11px] font-sans text-portal uppercase tracking-widest">Harmonized</span></button>
+              <button  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => storyStorage.performSync()} title="Synced to Firebase. Click to force sync" className="flex items-center space-x-2 hover:text-portal transition-colors"><Cloud size={14} className="text-portal" /> <span className="text-[11px] font-sans text-portal uppercase tracking-widest">Harmonized</span></button>
             )}
           </div>
 
           {/* Dao Connection Badge */}
           <button
             type="button"
-            onClick={checkDaoConnection}
+             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={checkDaoConnection}
             className={`flex items-center space-x-1.5 px-4 py-2 rounded-lg text-[11px] uppercase font-bold transition-all duration-300 border border-neutral-800 bg-black shrink-0 font-sc tracking-wider hover:scale-105 select-none ${
               daoStatus === 'connected'
                 ? 'border-emerald-500/25 text-emerald-400 hover:bg-emerald-950/20 shadow-[0_0_12px_rgba(16,185,129,0.06)]'
@@ -524,7 +524,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
             <AudioWidget />
             <button
               type="button"
-              onClick={() => setIsSettingsOpen(true)}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setIsSettingsOpen(true)}
               className="px-4 py-2 bg-black border border-neutral-850 hover:border-portal/50 text-neutral-400 hover:text-portal transition-all rounded-lg font-sc text-[11px] flex items-center space-x-2 font-bold group"
               title="Aether Router Configuration"
             >
@@ -533,7 +533,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
             </button>
             <button
               type="button"
-              onClick={() => useAppStore.getState().setIsShortcutsOpen(true)}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => useAppStore.getState().setIsShortcutsOpen(true)}
               className="px-4 py-2 bg-black border border-neutral-850 hover:border-portal/50 text-neutral-400 hover:text-portal transition-all rounded-lg font-sc text-[11px] flex items-center space-x-2 font-bold group"
               title="Shortcuts Manual (or press ? key)"
             >
@@ -567,7 +567,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
 
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto flex-wrap">
             <button
-              onClick={handleRunAudit}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleRunAudit}
               disabled={isAuditing}
               className="flex items-center justify-center space-x-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-portal border border-neutral-800 hover:border-portal/50 px-5 py-3 rounded-lg text-[11px] font-sc font-bold uppercase tracking-wider disabled:opacity-20 disabled:cursor-not-allowed transition-all group"
             >
@@ -575,10 +575,10 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
               <span>Audit Sync Health</span>
             </button>
 
-            <label className="flex items-center justify-center space-x-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-portal border border-neutral-800 hover:border-portal/50 px-5 py-3 rounded-lg text-[11px] font-sc font-bold uppercase tracking-wider cursor-pointer transition-all group">
+            <label className="flex items-center justify-center space-x-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-portal border border-neutral-800 hover:border-portal/50 px-5 py-3 rounded-lg text-[11px] font-sc font-bold uppercase tracking-wider cursor-pointer transition-all group" htmlFor="a11y-id-1">
               <Upload size={14} className="text-portal group-hover:-translate-y-0.5 transition-transform" />
               <span>Import World Scroll</span>
-              <input 
+              <input id="a11y-id-1" 
                 type="file" 
                 accept=".json" 
                 onChange={handleImportLibrary} 
@@ -587,7 +587,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
             </label>
 
             <button
-              onClick={handleExportLibrary}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleExportLibrary}
               disabled={stories.length === 0}
               className="flex items-center justify-center space-x-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-signal border border-neutral-800 hover:border-human/50 px-5 py-3 rounded-lg text-[11px] font-sc font-bold uppercase tracking-wider disabled:opacity-20 disabled:cursor-not-allowed transition-all group"
             >
@@ -610,7 +610,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
              {auditResult.missingChapters.length > 0 && (
                  <div className="pt-2 border-t border-neutral-800 mt-2">
                      <div className="text-human mb-2">Warning: {auditResult.missingChapters.length} chapters are marked as generated but lack local cache content.</div>
-                     <button onClick={handleRecover} disabled={isAuditing} className="px-4 py-1.5 bg-human/10 text-human border border-human/30 hover:bg-human/20 rounded uppercase tracking-widest font-sc cursor-pointer">
+                     <button  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleRecover} disabled={isAuditing} className="px-4 py-1.5 bg-human/10 text-human border border-human/30 hover:bg-human/20 rounded uppercase tracking-widest font-sc cursor-pointer">
                          Attempt Cloud Recovery
                      </button>
                  </div>
@@ -642,7 +642,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
             Celestial Tools
           </h2>
           {currentUser && (
-            <button onClick={onLogout} className="px-5 py-2 border border-human/30 text-human hover:bg-human/10 hover:border-human hover:text-signal rounded-full text-[11px] font-sc font-bold tracking-wider transition-all flex items-center gap-2">
+            <button  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={onLogout} className="px-5 py-2 border border-human/30 text-human hover:bg-human/10 hover:border-human hover:text-signal rounded-full text-[11px] font-sc font-bold tracking-wider transition-all flex items-center gap-2">
               <LogOut size={14} /> Sever Link
             </button>
           )}
@@ -665,7 +665,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                 </p>
               </div>
               <button 
-                onClick={handleLogin} 
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleLogin} 
                 className="px-8 py-3.5 bg-portal/10 border border-portal/50 text-portal hover:bg-portal hover:text-void rounded-full font-sc uppercase tracking-widest text-[12px] font-bold shadow-[0_0_20px_rgba(4,172,255,0.2)] hover:shadow-[0_0_30px_rgba(4,172,255,0.4)] transition-all"
               >
                 Link Spirit Realm
@@ -700,7 +700,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                   
                   {/* Cultivator Portrait Generator Button */}
                   <button
-                    onClick={() => setShowPortraitModal(true)}
+                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowPortraitModal(true)}
                     className="mt-3 px-3 py-1.5 border border-portal/30 hover:border-portal text-portal font-sc text-[10px] font-bold uppercase tracking-widest rounded-lg bg-portal/5 hover:bg-portal/10 transition-all flex items-center gap-1.5 shadow-[0_0_15px_rgba(4,172,255,0.05)] hover:shadow-[0_0_20px_rgba(4,172,255,0.15)] group"
                     title="Divine Mirror: Cast your mortal likeness into the cosmic loom"
                   >
@@ -758,7 +758,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                         <label htmlFor="user-displayname" className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 font-sc">Display Name</label>
                         {!isEditing && (
                           <button 
-                            onClick={() => setIsEditing(true)} 
+                             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setIsEditing(true)} 
                             className="text-[10px] uppercase tracking-widest text-portal hover:text-portal/80 font-sc flex items-center gap-1 transition-colors"
                           >
                             Modify
@@ -801,7 +801,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                                     key={tier.rank}
                                     type="button"
                                     disabled={!isUnlocked}
-                                    onClick={() => {
+                                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                                       if (isUnlocked) {
                                         setFormData(prev => ({ ...prev, displayNameColor: tier.colorHex }));
                                       }
@@ -871,7 +871,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                                       <button
                                         type="button"
                                         disabled={!isDaoMaster}
-                                        onClick={() => {
+                                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                                           if (isDaoMaster) {
                                             colorInputRef.current?.click();
                                           }
@@ -1024,7 +1024,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                   <div className="flex flex-col sm:items-end justify-center text-xs text-neutral-400 font-mono space-y-2 relative z-10">
                     {isCracked ? (
                       <button
-                        onClick={handleRepairPillar}
+                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleRepairPillar}
                         className="px-4 py-2 bg-human/20 hover:bg-human/30 text-human font-bold text-[10px] font-sc uppercase tracking-widest border border-human/50 rounded-lg transition-colors flex items-center gap-2"
                       >
                         <Zap size={12} className="text-human" />
@@ -1205,6 +1205,9 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                         return (
                           <div
                             key={art.id}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setInspectArtifact(art); } }}
                             className={`border rounded-xl p-4 flex flex-col justify-between transition-all duration-300 relative group cursor-pointer ${borderClass} ${bgGlowClass}`}
                             onClick={() => setInspectArtifact(art)}
                           >
@@ -1258,10 +1261,19 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
 
               {/* Detailed Artifact Inspect Modal */}
               {inspectArtifact && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setInspectArtifact(null)}>
+                <div 
+                  className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" 
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    if (e.target === e.currentTarget) setInspectArtifact(null);
+                  }}
+                  onKeyDown={(e) => { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') setInspectArtifact(null); }}
+                >
                   <div 
                     className="w-full max-w-md bg-void border border-neutral-900 rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(4,172,255,0.1)] relative"
-                    onClick={(e) => e.stopPropagation()}
+                    role="dialog"
+                    aria-modal="true"
                   >
                     {/* Top glow indicator */}
                     <div className={`absolute top-0 inset-x-0 h-[2px] ${
@@ -1362,7 +1374,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                       <div className="flex gap-3 pt-2">
                         <button
                           type="button"
-                          onClick={() => {
+                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                             handleAttuneArtifact(inspectArtifact.id);
                           }}
                           className={`flex-1 py-2.5 border rounded-full font-sc uppercase tracking-widest text-[11px] font-bold transition-all ${
@@ -1440,7 +1452,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
               <div className="pt-8 border-t border-neutral-900/50 mt-8">
                 <button
                   type="button"
-                  onClick={() => setShowAdvanced(!showAdvanced)}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowAdvanced(!showAdvanced)}
                   className="flex items-center justify-between w-full text-[11px] font-sc uppercase font-bold tracking-widest text-portal hover:text-signal transition-all py-2"
                 >
                   <span>{showAdvanced ? "▲ Hide Advanced Settings" : "▼ Show Advanced Settings (Admin)"}</span>
@@ -1454,7 +1466,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                     </p>
                     <div className="flex flex-wrap gap-4">
                       <button
-                        onClick={() => setIsSettingsOpen(true)}
+                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setIsSettingsOpen(true)}
                         className="px-5 py-2 bg-black border border-neutral-850 hover:border-portal/50 text-neutral-400 hover:text-portal transition-all rounded-lg font-sc text-xs flex items-center space-x-2 font-bold group"
                         title="Aether Router"
                       >
@@ -1470,7 +1482,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                 {isEditing ? (
                   <>
                     <button 
-                      onClick={handleSave} 
+                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleSave} 
                       disabled={isLoading}
                       className="px-8 py-2.5 bg-portal border border-portal text-void font-bold uppercase text-[11px] tracking-widest rounded-full hover:bg-portal/90 shadow-[0_0_15px_rgba(4,172,255,0.3)] transition-all flex items-center gap-2"
                     >
@@ -1514,7 +1526,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                 </p>
               </div>
               <button 
-                onClick={() => {
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                   setShowPortraitModal(false);
                   setPortraitUploadFile(null);
                   setPortraitUploadBase64('');
@@ -1592,7 +1604,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                         className="w-32 h-32 object-cover rounded-full border border-neutral-800/80 grayscale filter group-hover:grayscale-0 transition-all duration-500 animate-[pulse_3s_infinite]"
                       />
                       <button 
-                        onClick={() => {
+                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                           setPortraitUploadFile(null);
                           setPortraitUploadBase64('');
                         }}
@@ -1721,7 +1733,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                 {generatedPortraitUrl ? (
                   <>
                     <button 
-                      onClick={handleApplyPortrait}
+                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleApplyPortrait}
                       className="flex-1 py-3 bg-portal hover:bg-portal/90 text-void font-sc font-bold uppercase text-[11px] tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(4,172,255,0.25)] flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Save size={13} /> Attune as Avatar

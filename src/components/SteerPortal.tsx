@@ -200,7 +200,7 @@ export default function SteerPortal({
             {!isLoading && (
               <button
                 type="button"
-                onClick={fetchDirections}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={fetchDirections}
                 disabled={isSteering}
                 className="text-[10px] font-sc uppercase tracking-wider text-portal hover:text-signal transition-colors flex items-center space-x-1 border border-portal/20 bg-portal/5 px-2.5 py-1 rounded hover:bg-portal/10"
               >
@@ -242,7 +242,7 @@ export default function SteerPortal({
                   <button
                     key={card.id}
                     type="button"
-                    onClick={() => handleSelectCard(card)}
+                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleSelectCard(card)}
                     disabled={isSteering}
                     className={`text-left p-5 rounded border bg-neutral-950/80 hover:bg-neutral-950 transition-all duration-300 relative flex flex-col justify-between min-h-[144px] ${theme.border} ${
                       isSelected 
@@ -291,7 +291,7 @@ export default function SteerPortal({
               </p>
               <button
                 type="button"
-                onClick={fetchDirections}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={fetchDirections}
                 className="font-sc uppercase tracking-wider text-[10px] text-portal hover:text-signal transition-colors underline"
               >
                 Reconnect to Divine Stream

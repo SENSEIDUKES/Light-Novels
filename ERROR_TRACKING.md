@@ -46,4 +46,4 @@ We use [Sentry](https://sentry.io/) (`@sentry/react` for the frontend client) to
 
 ## Backend Logging
 
-In `server.ts`, we currently handle errors via `console.error()`. For production environments, these standard out streams should be aggregated using a logging provider (e.g., Datadog, Google Cloud Logging, or Sentry Node SDK).
+In `src/server.ts`, we currently handle errors via `console.error()`. For production environments, these standard out streams should be aggregated using a logging provider (e.g., Datadog, Google Cloud Logging, or Sentry Node SDK).

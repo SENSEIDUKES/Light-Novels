@@ -97,7 +97,7 @@ export function LivingCodexFactions({
             />
           </div>
           <div className="flex justify-end space-x-2 pt-1 font-mono">
-            <button type="button" onClick={() => setShowAddFactionForm(false)} className="text-neutral-500">Cancel</button>
+            <button type="button"  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowAddFactionForm(false)} className="text-neutral-500">Cancel</button>
             <button type="submit" className="bg-portal text-void px-3 py-1 font-bold rounded">Inscribe</button>
           </div>
         </form>
@@ -136,7 +136,7 @@ export function LivingCodexFactions({
                       {fac.status}
                     </span>
                     <button
-                      onClick={() => setDeletePrompt({ id: fac.id, type: 'faction', name: fac.name })}
+                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setDeletePrompt({ id: fac.id, type: 'faction', name: fac.name })}
                       className="text-neutral-600 hover:text-human text-[9px] font-mono"
                     >
                       Dismantle

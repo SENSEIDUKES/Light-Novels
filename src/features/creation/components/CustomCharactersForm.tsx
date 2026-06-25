@@ -21,7 +21,7 @@ export const CustomCharactersForm = ({ intake, updateIntake, activeSection, setA
           <div key={char.id} className="border border-neutral-800 bg-neutral-950/50 p-4 rounded-lg space-y-3 relative">
             <div className="flex justify-between items-center mb-2">
               <h4 className="text-signal font-sc text-xs uppercase tracking-widest font-bold">Character {index + 1}</h4>
-              <button type="button" onClick={() => {
+              <button type="button"  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                 const newChars = [...(intake.customCharacters || [])];
                 newChars.splice(index, 1);
                 updateIntake('customCharacters', newChars);
@@ -98,7 +98,7 @@ export const CustomCharactersForm = ({ intake, updateIntake, activeSection, setA
         {(!intake.customCharacters || intake.customCharacters.length < 8) && (
           <button
             type="button"
-            onClick={() => {
+             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
               const newChars = [...(intake.customCharacters || []), { id: crypto.randomUUID(), name: '', age: '', skinTone: '', eyeColor: '', powerType: '', rankLevel: '', role: '', connectionToMC: '' }];
               updateIntake('customCharacters', newChars);
             }}

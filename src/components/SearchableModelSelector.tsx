@@ -67,12 +67,12 @@ export const SearchableModelSelector: React.FC<SearchableModelSelectorProps> = (
   return (
     <div className="relative mt-2" ref={dropdownRef}>
       <div className="flex items-center justify-between mb-1">
-        <label className="text-[10px] font-mono text-neutral-400 capitalize">{label}</label>
+        <span className="text-[10px] font-mono text-neutral-400 capitalize">{label}</span>
         <div className="flex items-center space-x-2">
           {isLoading && <span className="text-[9px] font-mono text-neutral-500 animate-pulse">Syncing...</span>}
           <button
             type="button"
-            onClick={onRefresh}
+             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={onRefresh}
             title="Refresh list of models from servers"
             className={`text-[9px] font-mono text-neutral-500 hover:${accentColorClass === 'portal' ? 'text-portal' : 'text-human'} transition-colors uppercase`}
           >
@@ -118,7 +118,7 @@ export const SearchableModelSelector: React.FC<SearchableModelSelectorProps> = (
             </span>
             <button
               type="button"
-              onClick={() => setIsOpen(false)}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setIsOpen(false)}
               className="text-[9px] font-mono text-neutral-500 hover:text-neutral-300 px-1"
             >
               [close]

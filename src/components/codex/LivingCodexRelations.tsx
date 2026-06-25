@@ -199,7 +199,7 @@ export function LivingCodexRelations({
                       <div className="border-b border-neutral-900 pb-2 flex items-center justify-between">
                         <span className="text-[9px] text-portal font-mono uppercase font-bold tracking-widest">Active Resonance details</span>
                         <button 
-                          onClick={() => setSelectedNodeChar(null)}
+                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setSelectedNodeChar(null)}
                           className="text-[9px] text-neutral-600 hover:text-neutral-400 capitalize"
                         >
                           Clear
@@ -210,7 +210,7 @@ export function LivingCodexRelations({
                         <div className="h-28 w-full rounded overflow-hidden border border-neutral-900 relative group/rel">
                           <img src={selectedNodeChar.imageUrl} alt={selectedNodeChar.name} className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" />
                           <button
-                            onClick={(e) => {
+                             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={(e) => {
                               e.stopPropagation();
                               handleDownload(selectedNodeChar.imageUrl, `${selectedNodeChar.name.toLowerCase().replace(/\s+/g, '_')}_portrait.png`);
                             }}
@@ -347,7 +347,7 @@ export function LivingCodexRelations({
                     </div>
 
                     <button
-                      onClick={handleAddCustomRelationship}
+                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleAddCustomRelationship}
                       className="w-full py-2 bg-portal text-void text-[10px] uppercase font-sc font-bold tracking-widest rounded hover:brightness-115 transition-all"
                     >
                       Bind Thread
@@ -395,7 +395,7 @@ export function LivingCodexRelations({
                           </p>
                         </div>
                         <button
-                          onClick={() => setDeletePrompt({ id: bond.id, type: 'relationship' })}
+                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setDeletePrompt({ id: bond.id, type: 'relationship' })}
                           className="p-1 px-1.5 text-neutral-500 hover:text-human hover:bg-neutral-900 rounded transition-colors"
                           title="Purge link"
                         >

@@ -38,7 +38,7 @@ export const CodexSheetOverlay: React.FC<{
             <div className="w-12 h-1.5 bg-neutral-800 rounded-full mx-auto my-2 sm:hidden flex-shrink-0" />
             
             <div className="flex items-center space-x-2 bg-black/60 border border-neutral-900 px-3 py-3 sm:px-4 sm:py-2 rounded shadow-md backdrop-blur-md mb-2 sm:mb-6 sticky top-0 z-30 mx-4 mt-2 sm:mt-6 shrink-0">
-              <button onClick={() => setIsCodexSheetOpen(false)} className="text-neutral-500 hover:text-portal transition-colors flex-shrink-0">
+              <button  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setIsCodexSheetOpen(false)} className="text-neutral-500 hover:text-portal transition-colors flex-shrink-0">
                 <ArrowLeft size={18} />
               </button>
               <span className="text-portal font-display text-sm sm:text-lg font-bold truncate">{activeStory.title}</span>

@@ -163,7 +163,7 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
               <h2 className="title-sc text-lg text-signal tracking-widest">Fate Branch Timeline</h2>
             </div>
             <button
-              onClick={onClose}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={onClose}
               aria-label="Close timeline"
               className="text-neutral-500 hover:text-signal transition-colors p-2"
             >
@@ -243,7 +243,7 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
                   >
                     <div className="flex flex-col items-center justify-center p-2">
                        <button
-                         onClick={() => {
+                          tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                            setActiveStoryId(node.story.id);
                            onClose();
                            setCurrentScreen('reader');

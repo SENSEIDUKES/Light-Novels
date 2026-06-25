@@ -56,7 +56,7 @@ export const CosmicBookmarksPanel: React.FC<CosmicBookmarksPanelProps> = ({
                   </div>
                 </div>
                 <button
-                  onClick={() => setShowBookmarksPanel(false)}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowBookmarksPanel(false)}
                   className="p-1.5 text-neutral-400 hover:text-signal rounded border border-neutral-900 hover:border-neutral-850 transition-all font-sc text-[10px] uppercase tracking-wider"
                 >
                   Close
@@ -132,7 +132,7 @@ export const CosmicBookmarksPanel: React.FC<CosmicBookmarksPanelProps> = ({
                         {/* Controls row */}
                         <div className="flex items-center justify-between pt-2 border-t border-neutral-900/60">
                           <button
-                            onClick={() =>
+                             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() =>
                               handleRemoveBookmark(
                                 bookmark.chapterNumber,
                                 bookmark.paragraphIndex,
@@ -146,7 +146,7 @@ export const CosmicBookmarksPanel: React.FC<CosmicBookmarksPanelProps> = ({
                           </button>
 
                           <button
-                            onClick={() => handleJumpToBookmark(bookmark)}
+                             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleJumpToBookmark(bookmark)}
                             className="px-3 py-1 bg-portal/11 hover:bg-portal text-portal hover:text-void text-[10px] font-sc font-bold uppercase tracking-wider rounded transition-all flex items-center space-x-1.5"
                           >
                             <span>Venture (Jump)</span>

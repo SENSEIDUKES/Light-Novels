@@ -69,7 +69,7 @@ export const ModalsAndToasts: React.FC = () => {
     if (unlockedArtifactAlert) {
       if (!isArtifactRevealed) {
         revealTimer = setTimeout(() => {
-          vibrate('heavy');
+          vibrate('heavyTap');
           setIsArtifactRevealed(true);
         }, 3000);
       } else {
@@ -225,7 +225,7 @@ export const ModalsAndToasts: React.FC = () => {
                         <button
                           key={prov}
                           type="button"
-                          onClick={() => handleUpdateProvider('storyMaker', prov)}
+                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleUpdateProvider('storyMaker', prov)}
                           className={`py-1 text-[9px] font-bold uppercase font-sc tracking-wider border rounded transition-all ${
                             routingConfig.storyMaker.provider === prov
                               ? 'bg-portal/10 border-portal text-portal'
@@ -265,7 +265,7 @@ export const ModalsAndToasts: React.FC = () => {
                         <button
                           key={prov}
                           type="button"
-                          onClick={() => handleUpdateProvider('imageGenerator', prov)}
+                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleUpdateProvider('imageGenerator', prov)}
                           className={`py-1.5 px-0.5 text-[9px] font-bold uppercase font-sc tracking-wider border rounded transition-all leading-tight ${
                             routingConfig.imageGenerator.provider === prov
                               ? 'bg-human/10 border-human text-human'
@@ -381,7 +381,7 @@ export const ModalsAndToasts: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => setIsSettingsOpen(false)}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setIsSettingsOpen(false)}
                   className="w-full py-2 bg-void border border-portal text-portal font-sc font-bold uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-all text-xs"
                 >
                   Align Router Meridian
@@ -419,7 +419,7 @@ export const ModalsAndToasts: React.FC = () => {
                   Type <span className="text-red-400 font-bold">DELETE</span> to confirm{' '}
                   <button
                     type="button"
-                    onClick={() => {
+                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                       vibrate('softTap');
                       setDeleteText('DELETE');
                     }}
@@ -440,7 +440,7 @@ export const ModalsAndToasts: React.FC = () => {
 
               <div className="flex justify-end space-x-3">
                 <button
-                  onClick={cancelDeleteStory}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={cancelDeleteStory}
                   className="px-4 py-2 bg-void border border-neutral-700 text-neutral-300 rounded font-sc text-xs hover:bg-neutral-800 transition-colors"
                 >
                   Cancel
@@ -497,7 +497,7 @@ export const ModalsAndToasts: React.FC = () => {
                   className="relative group cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
-                    vibrate('heavy');
+                    vibrate('heavyTap');
                     setIsArtifactRevealed(true);
                   }}
                 >
@@ -635,7 +635,7 @@ export const ModalsAndToasts: React.FC = () => {
                   {/* Actions */}
                   <button
                     type="button"
-                    onClick={() => {
+                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                       setUnlockedArtifactAlert(null);
                       vibrate('softTap');
                     }}
@@ -672,7 +672,7 @@ export const ModalsAndToasts: React.FC = () => {
               </div>
             </div>
             <button
-              onClick={() => setAppError(null)}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setAppError(null)}
               className="absolute top-4 right-4 text-neutral-500 hover:text-signal transition-colors p-1 bg-black/20 rounded backdrop-blur"
               aria-label="Dismiss error"
             >
@@ -703,7 +703,7 @@ export const ModalsAndToasts: React.FC = () => {
                 </p>
                 <div className="flex space-x-3">
                   <button
-                    onClick={() => {
+                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                       setActiveStoryId(draftRecoverySession.activeStoryId);
                       setSelectedChapterNum(draftRecoverySession.generatingChapterNum);
                       setCurrentScreen('reader');

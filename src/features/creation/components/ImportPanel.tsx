@@ -199,7 +199,7 @@ export const ImportPanel = ({ show, onClose, onImport }: ImportPanelProps) => {
             </h3>
             <button
               type="button"
-              onClick={onClose}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={onClose}
               className="text-neutral-500 hover:text-[#FAFAFA] text-xs"
             >
               Close
@@ -228,7 +228,7 @@ export const ImportPanel = ({ show, onClose, onImport }: ImportPanelProps) => {
           <div className="flex justify-end">
             <button
               type="button"
-              onClick={handleImportSubmit}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleImportSubmit}
               className="font-sc px-5 py-2 rounded text-xs uppercase tracking-widest font-bold bg-human text-[#FAFAFA] hover:bg-neutral-900 hover:text-human border border-human transition-colors cursor-pointer"
             >
               Activate Seed

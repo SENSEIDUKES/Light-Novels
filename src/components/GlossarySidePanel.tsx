@@ -94,7 +94,7 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
                 <h3 className="font-display font-medium">Lore Glossary</h3>
               </div>
               <button 
-                onClick={onClose}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={onClose}
                 aria-label="Close glossary"
                 className="p-1 text-neutral-500 hover:text-white transition-colors rounded hover:bg-neutral-900"
               >
@@ -138,7 +138,7 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
                         <span className="text-xs text-portal font-mono mt-0.5">{term.target_text}</span>
                       </div>
                       <button
-                        onClick={() => handleDelete(term.id)}
+                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleDelete(term.id)}
                         aria-label="Delete term"
                         className="opacity-0 group-hover:opacity-100 p-1.5 text-neutral-600 hover:text-red-400 hover:bg-neutral-800 rounded transition-all"
                       >

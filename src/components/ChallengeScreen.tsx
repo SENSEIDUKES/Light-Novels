@@ -13,7 +13,7 @@ export const ChallengeScreen: React.FC = () => {
         <h3 className="font-display font-bold text-xl">Sensing Fate Ripple...</h3>
         <p className="text-sm text-neutral-500 mt-2">The cosmic strands are aligning. Please wait.</p>
         <button 
-          onClick={resetChallenge}
+           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={resetChallenge}
           className="mt-6 px-6 py-2 border border-neutral-800 rounded-lg text-xs font-mono hover:border-portal transition-all"
         >
           Return to Library
@@ -56,7 +56,7 @@ export const ChallengeScreen: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-neutral-900 pb-4 mb-8">
         <button
-          onClick={resetChallenge}
+           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={resetChallenge}
           className="group flex items-center space-x-2 text-xs font-mono text-neutral-400 hover:text-portal transition-colors"
           aria-label="Back to Library"
         >
@@ -156,7 +156,7 @@ export const ChallengeScreen: React.FC = () => {
                     {currentChoicePoint.choices.map((choice) => (
                       <button
                         key={choice.id}
-                        onClick={() => progressChallenge(choice.id)}
+                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => progressChallenge(choice.id)}
                         className="group w-full text-left bg-black hover:bg-neutral-950/80 border border-neutral-900 hover:border-portal/50 p-4 rounded-xl transition-all duration-300 flex justify-between items-center gap-4 hover:shadow-[0_0_15px_rgba(4,172,255,0.06)]"
                       >
                         <div className="space-y-1">
@@ -261,14 +261,14 @@ export const ChallengeScreen: React.FC = () => {
             {/* Action buttons */}
             <div className="max-w-md mx-auto flex gap-4 justify-center pt-4">
               <button
-                onClick={() => useAppStore.getState().startChallenge(activeChallenge)}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => useAppStore.getState().startChallenge(activeChallenge)}
                 className="flex-1 py-3 bg-portal hover:bg-portal/90 text-void font-sc font-bold uppercase tracking-widest text-xs rounded-xl transition-all shadow-[0_0_20px_rgba(4,172,255,0.3)] flex items-center justify-center space-x-2"
               >
                 <RotateCcw size={14} />
                 <span>Restart Cycle</span>
               </button>
               <button
-                onClick={resetChallenge}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={resetChallenge}
                 className="flex-1 py-3 bg-black hover:bg-neutral-950 border border-neutral-900 hover:border-neutral-800 text-neutral-300 font-sc font-bold uppercase tracking-widest text-xs rounded-xl transition-all flex items-center justify-center space-x-2"
               >
                 <BookOpen size={14} />

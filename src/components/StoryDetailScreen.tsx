@@ -99,7 +99,7 @@ export const StoryDetailScreen: React.FC<{
               <div className="p-6 space-y-4 bg-neutral-950/40">
                 {/* HTML Option */}
                 <button
-                  onClick={() => {
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                     handleExportFullTome(activeStory);
                     setIsExportModalOpen(false);
                   }}
@@ -120,7 +120,7 @@ export const StoryDetailScreen: React.FC<{
 
                 {/* EPUB Option */}
                 <button
-                  onClick={() => {
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                     handleExportEPUB(activeStory);
                     setIsExportModalOpen(false);
                   }}
@@ -141,7 +141,7 @@ export const StoryDetailScreen: React.FC<{
 
                 {/* JSON Option */}
                 <button
-                  onClick={() => {
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                     handleExportSingleStory(activeStory);
                     setIsExportModalOpen(false);
                   }}
@@ -164,7 +164,7 @@ export const StoryDetailScreen: React.FC<{
               {/* Close Button Footer */}
               <div className="p-4 border-t border-neutral-900 bg-void flex justify-end">
                 <button
-                  onClick={() => setIsExportModalOpen(false)}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setIsExportModalOpen(false)}
                   className="px-6 py-2.5 rounded font-mono text-[11px] uppercase tracking-wider bg-neutral-900 text-neutral-400 hover:bg-neutral-850 hover:text-signal transition-colors border border-neutral-800"
                 >
                   Close
@@ -190,7 +190,7 @@ export const StoryDetailScreen: React.FC<{
             {/* Hover Overlay for Cover Generation */}
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
               <button 
-                onClick={async () => {
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={async () => {
                   vibrate('mediumTap');
                   const result = await handleGenerateCover();
                   if (result) setCoverPreview({ urls: result.imageUrls, prompt: result.promptUsed, selectedIndex: 0 });
@@ -207,7 +207,7 @@ export const StoryDetailScreen: React.FC<{
           {/* Mobile visible cover generation/evolution button */}
           <div className="block md:hidden mt-2 mb-3">
             <button
-              onClick={async () => {
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={async () => {
                 vibrate('mediumTap');
                 const result = await handleGenerateCover();
                 if (result) setCoverPreview({ urls: result.imageUrls, prompt: result.promptUsed, selectedIndex: 0 });
@@ -348,7 +348,7 @@ export const StoryDetailScreen: React.FC<{
 
           <div className="pt-6 flex flex-wrap gap-3 items-center relative">
             <button
-              onClick={() => {
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                 vibrate('softTap');
                 if (activeStory.lastReadChapter && activeStory.lastReadChapter > 0) {
                   setSelectedChapterNum(activeStory.lastReadChapter);
@@ -365,7 +365,7 @@ export const StoryDetailScreen: React.FC<{
             </button>
 
             <button
-              onClick={() => { vibrate('softTap'); setIsCodexSheetOpen(true); }}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => { vibrate('softTap'); setIsCodexSheetOpen(true); }}
               className="px-6 py-2.5 bg-void border border-portal text-portal font-sc font-bold uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-all flex items-center space-x-2 text-xs"
             >
               <Sparkles size={16} />
@@ -373,7 +373,7 @@ export const StoryDetailScreen: React.FC<{
             </button>
 
             <button
-              onClick={() => { vibrate('softTap'); setIsTimelineOpen(true); }}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => { vibrate('softTap'); setIsTimelineOpen(true); }}
               className="px-6 py-2.5 bg-void border border-jade-accent text-jade-accent font-sc font-bold uppercase tracking-wider rounded hover:bg-jade-accent hover:text-void transition-all flex items-center space-x-2 text-xs"
             >
               <GitBranch size={16} />
@@ -382,7 +382,7 @@ export const StoryDetailScreen: React.FC<{
 
             <div className="relative">
               <button
-                onClick={() => { vibrate('softTap'); setIsStoryMenuOpen(!isStoryMenuOpen); }}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => { vibrate('softTap'); setIsStoryMenuOpen(!isStoryMenuOpen); }}
                 aria-expanded={isStoryMenuOpen}
                 aria-label="More options"
                 className="p-2.5 bg-void border border-neutral-800 text-neutral-400 hover:text-signal rounded hover:bg-neutral-900 hover:border-neutral-750 transition-all flex items-center justify-center"
@@ -410,7 +410,7 @@ export const StoryDetailScreen: React.FC<{
                   >
                     <div className="py-1">
                       <button
-                        onClick={() => {
+                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                           setIsStoryMenuOpen(false);
                           setIsExportModalOpen(true);
                         }}
@@ -423,7 +423,7 @@ export const StoryDetailScreen: React.FC<{
 
                     <div className="py-1">
                       <button
-                        onClick={(e) => {
+                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={(e) => {
                           handleDeleteStory(activeStory.id, e);
                           setIsStoryMenuOpen(false);
                         }}
@@ -440,7 +440,7 @@ export const StoryDetailScreen: React.FC<{
             
             {isCurrentArcFinished && (
               <button
-                onClick={() => {
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                   vibrate('softTap');
                   setSelectedChapterNum(-1);
                   setCurrentScreen('reader');

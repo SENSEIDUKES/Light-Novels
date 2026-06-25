@@ -124,9 +124,12 @@ Ensure the story pacing is structured so that key breakthroughs happen periodica
   },
 
   chapter: {
-    system: `You are an elite fantasy web-novel author specializing in Chinese light novels (Wuxia, Xianxia, Xuanhuan, Divine Systems). 
-Your writing must be highly descriptive, immersive, and emotionally impactful, utilizing the "Reading/archive" font tone. Write using rich metaphors, profound dialogue, high cultivation chants, and grand scene setting. 
-Ensure the chapter contains rich elements of Chinese Light Novels: face-slapping of arrogant bullies, grand descriptions of celestial arrays, internal alchemy processes, power stats, or spiritual qi tempests.
+    system: `You are an elite fantasy web-novel author specializing in light novels (Wuxia, Xianxia, Xuanhuan, Divine Systems, or other blended sub-genres). 
+Your writing must be highly descriptive, immersive, and emotionally impactful, utilizing the "Reading/archive" font tone. Write using rich metaphors, profound dialogue, appropriate chants/formulas, and grand scene setting. 
+
+GENRE-SENSITIVE WRITING DIRECTIVES:
+- Classic Xianxia/Wuxia: Treat high-energy tropes (face-slapping of arrogant bullies, grand descriptions of celestial arrays, internal alchemy processes, power stats, or spiritual qi tempests) as an optional style palette to apply ONLY when the genre, story tags, or active scene calls for it.
+- Cozy / Slice-of-Life / Mystery / Urban / Romance: If the style is cozy/slice-of-life/mystery/urban/romance, suppress combat and cultivation-tempest conventions unless the scene premise explicitly demands them. Keep the tone grounded, focusing on interpersonal bonds, atmospheric details, or daily progression instead.
 
 CRITICAL ANTI-DRIFT MANDATE (COHERENCE PROTOCOL):
 1. STABILITY OF THE VOID: You must NEVER contradict, neglect, or rewrite any facts established in the current story memory (MC power stage, living/dead characters, world rules, unresolved threads) or previous summaries. The current story memory and past summaries are absolute cosmic law.
@@ -157,9 +160,12 @@ Example:
 {"id": "c1-p3", "type": "paragraph", "text": "Suddenly, the sky tore open. The Thunder Roc emerged, completely blotting out the moon.", "metadata": {"mode": "narration", "tension": 0.9, "beastEvent": {"type": "reveal", "profile": {"size": "giant", "bodyType": "bird", "element": "lightning", "movement": "flying", "intelligence": "ancient", "threatTier": "mythic", "signatureSound": "screech"}}}}
 {"id": "c1-p4", "type": "paragraph", "text": "A holographic chime rang out in his mind.", "system": {"kind": "level_up", "title": "Breakthrough Achieved", "rarity": "Mythic", "rows": [{"label": "Realm", "value": "Core Formation"}]}}`,
 
-    nonStreamSystem: `You are an elite fantasy web-novel author specializing in Chinese light novels (Wuxia, Xianxia, Xuanhuan, Divine Systems). 
-Your writing must be highly descriptive, immersive, and emotionally impactful, utilizing the "Reading/archive" font tone. Write using rich metaphors, profound dialogue, high cultivation chants, and grand scene setting. 
-Ensure the chapter contains rich elements of Chinese Light Novels: face-slapping of arrogant bullies, grand descriptions of celestial arrays, internal alchemy processes, power stats, or spiritual qi tempests.
+    nonStreamSystem: `You are an elite fantasy web-novel author specializing in light novels (Wuxia, Xianxia, Xuanhuan, Divine Systems, or other blended sub-genres). 
+Your writing must be highly descriptive, immersive, and emotionally impactful, utilizing the "Reading/archive" font tone. Write using rich metaphors, profound dialogue, appropriate chants/formulas, and grand scene setting. 
+
+GENRE-SENSITIVE WRITING DIRECTIVES:
+- Classic Xianxia/Wuxia: Treat high-energy tropes (face-slapping of arrogant bullies, grand descriptions of celestial arrays, internal alchemy processes, power stats, or spiritual qi tempests) as an optional style palette to apply ONLY when the genre, story tags, or active scene calls for it.
+- Cozy / Slice-of-Life / Mystery / Urban / Romance: If the style is cozy/slice-of-life/mystery/urban/romance, suppress combat and cultivation-tempest conventions unless the scene premise explicitly demands them. Keep the tone grounded, focusing on interpersonal bonds, atmospheric details, or daily progression instead.
 
 CRITICAL ANTI-DRIFT MANDATE (COHERENCE PROTOCOL):
 1. STABILITY OF THE VOID: You must NEVER contradict, neglect, or rewrite any facts established in the current story memory (MC power stage, living/dead characters, world rules, unresolved threads) or previous summaries. The current story memory and past summaries are absolute cosmic law.
@@ -176,15 +182,43 @@ CONTENT AND AGE SAFETY PROTOCOLS:
 
 Output strictly JSON matching the specified format.`,
 
-    userPrompt: (chapterNumber: number, title: string, premise: string, mcName: string, genre: string, customPremise: string, memoryJson: string, pastSummariesJson: string, withCue: boolean) => `Write the full chapter text for Chapter ${chapterNumber}: "${title}".
+    userPrompt: (
+      chapterNumber: number,
+      title: string,
+      premise: string,
+      mcName: string,
+      genre: string,
+      customPremise: string,
+      memoryJson: string,
+      pastSummariesJson: string,
+      withCue: boolean,
+      styleBible?: string,
+      tropeRules?: string,
+      storyTags?: string[]
+    ) => {
+      let prompt = `Write the full chapter text for Chapter ${chapterNumber}: "${title}".
 Goal of this chapter: ${premise}
 
 STORY BACKGROUND DETAILS:
 - Main Character: ${mcName}
 - Genre/Style: ${genre}
+${storyTags && storyTags.length > 0 ? `- Story Tags: ${storyTags.join(', ')}` : ''}
 - Core Premise: ${customPremise}
 
-CURRENT STORY MEMORY (Ensure complete consistency with these):
+`;
+
+      if (styleBible || tropeRules || genre || (storyTags && storyTags.length > 0)) {
+        prompt += `=========================================
+STYLE DIRECTIVE — obey this over generic conventions
+=========================================
+${genre ? `- Target Genre/Style: ${genre}` : ''}
+${storyTags && storyTags.length > 0 ? `- Active Story Tags: ${storyTags.join(', ')}` : ''}
+${styleBible ? `- Style Bible:\n${styleBible}` : ''}
+${tropeRules ? `- Trope Rules:\n${tropeRules}` : ''}
+=========================================\n\n`;
+      }
+
+      prompt += `CURRENT STORY MEMORY (Ensure complete consistency with these):
 ${memoryJson}
 
 PAST SUMMARY CONTEXT (What happened in previous chapters to prevent plot holes):
@@ -226,7 +260,10 @@ ${!withCue ? `You must return a JSON object with the following fields:
   }
 }
 
-Do not add any text before or after the JSON.` : `Output strictly the NDJSON blocks.`}`
+Do not add any text before or after the JSON.` : `Output strictly the NDJSON blocks.`}`;
+
+      return prompt;
+    }
   },
 
   extractMetadata: {

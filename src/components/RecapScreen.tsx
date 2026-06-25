@@ -82,7 +82,7 @@ export const RecapScreen: React.FC<RecapScreenProps> = ({ story, lastReadChapter
                 id="recap-actions"
               >
                 <button
-                  onClick={() => {
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                     setShow(false);
                     setTimeout(onContinue, 1000);
                   }}

@@ -361,8 +361,8 @@ export default function ReaderChamber({
       selectedChapter.summary?.toLowerCase().includes('heavenly') ||
       selectedChapter.summary?.toLowerCase().includes('divine') ||
       selectedChapter.summary?.toLowerCase().includes('tribulation') ||
-      selectedChapter.blocks?.some(b => b.metadata?.music?.mood === 'ethereal') ||
-      selectedChapter.blocks?.some(b => b.metadata?.music?.mood === 'triumphant') ||
+      selectedChapter.blocks?.some(b => (b.metadata?.music?.mood as string) === 'ethereal') ||
+      selectedChapter.blocks?.some(b => (b.metadata?.music?.mood as string) === 'triumphant') ||
       false;
   }, [selectedChapter.summary, selectedChapter.blocks]);
 
@@ -899,7 +899,7 @@ export default function ReaderChamber({
           <div className="flex space-x-2 items-center shrink-0">
             <AudioWidget />
             <button
-              onClick={() => onToggleRead(selectedChapter.number)}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => onToggleRead(selectedChapter.number)}
               className={`p-2 rounded-full border flex items-center justify-center transition-all ${
                 selectedChapter.status === "read"
                   ? "border-gold-accent bg-gold-accent/10 text-gold-accent"
@@ -1099,7 +1099,7 @@ export default function ReaderChamber({
                       <div className="flex justify-start">
                         <button
                           type="button"
-                          onClick={() => setShowFateCodex(!showFateCodex)}
+                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowFateCodex(!showFateCodex)}
                           className="px-3 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-signal text-xs font-sc uppercase tracking-wider transition-all duration-300 flex items-center gap-1.5"
                         >
                           <span>{showFateCodex ? "✦ Hide Fate Codex" : "🔍 Inspect Fate Codex"}</span>
@@ -1159,7 +1159,7 @@ export default function ReaderChamber({
                         </h4>
                       </div>
                       <button
-                        onClick={() => {
+                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                           localStorage.setItem("seihouse-system-legend-dismissed", "true");
                           setShowLegend(false);
                         }}
@@ -1331,7 +1331,7 @@ export default function ReaderChamber({
                                 ) : (
                                   revealTerm.type !== 'faction' && (
                                     <button
-                                      onClick={() => handleManifestReveal(revealTerm.entry, revealTerm.type)}
+                                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleManifestReveal(revealTerm.entry, revealTerm.type)}
                                       disabled={generatingRevealId === revealTerm.entry.id}
                                       className="relative w-[180px] h-[180px] shrink-0 mb-3 overflow-hidden rounded-lg bg-[#010b14] border border-portal/40 hover:border-portal flex flex-col items-center justify-center cursor-pointer transition-all duration-500 group/revealmanifest shadow-[0_0_15px_rgba(4,172,255,0.15)] hover:shadow-[0_0_25px_rgba(4,172,255,0.35)]"
                                     >
@@ -1449,7 +1449,7 @@ export default function ReaderChamber({
                               <div className={`text-justify indent-8 relative ${getFocusClass(index)}`}>
                                 {renderHighlightedText(cleanText, index)}
                                 <button
-                                  onClick={() => {
+                                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                                     if (existingBookmark) {
                                       handleRemoveBookmark(
                                         selectedChapter.number,
@@ -1493,7 +1493,7 @@ export default function ReaderChamber({
                                   />
                                   <div className="flex justify-end space-x-2">
                                     <button
-                                      onClick={() =>
+                                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() =>
                                         setEditingBookmarkParagraphIndex(null)
                                       }
                                       className="px-4 py-1.5 text-xs text-neutral-400 hover:text-signal transition-colors font-mono"
@@ -1578,7 +1578,7 @@ export default function ReaderChamber({
                                   <div className="flex-shrink-0 w-6 flex flex-col items-center justify-start pt-1 mr-2 bg-transparent select-none">
                                     {existingBookmark ? (
                                       <button
-                                        onClick={() => {
+                                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                                           setEditingBookmarkParagraphIndex(
                                             index,
                                           );
@@ -1651,7 +1651,7 @@ export default function ReaderChamber({
                                         {existingBookmark.note}
                                       </span>
                                       <button
-                                        onClick={() =>
+                                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() =>
                                           handleRemoveBookmark(
                                             selectedChapter.number,
                                             index,
@@ -1757,7 +1757,7 @@ export default function ReaderChamber({
             {/* Navigation links at bottom of chapter */}
             <div className="flex items-center justify-between border-t border-neutral-900 pt-8 mt-16 pb-8">
               <button
-                onClick={navigatePrev}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={navigatePrev}
                 disabled={selectedChapterNum === 1}
                 className="px-6 py-2 rounded-full border border-neutral-800 hover:border-gold-accent text-neutral-400 hover:text-gold-accent disabled:opacity-20 transition-all font-sc uppercase text-[10px] tracking-wider flex items-center space-x-2"
               >
@@ -1769,7 +1769,7 @@ export default function ReaderChamber({
                 !selectedChapter.isSealed &&
                 (!!selectedChapter.generatedContent || !!(selectedChapter.blocks && selectedChapter.blocks.length > 0)) && (
                   <button
-                    onClick={handleSealClick}
+                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleSealClick}
                     disabled={isCheckingConsistency}
                     className="px-6 py-2 rounded-full border border-portal bg-portal/10 hover:bg-portal hover:text-void text-portal transition-all font-sc uppercase text-[10px] tracking-wider flex items-center space-x-2 shadow-[0_0_10px_rgba(4,172,255,0.15)] mx-auto disabled:opacity-50"
                   >
@@ -1782,7 +1782,7 @@ export default function ReaderChamber({
                 )}
 
               <button
-                onClick={navigateNext}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={navigateNext}
                 disabled={selectedChapterNum === maxChapterNum}
                 className="px-6 py-2 rounded-full border border-neutral-800 hover:border-gold-accent text-neutral-400 hover:text-gold-accent disabled:opacity-20 transition-all font-sc uppercase text-[10px] tracking-wider flex items-center space-x-2"
               >
@@ -1825,7 +1825,7 @@ export default function ReaderChamber({
               "{selectedChapter.premise}"
             </p>
             <button
-              onClick={handleGenerate}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleGenerate}
               disabled={isGenerating}
               className={`group relative w-full px-6 py-3.5 bg-void border border-human text-human text-xs sm:text-sm font-sc font-bold uppercase tracking-widest rounded shadow-[0_0_20px_rgba(139,0,0,0.4),inset_0_0_15px_rgba(139,0,0,0.2)] hover:shadow-[0_0_30px_rgba(139,0,0,0.6),inset_0_0_25px_rgba(139,0,0,0.4)] hover:bg-human/10 hover:text-signal transition-all duration-500 overflow-hidden flex items-center justify-center space-x-2 ${
                 isGenerating ? "opacity-65 cursor-not-allowed" : ""
@@ -1878,7 +1878,7 @@ export default function ReaderChamber({
             {/* Flanking Chapter Navigation on Left */}
             <div className="flex items-center space-x-2 bg-void/60 border border-neutral-900 rounded p-1">
               <button
-                onClick={navigatePrev}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={navigatePrev}
                 disabled={selectedChapterNum === 1}
                 className="text-neutral-400 hover:text-signal disabled:opacity-20 p-2.5"
                 title="Previous Chapter"
@@ -1889,7 +1889,7 @@ export default function ReaderChamber({
                 {selectedChapterNum}/{maxChapterNum}
               </span>
               <button
-                onClick={navigateNext}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={navigateNext}
                 disabled={selectedChapterNum === maxChapterNum}
                 className="text-neutral-400 hover:text-signal disabled:opacity-20 p-2.5"
                 title="Next Chapter"
@@ -1929,7 +1929,7 @@ export default function ReaderChamber({
 
                 {/* Central audio touch Core key */}
                 <button
-                  onClick={handleTogglePlayback}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleTogglePlayback}
                   disabled={!(selectedChapter.generatedContent || (selectedChapter.blocks && selectedChapter.blocks.length > 0))}
                   className={`absolute h-8 w-8 rounded-full flex items-center justify-center transition-all z-10 ${
                     !(selectedChapter.generatedContent || (selectedChapter.blocks && selectedChapter.blocks.length > 0))
@@ -2008,7 +2008,7 @@ export default function ReaderChamber({
                         </span>
                       </div>
                       <button
-                        onClick={() => setImmersion({ master: !immersion.master })}
+                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setImmersion({ master: !immersion.master })}
                         className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                           immersion.master ? "bg-portal/80 shadow-[0_0_8px_rgba(4,172,255,0.4)]" : "bg-neutral-850"
                         }`}
@@ -2035,7 +2035,7 @@ export default function ReaderChamber({
                           </span>
                         </div>
                         <button
-                          onClick={() => immersion.master && setImmersion({ autoScroll: !immersion.autoScroll })}
+                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => immersion.master && setImmersion({ autoScroll: !immersion.autoScroll })}
                           disabled={!immersion.master}
                           className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
                             immersion.autoScroll ? "bg-portal/60" : "bg-neutral-850"
@@ -2060,7 +2060,7 @@ export default function ReaderChamber({
                           </span>
                         </div>
                         <button
-                          onClick={() => immersion.master && setImmersion({ audioCues: !immersion.audioCues })}
+                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => immersion.master && setImmersion({ audioCues: !immersion.audioCues })}
                           disabled={!immersion.master}
                           className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
                             immersion.audioCues ? "bg-portal/60" : "bg-neutral-850"
@@ -2085,7 +2085,7 @@ export default function ReaderChamber({
                           </span>
                         </div>
                         <button
-                          onClick={() => immersion.master && setImmersion({ imagePopups: !immersion.imagePopups })}
+                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => immersion.master && setImmersion({ imagePopups: !immersion.imagePopups })}
                           disabled={!immersion.master}
                           className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
                             immersion.imagePopups ? "bg-portal/60" : "bg-neutral-850"
@@ -2110,7 +2110,7 @@ export default function ReaderChamber({
                           </span>
                         </div>
                         <button
-                          onClick={() => immersion.master && setImmersion({ sceneMusic: !immersion.sceneMusic })}
+                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => immersion.master && setImmersion({ sceneMusic: !immersion.sceneMusic })}
                           disabled={!immersion.master}
                           className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
                             immersion.sceneMusic ? "bg-portal/60" : "bg-neutral-850"
@@ -2129,7 +2129,7 @@ export default function ReaderChamber({
                     {/* Collapsible Voice Settings */}
                     <div className="border-t border-neutral-900 pt-2 mt-1">
                       <button
-                        onClick={() => setShowVoiceDetail(!showVoiceDetail)}
+                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowVoiceDetail(!showVoiceDetail)}
                         className="flex items-center justify-between w-full text-[9px] uppercase font-sc text-neutral-400 hover:text-signal transition-colors py-1 focus:outline-none"
                       >
                         <span>Voice Matrix Signature</span>
@@ -2182,7 +2182,7 @@ export default function ReaderChamber({
             {/* Quick Access Icons on Right */}
             <div className="flex items-center space-x-1.5 bg-void/60 border border-neutral-900 rounded-full px-1.5 py-1">
               <button
-                onClick={navigatePrev}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={navigatePrev}
                 disabled={selectedChapterNum <= 1}
                 className="p-2 text-neutral-400 hover:text-portal transition-colors disabled:opacity-20 disabled:pointer-events-none"
                 title="Previous Chapter"
@@ -2241,7 +2241,7 @@ export default function ReaderChamber({
 
                 {/* Central audio touch Core key */}
                 <button
-                  onClick={handleTogglePlayback}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleTogglePlayback}
                   disabled={!(selectedChapter.generatedContent || (selectedChapter.blocks && selectedChapter.blocks.length > 0))}
                   className={`absolute h-10 w-10 rounded-full flex items-center justify-center transition-all z-10 ${
                     !(selectedChapter.generatedContent || (selectedChapter.blocks && selectedChapter.blocks.length > 0))
@@ -2291,7 +2291,7 @@ export default function ReaderChamber({
               {/* Voice / Speed toggles (Simple) */}
               <div className="flex items-center space-x-2 text-neutral-400 relative">
                 <button
-                  onClick={() =>
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() =>
                     setSpeechRate((prev) => (prev >= 2 ? 0.5 : prev + 0.5))
                   }
                   className="text-[10px] font-mono hover:text-signal bg-void border border-neutral-800 px-2 py-1 rounded"
@@ -2329,7 +2329,7 @@ export default function ReaderChamber({
                           </span>
                         </div>
                         <button
-                          onClick={() => setImmersion({ master: !immersion.master })}
+                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setImmersion({ master: !immersion.master })}
                           className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                             immersion.master ? "bg-portal/80 shadow-[0_0_8px_rgba(4,172,255,0.4)]" : "bg-neutral-850"
                           }`}
@@ -2356,7 +2356,7 @@ export default function ReaderChamber({
                             </span>
                           </div>
                           <button
-                            onClick={() => immersion.master && setImmersion({ autoScroll: !immersion.autoScroll })}
+                             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => immersion.master && setImmersion({ autoScroll: !immersion.autoScroll })}
                             disabled={!immersion.master}
                             className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
                               immersion.autoScroll ? "bg-portal/60" : "bg-neutral-850"
@@ -2381,7 +2381,7 @@ export default function ReaderChamber({
                             </span>
                           </div>
                           <button
-                            onClick={() => immersion.master && setImmersion({ audioCues: !immersion.audioCues })}
+                             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => immersion.master && setImmersion({ audioCues: !immersion.audioCues })}
                             disabled={!immersion.master}
                             className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
                               immersion.audioCues ? "bg-portal/60" : "bg-neutral-850"
@@ -2406,7 +2406,7 @@ export default function ReaderChamber({
                             </span>
                           </div>
                           <button
-                            onClick={() => immersion.master && setImmersion({ imagePopups: !immersion.imagePopups })}
+                             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => immersion.master && setImmersion({ imagePopups: !immersion.imagePopups })}
                             disabled={!immersion.master}
                             className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
                               immersion.imagePopups ? "bg-portal/60" : "bg-neutral-850"
@@ -2431,7 +2431,7 @@ export default function ReaderChamber({
                             </span>
                           </div>
                           <button
-                            onClick={() => immersion.master && setImmersion({ sceneMusic: !immersion.sceneMusic })}
+                             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => immersion.master && setImmersion({ sceneMusic: !immersion.sceneMusic })}
                             disabled={!immersion.master}
                             className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
                               immersion.sceneMusic ? "bg-portal/60" : "bg-neutral-850"
@@ -2450,7 +2450,7 @@ export default function ReaderChamber({
                       {/* Collapsible Voice Settings */}
                       <div className="border-t border-neutral-900 pt-2 mt-2">
                         <button
-                          onClick={() => setShowVoiceDetail(!showVoiceDetail)}
+                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowVoiceDetail(!showVoiceDetail)}
                           className="flex items-center justify-between w-full text-[10px] uppercase font-sc text-neutral-400 hover:text-signal transition-colors py-1 focus:outline-none"
                         >
                           <span>Voice Matrix Signature</span>
@@ -2500,7 +2500,7 @@ export default function ReaderChamber({
                 )}
 
                 <button
-                  onClick={handleExportText}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleExportText}
                   className="text-[10px] font-sc uppercase hover:text-signal bg-void border border-neutral-800 px-2 py-1 rounded ml-2"
                 >
                   Download
@@ -2512,7 +2512,7 @@ export default function ReaderChamber({
               {/* Quick Access Lore Action Links */}
               <div className="flex items-center space-x-4 bg-void border border-neutral-900 rounded-full px-2 py-1">
                 <button
-                  onClick={navigatePrev}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={navigatePrev}
                   disabled={selectedChapterNum <= 1}
                   className="px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-portal disabled:opacity-25 disabled:pointer-events-none transition-colors text-[10px] font-sc uppercase tracking-wider font-semibold"
                 >
@@ -2521,7 +2521,7 @@ export default function ReaderChamber({
                 </button>
                 <div className="w-[1px] h-4 bg-neutral-800"></div>
                 <button
-                  onClick={() => onSwitchTab && onSwitchTab("codex")}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => onSwitchTab && onSwitchTab("codex")}
                   className="px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-portal transition-colors text-[10px] font-sc uppercase tracking-wider"
                 >
                   <ListMusic size={14} />
@@ -2529,7 +2529,7 @@ export default function ReaderChamber({
                 </button>
                 <div className="w-[1px] h-4 bg-neutral-800"></div>
                 <button
-                  onClick={navigateNext}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={navigateNext}
                   disabled={
                     selectedChapterNum === maxChapterNum ||
                     !chapters.find((c) => c.number === selectedChapterNum + 1)
@@ -2543,7 +2543,7 @@ export default function ReaderChamber({
 
               {handleAlterFate && (
                 <button
-                  onClick={() => setIsAlterFateOpen(true)}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setIsAlterFateOpen(true)}
                   className="px-4 py-2 border border-portal text-portal font-sc font-bold uppercase tracking-wider text-[10px] rounded-full hover:bg-portal hover:text-void transition-colors flex items-center gap-2 shadow-[0_0_10px_rgba(4,172,255,0.15)]"
                 >
                   <Zap size={14} />
@@ -2591,7 +2591,7 @@ export default function ReaderChamber({
               Auto-scroll paused
             </span>
             <button
-              onClick={() => {
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                 setIsAutoScrollPausedByUser(false);
                 playAutoScroll();
               }}
@@ -2623,7 +2623,7 @@ export default function ReaderChamber({
             </ul>
             <div className="flex gap-4 justify-end">
               <button
-                onClick={() => setConsistencyWarnings(null)}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setConsistencyWarnings(null)}
                 className="px-4 py-2 border border-neutral-700 text-neutral-400 hover:text-signal rounded font-sc text-xs tracking-wider transition-colors"
               >
                 Cancel

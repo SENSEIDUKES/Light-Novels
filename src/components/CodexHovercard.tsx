@@ -123,7 +123,7 @@ export const CodexHovercard: React.FC<CodexHovercardProps> = ({ term, type, entr
             ) : (
               type !== 'faction' && (
                 <button
-                  onClick={handleManifest}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleManifest}
                   disabled={isGeneratingImage}
                   className="relative w-full aspect-[2/1] mb-2.5 overflow-hidden rounded-lg bg-[#010b14] border border-portal/40 hover:border-portal flex flex-col items-center justify-center cursor-pointer transition-all duration-500 group/manifest shadow-[0_0_15px_rgba(4,172,255,0.15)] hover:shadow-[0_0_25px_rgba(4,172,255,0.35)]"
                 >

@@ -341,7 +341,7 @@ ${blueprint.firstArcPromise || ''}
         <div className="flex flex-col xl:flex-row items-center justify-between pt-6 border-t border-neutral-900 gap-4">
           <button
             type="button"
-            onClick={onBack}
+             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={onBack}
             disabled={isGenerating}
             className="text-neutral-400 hover:text-signal text-xs font-sc uppercase tracking-widest"
           >
@@ -351,7 +351,7 @@ ${blueprint.firstArcPromise || ''}
           <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
             <button
               type="button"
-              onClick={onStartStory}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={onStartStory}
               disabled={isGenerating}
               className="w-full sm:w-auto font-sc px-6 py-3 rounded text-sm uppercase tracking-widest font-bold flex items-center justify-center space-x-2 bg-human text-signal border border-human hover:bg-void hover:text-human hover:border-human shadow-[0_0_15px_rgba(139,0,0,0.3)] transition-all cursor-pointer"
             >
@@ -371,7 +371,7 @@ ${blueprint.firstArcPromise || ''}
 
             <button
               type="button"
-              onClick={handleCopyBlueprint}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleCopyBlueprint}
               className="w-full sm:w-auto font-sc px-5 py-3 rounded text-sm uppercase tracking-widest font-bold flex items-center justify-center space-x-2 bg-neutral-950 text-portal border border-neutral-800 hover:border-portal hover:text-signal transition-all shadow-[0_0_15px_rgba(4,172,255,0.1)] cursor-pointer"
             >
               {copied ? (
@@ -389,7 +389,7 @@ ${blueprint.firstArcPromise || ''}
 
             <button
               type="button"
-              onClick={handleCopyBlueprintJson}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleCopyBlueprintJson}
               className="w-full sm:w-auto font-sc px-5 py-3 rounded text-sm uppercase tracking-widest font-bold flex items-center justify-center space-x-2 bg-neutral-950 text-neutral-400 border border-neutral-850 hover:border-neutral-700 hover:text-signal transition-all cursor-pointer"
             >
               {copiedJson ? (

@@ -39,7 +39,7 @@ export default function AILoadingVeil() {
           {/* Top Minimize Control Bar */}
           <div className="absolute top-6 right-6 flex items-center gap-3">
             <button
-              onClick={() => setIsVeilMinimized(true)}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setIsVeilMinimized(true)}
               className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-portal/35 bg-portal/10 hover:bg-portal/20 text-portal text-xs font-sc tracking-widest uppercase transition-all duration-300 shadow-[0_0_15px_rgba(4,172,255,0.1)] hover:shadow-[0_0_20px_rgba(4,172,255,0.3)] cursor-pointer"
             >
               <Minimize2 size={13} />
@@ -147,7 +147,7 @@ export default function AILoadingVeil() {
             </div>
             
             <button
-              onClick={() => setIsVeilMinimized(false)}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setIsVeilMinimized(false)}
               title="Expand Visual Chamber"
               className="p-1 rounded-md text-zinc-400 hover:text-amber-500 hover:bg-zinc-900 transition-all cursor-pointer"
             >

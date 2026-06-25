@@ -1,16 +1,30 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { PersistentStorageManager } from './storage';
+import { PersistentStorageManager, IndexedDBStorageAdapter, LocalStorageFallbackAdapter } from './storage';
 import { StoryWorld, ChapterContent } from '../types';
 
 describe('PersistentStorageManager', () => {
   let manager: PersistentStorageManager;
 
   beforeEach(() => {
-    // Need to reset local storage manually
     localStorage.clear();
     manager = new PersistentStorageManager();
-    // Force local storage adapter
     (manager as any).isCloudAvailable = false;
+  });
+
+  describe('Storage Adapter Selection & IndexedDB Fallback', () => {
+    it('should fallback to LocalStorage if IndexedDB fails to initialize', async () => {
+      const originalIndexedDB = window.indexedDB;
+      Object.defineProperty(window, 'indexedDB', { value: undefined, configurable: true });
+
+      await manager.init();
+      
+      const adapterName = manager.getActiveAdapterName();
+      expect(adapterName).toContain('LocalStorage');
+
+      if (originalIndexedDB) {
+        Object.defineProperty(window, 'indexedDB', { value: originalIndexedDB, configurable: true });
+      }
+    });
   });
 
   describe('Chapter content split storage', () => {

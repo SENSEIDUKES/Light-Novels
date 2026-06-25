@@ -160,7 +160,7 @@ export const GlobalHeader: React.FC = () => {
               </button>
             ) : (
               <button 
-                onClick={() => { vibrate('softTap'); setCurrentScreen('profile'); }} 
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => { vibrate('softTap'); setCurrentScreen('profile'); }} 
                 className={`group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-300 hover:bg-neutral-900 border border-transparent ${currentScreen === 'profile' ? 'text-portal' : 'text-human hover:text-portal'}`}
                 title="Open Celestial Tools"
                 aria-label="Open Celestial Tools"
@@ -181,7 +181,7 @@ export const GlobalHeader: React.FC = () => {
           {/* Command Hub Navigation Menu */}
           <div className="relative" ref={hubRef}>
             <button
-              onClick={() => { vibrate('softTap'); setIsHubOpen(!isHubOpen); }}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => { vibrate('softTap'); setIsHubOpen(!isHubOpen); }}
               className="group relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-all duration-300 hover:scale-105 ml-2 sm:ml-4"
               title="Command Hub"
               aria-label="Command Hub"
@@ -241,7 +241,7 @@ export const GlobalHeader: React.FC = () => {
                     
                     {/* Library Vault (Home) */}
                     <button
-                      onClick={() => {
+                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                         vibrate('softTap');
                         setCurrentScreen('home');
                         setActiveStoryId(null);
@@ -262,7 +262,7 @@ export const GlobalHeader: React.FC = () => {
 
                     {/* Story Creator */}
                     <button
-                      onClick={() => {
+                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                         vibrate('mediumTap');
                         setCurrentScreen('creator');
                         setIsHubOpen(false);
@@ -282,7 +282,7 @@ export const GlobalHeader: React.FC = () => {
 
                     {/* Sects */}
                     <button
-                      onClick={() => {
+                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                         vibrate('softTap');
                         setCurrentScreen('sects');
                         setIsHubOpen(false);
@@ -302,7 +302,7 @@ export const GlobalHeader: React.FC = () => {
 
                     {/* Pricing */}
                     <button
-                      onClick={() => {
+                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                         vibrate('softTap');
                         setCurrentScreen('pricing');
                         setIsHubOpen(false);
@@ -322,7 +322,7 @@ export const GlobalHeader: React.FC = () => {
 
                     {/* Profile */}
                     <button
-                      onClick={() => {
+                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                         vibrate('softTap');
                         setCurrentScreen('profile');
                         setIsHubOpen(false);
@@ -348,7 +348,7 @@ export const GlobalHeader: React.FC = () => {
                         
                         {/* Story Detail Screen */}
                         <button
-                          onClick={() => {
+                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                             vibrate('softTap');
                             setCurrentScreen('detail');
                             setIsHubOpen(false);
@@ -368,18 +368,18 @@ export const GlobalHeader: React.FC = () => {
 
                         {/* Story Reader Screen */}
                         <button
-                          onClick={() => {
+                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                             vibrate('softTap');
                             setCurrentScreen('reader');
                             setIsHubOpen(false);
                           }}
                           className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-all ${
-                            currentScreen === 'reader' 
+                            (currentScreen as string) === 'reader' 
                               ? 'bg-portal/10 text-portal border border-portal/20' 
                               : 'hover:bg-white/[0.04] text-neutral-300 hover:text-signal'
                           }`}
                         >
-                          <Scroll size={16} className={currentScreen === 'reader' ? 'text-portal' : 'text-neutral-500'} />
+                          <Scroll size={16} className={(currentScreen as string) === 'reader' ? 'text-portal' : 'text-neutral-500'} />
                           <div className="min-w-0">
                             <div className="font-sans font-medium text-xs">Chamber Reader</div>
                             <div className="font-sans text-[9px] text-neutral-500 truncate">Engage active chapter flow</div>
@@ -388,7 +388,7 @@ export const GlobalHeader: React.FC = () => {
 
                         {/* Open Living Codex Sheet Overlay */}
                         <button
-                          onClick={() => {
+                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                             vibrate('softTap');
                             setIsCodexSheetOpen(true);
                             setIsHubOpen(false);
@@ -410,7 +410,7 @@ export const GlobalHeader: React.FC = () => {
 
                     {/* Keyboard Shortcuts */}
                     <button
-                      onClick={() => {
+                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                         vibrate('softTap');
                         setIsShortcutsOpen(true);
                         setIsHubOpen(false);

@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { RouteConfig, MultiModelRouting } from "./src/types";
+import { RouteConfig, MultiModelRouting } from "./types";
 
 // Lazy-loaded Gemini clients
 let defaultAIClient: GoogleGenAI | null = null;

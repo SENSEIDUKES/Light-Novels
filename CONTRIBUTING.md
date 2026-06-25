@@ -6,7 +6,8 @@ Welcome to the SEIHOUSE project! This guide is to help you get acquainted with o
 
 Our codebase is organized to support a robust, scalable React application combined with a full-stack Node.js server.
 
-- **`/` (Root)**: Contains configuration files (like `package.json`, `vite.config.ts`, `tsconfig.json`) and the main Node backend entry point (`server.ts`).
+- **`/` (Root)**: Contains configuration files (like `package.json`, `vite.config.ts`, `tsconfig.json`).
+- **`/src/`**: Contains the React codebase, main Node backend entry point (`src/server.ts`), and the AI routing layer (`src/aiRouter.ts`).
 - **`/src/components/`**: React functional components for the UI. Subfolders like `/src/components/codex/` hold domain-specific features.
 - **`/src/features/`**: Large modular chunks of the app (e.g., `/creation/` holds everything related to setting up a new story).
 - **`/src/hooks/`**: Custom React hooks housing core business logic, API calls, and state derivations.
@@ -19,7 +20,7 @@ Our codebase is organized to support a robust, scalable React application combin
 
 1. **Identify the Scope**: Does the feature require backend changes? Does it need AI models? 
 2. **Define Types First**: Start by updating `src/types.ts` with any new interfaces or enum modifications needed.
-3. **Write Backend (if required)**: Add the API route in `server.ts` or `aiRouter.ts`. Provide appropriate prompts in `src/server/prompts.ts`.
+3. **Write Backend (if required)**: Add the API route in `src/server.ts` or `src/aiRouter.ts`. Provide appropriate prompts in `src/server/prompts.ts`.
 4. **Update the Store**: If global state is necessary, add actions and state variables to `src/store/useAppStore.ts`.
 5. **Create/Update Hooks**: Keep components clean. Encapsulate data-fetching and AI invocation logic into hooks within `src/hooks/`. Ensure JSDoc comments are provided for exported functions.
 6. **Implement the UI**: Add or modify UI elements in `src/components/`. Follow our aesthetic guidelines (Tailwind CSS, clean aesthetics, responsive layouts).

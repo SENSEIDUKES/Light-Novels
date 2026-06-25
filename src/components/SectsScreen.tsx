@@ -118,7 +118,7 @@ export const SectsScreen: React.FC = () => {
           <p className="text-sm font-serif text-neutral-400">Join a sect to earn rewards by reading, forking, and shaping worlds together.</p>
         </div>
         <button 
-          onClick={() => setView('create')}
+           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setView('create')}
           className="flex items-center gap-2 px-4 py-2 bg-portal/10 text-portal border border-portal/20 hover:bg-portal hover:text-white rounded-lg transition-colors text-sm font-sans font-medium"
         >
           <Plus size={16} />
@@ -149,7 +149,7 @@ export const SectsScreen: React.FC = () => {
                     <Users size={12} /> {sect.members} Disciples
                   </div>
                   <button 
-                    onClick={() => {
+                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                       setActiveSect(sect);
                       if (isMember) {
                         setView('detail');
@@ -183,7 +183,7 @@ export const SectsScreen: React.FC = () => {
 
       <div className="bg-neutral-950/40 border border-neutral-900 p-6 rounded-2xl space-y-6">
         <div className="space-y-2">
-          <label className="text-xs font-mono uppercase tracking-widest text-neutral-500">Sect Name</label>
+          <span className="text-xs font-mono uppercase tracking-widest text-neutral-500">Sect Name</span>
           <input 
             type="text" 
             value={newSectName}
@@ -194,7 +194,7 @@ export const SectsScreen: React.FC = () => {
         </div>
         
         <div className="space-y-2">
-          <label className="text-xs font-mono uppercase tracking-widest text-neutral-500">Doctrine / Motto</label>
+          <span className="text-xs font-mono uppercase tracking-widest text-neutral-500">Doctrine / Motto</span>
           <textarea 
             value={newSectDesc}
             onChange={(e) => setNewSectDesc(e.target.value)}
@@ -204,11 +204,14 @@ export const SectsScreen: React.FC = () => {
         </div>
 
         <div className="space-y-3">
-          <label className="text-xs font-mono uppercase tracking-widest text-neutral-500">Major Faction Alignment</label>
+          <span className="text-xs font-mono uppercase tracking-widest text-neutral-500">Major Faction Alignment</span>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {FACTIONS.map(faction => (
               <div 
                 key={faction.id}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setNewSectFaction(faction.name); } }}
                 onClick={() => setNewSectFaction(faction.name)}
                 className={`p-4 rounded-xl border cursor-pointer transition-colors ${newSectFaction === faction.name ? 'bg-black ' + faction.borderClass : 'bg-black/50 border-neutral-900 hover:border-neutral-800'}`}
               >
@@ -227,7 +230,7 @@ export const SectsScreen: React.FC = () => {
         </div>
 
         <button 
-          onClick={handleCreateSect}
+           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleCreateSect}
           disabled={!newSectName.trim()}
           className="w-full py-3 bg-portal text-white rounded-lg font-sans font-bold hover:bg-portal-glow transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -271,7 +274,7 @@ export const SectsScreen: React.FC = () => {
                        <span className={`w-2 h-2 rounded-full ${factionData.bgClass}`}></span>
                        <span className={`text-[10px] font-mono uppercase tracking-widest ${factionData.colorClass}`}>{factionData.name}</span>
                     </div>
-                    <button onClick={() => handleJoinSect(activeSect)} className={`px-4 py-2 ${factionData.bgClass} text-white rounded-lg text-sm font-sans font-bold shadow-lg hover:opacity-90 transition-colors`}>
+                    <button  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleJoinSect(activeSect)} className={`px-4 py-2 ${factionData.bgClass} text-white rounded-lg text-sm font-sans font-bold shadow-lg hover:opacity-90 transition-colors`}>
                       Join Sect
                     </button>
                   </div>
@@ -475,7 +478,7 @@ export const SectsScreen: React.FC = () => {
             {isMember && (
               <div className="pt-4 border-t border-neutral-900">
                 <button 
-                  onClick={() => {
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                     setMySectId(null);
                     setView('discovery');
                     setActiveSect(null);
@@ -497,7 +500,7 @@ export const SectsScreen: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-neutral-900 pb-4 mb-8">
         <button
-          onClick={() => {
+           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
             if (view !== 'discovery' && !mySectId) {
               setView('discovery');
             } else {
@@ -512,7 +515,7 @@ export const SectsScreen: React.FC = () => {
         <div className="flex items-center space-x-4">
           {mySectId && view === 'discovery' && (
             <button 
-              onClick={() => {
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                 const sect = MOCK_SECTS.find(s => s.id === mySectId) || activeSect;
                 if (sect) {
                   setActiveSect(sect);

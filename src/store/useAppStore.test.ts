@@ -207,7 +207,7 @@ describe('useAppStore', () => {
       { id: 'demo-matrix-discard', isEdited: false, currentChapterNumber: 1, arcs: [], memory: {} } as any
     ]);
     
-    await store.migrateOrDiscardDemoStories({ uid: 'user2' });
+    await store.migrateOrDiscardDemoStories({ uid: 'user2' } as any);
     expect(storyStorage.deleteStory).toHaveBeenCalledWith('demo-matrix-discard');
   });
 });

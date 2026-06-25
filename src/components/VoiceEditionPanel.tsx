@@ -272,7 +272,7 @@ export const VoiceEditionPanel: React.FC<VoiceEditionPanelProps> = ({ selectedCh
                  <div className="flex items-center space-x-2">
                     <Loader2 className="animate-spin text-portal" size={20} />
                     <button 
-                       onClick={handleStopLivePlay}
+                        tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleStopLivePlay}
                        className="p-1 hover:text-red-400 text-neutral-400 transition-colors"
                        title="Stop"
                     >
@@ -290,7 +290,7 @@ export const VoiceEditionPanel: React.FC<VoiceEditionPanelProps> = ({ selectedCh
               </div>
             ) : (
               <button
-                onClick={handleGenerateAndStream}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleGenerateAndStream}
                 className="px-6 py-2.5 bg-neutral-900 border border-neutral-800 text-neutral-300 font-bold uppercase tracking-wider rounded text-[10px] sm:text-xs hover:border-portal hover:text-portal transition-all outline-none"
               >
                 Generate Voice Edition
@@ -306,7 +306,7 @@ export const VoiceEditionPanel: React.FC<VoiceEditionPanelProps> = ({ selectedCh
           <div className="flex flex-col items-center relative">
             {isPlayingManifest ? (
               <button
-                 onClick={handleStopLivePlay}
+                  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleStopLivePlay}
                  className="px-8 py-3 bg-red-900/20 border border-red-500/50 text-red-400 font-bold uppercase tracking-widest rounded-full text-xs hover:bg-red-900/40 transition-all flex items-center space-x-2"
               >
                  <Square size={14} fill="currentColor" />
@@ -314,7 +314,7 @@ export const VoiceEditionPanel: React.FC<VoiceEditionPanelProps> = ({ selectedCh
               </button>
             ) : (
               <button
-                 onClick={handlePlayManifest}
+                  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handlePlayManifest}
                  className="px-8 py-3 bg-portal/10 border border-portal/50 text-portal font-bold uppercase tracking-widest rounded-full text-xs shadow-[0_0_15px_rgba(4,172,255,0.2)] hover:bg-portal hover:text-void transition-all flex items-center space-x-2"
               >
                  <Play size={14} fill="currentColor" />

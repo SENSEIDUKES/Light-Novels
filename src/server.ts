@@ -3,8 +3,8 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { routeTextGeneration, routeImageGeneration, routeTextGenerationStream, ROUTER_PRESETS } from "./aiRouter";
-import { ensureString, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChapterResponse, filterRelevantEntities, rankRelevantEntities } from "./src/server/helpers";
-import { PROMPTS } from "./src/server/prompts";
+import { ensureString, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChapterResponse, filterRelevantEntities, rankRelevantEntities } from "./server/helpers";
+import { PROMPTS } from "./server/prompts";
 
 import * as deepl from "deepl-node";
 
@@ -319,7 +319,10 @@ app.post("/api/generate-chapter-stream", async (req, res) => {
       routingConfig,
       hardcoreFateMode,
       fatePressure,
-      pacingDirective
+      pacingDirective,
+      styleBible,
+      tropeRules,
+      storyTags
     } = req.body;
 
     const activeFatePressure = fatePressure || (hardcoreFateMode ? 'Hardcore' : 'Balanced');
@@ -375,7 +378,10 @@ app.post("/api/generate-chapter-stream", async (req, res) => {
       customPremise,
       memoryJsonStr,
       pastSummariesStr,
-      true
+      true,
+      styleBible,
+      tropeRules,
+      storyTags
     );
 
     let finalUserPrompt = userPrompt;
@@ -513,7 +519,10 @@ app.post("/api/generate-chapter", async (req, res) => {
       routingConfig,
       hardcoreFateMode,
       fatePressure,
-      pacingDirective
+      pacingDirective,
+      styleBible,
+      tropeRules,
+      storyTags
     } = req.body;
 
     const activeFatePressure = fatePressure || (hardcoreFateMode ? 'Hardcore' : 'Balanced');
@@ -569,7 +578,10 @@ app.post("/api/generate-chapter", async (req, res) => {
       customPremise,
       memoryJsonStr,
       pastSummariesStr,
-      false
+      false,
+      styleBible,
+      tropeRules,
+      storyTags
     );
 
     let finalUserPrompt = userPrompt;

@@ -114,7 +114,10 @@ export const useChapterGeneration = () => {
             title: targetChapter.title,
             premise: targetChapter.premise
           },
-          routingConfig: store.routingConfig.storyMaker
+          routingConfig: store.routingConfig.storyMaker,
+          styleBible: activeStory.blueprint?.styleBible,
+          tropeRules: activeStory.blueprint?.tropeRules,
+          storyTags: activeStory.intake?.storyTags
         })
       });
 

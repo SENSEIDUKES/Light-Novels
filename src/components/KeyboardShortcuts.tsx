@@ -239,7 +239,7 @@ export const KeyboardShortcuts: React.FC = () => {
                 </div>
               </div>
               <button
-                onClick={() => setIsShortcutsOpen(false)}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setIsShortcutsOpen(false)}
                 className="p-1.5 bg-neutral-950 border border-neutral-850 hover:bg-neutral-900 rounded-md text-neutral-400 hover:text-signal transition-all"
                 aria-label="Close shortcuts"
               >

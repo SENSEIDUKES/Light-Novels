@@ -236,8 +236,7 @@ export async function unlockCosmicArtifact(
       useAppStore.setState({
         userProfile: {
           ...localProfile,
-          cosmicInventory: updatedInventory,
-          inventory: updatedInventory
+          cosmicInventory: updatedInventory
         }
       });
     } else {
@@ -255,8 +254,7 @@ export async function unlockCosmicArtifact(
           inactiveStories: [],
           joinedDate: now,
           updatedAt: now,
-          cosmicInventory: updatedInventory,
-          inventory: updatedInventory
+          cosmicInventory: updatedInventory
         }
       });
     }
@@ -449,7 +447,9 @@ export async function scanChapterForArtifacts(
         rarity: 'Epic',
         attributeBoost: `+15% ${block.worldCard.entityName} Resonance`,
         sourceStoryId: storyId,
-        sourceStoryTitle: storyTitle
+        sourceStoryTitle: storyTitle,
+        milestoneType: 'codex_linked',
+        milestoneName: 'Codex Artifact Discovery'
       }, storyId, storyTitle);
     }
   }

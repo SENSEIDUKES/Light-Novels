@@ -116,7 +116,7 @@ export function IdleCultivationModal({ qiEarned, onClose }: Props) {
             </div>
 
             <button
-              onClick={handleClaim}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleClaim}
               disabled={isClaiming}
               className="w-full relative group bg-portal/10 border border-portal/50 hover:bg-portal hover:text-void text-portal px-6 py-4 rounded-xl font-sc uppercase tracking-widest font-bold text-sm transition-all overflow-hidden"
             >

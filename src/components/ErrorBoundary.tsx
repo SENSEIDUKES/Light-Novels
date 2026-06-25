@@ -120,7 +120,7 @@ export class ErrorBoundary extends Component<Props, State> {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-neutral-900">
                 <button
                   id="btn-error-reset"
-                  onClick={this.handleReset}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={this.handleReset}
                   className="px-4 py-2 bg-void border border-neutral-800 text-neutral-300 hover:text-signal hover:border-neutral-700 text-xs font-sc font-bold uppercase tracking-wider rounded transition-all flex items-center justify-center space-x-2 cursor-pointer"
                 >
                   <RotateCcw size={14} />
@@ -129,7 +129,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
                 <button
                   id="btn-error-reload"
-                  onClick={this.handleReload}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={this.handleReload}
                   className="px-4 py-2 bg-human text-signal hover:bg-void hover:text-human border border-human text-xs font-sc font-bold uppercase tracking-wider rounded transition-all flex items-center justify-center space-x-2 cursor-pointer"
                 >
                   <RefreshCw size={14} />
@@ -138,7 +138,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
                 <button
                   id="btn-error-copy"
-                  onClick={this.handleCopyError}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={this.handleCopyError}
                   className="px-4 py-2 bg-void border border-neutral-800 text-neutral-400 hover:text-signal hover:border-neutral-700 text-xs font-sc font-bold uppercase tracking-wider rounded transition-all flex items-center justify-center space-x-2 cursor-pointer"
                 >
                   {this.state.copied ? (
@@ -156,7 +156,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
                 <button
                   id="btn-error-clear"
-                  onClick={this.handleClearStorage}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={this.handleClearStorage}
                   className={`px-4 py-2 border text-xs font-sc font-bold uppercase tracking-wider rounded transition-all flex items-center justify-center space-x-2 cursor-pointer ${
                     this.state.showClearConfirm 
                       ? 'bg-red-900 border-red-700 text-white hover:bg-red-800' 

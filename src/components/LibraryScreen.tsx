@@ -129,7 +129,7 @@ export const LibraryScreen: React.FC = () => {
           {HERO_VIDEOS.map((_, idx) => (
             <button
               key={idx}
-              onClick={() => setCurrentVideoIdx(idx)}
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setCurrentVideoIdx(idx)}
               className={`w-2 h-2 rounded-full transition-all duration-300 ${
                 currentVideoIdx === idx 
                   ? 'bg-[#d4af37] scale-125 shadow-[0_0_8px_rgba(212,175,55,0.8)]' 
@@ -150,7 +150,7 @@ export const LibraryScreen: React.FC = () => {
             </p>
             <div className="pt-2 sm:pt-4 flex flex-wrap gap-4">
               <button
-                onClick={() => setCurrentScreen('creator')}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setCurrentScreen('creator')}
                 className="group relative px-4 py-2 sm:px-6 sm:py-2.5 bg-void border border-portal text-portal text-xs sm:text-sm font-sc font-bold uppercase tracking-wider rounded-xl shadow-[0_0_20px_rgba(4,172,255,0.4),inset_0_0_15px_rgba(4,172,255,0.2)] hover:shadow-[0_0_30px_rgba(4,172,255,0.6),inset_0_0_25px_rgba(4,172,255,0.4)] hover:bg-portal/10 hover:text-signal transition-all duration-500 overflow-hidden flex items-center space-x-1.5 sm:space-x-2"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-portal/20 to-transparent -translate-x-[200%] group-hover:translate-x-[200%] transition-transform duration-1000 ease-in-out" />
@@ -164,7 +164,7 @@ export const LibraryScreen: React.FC = () => {
 
       <div className="flex space-x-6 border-b border-neutral-900 mt-8 mb-6">
         <button 
-          onClick={() => setActiveTab('featured')}
+           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setActiveTab('featured')}
           className={`pb-3 px-1 text-sm font-sc font-bold uppercase tracking-wider border-b-2 transition-all ${
             activeTab === 'featured' ? 'border-portal text-portal' : 'border-transparent text-neutral-500 hover:text-neutral-300'
           }`}
@@ -266,7 +266,7 @@ export const LibraryScreen: React.FC = () => {
               
               <div className="w-full md:w-auto flex-shrink-0 flex items-center justify-end">
                 <button
-                  onClick={() => handleResumeReading(mostRecentStory)}
+                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleResumeReading(mostRecentStory)}
                   className="w-full md:w-auto px-6 py-3 bg-human border border-human text-signal text-sm font-sc font-bold uppercase tracking-wider rounded-xl transition-all flex items-center justify-center space-x-2 shadow-[0_0_15px_rgba(139,0,0,0.5)] hover:bg-void hover:text-human"
                 >
                   <Play size={16} />
@@ -286,7 +286,7 @@ export const LibraryScreen: React.FC = () => {
                 Your cultivation path is empty. Manifest a new realm to begin reading.
               </p>
               <button
-                onClick={() => setCurrentScreen('creator')}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setCurrentScreen('creator')}
                 className="px-4 py-2 bg-void border border-neutral-800 hover:border-gold-accent text-xs text-neutral-300 hover:text-gold-accent rounded-xl transition-all font-sc uppercase tracking-widest"
               >
                 Manifest Realm
@@ -329,7 +329,7 @@ export const LibraryScreen: React.FC = () => {
                         {generated}/{totalChapters} Ch
                       </div>
                       <button
-                         onClick={(e) => handleDeleteStory(story.id, e)}
+                          tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={(e) => handleDeleteStory(story.id, e)}
                          aria-label={`Burn story for ${story.title}`}
                          className="absolute top-2 left-2 p-1.5 text-neutral-400 bg-black/60 border border-neutral-800 backdrop-blur-sm hover:text-red-500 hover:border-red-900 rounded-xl opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all font-sc"
                          title="Burn Story"
@@ -435,7 +435,7 @@ export const LibraryScreen: React.FC = () => {
 
                   <div className="pt-2">
                     <button
-                      onClick={() => startChallenge(challenge)}
+                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => startChallenge(challenge)}
                       className="w-full py-2.5 bg-[#04acff] hover:bg-[#04acff]/90 text-void font-sc font-bold uppercase tracking-widest text-xs rounded-xl transition-all shadow-[0_0_15px_rgba(4,172,255,0.2)] hover:shadow-[0_0_20px_rgba(4,172,255,0.4)]"
                     >
                       Brave the Fate Ring
@@ -461,7 +461,7 @@ export const LibraryScreen: React.FC = () => {
                 {genres.map((genre) => (
                   <button
                     key={genre}
-                    onClick={() => setSelectedGenre(genre)}
+                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setSelectedGenre(genre)}
                     className={`px-3 py-1.5 text-xs font-sans font-medium uppercase tracking-wider rounded-md border transition-all duration-300 ${
                       selectedGenre === genre
                         ? 'border-[#04ACFF] bg-[#04ACFF]/10 text-[#04ACFF] shadow-[0_0_12px_rgba(4,172,255,0.25)]'

@@ -65,7 +65,7 @@ export function LivingCodexTimeline({ flatChapters, onJumpToChapter }: LivingCod
                       )}
                       {onJumpToChapter && (
                         <button
-                          onClick={() => onJumpToChapter(ch.number)}
+                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => onJumpToChapter(ch.number)}
                           className="px-2 py-0.5 bg-portal/10 text-portal rounded text-[8px] uppercase tracking-wider font-mono hover:bg-portal hover:text-void transition-all"
                         >
                           Read Scene Text

@@ -138,7 +138,7 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
           You must link your spirit to the matrix before forging a new destiny. Anonymous creation is sealed to prevent celestial authorization breaches.
         </p>
         <button
-          onClick={handleLogin}
+           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleLogin}
           className="font-sc px-8 py-3 rounded text-sm uppercase tracking-widest font-bold inline-flex items-center space-x-2 bg-human text-signal border border-human hover:bg-void hover:text-human hover:border-human shadow-[0_0_15px_rgba(139,0,0,0.3)] transition-all"
         >
           <Cloud size={18} />
@@ -176,7 +176,7 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
         <div className="flex justify-center">
           <button
             type="button"
-            onClick={() => setShowImportPanel(!showImportPanel)}
+             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowImportPanel(!showImportPanel)}
             className="font-sc px-5 py-2.5 rounded text-xs uppercase tracking-widest font-bold flex items-center space-x-2 bg-neutral-950 text-portal border border-neutral-900 hover:border-portal hover:bg-portal/5 transition-all shadow-[0_0_12px_rgba(4,172,255,0.05)] cursor-pointer"
           >
             <Copy size={14} />

@@ -148,7 +148,7 @@ export const WorldEntityCard: React.FC<WorldEntityCardProps> = ({ card }) => {
 
         {card.audioText && (
           <button 
-            onClick={handlePlay}
+             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handlePlay}
             disabled={isLoading}
             className="w-full flex items-center justify-center gap-2 py-3 px-4 min-h-[48px] rounded-lg bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 transition-all text-sm font-sans font-medium text-signal touch-manipulation active:scale-[0.98]"
           >

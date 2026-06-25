@@ -146,4 +146,58 @@ describe('useStoryEngine Scenarios', () => {
       expect(story.arcs[1].chapters[0].title).toBe('Direct C4');
     });
   });
+
+  describe('E2E Generation Flow Automation', () => {
+    it('simulates blueprint generation -> start story -> generate chapter', async () => {
+      const { result } = renderHook(() => useStoryEngine());
+      
+      // 1. Generate Blueprint
+      (global.fetch as any).mockImplementationOnce(() => Promise.resolve({
+        ok: true, json: () => Promise.resolve({ title: 'E2E Blueprint', logline: 'Test e2e' })
+      }));
+      let blueprint: any;
+      await act(async () => {
+        blueprint = await result.current.handleGenerateBlueprint({ corePremise: 'Test', genrePath: 'Sci-Fi' } as any);
+      });
+      expect(blueprint.title).toBe('E2E Blueprint');
+
+      // 2. Start Story
+      (global.fetch as any).mockImplementationOnce(() => Promise.resolve({
+        ok: true, json: () => Promise.resolve({
+          title: 'E2E Story',
+          chapters: [{ number: 1, title: 'C1', premise: 'P1' }]
+        })
+      }));
+      await act(async () => {
+        await result.current.handleStartStory({ genrePath: 'Sci-Fi' } as any, blueprint, 1);
+      });
+      
+      const state = useAppStore.getState();
+      expect(state.stories[0].title).toBe('E2E Story');
+      
+      // 3. Generate Chapter
+      const mockReader = { read: vi.fn() };
+      const encoder = new TextEncoder();
+      mockReader.read.mockResolvedValueOnce({ done: false, value: encoder.encode('data: {"chunk": "{\\"text\\":\\"[System: Ready]\\"}\\n"}\n') });
+      mockReader.read.mockResolvedValueOnce({ done: false, value: encoder.encode(`data: {"chunk": "{\\"text\\":\\"${'A'.repeat(160)}\\"}\\n"}\n`) });
+      mockReader.read.mockResolvedValueOnce({ done: true, value: undefined });
+
+      (global.fetch as any).mockImplementation((url: string) => {
+        if (url.includes('generate-chapter-stream')) {
+          return Promise.resolve({ ok: true, body: { getReader: () => mockReader } });
+        }
+        if (url.includes('extract-chapter-metadata')) {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({ summary: 'E2E Summary', memoryUpdates: {} }) });
+        }
+        return Promise.resolve({ ok: true });
+      });
+
+      await act(async () => {
+        await result.current.handleGenerateChapter(1);
+      });
+
+      const updatedState = useAppStore.getState();
+      expect(updatedState.stories[0].arcs[0].chapters[0].generatedContent).toBeDefined();
+    });
+  });
 });
