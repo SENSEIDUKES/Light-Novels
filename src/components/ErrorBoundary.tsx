@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { ShieldAlert, RefreshCw, RotateCcw, Copy, Check, ArrowLeft, Trash2 } from 'lucide-react';
+import { ShieldAlert, RefreshCw, RotateCcw, Copy, Check, Trash2 } from 'lucide-react';
 
 interface Props {
   children?: ReactNode;

@@ -2,6 +2,28 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
+import { z } from "zod";
+import pinoHttp from "pino-http";
+import { logger } from "./server/logger";
+import {
+  validateBody,
+  embedSchema,
+  modelsSchema,
+  daoInsightSchema,
+  generateBlueprintSchema,
+  generateInitialArcSchema,
+  chapterGenerationSchema,
+  extractMetadataSchema,
+  checkConsistencySchema,
+  generateNextDirectionsSchema,
+  suggestTagsSchema,
+  steerArcSchema,
+  generateCardImageSchema,
+  generateCultivatorPortraitSchema,
+  generateCustomGlossarySchema,
+  translateChapterSchema,
+  generateAudioSchema
+} from "./server/schemas";
 import { routeTextGeneration, routeImageGeneration, routeTextGenerationStream, ROUTER_PRESETS } from "./aiRouter";
 import { ensureString, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChapterResponse, filterRelevantEntities, rankRelevantEntities } from "./server/helpers";
 import { PROMPTS } from "./server/prompts";
@@ -21,19 +43,20 @@ function validateEnvironmentOnStartup() {
   if (process.env.NODE_ENV === "production") return;
   const geminiKey = process.env.GEMINI_API_KEY;
   
-  console.log("\n==================================================");
-  console.log("   S E I H O U S E   A P I   C O N F I G U R I N G ");
-  console.log("==================================================");
+  logger.info("\n==================================================");
+  logger.info("   S E I H O U S E   A P I   C O N F I G U R I N G ");
+  logger.info("==================================================");
   
   if (geminiKey && geminiKey !== "MY_GEMINI_API_KEY" && geminiKey.trim() !== "") {
-    console.log("🟢 [Server Status] SEIHouse core engine active (Server-managed keys enabled).");
+    logger.info("🟢 [Server Status] SEIHouse core engine active (Server-managed keys enabled).");
   } else {
-    console.log("ℹ️ [Server Status] Waiting for platform-managed cloud endpoints initialization...");
+    logger.info("ℹ️ [Server Status] Waiting for platform-managed cloud endpoints initialization...");
   }
-  console.log("==================================================\n");
+  logger.info("==================================================\n");
 }
 
 const app = express();
+app.use(pinoHttp({ logger }));
 
 // Helper to extract custom API credentials/configurations passed securely by the client from standard headers
 function getCustomKeys(req: express.Request) {
@@ -72,7 +95,7 @@ app.get("/api/router-presets", (req, res) => {
 });
 
 // 0.2. Fetch dynamic list of models from providers (OpenRouter, Ollama, Gemini)
-app.post("/api/embed", async (req, res) => {
+app.post("/api/embed", validateBody(embedSchema), async (req, res) => {
   try {
     const { text } = req.body;
     if (!text) return res.status(400).json({ error: "Missing text payload" });
@@ -109,7 +132,7 @@ app.post("/api/embed", async (req, res) => {
 });
 
 // 0.2. Fetch dynamic list of models from providers (OpenRouter, Ollama, Gemini)
-app.post("/api/models", async (req, res) => {
+app.post("/api/models", validateBody(modelsSchema), async (req, res) => {
   const { provider, host, key } = req.body;
   try {
     if (provider === "openrouter") {
@@ -202,7 +225,7 @@ app.get("/api/config-status", (req, res) => {
 });
 
 // New Endpoint: Insights from the Dao custom generator
-app.post("/api/dao-insight", async (req, res) => {
+app.post("/api/dao-insight", validateBody(daoInsightSchema), async (req, res) => {
   try {
     const { category, routingConfig } = req.body;
     
@@ -252,7 +275,7 @@ Author name should be authentic Wuxia-style titles like "Drunken Quill Immortal"
 });
 
 // 0.5. Generate World Blueprint
-app.post("/api/generate-blueprint", async (req, res) => {
+app.post("/api/generate-blueprint", validateBody(generateBlueprintSchema), async (req, res) => {
   try {
     const { intake, routingConfig } = req.body;
     
@@ -276,7 +299,7 @@ app.post("/api/generate-blueprint", async (req, res) => {
 });
 
 // 1. Initial story arc generation
-app.post("/api/generate-initial-arc", async (req, res) => {
+app.post("/api/generate-initial-arc", validateBody(generateInitialArcSchema), async (req, res) => {
   try {
     const { intake, blueprint, chapterCount, routingConfig } = req.body;
     
@@ -307,7 +330,7 @@ app.post("/api/generate-initial-arc", async (req, res) => {
 });
 
 // 2. Generate a single chapter scenically with streaming output
-app.post("/api/generate-chapter-stream", async (req, res) => {
+app.post("/api/generate-chapter-stream", validateBody(chapterGenerationSchema), async (req, res) => {
   try {
     const { 
       mcName, 
@@ -507,7 +530,7 @@ PACING DIRECTIVE: Build real suspense and danger. Make sure characters face phys
 });
 
 // 2. Generate a single chapter scenically
-app.post("/api/generate-chapter", async (req, res) => {
+app.post("/api/generate-chapter", validateBody(chapterGenerationSchema), async (req, res) => {
   try {
     const { 
       mcName, 
@@ -694,7 +717,7 @@ PACING DIRECTIVE: Build real suspense and danger. Make sure characters face phys
 });
 
 // 2.1 Extract Metadata from Chapters
-app.post("/api/extract-chapter-metadata", async (req, res) => {
+app.post("/api/extract-chapter-metadata", validateBody(extractMetadataSchema), async (req, res) => {
   try {
     const { chapterNumber, title, chapterText, routingConfig } = req.body;
     
@@ -804,7 +827,7 @@ app.post("/api/extract-chapter-metadata", async (req, res) => {
 });
 
 // 2.2 Consistency Guard Check
-app.post("/api/check-consistency", async (req, res) => {
+app.post("/api/check-consistency", validateBody(checkConsistencySchema), async (req, res) => {
   try {
     const { chapterText, memory, routingConfig } = req.body;
     if (!chapterText || !memory) {
@@ -846,7 +869,7 @@ app.post("/api/check-consistency", async (req, res) => {
 });
 
 // 2.5 Generate Next Story Directions based on memories
-app.post("/api/generate-next-directions", async (req, res) => {
+app.post("/api/generate-next-directions", validateBody(generateNextDirectionsSchema), async (req, res) => {
   const { 
     mcName, 
     genre, 
@@ -938,7 +961,7 @@ app.post("/api/generate-next-directions", async (req, res) => {
 });
 
 // 2.75. Dynamically suggest story tags based on custom novel premise
-app.post("/api/suggest-tags", async (req, res) => {
+app.post("/api/suggest-tags", validateBody(suggestTagsSchema), async (req, res) => {
   try {
     const { premise, genrePath, routingConfig } = req.body;
     if (!premise) {
@@ -1074,7 +1097,7 @@ Your response must be a JSON object with this shape:
 });
 
 // 3. Steer a finished story arc into a new Direction / Volume
-app.post("/api/steer-arc", async (req, res) => {
+app.post("/api/steer-arc", validateBody(steerArcSchema), async (req, res) => {
   try {
     const { 
       mcName, 
@@ -1138,7 +1161,7 @@ app.post("/api/steer-arc", async (req, res) => {
 });
 
 // 4. Generate Portrait or Scenery Card Illustration
-app.post("/api/generate-card-image", async (req, res) => {
+app.post("/api/generate-card-image", validateBody(generateCardImageSchema), async (req, res) => {
   const { prompt, type, routingConfig } = req.body;
   try {
     if (!prompt) {
@@ -1154,7 +1177,7 @@ app.post("/api/generate-card-image", async (req, res) => {
 });
 
 // 4.5 Generate Cultivator Portrait from uploaded image and description
-app.post("/api/generate-cultivator-portrait", async (req, res) => {
+app.post("/api/generate-cultivator-portrait", validateBody(generateCultivatorPortraitSchema), async (req, res) => {
   const { image, description, daoRank, daoXp, powerStage, equippedArtifact, routingConfig } = req.body;
   try {
     if (!image) {
@@ -1246,7 +1269,7 @@ GENERAL CONSTRAINTS:
 });
 
 // 5. Generate Story-Specific Glossary terms and lore definitions
-app.post("/api/generate-custom-glossary", async (req, res) => {
+app.post("/api/generate-custom-glossary", validateBody(generateCustomGlossarySchema), async (req, res) => {
   const { storyTitle, mcName, genre, customPremise, characterNames, factionNames, routingConfig } = req.body;
   try {
     const data = await routeTextGeneration(
@@ -1301,7 +1324,7 @@ app.post("/api/generate-custom-glossary", async (req, res) => {
 
 
 // 6. Translate Chapter
-app.post("/api/translate-chapter", async (req, res) => {
+app.post("/api/translate-chapter", validateBody(translateChapterSchema), async (req, res) => {
   try {
     const { chapterId, targetLang, englishText, glossaryTerms, routingConfig } = req.body;
 
@@ -1406,7 +1429,7 @@ ${englishText}
 
 
 // 7. Generate Audio (TTS) for the Voice Edition
-app.post("/api/generate-audio", async (req, res) => {
+app.post("/api/generate-audio", validateBody(generateAudioSchema), async (req, res) => {
   try {
     const { text, speakerVoice } = req.body;
     if (!text || !speakerVoice) {

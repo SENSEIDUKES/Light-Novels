@@ -36,11 +36,12 @@ describe('RAG', () => {
       const mockStory: StoryWorld = {
         id: 'test-story',
         title: 'Test',
-        characters: [],
-        factions: [],
-        locations: [],
-        lore: [],
-        magicSystem: [],
+        genre: 'test',
+        mcName: 'test',
+        customPremise: 'test',
+        createdAt: '',
+        updatedAt: '',
+        currentChapterNumber: 1,
         memory: { unresolvedPlotThreads: [] } as any,
         arcs: [
           {
