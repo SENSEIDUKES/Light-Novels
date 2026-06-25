@@ -19,6 +19,9 @@ export interface StorageAdapter {
   
   getChapterContent(storyId: string, chapterNumber: number): Promise<ChapterContent | null>;
   saveChapterContent(content: ChapterContent): Promise<void>;
+  
+  getAudioBlob?(url: string): Promise<Blob | null>;
+  saveAudioBlob?(url: string, blob: Blob): Promise<void>;
 }
 
 /**
@@ -30,7 +33,8 @@ export class IndexedDBStorageAdapter implements StorageAdapter {
   private dbName = 'seihouse_story_world_db';
   private storeName = 'stories';
   private chaptersStoreName = 'chapter_contents';
-  private version = 2;
+  private audioStoreName = 'audio_cache';
+  private version = 3;
   private db: IDBDatabase | null = null;
 
   init(): Promise<void> {
@@ -60,6 +64,9 @@ export class IndexedDBStorageAdapter implements StorageAdapter {
         if (!db.objectStoreNames.contains(this.chaptersStoreName)) {
           // Complex key path for identifying unique chapter contents
           db.createObjectStore(this.chaptersStoreName, { keyPath: ['storyId', 'chapterNumber'] });
+        }
+        if (!db.objectStoreNames.contains(this.audioStoreName)) {
+          db.createObjectStore(this.audioStoreName, { keyPath: 'url' });
         }
       };
     });
@@ -184,6 +191,33 @@ export class IndexedDBStorageAdapter implements StorageAdapter {
       request.onerror = () => reject(request.error);
     });
   }
+
+  async getAudioBlob(url: string): Promise<Blob | null> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(this.audioStoreName, 'readonly');
+      const store = transaction.objectStore(this.audioStoreName);
+      const request = store.get(url);
+
+      request.onsuccess = () => {
+        resolve(request.result ? request.result.blob : null);
+      };
+      
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async saveAudioBlob(url: string, blob: Blob): Promise<void> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(this.audioStoreName, 'readwrite');
+      const store = transaction.objectStore(this.audioStoreName);
+      const request = store.put({ url, blob });
+
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
 }
 
 /**
@@ -239,6 +273,14 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
   async clearAll(): Promise<void> {
     localStorage.removeItem(this.storageKey);
     localStorage.removeItem(this.chaptersStorageKey);
+  }
+
+  async getAudioBlob(url: string): Promise<Blob | null> {
+    return null;
+  }
+
+  async saveAudioBlob(url: string, blob: Blob): Promise<void> {
+    // No-op for localstorage to prevent blowing up quota
   }
 
   async getChapterContent(storyId: string, chapterNumber: number): Promise<ChapterContent | null> {
@@ -853,6 +895,19 @@ export class PersistentStorageManager implements StorageAdapter {
 
   async clearAll(): Promise<void> {
     await this.localAdapter.clearAll();
+  }
+
+  async getAudioBlob(url: string): Promise<Blob | null> {
+    if (this.localAdapter.getAudioBlob) {
+      return this.localAdapter.getAudioBlob(url);
+    }
+    return null;
+  }
+
+  async saveAudioBlob(url: string, blob: Blob): Promise<void> {
+    if (this.localAdapter.saveAudioBlob) {
+      return this.localAdapter.saveAudioBlob(url, blob);
+    }
   }
 
   getActiveAdapterName(): string {

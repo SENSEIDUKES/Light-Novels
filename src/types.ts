@@ -11,10 +11,16 @@ export interface CosmicArtifact {
   unlockedAt: string;
   sourceStoryId?: string;
   sourceStoryTitle?: string;
-  milestoneType: 'chapter_seal' | 'rank_up' | 'challenge_complete' | 'first_breakthrough' | 'streak_attained' | 'codex_linked';
+  milestoneType:
+    | "chapter_seal"
+    | "rank_up"
+    | "challenge_complete"
+    | "first_breakthrough"
+    | "streak_attained"
+    | "codex_linked";
   milestoneName: string;
   imageUrl?: string;
-  rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary' | 'Mythic' | 'Transcendent';
+  rarity: "Common" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Transcendent";
   attributeBoost?: string;
 }
 
@@ -34,17 +40,17 @@ export interface UserProfile {
   qi?: number; // legacy
   dao_xp?: number;
   dao_rank?: string;
-  premiumTier?: 'free' | 'inner_sect' | 'core_disciple' | 'elder';
+  premiumTier?: "free" | "inner_sect" | "core_disciple" | "elder";
   imageGenerationCount?: number;
   imageQuotaResetAt?: string;
   writingStreak?: number;
-  
+
   // Idle Cultivation & Dao Pillar
   lastSessionEnd?: string;
   daoPillarStreak?: number;
   daoPillarCracked?: boolean;
   lastReadDate?: string;
-  
+
   lastInteractionDate?: string;
   cosmicInventory?: CosmicArtifact[];
   equippedArtifactId?: string;
@@ -63,7 +69,7 @@ export interface DaoXpEvent {
 export interface GeneratedImage {
   id: string;
   entityId: string;
-  entityType: 'cover' | 'character' | 'beast' | 'location' | 'artifact';
+  entityType: "cover" | "character" | "beast" | "location" | "artifact";
   imageUrl: string;
   chapterNumber?: number;
   arcTitle?: string;
@@ -74,16 +80,50 @@ export interface GeneratedImage {
 }
 
 export interface BeastSonicProfile {
-  size: 'tiny' | 'human-sized' | 'giant' | 'world-scale';
-  bodyType: 'insect' | 'serpent' | 'bird' | 'mammal' | 'spirit' | 'undead' | 'dragon' | 'cosmic';
-  element: 'lightning' | 'fire' | 'ice' | 'void' | 'blood' | 'wind' | 'poison' | 'none';
-  movement: 'crawling' | 'flying' | 'burrowing' | 'teleporting' | 'stomping' | 'none';
-  intelligence: 'animal' | 'cunning' | 'ancient' | 'divine';
-  threatTier: 'common' | 'elite' | 'boss' | 'calamity' | 'mythic';
-  signatureSound: 'screech' | 'roar' | 'chitter' | 'hum' | 'pulse' | 'chant' | 'silence';
+  size: "tiny" | "human-sized" | "giant" | "world-scale";
+  bodyType:
+    | "insect"
+    | "serpent"
+    | "bird"
+    | "mammal"
+    | "spirit"
+    | "undead"
+    | "dragon"
+    | "cosmic";
+  element:
+    | "lightning"
+    | "fire"
+    | "ice"
+    | "void"
+    | "blood"
+    | "wind"
+    | "poison"
+    | "none";
+  movement:
+    | "crawling"
+    | "flying"
+    | "burrowing"
+    | "teleporting"
+    | "stomping"
+    | "none";
+  intelligence: "animal" | "cunning" | "ancient" | "divine";
+  threatTier: "common" | "elite" | "boss" | "calamity" | "mythic";
+  signatureSound:
+    | "screech"
+    | "roar"
+    | "chitter"
+    | "hum"
+    | "pulse"
+    | "chant"
+    | "silence";
 }
 
-export type RelevanceState = 'active' | 'warm' | 'dormant' | 'archived' | 'reactivated';
+export type RelevanceState =
+  | "active"
+  | "warm"
+  | "dormant"
+  | "archived"
+  | "reactivated";
 
 export interface MemoryProvenance {
   sourceChapterNumber?: number;
@@ -98,7 +138,7 @@ export interface MemoryProvenance {
 export interface PlotThread {
   id?: string;
   description: string;
-  status: 'active' | 'resolved';
+  status: "active" | "resolved";
   provenance?: MemoryProvenance;
   originChapter?: number;
 }
@@ -126,7 +166,7 @@ export interface Character extends BaseCodexEntry {
   role: string;
   description: string;
   relationshipToMC: string;
-  status: 'alive' | 'deceased' | 'unknown' | 'ascended';
+  status: "alive" | "deceased" | "unknown" | "ascended";
   powerLevel?: string;
   abilities?: Array<string | Ability>;
   faction?: string;
@@ -145,9 +185,9 @@ export interface Faction extends BaseCodexEntry {
   id: string;
   name: string;
   description: string;
-  alignment: 'Righteous' | 'Demonic' | 'Neutral' | 'Mysterious' | string;
+  alignment: "Righteous" | "Demonic" | "Neutral" | "Mysterious" | string;
   headquarters?: string;
-  status?: 'Active' | 'Destroyed' | 'Fractured' | string;
+  status?: "Active" | "Destroyed" | "Fractured" | string;
 }
 
 export interface Location extends BaseCodexEntry {
@@ -155,7 +195,7 @@ export interface Location extends BaseCodexEntry {
   name: string;
   description: string;
   realm?: string;
-  safetyLevel?: 'Safe' | 'Dangerous' | 'Lethal' | string;
+  safetyLevel?: "Safe" | "Dangerous" | "Lethal" | string;
   imageUrl?: string;
   imageHistory?: GeneratedImage[];
   lastImageChapter?: number;
@@ -168,7 +208,7 @@ export interface Artifact extends BaseCodexEntry {
   id: string;
   name: string;
   description: string;
-  tier?: 'Mortal' | 'Earth' | 'Heaven' | 'Primordial' | string;
+  tier?: "Mortal" | "Earth" | "Heaven" | "Primordial" | string;
   currentOwner?: string;
   imageUrl?: string;
   imageHistory?: GeneratedImage[];
@@ -186,7 +226,7 @@ export interface StoryMemory {
   unresolvedPlotThreads: Array<string | PlotThread>;
   resolvedPlotThreads: Array<string | PlotThread>;
   memoryWarnings?: string[];
-  
+
   // Living Codex expansions
   factions?: Faction[];
   locations?: Location[];
@@ -207,12 +247,42 @@ export interface StoryBlockMetadata {
   speakerName?: string;
   mode?: string;
   speakerRole?: string;
-  entities?: { name: string; type: 'character'|'artifact'|'location'|'beast'|'faction'; mention: 'reveal'|'reference' }[];
-  music?: { mood: 'war'|'duel'|'serenity'|'romance'|'dread'|'mystery'|'triumph'|'tribulation'|'travel'|'tragedy'|'fighting'|'adventure'|'ambient'|'boss-fight'|'tension'|'sad'|'mystical'|'excitement'|'tired'|'horror'; region?: 'chinese'|'japanese'|'western'; intensity?: number; customUrl?: string; trackId?: string };
+  entities?: {
+    name: string;
+    type: "character" | "artifact" | "location" | "beast" | "faction";
+    mention: "reveal" | "reference";
+  }[];
+  music?: {
+    mood:
+      | "war"
+      | "duel"
+      | "serenity"
+      | "romance"
+      | "dread"
+      | "mystery"
+      | "triumph"
+      | "tribulation"
+      | "travel"
+      | "tragedy"
+      | "fighting"
+      | "adventure"
+      | "ambient"
+      | "boss-fight"
+      | "tension"
+      | "sad"
+      | "mystical"
+      | "excitement"
+      | "tired"
+      | "horror";
+    region?: "chinese" | "japanese" | "western";
+    intensity?: number;
+    customUrl?: string;
+    trackId?: string;
+  };
 }
 
 export interface FateResultData {
-  outcome: 'FATE AVERTED' | 'FATE SCARRED' | 'DOOM MANIFESTED';
+  outcome: "FATE AVERTED" | "FATE SCARRED" | "DOOM MANIFESTED";
   timelineScar: string;
   permanentCosts: string[];
   newStoryState: string;
@@ -221,23 +291,53 @@ export interface FateResultData {
 }
 
 export interface SystemEvent {
-  kind: 'status' | 'skill_acquired' | 'level_up' | 'quest' | 'appraisal' | 'fate_result';
-  promptType?: 'neutral' | 'codex_update' | 'friendly_scan' | 'enemy_scan' | 'warning' | 'critical_danger' | 'progression' | 'breakthrough' | 'reward' | 'romance' | 'karmic_bond' | 'mystery' | 'fate_event' | 'corruption' | 'death_event' | 'quest_update' | 'choice_consequence' | 'system_error';
+  kind:
+    | "status"
+    | "skill_acquired"
+    | "level_up"
+    | "quest"
+    | "appraisal"
+    | "fate_result";
+  promptType?:
+    | "neutral"
+    | "codex_update"
+    | "friendly_scan"
+    | "enemy_scan"
+    | "warning"
+    | "critical_danger"
+    | "progression"
+    | "breakthrough"
+    | "reward"
+    | "romance"
+    | "karmic_bond"
+    | "mystery"
+    | "fate_event"
+    | "corruption"
+    | "death_event"
+    | "quest_update"
+    | "choice_consequence"
+    | "system_error";
   title: string;
-  rows?: {label: string; value: string}[];
+  rows?: { label: string; value: string }[];
   rarity?: string;
   fateResult?: FateResultData;
 }
 
 export interface WorldCardEvent {
   id?: string;
-  entityType: 'character' | 'creature' | 'artifact' | 'location' | 'system' | 'fate_event';
+  entityType:
+    | "character"
+    | "creature"
+    | "artifact"
+    | "location"
+    | "system"
+    | "fate_event";
   entityName: string;
   displayTitle: string;
   imageUrl?: string;
   quote?: string;
   audioText?: string;
-  audioType: 'tts_line' | 'roar' | 'ambience' | 'chime';
+  audioType: "tts_line" | "roar" | "ambience" | "chime";
   voicePreset?: string;
   codexEntryId?: string;
 }
@@ -262,7 +362,14 @@ export interface StoryCuePayload {
   element?: string;
   signature?: string;
   beastEvent?: {
-    type: 'reveal' | 'power-up' | 'technique' | 'injury' | 'turning-point' | 'death' | 'breakthrough';
+    type:
+      | "reveal"
+      | "power-up"
+      | "technique"
+      | "injury"
+      | "turning-point"
+      | "death"
+      | "breakthrough";
     profile: BeastSonicProfile;
   };
 }
@@ -298,7 +405,7 @@ export interface ChapterContent {
     };
   };
   audioManifest?: AudioManifest;
-  syncStatus?: 'local' | 'synced' | 'conflict';
+  syncStatus?: "local" | "synced" | "conflict";
   revisionId?: string;
   updatedAt?: string;
 }
@@ -307,7 +414,7 @@ export interface Chapter {
   number: number;
   title: string;
   premise: string;
-  status: 'unlocked' | 'generating' | 'read' | 'unread';
+  status: "unlocked" | "generating" | "read" | "unread";
   generatedContent?: string; // Optional, only populated when currently viewed
   blocks?: StoryBlock[];
   hasContent?: boolean; // Indicates if the content was generated and stored
@@ -343,11 +450,11 @@ export interface StoryArc {
 }
 
 export interface ReaderPreferences {
-  fontSize: 'xs' | 'sm' | 'base' | 'lg' | 'xl';
-  fontFamily: 'serif' | 'sans' | 'mono';
-  lineHeight: 'snug' | 'normal' | 'relaxed' | 'loose';
-  paragraphSpacing: 'normal' | 'wide' | 'double';
-  themeOverride?: 'void' | 'crimson' | 'abyss' | 'sepia' | 'emerald';
+  fontSize: "xs" | "sm" | "base" | "lg" | "xl";
+  fontFamily: "serif" | "sans" | "mono";
+  lineHeight: "snug" | "normal" | "relaxed" | "loose";
+  paragraphSpacing: "normal" | "wide" | "double";
+  themeOverride?: "void" | "crimson" | "abyss" | "sepia" | "emerald";
 }
 
 export interface KarmaFateNode {
@@ -357,9 +464,9 @@ export interface KarmaFateNode {
   targetId: string; // ID of character, location, or thread
   targetName: string;
   description: string;
-  severity: 'Minor' | 'Major' | 'Cosmic';
-  type: 'Debt' | 'Boon' | 'Enmity' | 'Destiny';
-  status: 'active' | 'resolved';
+  severity: "Minor" | "Major" | "Cosmic";
+  type: "Debt" | "Boon" | "Enmity" | "Destiny";
+  status: "active" | "resolved";
   createdAt: string;
 }
 
@@ -448,7 +555,7 @@ export interface IntakeData {
   thingsToAvoid?: string;
   mustIncludeElements?: string;
   hardcoreFateMode?: boolean;
-  fatePressure?: 'Relaxed' | 'Balanced' | 'Hardcore' | 'Dao Master';
+  fatePressure?: "Relaxed" | "Balanced" | "Hardcore" | "Dao Master";
 
   // 6. Make it Work (Absolute Custom Rule)
   makeItWorkInstruction?: string;
@@ -497,8 +604,8 @@ export interface StoryWorld {
   blueprint?: WorldBlueprint;
   isEdited?: boolean; // Track if the user has modified/actively worked on the demo story
   hardcoreFateMode?: boolean;
-  fatePressure?: 'Relaxed' | 'Balanced' | 'Hardcore' | 'Dao Master';
-  
+  fatePressure?: "Relaxed" | "Balanced" | "Hardcore" | "Dao Master";
+
   // Local-first persistent storage properties
   relationships?: CharacterRelationship[];
   karmaNodes?: KarmaFateNode[];
@@ -508,6 +615,10 @@ export interface StoryWorld {
   // Reader experience tracking
   lastReadChapter?: number;
   lastReadScrollPosition?: number;
+  readingStats?: {
+    totalReadingTimeMs?: number;
+    arcReadingTimeMs?: Record<number, number>;
+  };
   lastReadAt?: string;
 }
 
@@ -538,7 +649,7 @@ export interface LoreGlossary {
 }
 
 export interface RouteConfig {
-  provider: 'gemini' | 'openrouter' | 'ollama';
+  provider: "gemini" | "openrouter" | "ollama";
   model: string;
   temperature?: number;
   maxOutputTokens?: number;
@@ -613,4 +724,3 @@ export interface DraftRecoverySession {
   activeStoryId: string;
   generatingChapterNum: number;
 }
-

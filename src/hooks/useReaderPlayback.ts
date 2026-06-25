@@ -3,6 +3,7 @@ import { Chapter, VoiceClip } from "../types";
 import { useAppStore } from "../store/useAppStore";
 import { dispatchNarration, dispatchNarrativeCue } from "../lib/narrativeCues";
 import { useReadingDrift } from "./useReadingDrift";
+import { storyStorage } from "../lib/storage";
 
 export const extractSFXCues = (text: string) => {
   const sfxList: string[] = [];
@@ -265,7 +266,7 @@ export function useReaderPlayback({
     }
   }, []);
 
-  const startClipSequence = (clips: VoiceClip[], startIndex = 0) => {
+  const startClipSequence = async (clips: VoiceClip[], startIndex = 0) => {
     if (startIndex >= clips.length) {
       stopAllPlayback();
       setReaderMode('teleprompter');
@@ -276,7 +277,19 @@ export function useReaderPlayback({
     activeClipIndexRef.current = startIndex;
 
     const clip = clips[startIndex];
-    const audio = new Audio(clip.audioUrl);
+    let audioUrlToPlay = clip.audioUrl;
+    
+    // Check for offline cache
+    try {
+      const blob = await storyStorage.getAudioBlob(clip.audioUrl);
+      if (blob) {
+         audioUrlToPlay = URL.createObjectURL(blob);
+      }
+    } catch(e) {
+      console.warn("Failed to retrieve offline audio cache:", e);
+    }
+
+    const audio = new Audio(audioUrlToPlay);
     activeAudioRef.current = audio;
 
     let blockIndex = selectedChapter?.blocks?.findIndex(b => b.id === clip.blockId) ?? -1;
@@ -301,13 +314,24 @@ export function useReaderPlayback({
       }
     };
 
-    audio.onended = () => startClipSequence(clips, startIndex + 1);
+    audio.onended = () => {
+      if (audioUrlToPlay.startsWith("blob:")) {
+        URL.revokeObjectURL(audioUrlToPlay);
+      }
+      startClipSequence(clips, startIndex + 1);
+    };
     audio.onerror = (e) => {
       console.warn("SEN clip audio failed, skipping:", e);
+      if (audioUrlToPlay.startsWith("blob:")) {
+        URL.revokeObjectURL(audioUrlToPlay);
+      }
       startClipSequence(clips, startIndex + 1);
     };
     audio.play().catch(err => {
       console.warn("Audio play blocked/failed, skipping:", err);
+      if (audioUrlToPlay.startsWith("blob:")) {
+        URL.revokeObjectURL(audioUrlToPlay);
+      }
       startClipSequence(clips, startIndex + 1);
     });
   };

@@ -1,38 +1,142 @@
-import React, { useState } from 'react';
-import FocusLock from 'react-focus-lock';
-import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, BookOpen, MoreHorizontal, BookCheck, Download, Trash2, Zap, GitBranch, Scroll, Cloud, Check, RefreshCw, Compass } from 'lucide-react';
-import { useAppStore } from '../store/useAppStore';
-import { DestinyChoicePanel } from './DestinyChoicePanel';
-import { FateTimeline } from './FateTimeline';
-import { storyStorage } from '../lib/storage';
-import { getAuraTextStyle } from '../lib/qi';
-import { vibrate } from '../lib/vibration';
+import React, { useState } from "react";
+import FocusLock from "react-focus-lock";
+import { motion, AnimatePresence } from "motion/react";
+import {
+  Sparkles,
+  BookOpen,
+  MoreHorizontal,
+  BookCheck,
+  Download,
+  Trash2,
+  Zap,
+  GitBranch,
+  Scroll,
+  Cloud,
+  Check,
+  RefreshCw,
+  Compass,
+  CloudDownload,
+} from "lucide-react";
+import { useAppStore } from "../store/useAppStore";
+import { DestinyChoicePanel } from "./DestinyChoicePanel";
+import { FateTimeline } from "./FateTimeline";
+import { storyStorage } from "../lib/storage";
+import { getAuraTextStyle } from "../lib/qi";
+import { vibrate } from "../lib/vibration";
 
-export const StoryDetailScreen: React.FC<{ 
-  handleGenerateCover: () => Promise<{ imageUrls: string[], promptUsed: string } | undefined>,
-  handleApplyCover: (imageUrl: string, promptUsed: string) => void,
-  handleExportFullTome: (story: any) => void,
-  handleExportEPUB: (story: any) => void,
-  handleExportSingleStory: (story: any) => void,
-  handleDeleteStory: (id: string, e: React.MouseEvent) => void,
-  setIsCodexSheetOpen: (open: boolean) => void
+export const StoryDetailScreen: React.FC<{
+  handleGenerateCover: () => Promise<
+    { imageUrls: string[]; promptUsed: string } | undefined
+  >;
+  handleApplyCover: (imageUrl: string, promptUsed: string) => void;
+  handleExportFullTome: (story: any) => void;
+  handleExportEPUB: (story: any) => void;
+  handleExportSingleStory: (story: any) => void;
+  handleDeleteStory: (id: string, e: React.MouseEvent) => void;
+  setIsCodexSheetOpen: (open: boolean) => void;
 }> = ({
-  handleGenerateCover, handleApplyCover, handleExportFullTome, handleExportEPUB, handleExportSingleStory, handleDeleteStory, setIsCodexSheetOpen
+  handleGenerateCover,
+  handleApplyCover,
+  handleExportFullTome,
+  handleExportEPUB,
+  handleExportSingleStory,
+  handleDeleteStory,
+  setIsCodexSheetOpen,
 }) => {
-  const { currentScreen, setCurrentScreen, activeStoryId, stories, isGenerating, setSelectedChapterNum, userProfile, saveStories } = useAppStore();
+  const {
+    currentScreen,
+    setCurrentScreen,
+    activeStoryId,
+    stories,
+    isGenerating,
+    setSelectedChapterNum,
+    userProfile,
+    saveStories,
+  } = useAppStore();
   const [isStoryMenuOpen, setIsStoryMenuOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
-  const [coverPreview, setCoverPreview] = useState<{ urls: string[], prompt: string, selectedIndex: number } | null>(null);
+  const [coverPreview, setCoverPreview] = useState<{
+    urls: string[];
+    prompt: string;
+    selectedIndex: number;
+  } | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isDownloadingOffline, setIsDownloadingOffline] = useState(false);
+  const [offlineProgress, setOfflineProgress] = useState({
+    current: 0,
+    total: 0,
+  });
 
-  if (currentScreen !== 'detail') return null;
+  const handleDownloadOffline = async () => {
+    if (!activeStory) return;
+    setIsDownloadingOffline(true);
 
-  const activeStory = stories.find(s => s.id === activeStoryId);
+    const itemsToFetch: {
+      type: "chapter" | "audio";
+      url?: string;
+      storyId?: string;
+      chapterNumber?: number;
+    }[] = [];
+
+    for (const arc of activeStory.arcs) {
+      for (const chapter of arc.chapters) {
+        if (chapter.hasContent) {
+          itemsToFetch.push({
+            type: "chapter",
+            storyId: activeStory.id,
+            chapterNumber: chapter.number,
+          });
+        }
+        if (chapter.audioManifest && chapter.audioManifest.clips) {
+          for (const clip of chapter.audioManifest.clips) {
+            if (clip.audioUrl && clip.audioUrl.startsWith("http")) {
+              itemsToFetch.push({ type: "audio", url: clip.audioUrl });
+            }
+          }
+        }
+      }
+    }
+
+    setOfflineProgress({ current: 0, total: itemsToFetch.length });
+
+    let current = 0;
+    for (const item of itemsToFetch) {
+      if (item.type === "chapter") {
+        await storyStorage.getChapterContent(
+          item.storyId!,
+          item.chapterNumber!,
+        );
+      } else if (item.type === "audio" && item.url) {
+        try {
+          const cached = await storyStorage.getAudioBlob(item.url);
+          if (!cached) {
+            const res = await fetch(item.url);
+            if (res.ok) {
+              const blob = await res.blob();
+              await storyStorage.saveAudioBlob(item.url, blob);
+            }
+          }
+        } catch (e) {
+          console.error("Failed to download audio for offline", e);
+        }
+      }
+      current++;
+      setOfflineProgress({ current, total: itemsToFetch.length });
+    }
+
+    setIsDownloadingOffline(false);
+  };
+
+  if (currentScreen !== "detail") return null;
+
+  const activeStory = stories.find((s) => s.id === activeStoryId);
   if (!activeStory) return null;
 
-  const isCurrentArcFinished = activeStory.arcs.length > 0 && 
-    activeStory.arcs[activeStory.arcs.length - 1].chapters.every(c => c.hasContent || !!c.generatedContent);
+  const isCurrentArcFinished =
+    activeStory.arcs.length > 0 &&
+    activeStory.arcs[activeStory.arcs.length - 1].chapters.every(
+      (c) => c.hasContent || !!c.generatedContent,
+    );
 
   return (
     <motion.div
@@ -43,14 +147,21 @@ export const StoryDetailScreen: React.FC<{
       transition={{ duration: 0.3 }}
       className="max-w-5xl mx-auto space-y-8"
     >
-      <DestinyChoicePanel 
+      <DestinyChoicePanel
         isOpen={!!coverPreview}
         imageUrls={coverPreview?.urls || []}
         selectedIndex={coverPreview?.selectedIndex || 0}
-        onSelect={(index) => setCoverPreview(prev => prev ? { ...prev, selectedIndex: index } : null)}
+        onSelect={(index) =>
+          setCoverPreview((prev) =>
+            prev ? { ...prev, selectedIndex: index } : null,
+          )
+        }
         onApply={() => {
           if (coverPreview) {
-            handleApplyCover(coverPreview.urls[coverPreview.selectedIndex], coverPreview.prompt);
+            handleApplyCover(
+              coverPreview.urls[coverPreview.selectedIndex],
+              coverPreview.prompt,
+            );
             setCoverPreview(null);
           }
         }}
@@ -59,10 +170,10 @@ export const StoryDetailScreen: React.FC<{
         subtitle="Choose the most fitting reflection for your next volume."
       />
 
-      <FateTimeline 
-        isOpen={isTimelineOpen} 
-        onClose={() => setIsTimelineOpen(false)} 
-        activeStoryId={activeStoryId || ''} 
+      <FateTimeline
+        isOpen={isTimelineOpen}
+        onClose={() => setIsTimelineOpen(false)}
+        activeStoryId={activeStoryId || ""}
       />
 
       {/* Unified Export Tome Modal */}
@@ -71,107 +182,142 @@ export const StoryDetailScreen: React.FC<{
           <FocusLock>
             <motion.div
               key="export-modal-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              transition={{ duration: 0.25 }}
-              className="bg-[#050505] border border-neutral-800 rounded-xl shadow-[0_0_30px_rgba(4,172,255,0.05)] overflow-hidden max-w-2xl w-full flex flex-col"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
             >
-              {/* Modal Header */}
-              <div className="p-6 text-center border-b border-neutral-900 bg-void">
-                <h2 className="text-lg font-sc font-bold text-signal tracking-[0.2em] uppercase flex items-center justify-center gap-2.5">
-                  <Scroll className="text-portal" size={20} />
-                  <span>Export Novel</span>
-                  <Scroll className="text-portal" size={20} />
-                </h2>
-                <p className="text-xs text-neutral-400 mt-2 font-sans max-w-md mx-auto">
-                  Select your preferred format to save or read this novel outside the SEIHouse platform.
-                </p>
-              </div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                transition={{ duration: 0.25 }}
+                className="bg-[#050505] border border-neutral-800 rounded-xl shadow-[0_0_30px_rgba(4,172,255,0.05)] overflow-hidden max-w-2xl w-full flex flex-col"
+              >
+                {/* Modal Header */}
+                <div className="p-6 text-center border-b border-neutral-900 bg-void">
+                  <h2 className="text-lg font-sc font-bold text-signal tracking-[0.2em] uppercase flex items-center justify-center gap-2.5">
+                    <Scroll className="text-portal" size={20} />
+                    <span>Export Novel</span>
+                    <Scroll className="text-portal" size={20} />
+                  </h2>
+                  <p className="text-xs text-neutral-400 mt-2 font-sans max-w-md mx-auto">
+                    Select your preferred format to save or read this novel
+                    outside the SEIHouse platform.
+                  </p>
+                </div>
 
-              {/* Form Options Grid */}
-              <div className="p-6 space-y-4 bg-neutral-950/40">
-                {/* HTML Option */}
-                <button
-                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-                    handleExportFullTome(activeStory);
-                    setIsExportModalOpen(false);
-                  }}
-                  className="w-full text-left p-4 rounded-lg bg-void border border-neutral-850 hover:border-portal hover:bg-neutral-900/40 transition-all duration-300 flex items-start space-x-4 group"
-                >
-                  <div className="p-2.5 bg-neutral-900 rounded border border-neutral-800 text-portal group-hover:bg-portal group-hover:text-void group-hover:border-portal transition-all duration-300">
-                    <BookCheck size={20} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-mono font-bold text-signal uppercase tracking-wider group-hover:text-portal transition-colors">
-                      Web Page (HTML Format)
-                    </h4>
-                    <p className="text-[11px] text-neutral-400 mt-1 font-serif leading-relaxed">
-                      Creates a single HTML file containing all generated chapters, complete with modern reading styles. Perfect for printing, sharing, or reading in any web browser.
-                    </p>
-                  </div>
-                </button>
+                {/* Form Options Grid */}
+                <div className="p-6 space-y-4 bg-neutral-950/40">
+                  {/* HTML Option */}
+                  <button
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        e.currentTarget.click();
+                      }
+                    }}
+                    onClick={() => {
+                      handleExportFullTome(activeStory);
+                      setIsExportModalOpen(false);
+                    }}
+                    className="w-full text-left p-4 rounded-lg bg-void border border-neutral-850 hover:border-portal hover:bg-neutral-900/40 transition-all duration-300 flex items-start space-x-4 group"
+                  >
+                    <div className="p-2.5 bg-neutral-900 rounded border border-neutral-800 text-portal group-hover:bg-portal group-hover:text-void group-hover:border-portal transition-all duration-300">
+                      <BookCheck size={20} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-mono font-bold text-signal uppercase tracking-wider group-hover:text-portal transition-colors">
+                        Web Page (HTML Format)
+                      </h4>
+                      <p className="text-[11px] text-neutral-400 mt-1 font-serif leading-relaxed">
+                        Creates a single HTML file containing all generated
+                        chapters, complete with modern reading styles. Perfect
+                        for printing, sharing, or reading in any web browser.
+                      </p>
+                    </div>
+                  </button>
 
-                {/* EPUB Option */}
-                <button
-                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-                    handleExportEPUB(activeStory);
-                    setIsExportModalOpen(false);
-                  }}
-                  className="w-full text-left p-4 rounded-lg bg-void border border-neutral-850 hover:border-gold-accent hover:bg-neutral-900/40 transition-all duration-300 flex items-start space-x-4 group"
-                >
-                  <div className="p-2.5 bg-neutral-900 rounded border border-neutral-800 text-gold-accent group-hover:bg-gold-accent group-hover:text-void group-hover:border-gold-accent transition-all duration-300">
-                    <BookOpen size={20} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-mono font-bold text-signal uppercase tracking-wider group-hover:text-gold-accent transition-colors">
-                      E-Book (EPUB Format)
-                    </h4>
-                    <p className="text-[11px] text-neutral-400 mt-1 font-serif leading-relaxed">
-                      Downloads a standard .epub file compatible with e-readers, Kindle, Apple Books, and other popular digital reader devices or apps.
-                    </p>
-                  </div>
-                </button>
+                  {/* EPUB Option */}
+                  <button
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        e.currentTarget.click();
+                      }
+                    }}
+                    onClick={() => {
+                      handleExportEPUB(activeStory);
+                      setIsExportModalOpen(false);
+                    }}
+                    className="w-full text-left p-4 rounded-lg bg-void border border-neutral-850 hover:border-gold-accent hover:bg-neutral-900/40 transition-all duration-300 flex items-start space-x-4 group"
+                  >
+                    <div className="p-2.5 bg-neutral-900 rounded border border-neutral-800 text-gold-accent group-hover:bg-gold-accent group-hover:text-void group-hover:border-gold-accent transition-all duration-300">
+                      <BookOpen size={20} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-mono font-bold text-signal uppercase tracking-wider group-hover:text-gold-accent transition-colors">
+                        E-Book (EPUB Format)
+                      </h4>
+                      <p className="text-[11px] text-neutral-400 mt-1 font-serif leading-relaxed">
+                        Downloads a standard .epub file compatible with
+                        e-readers, Kindle, Apple Books, and other popular
+                        digital reader devices or apps.
+                      </p>
+                    </div>
+                  </button>
 
-                {/* JSON Option */}
-                <button
-                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-                    handleExportSingleStory(activeStory);
-                    setIsExportModalOpen(false);
-                  }}
-                  className="w-full text-left p-4 rounded-lg bg-void border border-neutral-850 hover:border-jade-accent hover:bg-neutral-900/40 transition-all duration-300 flex items-start space-x-4 group"
-                >
-                  <div className="p-2.5 bg-neutral-900 rounded border border-neutral-800 text-jade-accent group-hover:bg-jade-accent group-hover:text-void group-hover:border-jade-accent transition-all duration-300">
-                    <Download size={20} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-mono font-bold text-signal uppercase tracking-wider group-hover:text-jade-accent transition-colors">
-                      Backup File (JSON Format)
-                    </h4>
-                    <p className="text-[11px] text-neutral-400 mt-1 font-serif leading-relaxed">
-                      Downloads a raw data payload including story settings, metadata, structures, and character registers so you can backup or transfer your novel profile.
-                    </p>
-                  </div>
-                </button>
-              </div>
+                  {/* JSON Option */}
+                  <button
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        e.currentTarget.click();
+                      }
+                    }}
+                    onClick={() => {
+                      handleExportSingleStory(activeStory);
+                      setIsExportModalOpen(false);
+                    }}
+                    className="w-full text-left p-4 rounded-lg bg-void border border-neutral-850 hover:border-jade-accent hover:bg-neutral-900/40 transition-all duration-300 flex items-start space-x-4 group"
+                  >
+                    <div className="p-2.5 bg-neutral-900 rounded border border-neutral-800 text-jade-accent group-hover:bg-jade-accent group-hover:text-void group-hover:border-jade-accent transition-all duration-300">
+                      <Download size={20} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-mono font-bold text-signal uppercase tracking-wider group-hover:text-jade-accent transition-colors">
+                        Backup File (JSON Format)
+                      </h4>
+                      <p className="text-[11px] text-neutral-400 mt-1 font-serif leading-relaxed">
+                        Downloads a raw data payload including story settings,
+                        metadata, structures, and character registers so you can
+                        backup or transfer your novel profile.
+                      </p>
+                    </div>
+                  </button>
+                </div>
 
-              {/* Close Button Footer */}
-              <div className="p-4 border-t border-neutral-900 bg-void flex justify-end">
-                <button
-                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setIsExportModalOpen(false)}
-                  className="px-6 py-2.5 rounded font-mono text-[11px] uppercase tracking-wider bg-neutral-900 text-neutral-400 hover:bg-neutral-850 hover:text-signal transition-colors border border-neutral-800"
-                >
-                  Close
-                </button>
-              </div>
+                {/* Close Button Footer */}
+                <div className="p-4 border-t border-neutral-900 bg-void flex justify-end">
+                  <button
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        e.currentTarget.click();
+                      }
+                    }}
+                    onClick={() => setIsExportModalOpen(false)}
+                    className="px-6 py-2.5 rounded font-mono text-[11px] uppercase tracking-wider bg-neutral-900 text-neutral-400 hover:bg-neutral-850 hover:text-signal transition-colors border border-neutral-800"
+                  >
+                    Close
+                  </button>
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
           </FocusLock>
         )}
       </AnimatePresence>
@@ -179,27 +325,53 @@ export const StoryDetailScreen: React.FC<{
       <div className="flex flex-col md:flex-row gap-8 bg-[#0a0a0a] border border-neutral-900 rounded-xl p-6 shadow-2xl">
         {/* Cover Art */}
         <div className="w-full max-w-[180px] mx-auto md:max-w-none md:w-64 flex-shrink-0">
-          <div className={`relative group aspect-[2/3] rounded-lg overflow-hidden border ${activeStory.evolutionReady && !coverPreview ? 'border-portal/50 shadow-[0_0_15px_rgba(4,172,255,0.15)]' : 'border-neutral-800'} mb-2`}>
-            <img 
-              src={activeStory.imageUrl || `https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?auto=format&fit=crop&q=80`}
+          <div
+            className={`relative group aspect-[2/3] rounded-lg overflow-hidden border ${activeStory.evolutionReady && !coverPreview ? "border-portal/50 shadow-[0_0_15px_rgba(4,172,255,0.15)]" : "border-neutral-800"} mb-2`}
+          >
+            <img
+              src={
+                activeStory.imageUrl ||
+                `https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?auto=format&fit=crop&q=80`
+              }
               alt={activeStory.title}
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
             />
-            
+
             {/* Hover Overlay for Cover Generation */}
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
-              <button 
-                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={async () => {
-                  vibrate('mediumTap');
-                  const result = await handleGenerateCover();
-                  if (result) setCoverPreview({ urls: result.imageUrls, prompt: result.promptUsed, selectedIndex: 0 });
+              <button
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.currentTarget.click();
+                  }
                 }}
-                disabled={isGenerating || (!!activeStory.imageUrl && !activeStory.evolutionReady)}
+                onClick={async () => {
+                  vibrate("mediumTap");
+                  const result = await handleGenerateCover();
+                  if (result)
+                    setCoverPreview({
+                      urls: result.imageUrls,
+                      prompt: result.promptUsed,
+                      selectedIndex: 0,
+                    });
+                }}
+                disabled={
+                  isGenerating ||
+                  (!!activeStory.imageUrl && !activeStory.evolutionReady)
+                }
                 className="px-4 py-2 bg-portal/20 border border-portal/50 text-portal text-[10px] font-bold font-sc uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-colors flex flex-col items-center gap-1.5 shadow-[0_0_15px_rgba(4,172,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Sparkles size={16} />
-                <span>{activeStory.evolutionReady ? 'Awaken Evolution' : activeStory.imageUrl ? 'Progression Required' : 'Forge Core Cover'}</span>
+                <span>
+                  {activeStory.evolutionReady
+                    ? "Awaken Evolution"
+                    : activeStory.imageUrl
+                      ? "Progression Required"
+                      : "Forge Core Cover"}
+                </span>
               </button>
             </div>
           </div>
@@ -207,88 +379,147 @@ export const StoryDetailScreen: React.FC<{
           {/* Mobile visible cover generation/evolution button */}
           <div className="block md:hidden mt-2 mb-3">
             <button
-               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={async () => {
-                vibrate('mediumTap');
-                const result = await handleGenerateCover();
-                if (result) setCoverPreview({ urls: result.imageUrls, prompt: result.promptUsed, selectedIndex: 0 });
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.currentTarget.click();
+                }
               }}
-              disabled={isGenerating || (!!activeStory.imageUrl && !activeStory.evolutionReady)}
+              onClick={async () => {
+                vibrate("mediumTap");
+                const result = await handleGenerateCover();
+                if (result)
+                  setCoverPreview({
+                    urls: result.imageUrls,
+                    prompt: result.promptUsed,
+                    selectedIndex: 0,
+                  });
+              }}
+              disabled={
+                isGenerating ||
+                (!!activeStory.imageUrl && !activeStory.evolutionReady)
+              }
               className="w-full py-2.5 bg-portal/10 border border-portal/30 text-portal text-[11px] font-bold font-sc uppercase tracking-wider rounded flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_10px_rgba(4,172,255,0.1)] hover:bg-portal hover:text-void transition-all"
             >
               <Sparkles size={12} />
-              <span>{activeStory.evolutionReady ? 'Awaken Evolution' : activeStory.imageUrl ? 'Progression Required' : 'Forge Core Cover'}</span>
+              <span>
+                {activeStory.evolutionReady
+                  ? "Awaken Evolution"
+                  : activeStory.imageUrl
+                    ? "Progression Required"
+                    : "Forge Core Cover"}
+              </span>
             </button>
           </div>
-          
+
           {/* Cover Evolution Readiness indicator */}
           {activeStory.evolutionReady && !coverPreview && (
-             <div className="text-[10px] font-mono text-portal animate-pulse flex items-center justify-center gap-1.5 mb-2 px-1 text-center bg-portal/10 py-1 rounded">
-               <Sparkles size={10} />
-               <span>Evolution Available</span>
-             </div>
-          )}
-          
-          {/* Cover Image History */}
-          {activeStory.imageHistory && activeStory.imageHistory.filter(img => img.entityType === 'cover').length > 1 && (
-            <div className="flex space-x-1.5 overflow-x-auto p-1.5 bg-neutral-950 border border-neutral-900 rounded custom-scrollbar mt-2">
-              {activeStory.imageHistory.filter(img => img.entityType === 'cover').map((img) => (
-                <div 
-                  key={img.id} 
-                  className="relative flex-shrink-0 w-10 h-14 rounded overflow-hidden border border-neutral-800 cursor-pointer hover:border-portal transition-colors shadow-lg" 
-                  onClick={() => {
-                    const store = useAppStore.getState();
-                    const updated = store.stories.map(s => {
-                      if (s.id === activeStory.id) {
-                        const updatedHistory = s.imageHistory?.map(h => 
-                          h.entityType === 'cover' ? { ...h, isCurrent: h.imageUrl === img.imageUrl } : h
-                        );
-                        return { ...s, imageUrl: img.imageUrl, imageHistory: updatedHistory };
-                      }
-                      return s;
-                    });
-                    store.saveStories(updated);
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      const store = useAppStore.getState();
-                      const updated = store.stories.map(s => {
-                        if (s.id === activeStory.id) {
-                          const updatedHistory = s.imageHistory?.map(h => 
-                            h.entityType === 'cover' ? { ...h, isCurrent: h.imageUrl === img.imageUrl } : h
-                          );
-                          return { ...s, imageUrl: img.imageUrl, imageHistory: updatedHistory };
-                        }
-                        return s;
-                      });
-                      store.saveStories(updated);
-                    }
-                  }}
-                  aria-label={`Apply cover image from chapter ${img.chapterNumber || 'Unknown'}`}
-                  title={`Generated at Chapter ${img.chapterNumber || 'Unknown'}\nPrompt: ${img.promptUsed}`}
-                >
-                  <img src={img.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
-                </div>
-              ))}
+            <div className="text-[10px] font-mono text-portal animate-pulse flex items-center justify-center gap-1.5 mb-2 px-1 text-center bg-portal/10 py-1 rounded">
+              <Sparkles size={10} />
+              <span>Evolution Available</span>
             </div>
           )}
+
+          {/* Cover Image History */}
+          {activeStory.imageHistory &&
+            activeStory.imageHistory.filter((img) => img.entityType === "cover")
+              .length > 1 && (
+              <div className="flex space-x-1.5 overflow-x-auto p-1.5 bg-neutral-950 border border-neutral-900 rounded custom-scrollbar mt-2">
+                {activeStory.imageHistory
+                  .filter((img) => img.entityType === "cover")
+                  .map((img) => (
+                    <div
+                      key={img.id}
+                      className="relative flex-shrink-0 w-10 h-14 rounded overflow-hidden border border-neutral-800 cursor-pointer hover:border-portal transition-colors shadow-lg"
+                      onClick={() => {
+                        const store = useAppStore.getState();
+                        const updated = store.stories.map((s) => {
+                          if (s.id === activeStory.id) {
+                            const updatedHistory = s.imageHistory?.map((h) =>
+                              h.entityType === "cover"
+                                ? {
+                                    ...h,
+                                    isCurrent: h.imageUrl === img.imageUrl,
+                                  }
+                                : h,
+                            );
+                            return {
+                              ...s,
+                              imageUrl: img.imageUrl,
+                              imageHistory: updatedHistory,
+                            };
+                          }
+                          return s;
+                        });
+                        store.saveStories(updated);
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          const store = useAppStore.getState();
+                          const updated = store.stories.map((s) => {
+                            if (s.id === activeStory.id) {
+                              const updatedHistory = s.imageHistory?.map((h) =>
+                                h.entityType === "cover"
+                                  ? {
+                                      ...h,
+                                      isCurrent: h.imageUrl === img.imageUrl,
+                                    }
+                                  : h,
+                              );
+                              return {
+                                ...s,
+                                imageUrl: img.imageUrl,
+                                imageHistory: updatedHistory,
+                              };
+                            }
+                            return s;
+                          });
+                          store.saveStories(updated);
+                        }
+                      }}
+                      aria-label={`Apply cover image from chapter ${img.chapterNumber || "Unknown"}`}
+                      title={`Generated at Chapter ${img.chapterNumber || "Unknown"}\nPrompt: ${img.promptUsed}`}
+                    >
+                      <img
+                        src={img.imageUrl}
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                        alt=""
+                      />
+                    </div>
+                  ))}
+              </div>
+            )}
         </div>
 
         {/* Info */}
         <div className="flex-1 space-y-4">
           <div className="space-y-1">
-            <h2 className="font-display font-bold text-3xl sm:text-4xl text-signal leading-tight">{activeStory.title}</h2>
+            <h2 className="font-display font-bold text-3xl sm:text-4xl text-signal leading-tight">
+              {activeStory.title}
+            </h2>
             <p className="font-sans text-xs text-neutral-400">
-              Written by {(() => {
-                const styleObj = getAuraTextStyle(userProfile?.displayNameColor);
+              Written by{" "}
+              {(() => {
+                const styleObj = getAuraTextStyle(
+                  userProfile?.displayNameColor,
+                );
                 return (
-                  <span className={`${styleObj.className || ''} font-bold`} style={styleObj.style}>
-                    {userProfile?.displayName || userProfile?.username || 'Aetherial Resonance'}
+                  <span
+                    className={`${styleObj.className || ""} font-bold`}
+                    style={styleObj.style}
+                  >
+                    {userProfile?.displayName ||
+                      userProfile?.username ||
+                      "Aetherial Resonance"}
                   </span>
                 );
-              })()} • {activeStory.createdAt.split('T')[0]}
+              })()}{" "}
+              • {activeStory.createdAt.split("T")[0]}
             </p>
           </div>
 
@@ -299,36 +530,75 @@ export const StoryDetailScreen: React.FC<{
             <span className="bg-void border border-neutral-800 text-neutral-400 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider font-mono">
               Cultivation Rate: Heaven
             </span>
-            {activeStory.intake?.storyTags && activeStory.intake.storyTags.map(tag => (
-              <span key={tag} className="bg-neutral-900 border border-portal/20 text-portal px-2 py-1 rounded text-[10px] font-medium font-sans">
-                #{tag}
+            {activeStory.readingStats?.totalReadingTimeMs && (
+              <span
+                className="bg-void border border-neutral-800 text-portal px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider font-mono"
+                title="Total Ascension Time"
+              >
+                Ascension Time:{" "}
+                {Math.floor(
+                  activeStory.readingStats.totalReadingTimeMs / 60000,
+                )}
+                m{" "}
+                {Math.floor(
+                  (activeStory.readingStats.totalReadingTimeMs % 60000) / 1000,
+                )}
+                s
               </span>
-            ))}
+            )}
+            {activeStory.intake?.storyTags &&
+              activeStory.intake.storyTags.map((tag) => (
+                <span
+                  key={tag}
+                  className="bg-neutral-900 border border-portal/20 text-portal px-2 py-1 rounded text-[10px] font-medium font-sans"
+                >
+                  #{tag}
+                </span>
+              ))}
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-void border border-neutral-800 rounded-lg">
             <div>
-              <p className="text-[10px] text-neutral-500 font-sc uppercase tracking-wider font-bold">Chapters</p>
-              <p className="font-mono text-signal text-lg">{activeStory.arcs.reduce((sum, a) => sum + a.chapters.length, 0)}</p>
+              <p className="text-[10px] text-neutral-500 font-sc uppercase tracking-wider font-bold">
+                Chapters
+              </p>
+              <p className="font-mono text-signal text-lg">
+                {activeStory.arcs.reduce(
+                  (sum, a) => sum + a.chapters.length,
+                  0,
+                )}
+              </p>
             </div>
             <div>
-              <p className="text-[10px] text-neutral-500 font-sc uppercase tracking-wider font-bold">Current Arc</p>
-              <p className="font-mono text-signal text-sm mt-1 truncate">{activeStory.arcs[activeStory.arcs.length - 1].title}</p>
+              <p className="text-[10px] text-neutral-500 font-sc uppercase tracking-wider font-bold">
+                Current Arc
+              </p>
+              <p className="font-mono text-signal text-sm mt-1 truncate">
+                {activeStory.arcs[activeStory.arcs.length - 1].title}
+              </p>
             </div>
             <div>
-              <p className="text-[10px] text-neutral-500 font-sc uppercase tracking-wider font-bold">Realm</p>
-              <p className="font-mono text-portal text-sm mt-1 truncate">{activeStory.memory.currentPowerStage}</p>
+              <p className="text-[10px] text-neutral-500 font-sc uppercase tracking-wider font-bold">
+                Realm
+              </p>
+              <p className="font-mono text-portal text-sm mt-1 truncate">
+                {activeStory.memory.currentPowerStage}
+              </p>
             </div>
             <div>
-              <p className="text-[10px] text-neutral-500 font-sc uppercase tracking-wider font-bold">Status</p>
+              <p className="text-[10px] text-neutral-500 font-sc uppercase tracking-wider font-bold">
+                Status
+              </p>
               <p className="font-mono text-yellow-500 text-sm mt-1">
-                {isCurrentArcFinished ? 'Awaiting Arc' : 'Manifesting'}
+                {isCurrentArcFinished ? "Awaiting Arc" : "Manifesting"}
               </p>
             </div>
           </div>
 
           <div className="pt-2">
-            <h3 className="font-sc font-bold text-neutral-300 text-xs uppercase tracking-widest mb-2 border-b border-neutral-800 pb-1">Synopsis</h3>
+            <h3 className="font-sc font-bold text-neutral-300 text-xs uppercase tracking-widest mb-2 border-b border-neutral-800 pb-1">
+              Synopsis
+            </h3>
             <p className="font-serif text-sm text-neutral-400 leading-relaxed italic">
               "{activeStory.customPremise}"
             </p>
@@ -348,24 +618,53 @@ export const StoryDetailScreen: React.FC<{
 
           <div className="pt-6 flex flex-wrap gap-3 items-center relative">
             <button
-               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-                vibrate('softTap');
-                if (activeStory.lastReadChapter && activeStory.lastReadChapter > 0) {
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.currentTarget.click();
+                }
+              }}
+              onClick={() => {
+                vibrate("softTap");
+                if (
+                  activeStory.lastReadChapter &&
+                  activeStory.lastReadChapter > 0
+                ) {
                   setSelectedChapterNum(activeStory.lastReadChapter);
                 } else {
-                  const lastCh = activeStory.arcs[activeStory.arcs.length - 1].chapters.find(c => !(c.hasContent || !!c.generatedContent))?.number || activeStory.arcs[activeStory.arcs.length - 1].chapters[0].number;
+                  const lastCh =
+                    activeStory.arcs[activeStory.arcs.length - 1].chapters.find(
+                      (c) => !(c.hasContent || !!c.generatedContent),
+                    )?.number ||
+                    activeStory.arcs[activeStory.arcs.length - 1].chapters[0]
+                      .number;
                   setSelectedChapterNum(lastCh);
                 }
-                setCurrentScreen('reader');
+                setCurrentScreen("reader");
               }}
               className="px-6 py-2.5 bg-human border border-human text-signal font-sc font-bold uppercase tracking-wider rounded shadow-md hover:bg-void hover:text-human transition-all flex items-center space-x-2 text-xs"
             >
               <BookOpen size={16} />
-              <span>{activeStory.lastReadChapter ? 'Resume Reading' : 'Start Reading'}</span>
+              <span>
+                {activeStory.lastReadChapter
+                  ? "Resume Reading"
+                  : "Start Reading"}
+              </span>
             </button>
 
             <button
-               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => { vibrate('softTap'); setIsCodexSheetOpen(true); }}
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.currentTarget.click();
+                }
+              }}
+              onClick={() => {
+                vibrate("softTap");
+                setIsCodexSheetOpen(true);
+              }}
               className="px-6 py-2.5 bg-void border border-portal text-portal font-sc font-bold uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-all flex items-center space-x-2 text-xs"
             >
               <Sparkles size={16} />
@@ -373,7 +672,17 @@ export const StoryDetailScreen: React.FC<{
             </button>
 
             <button
-               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => { vibrate('softTap'); setIsTimelineOpen(true); }}
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.currentTarget.click();
+                }
+              }}
+              onClick={() => {
+                vibrate("softTap");
+                setIsTimelineOpen(true);
+              }}
               className="px-6 py-2.5 bg-void border border-jade-accent text-jade-accent font-sc font-bold uppercase tracking-wider rounded hover:bg-jade-accent hover:text-void transition-all flex items-center space-x-2 text-xs"
             >
               <GitBranch size={16} />
@@ -382,7 +691,17 @@ export const StoryDetailScreen: React.FC<{
 
             <div className="relative">
               <button
-                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => { vibrate('softTap'); setIsStoryMenuOpen(!isStoryMenuOpen); }}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.currentTarget.click();
+                  }
+                }}
+                onClick={() => {
+                  vibrate("softTap");
+                  setIsStoryMenuOpen(!isStoryMenuOpen);
+                }}
                 aria-expanded={isStoryMenuOpen}
                 aria-label="More options"
                 className="p-2.5 bg-void border border-neutral-800 text-neutral-400 hover:text-signal rounded hover:bg-neutral-900 hover:border-neutral-750 transition-all flex items-center justify-center"
@@ -393,9 +712,17 @@ export const StoryDetailScreen: React.FC<{
               </button>
 
               {isStoryMenuOpen && (
-                <div 
-                  className="fixed inset-0 z-40" 
-                  onClick={() => setIsStoryMenuOpen(false)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsStoryMenuOpen(false); } }} 
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setIsStoryMenuOpen(false)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setIsStoryMenuOpen(false);
+                    }
+                  }}
                 />
               )}
               <AnimatePresence>
@@ -410,7 +737,14 @@ export const StoryDetailScreen: React.FC<{
                   >
                     <div className="py-1">
                       <button
-                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.currentTarget.click();
+                          }
+                        }}
+                        onClick={() => {
                           setIsStoryMenuOpen(false);
                           setIsExportModalOpen(true);
                         }}
@@ -421,9 +755,37 @@ export const StoryDetailScreen: React.FC<{
                       </button>
                     </div>
 
-                    <div className="py-1">
+                    <div className="py-1 border-t border-neutral-900">
                       <button
-                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={(e) => {
+                        disabled={isDownloadingOffline}
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.currentTarget.click();
+                          }
+                        }}
+                        onClick={(e) => {
+                          handleDownloadOffline();
+                          setIsStoryMenuOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-xs text-neutral-300 hover:bg-neutral-900 hover:text-jade-accent transition-colors flex items-center space-x-2 font-sc font-bold uppercase tracking-wider disabled:opacity-50"
+                      >
+                        <CloudDownload size={14} className="text-jade-accent" />
+                        <span>Offline Dao (Cache)</span>
+                      </button>
+                    </div>
+
+                    <div className="py-1 border-t border-neutral-900">
+                      <button
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.currentTarget.click();
+                          }
+                        }}
+                        onClick={(e) => {
                           handleDeleteStory(activeStory.id, e);
                           setIsStoryMenuOpen(false);
                         }}
@@ -437,13 +799,30 @@ export const StoryDetailScreen: React.FC<{
                 )}
               </AnimatePresence>
             </div>
-            
+
+            {isDownloadingOffline && (
+              <div className="absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-neutral-900 border border-neutral-800 px-3 py-1.5 rounded-full text-[10px] font-mono text-jade-accent whitespace-nowrap shadow-lg">
+                <RefreshCw size={12} className="animate-spin" />
+                <span>
+                  Gathering Qi: {offlineProgress.current} /{" "}
+                  {offlineProgress.total}
+                </span>
+              </div>
+            )}
+
             {isCurrentArcFinished && (
               <button
-                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-                  vibrate('softTap');
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.currentTarget.click();
+                  }
+                }}
+                onClick={() => {
+                  vibrate("softTap");
                   setSelectedChapterNum(-1);
-                  setCurrentScreen('reader');
+                  setCurrentScreen("reader");
                 }}
                 className="px-6 py-2.5 bg-void border border-portal text-portal font-sc font-bold uppercase tracking-wider rounded hover:bg-portal/10 transition-all flex items-center space-x-2 text-xs ml-auto shadow-[0_0_15px_rgba(4,172,255,0.15)]"
               >
