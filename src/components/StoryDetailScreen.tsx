@@ -507,6 +507,7 @@ export const StoryDetailScreen: React.FC<{
               {(() => {
                 const styleObj = getAuraTextStyle(
                   userProfile?.displayNameColor,
+                  userProfile?.activeStatusEffects,
                 );
                 return (
                   <span

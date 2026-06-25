@@ -216,7 +216,7 @@ export const LibraryScreen: React.FC = () => {
                   {userProfile ? (
                     <p className="text-[10px] text-portal/80 font-sc tracking-widest uppercase truncate font-bold mt-1">
                       By {(() => {
-                        const styleObj = getAuraTextStyle(userProfile.displayNameColor);
+                        const styleObj = getAuraTextStyle(userProfile.displayNameColor, userProfile.activeStatusEffects);
                         return (
                           <span className={styleObj.className} style={styleObj.style}>
                             {userProfile.displayName || userProfile.username}
@@ -355,7 +355,7 @@ export const LibraryScreen: React.FC = () => {
                       {userProfile ? (
                         <p className="text-[10px] text-portal/80 font-sc tracking-widest uppercase truncate font-bold mt-0.5">
                           By {(() => {
-                            const styleObj = getAuraTextStyle(userProfile.displayNameColor);
+                            const styleObj = getAuraTextStyle(userProfile.displayNameColor, userProfile.activeStatusEffects);
                             return (
                               <span className={styleObj.className} style={styleObj.style}>
                                 {userProfile.displayName || userProfile.username}

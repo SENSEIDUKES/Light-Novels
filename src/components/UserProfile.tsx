@@ -143,26 +143,66 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     }
   };
 
+  const compressDataUrl = async (dataUrl: string): Promise<string> => {
+    if (!dataUrl.startsWith('data:image/') || dataUrl.length < 60000) return dataUrl;
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 400;
+        let width = img.width;
+        let height = img.height;
+        if (width > MAX_SIZE || height > MAX_SIZE) {
+          if (width > height) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          } else {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.8));
+        } else {
+          resolve(dataUrl);
+        }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  };
+
   const handleApplyPortrait = async () => {
     if (!generatedPortraitUrl) return;
     
+    setIsLoading(true);
+    let finalUrl = generatedPortraitUrl;
+    try {
+      finalUrl = await compressDataUrl(generatedPortraitUrl);
+    } catch (e) {
+      console.warn("Failed to compress portrait:", e);
+    }
+
     setFormData(prev => ({
       ...prev,
-      avatarUrl: generatedPortraitUrl
+      avatarUrl: finalUrl
     }));
 
     if (currentUser) {
       try {
-        setIsLoading(true);
         await setDoc(doc(db, 'users', currentUser.uid), {
-          avatarUrl: generatedPortraitUrl,
+          avatarUrl: finalUrl,
           updatedAt: new Date().toISOString()
         }, { merge: true });
         
         if (profile) {
           setProfile({
             ...profile,
-            avatarUrl: generatedPortraitUrl
+            avatarUrl: finalUrl
           });
         }
       } catch (err) {
@@ -175,16 +215,17 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
       const localProfile = localProfileStr ? JSON.parse(localProfileStr) : null;
       const updatedLocalProfile = {
         ...(localProfile || {}),
-        avatarUrl: generatedPortraitUrl,
+        avatarUrl: finalUrl,
         updatedAt: new Date().toISOString()
       };
       localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedLocalProfile));
       if (profile) {
         setProfile({
           ...profile,
-          avatarUrl: generatedPortraitUrl
+          avatarUrl: finalUrl
         });
       }
+      setIsLoading(false);
     }
     
     setShowPortraitModal(false);
@@ -302,7 +343,41 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
         joinedDate: localProfile?.joinedDate || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         cosmicInventory: localInventory,
-        equippedArtifactId: localProfile?.equippedArtifactId || ''
+        equippedArtifactId: localProfile?.equippedArtifactId || '',
+        activeStatusEffects: localProfile?.activeStatusEffects || [
+          {
+            id: 'demo-effect-1',
+            appliedAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            progress: 120,
+            targetProgress: 500,
+            effectDef: {
+              name: 'Curse of the Cursed Tome',
+              type: 'Curse',
+              description: '-15% Qi gathering efficiency for the duration.',
+              durationMs: 24 * 60 * 60 * 1000,
+              scope: 'Account-wide',
+              visual: 'Dark smoke around display name',
+              counterplay: 'Gather 500 Qi while cursed',
+              rewardHook: 'Permanently unlock the Cursed Scholar title',
+              qiMultiplier: 0.85,
+              targetProgress: 500
+            }
+          },
+          {
+            id: 'demo-effect-2',
+            appliedAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+            effectDef: {
+              name: 'Broken Jade Seal',
+              type: 'Affliction',
+              description: 'Store prices increased by 10%.',
+              durationMs: 12 * 60 * 60 * 1000,
+              scope: 'Story-specific',
+              rewardHook: 'Completing an arc during this time drops Jade Fragments'
+            }
+          }
+        ]
       };
       
       setProfile(guestProfile);
@@ -315,9 +390,38 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     const isAttuned = profile?.equippedArtifactId === artifactId;
     const nextAttunementId = isAttuned ? "" : artifactId;
     
+    let updatedActiveEffects = [...(profile?.activeStatusEffects || [])];
+    
+    // Remove previous artifact effects
+    if (isAttuned) {
+      updatedActiveEffects = updatedActiveEffects.filter(e => e.sourceArtifactId !== artifactId);
+    } else {
+      if (profile?.equippedArtifactId) {
+         updatedActiveEffects = updatedActiveEffects.filter(e => e.sourceArtifactId !== profile.equippedArtifactId);
+      }
+      
+      const artifactToEquip = profile?.cosmicInventory?.find(a => a.id === artifactId);
+      if (artifactToEquip && artifactToEquip.statusEffectDef) {
+         // Only allow 1 curse or blessing/affliction/mutation effect of the same type at a time
+         const newType = artifactToEquip.statusEffectDef.type;
+         updatedActiveEffects = updatedActiveEffects.filter(e => e.effectDef.type !== newType);
+
+         updatedActiveEffects.push({
+            id: `effect_${Date.now()}_${Math.random().toString(36).substring(2,9)}`,
+            appliedAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + (artifactToEquip.statusEffectDef.durationMs || 0)).toISOString(),
+            effectDef: artifactToEquip.statusEffectDef,
+            sourceArtifactId: artifactId
+         });
+      }
+    }
+    
     if (currentUser) {
       try {
-        await setDoc(doc(db, 'users', currentUser.uid), { equippedArtifactId: nextAttunementId }, { merge: true });
+        await setDoc(doc(db, 'users', currentUser.uid), { 
+          equippedArtifactId: nextAttunementId,
+          activeStatusEffects: updatedActiveEffects
+        }, { merge: true });
       } catch (e) {
         console.error("Failed to save attunement to Firestore:", e);
       }
@@ -329,20 +433,18 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
       const localInventory = localInvStr ? JSON.parse(localInvStr) : [];
 
       const updatedLocalProfile = {
+        ...profile,
         uid: 'anonymous',
-        username: localProfile?.username || 'Mortal Reader',
-        displayName: localProfile?.displayName || 'Mortal Reader',
-        displayNameColor: localProfile?.displayNameColor || '#E5E7EB',
-        avatarUrl: localProfile?.avatarUrl || '',
-        preferredLanguage: localProfile?.preferredLanguage || 'English',
-        defaultTranslationLanguage: localProfile?.defaultTranslationLanguage || 'English',
-        savedStoryCount: 0,
-        activeStories: [],
-        inactiveStories: [],
-        joinedDate: localProfile?.joinedDate || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        username: localProfile?.username || profile?.username || 'Mortal Reader',
+        displayName: localProfile?.displayName || profile?.displayName || 'Mortal Reader',
+        displayNameColor: localProfile?.displayNameColor || profile?.displayNameColor || '#E5E7EB',
+        avatarUrl: localProfile?.avatarUrl || profile?.avatarUrl || '',
+        preferredLanguage: localProfile?.preferredLanguage || profile?.preferredLanguage || 'English',
+        defaultTranslationLanguage: localProfile?.defaultTranslationLanguage || profile?.defaultTranslationLanguage || 'English',
         cosmicInventory: localInventory,
-        equippedArtifactId: nextAttunementId
+        equippedArtifactId: nextAttunementId,
+        activeStatusEffects: updatedActiveEffects,
+        updatedAt: new Date().toISOString()
       };
       
       localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedLocalProfile));
@@ -365,10 +467,13 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
   const handleRepairPillar = async () => {
     if (!profile) return;
     const repairCost = 50;
-    if ((profile.qi || 0) >= repairCost) {
+    const currentQiVal = profile.heavenly_qi !== undefined ? profile.heavenly_qi : (profile.qi || 0);
+    if (currentQiVal >= repairCost) {
       const updatedProfile = {
         ...profile,
-        qi: (profile.qi || 0) - repairCost,
+        qi: Math.max(0, (profile.qi || 0) - repairCost),
+        dao_xp: Math.max(0, (profile.dao_xp || 0) - repairCost),
+        heavenly_qi: Math.max(0, currentQiVal - repairCost),
         daoPillarCracked: false,
         daoPillarStreak: currentStreak > 0 ? currentStreak : 1
       };
@@ -380,6 +485,8 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
         try {
           await setDoc(doc(db, 'users', currentUser.uid), {
             qi: updatedProfile.qi,
+            dao_xp: updatedProfile.dao_xp,
+            heavenly_qi: updatedProfile.heavenly_qi,
             daoPillarCracked: false,
             daoPillarStreak: updatedProfile.daoPillarStreak
           }, { merge: true });
@@ -391,7 +498,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
       }
       setError('');
     } else {
-      setError('Insufficient Qi to repair Dao Pillar (Requires 50).');
+      setError('Insufficient Heavenly Qi to repair Dao Pillar (Requires 50).');
     }
   };
 
@@ -676,7 +783,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
               {/* Top Section - Avatar & Quick Info */}
               <div className="flex flex-col md:flex-row gap-8 md:items-end border-b border-neutral-900/50 pb-10">
                 <div className="flex flex-col items-center flex-shrink-0">
-                  <div className={`w-28 h-28 rounded-full border p-1 relative group transition-all duration-700 ${getAuraGlowStyle(profile?.displayNameColor || '#E5E7EB')}`}>
+                  <div className={`w-28 h-28 rounded-full border p-1 relative group transition-all duration-700 ${getAuraGlowStyle(profile?.displayNameColor || '#E5E7EB', profile?.activeStatusEffects)}`}>
                     <div className="w-full h-full rounded-full overflow-hidden bg-black flex items-center justify-center relative">
                       {formData.avatarUrl ? (
                         <img src={formData.avatarUrl} alt="Avatar" className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 transition-all duration-500" referrerPolicy="no-referrer" />
@@ -710,12 +817,28 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                 </div>
                 <div className="flex-1 space-y-5">
                   <div className="flex flex-col gap-3 mb-2">
-                    <div className="flex justify-between items-end">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3">
                       <div className="px-3 py-1 bg-portal/10 border border-portal/30 text-portal text-[10px] font-bold tracking-[0.2em] uppercase rounded font-sc">
                         {daoData.rank}
                       </div>
-                      <div className="flex items-center gap-1 text-[10px] text-portal/70 font-sc uppercase font-bold tracking-widest border border-portal/20 px-2 rounded bg-portal/5">
-                        <Zap size={10} className="text-portal" /> {daoData.currentQi} Qi
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Heavenly Qi Badge */}
+                        <div className="flex items-center gap-1.5 text-[10px] text-portal font-sc uppercase font-bold tracking-widest border border-portal/20 px-2.5 py-1 rounded bg-portal/5 shadow-[0_0_10px_rgba(4,172,255,0.05)]" title="Heavenly Qi: Your primary cultivation power, unlocking higher Dao Ranks.">
+                          <Zap size={10} className="text-portal animate-pulse" />
+                          <span>Heavenly Qi: {profile?.heavenly_qi !== undefined ? profile.heavenly_qi : daoData.currentQi}</span>
+                        </div>
+                        
+                        {/* Sect Qi Badge */}
+                        <div className="flex items-center gap-1.5 text-[10px] text-[#FAFAFA] font-sc uppercase font-bold tracking-widest border border-[#8B0000]/40 px-2.5 py-1 rounded bg-[#8B0000]/10 shadow-[0_0_10px_rgba(139,0,0,0.15)]" title="Sect Qi: Your contribution points to the Sect, to be utilized in the upcoming Sect Contribution system.">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#8B0000] animate-pulse" />
+                          <span>Sect Qi: {profile?.sect_qi || 0}</span>
+                        </div>
+
+                        {/* Demonic Qi Badge */}
+                        <div className="flex items-center gap-1.5 text-[10px] text-amber-500 font-sc uppercase font-bold tracking-widest border border-amber-600/40 px-2.5 py-1 rounded bg-amber-950/10 shadow-[0_0_10px_rgba(245,158,11,0.15)]" title="Demonic Qi: Corrupted cultivation power, unlocked from demonic artifacts or taboos.">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
+                          <span>Demonic Qi: {profile?.demonic_qi || 0}</span>
+                        </div>
                       </div>
                     </div>
                     {attunedArtifact && (
@@ -727,8 +850,8 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                     {daoData.nextRank && (
                       <div className="flex-1 max-w-[300px]">
                         <div className="flex justify-between text-[9px] text-neutral-500 mb-1.5 font-sc uppercase tracking-widest">
-                          <span>Progress to {daoData.nextRank}</span>
-                          <span className="text-portal/70">{daoData.currentQi} / {daoData.maxQi}</span>
+                          <span>Cultivation to {daoData.nextRank}</span>
+                          <span className="text-portal/70">{profile?.heavenly_qi !== undefined ? profile.heavenly_qi : daoData.currentQi} / {daoData.maxQi} Heavenly Qi</span>
                         </div>
                         <div className="h-1 bg-neutral-900 rounded-full overflow-hidden shadow-inner">
                           <div className="h-full bg-gradient-to-r from-portal/50 to-portal shadow-[0_0_10px_rgba(4,172,255,0.5)] transition-all duration-1000" style={{ width: `${daoData.progress}%` }}></div>
@@ -913,7 +1036,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                         <div className="flex items-center justify-between bg-black/30 border border-neutral-900/50 p-3.5 rounded-lg">
                           <div className="text-lg font-serif italic flex items-center">
                             {(() => {
-                              const styleObj = getAuraTextStyle(profile?.displayNameColor);
+                              const styleObj = getAuraTextStyle(profile?.displayNameColor, profile?.activeStatusEffects);
                               return (
                                 <span className={styleObj.className} style={styleObj.style}>
                                   {profile?.displayName || 'Unknown Ascendant'}
@@ -1002,6 +1125,32 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                   </div>
                 </div>
 
+                {/* Dual Qi Core explanation card */}
+                <div className="bg-[#030303] border border-neutral-900/60 rounded-xl p-5 md:col-span-2 relative overflow-hidden shadow-[0_0_20px_rgba(4,172,255,0.02)]">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-portal/5 rounded-full blur-2xl pointer-events-none" />
+                  <div className="absolute bottom-0 left-0 w-24 h-24 bg-[#8B0000]/5 rounded-full blur-2xl pointer-events-none" />
+                  
+                  <h4 className="text-[11px] uppercase font-bold tracking-widest text-[#FAFAFA] font-sc flex items-center gap-2 mb-3">
+                    <Zap size={12} className="text-portal" /> Dual Qi Alignment
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-[11px] leading-relaxed">
+                    <div className="space-y-1 border-l border-portal/30 pl-3">
+                      <span className="font-sc uppercase text-portal font-bold tracking-wider">Heavenly Qi (Cultivation Power)</span>
+                      <p className="text-neutral-400 font-sans">
+                        Your fundamental essence gained from reading realms, making choices, and overcoming tribulations. Tracks your progression to higher cultivator ranks and determines your celestial aura color.
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-1 border-l border-[#8B0000]/50 pl-3">
+                      <span className="font-sc uppercase text-neutral-300 font-bold tracking-wider">Sect Qi (Contribution Essence)</span>
+                      <p className="text-neutral-400 font-sans">
+                        Essence stored for your upcoming community contribution achievements. Utilized to exchange for special titles, customize sect affiliations, and fund cooperative arrays when the contribution hall is unlocked.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Dao Pillar (Daily Streak) */}
                 <div className={`bg-[#030303] border rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 md:col-span-2 relative overflow-hidden shadow-[0_0_20px_rgba(249,115,22,0.03)] border-l-4 ${isCracked ? 'border-human/40 border-l-human/80 border-t-human/20 border-r-human/20 border-b-human/20' : 'border-l-orange-500/40 border-neutral-900'}`}>
                   {isCracked && (
@@ -1052,6 +1201,88 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                   </div>
                 </div>
               </div>
+
+              {/* Active Status Effects */}
+              {(profile?.activeStatusEffects && profile.activeStatusEffects.length > 0) && (
+                <div className="pt-10 border-t border-neutral-900/50 mt-10">
+                  <h3 className="text-[11px] uppercase font-bold tracking-widest text-neutral-500 font-sc mb-6 flex items-center gap-2">
+                    <Flame size={14} className="text-human" />
+                    Active Status Effects
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {profile.activeStatusEffects.map(effect => {
+                      const isDebuff = ["Curse", "Affliction"].includes(effect.effectDef.type);
+                      const colorClass = isDebuff ? "border-human/30 bg-human/5 text-human" : "border-portal/30 bg-portal/5 text-portal";
+                      
+                      return (
+                        <div key={effect.id} className={`p-4 rounded-xl border ${colorClass} flex flex-col gap-3 relative overflow-hidden group`}>
+                          {isDebuff && <div className="absolute inset-0 bg-gradient-to-t from-human/10 to-transparent pointer-events-none opacity-50" />}
+                          {!isDebuff && <div className="absolute inset-0 bg-gradient-to-t from-portal/10 to-transparent pointer-events-none opacity-50" />}
+                          
+                          <div className="flex justify-between items-start z-10">
+                            <div>
+                              <h4 className="font-sc font-bold uppercase tracking-wider text-sm">{effect.effectDef.name}</h4>
+                              <p className="text-[10px] font-mono opacity-80 mt-1">{effect.effectDef.type} • {effect.effectDef.scope}</p>
+                            </div>
+                            <div className="px-2 py-1 bg-black/40 border border-current rounded text-[9px] uppercase tracking-widest font-bold">
+                              {Math.round(effect.effectDef.durationMs / (60 * 60 * 1000))}h
+                            </div>
+                          </div>
+                          
+                          <p className="text-xs font-serif opacity-90 z-10 leading-relaxed">
+                            {effect.effectDef.description}
+                          </p>
+                          
+                          {effect.effectDef.visual && (
+                            <p className="text-[10px] opacity-75 font-sans italic z-10">
+                              Visual: {effect.effectDef.visual}
+                            </p>
+                          )}
+                          
+                          {effect.progress !== undefined && effect.targetProgress !== undefined && !effect.completedAt && (
+                            <div className="z-10 mt-1 space-y-1">
+                              <div className="flex justify-between text-[10px] font-mono opacity-80">
+                                <span>Challenge Progress: {effect.progress} / {effect.targetProgress} Qi</span>
+                                <span>{Math.round((effect.progress / effect.targetProgress) * 100)}%</span>
+                              </div>
+                              <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden border border-current/10">
+                                <div 
+                                  className={`h-full ${isDebuff ? 'bg-human' : 'bg-portal'} transition-all duration-500`}
+                                  style={{ width: `${Math.min(100, (effect.progress / effect.targetProgress) * 100)}%` }}
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {effect.completedAt && (
+                            <div className="z-10 mt-1 flex items-center gap-1.5 text-[10px] text-green-400 font-bold uppercase tracking-wider bg-green-950/20 px-2 py-1 border border-green-500/30 rounded w-fit">
+                              <Sparkles size={12} className="text-green-400" />
+                              REWARD UNLOCKED • COMPLETED!
+                            </div>
+                          )}
+
+                          {(effect.effectDef.counterplay || effect.effectDef.rewardHook) && (
+                            <div className="mt-2 pt-2 border-t border-current/20 z-10 space-y-2">
+                              {effect.effectDef.counterplay && (
+                                <div className="flex gap-2 items-start text-[10px]">
+                                  <Shield size={12} className="shrink-0 mt-0.5 opacity-80" />
+                                  <span className="font-sans leading-relaxed">{effect.effectDef.counterplay}</span>
+                                </div>
+                              )}
+                              {effect.effectDef.rewardHook && (
+                                <div className="flex gap-2 items-start text-[10px]">
+                                  <Sparkles size={12} className="shrink-0 mt-0.5 opacity-80" />
+                                  <span className="font-sans leading-relaxed text-amber-400/90">{effect.effectDef.rewardHook}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Cosmic Inventory Section */}
               <div className="pt-10 border-t border-neutral-900/50 mt-10">

@@ -107,10 +107,80 @@ export const COSMIC_ARTIFACT_TEMPLATES = {
     attributeBoost: "+30% Fate Resistance"
   },
   secret_codex: {
-    name: "Ancient Fragment of the Primordial Codex",
-    description: "Hidden lore is revealed to the world. A glowing piece of golden papyrus that contains forbidden knowledge. Reading its text clears the soul of illusions.",
+    name: "Cursed Tome",
+    description: "A dark tome radiating ominous energy. Reading its text curses the soul but offers a path to forbidden knowledge.",
     rarity: "Epic" as const,
-    attributeBoost: "+20% Truth Comprehension"
+    attributeBoost: "+20% Truth Comprehension",
+    statusEffectDef: {
+      name: 'Curse of the Cursed Tome',
+      type: 'Curse',
+      description: '-15% Qi gathering efficiency for the duration.',
+      durationMs: 24 * 60 * 60 * 1000,
+      scope: 'Account-wide',
+      visual: 'Dark smoke around display name',
+      counterplay: 'Gather 500 Qi while cursed',
+      rewardHook: 'Permanently unlock the Cursed Scholar title',
+      qiMultiplier: 0.85,
+      targetProgress: 500
+    }
+  },
+  broken_jade_seal: {
+    name: "Broken Jade Seal",
+    description: "A fractured token of a lost empire.",
+    rarity: "Rare" as const,
+    attributeBoost: "+5% Sect Influence",
+    statusEffectDef: {
+      name: 'Broken Jade Seal',
+      type: 'Affliction',
+      description: 'Store prices increased by 10%.',
+      durationMs: 12 * 60 * 60 * 1000,
+      scope: 'Story-specific',
+      rewardHook: 'Completing an arc during this time drops Jade Fragments'
+    }
+  },
+  demonic_heart_pearl: {
+    name: "Demonic Heart Pearl",
+    description: "A pulsing pearl of absolute demonic intent.",
+    rarity: "Legendary" as const,
+    attributeBoost: "+15% Demonic Affinity",
+    statusEffectDef: {
+      name: 'Demonic Corruption',
+      type: 'Mutation',
+      description: 'Pure Qi gain -20%, Demonic (Sect) Qi gain +50%',
+      durationMs: 48 * 60 * 60 * 1000,
+      scope: 'Account-wide',
+      rewardHook: 'Unlocks demonic cosmetics',
+      qiMultiplier: 0.8,
+      sectQiMultiplier: 1.5
+    }
+  },
+  ashen_fate_thread: {
+    name: "Ashen Fate Thread",
+    description: "A burnt thread of destiny that smells of scorched karma.",
+    rarity: "Epic" as const,
+    attributeBoost: "+10% Fate Manipulation",
+    statusEffectDef: {
+      name: 'Ashen Destiny',
+      type: 'Affliction',
+      description: 'Next Fate Challenge has higher difficulty',
+      durationMs: 72 * 60 * 60 * 1000,
+      scope: 'Story-specific',
+      rewardHook: 'Reward rarity increases by one tier'
+    }
+  },
+  nameless_bone_flute: {
+    name: "Nameless Bone Flute",
+    description: "A flute carved from an unknown beast's bone. Playing it silences the world.",
+    rarity: "Rare" as const,
+    attributeBoost: "+5% Tribulation Evasion",
+    statusEffectDef: {
+      name: 'Ghostly Silence',
+      type: 'Curse',
+      description: 'Hides your profile aura for the duration.',
+      durationMs: 24 * 60 * 60 * 1000,
+      scope: 'Account-wide',
+      rewardHook: 'Unlocks ghostly music/profile effect after expiry'
+    }
   },
   trophy_card: {
     name: "Sovereign Trophy of Ultimate Victory",

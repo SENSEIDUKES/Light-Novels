@@ -1177,6 +1177,15 @@ app.post("/api/generate-card-image", validateBody(generateCardImageSchema), asyn
 });
 
 // 4.5 Generate Cultivator Portrait from uploaded image and description
+app.post("/api/test-image-gen", async (req, res) => {
+  try {
+    const result = await routeImageGeneration("test", "portrait", { provider: "gemini", model: "google/gemini-3.1-flash-image" }, getCustomKeys(req));
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({error: err.message});
+  }
+});
+
 app.post("/api/generate-cultivator-portrait", validateBody(generateCultivatorPortraitSchema), async (req, res) => {
   const { image, description, daoRank, daoXp, powerStage, equippedArtifact, routingConfig } = req.body;
   try {
@@ -1227,18 +1236,21 @@ GENERAL CONSTRAINTS:
 2. The response must be ONLY the raw prompt string for the image generator (no introduction, explanation, or markdown quotes). Keep it under 200 words.`;
 
         const response = await ai.models.generateContent({
-          model: "gemini-3.5-flash",
-          contents: [
-            {
-              inlineData: {
-                mimeType: mimeType,
-                data: base64Data
+          model: "gemini-2.5-flash",
+          contents: [{
+            role: "user",
+            parts: [
+              {
+                inlineData: {
+                  mimeType: mimeType,
+                  data: base64Data
+                }
+              },
+              {
+                text: `Analyze this image, my description: "${description || 'None'}", Dao Rank: "${daoRank || 'Mortal Reader'}" (XP: ${daoXp || 0}), Power Stage: "${powerStage || 'None'}", Equipped Artifact: ${equippedArtifact ? equippedArtifact.name : 'None'}, and write a detailed progression-attuned anime-style image generator prompt.`
               }
-            },
-            {
-              text: `Analyze this image, my description: "${description || 'None'}", Dao Rank: "${daoRank || 'Mortal Reader'}" (XP: ${daoXp || 0}), Power Stage: "${powerStage || 'None'}", Equipped Artifact: ${equippedArtifact ? equippedArtifact.name : 'None'}, and write a detailed progression-attuned anime-style image generator prompt.`
-            }
-          ],
+            ]
+          }],
           config: {
             systemInstruction: systemInstruction,
           }

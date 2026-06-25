@@ -26,12 +26,32 @@ service cloud.firestore {
       return data.keys().hasAll(['uid', 'username'])
         && data.uid is string && data.uid.size() <= 128
         && data.username is string && data.username.size() <= 100
+        && (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100))
+        && (!('displayNameColor' in data) || (data.displayNameColor is string && data.displayNameColor.size() <= 30))
+        && (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 1000))
+        && (!('preferredLanguage' in data) || (data.preferredLanguage is string && data.preferredLanguage.size() <= 50))
+        && (!('defaultTranslationLanguage' in data) || (data.defaultTranslationLanguage is string && data.defaultTranslationLanguage.size() <= 50))
         && (!('joinedDate' in data) || (data.joinedDate is string && data.joinedDate.size() <= 40))
         && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 40))
         && (!('qi' in data) || data.qi is number)
         && (!('dao_xp' in data) || data.dao_xp is number)
         && (!('dao_rank' in data) || data.dao_rank is string)
-        && (!('displayNameColor' in data) || (data.displayNameColor is string && data.displayNameColor.size() <= 30))
+        && (!('heavenly_qi' in data) || data.heavenly_qi is number)
+        && (!('sect_qi' in data) || data.sect_qi is number)
+        && (!('demonic_qi' in data) || data.demonic_qi is number)
+        && (!('premiumTier' in data) || (data.premiumTier is string && data.premiumTier.size() <= 50))
+        && (!('imageGenerationCount' in data) || data.imageGenerationCount is number)
+        && (!('imageQuotaResetAt' in data) || (data.imageQuotaResetAt is string && data.imageQuotaResetAt.size() <= 40))
+        && (!('writingStreak' in data) || data.writingStreak is number)
+        && (!('lastSessionEnd' in data) || (data.lastSessionEnd is string && data.lastSessionEnd.size() <= 40))
+        && (!('daoPillarStreak' in data) || data.daoPillarStreak is number)
+        && (!('daoPillarCracked' in data) || data.daoPillarCracked is bool)
+        && (!('lastReadDate' in data) || (data.lastReadDate is string && data.lastReadDate.size() <= 40))
+        && (!('lastInteractionDate' in data) || (data.lastInteractionDate is string && data.lastInteractionDate.size() <= 40))
+        && (!('equippedArtifactId' in data) || (data.equippedArtifactId == null || (data.equippedArtifactId is string && data.equippedArtifactId.size() <= 128)))
+        && (!('activeStatusEffects' in data) || data.activeStatusEffects is list)
+        && (!('cosmicInventory' in data) || data.cosmicInventory is list)
+        && (!('inventory' in data) || data.inventory is list)
         && data.uid == request.auth.uid;
     }
 
@@ -58,6 +78,7 @@ service cloud.firestore {
         && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 40))
         && (!('currentChapterNumber' in data) || data.currentChapterNumber is number)
         && (!('isEdited' in data) || data.isEdited is bool)
+        && (!('deleted' in data) || data.deleted is bool)
         && data.userId == request.auth.uid;
     }
 
@@ -89,7 +110,15 @@ service cloud.firestore {
         && incoming().uid == existing().uid
         && incoming().joinedDate == existing().joinedDate
         && isValidUserProfile(incoming())
-        && incoming().diff(existing()).affectedKeys().hasOnly(['username', 'displayName', 'displayNameColor', 'avatarUrl', 'preferredLanguage', 'defaultTranslationLanguage', 'savedStoryCount', 'activeStories', 'inactiveStories', 'updatedAt', 'qi', 'dao_xp', 'dao_rank', 'cosmicInventory', 'inventory', 'writingStreak', 'lastInteractionDate'])
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'username', 'displayName', 'displayNameColor', 'avatarUrl', 'preferredLanguage', 
+          'defaultTranslationLanguage', 'savedStoryCount', 'activeStories', 'inactiveStories', 
+          'updatedAt', 'qi', 'dao_xp', 'dao_rank', 'heavenly_qi', 'sect_qi', 'demonic_qi', 
+          'premiumTier', 'imageGenerationCount', 'imageQuotaResetAt', 'writingStreak', 
+          'lastSessionEnd', 'daoPillarStreak', 'daoPillarCracked', 'lastReadDate', 
+          'lastInteractionDate', 'cosmicInventory', 'inventory', 'equippedArtifactId', 
+          'activeStatusEffects'
+        ])
         && (!('updatedAt' in incoming().diff(existing()).affectedKeys()) || (incoming().updatedAt is string && incoming().updatedAt.size() <= 40));
     }
 
@@ -116,7 +145,7 @@ service cloud.firestore {
         && existing().userId == request.auth.uid
         && incoming().userId == existing().userId
         && incoming().id == existing().id
-        && incoming().createdAt == existing().createdAt
+        && (!('createdAt' in existing()) || !('createdAt' in incoming()) || incoming().createdAt == existing().createdAt)
         && (
             isValidStoryWorld(incoming()) // Must remain structurally valid
         )
@@ -126,7 +155,7 @@ service cloud.firestore {
           'bookmarks', 'memory', 'arcs', 'parentStoryId', 'forkChapterNumber', 'imageHistory', 
           'lastImageChapter', 'evolutionReady', 'evolutionReason', 'availableVisualUpdate',
           'isEdited', 'userId', 'hardcoreFateMode', 'fatePressure', 'lastReadChapter', 
-          'lastReadScrollPosition', 'lastReadAt'
+          'lastReadScrollPosition', 'lastReadAt', 'deleted', 'readingStats', 'createdAt'
         ])
         && (!('title' in incoming().diff(existing()).affectedKeys()) || (incoming().title is string && incoming().title.size() <= 500))
         && (!('updatedAt' in incoming().diff(existing()).affectedKeys()) || (incoming().updatedAt is string && incoming().updatedAt.size() <= 40));

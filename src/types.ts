@@ -4,6 +4,32 @@ export interface StreamingChapter {
   blocks?: StoryBlock[];
 }
 
+export interface StatusEffectDef {
+  name: string;
+  type: "Curse" | "Blessing" | "Affliction" | "Mutation";
+  description: string;
+  durationMs: number;
+  scope: "Account-wide" | "Story-specific";
+  visual?: string;
+  counterplay?: string;
+  rewardHook?: string;
+  qiMultiplier?: number;
+  sectQiMultiplier?: number;
+  targetProgress?: number;
+}
+
+export interface ActiveStatusEffect {
+  id: string;
+  effectDef: StatusEffectDef;
+  appliedAt: string;
+  expiresAt: string;
+  sourceArtifactId?: string;
+  progress?: number;
+  targetProgress?: number;
+  completedAt?: string;
+  isUnlockedReward?: boolean;
+}
+
 export interface CosmicArtifact {
   id: string;
   name: string;
@@ -22,6 +48,7 @@ export interface CosmicArtifact {
   imageUrl?: string;
   rarity: "Common" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Transcendent";
   attributeBoost?: string;
+  statusEffectDef?: StatusEffectDef;
 }
 
 export interface UserProfile {
@@ -40,6 +67,9 @@ export interface UserProfile {
   qi?: number; // legacy
   dao_xp?: number;
   dao_rank?: string;
+  heavenly_qi?: number;
+  sect_qi?: number;
+  demonic_qi?: number;
   premiumTier?: "free" | "inner_sect" | "core_disciple" | "elder";
   imageGenerationCount?: number;
   imageQuotaResetAt?: string;
@@ -54,6 +84,7 @@ export interface UserProfile {
   lastInteractionDate?: string;
   cosmicInventory?: CosmicArtifact[];
   equippedArtifactId?: string;
+  activeStatusEffects?: ActiveStatusEffect[];
 }
 
 export interface DaoXpEvent {
@@ -605,6 +636,7 @@ export interface StoryWorld {
   isEdited?: boolean; // Track if the user has modified/actively worked on the demo story
   hardcoreFateMode?: boolean;
   fatePressure?: "Relaxed" | "Balanced" | "Hardcore" | "Dao Master";
+  deleted?: boolean; // Soft delete for synchronization
 
   // Local-first persistent storage properties
   relationships?: CharacterRelationship[];

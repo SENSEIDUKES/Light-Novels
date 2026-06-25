@@ -930,38 +930,56 @@ export default function ReaderChamber({
         handleTouchEnd={handleTouchEnd}
         handleTextClick={handleTextClick}
         handleViewportScroll={handleViewportScroll}
+        
         isTranslating={isTranslating}
-        selectedChapter={selectedChapter}
         preferredLang={preferredLang}
-        activeTranslationContent={activeTranslationContent}
-        showLegend={showLegend}
-        isMuted={isMuted}
-        readerMode={readerMode}
-        currentPrefs={currentPrefs}
-        handleWordClick={handleWordClick}
-        activeChunks={activeChunks}
-        currentChunkIndex={currentChunkIndex}
-        activeEntity={activeEntity}
-        setActiveEntity={setActiveEntity}
-        hoveredEntity={hoveredEntity}
-        setHoveredEntity={setHoveredEntity}
-        codexTerms={codexTerms}
-        handleEntityClick={handleEntityClick}
-        handleManifestReveal={handleManifestReveal}
-        generatingRevealId={generatingRevealId}
-        stories={stories}
-        activeStoryId={activeStoryId}
-        saveStories={saveStories}
-        routingConfig={routingConfig}
-        hasSystemBlocks={hasSystemBlocks}
-        isCheckingConsistency={isCheckingConsistency}
-        handleSealClick={handleSealClick}
-        navigateNext={navigateNext}
+        selectedChapter={selectedChapter}
+        activeStory={activeStory}
+        currentPowerStage={currentPowerStage}
         selectedChapterNum={selectedChapterNum}
         maxChapterNum={maxChapterNum}
+        
+        codexTerms={codexTerms}
+        generatingRevealId={generatingRevealId}
+        handleManifestReveal={handleManifestReveal}
+        
+        readerMode={readerMode}
+        immersion={immersion}
+        isPlayingText={isPlayingText}
+        isPausedText={isPausedText}
+        currentNarratedBlockIndex={currentNarratedBlockIndex}
+        
+        currentPrefs={currentPrefs}
+        activeBookmarks={activeBookmarks}
+        editingBookmarkParagraphIndex={editingBookmarkParagraphIndex}
+        setEditingBookmarkParagraphIndex={setEditingBookmarkParagraphIndex}
+        bookmarkNoteText={bookmarkNoteText}
+        setBookmarkNoteText={setBookmarkNoteText}
+        handleRemoveBookmark={handleRemoveBookmark}
+        handleSaveBookmark={handleSaveBookmark}
+        
+        activeTranslationContent={activeTranslationContent}
+        renderHighlightedText={renderHighlightedText}
+        getFocusClass={getFocusClass}
+        
+        onUpdateStory={onUpdateStory}
+        navigatePrev={navigatePrev}
+        navigateNext={navigateNext}
+        
+        handleSealChapter={handleSealChapter}
+        handleSealClick={handleSealClick}
+        isCheckingConsistency={isCheckingConsistency}
+        
         isGenerating={isGenerating}
         handleGenerate={handleGenerate}
         activeAgentId={activeAgentId}
+        
+        showFateCodex={showFateCodex}
+        setShowFateCodex={setShowFateCodex}
+        showLegend={showLegend}
+        setShowLegend={setShowLegend}
+        hasSystemBlocks={hasSystemBlocks}
+        chapters={chapters}
       />
 
       <ReaderControls

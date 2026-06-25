@@ -65,6 +65,7 @@ export class FirebaseStorageAdapter implements StorageAdapter {
       const payload = {
         ...story,
         userId: auth.currentUser!.uid,
+        deleted: story.deleted || false,
       };
       await setDoc(docRef, payload, { merge: true });
     } catch (error) {

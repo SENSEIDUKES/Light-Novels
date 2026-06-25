@@ -46,6 +46,9 @@ export const ReaderScreen: React.FC<{
     isReaderFullscreen,
     currentUser,
   } = useAppStore();
+
+  const activeStory = stories.find((s) => s.id === activeStoryId);
+
   const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
   const [showRecap, setShowRecap] = useState(false);
   const [localChapterCache, setLocalChapterCache] = useState<
@@ -165,8 +168,6 @@ export const ReaderScreen: React.FC<{
       window.removeEventListener("toggle-glossary-panel", handleToggleGlossary);
     };
   }, []);
-
-  const activeStory = stories.find((s) => s.id === activeStoryId);
 
   useEffect(() => {
     if (activeStory && currentScreen === "reader") {

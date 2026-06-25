@@ -517,7 +517,7 @@ export class PersistentStorageManager implements StorageAdapter {
              // If they diverged, we create a conflict copy.
              // Here, let's just make a safe backup of the local story if it's considered 'dirty'
              // Since we lack deep dirty checking, we duplicate if diff is substantial
-             if (timeDiff > 1000 * 60 * 5) { // 5 minutes diff
+             if (timeDiff > 1000 * 60 * 5 && !cloudStory.deleted) { // 5 minutes diff, skip if it's a deletion
                  const localCopy = JSON.parse(JSON.stringify(localStory)) as StoryWorld;
                  localCopy.id = `${localStory.id}-conflict-${Date.now()}`;
                  localCopy.title = `${localCopy.title} (Local Conflict Copied)`;
@@ -620,7 +620,9 @@ export class PersistentStorageManager implements StorageAdapter {
 
   async getStories(): Promise<StoryWorld[]> {
     const local = await this.localAdapter.getStories();
-    if (!this.activeTransaction) return local;
+    if (!this.activeTransaction) {
+      return local.filter(s => !s.deleted);
+    }
 
     const tx = this.activeTransaction;
     // merge local with transaction
@@ -631,7 +633,7 @@ export class PersistentStorageManager implements StorageAdapter {
     for (const [id, story] of tx.stories) {
       storiesMap.set(id, JSON.parse(JSON.stringify(story)));
     }
-    const result = Array.from(storiesMap.values());
+    const result = Array.from(storiesMap.values()).filter(s => !s.deleted);
     result.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     return result;
   }
@@ -811,16 +813,18 @@ export class PersistentStorageManager implements StorageAdapter {
 
     if (this.isCloudAvailable && this.syncStatus !== 'syncing') {
       this.setStatus('syncing');
-      try {
-        const cloudStory = JSON.parse(JSON.stringify(strippedStory));
-        await this.compressDataUrls(cloudStory);
-        await this.cloudAdapter.saveStory(cloudStory);
-        this.setStatus('synced');
-      } catch (err) {
-        console.error('Failed to save to cloud', err);
-        this.enqueueTask({ type: 'story', storyId: strippedStory.id, timestamp: Date.now() });
-        this.setStatus('error');
-      }
+      (async () => {
+        try {
+          const cloudStory = JSON.parse(JSON.stringify(strippedStory));
+          await this.compressDataUrls(cloudStory);
+          await this.cloudAdapter.saveStory(cloudStory);
+          this.setStatus('synced');
+        } catch (err) {
+          console.error('Failed to save to cloud', err);
+          this.enqueueTask({ type: 'story', storyId: strippedStory.id, timestamp: Date.now() });
+          this.setStatus('error');
+        }
+      })();
     } else {
       this.enqueueTask({ type: 'story', storyId: strippedStory.id, timestamp: Date.now() });
     }
@@ -833,13 +837,25 @@ export class PersistentStorageManager implements StorageAdapter {
       return;
     }
 
-    await this.localAdapter.deleteStory(id);
-    if (this.isCloudAvailable) {
-      try {
-        await this.cloudAdapter.deleteStory(id);
-      } catch (err) {
-        console.error('Failed to delete from cloud', err);
-      }
+    const story = await this.localAdapter.getStory(id);
+    if (!story) return;
+
+    story.deleted = true;
+    story.updatedAt = new Date().toISOString();
+
+    await this.localAdapter.saveStory(story);
+
+    if (this.isCloudAvailable && this.syncStatus !== 'syncing') {
+      (async () => {
+        try {
+          await this.cloudAdapter.saveStory(story);
+        } catch (err) {
+          console.error('Failed to soft delete from cloud', err);
+          this.enqueueTask({ type: 'story', storyId: id, timestamp: Date.now() });
+        }
+      })();
+    } else {
+      this.enqueueTask({ type: 'story', storyId: id, timestamp: Date.now() });
     }
   }
 
@@ -882,12 +898,14 @@ export class PersistentStorageManager implements StorageAdapter {
 
     await this.localAdapter.saveChapterContent(content);
     if (this.isCloudAvailable && this.syncStatus !== 'syncing') {
-      try {
-        await this.cloudAdapter.saveChapterContent(content);
-      } catch (err) {
-         console.error('Failed to save chapter content to cloud', err);
-         this.enqueueTask({ type: 'chapter', storyId: content.storyId, chapterNumber: content.chapterNumber, timestamp: Date.now() });
-      }
+      (async () => {
+        try {
+          await this.cloudAdapter.saveChapterContent(content);
+        } catch (err) {
+           console.error('Failed to save chapter content to cloud', err);
+           this.enqueueTask({ type: 'chapter', storyId: content.storyId, chapterNumber: content.chapterNumber, timestamp: Date.now() });
+        }
+      })();
     } else {
        this.enqueueTask({ type: 'chapter', storyId: content.storyId, chapterNumber: content.chapterNumber, timestamp: Date.now() });
     }

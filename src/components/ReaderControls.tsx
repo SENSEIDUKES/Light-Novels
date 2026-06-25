@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Pause, ArrowLeft, ArrowRight, Settings, ListMusic } from 'lucide-react';
+import { Play, Pause, ArrowLeft, ArrowRight, Settings, ListMusic, Zap } from 'lucide-react';
 import { Chapter } from '../types';
 
 interface ReaderControlsProps {

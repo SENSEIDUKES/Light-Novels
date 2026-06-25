@@ -50,6 +50,8 @@ export const createChallengeSlice: StateCreator<AppState, [], [], ChallengeSlice
         ...localProfile,
         dao_xp: (localProfile.dao_xp || 0) + challenge.rewards.attemptQi,
         qi: (localProfile.qi || 0) + challenge.rewards.attemptQi,
+        heavenly_qi: (localProfile.heavenly_qi || localProfile.dao_xp || 0) + challenge.rewards.attemptQi,
+        sect_qi: (localProfile.sect_qi || 0) + challenge.rewards.attemptQi,
       };
       set({ userProfile: updatedProfile });
     }
@@ -133,6 +135,8 @@ export const createChallengeSlice: StateCreator<AppState, [], [], ChallengeSlice
           ...localProfile,
           dao_xp: (localProfile.dao_xp || 0) + qiEarned,
           qi: (localProfile.qi || 0) + qiEarned,
+          heavenly_qi: (localProfile.heavenly_qi || localProfile.dao_xp || 0) + qiEarned,
+          sect_qi: (localProfile.sect_qi || 0) + qiEarned,
         };
         set({ userProfile: updatedProfile });
       }

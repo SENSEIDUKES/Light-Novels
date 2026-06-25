@@ -67,6 +67,8 @@ export function IdleCultivationModal({ qiEarned, onClose }: Props) {
         ...userProfile,
         dao_xp: (userProfile.dao_xp || 0) + qiEarned,
         qi: (userProfile.qi || 0) + qiEarned,
+        heavenly_qi: (userProfile.heavenly_qi || userProfile.dao_xp || 0) + qiEarned,
+        sect_qi: (userProfile.sect_qi || 0) + qiEarned,
       };
       setUserProfile(updated);
     }

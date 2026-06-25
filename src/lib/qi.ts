@@ -1,6 +1,7 @@
 import { doc, setDoc, increment, collection, addDoc, query, where, getDocs, Timestamp, getDoc } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { checkAndAwardRankArtifacts } from './artifacts';
+import type { ActiveStatusEffect } from '../types';
 
 export const DAO_RANKS = [
   { threshold: 0, name: 'Mortal Reader' },
@@ -58,6 +59,19 @@ export type QiEvent =
   | 'streak_reward_10';
 
 const QI_VALUES: Record<QiEvent, number> = {
+  chapter_read: 2,
+  chapter_finished: 5,
+  chapter_generated: 10,
+  world_created: 25,
+  chapter_sealed: 15,
+  branch_created: 30,
+  branch_published: 50,
+  story_liked: 5,
+  streak_reward_3: 20,
+  streak_reward_10: 100
+};
+
+const SECT_QI_VALUES: Record<QiEvent, number> = {
   chapter_read: 2,
   chapter_finished: 5,
   chapter_generated: 10,
@@ -128,6 +142,29 @@ export async function awardQi(event: QiEvent, sourceId?: string, sourceType?: st
       currentXp = 0;
     }
 
+    let currentHeavenlyQi = data?.heavenly_qi;
+    if (currentHeavenlyQi === undefined) {
+      currentHeavenlyQi = currentXp;
+    }
+    let currentSectQi = data?.sect_qi || 0;
+    let currentDemonicQi = data?.demonic_qi || 0;
+
+    let qiMultiplier = 1;
+    let sectQiMultiplier = 1;
+    if (data?.activeStatusEffects) {
+      const now = new Date().toISOString();
+      data.activeStatusEffects.forEach((effect: ActiveStatusEffect) => {
+        if (effect.expiresAt > now) {
+          if (effect.effectDef.qiMultiplier !== undefined) {
+            qiMultiplier *= effect.effectDef.qiMultiplier;
+          }
+          if (effect.effectDef.sectQiMultiplier !== undefined) {
+            sectQiMultiplier *= effect.effectDef.sectQiMultiplier;
+          }
+        }
+      });
+    }
+
     // Support streak tracking
     const d = new Date();
     const year = d.getFullYear();
@@ -190,18 +227,68 @@ export async function awardQi(event: QiEvent, sourceId?: string, sourceType?: st
       }
     }
 
-    const newXp = currentXp + amount + bonusQi;
+    const calculatedAmount = Math.round(amount * qiMultiplier);
+    const calculatedBonus = Math.round(bonusQi * qiMultiplier);
+
+    const newXp = currentXp + calculatedAmount + calculatedBonus;
+    const newHeavenlyQi = currentHeavenlyQi + calculatedAmount + calculatedBonus;
+    const sectAmount = SECT_QI_VALUES[event] || amount;
+    const sectBonus = streakEventName ? (SECT_QI_VALUES[streakEventName] || bonusQi) : 0;
+    
+    const calculatedSectAmount = Math.round(sectAmount * sectQiMultiplier);
+    const calculatedSectBonus = Math.round(sectBonus * sectQiMultiplier);
+    const newSectQi = currentSectQi + calculatedSectAmount + calculatedSectBonus;
+
     const newRank = getDaoRankData(newXp).rank;
     
     // Automatically check and award persistent Cosmic Artifacts for this rank
     checkAndAwardRankArtifacts(newRank);
 
+    // Award Demonic Qi if Demonic Corruption or any mutation/demonic status effect is active!
+    let demonicQiGain = 0;
+    if (data?.activeStatusEffects) {
+      const now = new Date().toISOString();
+      const hasDemonic = data.activeStatusEffects.some(
+        (effect: any) => 
+          (effect.effectDef.name === 'Demonic Corruption' || effect.effectDef.type === 'Mutation') && 
+          effect.expiresAt > now
+      );
+      if (hasDemonic) {
+        // Demonic Qi gain is proportional to the calculated amount
+        demonicQiGain = Math.round(calculatedAmount * 0.5); 
+      }
+    }
+    const newDemonicQi = currentDemonicQi + demonicQiGain;
+
+    let updatedEffects = data?.activeStatusEffects ? [...data.activeStatusEffects] : [];
+    if (updatedEffects.length > 0) {
+      const now = new Date().toISOString();
+      updatedEffects = updatedEffects.map((effect: ActiveStatusEffect) => {
+        if (effect.expiresAt > now && !effect.completedAt) {
+          if (effect.progress !== undefined && effect.targetProgress !== undefined) {
+            const nextProgress = (effect.progress || 0) + calculatedAmount;
+            const completedAt = nextProgress >= effect.targetProgress ? now : undefined;
+            return {
+              ...effect,
+              progress: Math.min(effect.targetProgress, nextProgress),
+              completedAt
+            };
+          }
+        }
+        return effect;
+      });
+    }
+
     await setDoc(userRef, {
       dao_xp: newXp,
       qi: newXp, // keep backwards compatibility for now just in case
+      heavenly_qi: newHeavenlyQi,
+      sect_qi: newSectQi,
+      demonic_qi: newDemonicQi,
       dao_rank: newRank,
       writingStreak: newStreak,
       lastInteractionDate: todayStr,
+      activeStatusEffects: updatedEffects,
       updatedAt: new Date().toISOString()
     }, { merge: true });
 
@@ -318,29 +405,73 @@ export const AURA_TIERS: AuraTier[] = [
   }
 ];
 
-export function getAuraTextStyle(colorHexOrAura?: string): { style?: React.CSSProperties; className?: string } {
+export function getAuraTextStyle(
+  colorHexOrAura?: string,
+  activeStatusEffects?: ActiveStatusEffect[]
+): { style?: React.CSSProperties; className?: string } {
   if (!colorHexOrAura) return {};
+  
+  const now = new Date().toISOString();
+  const hasGhostlySilence = activeStatusEffects?.some(
+    e => e.effectDef.name === "Ghostly Silence" && e.expiresAt > now
+  );
+  
+  if (hasGhostlySilence) {
+    return {
+      className: 'text-neutral-500 font-normal opacity-60 line-through-none shadow-none filter grayscale'
+    };
+  }
+
+  const hasCursedTome = activeStatusEffects?.some(
+    e => e.effectDef.name === "Curse of the Cursed Tome" && e.expiresAt > now
+  );
+
+  let extraClass = '';
+  if (hasCursedTome) {
+    extraClass = ' animate-pulse text-red-500/90 shadow-[0_0_12px_rgba(139,0,0,0.8)]';
+  }
   
   if (colorHexOrAura === 'gradient-violet-gold') {
     return {
-      className: 'aura-gradient-violet-gold font-bold drop-shadow-[0_0_8px_rgba(168,85,247,0.4)]'
+      className: `aura-gradient-violet-gold font-bold drop-shadow-[0_0_8px_rgba(168,85,247,0.4)]${extraClass}`
     };
   }
   if (colorHexOrAura === 'animated-custom') {
     return {
-      className: 'aura-animated-custom font-black drop-shadow-[0_0_12px_rgba(6,182,212,0.65)]'
+      className: `aura-animated-custom font-black drop-shadow-[0_0_12px_rgba(6,182,212,0.65)]${extraClass}`
     };
   }
   
   // Normal hex colors
   return {
-    style: { color: colorHexOrAura },
-    className: 'drop-shadow-[0_0_5px_rgba(255,255,255,0.15)] font-semibold'
+    style: { color: hasCursedTome ? '#8B0000' : colorHexOrAura },
+    className: `drop-shadow-[0_0_5px_rgba(255,255,255,0.15)] font-semibold${extraClass}`
   };
 }
 
-export function getAuraGlowStyle(colorHexOrAura?: string): string {
+export function getAuraGlowStyle(
+  colorHexOrAura?: string,
+  activeStatusEffects?: ActiveStatusEffect[]
+): string {
   if (!colorHexOrAura) return '';
+
+  const now = new Date().toISOString();
+  const hasGhostlySilence = activeStatusEffects?.some(
+    e => e.effectDef.name === "Ghostly Silence" && e.expiresAt > now
+  );
+  
+  if (hasGhostlySilence) {
+    return 'border-neutral-900 shadow-none';
+  }
+
+  const hasCursedTome = activeStatusEffects?.some(
+    e => e.effectDef.name === "Curse of the Cursed Tome" && e.expiresAt > now
+  );
+
+  if (hasCursedTome) {
+    return 'shadow-[0_0_25px_rgba(139,0,0,0.7)] border-human/40 animate-pulse';
+  }
+  
   const match = AURA_TIERS.find(t => t.colorHex === colorHexOrAura);
   if (match) {
     if (colorHexOrAura === 'gradient-violet-gold') {
@@ -381,16 +512,83 @@ export async function awardDirectQi(amount: number, reason: string) {
       currentXp = 0;
     }
 
-    const newXp = currentXp + amount;
+    let currentHeavenlyQi = data?.heavenly_qi;
+    if (currentHeavenlyQi === undefined) {
+      currentHeavenlyQi = currentXp;
+    }
+    let currentSectQi = data?.sect_qi || 0;
+    let currentDemonicQi = data?.demonic_qi || 0;
+
+    let qiMultiplier = 1;
+    let sectQiMultiplier = 1;
+    if (data?.activeStatusEffects) {
+      const now = new Date().toISOString();
+      data.activeStatusEffects.forEach((effect: ActiveStatusEffect) => {
+        if (effect.expiresAt > now) {
+          if (effect.effectDef.qiMultiplier !== undefined) {
+            qiMultiplier *= effect.effectDef.qiMultiplier;
+          }
+          if (effect.effectDef.sectQiMultiplier !== undefined) {
+            sectQiMultiplier *= effect.effectDef.sectQiMultiplier;
+          }
+        }
+      });
+    }
+
+    const calculatedAmount = Math.round(amount * qiMultiplier);
+    const calculatedSectAmount = Math.round(amount * sectQiMultiplier);
+
+    const newXp = currentXp + calculatedAmount;
+    const newHeavenlyQi = currentHeavenlyQi + calculatedAmount;
+    const newSectQi = currentSectQi + calculatedSectAmount;
+
+    // Award Demonic Qi if Demonic Corruption or any mutation/demonic status effect is active!
+    let demonicQiGain = 0;
+    if (data?.activeStatusEffects) {
+      const now = new Date().toISOString();
+      const hasDemonic = data.activeStatusEffects.some(
+        (effect: any) => 
+          (effect.effectDef.name === 'Demonic Corruption' || effect.effectDef.type === 'Mutation') && 
+          effect.expiresAt > now
+      );
+      if (hasDemonic) {
+        demonicQiGain = Math.round(calculatedAmount * 0.5); 
+      }
+    }
+    const newDemonicQi = currentDemonicQi + demonicQiGain;
+
     const newRank = getDaoRankData(newXp).rank;
     
     // Automatically check and award persistent Cosmic Artifacts for this rank
     checkAndAwardRankArtifacts(newRank);
 
+    let updatedEffects = data?.activeStatusEffects ? [...data.activeStatusEffects] : [];
+    if (updatedEffects.length > 0) {
+      const now = new Date().toISOString();
+      updatedEffects = updatedEffects.map((effect: ActiveStatusEffect) => {
+        if (effect.expiresAt > now && !effect.completedAt) {
+          if (effect.progress !== undefined && effect.targetProgress !== undefined) {
+            const nextProgress = (effect.progress || 0) + calculatedAmount;
+            const completedAt = nextProgress >= effect.targetProgress ? now : undefined;
+            return {
+              ...effect,
+              progress: Math.min(effect.targetProgress, nextProgress),
+              completedAt
+            };
+          }
+        }
+        return effect;
+      });
+    }
+
     await setDoc(userRef, {
       dao_xp: newXp,
       qi: newXp,
+      heavenly_qi: newHeavenlyQi,
+      sect_qi: newSectQi,
+      demonic_qi: newDemonicQi,
       dao_rank: newRank,
+      activeStatusEffects: updatedEffects,
       updatedAt: new Date().toISOString()
     }, { merge: true });
 
