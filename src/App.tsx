@@ -11,7 +11,7 @@ import { useStoryExporter } from './hooks/useStoryExporter';
 import { storyStorage } from './lib/storage';
 
 // Types
-import { Story, IntakeData, WorldBlueprint } from './types';
+import { Story, IntakeData, WorldBlueprint, UserProfile as UserProfileType } from './types';
 
 // Top-Level Layout Components
 import { GlobalHeader } from './components/GlobalHeader';
@@ -107,7 +107,7 @@ function App() {
       if (user) {
         unsubProfile = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
           if (docSnap.exists()) {
-            store.setUserProfile(docSnap.data() as any);
+            store.setUserProfile(docSnap.data() as UserProfileType);
           } else {
             store.setUserProfile(null);
           }
@@ -148,58 +148,18 @@ function App() {
       if (tgtChapter && !tgtChapter.generatedContent && (!tgtChapter.blocks || tgtChapter.blocks.length === 0) && (tgtChapter.status === 'read' || tgtChapter.status === 'unlocked' || tgtChapter.status === 'generating' || tgtChapter.hasContent)) {
         storyStorage.getChapterContent(activeStory.id, store.selectedChapterNum).then(content => {
           if (content) {
-            const currentStore = useAppStore.getState();
-            const freshStories = [...currentStore.stories];
-            const updated = freshStories.map(s => {
-              if (s.id === activeStory.id) {
-                return {
-                  ...s,
-                  arcs: s.arcs.map(a => ({
-                    ...a,
-                    chapters: a.chapters.map(c => {
-                      if (c.number === store.selectedChapterNum) {
-                        return {
-                          ...c,
-                          generatedContent: content.generatedContent,
-                          blocks: content.blocks,
-                          summary: content.summary,
-                          statsChangeMessage: content.statsChangeMessage,
-                          cuePayload: content.cuePayload
-                        };
-                      }
-                      return c;
-                    })
-                  }))
-                };
-              }
-              return s;
+            store.updateChapter(activeStory.id, store.selectedChapterNum, {
+              generatedContent: content.generatedContent,
+              blocks: content.blocks,
+              summary: content.summary,
+              statsChangeMessage: content.statsChangeMessage,
+              cuePayload: content.cuePayload
             });
-            currentStore.saveStories(updated); // Use saveStories instead of setStories so it persists correctly if necessary, or just setStories
           } else {
             // Failed to fetch or missing: un-mark hasContent so user can regenerate
-            const currentStore = useAppStore.getState();
-            const freshStories = [...currentStore.stories];
-            const updated = freshStories.map(s => {
-              if (s.id === activeStory.id) {
-                return {
-                  ...s,
-                  arcs: s.arcs.map(a => ({
-                    ...a,
-                    chapters: a.chapters.map(c => {
-                      if (c.number === store.selectedChapterNum) {
-                        return {
-                          ...c,
-                          hasContent: false
-                        };
-                      }
-                      return c;
-                    })
-                  }))
-                };
-              }
-              return s;
+            store.updateChapter(activeStory.id, store.selectedChapterNum, {
+              hasContent: false
             });
-            currentStore.saveStories(updated);
           }
         });
       }

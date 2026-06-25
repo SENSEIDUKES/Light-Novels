@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Story, StoryMemory, Chapter, StoryArc, StoryWorld, ReaderPreferences, KarmaFateNode, CharacterRelationship, MultiModelRouting, RouteConfig, IntakeData, WorldBlueprint, StoryBlock, StreamingChapter, AppUser, UserProfile, FateSurvivalChallenge, FateSurvivalRun } from '../types';
+import { Story, StoryMemory, Chapter, StoryArc, StoryWorld, ReaderPreferences, KarmaFateNode, CharacterRelationship, MultiModelRouting, RouteConfig, IntakeData, WorldBlueprint, StoryBlock, StreamingChapter, AppUser, UserProfile, FateSurvivalChallenge, FateSurvivalRun, DraftRecoverySession } from '../types';
 import { SyncStatus } from '../lib/storage';
 import { secureStorage } from '../lib/encryption';
 import { auth } from '../lib/firebase';
@@ -63,8 +63,8 @@ interface AppState {
   };
 
   // Draft Recovery
-  draftRecoverySession: any | null;
-  setDraftRecoverySession: (session: any | null) => void;
+  draftRecoverySession: DraftRecoverySession | null;
+  setDraftRecoverySession: (session: DraftRecoverySession | null) => void;
 
   // Actions
   setStories: (stories: Story[]) => void;
@@ -97,12 +97,13 @@ interface AppState {
 
   // Complex Actions
   saveStories: (updated: Story[]) => Promise<void>;
+  updateChapter: (storyId: string, chapterNumber: number, updates: Partial<Chapter>) => Promise<void>;
   handleExportLibrary: () => Promise<void>;
   handleImportLibrary: (e: any) => void;
   confirmDeleteStory: () => void;
   cancelDeleteStory: () => void;
   initStorage: () => Promise<void>;
-  migrateOrDiscardDemoStories: (user: any) => Promise<void>;
+  migrateOrDiscardDemoStories: (user: AppUser | null) => Promise<void>;
 }
 
 
@@ -381,6 +382,35 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   /**
+   * Updates specific chapter properties cleanly for a given story.
+   */
+  updateChapter: async (storyId: string, chapterNumber: number, updates: Partial<Chapter>) => {
+    const { stories, saveStories } = get();
+    const updated = stories.map(s => {
+      if (s.id === storyId) {
+        return {
+          ...s,
+          arcs: s.arcs.map(a => {
+            const hasChapter = a.chapters.some(c => c.number === chapterNumber);
+            if (!hasChapter) return a;
+            return {
+              ...a,
+              chapters: a.chapters.map(c => {
+                if (c.number === chapterNumber) {
+                  return { ...c, ...updates };
+                }
+                return c;
+              })
+            };
+          })
+        };
+      }
+      return s;
+    });
+    await saveStories(updated);
+  },
+
+  /**
    * Exports the entire local library matrix to a JSON file.
    */
   handleExportLibrary: async () => {
@@ -586,7 +616,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  migrateOrDiscardDemoStories: async (user: any) => {
+  migrateOrDiscardDemoStories: async (user: AppUser | null) => {
     if (!user) return;
     const { stories, activeStoryId, saveStories, setActiveStoryId, setCurrentScreen } = get();
     

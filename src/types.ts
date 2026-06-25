@@ -609,3 +609,8 @@ export interface FateSurvivalRun {
   completedAt?: string;
 }
 
+export interface DraftRecoverySession {
+  activeStoryId: string;
+  generatingChapterNum: number;
+}
+

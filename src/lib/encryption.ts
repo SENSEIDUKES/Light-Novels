@@ -1,8 +1,17 @@
 /**
- * SEIHouse Client-Side Key Obfuscation & Encryption Engine.
+ * SEIHouse Client-Side Key Obfuscation & Telemetry Scrambler.
  * 
- * Implements client-side encryption utilizing dynamic device telemetry as a salt,
- * hashed into an AES-GCM key via Web Crypto API.
+ * ARCHITECTURAL WARNING & DISCLAIMER:
+ * This module implements local shoulder-surfing protection and client-side key scrambling (obfuscation),
+ * NOT authentic or hardened server-side cryptographic security. It derives a client-side AES-GCM key by hashing 
+ * local device telemetry (User Agent, platform, language) as a dynamic salt. 
+ * 
+ * While this serves as a lightweight, frictionless approach for locally-persistent, Bring-Your-Own-Key (BYOK) 
+ * configurations where a dedicated hardware security module (HSM) or secure server-side vault is not available,
+ * it is fundamentally an *obfuscation* mechanism, not a military-grade security boundary. 
+ * 
+ * The export names (`secureStorage`, `encryptKey`, `decryptKey`) are preserved purely to maintain backwards-compatibility
+ * with callers throughout the codebase, but they should be treated strictly as client-side telemetry-derived local scramblers.
  */
 
 const getEntropyString = (): string => {
@@ -10,7 +19,7 @@ const getEntropyString = (): string => {
   const userAgent = window.navigator?.userAgent || "";
   const platform = window.navigator?.platform || "";
   const language = window.navigator?.language || "";
-  return `seihouse:@secure-salt-04acff:${userAgent}:${platform}:${language}`;
+  return `seihouse-obfuscated-salt-04acff:${userAgent}:${platform}:${language}`;
 };
 
 const getCryptoKey = async (): Promise<CryptoKey> => {
