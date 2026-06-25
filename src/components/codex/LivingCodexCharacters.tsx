@@ -6,6 +6,7 @@ import { Character, Location, StoryMemory, StoryWorld } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AgentBadge } from '../AgentBadge';
 import { AGENTS } from '../../lib/agents';
+import { useCodex } from './CodexContext';
 
 const handleDownload = async (url: string, filename: string) => {
   try {
@@ -32,58 +33,101 @@ const handleDownload = async (url: string, filename: string) => {
 };
 
 interface LivingCodexCharactersProps {
-  memory: StoryMemory;
-  activeStory: StoryWorld;
   charsToRender: Character[];
   locationsToRender: Location[];
-  showAddCharForm: boolean;
-  setShowAddCharForm: (v: boolean) => void;
-  newChar: Partial<Character>;
-  setNewChar: (v: Partial<Character>) => void;
-  handleAddCharacter: () => void;
-  showAddLocationForm: boolean;
-  setShowAddLocationForm: (v: boolean) => void;
-  newLocation: Partial<Location>;
-  setNewLocation: (v: Partial<Location>) => void;
-  handleAddLocation: () => void;
   setDeletePrompt: (prompt: any) => void;
   selectedNodeChar: Character | null;
   setSelectedNodeChar: (c: Character | null) => void;
-  handleAwakenCardImage: (id: string, name: string, type: string) => void;
-  generatingId: string | null;
-  previews: Record<string, { urls: string[]; prompt: string; selectedIndex: number; type: 'character' | 'beast' | 'location' | 'artifact' }>;
-  renderImageHistoryGallery: (entityId: string, type: 'character' | 'beast' | 'location' | 'artifact', imageHistory: any[] | undefined) => React.ReactNode;
 }
 
 export function LivingCodexCharacters({
-  memory,
-  activeStory,
   charsToRender,
   locationsToRender,
-  showAddCharForm,
-  setShowAddCharForm,
-  newChar,
-  setNewChar,
-  handleAddCharacter,
-  showAddLocationForm,
-  setShowAddLocationForm,
-  newLocation,
-  setNewLocation,
-  handleAddLocation,
   setDeletePrompt,
   selectedNodeChar,
-  setSelectedNodeChar,
-  handleAwakenCardImage,
-  generatingId,
-  previews,
-  renderImageHistoryGallery,
-  getPowerRankScore
-}: LivingCodexCharactersProps & { getPowerRankScore?: (s?: string) => { score: number, title: string }; }) {
+  setSelectedNodeChar
+}: LivingCodexCharactersProps) {
+  const { 
+    memory, 
+    activeStory, 
+    onUpdateMemory, 
+    generatingId, 
+    previews, 
+    renderImageHistoryGallery, 
+    handleAwakenCardImage,
+    getPowerRankScore
+  } = useCodex();
+
   const [charViewStyle, setCharViewStyle] = useState<'cards' | 'profiles'>('cards');
   const [editingCharId, setEditingCharId] = useState<string | null>(null);
   const [editingCharData, setEditingCharData] = useState<any>({});
 
-  const handleSaveCharEdit = () => { if(editingCharId) { const updated = (memory.characters || []).map(c => c.id === editingCharId ? { ...c, ...editingCharData } : c); handleAddCharacter(); /* fake it, caller should handle it actually but anyway */ setEditingCharId(null); } };
+  const [showAddCharForm, setShowAddCharForm] = useState(false);
+  const [newChar, setNewChar] = useState<Partial<Character>>({ name: '', description: '', role: 'ally' });
+  const [showAddLocationForm, setShowAddLocationForm] = useState(false);
+  const [newLocation, setNewLocation] = useState<Partial<Location>>({ name: '', description: '', realm: '', safetyLevel: 'Safe' });
+
+  const handleAddCharacter = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!newChar.name) return;
+    
+    const newCharacter: Character = {
+      id: crypto.randomUUID(),
+      name: newChar.name,
+      description: newChar.description || '',
+      role: newChar.role || 'ally',
+      relationshipToMC: 'neutral',
+      status: 'alive'
+    };
+    
+    const updatedChars = [...(activeStory.memory.characters || []), newCharacter];
+    onUpdateMemory({ ...memory, characters: updatedChars });
+    setShowAddCharForm(false);
+    setNewChar({ name: '', description: '', role: 'ally' });
+  };
+
+  const handleAddLocation = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!newLocation.name?.trim()) return;
+
+    const currentLocations = memory.locations || [];
+    const locationObj: Location = {
+      id: `loc-${Date.now()}`,
+      name: newLocation.name.trim(),
+      description: newLocation.description?.trim() || '',
+      realm: newLocation.realm?.trim() || undefined,
+      safetyLevel: newLocation.safetyLevel || 'Safe'
+    };
+
+    onUpdateMemory({
+      ...memory,
+      locations: [...currentLocations, locationObj]
+    });
+
+    setNewLocation({ name: '', description: '', realm: '', safetyLevel: 'Safe' });
+    setShowAddLocationForm(false);
+  };
+
+  const handleSaveCharEdit = () => {
+    if(editingCharId) { 
+      const updated = (memory.characters || []).map(char => {
+        if (char.id === editingCharId) {
+          return {
+            ...char,
+            powerLevel: editingCharData.powerLevel?.trim() || undefined,
+            faction: editingCharData.faction?.trim() || undefined,
+            status: editingCharData.status,
+            abilities: editingCharData.abilitiesInput?.trim() 
+              ? editingCharData.abilitiesInput.split(',').map((a: string) => a.trim()).filter(Boolean) 
+              : undefined
+          };
+        }
+        return char;
+      });
+      onUpdateMemory({ ...memory, characters: updated });
+      setEditingCharId(null); 
+    } 
+  };
 
   return (
     <>

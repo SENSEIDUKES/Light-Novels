@@ -1,28 +1,52 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Character, Faction } from '../../types';
+import { useCodex } from './CodexContext';
 
 interface LivingCodexFactionsProps {
   factionsToRender: Faction[];
   memoryCharacters: Character[];
-  showAddFactionForm: boolean;
-  setShowAddFactionForm: (show: boolean) => void;
-  newFaction: any;
-  setNewFaction: (faction: any) => void;
-  handleAddFaction: (e: React.FormEvent) => void;
   setDeletePrompt: (prompt: any) => void;
 }
 
 export function LivingCodexFactions({
   factionsToRender,
   memoryCharacters,
-  showAddFactionForm,
-  setShowAddFactionForm,
-  newFaction,
-  setNewFaction,
-  handleAddFaction,
   setDeletePrompt
 }: LivingCodexFactionsProps) {
+  const { memory, onUpdateMemory } = useCodex();
+  const [showAddFactionForm, setShowAddFactionForm] = useState(false);
+  const [newFaction, setNewFaction] = useState<Partial<Faction>>({
+    name: '',
+    description: '',
+    alignment: 'Neutral',
+    headquarters: '',
+    status: 'Active'
+  });
+
+  const handleAddFaction = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFaction.name?.trim()) return;
+
+    const currentFactions = memory.factions || [];
+    const factionObj: Faction = {
+      id: `fct-${Date.now()}`,
+      name: newFaction.name.trim(),
+      description: newFaction.description?.trim() || '',
+      alignment: newFaction.alignment,
+      headquarters: newFaction.headquarters?.trim() || undefined,
+      status: newFaction.status
+    };
+
+    onUpdateMemory({
+      ...memory,
+      factions: [...currentFactions, factionObj]
+    });
+
+    setNewFaction({ name: '', description: '', alignment: 'Neutral', headquarters: '', status: 'Active' });
+    setShowAddFactionForm(false);
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn" id="codex-sects-and-factions">
       <div className="border-b border-neutral-900 pb-3 flex justify-between items-end">

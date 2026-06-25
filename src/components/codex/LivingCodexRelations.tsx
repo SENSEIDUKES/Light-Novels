@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Network, HelpCircle, ArrowLeftRight, Trash2, Download } from 'lucide-react';
 import { VirtualizedList } from '../VirtualizedList';
-import { Character, StoryMemory } from '../../types';
+import { Character, CharacterRelationship } from '../../types';
+import { useCodex } from './CodexContext';
+import { useAppStore } from '../../store/useAppStore';
 
 const handleDownload = async (url: string, filename: string) => {
   try {
@@ -28,42 +30,62 @@ const handleDownload = async (url: string, filename: string) => {
 };
 
 interface LivingCodexRelationsProps {
-  memory: StoryMemory;
   charsToRender: Character[];
-  showAddRelForm: boolean;
-  setShowAddRelForm: (v: boolean) => void;
-  newRel: any;
-  setNewRel: (v: any) => void;
-  handleAddCustomRelationship: () => void;
   setDeletePrompt: (p: any) => void;
   selectedNodeChar: Character | null;
   setSelectedNodeChar: (c: Character | null) => void;
-  mcName: string;
-  activeStory?: any;
-  bondSourceId: string; setBondSourceId: (v:string)=>void;
-  bondTargetId: string; setBondTargetId: (v:string)=>void;
-  bondAffinity: number; setBondAffinity: (v:number)=>void;
-  bondDesc: string; setBondDesc: (v:string)=>void;
 }
 
 export function LivingCodexRelations({
-  memory,
   charsToRender,
-  showAddRelForm,
-  setShowAddRelForm,
-  newRel,
-  setNewRel,
-  handleAddCustomRelationship,
   setDeletePrompt,
   selectedNodeChar,
-  setSelectedNodeChar,
-  mcName,
-  activeStory,
-  bondSourceId, setBondSourceId,
-  bondTargetId, setBondTargetId,
-  bondAffinity, setBondAffinity,
-  bondDesc, setBondDesc
+  setSelectedNodeChar
 }: LivingCodexRelationsProps) {
+  const { memory, activeStory, mcName, pushNotification, onUpdateStory } = useCodex();
+
+  const [bondSourceId, setBondSourceId] = useState('');
+  const [bondTargetId, setBondTargetId] = useState('');
+  const [bondAffinity, setBondAffinity] = useState<number>(0);
+  const [bondDesc, setBondDesc] = useState('');
+
+  const handleAddCustomRelationship = () => {
+    if (!bondSourceId || !bondTargetId) {
+      pushNotification("Two sovereign characters are required to bind a causal relation.");
+      return;
+    }
+    if (bondSourceId === bondTargetId) {
+      pushNotification("A cultivator cannot bond with their own split soul.");
+      return;
+    }
+    const sourceChar = memory.characters.find(c => c.id === bondSourceId);
+    const targetChar = memory.characters.find(c => c.id === bondTargetId);
+    if (!sourceChar || !targetChar) return;
+
+    const newRelationship: CharacterRelationship = {
+      id: `bond_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      sourceCharId: bondSourceId,
+      sourceCharName: sourceChar.name,
+      targetCharId: bondTargetId,
+      targetCharName: targetChar.name,
+      affinity: bondAffinity,
+      description: bondDesc || `${sourceChar.name} and ${targetChar.name} are bound through shared tribulation.`,
+      updatedAt: new Date().toISOString()
+    };
+
+    const currentBonds = activeStory.relationships || [];
+    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
+    onUpdateStory({
+      ...currentActiveStory,
+      relationships: [newRelationship, ...currentBonds]
+    });
+
+    setBondSourceId('');
+    setBondTargetId('');
+    setBondDesc('');
+    setBondAffinity(0);
+    pushNotification(`Successfully bound a karma link between ${sourceChar.name} and ${targetChar.name}!`);
+  };
   return (
     <>
 {/* PAGE 2: Relationship Map (Karma Web Relationship Graph) */}

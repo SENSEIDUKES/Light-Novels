@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Plus, Sword, RefreshCcw, Sparkles, Download, Lock, Compass } from 'lucide-react';
 import { Artifact, StoryWorld } from '../../types';
+import { useCodex } from './CodexContext';
 
 const handleDownload = async (url: string, filename: string) => {
   try {
@@ -28,33 +29,52 @@ const handleDownload = async (url: string, filename: string) => {
 
 interface LivingCodexArtifactsProps {
   artifactsToRender: Artifact[];
-  showAddArtifactForm: boolean;
-  setShowAddArtifactForm: (show: boolean) => void;
-  newArtifact: any;
-  setNewArtifact: (artifact: any) => void;
-  handleAddArtifact: (e: React.FormEvent) => void;
   setDeletePrompt: (prompt: any) => void;
-  handleAwakenCardImage: (id: string, type: 'artifact', entity: any) => void;
-  renderImageHistoryGallery: (id: string, type: 'artifact', history: any) => React.ReactNode;
-  generatingId: string | null;
-  previews: any;
-  activeStory: StoryWorld;
 }
 
 export function LivingCodexArtifacts({
   artifactsToRender,
-  showAddArtifactForm,
-  setShowAddArtifactForm,
-  newArtifact,
-  setNewArtifact,
-  handleAddArtifact,
-  setDeletePrompt,
-  handleAwakenCardImage,
-  renderImageHistoryGallery,
-  generatingId,
-  previews,
-  activeStory
+  setDeletePrompt
 }: LivingCodexArtifactsProps) {
+  const {
+    memory,
+    activeStory,
+    onUpdateMemory,
+    generatingId,
+    previews,
+    renderImageHistoryGallery,
+    handleAwakenCardImage
+  } = useCodex();
+
+  const [showAddArtifactForm, setShowAddArtifactForm] = useState(false);
+  const [newArtifact, setNewArtifact] = useState({
+    name: '',
+    description: '',
+    tier: 'Mortal',
+    currentOwner: ''
+  });
+
+  const handleAddArtifact = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newArtifact.name.trim()) return;
+
+    const currentArtifacts = memory.artifacts || [];
+    const artifactObj: Artifact = {
+      id: `art-${Date.now()}`,
+      name: newArtifact.name.trim(),
+      description: newArtifact.description.trim(),
+      tier: newArtifact.tier,
+      currentOwner: newArtifact.currentOwner.trim() || 'Unknown'
+    };
+
+    onUpdateMemory({
+      ...memory,
+      artifacts: [...currentArtifacts, artifactObj]
+    });
+
+    setNewArtifact({ name: '', description: '', tier: 'Mortal', currentOwner: '' });
+    setShowAddArtifactForm(false);
+  };
   return (
     <div className="space-y-6 animate-fadeIn" id="codex-divine-artifacts">
       <div className="border-b border-neutral-900 pb-3 flex justify-between items-end">

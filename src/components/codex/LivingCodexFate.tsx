@@ -1,51 +1,88 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Compass, Sparkles, MapPin, Shield, Users } from 'lucide-react';
 import { Character, Location, Faction } from '../../types';
+import { useCodex } from './CodexContext';
 
-interface LivingCodexFateProps {
-  showAddCharForm: boolean;
-  setShowAddCharForm: (s: boolean) => void;
-  newChar: Partial<Character>;
-  setNewChar: (c: Partial<Character>) => void;
-  handleAddCharacter: (e?: React.FormEvent) => void;
+export function LivingCodexFate() {
+  const { memory, activeStory, onUpdateMemory } = useCodex();
 
-  showAddLocationForm: boolean;
-  setShowAddLocationForm: (s: boolean) => void;
-  newLocation: Partial<Location>;
-  setNewLocation: (l: Partial<Location>) => void;
-  handleAddLocation: (e?: React.FormEvent) => void;
+  const [newChar, setNewChar] = useState<Partial<Character>>({ name: '', description: '', role: 'ally' });
+  const [newLocation, setNewLocation] = useState<Partial<Location>>({ name: '', description: '', realm: '', safetyLevel: 'Safe' });
+  const [newFaction, setNewFaction] = useState<Partial<Faction>>({ name: '', description: '', alignment: 'Neutral', headquarters: '', status: 'Active' });
+  const [newWorldRule, setNewWorldRule] = useState('');
 
-  showAddFactionForm: boolean;
-  setShowAddFactionForm: (s: boolean) => void;
-  newFaction: Partial<Faction>;
-  setNewFaction: (f: Partial<Faction>) => void;
-  handleAddFaction: (e: React.FormEvent) => void;
+  const handleAddCharacter = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!newChar.name) return;
+    
+    const newCharacter: Character = {
+      id: crypto.randomUUID(),
+      name: newChar.name,
+      description: newChar.description || '',
+      role: newChar.role || 'ally',
+      relationshipToMC: 'neutral',
+      status: 'alive'
+    };
+    
+    const updatedChars = [...(activeStory.memory.characters || []), newCharacter];
+    onUpdateMemory({ ...memory, characters: updatedChars });
+    setNewChar({ name: '', description: '', role: 'ally' });
+  };
 
-  newWorldRule: string;
-  setNewWorldRule: (rule: string) => void;
-  handleAddWorldRule: (e: React.FormEvent) => void;
-}
+  const handleAddLocation = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!newLocation.name?.trim()) return;
 
-export function LivingCodexFate({
-  showAddCharForm,
-  setShowAddCharForm,
-  newChar,
-  setNewChar,
-  handleAddCharacter,
-  showAddLocationForm,
-  setShowAddLocationForm,
-  newLocation,
-  setNewLocation,
-  handleAddLocation,
-  showAddFactionForm,
-  setShowAddFactionForm,
-  newFaction,
-  setNewFaction,
-  handleAddFaction,
-  newWorldRule,
-  setNewWorldRule,
-  handleAddWorldRule
-}: LivingCodexFateProps) {
+    const currentLocations = memory.locations || [];
+    const locationObj: Location = {
+      id: `loc-${Date.now()}`,
+      name: newLocation.name.trim(),
+      description: newLocation.description?.trim() || '',
+      realm: newLocation.realm?.trim() || undefined,
+      safetyLevel: newLocation.safetyLevel || 'Safe'
+    };
+
+    onUpdateMemory({
+      ...memory,
+      locations: [...currentLocations, locationObj]
+    });
+
+    setNewLocation({ name: '', description: '', realm: '', safetyLevel: 'Safe' });
+  };
+
+  const handleAddFaction = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFaction.name?.trim()) return;
+
+    const currentFactions = memory.factions || [];
+    const factionObj: Faction = {
+      id: `fct-${Date.now()}`,
+      name: newFaction.name.trim(),
+      description: newFaction.description?.trim() || '',
+      alignment: newFaction.alignment,
+      headquarters: newFaction.headquarters?.trim() || undefined,
+      status: newFaction.status
+    };
+
+    onUpdateMemory({
+      ...memory,
+      factions: [...currentFactions, factionObj]
+    });
+
+    setNewFaction({ name: '', description: '', alignment: 'Neutral', headquarters: '', status: 'Active' });
+  };
+
+  const handleAddWorldRule = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newWorldRule.trim()) return;
+    
+    const currentRules = memory.worldRules || [];
+    onUpdateMemory({
+      ...memory,
+      worldRules: [...currentRules, newWorldRule.trim()]
+    });
+    setNewWorldRule('');
+  };
   return (
     <div className="space-y-6 animate-fadeIn">
       <div className="border-b border-neutral-900 pb-3 mb-4">

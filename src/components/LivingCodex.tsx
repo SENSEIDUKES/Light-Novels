@@ -8,6 +8,7 @@ import {
 import { vibrate } from '../lib/vibration';
 import { StoryMemory, Character, Faction, Location, Artifact, StoryArc, StoryWorld, CharacterRelationship, KarmaFateNode, Chapter, MultiModelRouting, GeneratedImage } from '../types';
 import { secureStorage } from '../lib/encryption';
+import { CodexProvider } from './codex/CodexContext';
 import { LivingCodexCharacters } from './codex/LivingCodexCharacters';
 import { LivingCodexRelations } from './codex/LivingCodexRelations';
 import { LivingCodexPower } from './codex/LivingCodexPower';
@@ -108,19 +109,6 @@ export default function LivingCodex({
 
   // Toggle for Deep Memory / Dormant elements
   const [showDeepMemory, setShowDeepMemory] = useState(false);
-
-  // --- CUSTOM COMPONENT BINDING STATES (LOCAL-FIRST PERSISTENT MATRIX) ---
-  const [bondSourceId, setBondSourceId] = useState('');
-  const [bondTargetId, setBondTargetId] = useState('');
-  const [bondAffinity, setBondAffinity] = useState<number>(0);
-  const [bondDesc, setBondDesc] = useState('');
-
-  const [fateSource, setFateSource] = useState('');
-  const [fateTarget, setFateTarget] = useState('');
-  const [fateSeverity, setFateSeverity] = useState<'Minor' | 'Major' | 'Cosmic'>('Minor');
-  const [fateType, setFateType] = useState<'Debt' | 'Boon' | 'Enmity' | 'Destiny'>('Debt');
-  const [fateDesc, setFateDesc] = useState('');
-  
   const [codexNotification, setCodexNotification] = useState<string | null>(null);
   const [selectedChartCharId, setSelectedChartCharId] = useState<string>('');
   const [hoveredPowerPoint, setHoveredPowerPoint] = useState<any | null>(null);
@@ -427,23 +415,8 @@ export default function LivingCodex({
     currentOwner: ''
   });
 
-  const [showAddLocationForm, setShowAddLocationForm] = useState(false);
-  const [newLocation, setNewLocation] = useState<Partial<Location>>({
-    name: '',
-    description: '',
-    realm: '',
-    safetyLevel: 'Safe'
-  });
-
   const [showAddAbilityForm, setShowAddAbilityForm] = useState(false);
-  const [newWorldRule, setNewWorldRule] = useState('');
   const [newAbility, setNewAbility] = useState('');
-
-  const [showAddCharForm, setShowAddCharForm] = useState(false);
-  const [newChar, setNewChar] = useState<Partial<Character>>({ name: '', description: '', role: 'ally' });
-  
-  const [showAddRelForm, setShowAddRelForm] = useState(false);
-  const [newRel, setNewRel] = useState({ sourceCharName: '', targetCharName: '', affinity: 0, description: '' });
 
   const getPowerStageLevel = (stageName?: string) => {
     // dummy helper if not defined elsewhere
@@ -1121,39 +1094,17 @@ export default function LivingCodex({
         {activePage === 'portraits' && (
           <div className="space-y-8 pb-8">
             <LivingCodexCharacters
-              memory={memory}
-              activeStory={activeStory}
               charsToRender={charsToRender}
               locationsToRender={locationsToRender}
-              showAddCharForm={false}
-              setShowAddCharForm={() => {}}
-              newChar={newChar}
-              setNewChar={setNewChar}
-              handleAddCharacter={() => {}}
-              showAddLocationForm={false}
-              setShowAddLocationForm={() => {}}
-              newLocation={newLocation}
-              setNewLocation={setNewLocation}
-              handleAddLocation={() => {}}
               setDeletePrompt={setDeletePrompt}
               selectedNodeChar={selectedNodeChar}
               setSelectedNodeChar={setSelectedNodeChar}
-              handleAwakenCardImage={handleAwakenCardImage}
-              generatingId={generatingId}
-              previews={previews}
-              renderImageHistoryGallery={renderImageHistoryGallery}
-              getPowerRankScore={getPowerRankScore}
             />
             
             <div className="border-t border-neutral-900 pt-6">
               <LivingCodexFactions
                 factionsToRender={factionsToRender}
                 memoryCharacters={memory.characters}
-                showAddFactionForm={false}
-                setShowAddFactionForm={() => {}}
-                newFaction={newFaction}
-                setNewFaction={setNewFaction}
-                handleAddFaction={() => {}}
                 setDeletePrompt={setDeletePrompt}
               />
             </div>
@@ -1172,26 +1123,10 @@ export default function LivingCodex({
         {activePage === 'karma' && (
           <div className="space-y-8 pb-8">
             <LivingCodexRelations
-              memory={memory}
               charsToRender={charsToRender}
-              showAddRelForm={showAddRelForm}
-              setShowAddRelForm={setShowAddRelForm}
-              newRel={newRel}
-              setNewRel={setNewRel}
-              handleAddCustomRelationship={handleAddCustomRelationship}
               setDeletePrompt={setDeletePrompt}
               selectedNodeChar={selectedNodeChar}
               setSelectedNodeChar={setSelectedNodeChar}
-              mcName={mcName}
-              activeStory={activeStory}
-              bondSourceId={bondSourceId}
-              setBondSourceId={setBondSourceId}
-              bondTargetId={bondTargetId}
-              setBondTargetId={setBondTargetId}
-              bondAffinity={bondAffinity}
-              setBondAffinity={setBondAffinity}
-              bondDesc={bondDesc}
-              setBondDesc={setBondDesc}
             />
             
             <div className="border-t border-neutral-900 pt-6">
@@ -1231,42 +1166,13 @@ export default function LivingCodex({
         {activePage === 'artifacts' && (
           <LivingCodexArtifacts
             artifactsToRender={artifactsToRender}
-            showAddArtifactForm={showAddArtifactForm}
-            setShowAddArtifactForm={setShowAddArtifactForm}
-            newArtifact={newArtifact}
-            setNewArtifact={setNewArtifact}
-            handleAddArtifact={handleAddArtifact}
             setDeletePrompt={setDeletePrompt}
-            handleAwakenCardImage={handleAwakenCardImage}
-            renderImageHistoryGallery={renderImageHistoryGallery}
-            generatingId={generatingId}
-            previews={previews}
-            activeStory={activeStory}
           />
         )}
         
         {/* PAGE 5: FATE (User world molding controls) */}
         {activePage === 'fate' && (
-          <LivingCodexFate
-             showAddCharForm={showAddCharForm}
-             setShowAddCharForm={setShowAddCharForm}
-             newChar={newChar}
-             setNewChar={setNewChar}
-             handleAddCharacter={handleAddCharacter}
-             showAddLocationForm={showAddLocationForm}
-             setShowAddLocationForm={setShowAddLocationForm}
-             newLocation={newLocation}
-             setNewLocation={setNewLocation}
-             handleAddLocation={handleAddLocation}
-             showAddFactionForm={showAddFactionForm}
-             setShowAddFactionForm={setShowAddFactionForm}
-             newFaction={newFaction}
-             setNewFaction={setNewFaction}
-             handleAddFaction={handleAddFaction}
-             newWorldRule={newWorldRule}
-             setNewWorldRule={setNewWorldRule}
-             handleAddWorldRule={handleAddWorldRule}
-          />
+          <LivingCodexFate />
         )}
         
         {/* PAGE 6: LORE (Glossary) */}
