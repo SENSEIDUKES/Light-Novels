@@ -58,8 +58,9 @@ html, body {
 /* Aesthetic light-novel reading view styling */
 .light-novel-reader {
   font-family: var(--font-serif);
-  line-height: 1.8;
-  letter-spacing: 0.0125em;
+  font-size: calc(1rem * var(--reader-font-size-scale, 1));
+  line-height: var(--reader-line-height-scale, 1.8);
+  letter-spacing: var(--reader-letter-spacing, 0.0125em);
   color: #dfd8cf;
   background-color: #111111;
 }
@@ -234,5 +235,117 @@ html, body {
   0% { transform: translateX(-100%) translateY(-100%) rotate(30deg); }
   100% { transform: translateX(200%) translateY(200%) rotate(30deg); }
 }
+
+/* ==========================================================================
+   READER ACCESSIBILITY & THEME VARIABLES
+   ========================================================================== */
+:root {
+  /* Default typography multipliers */
+  --reader-font-size-scale: 1;
+  --reader-line-height-scale: 1.8;
+  --reader-letter-spacing: 0.0125em;
+
+  /* Default semantic entity colors */
+  --color-entity-mc: #3b82f6; /* Main Character - Blue */
+  --color-entity-friend: #10b981; /* Friend - Green */
+  --color-entity-ally: var(--color-entity-friend); /* Legacy */
+  --color-entity-enemy: #ef4444; /* Enemy - Red */
+  --color-entity-unknown: #9ca3af; /* Unknown - Gray */
+  --color-entity-lover: #ec4899; /* Lover - Pink */
+  --color-entity-mentor: #eab308; /* Mentor - Yellow/Gold */
+  --color-entity-fallback: var(--color-entity-mc);
+
+  --color-location-regular: #a855f7; /* Regular Location - Purple */
+  --color-location-special: #fbbf24; /* Special Location - Gold */
+
+  --color-item-basic: #ffffff; /* Basic Item - White */
+  --color-item-decent: #22c55e; /* Decent Item - Green */
+  --color-item-good: #38bdf8; /* Good Item - Light Blue */
+  --color-item-great: #f97316; /* Great Item - Orange */
+  --color-item-legendary: #fbbf24; /* Legendary Item - Gold */
+}
+
+/* ---------------------------------------------------------
+   COLOR PALETTES (Accessibility Profiles)
+   --------------------------------------------------------- */
+:root[data-palette="protanopia"] {
+  --color-entity-enemy: #b91c1c; /* Deeper crimson/brown for protanopia */
+  --color-entity-lover: #3b82f6; /* Shift pinks to clear blue */
+  --color-entity-friend: #fbbf24; /* Shift greens to warm yellow */
+  --color-item-decent: #fbbf24;
+}
+
+:root[data-palette="deuteranopia"] {
+  --color-entity-enemy: #7f1d1d; /* Deep contrast rust-maroon */
+  --color-entity-lover: #0ea5e9; /* Deep neon blue */
+  --color-entity-friend: #daa520; /* High-contrast goldenrod yellow */
+  --color-item-decent: #daa520;
+}
+
+:root[data-palette="tritanopia"] {
+  --color-entity-enemy: #dc2626; /* High-contrast red */
+  --color-entity-lover: #8b5cf6; /* Shift pinks to violet */
+  --color-entity-friend: #14b8a6; /* Shift greens to teal/cyan */
+  --color-entity-mc: #ef4444; /* Shift blues */
+  --color-item-good: #8b5cf6;
+}
+
+:root[data-palette="high_contrast_dark"] {
+  --color-entity-mc: #3388ff;
+  --color-entity-friend: #33ff33; /* Pure vivid green */
+  --color-entity-enemy: #ff3333; /* Pure vivid red */
+  --color-entity-unknown: #cccccc;
+  --color-entity-lover: #ff66ff; /* Pure vivid magenta */
+  --color-entity-mentor: #ffff33;
+  --color-location-regular: #cc33ff;
+  --color-location-special: #ffff33;
+  --color-item-basic: #ffffff;
+  --color-item-decent: #33ff33;
+  --color-item-good: #33ccff;
+  --color-item-great: #ff9933;
+  --color-item-legendary: #ffff33;
+}
+
+/* ---------------------------------------------------------
+   FONT FAMILY OVERRIDES
+   --------------------------------------------------------- */
+:root[data-font="system"] .light-novel-reader {
+  font-family: var(--font-sans);
+}
+
+:root[data-font="serif"] .light-novel-reader {
+  font-family: var(--font-serif);
+}
+
+:root[data-font="dyslexic"] .light-novel-reader {
+  /* Common dyslexic-friendly fallbacks if specific font isn't loaded */
+  font-family: "Comic Sans MS", "OpenDyslexic", sans-serif;
+}
+
+:root[data-font="custom"] .light-novel-reader {
+  /* Allows for user-provided custom font down the line */
+  font-family: inherit;
+}
+
+/* ---------------------------------------------------------
+   SEMANTIC ENTITY HIGHLIGHT CLASSES
+   --------------------------------------------------------- */
+.highlight-mc { color: var(--color-entity-mc); font-weight: 500; transition: color 0.3s ease; }
+.highlight-friend { color: var(--color-entity-friend); font-weight: 500; transition: color 0.3s ease; }
+.highlight-enemy { color: var(--color-entity-enemy); font-weight: 500; transition: color 0.3s ease; }
+.highlight-unknown { color: var(--color-entity-unknown); font-weight: 500; transition: color 0.3s ease; }
+.highlight-lover { color: var(--color-entity-lover); font-weight: 500; transition: color 0.3s ease; }
+.highlight-mentor { color: var(--color-entity-mentor); font-weight: 500; transition: color 0.3s ease; }
+.highlight-ally { color: var(--color-entity-ally); font-weight: 500; transition: color 0.3s ease; }
+.highlight-fallback { color: var(--color-entity-fallback); font-weight: 500; transition: color 0.3s ease; }
+
+.highlight-location { color: var(--color-location-regular); font-weight: 500; transition: color 0.3s ease; }
+.highlight-location-special { color: var(--color-location-special); font-weight: 500; transition: color 0.3s ease; }
+
+.highlight-item-basic { color: var(--color-item-basic); font-weight: 500; transition: color 0.3s ease; }
+.highlight-item-decent { color: var(--color-item-decent); font-weight: 500; transition: color 0.3s ease; }
+.highlight-item-good { color: var(--color-item-good); font-weight: 500; transition: color 0.3s ease; }
+.highlight-item-great { color: var(--color-item-great); font-weight: 500; transition: color 0.3s ease; }
+.highlight-item-legendary { color: var(--color-item-legendary); font-weight: 500; transition: color 0.3s ease; text-shadow: 0 0 8px rgba(251, 191, 36, 0.4); }
 
 

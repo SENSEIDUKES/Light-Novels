@@ -69,22 +69,9 @@ export function useReaderPlayback({
     actualSetIsAutoScrollPausedByUser(false);
   }, [readerMode, selectedChapter?.number, actualSetIsAutoScrollPausedByUser]);
 
-  const { startDrift: playAutoScroll, stopDrift: pauseAutoScroll, isDrifting: isAutoScrolling } = useReadingDrift({
-    containerRef,
-    innerRef,
-    mode:
-      readerMode === "sen" && immersion.autoScroll
-        ? "paced"
-        : readerMode === "teleprompter" && immersion.autoScroll && !actualIsAutoScrollPausedByUser
-        ? "constant"
-        : "off",
-    wpm: Math.round(speechRate * 150),
-    onManualPause: () => {
-      if (readerMode === "teleprompter") {
-        actualSetIsAutoScrollPausedByUser(true);
-      }
-    },
-  });
+  const playAutoScroll = useCallback(() => {}, []);
+  const pauseAutoScroll = useCallback(() => {}, []);
+  const isAutoScrolling = false;
 
   const [isMuted, setIsMuted] = useState(() => {
     if (typeof localStorage === 'undefined') return false;

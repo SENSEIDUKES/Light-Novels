@@ -64,6 +64,7 @@ import { useReaderVisuals } from "../hooks/useReaderVisuals";
 import { ReaderHeader } from "./ReaderHeader";
 import { ReaderViewport } from "./ReaderViewport";
 import { ReaderControls } from "./ReaderControls";
+import { useCinematicScroll } from "../hooks/useCinematicScroll";
 
 interface ReaderChamberProps {
   chapters: Chapter[];
@@ -219,6 +220,8 @@ export default function ReaderChamber({
     setIsAutoScrollPausedByUser
   });
 
+  useCinematicScroll(readerRef);
+
   // --- Scroll position tracking ---
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedScrollRef = useRef<number>(0);
@@ -319,6 +322,15 @@ export default function ReaderChamber({
   };
 
   const currentPrefs = activeStory.readerPreferences || defaultPrefs;
+  
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute('data-palette', currentPrefs.colorPaletteId || 'default');
+    
+    return () => {
+      root.removeAttribute('data-palette');
+    };
+  }, [currentPrefs.colorPaletteId]);
 
   const handleUpdatePreference = <K extends keyof ReaderPreferences>(
     key: K,
@@ -950,6 +962,7 @@ export default function ReaderChamber({
         currentNarratedBlockIndex={currentNarratedBlockIndex}
         
         currentPrefs={currentPrefs}
+        handleUpdatePreference={handleUpdatePreference}
         activeBookmarks={activeBookmarks}
         editingBookmarkParagraphIndex={editingBookmarkParagraphIndex}
         setEditingBookmarkParagraphIndex={setEditingBookmarkParagraphIndex}

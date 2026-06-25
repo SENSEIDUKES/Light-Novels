@@ -38,6 +38,7 @@ interface ReaderViewportProps {
   currentNarratedBlockIndex: number | null;
   
   currentPrefs: any;
+  handleUpdatePreference: (key: string, value: any) => void;
   activeBookmarks: Bookmark[];
   editingBookmarkParagraphIndex: number | null;
   setEditingBookmarkParagraphIndex: (idx: number | null) => void;
@@ -96,6 +97,7 @@ export function ReaderViewport({
   isPausedText,
   currentNarratedBlockIndex,
   currentPrefs,
+  handleUpdatePreference,
   activeBookmarks,
   editingBookmarkParagraphIndex,
   setEditingBookmarkParagraphIndex,
@@ -290,15 +292,28 @@ export function ReaderViewport({
                         Aetherial System Codes
                       </h4>
                     </div>
-                    <button
-                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-                        localStorage.setItem("seihouse-system-legend-dismissed", "true");
-                        setShowLegend(false);
-                      }}
-                      className="text-[9px] uppercase font-mono tracking-wider text-portal hover:text-signal transition-colors px-2.5 py-1 border border-portal/30 hover:border-portal rounded-sm bg-portal/5 hover:bg-portal/15 cursor-pointer shadow-[0_0_10px_rgba(4,172,255,0.1)]"
-                    >
-                      Dismiss & Learn by Feeling
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={currentPrefs?.colorPaletteId || 'default'}
+                        onChange={(e) => handleUpdatePreference('colorPaletteId', e.target.value)}
+                        className="text-[9px] uppercase font-mono tracking-wider text-portal transition-colors px-2.5 py-1.5 border border-portal/30 hover:border-portal rounded-sm bg-portal/5 hover:bg-portal/15 cursor-pointer outline-none focus:ring-1 focus:ring-portal appearance-none"
+                      >
+                        <option value="default" className="bg-void text-signal">Custom Mapping: Default</option>
+                        <option value="protanopia" className="bg-void text-signal">Protanopia (Red-Blind)</option>
+                        <option value="deuteranopia" className="bg-void text-signal">Deuteranopia (Green-Blind)</option>
+                        <option value="tritanopia" className="bg-void text-signal">Tritanopia (Blue-Blind)</option>
+                        <option value="high_contrast_dark" className="bg-void text-signal">High Contrast Dark</option>
+                      </select>
+                      <button
+                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
+                          localStorage.setItem("seihouse-system-legend-dismissed", "true");
+                          setShowLegend(false);
+                        }}
+                        className="text-[9px] uppercase font-mono tracking-wider text-portal hover:text-signal transition-colors px-2.5 py-1.5 border border-portal/30 hover:border-portal rounded-sm bg-portal/5 hover:bg-portal/15 cursor-pointer shadow-[0_0_10px_rgba(4,172,255,0.1)]"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
                   </div>
                   
                   <p className="text-neutral-400 text-xs font-serif italic mb-4 leading-relaxed">
@@ -309,12 +324,19 @@ export function ReaderViewport({
                     {SYSTEM_COLORS_LEGEND.map((m) => (
                       <div
                         key={m.type}
-                        className={`p-2 border rounded-md ${m.bgColor} ${m.borderColor} flex flex-col justify-between min-h-[50px] transition-all hover:scale-[1.02]`}
+                        className={`p-2 border rounded-md ${m.cssVar ? '' : `${m.bgColor} ${m.borderColor}`} flex flex-col justify-between min-h-[60px] transition-all hover:scale-[1.02]`}
+                        style={m.cssVar ? {
+                          backgroundColor: `color-mix(in srgb, var(${m.cssVar}) 15%, transparent)`,
+                          borderColor: `color-mix(in srgb, var(${m.cssVar}) 40%, transparent)`
+                        } : {}}
                       >
-                        <span className={`text-[10px] font-bold uppercase tracking-wider ${m.textColor}`}>
+                        <span 
+                          className={`text-[10px] font-bold uppercase tracking-wider ${m.cssVar ? '' : m.textColor}`}
+                          style={m.cssVar ? { color: `var(${m.cssVar})` } : {}}
+                        >
                           {m.name}
                         </span>
-                        <span className="text-[9px] text-neutral-400 font-mono tracking-tight line-clamp-1 mt-1">
+                        <span className="text-[9px] text-neutral-400 font-mono tracking-tight mt-1 leading-normal">
                           {m.playerMeaning}
                         </span>
                       </div>

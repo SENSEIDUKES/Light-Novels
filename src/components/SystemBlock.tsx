@@ -12,116 +12,129 @@ export interface SystemColorMeaning {
   textColor: string;
   borderColor: string;
   bgColor: string;
+  cssVar?: string;
 }
 
 export const SYSTEM_COLORS_LEGEND: SystemColorMeaning[] = [
   {
     type: 'neutral',
-    name: 'Basic System Info',
+    name: 'Basic System Info | Unknown (Gray)',
     colorName: 'Gray',
-    playerMeaning: 'Basic system info',
+    playerMeaning: 'Basic system info, Unknown characters',
     textColor: 'text-gray-300',
     borderColor: 'border-gray-500/40',
-    bgColor: 'bg-gray-500/10'
+    bgColor: 'bg-gray-500/10',
+    cssVar: '--color-entity-unknown'
   },
   {
     type: 'codex_update',
-    name: 'New Info & Scans',
+    name: 'New Info | Main Character (Blue)',
     colorName: 'Blue',
-    playerMeaning: 'New info, ally scan, codex record',
+    playerMeaning: 'New info, ally scan, codex record, Good items',
     textColor: 'text-blue-400',
     borderColor: 'border-blue-500/40',
-    bgColor: 'bg-blue-500/10'
+    bgColor: 'bg-blue-500/10',
+    cssVar: '--color-entity-mc'
   },
   {
     type: 'progression',
-    name: 'Stable Growth',
+    name: 'Stable Growth | Friend (Green)',
     colorName: 'Emerald',
-    playerMeaning: 'Training progress, stable growth',
+    playerMeaning: 'Training progress, stable growth, Decent items',
     textColor: 'text-green-400',
     borderColor: 'border-green-500/40',
-    bgColor: 'bg-green-500/10'
+    bgColor: 'bg-green-500/10',
+    cssVar: '--color-entity-friend'
   },
   {
     type: 'breakthrough',
-    name: 'Awakening & Level-Up',
+    name: 'Awakening | Mentor & Special Location (Gold)',
     colorName: 'Gold',
-    playerMeaning: 'Level-up, evolution, awakening',
+    playerMeaning: 'Level-up, evolution, awakening, Special locations, Legendary items',
     textColor: 'text-amber-400',
     borderColor: 'border-amber-400/50',
-    bgColor: 'bg-amber-400/10'
+    bgColor: 'bg-amber-400/10',
+    cssVar: '--color-entity-mentor'
   },
   {
     type: 'reward',
-    name: 'Loot & Achievements',
+    name: 'Loot & Achievements | Legendary (Gold)',
     colorName: 'Gold',
-    playerMeaning: 'Loot, Qi gain, achievement',
+    playerMeaning: 'Loot, Qi gain, achievement, Legendary items',
     textColor: 'text-amber-400',
     borderColor: 'border-amber-400/50',
-    bgColor: 'bg-amber-400/10'
+    bgColor: 'bg-amber-400/10',
+    cssVar: '--color-item-legendary'
   },
   {
     type: 'warning',
-    name: 'Risk & Pressure',
+    name: 'Risk & Pressure | Great Item (Orange)',
     colorName: 'Orange',
-    playerMeaning: 'Risk, instability, choice pressure',
+    playerMeaning: 'Risk, instability, choice pressure, Great items',
     textColor: 'text-orange-400',
     borderColor: 'border-orange-500/40',
-    bgColor: 'bg-orange-500/10'
+    bgColor: 'bg-orange-500/10',
+    cssVar: '--color-item-great'
   },
   {
     type: 'critical_danger',
-    name: 'Combat Threat',
+    name: 'Combat Threat | Enemy (Red)',
     colorName: 'Red',
     playerMeaning: 'Enemy, death risk, combat threat',
     textColor: 'text-red-500',
     borderColor: 'border-red-500/40',
-    bgColor: 'bg-red-500/10'
+    bgColor: 'bg-red-500/10',
+    cssVar: '--color-entity-enemy'
   },
   {
     type: 'corruption',
-    name: 'Permanent Curse',
+    name: 'Permanent Curse | Tragedy (Dark Rose)',
     colorName: 'Dark Rose',
     playerMeaning: 'Permanent damage, curse, tragedy',
     textColor: 'text-rose-600',
     borderColor: 'border-rose-900/40',
-    bgColor: 'bg-rose-950/20'
+    bgColor: 'bg-rose-950/20',
+    cssVar: '--color-entity-enemy'
   },
   {
     type: 'mystery',
-    name: 'Fate & Prophecy',
+    name: 'Fate & Prophecy | Regular Location (Purple)',
     colorName: 'Violet',
-    playerMeaning: 'Hidden truth, fate thread, prophecy',
+    playerMeaning: 'Hidden truth, fate thread, prophecy, Regular locations',
     textColor: 'text-purple-400',
     borderColor: 'border-purple-500/40',
-    bgColor: 'bg-purple-500/10'
+    bgColor: 'bg-purple-500/10',
+    cssVar: '--color-location-regular'
   },
   {
     type: 'romance',
-    name: 'Karmic Affinity',
+    name: 'Karmic Affinity | Lover (Pink)',
     colorName: 'Pink',
     playerMeaning: 'Bonds, affection, emotional lock-in',
     textColor: 'text-pink-400',
     borderColor: 'border-pink-500/40',
-    bgColor: 'bg-pink-500/10'
+    bgColor: 'bg-pink-500/10',
+    cssVar: '--color-entity-lover'
   },
   {
     type: 'choice_consequence',
-    name: 'Karmic Consequence',
+    name: 'Karmic Consequence | Great Item (Orange)',
     colorName: 'Orange',
-    playerMeaning: 'The world remembers your decision',
+    playerMeaning: 'The world remembers your decision, Great items',
     textColor: 'text-orange-400',
     borderColor: 'border-orange-500/40',
-    bgColor: 'bg-orange-500/10'
+    bgColor: 'bg-orange-500/10',
+    cssVar: '--color-item-great'
   },
   {
     type: 'system_error',
-    name: 'System Instability',
+    name: 'System Instability | System Error (Red Glitch)',
     colorName: 'Red glitch',
     playerMeaning: 'The “system” itself is unstable',
     textColor: 'text-red-400 font-bold',
     borderColor: 'border-red-600/60 border-double',
-    bgColor: 'bg-red-950/20'
+    bgColor: 'bg-red-950/20',
+    cssVar: '--color-entity-enemy'
   }
 ];
 

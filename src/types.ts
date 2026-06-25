@@ -486,6 +486,15 @@ export interface ReaderPreferences {
   lineHeight: "snug" | "normal" | "relaxed" | "loose";
   paragraphSpacing: "normal" | "wide" | "double";
   themeOverride?: "void" | "crimson" | "abyss" | "sepia" | "emerald";
+  colorPaletteId?: "default" | "protanopia" | "deuteranopia" | "tritanopia" | "high_contrast_dark";
+}
+
+export interface ReaderAccessibilitySettings {
+  fontSizeRem: number; // defaults to 1.0, ranges from 0.85 to 2.5
+  lineHeightScale: number; // spacing weight, e.g., 1.5 to 2.2
+  fontFamilyId: 'system' | 'serif' | 'dyslexic' | 'custom';
+  colorPaletteId: 'default' | 'protanopia' | 'deuteranopia' | 'tritanopia' | 'high_contrast_dark';
+  letterSpacing: number;
 }
 
 export interface KarmaFateNode {

@@ -25,6 +25,8 @@ export interface UISlice {
     autoScroll: boolean;
   };
   streamingChapter: StreamingChapter | null;
+  isAutoScrolling: boolean;
+  scrollSpeed: number;
 
   setCurrentScreen: (screen: 'home' | 'detail' | 'reader' | 'codex' | 'creator' | 'profile' | 'pricing' | 'challenge' | 'sects') => void;
   setSelectedChapterNum: (num: number) => void;
@@ -38,6 +40,8 @@ export interface UISlice {
   setReaderMode: (mode: 'teleprompter' | 'sen' | 'basic-tts') => void;
   setImmersion: (immersion: Partial<{ master: boolean; audioCues: boolean; imagePopups: boolean; sceneMusic: boolean; autoScroll: boolean }>) => void;
   setStreamingChapter: (data: StreamingChapter | null) => void;
+  setIsAutoScrolling: (isAutoScrolling: boolean) => void;
+  setScrollSpeed: (speed: number) => void;
 }
 
 export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => ({
@@ -67,6 +71,9 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => (
   },
   streamingChapter: null,
 
+  isAutoScrolling: false,
+  scrollSpeed: 30, // Default 30px per second
+
   setCurrentScreen: (screen) => set({ currentScreen: screen }),
   setSelectedChapterNum: (num) => set({ selectedChapterNum: num }),
   setNexusTab: (tab) => set({ nexusTab: tab }),
@@ -81,4 +88,6 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => (
     immersion: { ...state.immersion, ...immersion }
   })),
   setStreamingChapter: (data) => set({ streamingChapter: data }),
+  setIsAutoScrolling: (isAutoScrolling) => set({ isAutoScrolling }),
+  setScrollSpeed: (scrollSpeed) => set({ scrollSpeed }),
 });
