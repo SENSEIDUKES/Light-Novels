@@ -7,7 +7,6 @@ import { SystemBlock, SYSTEM_COLORS_LEGEND } from './SystemBlock';
 import { FateSurvivalExplanation } from './FateSurvivalExplanation';
 import { CodexHovercard } from './CodexHovercard';
 import { WorldEntityCard } from './WorldEntityCard';
-import { VoiceEditionPanel } from './VoiceEditionPanel';
 
 interface ReaderViewportProps {
   readerRef: React.RefObject<HTMLDivElement | null>;
@@ -898,15 +897,6 @@ export function ReaderViewport({
               </div>
             </motion.div>
           </AnimatePresence>
-
-          {/* Voice Edition Feature */}
-          {(selectedChapter.generatedContent || selectedChapter.blocks) && (
-             <VoiceEditionPanel
-                selectedChapter={selectedChapter}
-                activeStory={activeStory}
-                onUpdateStory={onUpdateStory}
-             />
-          )}
 
           {/* Navigation links at bottom of chapter */}
           <div className="flex items-center justify-between border-t border-neutral-900 pt-8 mt-16 pb-8">

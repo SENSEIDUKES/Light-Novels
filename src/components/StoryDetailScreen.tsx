@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Compass,
   CloudDownload,
+  Film,
 } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import { DestinyChoicePanel } from "./DestinyChoicePanel";
@@ -66,6 +67,53 @@ export const StoryDetailScreen: React.FC<{
     current: 0,
     total: 0,
   });
+  const [dominantColor, setDominantColor] = useState<string>("rgba(4, 172, 255, 0.6)");
+
+  React.useEffect(() => {
+    const activeStory = stories.find((s) => s.id === activeStoryId);
+    const imageUrl = activeStory?.imageUrl;
+    
+    if (!imageUrl) {
+      setDominantColor("rgba(4, 172, 255, 0.6)");
+      return;
+    }
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = imageUrl;
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = 1;
+        canvas.height = 1;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, 1, 1);
+          const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+          
+          // Boost very dark colors so the aura/glow is still vibrant
+          const totalBrightness = r + g + b;
+          let finalR = r;
+          let finalG = g;
+          let finalB = b;
+          if (totalBrightness < 120) {
+            const scale = 140 / Math.max(totalBrightness, 1);
+            finalR = Math.min(255, Math.round(r * scale));
+            finalG = Math.min(255, Math.round(g * scale));
+            finalB = Math.min(255, Math.round(b * scale));
+          }
+          
+          setDominantColor(`rgba(${finalR}, ${finalG}, ${finalB}, 0.75)`);
+        }
+      } catch (e) {
+        console.warn("Failed to extract dominant color from cover art", e);
+        setDominantColor("rgba(4, 172, 255, 0.6)");
+      }
+    };
+    img.onerror = () => {
+      setDominantColor("rgba(4, 172, 255, 0.6)");
+    };
+  }, [activeStoryId, stories]);
 
   const handleDownloadOffline = async () => {
     if (!activeStory) return;
@@ -131,6 +179,20 @@ export const StoryDetailScreen: React.FC<{
 
   const activeStory = stories.find((s) => s.id === activeStoryId);
   if (!activeStory) return null;
+
+  const handleToggleMotionCover = async () => {
+    vibrate("softTap");
+    const updated = stories.map((s) => {
+      if (s.id === activeStory.id) {
+        return {
+          ...s,
+          motionCoverActive: !s.motionCoverActive,
+        };
+      }
+      return s;
+    });
+    await saveStories(updated);
+  };
 
   const isCurrentArcFinished =
     activeStory.arcs.length > 0 &&
@@ -323,23 +385,176 @@ export const StoryDetailScreen: React.FC<{
       </AnimatePresence>
 
       <div className="flex flex-col md:flex-row gap-8 bg-[#0a0a0a] border border-neutral-900 rounded-xl p-6 shadow-2xl">
-        {/* Cover Art */}
-        <div className="w-full max-w-[180px] mx-auto md:max-w-none md:w-64 flex-shrink-0">
-          <div
-            className={`relative group aspect-[2/3] rounded-lg overflow-hidden border ${activeStory.evolutionReady && !coverPreview ? "border-portal/50 shadow-[0_0_15px_rgba(4,172,255,0.15)]" : "border-neutral-800"} mb-2`}
-          >
-            <img
-              src={
-                activeStory.imageUrl ||
-                `https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?auto=format&fit=crop&q=80`
-              }
-              alt={activeStory.title}
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
+        {/* Cover Art & Motion Canva Cards Container */}
+        <div className="w-full md:w-auto flex-shrink-0 flex flex-col sm:flex-row gap-6 items-center sm:items-start justify-center">
+          {/* Cover Art Card */}
+          <div className="w-44 md:w-56 flex-shrink-0 relative">
+            {/* Ethereal QI Glow Aura */}
+            <AnimatePresence>
+              {activeStory.motionCoverActive && (
+                <>
+                  {/* Layer 1: Wide Deep Pulse Fog */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{
+                      opacity: [0.5, 0.85, 0.5],
+                      scale: [1.04, 1.15, 1.04],
+                    }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{
+                      duration: 4.5,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                    className="absolute -inset-6 rounded-lg filter blur-3xl z-0 pointer-events-none"
+                    style={{
+                      background: `radial-gradient(circle, ${dominantColor} 0%, transparent 80%)`,
+                    }}
+                  />
+                  
+                  {/* Layer 2: Intense Mid-range High-Energy Pulse */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{
+                      opacity: [0.8, 1.0, 0.8],
+                      scale: [1.02, 1.08, 1.02],
+                    }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{
+                      duration: 3,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                    className="absolute -inset-4 rounded-lg filter blur-2xl z-0 pointer-events-none"
+                    style={{
+                      background: `radial-gradient(circle, ${dominantColor} 10%, transparent 75%)`,
+                      boxShadow: `0 0 65px 28px ${dominantColor}, inset 0 0 30px ${dominantColor}`,
+                    }}
+                  />
 
-            {/* Hover Overlay for Cover Generation */}
-            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                  {/* Layer 3: Sharp High-Clarity Neon Halo Outline */}
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{
+                      opacity: [0.7, 0.95, 0.7],
+                    }}
+                    exit={{ opacity: 0 }}
+                    transition={{
+                      duration: 2.2,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                    className="absolute -inset-1 rounded-lg filter blur-md z-0 pointer-events-none"
+                    style={{
+                      border: `2px solid ${dominantColor.replace('0.75', '0.9').replace('0.6', '0.9')}`,
+                      boxShadow: `0 0 25px 12px ${dominantColor}, inset 0 0 12px ${dominantColor}`,
+                    }}
+                  />
+                </>
+              )}
+            </AnimatePresence>
+
+            <div
+              className={`relative z-10 group aspect-[2/3] rounded-lg overflow-hidden border ${activeStory.evolutionReady && !coverPreview ? "border-portal/50 shadow-[0_0_15px_rgba(4,172,255,0.15)]" : "border-neutral-800"} mb-2`}
+            >
+              <img
+                src={
+                  activeStory.imageUrl ||
+                  `https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?auto=format&fit=crop&q=80`
+                }
+                alt={activeStory.title}
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+
+              {/* Canva Video Peak Overlay */}
+              <AnimatePresence>
+                {activeStory.motionCoverActive && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.8, ease: "easeInOut" }}
+                    className="absolute inset-0 w-full h-full bg-void z-10"
+                  >
+                    <video
+                      src="https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/videos/VIDEO/Apocalypse%20Cultivation%20CANVA.mp4"
+                      className="w-full h-full object-cover"
+                      autoPlay
+                      muted
+                      playsInline
+                      onEnded={handleToggleMotionCover}
+                      referrerPolicy="no-referrer"
+                    />
+                    
+                    {/* Visual Accent Badge */}
+                    <div className="absolute top-2 left-2 bg-portal/80 backdrop-blur-sm text-void font-sc font-bold text-[9px] uppercase tracking-widest px-2 py-0.5 rounded shadow z-20 pointer-events-none">
+                      ⓈSEN
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Hover Overlay for Cover Generation and Canva Toggle */}
+              <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2.5 p-4 backdrop-blur-sm z-20">
+                <button
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      e.currentTarget.click();
+                    }
+                  }}
+                  onClick={async () => {
+                    vibrate("mediumTap");
+                    const result = await handleGenerateCover();
+                    if (result)
+                      setCoverPreview({
+                        urls: result.imageUrls,
+                        prompt: result.promptUsed,
+                        selectedIndex: 0,
+                      });
+                  }}
+                  disabled={
+                    isGenerating ||
+                    (!!activeStory.imageUrl && !activeStory.evolutionReady)
+                  }
+                  className="w-full py-2 bg-portal/20 border border-portal/50 text-portal text-[10px] font-bold font-sc uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-colors flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(4,172,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Sparkles size={14} />
+                  <span>
+                    {activeStory.evolutionReady
+                      ? "Awaken Evolution"
+                      : activeStory.imageUrl
+                        ? "Progression"
+                        : "Forge Cover"}
+                  </span>
+                </button>
+
+                {/* Canva Button inside Hover Overlay */}
+                <button
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      e.currentTarget.click();
+                    }
+                  }}
+                  onClick={handleToggleMotionCover}
+                  className={`w-full py-2 border text-[10px] font-bold font-sc uppercase tracking-wider rounded flex items-center justify-center gap-1.5 transition-all shadow-[0_0_10px_rgba(4,172,255,0.1)] ${
+                    activeStory.motionCoverActive
+                      ? "bg-portal/20 border-portal/50 text-signal hover:bg-portal hover:text-void"
+                      : "bg-[#8B0000]/20 border-[#8B0000]/40 text-signal hover:bg-[#8B0000]/40"
+                  }`}
+                >
+                  <Film size={14} />
+                  <span>{activeStory.motionCoverActive ? "Disable Canva" : "Canva"}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Mobile / Tablet buttons below Cover Card */}
+            <div className="flex flex-col gap-2 mt-2 mb-3">
               <button
                 tabIndex={0}
                 onKeyDown={(e) => {
@@ -362,9 +577,9 @@ export const StoryDetailScreen: React.FC<{
                   isGenerating ||
                   (!!activeStory.imageUrl && !activeStory.evolutionReady)
                 }
-                className="px-4 py-2 bg-portal/20 border border-portal/50 text-portal text-[10px] font-bold font-sc uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-colors flex flex-col items-center gap-1.5 shadow-[0_0_15px_rgba(4,172,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-2.5 bg-portal/10 border border-portal/30 text-portal text-[11px] font-bold font-sc uppercase tracking-wider rounded flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_10px_rgba(4,172,255,0.1)] hover:bg-portal hover:text-void transition-all"
               >
-                <Sparkles size={16} />
+                <Sparkles size={12} />
                 <span>
                   {activeStory.evolutionReady
                     ? "Awaken Evolution"
@@ -373,92 +588,47 @@ export const StoryDetailScreen: React.FC<{
                       : "Forge Core Cover"}
                 </span>
               </button>
+
+              <button
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.currentTarget.click();
+                  }
+                }}
+                onClick={handleToggleMotionCover}
+                className={`w-full py-2 border text-[11px] font-bold font-sc uppercase tracking-wider rounded flex items-center justify-center gap-1.5 transition-all ${
+                  activeStory.motionCoverActive
+                    ? "bg-[#04ACFF]/10 border-[#04ACFF]/30 text-signal hover:bg-portal hover:text-void"
+                    : "bg-[#8B0000]/10 border-[#8B0000]/30 text-signal hover:bg-human hover:border-human"
+                }`}
+              >
+                <Film size={12} />
+                <span>{activeStory.motionCoverActive ? "Disable Canva" : "Canva"}</span>
+              </button>
             </div>
-          </div>
 
-          {/* Mobile visible cover generation/evolution button */}
-          <div className="block md:hidden mt-2 mb-3">
-            <button
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  e.currentTarget.click();
-                }
-              }}
-              onClick={async () => {
-                vibrate("mediumTap");
-                const result = await handleGenerateCover();
-                if (result)
-                  setCoverPreview({
-                    urls: result.imageUrls,
-                    prompt: result.promptUsed,
-                    selectedIndex: 0,
-                  });
-              }}
-              disabled={
-                isGenerating ||
-                (!!activeStory.imageUrl && !activeStory.evolutionReady)
-              }
-              className="w-full py-2.5 bg-portal/10 border border-portal/30 text-portal text-[11px] font-bold font-sc uppercase tracking-wider rounded flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_10px_rgba(4,172,255,0.1)] hover:bg-portal hover:text-void transition-all"
-            >
-              <Sparkles size={12} />
-              <span>
-                {activeStory.evolutionReady
-                  ? "Awaken Evolution"
-                  : activeStory.imageUrl
-                    ? "Progression Required"
-                    : "Forge Core Cover"}
-              </span>
-            </button>
-          </div>
+            {/* Cover Evolution Readiness indicator */}
+            {activeStory.evolutionReady && !coverPreview && (
+              <div className="text-[10px] font-mono text-portal animate-pulse flex items-center justify-center gap-1.5 mb-2 px-1 text-center bg-portal/10 py-1 rounded">
+                <Sparkles size={10} />
+                <span>Evolution Available</span>
+              </div>
+            )}
 
-          {/* Cover Evolution Readiness indicator */}
-          {activeStory.evolutionReady && !coverPreview && (
-            <div className="text-[10px] font-mono text-portal animate-pulse flex items-center justify-center gap-1.5 mb-2 px-1 text-center bg-portal/10 py-1 rounded">
-              <Sparkles size={10} />
-              <span>Evolution Available</span>
-            </div>
-          )}
-
-          {/* Cover Image History */}
-          {activeStory.imageHistory &&
-            activeStory.imageHistory.filter((img) => img.entityType === "cover")
-              .length > 1 && (
-              <div className="flex space-x-1.5 overflow-x-auto p-1.5 bg-neutral-950 border border-neutral-900 rounded custom-scrollbar mt-2">
-                {activeStory.imageHistory
-                  .filter((img) => img.entityType === "cover")
-                  .map((img) => (
-                    <div
-                      key={img.id}
-                      className="relative flex-shrink-0 w-10 h-14 rounded overflow-hidden border border-neutral-800 cursor-pointer hover:border-portal transition-colors shadow-lg"
-                      onClick={() => {
-                        const store = useAppStore.getState();
-                        const updated = store.stories.map((s) => {
-                          if (s.id === activeStory.id) {
-                            const updatedHistory = s.imageHistory?.map((h) =>
-                              h.entityType === "cover"
-                                ? {
-                                    ...h,
-                                    isCurrent: h.imageUrl === img.imageUrl,
-                                  }
-                                : h,
-                            );
-                            return {
-                              ...s,
-                              imageUrl: img.imageUrl,
-                              imageHistory: updatedHistory,
-                            };
-                          }
-                          return s;
-                        });
-                        store.saveStories(updated);
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
+            {/* Cover Image History */}
+            {activeStory.imageHistory &&
+              activeStory.imageHistory.filter((img) => img.entityType === "cover")
+                .length > 1 && (
+                <div className="flex space-x-1.5 overflow-x-auto p-1.5 bg-neutral-950 border border-neutral-900 rounded custom-scrollbar mt-2">
+                  {activeStory.imageHistory
+                    .filter((img) => img.entityType === "cover")
+                    .map((img) => (
+                      <div
+                        key={img.id}
+                        className="relative flex-shrink-0 w-10 h-14 rounded overflow-hidden border border-neutral-800 cursor-pointer hover:border-portal transition-colors shadow-lg"
+                        onClick={() => {
                           const store = useAppStore.getState();
                           const updated = store.stories.map((s) => {
                             if (s.id === activeStory.id) {
@@ -479,21 +649,48 @@ export const StoryDetailScreen: React.FC<{
                             return s;
                           });
                           store.saveStories(updated);
-                        }
-                      }}
-                      aria-label={`Apply cover image from chapter ${img.chapterNumber || "Unknown"}`}
-                      title={`Generated at Chapter ${img.chapterNumber || "Unknown"}\nPrompt: ${img.promptUsed}`}
-                    >
-                      <img
-                        src={img.imageUrl}
-                        className="w-full h-full object-cover"
-                        referrerPolicy="no-referrer"
-                        alt=""
-                      />
-                    </div>
-                  ))}
-              </div>
-            )}
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            const store = useAppStore.getState();
+                            const updated = store.stories.map((s) => {
+                              if (s.id === activeStory.id) {
+                                const updatedHistory = s.imageHistory?.map((h) =>
+                                  h.entityType === "cover"
+                                    ? {
+                                        ...h,
+                                        isCurrent: h.imageUrl === img.imageUrl,
+                                      }
+                                    : h,
+                                );
+                                return {
+                                  ...s,
+                                  imageUrl: img.imageUrl,
+                                  imageHistory: updatedHistory,
+                                };
+                              }
+                              return s;
+                            });
+                            store.saveStories(updated);
+                          }
+                        }}
+                        aria-label={`Apply cover image from chapter ${img.chapterNumber || "Unknown"}`}
+                        title={`Generated at Chapter ${img.chapterNumber || "Unknown"}\nPrompt: ${img.promptUsed}`}
+                      >
+                        <img
+                          src={img.imageUrl}
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                          alt=""
+                        />
+                      </div>
+                    ))}
+                </div>
+              )}
+          </div>
         </div>
 
         {/* Info */}

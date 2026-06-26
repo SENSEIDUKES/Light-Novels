@@ -378,7 +378,7 @@ function App() {
             SEIHouse: A Better Time Capsule and Translator of Artistic Expression
           </p>
           <p id="footer-production-mark" className="max-w-xl mx-auto tracking-[0.3em] font-sans text-neutral-400 hover:text-portal transition-all duration-500 font-semibold text-[11px] uppercase py-2 select-none">
-            Ⓢ SEIHOUSE PRODUCTIONS
+            ⓈSEN
           </p>
         </div>
       </footer>

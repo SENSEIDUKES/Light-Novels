@@ -54,8 +54,8 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => (
   isShortcutsOpen: false,
   isVeilMinimized: false,
   routingConfig: {
-    storyMaker: { provider: 'gemini', model: 'google/gemini-2.5-flash-lite' },
-    imageGenerator: { provider: 'openrouter', model: 'black-forest-labs/flux.2-klein-4b' }
+    storyMaker: { provider: 'gemini', model: 'google/gemini-3.1-flash-lite-preview' },
+    imageGenerator: { provider: 'gemini', model: 'google/gemini-3.1-flash-lite-image-preview' }
   },
   localGeminiKey: '',
   localOpenrouterKey: '',

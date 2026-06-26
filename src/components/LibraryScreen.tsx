@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, BookOpen, Trash2, Play, Globe, Eye } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
@@ -13,6 +13,14 @@ import { INITIAL_DEMO_STORIES } from '../store/demoStories';
 const HERO_VIDEOS = [
   "https://video.seihouse.org/LIGHT%20NOVEL/LIGHT_NOVEL_INTRO.mp4",
   "https://video.seihouse.org/LIGHT%20NOVEL/LIGHT_NOVEL_INTRO2.mp4"
+];
+
+const CELESTIAL_FALLBACK_IMAGES = [
+  "https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/images/LIBRARY%20BACKDROPS/LIBRARY_THUNDER.PNG",
+  "https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/images/LIBRARY%20BACKDROPS/LIBRARY_RAIN.PNG",
+  "https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/images/LIBRARY%20BACKDROPS/LIBRARY_MOUNTAINS.PNG",
+  "https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/images/LIBRARY%20BACKDROPS/LIBRARY_FOREST.PNG",
+  "https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/images/LIBRARY%20BACKDROPS/LIBRARY_DAYTIME.PNG"
 ];
 
 const PUBLISHED_WORLDS: any[] = INITIAL_DEMO_STORIES.map(story => {
@@ -40,8 +48,42 @@ const PUBLISHED_WORLDS: any[] = INITIAL_DEMO_STORIES.map(story => {
 export const LibraryScreen: React.FC = () => {
   const { currentScreen, setCurrentScreen, stories, setActiveStoryId, setStoryToDelete, userProfile } = useAppStore();
   const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
+  const [currentImageIdx, setCurrentImageIdx] = useState(0);
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const [videoError, setVideoError] = useState(false);
   const [activeTab, setActiveTab] = useState<'featured' | 'my-library' | 'challenges'>(stories.length === 0 ? 'featured' : 'my-library');
   const heroVideoRef = useRef<HTMLVideoElement>(null);
+
+  // Rotate backup celestial library images every 6 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIdx((prev) => (prev + 1) % CELESTIAL_FALLBACK_IMAGES.length);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const video = heroVideoRef.current;
+    if (video) {
+      // Force muted and playsInline properties programmatically to bypass browser autoplay blocks
+      video.muted = true;
+      video.defaultMuted = true;
+      video.playsInline = true;
+      
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setVideoPlaying(true);
+            setVideoError(false);
+          })
+          .catch((error) => {
+            console.log("Hero video autoplay prevented or delayed: ", error);
+            // Don't set error immediately, let the video element exist for potential user interaction or slow loading
+          });
+      }
+    }
+  }, [currentVideoIdx]);
 
   // Filter and sort states for the 'Immortal Hub' tab
   const [selectedGenre, setSelectedGenre] = useState<string>('All');
@@ -101,44 +143,61 @@ export const LibraryScreen: React.FC = () => {
     >
       <div className="relative rounded-xl border border-neutral-900 overflow-hidden shadow-2xl h-60 sm:h-80 flex items-end bg-black">
         <ParticleSystem count={25} className="opacity-40 mix-blend-screen z-0" color="bg-cyan-100" />
+        {/* Layer 1: Rotating Celestial Backdrops (Constantly visible behind the video, or fully displayed if video fails to play) */}
         <AnimatePresence initial={false}>
           <motion.div
-            key={currentVideoIdx}
+            key={`fallback-img-${currentImageIdx}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 1.2, ease: "easeInOut" }}
-            className="absolute inset-0 z-0"
+            transition={{ duration: 1.5, ease: "easeInOut" }}
+            className="absolute inset-0 z-0 bg-black"
           >
+            <img
+              src={CELESTIAL_FALLBACK_IMAGES[currentImageIdx]}
+              alt="Celestial Library Backdrop"
+              className="w-full h-full object-cover opacity-50 sm:opacity-60 select-none pointer-events-none"
+              referrerPolicy="no-referrer"
+            />
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Layer 2: Primary Celestial Videos (Always attempted as primary layer overlaying the backdrops) */}
+        {!videoError && (
+          <div className="absolute inset-0 z-10 overflow-hidden bg-transparent">
             <video 
               ref={heroVideoRef}
               id={`hero-banner-video-${currentVideoIdx}`}
               src={HERO_VIDEOS[currentVideoIdx]}
-              autoPlay 
-              muted 
-              playsInline
+              autoPlay={true} 
+              muted={true} 
+              playsInline={true}
+              preload="auto"
+              poster={CELESTIAL_FALLBACK_IMAGES[0]}
+              onPlay={() => {
+                setVideoPlaying(true);
+                setVideoError(false);
+              }}
+              onPlaying={() => {
+                setVideoPlaying(true);
+                setVideoError(false);
+              }}
+              onError={() => {
+                setVideoError(true);
+                setVideoPlaying(false);
+              }}
               onEnded={() => {
                 setCurrentVideoIdx((prev) => (prev === 0 ? 1 : 0));
               }}
-              className="w-full h-full object-cover opacity-50 sm:opacity-60"
-            />
-          </motion.div>
-        </AnimatePresence>
-        <div className="absolute inset-0 ink-gradient z-10 pointer-events-none"></div>
-        
-        <div className="absolute bottom-4 right-4 z-20 flex space-x-2 bg-black/60 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-neutral-800/80">
-          {HERO_VIDEOS.map((_, idx) => (
-            <button
-              key={idx}
-               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setCurrentVideoIdx(idx)}
-              className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                currentVideoIdx === idx 
-                  ? 'bg-[#d4af37] scale-125 shadow-[0_0_8px_rgba(212,175,55,0.8)]' 
-                  : 'bg-neutral-600 hover:bg-neutral-400'
+              className={`w-full h-full object-cover transition-opacity duration-1000 ease-in-out select-none pointer-events-none ${
+                videoPlaying ? 'opacity-50 sm:opacity-60' : 'opacity-0'
               }`}
             />
-          ))}
-        </div>
+          </div>
+        )}
+        <div className="absolute inset-0 ink-gradient z-10 pointer-events-none"></div>
+        
+
         <div className="relative z-10 p-5 sm:p-12 w-full flex justify-between items-end">
           <div className="max-w-2xl space-y-2 sm:space-y-3">
             <span className="font-sc text-gold-accent font-bold uppercase tracking-[0.25em] text-[10px] sm:text-xs">Featured Ascension</span>

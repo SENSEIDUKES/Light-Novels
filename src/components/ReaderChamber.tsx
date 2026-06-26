@@ -52,7 +52,6 @@ import { SystemBlock, SYSTEM_COLORS_LEGEND } from "./SystemBlock";
 import { FateSurvivalExplanation } from "./FateSurvivalExplanation";
 
 import { AlterFatePanel } from "./AlterFatePanel";
-import { VoiceEditionPanel } from "./VoiceEditionPanel";
 
 import { ReaderPreferencesPanel } from "./ReaderPreferencesPanel";
 import { CosmicBookmarksPanel } from "./CosmicBookmarksPanel";

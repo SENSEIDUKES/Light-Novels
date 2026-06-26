@@ -11,9 +11,10 @@ import { CelestialParticleShower } from './CelestialParticleShower';
 
 const DEFAULT_PRESETS = {
   storyMaker: {
-    gemini: ["gemini-3.5-flash", "gemini-3.5-pro", "google/gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
+    gemini: ["google/gemini-3.1-flash-lite-preview", "gemini-3.1-flash-lite-preview", "gemini-3.5-flash", "gemini-3.5-pro", "google/gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
     openrouter: [
       "@preset/light-novel-story",
+      "google/gemini-3.1-flash-lite-preview",
       "google/gemini-3.5-flash",
       "google/gemini-2.5-flash-lite",
       "meta-llama/llama-3-8b-instruct:free",
@@ -25,8 +26,8 @@ const DEFAULT_PRESETS = {
     ollama: ["llama3", "gemma2", "mistral", "phi3"]
   },
   imageGenerator: {
-    gemini: ["google/gemini-3.1-flash-image", "imagen-3.0-generate-002"],
-    openrouter: ["google/gemini-3.1-flash-image", "stable-diffusion-xl", "playgroundai/playground-v2.5", "shuttle-ai/shuttle-3-diffusion"],
+    gemini: ["google/gemini-3.1-flash-lite-image-preview", "gemini-3.1-flash-lite-image-preview", "google/gemini-3.1-flash-image", "imagen-3.0-generate-002"],
+    openrouter: ["google/gemini-3.1-flash-lite-image-preview", "google/gemini-3.1-flash-image", "stable-diffusion-xl", "playgroundai/playground-v2.5", "shuttle-ai/shuttle-3-diffusion"],
     ollama: ["local-sd-mortal", "local-sd-celestial"]
   }
 };

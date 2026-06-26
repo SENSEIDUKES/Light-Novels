@@ -23,6 +23,7 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
   const [isSuggestingTags, setIsSuggestingTags] = useState(false);
   const [tagSuggestions, setTagSuggestions] = useState<{ suggestedTags: string[]; reasoning: string } | null>(null);
   const [tagSuggestionError, setTagSuggestionError] = useState<string | null>(null);
+  const [tagLimitError, setTagLimitError] = useState<string | null>(null);
 
   const handleSuggestTags = async () => {
     if (!intake.corePremise?.trim()) {
@@ -61,19 +62,35 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
     if (!tagSuggestions || !tagSuggestions.suggestedTags) return;
     const activeTags = intake.storyTags || [];
     const newTags = [...activeTags];
+    let reachedLimit = false;
     tagSuggestions.suggestedTags.forEach(tag => {
       if (!newTags.includes(tag)) {
+        if (newTags.length >= 20) {
+          reachedLimit = true;
+          return;
+        }
         newTags.push(tag);
       }
     });
+    if (reachedLimit) {
+      setTagLimitError("Fated limit reached. Only up to 20 celestial tags can be woven into the universe.");
+    } else {
+      setTagLimitError(null);
+    }
     updateIntake('storyTags', newTags);
   };
 
   const handleTogglePresetTag = (tag: string) => {
     const activeTags = intake.storyTags || [];
     if (activeTags.includes(tag)) {
+      setTagLimitError(null);
       updateIntake('storyTags', activeTags.filter(t => t !== tag));
     } else {
+      if (activeTags.length >= 20) {
+        setTagLimitError("Fated limit reached. Only up to 20 celestial tags can be woven into the universe.");
+        return;
+      }
+      setTagLimitError(null);
       updateIntake('storyTags', [...activeTags, tag]);
     }
   };
@@ -82,14 +99,23 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
     const trimmed = customTagInput.trim().replace(/^,|,$/g, '');
     if (!trimmed) return;
     const activeTags = intake.storyTags || [];
+    if (activeTags.length >= 20) {
+      setTagLimitError("Fated limit reached. Only up to 20 celestial tags can be woven into the universe.");
+      return;
+    }
     if (!activeTags.some(t => t.toLowerCase() === trimmed.toLowerCase())) {
+      setTagLimitError(null);
       updateIntake('storyTags', [...activeTags, trimmed]);
     }
     setCustomTagInput('');
   };
 
   const handleRemoveTag = (tag: string) => {
-    updateIntake('storyTags', (intake.storyTags || []).filter(t => t !== tag));
+    const nextTags = (intake.storyTags || []).filter(t => t !== tag);
+    if (nextTags.length < 20) {
+      setTagLimitError(null);
+    }
+    updateIntake('storyTags', nextTags);
   };
 
   const filteredPresets = Array.from(new Set(
@@ -196,6 +222,21 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
             {isSuggestingTags ? "Channeling..." : "Suggest Tags"}
           </button>
         </div>
+
+        <AnimatePresence>
+          {tagLimitError && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              className="mb-4 text-xs font-sans text-red-400 bg-[#8B0000]/10 border border-[#8B0000]/30 px-3 py-2 rounded flex items-center gap-1.5"
+              id="tag-limit-error"
+            >
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#8B0000] animate-pulse" />
+              {tagLimitError}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence>
           {(tagSuggestions || tagSuggestionError) && (

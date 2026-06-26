@@ -210,6 +210,8 @@ export interface Character extends BaseCodexEntry {
   evolutionReason?: string;
   availableVisualUpdate?: boolean;
   voicePresetId?: string;
+  signatureQuote?: string;
+  voiceClipUrl?: string;
 }
 
 export interface Faction extends BaseCodexEntry {
@@ -654,6 +656,7 @@ export interface StoryWorld {
   intake?: IntakeData;
   blueprint?: WorldBlueprint;
   isEdited?: boolean; // Track if the user has modified/actively worked on the demo story
+  motionCoverActive?: boolean; // Alternative video covers active state
   hardcoreFateMode?: boolean;
   fatePressure?: "Relaxed" | "Balanced" | "Hardcore" | "Dao Master";
   deleted?: boolean; // Soft delete for synchronization

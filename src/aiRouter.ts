@@ -38,9 +38,10 @@ export function getAIClient(customApiKey?: string) {
 // Router default presets
 export const ROUTER_PRESETS = {
   storyMaker: {
-    gemini: ["google/gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
+    gemini: ["google/gemini-3.1-flash-lite-preview", "google/gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
     openrouter: [
       "@preset/light-novel-story",
+      "google/gemini-3.1-flash-lite-preview",
       "google/gemini-2.5-flash-lite",
       "deepseek/deepseek-chat",
       "google/gemini-2.5-flash",
@@ -49,8 +50,8 @@ export const ROUTER_PRESETS = {
     ollama: ["llama3", "gemma2", "mistral", "phi3"]
   },
   imageGenerator: {
-    gemini: ["gemini-2.5-flash-image", "google/gemini-3.1-flash-image", "imagen-3.0-generate-002"],
-    openrouter: ["black-forest-labs/flux.2-klein-4b", "google/gemini-3.1-flash-image", "stable-diffusion-xl", "playgroundai/playground-v2.5", "shuttle-ai/shuttle-3-diffusion"],
+    gemini: ["google/gemini-3.1-flash-lite-image-preview", "gemini-2.5-flash-image", "google/gemini-3.1-flash-image", "imagen-3.0-generate-002"],
+    openrouter: ["google/gemini-3.1-flash-lite-image-preview", "black-forest-labs/flux.2-klein-4b", "google/gemini-3.1-flash-image", "stable-diffusion-xl", "playgroundai/playground-v2.5", "shuttle-ai/shuttle-3-diffusion"],
     ollama: ["local-sd-mortal", "local-sd-celestial"]
   }
 };
@@ -130,12 +131,12 @@ export async function* routeTextGenerationStream(
 
   let activeConfig: RouteConfig = (routingConfig as any)?.storyMaker || routingConfig || {
     provider: "gemini",
-    model: "gemini-2.5-flash-lite"
+    model: "gemini-3.1-flash-lite-preview"
   };
   if (!activeConfig.provider) {
     activeConfig = {
       provider: "gemini",
-      model: "gemini-2.5-flash-lite"
+      model: "gemini-3.1-flash-lite-preview"
     };
   }
 
@@ -146,7 +147,7 @@ export async function* routeTextGenerationStream(
 
   if (provider === "gemini") {
     const ai = getAIClient(customKeys?.geminiApiKey);
-    const geminiModel = (model || "google/gemini-2.5-flash-lite").replace(/^google\//, "");
+    const geminiModel = (model || "google/gemini-3.1-flash-lite-preview").replace(/^google\//, "");
     try {
       const responseStream = await ai.models.generateContentStream({
         model: geminiModel,
@@ -326,12 +327,12 @@ export async function routeTextGeneration(
 
   let activeConfig: RouteConfig = (routingConfig as any)?.storyMaker || routingConfig || {
     provider: "gemini",
-    model: "gemini-2.5-flash-lite"
+    model: "gemini-3.1-flash-lite-preview"
   };
   if (!activeConfig.provider) {
     activeConfig = {
       provider: "gemini",
-      model: "gemini-2.5-flash-lite"
+      model: "gemini-3.1-flash-lite-preview"
     };
   }
 
@@ -345,7 +346,7 @@ export async function routeTextGeneration(
     // GOOGLE GEMINI ROUTE
     // -------------------------------------------------------------
     const ai = getAIClient(customKeys?.geminiApiKey);
-    const geminiModel = (model || "google/gemini-2.5-flash-lite").replace(/^google\//, "");
+    const geminiModel = (model || "google/gemini-3.1-flash-lite-preview").replace(/^google\//, "");
     const config: any = {
       systemInstruction: safeSystem,
       responseMimeType: "application/json",
@@ -532,12 +533,12 @@ export async function routeImageGeneration(
 ): Promise<{ imageUrls: string[]; note?: string; isFallback?: boolean }> {
   let activeConfig: RouteConfig = (routingConfig as any)?.imageGenerator || routingConfig || {
     provider: "gemini",
-    model: "google/gemini-3.1-flash-image"
+    model: "google/gemini-3.1-flash-lite-image-preview"
   };
   if (!activeConfig.provider) {
     activeConfig = {
       provider: "gemini",
-      model: "google/gemini-3.1-flash-image"
+      model: "google/gemini-3.1-flash-lite-image-preview"
     };
   }
 
@@ -572,7 +573,7 @@ export async function routeImageGeneration(
     // -------------------------------------------------------------
     try {
       const ai = getAIClient(customKeys?.geminiApiKey);
-      const gModel = (model || "google/gemini-3.1-flash-image").replace(/^google\//, "");
+      const gModel = (model || "google/gemini-3.1-flash-lite-image-preview").replace(/^google\//, "");
       let imageUrls: string[] = [];
 
       if (gModel.startsWith("imagen-")) {
