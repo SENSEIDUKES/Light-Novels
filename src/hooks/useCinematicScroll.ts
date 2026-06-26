@@ -23,48 +23,52 @@ export function useCinematicScroll(containerRef: React.RefObject<HTMLElement>, i
     isActiveRef.current = isActive;
   }, [isActive]);
 
-  const animate = useCallback((time: number) => {
-    // If user is actively yielding, or auto-scroll is disabled, stop animating
-    if (isYieldingRef.current || !isAutoScrolling) {
-      lastTimeRef.current = undefined;
-      return;
-    }
+  const animateRef = useRef<(time: number) => void>(() => {});
 
-    if (lastTimeRef.current != null && containerRef.current) {
-      const deltaTime = time - lastTimeRef.current;
-      
-      // Calculate how many pixels we should scroll based on time elapsed
-      // v = d/t => d = v * t
-      // scrollSpeed is pixels per second, so we divide by 1000 for milliseconds
-      const scrollAmount = (scrollSpeed * deltaTime) / 1000;
-      
-      // Accumulate fractional sub-pixels to avoid integer-rounding stutter
-      scrollAccumulatorRef.current += scrollAmount;
-
-      // When our accumulator hits at least 1 pixel, physically scroll the container
-      if (scrollAccumulatorRef.current >= 1) {
-        const pixelsToScroll = Math.floor(scrollAccumulatorRef.current);
-        
-        // Prevent scrolling past the maximum bottom
-        const maxScroll = containerRef.current.scrollHeight - containerRef.current.clientHeight;
-        if (containerRef.current.scrollTop < maxScroll) {
-            containerRef.current.scrollTop += pixelsToScroll;
-        }
-        
-        // Subtract only the whole pixels we applied, keeping the decimal fraction
-        scrollAccumulatorRef.current -= pixelsToScroll;
+  useEffect(() => {
+    animateRef.current = (time: number) => {
+      // If user is actively yielding, or auto-scroll is disabled, stop animating
+      if (isYieldingRef.current || !isAutoScrolling) {
+        lastTimeRef.current = undefined;
+        return;
       }
-    }
-    
-    lastTimeRef.current = time;
-    requestRef.current = requestAnimationFrame(animate);
+
+      if (lastTimeRef.current != null && containerRef.current) {
+        const deltaTime = time - lastTimeRef.current;
+        
+        // Calculate how many pixels we should scroll based on time elapsed
+        // v = d/t => d = v * t
+        // scrollSpeed is pixels per second, so we divide by 1000 for milliseconds
+        const scrollAmount = (scrollSpeed * deltaTime) / 1000;
+        
+        // Accumulate fractional sub-pixels to avoid integer-rounding stutter
+        scrollAccumulatorRef.current += scrollAmount;
+
+        // When our accumulator hits at least 1 pixel, physically scroll the container
+        if (scrollAccumulatorRef.current >= 1) {
+          const pixelsToScroll = Math.floor(scrollAccumulatorRef.current);
+          
+          // Prevent scrolling past the maximum bottom
+          const maxScroll = containerRef.current.scrollHeight - containerRef.current.clientHeight;
+          if (containerRef.current.scrollTop < maxScroll) {
+              containerRef.current.scrollTop += pixelsToScroll;
+          }
+          
+          // Subtract only the whole pixels we applied, keeping the decimal fraction
+          scrollAccumulatorRef.current -= pixelsToScroll;
+        }
+      }
+      
+      lastTimeRef.current = time;
+      requestRef.current = requestAnimationFrame(animateRef.current);
+    };
   }, [isAutoScrolling, scrollSpeed, containerRef]);
 
   // Main lifecycle for the rAF loop
   useEffect(() => {
     if (isAutoScrolling && !isYieldingRef.current) {
       lastTimeRef.current = undefined;
-      requestRef.current = requestAnimationFrame(animate);
+      requestRef.current = requestAnimationFrame(animateRef.current);
     }
     
     return () => {
@@ -72,7 +76,7 @@ export function useCinematicScroll(containerRef: React.RefObject<HTMLElement>, i
         cancelAnimationFrame(requestRef.current);
       }
     };
-  }, [isAutoScrolling, animate]);
+  }, [isAutoScrolling]);
 
   // User Yield Logic: instantly pause the rAF loop upon user interaction,
   // and set a 2000ms debounce before resuming.
@@ -102,7 +106,7 @@ export function useCinematicScroll(containerRef: React.RefObject<HTMLElement>, i
         // If the global state still wants us to scroll, restart the loop
         if (isActiveRef.current) {
           lastTimeRef.current = undefined;
-          requestRef.current = requestAnimationFrame(animate);
+          requestRef.current = requestAnimationFrame(animateRef.current);
         }
       }, 2000);
     };
@@ -120,5 +124,5 @@ export function useCinematicScroll(containerRef: React.RefObject<HTMLElement>, i
         clearTimeout(yieldTimeoutRef.current);
       }
     };
-  }, [containerRef, animate]);
+  }, [containerRef]);
 }

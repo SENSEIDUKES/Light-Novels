@@ -254,7 +254,9 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
       
       if (loaded && loaded.length > 0) {
         if (user) {
-          const unmigratedDemos = loaded.filter(s => s.id.startsWith('demo-matrix-') && !s.id.includes(user.uid));
+          const unmigratedDemos = loaded.filter(s => 
+            (s.id.startsWith('demo-matrix-') || s.id.startsWith('challenge-')) && !s.id.includes(user.uid)
+          );
           if (unmigratedDemos.length > 0) {
             let updatedLoaded: Story[] = [...loaded];
             let changed = false;
@@ -267,7 +269,9 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
                 );
                 
                 if (isWorkedOn) {
-                  const userDemoId = `demo-matrix-${user.uid}`;
+                  const userDemoId = demo.id.startsWith('demo-matrix-') 
+                    ? `demo-matrix-${user.uid}` 
+                    : `${demo.id}-${user.uid}`;
                   updatedLoaded = updatedLoaded.map(s => {
                     if (s.id === demo.id) {
                       return { ...s, id: userDemoId, userId: user.uid };
@@ -330,7 +334,9 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
     if (!user) return;
     const { stories, activeStoryId, saveStories, setActiveStoryId, setCurrentScreen } = get();
     
-    const unmigratedDemos = stories.filter(s => s.id.startsWith('demo-matrix-') && !s.id.includes(user.uid));
+    const unmigratedDemos = stories.filter(s => 
+      (s.id.startsWith('demo-matrix-') || s.id.startsWith('challenge-')) && !s.id.includes(user.uid)
+    );
     if (unmigratedDemos.length === 0) return;
     
     let updatedStories = [...stories];
@@ -345,7 +351,9 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
         );
         
         if (isWorkedOn) {
-          const userDemoId = `demo-matrix-${user.uid}`;
+          const userDemoId = demo.id.startsWith('demo-matrix-') 
+            ? `demo-matrix-${user.uid}` 
+            : `${demo.id}-${user.uid}`;
           updatedStories = updatedStories.map(s => {
             if (s.id === demo.id) {
               return { ...s, id: userDemoId, userId: user.uid };

@@ -8,6 +8,7 @@ import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
 import { AudioWidget } from './AudioWidget';
 import { getDaoRankData, AURA_TIERS, getAuraTextStyle, getAuraGlowStyle } from '../lib/qi';
+import { getApiHeaders } from '../hooks/storyEngineHelpers';
 
 interface UserProfileProps {
   currentUser: AppUser | null;
@@ -17,7 +18,7 @@ interface UserProfileProps {
 }
 
 export default function UserProfile({ currentUser, stories, onLogout, onNavigateHome }: UserProfileProps) {
-  const { syncStatus, lastSavedTime, setIsSettingsOpen, handleExportLibrary, handleImportLibrary, storageType, localGeminiKey, localOpenrouterKey, localOllamaHost, isSettingsOpen, activeStoryId } = useAppStore();
+  const { syncStatus, lastSavedTime, setIsSettingsOpen, handleExportLibrary, handleImportLibrary, storageType, localGeminiKey, localOpenrouterKey, localOllamaHost, isSettingsOpen, activeStoryId, routingConfig } = useAppStore();
   const [profile, setProfile] = useState<UserProfileType | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Partial<UserProfileType>>({});
@@ -102,9 +103,10 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     }, 2500);
 
     try {
+      const apiHeaders = await getApiHeaders();
       const response = await fetch("/api/generate-cultivator-portrait", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...apiHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({
           image: portraitUploadBase64,
           description: portraitDesc,
@@ -116,10 +118,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
             description: equippedArtifact.description,
             rarity: equippedArtifact.rarity
           } : null,
-          routingConfig: {
-            provider: "gemini",
-            model: "google/gemini-3.1-flash-image"
-          }
+          routingConfig: routingConfig
         })
       });
 

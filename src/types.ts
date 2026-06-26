@@ -310,6 +310,17 @@ export interface StoryBlockMetadata {
     customUrl?: string;
     trackId?: string;
   };
+  beastEvent?: {
+    type:
+      | "reveal"
+      | "power-up"
+      | "technique"
+      | "injury"
+      | "turning-point"
+      | "death"
+      | "breakthrough";
+    profile: BeastSonicProfile;
+  };
 }
 
 export interface FateResultData {

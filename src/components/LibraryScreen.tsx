@@ -6,6 +6,7 @@ import { ParticleSystem } from './ParticleSystem';
 import { Story } from '../types';
 import { getDaoRankData, getAuraTextStyle } from '../lib/qi';
 import { PRESET_CHALLENGES } from '../data/challenges';
+import { auth } from '../lib/firebase';
 
 import { INITIAL_DEMO_STORIES } from '../store/demoStories';
 
@@ -517,11 +518,18 @@ export const LibraryScreen: React.FC = () => {
                   key={world.id}
                   className="group cursor-pointer flex flex-col space-y-3"
                   onClick={() => {
-                    const existing = stories.find(s => s.id === world.id);
+                    const user = auth.currentUser;
+                    const finalId = user ? `${world.id}-${user.uid}` : world.id;
+                    const personalizedWorld = {
+                      ...world,
+                      id: finalId,
+                      userId: user?.uid
+                    };
+                    const existing = stories.find(s => s.id === finalId);
                     if (!existing) {
-                      useAppStore.getState().setStories([world, ...stories]);
+                      useAppStore.getState().setStories([personalizedWorld, ...stories]);
                     }
-                    setActiveStoryId(world.id);
+                    setActiveStoryId(finalId);
                     setCurrentScreen('detail');
                   }}
                   role="button"
@@ -529,11 +537,18 @@ export const LibraryScreen: React.FC = () => {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      const existing = stories.find(s => s.id === world.id);
+                      const user = auth.currentUser;
+                      const finalId = user ? `${world.id}-${user.uid}` : world.id;
+                      const personalizedWorld = {
+                        ...world,
+                        id: finalId,
+                        userId: user?.uid
+                      };
+                      const existing = stories.find(s => s.id === finalId);
                       if (!existing) {
-                        useAppStore.getState().setStories([world, ...stories]);
+                        useAppStore.getState().setStories([personalizedWorld, ...stories]);
                       }
-                      setActiveStoryId(world.id);
+                      setActiveStoryId(finalId);
                       setCurrentScreen('detail');
                     }
                   }}

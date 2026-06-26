@@ -523,4 +523,12 @@ export async function scanChapterForArtifacts(
       }, storyId, storyTitle);
     }
   }
+
+  // Call the new Drop Engine to process all other block-based drops (worldCard, system, fateResult, beast)
+  try {
+    const { processChapterDrops } = await import('./dropEngine');
+    await processChapterDrops(metadata || { blocks }, { id: storyId, title: storyTitle });
+  } catch (err) {
+    console.error("Failed to run Drop Engine during scanChapterForArtifacts:", err);
+  }
 }

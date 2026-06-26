@@ -279,7 +279,7 @@ export async function awardQi(event: QiEvent, sourceId?: string, sourceType?: st
       });
     }
 
-    await setDoc(userRef, {
+    const userUpdates: any = {
       dao_xp: newXp,
       qi: newXp, // keep backwards compatibility for now just in case
       heavenly_qi: newHeavenlyQi,
@@ -290,7 +290,20 @@ export async function awardQi(event: QiEvent, sourceId?: string, sourceType?: st
       lastInteractionDate: todayStr,
       activeStatusEffects: updatedEffects,
       updatedAt: new Date().toISOString()
-    }, { merge: true });
+    };
+
+    if (!data) {
+      userUpdates.uid = user.uid;
+      userUpdates.username = user.email?.split('@')[0] || `user_${user.uid.substring(0, 5)}`;
+      userUpdates.displayName = user.displayName || '';
+      userUpdates.avatarUrl = user.photoURL || '';
+      userUpdates.joinedDate = new Date().toISOString();
+      userUpdates.savedStoryCount = 0;
+      userUpdates.activeStories = [];
+      userUpdates.inactiveStories = [];
+    }
+
+    await setDoc(userRef, userUpdates, { merge: true });
 
   } catch (error) {
     console.error('Failed to award Qi:', error);

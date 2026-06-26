@@ -570,8 +570,8 @@ export async function routeImageGeneration(
     // -------------------------------------------------------------
     // GEMINI IMAGE GEN
     // -------------------------------------------------------------
-    const ai = getAIClient(customKeys?.geminiApiKey);
     try {
+      const ai = getAIClient(customKeys?.geminiApiKey);
       const gModel = (model || "google/gemini-3.1-flash-image").replace(/^google\//, "");
       let imageUrls: string[] = [];
 
@@ -581,7 +581,7 @@ export async function routeImageGeneration(
           model: gModel,
           prompt: rawPrompt,
           config: {
-            numberOfImages: 3,
+            numberOfImages: 1,
             outputMimeType: 'image/jpeg',
             aspectRatio: '1:1',
           },
@@ -591,11 +591,7 @@ export async function routeImageGeneration(
         }
       } else {
         // Nano banana (Gemini Flash Image) generation
-        // Requires sequential or parallel calls since it only generated 1 at a time?
-        const generateOne = async (idx: number) => {
-          if (idx > 0) {
-            await new Promise(resolve => setTimeout(resolve, idx * 300));
-          }
+        const generateOne = async () => {
           try {
             const response = await ai.models.generateContent({
               model: gModel,
@@ -621,78 +617,73 @@ export async function routeImageGeneration(
               }
             }
           } catch (e: any) {
-            console.warn(`[aiRouter] Single image generation attempt ${idx + 1} failed:`, e);
+            console.warn(`[aiRouter] Single image generation attempt failed:`, e);
           }
           return null;
         };
 
-        const results = await Promise.all([generateOne(0), generateOne(1), generateOne(2)]);
-        imageUrls = results.filter((url): url is string => url !== null);
+        const result = await generateOne();
+        if (result) {
+          imageUrls = [result];
+        }
       }
 
       if (imageUrls.length === 0) {
         throw new Error("No image frames returned in Gemini payload.");
       }
 
-      // If less than 3, just pad with the first one so we have 3
-      while (imageUrls.length < 3) {
-          imageUrls.push(imageUrls[0]);
-      }
-
-      return { imageUrls };
+      return { imageUrls: [imageUrls[0]] };
     } catch (error: any) {
       console.warn("[aiRouter] Gemini image gen failed, serving fallback:", error);
       return {
-        imageUrls: getFallbackImages(3),
+        imageUrls: getFallbackImages(1),
         note: `Projected via cosmic fallback: ${error.message || "quota reserve limit reached"}.`,
         isFallback: true
       };
     }
   } else if (provider === "openrouter") {
-    const apiKey = customKeys?.openrouterApiKey || process.env.OPENROUTER_API_KEY;
-    if (!apiKey || apiKey === "MY_OPENROUTER_API_KEY") {
-      throw new Error("OpenRouter API key is missing.");
-    }
     const imageModel = model || "black-forest-labs/flux.2-klein-4b";
-    const generateOne = async () => {
-      const response = await fetch("https://openrouter.ai/api/v1/images", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-          "HTTP-Referer": "https://ai.studio/build",
-          "X-Title": "SEIHouse Celestial Scroll"
-        },
-        body: JSON.stringify({
-          model: imageModel,
-          prompt: rawPrompt,
-          size: "1024x1024",
-          quality: "medium",
-          output_format: "png"
-        })
-      });
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`OpenRouter image error [${response.status}] using ${imageModel}: ${errText}`);
-      }
-      const result = await response.json();
-      const b64 = result.data?.[0]?.b64_json;
-      if (!b64) {
-        throw new Error("OpenRouter image response missing data[0].b64_json");
-      }
-      return `data:image/png;base64,${b64}`;
-    };
     try {
-      const imageUrls = await Promise.all([
-        generateOne(),
-        generateOne(),
-        generateOne()
-      ]);
-      return { imageUrls };
+      const apiKey = customKeys?.openrouterApiKey || process.env.OPENROUTER_API_KEY;
+      if (!apiKey || apiKey === "MY_OPENROUTER_API_KEY") {
+        throw new Error("OpenRouter API key is missing.");
+      }
+      const generateOne = async () => {
+        const response = await fetch("https://openrouter.ai/api/v1/images", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`,
+            "HTTP-Referer": "https://ai.studio/build",
+            "X-Title": "SEIHouse Celestial Scroll"
+          },
+          body: JSON.stringify({
+            model: imageModel,
+            prompt: rawPrompt,
+            size: "1024x1024",
+            quality: "medium",
+            output_format: "webp",
+            background: "opaque",
+            n: 1
+          })
+        });
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`OpenRouter image error [${response.status}] using ${imageModel}: ${errText}`);
+        }
+        const result = await response.json();
+        const b64 = result.data?.[0]?.b64_json;
+        if (!b64) {
+          throw new Error("OpenRouter image response missing data[0].b64_json");
+        }
+        return `data:image/webp;base64,${b64}`;
+      };
+      const url = await generateOne();
+      return { imageUrls: [url] };
     } catch (error: any) {
       console.warn("[aiRouter] OpenRouter image gen failed, serving fallback:", error);
       return {
-        imageUrls: getFallbackImages(3),
+        imageUrls: getFallbackImages(1),
         note: `OpenRouter image generation failed for ${imageModel}. Falling back to Pollinations. Reason: ${error.message}`,
         isFallback: true
       };
@@ -706,7 +697,7 @@ export async function routeImageGeneration(
     // as a visual medium while providing instructions on local SD integrations.
     const h = customKeys?.ollamaHost || process.env.OLLAMA_HOST || "http://localhost:11434";
     return {
-      imageUrls: getFallbackImages(3),
+      imageUrls: getFallbackImages(1),
       note: `Local Ollama (${model}) generated prompt: "${rawPrompt}". Standard Ollama is text-only; we synthesized a beautiful representation of your query.`,
       isFallback: true
     };

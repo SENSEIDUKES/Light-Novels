@@ -172,6 +172,13 @@ export const useChapterGeneration = () => {
                    // Keep the text empty to show the fallback loading message instead of raw JSON
                    currentChapterText = "";
                 }
+
+                // Push real-time stream state to the UI store
+                currentStoreState.setStreamingChapter({
+                  number: chapterNumber,
+                  content: currentChapterText || accumulatedRaw,
+                  blocks: blocksData
+                });
               }
             } catch (e: any) {
               if (streamError) {
@@ -591,6 +598,7 @@ export const useChapterGeneration = () => {
       store.setGenerationPhase(null);
       store.setGeneratingChapterNum(null);
       store.setActiveAgentId(null);
+      store.setStreamingChapter(null);
     }
   };
 
