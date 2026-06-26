@@ -8,8 +8,8 @@ import { useAppStore } from '../store/useAppStore';
  * Reads global scroll state and physically increments scrollTop using a sub-pixel
  * accumulator for maximum frame-by-frame smoothness.
  */
-export function useCinematicScroll(containerRef: React.RefObject<HTMLElement>) {
-  const isAutoScrolling = useAppStore(state => state.immersion.autoScroll);
+export function useCinematicScroll(containerRef: React.RefObject<HTMLElement>, isActive: boolean) {
+  const isAutoScrolling = isActive;
   const scrollSpeed = useAppStore(state => state.scrollSpeed);
 
   const requestRef = useRef<number>();
@@ -17,6 +17,11 @@ export function useCinematicScroll(containerRef: React.RefObject<HTMLElement>) {
   const scrollAccumulatorRef = useRef<number>(0);
   const isYieldingRef = useRef<boolean>(false);
   const yieldTimeoutRef = useRef<NodeJS.Timeout>();
+
+  const isActiveRef = useRef(isActive);
+  useEffect(() => {
+    isActiveRef.current = isActive;
+  }, [isActive]);
 
   const animate = useCallback((time: number) => {
     // If user is actively yielding, or auto-scroll is disabled, stop animating
@@ -76,7 +81,7 @@ export function useCinematicScroll(containerRef: React.RefObject<HTMLElement>) {
     if (!container) return;
 
     const handleUserInteraction = () => {
-      if (!useAppStore.getState().immersion.autoScroll) return;
+      if (!isActiveRef.current) return;
 
       isYieldingRef.current = true;
       
@@ -95,7 +100,7 @@ export function useCinematicScroll(containerRef: React.RefObject<HTMLElement>) {
         isYieldingRef.current = false;
         
         // If the global state still wants us to scroll, restart the loop
-        if (useAppStore.getState().immersion.autoScroll) {
+        if (isActiveRef.current) {
           lastTimeRef.current = undefined;
           requestRef.current = requestAnimationFrame(animate);
         }

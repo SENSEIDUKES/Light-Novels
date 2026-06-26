@@ -220,7 +220,7 @@ export default function ReaderChamber({
     setIsAutoScrollPausedByUser
   });
 
-  useCinematicScroll(readerRef);
+  useCinematicScroll(readerRef, isPlayingText && !isPausedText);
 
   // --- Scroll position tracking ---
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);

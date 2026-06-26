@@ -377,8 +377,8 @@ function App() {
           <p className="tracking-widest uppercase font-sc text-neutral-500 font-semibold">
             SEIHouse: A Better Time Capsule and Translator of Artistic Expression
           </p>
-          <p className="max-w-xl mx-auto italic leading-normal font-light">
-            This private fiction engine operates server-side, securing your compiled chapter script files and character memory nodes locally in browser cache space. Keep true to your creative spark, and let the matrix tell your story.
+          <p id="footer-production-mark" className="max-w-xl mx-auto tracking-[0.3em] font-sans text-neutral-400 hover:text-portal transition-all duration-500 font-semibold text-[11px] uppercase py-2 select-none">
+            Ⓢ SEIHOUSE PRODUCTIONS
           </p>
         </div>
       </footer>
