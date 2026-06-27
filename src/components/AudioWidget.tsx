@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
 import { vibrate } from '../lib/vibration';
 
-export function AudioWidget() {
+export const AudioWidget = React.memo(function AudioWidget() {
   const [audioMuted, setAudioMuted] = useState(() => {
     const saved = localStorage.getItem('seihouse-audio-muted');
     return saved === 'true';
@@ -66,4 +66,4 @@ export function AudioWidget() {
       />
     </div>
   );
-}
+});

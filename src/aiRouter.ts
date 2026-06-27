@@ -573,7 +573,8 @@ export async function routeImageGeneration(
     // -------------------------------------------------------------
     try {
       const ai = getAIClient(customKeys?.geminiApiKey);
-      const gModel = (model || "google/gemini-3.1-flash-lite-image-preview").replace(/^google\//, "");
+      let gModel = (model || "google/gemini-3.1-flash-lite-image-preview").replace(/^google\//, "");
+
       let imageUrls: string[] = [];
 
       if (gModel.startsWith("imagen-")) {
@@ -613,7 +614,8 @@ export async function routeImageGeneration(
             if (response.candidates?.[0]?.content?.parts) {
               for (const part of response.candidates[0].content.parts) {
                 if (part.inlineData?.data) {
-                  return `data:image/png;base64,${part.inlineData.data}`;
+                  const mime = part.inlineData.mimeType || 'image/jpeg';
+                  return `data:${mime};base64,${part.inlineData.data}`;
                 }
               }
             }
@@ -643,7 +645,8 @@ export async function routeImageGeneration(
       };
     }
   } else if (provider === "openrouter") {
-    const imageModel = model || "black-forest-labs/flux.2-klein-4b";
+    let imageModel = model || "black-forest-labs/flux.2-klein-4b";
+
     try {
       const apiKey = customKeys?.openrouterApiKey || process.env.OPENROUTER_API_KEY;
       if (!apiKey || apiKey === "MY_OPENROUTER_API_KEY") {

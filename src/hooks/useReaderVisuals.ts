@@ -29,7 +29,7 @@ export function useReaderVisuals({
 
       const existingHeroImagesCount = currentArc.chapters.filter(c => c.assetManifest && c.assetManifest.heroImage).length;
       
-      if (existingHeroImagesCount >= 2) return;
+      if (existingHeroImagesCount >= 3) return;
 
       const cue = selectedChapter.cuePayload;
       
@@ -38,19 +38,33 @@ export function useReaderVisuals({
         'conquest', 'destruction', 'calamity', 'rival_battle', 'romance', 'first_kiss'
       ];
 
+      // Semantic keyword matching for high-impact turning points in the narrative text
+      const semanticKeywords = [
+        'climax', 'battle', 'tribulation', 'defeat', 'shatter', 'conquer', 'betrayal', 
+        'sacrifice', 'awakening', 'awaken', 'destiny', 'fate', 'breakthrough', 'immortal',
+        'transcend', 'revelation', 'seal', 'forbidden', 'relic'
+      ];
+
+      const chapterTitleLower = (selectedChapter.title || '').toLowerCase();
+      const chapterSummaryLower = (selectedChapter.summary || '').toLowerCase();
+      const hasSemanticTrigger = semanticKeywords.some(kw => 
+        chapterTitleLower.includes(kw) || chapterSummaryLower.includes(kw)
+      );
+
       let isMomentous = 
           (cue?.beastEvent?.type && momentousEvents.includes(cue.beastEvent.type)) ||
           selectedChapter.blocks?.some((b: any) => 
                b.system?.promptType && momentousEvents.includes(b.system.promptType)
           ) ||
-          (cue?.danger && cue.danger > 8) || 
-          (cue?.powerShift && cue.powerShift > 8);
+          (cue?.danger && cue.danger > 6) || 
+          (cue?.powerShift && cue.powerShift > 6) ||
+          hasSemanticTrigger;
 
       const isLongArc = currentArc.chapters.length >= 7;
       const arcChapterIndex = currentArc.chapters.findIndex(c => c.number === selectedChapter.number);
       
       if (isLongArc && arcChapterIndex <= 2 && existingHeroImagesCount === 0) {
-        if (arcChapterIndex === 2 || (cue?.danger && cue.danger > 5) || (cue?.powerShift && cue.powerShift > 5)) {
+        if (arcChapterIndex === 2 || (cue?.danger && cue.danger > 4) || (cue?.powerShift && cue.powerShift > 4)) {
           isMomentous = true;
         }
       }
@@ -169,6 +183,8 @@ export function useReaderVisuals({
   return {
     handleManifestReveal,
     generatingRevealId,
-    codexTerms
+    codexTerms,
+    manifestChapterHero,
+    generatingIds
   };
 }

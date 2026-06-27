@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Sword, RefreshCcw, Sparkles, Download, Lock, Compass } from 'lucide-react';
 import { Artifact, StoryWorld } from '../../types';
 import { useCodex } from './CodexContext';
+import { useAppStore } from '../../store/useAppStore';
 
 const handleDownload = async (url: string, filename: string) => {
   try {
@@ -45,6 +46,16 @@ export function LivingCodexArtifacts({
     renderImageHistoryGallery,
     handleAwakenCardImage
   } = useCodex();
+
+  const { userProfile } = useAppStore();
+  const isHubStory = activeStory?.id ? (
+    activeStory.id.startsWith('demo-matrix-') || 
+    activeStory.id.startsWith('challenge-') || 
+    activeStory.id.includes('demo-matrix-') || 
+    activeStory.id.includes('challenge-')
+  ) : false;
+  const isFreeUser = !userProfile || !userProfile.premiumTier || userProfile.premiumTier === 'free';
+  const isFreeUserOnHubStory = isFreeUser && isHubStory;
 
   const [showAddArtifactForm, setShowAddArtifactForm] = useState(false);
   const [newArtifact, setNewArtifact] = useState({
@@ -164,7 +175,7 @@ export function LivingCodexArtifacts({
             const currentChapter = activeStory.currentChapterNumber || 1;
             const hasAppeared = art.firstAppeared === undefined || art.firstAppeared <= currentChapter;
             const activePreview = previews[art.id];
-            const canGenerate = hasAppeared && (!hasImage || art.evolutionReady);
+            const canGenerate = hasAppeared && (!hasImage || art.evolutionReady) && !isFreeUserOnHubStory;
             const displayedImage = activePreview ? activePreview.urls[activePreview.selectedIndex] : art.imageUrl;
             const isMythicOrTranscendent = art.tier === 'Primordial' || art.tier === 'Heaven';
             const tierColor = 
@@ -267,7 +278,7 @@ export function LivingCodexArtifacts({
                               ? 'bg-portal border-portal text-void shadow-[0_0_10px_rgba(4,172,255,0.4)]'
                               : 'bg-void border-portal/15 text-portal hover:border-portal hover:bg-portal/5 hover:shadow-[0_0_8px_rgba(4,172,255,0.2)]'
                           }`}
-                          title={!hasAppeared ? "Unlock manifestation by encountering it in the story." : !canGenerate ? "Progression required to awaken Relic." : ""}
+                          title={!hasAppeared ? "Unlock manifestation by encountering it in the story." : isFreeUserOnHubStory ? "Please Ascend to the Inner Sect to customize this original relic portrait." : !canGenerate ? "Progression required to awaken Relic." : ""}
                         >
                           {isGenerating ? (
                             <>
@@ -277,7 +288,17 @@ export function LivingCodexArtifacts({
                           ) : (
                             <>
                               <Sparkles size={8} className={art.evolutionReady ? 'text-void' : 'text-gold-accent'} />
-                              <span>{!hasAppeared ? 'Undiscovered' : art.evolutionReady ? 'Awaken Evolution' : hasImage ? 'Requires Progression' : 'Generate Aura'}</span>
+                              <span>
+                                {!hasAppeared 
+                                  ? 'Undiscovered' 
+                                  : isFreeUserOnHubStory 
+                                  ? (hasImage ? 'Relic Active' : 'Relic Locked (Free)') 
+                                  : art.evolutionReady 
+                                  ? 'Awaken Evolution' 
+                                  : hasImage 
+                                  ? 'Requires Progression' 
+                                  : 'Generate Aura'}
+                              </span>
                             </>
                           )}
                         </button>

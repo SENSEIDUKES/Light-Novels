@@ -7,7 +7,7 @@ interface ParticleSystemProps {
   color?: string;
 }
 
-export const ParticleSystem: React.FC<ParticleSystemProps> = ({ 
+export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({ 
   count = 20, 
   className = '',
   color = 'bg-cyan-100' 
@@ -73,4 +73,4 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = ({
       ))}
     </div>
   );
-};
+});

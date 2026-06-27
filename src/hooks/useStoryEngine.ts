@@ -1,7 +1,6 @@
 import { useAppStore } from '../store/useAppStore';
 import { StoryMemory, StoryWorld } from '../types';
 import { awardQi } from '../lib/qi';
-import { auth, db } from '../lib/firebase';
 import { extractJsonBlocks, extractJsonMeta } from './storyEngineHelpers';
 import { useChapterGeneration } from './useChapterGeneration';
 import { useArcSteering } from './useArcSteering';
@@ -70,56 +69,7 @@ export const useStoryEngine = () => {
                 if (newStatus === 'read') {
                   awardQi('chapter_finished');
                   
-                  // Handle Dao Pillar (Daily Reading Streak)
-                  const currentUserProfile = useAppStore.getState().userProfile;
-                  if (currentUserProfile) {
-                    const todayStr = new Date().toISOString().split('T')[0];
-                    const lastReadStr = currentUserProfile.lastReadDate;
-                    
-                    let newStreak = currentUserProfile.daoPillarStreak || 0;
-                    let isCracked = currentUserProfile.daoPillarCracked || false;
-                    
-                    if (lastReadStr !== todayStr) {
-                      if (lastReadStr) {
-                        const lastReadDate = new Date(lastReadStr);
-                        const todayDate = new Date(todayStr);
-                        const diffTime = Math.abs(todayDate.getTime() - lastReadDate.getTime());
-                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-                        
-                        if (diffDays === 1) {
-                          newStreak += 1;
-                        } else {
-                          // Broke streak
-                          if (newStreak >= 7) {
-                            isCracked = true;
-                          }
-                          newStreak = 1;
-                        }
-                      } else {
-                        newStreak = 1;
-                      }
-                      
-                      const updatedProfile = {
-                        ...currentUserProfile,
-                        lastReadDate: todayStr,
-                        daoPillarStreak: newStreak,
-                        daoPillarCracked: isCracked
-                      };
-                      useAppStore.getState().setUserProfile(updatedProfile);
-                      // Fire and forget Firestore update
-                      if (auth.currentUser) {
-                        import('firebase/firestore').then(({ doc, setDoc }) => {
-                          setDoc(doc(db, 'users', auth.currentUser!.uid), {
-                            lastReadDate: todayStr,
-                            daoPillarStreak: newStreak,
-                            daoPillarCracked: isCracked
-                          }, { merge: true });
-                        });
-                      } else {
-                        localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedProfile));
-                      }
-                    }
-                  }
+                  // Dao Pillar (Daily Reading Streak) is now an active check-in mechanic on the UserProfile page.
                 }
                 
                 return {

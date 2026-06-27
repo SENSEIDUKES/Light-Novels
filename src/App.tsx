@@ -59,6 +59,28 @@ function App() {
     return () => unsubscribe();
   }, []);
 
+  // Set HTML lang attribute based on preferred language for native browser UI translation
+  useEffect(() => {
+    const lang = store.userProfile?.preferredLanguage || 'English';
+    const normalized = lang.toLowerCase();
+    let langCode = 'en';
+    if (normalized.includes("simplified chinese") || normalized.includes("简体中文") || (normalized.includes("chinese") && !normalized.includes("traditional"))) langCode = "zh-CN";
+    else if (normalized.includes("traditional chinese") || normalized.includes("繁體中文")) langCode = "zh-TW";
+    else if (normalized.includes("spanish")) langCode = "es";
+    else if (normalized.includes("japanese") || normalized.includes("日本語")) langCode = "ja";
+    else if (normalized.includes("french")) langCode = "fr";
+    else if (normalized.includes("portuguese")) langCode = "pt-BR";
+    else if (normalized.includes("german")) langCode = "de";
+    else if (normalized.includes("korean") || normalized.includes("한국어")) langCode = "ko";
+    else if (normalized.includes("vietnamese") || normalized.includes("tiếng việt")) langCode = "vi";
+    else if (normalized.includes("indonesian") || normalized.includes("bahasa indonesia")) langCode = "id";
+    else if (normalized.includes("thai") || normalized.includes("ภาษาไทย")) langCode = "th";
+    else if (normalized.includes("tagalog") || normalized.includes("filipino")) langCode = "tl";
+    else if (normalized.includes("malay") || normalized.includes("bahasa melayu")) langCode = "ms";
+    
+    document.documentElement.lang = langCode;
+  }, [store.userProfile?.preferredLanguage]);
+
   // Check for unsaved chapter session after initialization
   useEffect(() => {
     if (isInitializing) return;

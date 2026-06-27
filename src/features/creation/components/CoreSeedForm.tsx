@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BookOpen, Sparkles, Wand2, Cloud, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { IntakeData } from '../../../types';
@@ -24,6 +24,98 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
   const [tagSuggestions, setTagSuggestions] = useState<{ suggestedTags: string[]; reasoning: string } | null>(null);
   const [tagSuggestionError, setTagSuggestionError] = useState<string | null>(null);
   const [tagLimitError, setTagLimitError] = useState<string | null>(null);
+
+  // Smart ghost-tag autocomplete suggestions
+  const [ghostSuggestion, setGhostSuggestion] = useState<string | null>(null);
+
+  useEffect(() => {
+    const text = intake.corePremise || '';
+    const activeTags = intake.storyTags || [];
+    
+    if (!text.trim() || activeTags.length >= 20) {
+      setGhostSuggestion(null);
+      return;
+    }
+
+    // 1. Try to find a tag being actively typed as a prefix at the end of the input
+    const lastWordMatch = text.split(/[\s,.;!?]+/).filter(Boolean).pop();
+    if (lastWordMatch && lastWordMatch.length >= 2) {
+      const prefix = lastWordMatch.toLowerCase();
+      const prefixMatch = TAG_PRESETS.find(tag => 
+        tag.toLowerCase().startsWith(prefix) && 
+        !activeTags.includes(tag)
+      );
+      if (prefixMatch) {
+        setGhostSuggestion(prefixMatch);
+        return;
+      }
+    }
+
+    // 2. Try semantic mapping of keywords in the entire prompt text
+    const lowerText = text.toLowerCase();
+    const SEMANTIC_KEYWORD_MAP = [
+      { keywords: ['system', 'cheat', 'status', 'panel', 'attribute', 'litrpg'], tag: 'game systems' },
+      { keywords: ['level', 'progression', 'exp', 'grow', 'ladder', 'rank'], tag: 'level progression' },
+      { keywords: ['cultivat', 'meridian', 'dantian', 'qi ', 'immortal', 'spirit root'], tag: 'cultivation realms' },
+      { keywords: ['regress', 'return', 'back in time', 'years ago', 'loop', 'timeline'], tag: 'regression/reincarnation' },
+      { keywords: ['reincarnat', 'reborn', 'transmigrat', 'isekai', 'another world'], tag: 'reincarnation rules' },
+      { keywords: ['academy', 'school', 'sect school', 'dorm', 'class', 'rankings', 'exam'], tag: 'academy cultivation' },
+      { keywords: ['sect', 'clan', 'faction', 'disciple', 'elder', 'patriarch'], tag: 'sect politics' },
+      { keywords: ['kingdom', 'build', 'territory', 'village', 'town', 'lord', 'ruler'], tag: 'kingdom building' },
+      { keywords: ['alchem', 'pill', 'cauldron', 'elixir', 'herb', 'refine'], tag: 'pill refinement' },
+      { keywords: ['forge', 'weapon', 'sword', 'artifact', 'hammer', 'craft'], tag: 'weapon forging' },
+      { keywords: ['tame', 'beast', 'monster', 'pet', 'animal', 'dragon', 'phoenix'], tag: 'bonded beasts' },
+      { keywords: ['tower', 'dungeon', 'floor', 'boss', 'raid', 'climb'], tag: 'dungeon/tower climb' },
+      { keywords: ['intrigue', 'noble', 'politics', 'court', 'emperor', 'prince', 'king'], tag: 'political intrigue' },
+      { keywords: ['marry', 'marriage', 'romance', 'love', 'wife', 'husband', 'bride', 'groom'], tag: 'arranged marriage' },
+      { keywords: ['enemies', 'lovers', 'hate', 'rivals to lovers'], tag: 'enemies to lovers' },
+      { keywords: ['death', 'die', 'assassinate', 'doom', 'kill', 'murder'], tag: 'death flags' },
+      { keywords: ['curse', 'cursed', 'blessing', 'hex'], tag: 'curse tracking' },
+      { keywords: ['fate', 'destiny', 'karma', 'karmic', 'fated'], tag: 'fate bonds' },
+      { keywords: ['apocalypse', 'zombie', 'collapse', 'ruin', 'camp', 'survival'], tag: 'apocalypse cultivation' },
+      { keywords: ['space', 'star', 'galaxy', 'cosmic', 'void', 'moon', 'stellar'], tag: 'cosmic cultivation' },
+      { keywords: ['cozy', 'slice of life', 'slice-of-life', 'slow life', 'peaceful', 'farm'], tag: 'cozy / slice-of-life cultivation' },
+      { keywords: ['betray', 'backstab', 'trust', 'allies', 'alliance'], tag: 'betrayal fallout' },
+      { keywords: ['rebellion', 'rebel', 'war', 'army', 'battle', 'soldier', 'siege'], tag: 'military strategy' },
+      { keywords: ['slow burn', 'slow-burn'], tag: 'slow-burn romance' }
+    ];
+
+    for (const mapping of SEMANTIC_KEYWORD_MAP) {
+      if (!activeTags.includes(mapping.tag)) {
+        if (mapping.keywords.some(keyword => lowerText.includes(keyword))) {
+          if (TAG_PRESETS.includes(mapping.tag)) {
+            setGhostSuggestion(mapping.tag);
+            return;
+          }
+        }
+      }
+    }
+
+    // 3. Fallback: check if any tag from TAG_PRESETS is directly mentioned in the premise text
+    const mentionedTag = TAG_PRESETS.find(tag => 
+      lowerText.includes(tag.toLowerCase()) && 
+      !activeTags.includes(tag)
+    );
+    if (mentionedTag) {
+      setGhostSuggestion(mentionedTag);
+      return;
+    }
+
+    setGhostSuggestion(null);
+  }, [intake.corePremise, intake.storyTags]);
+
+  const handleAddGhostTag = (tag: string) => {
+    const activeTags = intake.storyTags || [];
+    if (activeTags.length >= 20) {
+      setTagLimitError("Fated limit reached. Only up to 20 celestial tags can be woven into the universe.");
+      return;
+    }
+    if (!activeTags.includes(tag)) {
+      setTagLimitError(null);
+      updateIntake('storyTags', [...activeTags, tag]);
+    }
+    setGhostSuggestion(null);
+  };
 
   const handleSuggestTags = async () => {
     if (!intake.corePremise?.trim()) {
@@ -401,45 +493,89 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
       <div>
         <div className="flex justify-between items-end mb-2">
           <label htmlFor="core-premise-input" className="block font-sc text-xs text-neutral-400 uppercase tracking-widest">Core Premise / Secret Catalyst *</label>
-          <div className="flex gap-1">
-            {PREMISE_SUGGESTIONS.map((_, idx) => (
-              <button key={idx} type="button"  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => updateIntake('corePremise', PREMISE_SUGGESTIONS[idx])} className="bg-neutral-900 hover:bg-neutral-800 text-[10px] text-neutral-400 px-1.5 py-0.5 rounded font-mono">#{idx + 1}</button>
-            ))}
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-mono text-neutral-500">{(intake.corePremise || '').length} / 3000</span>
+            <div className="flex gap-1">
+              {PREMISE_SUGGESTIONS.map((_, idx) => (
+                <button key={idx} type="button"  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => updateIntake('corePremise', PREMISE_SUGGESTIONS[idx])} className="bg-neutral-900 hover:bg-neutral-800 text-[10px] text-neutral-400 px-1.5 py-0.5 rounded font-mono">#{idx + 1}</button>
+              ))}
+            </div>
           </div>
         </div>
-        <textarea id="core-premise-input" required value={intake.corePremise || ''} onChange={(e) => updateIntake('corePremise', e.target.value)} rows={3} placeholder="The main hook or cheat..." className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm resize-none" />
+        <div className="relative">
+          <textarea 
+            id="core-premise-input" 
+            required 
+            maxLength={3000}
+            value={intake.corePremise || ''} 
+            onChange={(e) => updateIntake('corePremise', e.target.value)} 
+            onKeyDown={(e) => {
+              if (e.key === 'Tab' && ghostSuggestion) {
+                e.preventDefault();
+                handleAddGhostTag(ghostSuggestion);
+              }
+            }}
+            rows={3} 
+            placeholder="The main hook or cheat..." 
+            className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm resize-none pr-40" 
+          />
+          <AnimatePresence>
+            {ghostSuggestion && (
+              <motion.button
+                type="button"
+                initial={{ opacity: 0, scale: 0.95, y: 2 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 2 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => handleAddGhostTag(ghostSuggestion)}
+                className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded bg-black/90 border border-portal/40 text-portal hover:text-signal hover:border-portal transition-all flex items-center gap-1.5 text-[10px] font-mono tracking-wider shadow-[0_0_12px_rgba(4,172,255,0.15)] hover:shadow-[0_0_18px_rgba(4,172,255,0.3)] cursor-pointer"
+                title="Click or press Tab to weave this tag into your destiny"
+              >
+                <Sparkles size={11} className="text-portal animate-pulse" />
+                <span>Tab: {ghostSuggestion}</span>
+              </motion.button>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       <div>
-        <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2" htmlFor="a11y-control-${labelCounter}">Desired General Plot Direction (Optional)</label>
-        <textarea value={intake.desiredPlotDirection || ''} onChange={(e) => updateIntake('desiredPlotDirection', e.target.value)} rows={2} placeholder="e.g. Revenge focused, slow sect building, kingdom conquering..." className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm resize-none" id="a11y-control-${labelCounter}" />
+        <div className="flex justify-between items-end mb-2">
+          <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest" htmlFor="desired-plot-direction-input">Desired General Plot Direction (Optional)</label>
+          <span className="text-[10px] font-mono text-neutral-500">{(intake.desiredPlotDirection || '').length} / 1500</span>
+        </div>
+        <textarea id="desired-plot-direction-input" maxLength={1500} value={intake.desiredPlotDirection || ''} onChange={(e) => updateIntake('desiredPlotDirection', e.target.value)} rows={2} placeholder="e.g. Revenge focused, slow sect building, kingdom conquering..." className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm resize-none" />
       </div>
 
       <div>
-        <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2" htmlFor="a11y-control-${labelCounter}">Estimated Arcs (Story Length)</label>
+        <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2" htmlFor="estimated-arcs-input">Estimated Arcs (Story Length)</label>
         <p className="text-neutral-500 font-sans text-xs mb-3 leading-relaxed">
           How long should this story run? (Highschool Drama ~3-4, Epic Fantasy ~10-20+). Leave blank for the system to guess based on premise.
         </p>
         <input 
+          id="estimated-arcs-input"
           type="number" 
           value={intake.estimatedArcs || ''} 
           onChange={(e) => updateIntake('estimatedArcs', e.target.value ? parseInt(e.target.value) : undefined)} 
           placeholder="e.g. 5" 
           min="1"
           max="100"
-          className="w-full sm:w-1/3 bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm" id="a11y-control-${labelCounter}" 
+          className="w-full sm:w-1/3 bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm" 
         />
       </div>
 
       <div>
-        <label className="block flex gap-2 items-center font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2" htmlFor="a11y-control-${labelCounter}">
-          Destined Ending (Optional)
-          <span className="text-[9px] font-mono lowercase bg-portal/10 text-portal px-1.5 py-0.5 rounded border border-portal/20">NEW</span>
-        </label>
+        <div className="flex justify-between items-end mb-2">
+          <label className="block flex gap-2 items-center font-sc text-xs text-neutral-400 uppercase tracking-widest" htmlFor="destined-ending-input">
+            Destined Ending (Optional)
+            <span className="text-[9px] font-mono lowercase bg-portal/10 text-portal px-1.5 py-0.5 rounded border border-portal/20">NEW</span>
+          </label>
+          <span className="text-[10px] font-mono text-neutral-500">{(intake.destinedEnding || '').length} / 1500</span>
+        </div>
         <p className="text-neutral-500 font-sans text-xs mb-3 leading-relaxed">
           The intended final destination of this story or arc. If left blank, the system will recommend a fitting destined ending (e.g., Kingdom Collapse, Final Ascension, or Fated Separation) based on your genre and premise. You can alter this outcome later!
         </p>
-        <textarea value={intake.destinedEnding || ''} onChange={(e) => updateIntake('destinedEnding', e.target.value)} rows={2} placeholder="e.g. The kingdom falls, the MC ascends to godhood, or the lovers are separated..." className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm resize-none" id="a11y-control-${labelCounter}" />
+        <textarea id="destined-ending-input" maxLength={1500} value={intake.destinedEnding || ''} onChange={(e) => updateIntake('destinedEnding', e.target.value)} rows={2} placeholder="e.g. The kingdom falls, the MC ascends to godhood, or the lovers are separated..." className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm resize-none" />
       </div>
     </FormSection>
   );

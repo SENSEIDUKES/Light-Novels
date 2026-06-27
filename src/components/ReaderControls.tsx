@@ -175,7 +175,7 @@ export function ReaderControls({
 
             {/* Mobile Immersion Tooltip */}
             {showImmersionPopover && (
-              <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-[280px] bg-black/95 backdrop-blur-md border border-neutral-850 rounded-xl shadow-[0_4px_30px_rgba(0,0,0,0.8)] p-4 z-50 text-sans text-left">
+              <div className="fixed bottom-24 left-4 right-4 sm:absolute sm:bottom-full sm:mb-3 sm:left-1/2 sm:-translate-x-1/2 sm:w-[280px] w-auto max-h-[70vh] overflow-y-auto bg-black/95 backdrop-blur-md border border-neutral-850 rounded-xl shadow-[0_4px_30px_rgba(0,0,0,0.8)] p-4 z-50 text-sans text-left">
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-neutral-900 pb-2 mb-3">
                   <h4 className="text-[10px] uppercase font-sc text-portal tracking-wider font-bold">

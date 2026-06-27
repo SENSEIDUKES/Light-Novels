@@ -1348,7 +1348,7 @@ app.post("/api/translate-chapter", validateBody(translateChapterSchema), async (
 
     const langMapForDeepL: Record<string, string> = {
       'zh-CN': 'ZH',
-      'zh-TW': 'ZH',
+      'zh-TW': 'ZH-TW',
       'ko': 'KO',
       'es': 'ES',
       'fr': 'FR',
@@ -1416,8 +1416,10 @@ Maintain the literary style, formatting, system tags (e.g., [SFX:...]), and keep
 
 Text to translate:
 ${englishText}
+
+You must return a JSON object with a single "translatedText" key containing the translated string.
 `;
-      const systemInstruction = `You are an expert translator specializing in fantasy, wuxia, and xianxia light novels. Keep translations immersive, descriptive, and accurate to the genre. Do not include raw translation notes or metadata tags inside the final text.`;
+      const systemInstruction = `You are an expert translator specializing in fantasy, wuxia, and xianxia light novels. Keep translations immersive, descriptive, and accurate to the genre. Return ONLY valid JSON.`;
       
       const data = await routeTextGeneration(
         "storyMaker",
@@ -1427,7 +1429,7 @@ ${englishText}
         routingConfig,
         getCustomKeys(req)
       );
-      finalTranslatedText = data.text || englishText;
+      finalTranslatedText = data.translatedText || data.text || englishText;
     }
 
     return res.json({

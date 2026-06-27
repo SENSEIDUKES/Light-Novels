@@ -127,6 +127,12 @@ export const CodexHovercard: React.FC<CodexHovercardProps> = ({ term, type, entr
   const getBorderColor = () => theme.border;
 
   const getTextStyles = () => {
+    const highlightStyle = activeStory?.readerPreferences?.highlightStyle || 'full';
+    if (highlightStyle === 'underline') {
+      return `${theme.text} font-medium px-0.5 cursor-pointer transition-colors border-b border-dashed ${theme.border} hover:bg-neutral-800/10`;
+    } else if (highlightStyle === 'tint') {
+      return `${theme.text} font-medium px-0.5 cursor-pointer transition-all duration-300 hover:bg-neutral-800/10 rounded-sm`;
+    }
     return `${theme.text} ${theme.bg} font-medium px-1 rounded-sm cursor-pointer ${theme.hoverBg} transition-colors border-b ${theme.border}`;
   };
 

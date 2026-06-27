@@ -61,12 +61,31 @@ export const CustomFactionsForm = ({ intake, updateIntake, activeSection, setAct
                 }} placeholder="e.g. Righteous, Demonic, Neutral..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-${labelCounter}" />
               </div>
               <div className="md:col-span-2">
-                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-${labelCounter}">Connection to MC</label>
-                <input type="text" value={faction.connectionToMC || ''} onChange={(e) => {
+                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor={`mc-faction-connection-${faction.id}`}>Connection to MC</label>
+                <input type="text" id={`mc-faction-connection-${faction.id}`} value={faction.connectionToMC || ''} onChange={(e) => {
                   const newFactions = [...(intake.customFactions || [])];
                   newFactions[index].connectionToMC = e.target.value;
                   updateIntake('customFactions', newFactions);
-                }} placeholder="e.g. MC's starting sect, Sworn enemies..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-${labelCounter}" />
+                }} placeholder="e.g. MC's starting sect, Sworn enemies..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" />
+              </div>
+              <div className="col-span-1 sm:col-span-2 md:col-span-3">
+                <div className="flex justify-between items-end mb-1">
+                  <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest" htmlFor={`faction-description-${faction.id}`}>Detailed Description & Hierarchy</label>
+                  <span className="text-[9px] font-mono text-neutral-500">{(faction.description || '').length} / 1200</span>
+                </div>
+                <textarea 
+                  id={`faction-description-${faction.id}`} 
+                  value={faction.description || ''} 
+                  onChange={(e) => {
+                    const newFactions = [...(intake.customFactions || [])];
+                    newFactions[index] = { ...newFactions[index], description: e.target.value };
+                    updateIntake('customFactions', newFactions);
+                  }} 
+                  maxLength={1200} 
+                  rows={2} 
+                  placeholder="Organizational hierarchy, core beliefs, regional influence, elders, hidden rules..." 
+                  className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-3 py-2 focus:border-portal outline-none transition-colors resize-none" 
+                />
               </div>
             </div>
           </div>
@@ -75,7 +94,7 @@ export const CustomFactionsForm = ({ intake, updateIntake, activeSection, setAct
           <button
             type="button"
              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-              const newFactions = [...(intake.customFactions || []), { id: crypto.randomUUID(), name: '', role: '', powerLevel: '', alignment: '', connectionToMC: '' }];
+              const newFactions = [...(intake.customFactions || []), { id: crypto.randomUUID(), name: '', role: '', powerLevel: '', alignment: '', connectionToMC: '', description: '' }];
               updateIntake('customFactions', newFactions);
             }}
             className="w-full py-2 border border-dashed border-neutral-800 hover:border-[#04ACFF]/50 hover:bg-[#04ACFF]/5 text-neutral-400 hover:text-[#04ACFF] font-sc text-xs uppercase tracking-widest transition-all rounded"

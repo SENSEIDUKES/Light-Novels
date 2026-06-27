@@ -85,12 +85,31 @@ export const CustomCharactersForm = ({ intake, updateIntake, activeSection, setA
                 }} placeholder="e.g. Sect Elder, Rogue..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-${labelCounter}" />
               </div>
               <div>
-                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-${labelCounter}">Connection to MC</label>
+                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor={`mc-char-connection-${char.id}`}>Connection to MC</label>
                 <input type="text" value={char.connectionToMC || ''} onChange={(e) => {
                   const newChars = [...(intake.customCharacters || [])];
                   newChars[index].connectionToMC = e.target.value;
                   updateIntake('customCharacters', newChars);
-                }} placeholder="e.g. Rival, Foe, Ally..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-${labelCounter}" />
+                }} placeholder="e.g. Rival, Foe, Ally..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id={`mc-char-connection-${char.id}`} />
+              </div>
+              <div className="col-span-1 sm:col-span-2 md:col-span-4">
+                <div className="flex justify-between items-end mb-1">
+                  <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest" htmlFor={`char-bio-${char.id}`}>Biography & Traits</label>
+                  <span className="text-[9px] font-mono text-neutral-500">{(char.bio || '').length} / 2000</span>
+                </div>
+                <textarea 
+                  id={`char-bio-${char.id}`} 
+                  value={char.bio || ''} 
+                  onChange={(e) => {
+                    const newChars = [...(intake.customCharacters || [])];
+                    newChars[index] = { ...newChars[index], bio: e.target.value };
+                    updateIntake('customCharacters', newChars);
+                  }} 
+                  maxLength={2000} 
+                  rows={2} 
+                  placeholder="Vivid biography, personality quirks, hidden talents, major flaws, or specific fated actions..." 
+                  className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-3 py-2 focus:border-portal outline-none transition-colors resize-none" 
+                />
               </div>
             </div>
           </div>
@@ -99,7 +118,7 @@ export const CustomCharactersForm = ({ intake, updateIntake, activeSection, setA
           <button
             type="button"
              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-              const newChars = [...(intake.customCharacters || []), { id: crypto.randomUUID(), name: '', age: '', skinTone: '', eyeColor: '', powerType: '', rankLevel: '', role: '', connectionToMC: '' }];
+              const newChars = [...(intake.customCharacters || []), { id: crypto.randomUUID(), name: '', age: '', skinTone: '', eyeColor: '', powerType: '', rankLevel: '', role: '', connectionToMC: '', bio: '' }];
               updateIntake('customCharacters', newChars);
             }}
             className="w-full py-2 border border-dashed border-neutral-800 hover:border-[#04ACFF]/50 hover:bg-[#04ACFF]/5 text-neutral-400 hover:text-[#04ACFF] font-sc text-xs uppercase tracking-widest transition-all rounded"

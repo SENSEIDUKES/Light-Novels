@@ -83,7 +83,7 @@ const FATE_TYPES: FateType[] = [
   }
 ];
 
-export const FateSurvivalExplanation: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
+export const FateSurvivalExplanation: React.FC<{ compact?: boolean }> = React.memo(({ compact = false }) => {
   const [selectedFate, setSelectedFate] = useState<number | null>(null);
 
   return (
@@ -191,4 +191,4 @@ export const FateSurvivalExplanation: React.FC<{ compact?: boolean }> = ({ compa
       </div>
     </div>
   );
-};
+});

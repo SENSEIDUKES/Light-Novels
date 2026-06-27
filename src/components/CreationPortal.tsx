@@ -61,6 +61,7 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
     secretAdvantage: '',
     startingWeakness: '',
     moralAlignment: '',
+    mcBio: '',
     customCharacters: [],
     customFactions: [],
     startingPowerConcept: '',

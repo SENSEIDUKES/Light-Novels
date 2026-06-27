@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AgentBadge } from '../AgentBadge';
 import { AGENTS } from '../../lib/agents';
 import { useCodex } from './CodexContext';
+import { useAppStore } from '../../store/useAppStore';
 
 const handleDownload = async (url: string, filename: string) => {
   try {
@@ -58,6 +59,16 @@ export function LivingCodexCharacters({
     handleAwakenCardImage,
     getPowerRankScore
   } = useCodex();
+
+  const { userProfile } = useAppStore();
+  const isHubStory = activeStory?.id ? (
+    activeStory.id.startsWith('demo-matrix-') || 
+    activeStory.id.startsWith('challenge-') || 
+    activeStory.id.includes('demo-matrix-') || 
+    activeStory.id.includes('challenge-')
+  ) : false;
+  const isFreeUser = !userProfile || !userProfile.premiumTier || userProfile.premiumTier === 'free';
+  const isFreeUserOnHubStory = isFreeUser && isHubStory;
 
   const [charViewStyle, setCharViewStyle] = useState<'cards' | 'profiles'>('cards');
   const [editingCharId, setEditingCharId] = useState<string | null>(null);
@@ -233,7 +244,7 @@ export function LivingCodexCharacters({
                       const hasAppeared = char.firstAppeared === undefined || char.firstAppeared <= currentChapter;
                       const cScore = (getPowerRankScore || (() => ({ score: 0, title: '' })))(char.powerLevel);
                       const activePreview = previews[char.id];
-                      const canGenerate = hasAppeared && (!hasImage || char.evolutionReady);
+                      const canGenerate = hasAppeared && (!hasImage || char.evolutionReady) && !isFreeUserOnHubStory;
                       const displayedImage = activePreview ? activePreview.urls[activePreview.selectedIndex] : char.imageUrl;
                       
                       return (
@@ -379,7 +390,7 @@ export function LivingCodexCharacters({
                                     ? 'bg-portal border-portal text-void shadow-[0_0_10px_rgba(4,172,255,0.4)]'
                                     : 'bg-void border-portal/15 text-portal hover:border-portal hover:bg-portal/5 hover:shadow-[0_0_8px_rgba(4,172,255,0.2)]'
                                 }`}
-                                title={!hasAppeared ? "Unlock manifestation by encountering them in the story." : !canGenerate ? "Evolution requires further story progression." : ""}
+                                title={!hasAppeared ? "Unlock manifestation by encountering them in the story." : isFreeUserOnHubStory ? "Please Ascend to the Inner Sect to customize this original codex portrait." : !canGenerate ? "Evolution requires further story progression." : ""}
                               >
                                   {isGenerating ? (
                                     <>
@@ -389,7 +400,17 @@ export function LivingCodexCharacters({
                                   ) : (
                                     <>
                                       <Sparkles size={10} className={char.evolutionReady ? 'text-void' : 'text-portal'} />
-                                      <span>{!hasAppeared ? 'Undiscovered' : char.evolutionReady ? 'Awaken Evolution' : hasImage ? 'Requires Progression' : 'Awaken Portrait'}</span>
+                                      <span>
+                                        {!hasAppeared 
+                                          ? 'Undiscovered' 
+                                          : isFreeUserOnHubStory 
+                                          ? (hasImage ? 'Portrait Active' : 'Portrait Locked (Free)') 
+                                          : char.evolutionReady 
+                                          ? 'Awaken Evolution' 
+                                          : hasImage 
+                                          ? 'Requires Progression' 
+                                          : 'Awaken Portrait'}
+                                      </span>
                                     </>
                                   )}
                                 </button>
@@ -477,7 +498,7 @@ export function LivingCodexCharacters({
                         const currentChapter = activeStory.currentChapterNumber || 1;
                         const hasAppeared = loc.firstAppeared === undefined || loc.firstAppeared <= currentChapter;
                         const activePreview = previews[loc.id];
-                        const canGenerate = hasAppeared && (!hasImage || loc.evolutionReady);
+                        const canGenerate = hasAppeared && (!hasImage || loc.evolutionReady) && !isFreeUserOnHubStory;
                         const displayedImage = activePreview ? activePreview.urls[activePreview.selectedIndex] : loc.imageUrl;
 
                         return (
@@ -572,7 +593,7 @@ export function LivingCodexCharacters({
                                   >
                                     Purge Node
                                   </button>
-                                  <button
+                                   <button
                                     onClick={() => handleAwakenCardImage(loc.id, 'location', loc as any)}
                                     disabled={isGenerating || !canGenerate}
                                     className={`px-2 flex-grow py-1 rounded text-[8.5px] border uppercase font-mono tracking-wider flex items-center justify-center space-x-1 font-bold ${
@@ -584,7 +605,7 @@ export function LivingCodexCharacters({
                                         ? 'bg-portal border-portal text-void shadow-[0_0_10px_rgba(4,172,255,0.4)]'
                                         : 'bg-void border-portal/15 text-portal hover:border-portal hover:bg-portal/5 hover:shadow-[0_0_8px_rgba(4,172,255,0.2)]'
                                     }`}
-                                    title={!hasAppeared ? "Unlock manifestation by encountering it in the story." : !canGenerate ? "Progression required to awaken further vistas." : ""}
+                                    title={!hasAppeared ? "Unlock manifestation by encountering it in the story." : isFreeUserOnHubStory ? "Please Ascend to the Inner Sect to customize this original scenery portrait." : !canGenerate ? "Progression required to awaken further vistas." : ""}
                                   >
                                         {isGenerating ? (
                                           <>
@@ -594,7 +615,17 @@ export function LivingCodexCharacters({
                                         ) : (
                                           <>
                                             <Compass size={8} className={loc.evolutionReady ? 'text-void' : 'text-portal'} />
-                                            <span>{!hasAppeared ? 'Undiscovered' : loc.evolutionReady ? 'Awaken Evolution' : hasImage ? 'Requires Progression' : 'Awaken Vistas'}</span>
+                                            <span>
+                                              {!hasAppeared 
+                                                ? 'Undiscovered' 
+                                                : isFreeUserOnHubStory 
+                                                ? (hasImage ? 'Vista Active' : 'Vista Locked (Free)') 
+                                                : loc.evolutionReady 
+                                                ? 'Awaken Evolution' 
+                                                : hasImage 
+                                                ? 'Requires Progression' 
+                                                : 'Awaken Vistas'}
+                                            </span>
                                           </>
                                         )}
                                       </button>

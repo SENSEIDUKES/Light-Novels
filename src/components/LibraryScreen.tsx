@@ -222,10 +222,10 @@ export const LibraryScreen: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex space-x-6 border-b border-neutral-900 mt-8 mb-6">
+      <div className="flex space-x-4 sm:space-x-6 border-b border-neutral-900 mt-8 mb-6 overflow-x-auto custom-scrollbar pb-1">
         <button 
            tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setActiveTab('featured')}
-          className={`pb-3 px-1 text-sm font-sc font-bold uppercase tracking-wider border-b-2 transition-all ${
+          className={`pb-3 px-1 text-xs sm:text-sm whitespace-nowrap font-sc font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 ${
             activeTab === 'featured' ? 'border-portal text-portal' : 'border-transparent text-neutral-500 hover:text-neutral-300'
           }`}
         >
@@ -233,7 +233,7 @@ export const LibraryScreen: React.FC = () => {
         </button>
         <button 
           onClick={() => setActiveTab('my-library')}
-          className={`pb-3 px-1 text-sm font-sc font-bold uppercase tracking-wider border-b-2 transition-all ml-2 md:ml-4 ${
+          className={`pb-3 px-1 text-xs sm:text-sm whitespace-nowrap font-sc font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 ${
             activeTab === 'my-library' ? 'border-gold-accent text-gold-accent' : 'border-transparent text-neutral-500 hover:text-neutral-300'
           }`}
         >
@@ -241,7 +241,7 @@ export const LibraryScreen: React.FC = () => {
         </button>
         <button 
           onClick={() => setActiveTab('challenges')}
-          className={`pb-3 px-1 text-sm font-sc font-bold uppercase tracking-wider border-b-2 transition-all ml-2 md:ml-4 ${
+          className={`pb-3 px-1 text-xs sm:text-sm whitespace-nowrap font-sc font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 ${
             activeTab === 'challenges' ? 'border-portal text-portal' : 'border-transparent text-neutral-500 hover:text-neutral-300'
           }`}
         >
@@ -268,7 +268,7 @@ export const LibraryScreen: React.FC = () => {
                   </span>
                 </div>
               </div>
-              <div className="flex-1 space-y-3 p-1">
+              <div className="flex-1 min-w-0 w-full space-y-3 p-1">
                 <div>
                   <h4 className="font-display font-bold text-xl sm:text-2xl text-signal leading-tight line-clamp-1">
                     {mostRecentStory.title}

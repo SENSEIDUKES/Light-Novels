@@ -144,17 +144,31 @@ export function useReaderPlayback({
         setAvailableVoices(voices);
 
         if (voices.length > 0) {
-          const defaultVoice =
-            voices.find((v) => v.lang.includes("en-US") && v.name.toLowerCase().includes("google")) ||
-            voices.find((v) => v.lang.includes("en-US")) ||
-            voices.find((v) => v.lang.includes("en")) ||
-            voices.find((v) => v.lang.includes("zh")) ||
-            voices[0];
-          setSelectedVoiceURI(defaultVoice?.voiceURI || "");
+          setSelectedVoiceURI((current) => {
+            if (current && voices.some((v) => v.voiceURI === current)) {
+              return current;
+            }
+            const defaultVoice =
+              voices.find((v) => v.name.toLowerCase().includes("daniel")) ||
+              voices.find((v) => v.lang.includes("en-US") && v.name.toLowerCase().includes("google")) ||
+              voices.find((v) => v.lang.includes("en-US")) ||
+              voices.find((v) => v.lang.includes("en")) ||
+              voices.find((v) => v.lang.includes("zh")) ||
+              voices[0];
+            return defaultVoice?.voiceURI || "";
+          });
 
-          const dialogueVoice =
-            voices.find((v) => v.voiceURI !== defaultVoice?.voiceURI && v.lang.includes("en")) || defaultVoice;
-          setSelectedDialogueVoiceURI(dialogueVoice?.voiceURI || "");
+          setSelectedDialogueVoiceURI((current) => {
+            if (current && voices.some((v) => v.voiceURI === current)) {
+              return current;
+            }
+            const defaultVoiceURI = voices.find((v) => v.name.toLowerCase().includes("daniel"))?.voiceURI || "";
+            const dialogueVoice =
+              voices.find((v) => v.name.toLowerCase().includes("rishi")) ||
+              voices.find((v) => v.voiceURI !== defaultVoiceURI && v.lang.includes("en")) ||
+              voices[0];
+            return dialogueVoice?.voiceURI || "";
+          });
         }
       };
 

@@ -141,7 +141,13 @@ export default function ReaderChamber({
   const setReaderMode = useAppStore((state) => state.setReaderMode);
   const setImmersion = useAppStore((state) => state.setImmersion);
 
-  const { handleManifestReveal, generatingRevealId, codexTerms } = useReaderVisuals({
+  const { 
+    handleManifestReveal, 
+    generatingRevealId, 
+    codexTerms,
+    manifestChapterHero,
+    generatingIds
+  } = useReaderVisuals({
     selectedChapter,
     activeStory,
     readerMode
@@ -157,17 +163,20 @@ export default function ReaderChamber({
     if (!lang) return "en";
     const normalized = lang.toLowerCase();
     if (normalized.includes("spanish")) return "es";
-    if (normalized.includes("chinese")) return "zh-CN";
-    if (normalized.includes("japanese")) return "ja";
+    if (normalized.includes("simplified chinese") || normalized.includes("简体中文") || normalized.includes("chinese") && !normalized.includes("traditional")) return "zh-CN";
+    if (normalized.includes("traditional chinese") || normalized.includes("繁體中文")) return "zh-TW";
+    if (normalized.includes("japanese") || normalized.includes("日本語")) return "ja";
     if (normalized.includes("french")) return "fr";
     if (normalized.includes("portuguese")) return "pt-BR";
     if (normalized.includes("german")) return "de";
     if (normalized.includes("italian")) return "it";
-    if (normalized.includes("korean")) return "ko";
+    if (normalized.includes("korean") || normalized.includes("한국어")) return "ko";
     if (normalized.includes("russian")) return "ru";
-    if (normalized.includes("vietnamese")) return "vi";
-    if (normalized.includes("indonesian")) return "id";
-    if (normalized.includes("thai")) return "th";
+    if (normalized.includes("vietnamese") || normalized.includes("tiếng việt")) return "vi";
+    if (normalized.includes("indonesian") || normalized.includes("bahasa indonesia")) return "id";
+    if (normalized.includes("thai") || normalized.includes("ภาษาไทย")) return "th";
+    if (normalized.includes("tagalog") || normalized.includes("filipino")) return "tl";
+    if (normalized.includes("malay") || normalized.includes("bahasa melayu")) return "ms";
     if (normalized.includes("arabic")) return "ar";
     if (normalized.includes("hindi")) return "hi";
     return "en";
@@ -953,6 +962,8 @@ export default function ReaderChamber({
         codexTerms={codexTerms}
         generatingRevealId={generatingRevealId}
         handleManifestReveal={handleManifestReveal}
+        manifestChapterHero={manifestChapterHero}
+        generatingIds={generatingIds}
         
         readerMode={readerMode}
         immersion={immersion}

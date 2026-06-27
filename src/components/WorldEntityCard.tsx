@@ -8,7 +8,7 @@ interface WorldEntityCardProps {
   card: WorldCardEvent;
 }
 
-export const WorldEntityCard: React.FC<WorldEntityCardProps> = ({ card }) => {
+export const WorldEntityCard: React.FC<WorldEntityCardProps> = React.memo(({ card }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -165,4 +165,4 @@ export const WorldEntityCard: React.FC<WorldEntityCardProps> = ({ card }) => {
       </div>
     </motion.div>
   );
-};
+});

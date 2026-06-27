@@ -226,7 +226,7 @@ interface SystemBlockProps extends React.HTMLAttributes<HTMLDivElement> {
   system?: SystemEvent;
 }
 
-export function SystemBlock({ content, system, className, ...props }: SystemBlockProps) {
+export const SystemBlock = React.memo(function SystemBlock({ content, system, className, ...props }: SystemBlockProps) {
   const { onAnimationStart, onDrag, onDragStart, onDragEnd, ...safeProps } = props;
 
   const isIronFate = (system?.title || '').toLowerCase().includes('iron fate') || 
@@ -338,4 +338,4 @@ export function SystemBlock({ content, system, className, ...props }: SystemBloc
       <span className="opacity-90">{text}</span>
     </div>
   );
-}
+});

@@ -100,7 +100,7 @@ export interface DaoXpEvent {
 export interface GeneratedImage {
   id: string;
   entityId: string;
-  entityType: "cover" | "character" | "beast" | "location" | "artifact";
+  entityType: "cover" | "character" | "beast" | "location" | "artifact" | "chapterHero";
   imageUrl: string;
   chapterNumber?: number;
   arcTitle?: string;
@@ -500,6 +500,7 @@ export interface ReaderPreferences {
   paragraphSpacing: "normal" | "wide" | "double";
   themeOverride?: "void" | "crimson" | "abyss" | "sepia" | "emerald";
   colorPaletteId?: "default" | "protanopia" | "deuteranopia" | "tritanopia" | "high_contrast_dark";
+  highlightStyle?: "full" | "underline" | "tint";
 }
 
 export interface ReaderAccessibilitySettings {
@@ -545,6 +546,7 @@ export interface IntakeCharacter {
   rankLevel?: string;
   role?: string;
   connectionToMC?: string;
+  bio?: string;
 }
 
 export interface IntakeFaction {
@@ -554,6 +556,7 @@ export interface IntakeFaction {
   powerLevel?: string;
   alignment?: string;
   connectionToMC?: string;
+  description?: string;
 }
 
 export interface IntakeData {
@@ -581,6 +584,7 @@ export interface IntakeData {
   secretAdvantage?: string;
   startingWeakness?: string;
   moralAlignment?: string;
+  mcBio?: string;
 
   // 3.5. Character Intake
   customCharacters?: IntakeCharacter[];

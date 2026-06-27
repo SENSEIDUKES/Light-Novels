@@ -9,6 +9,7 @@ import { vibrate } from '../lib/vibration';
 import { StoryMemory, Character, StoryArc, StoryWorld, Chapter, MultiModelRouting, GeneratedImage } from '../types';
 import { secureStorage } from '../lib/encryption';
 import { CodexProvider } from './codex/CodexContext';
+import { LivingCodexCollage } from './codex/LivingCodexCollage';
 import { LivingCodexCharacters } from './codex/LivingCodexCharacters';
 import { LivingCodexRelations } from './codex/LivingCodexRelations';
 import { LivingCodexPower } from './codex/LivingCodexPower';
@@ -404,6 +405,19 @@ export default function LivingCodex({
     }
 
     try {
+      const userProfile = useAppStore.getState().userProfile;
+      const isHubStory = activeStory?.id ? (
+        activeStory.id.startsWith('demo-matrix-') || 
+        activeStory.id.startsWith('challenge-') || 
+        activeStory.id.includes('demo-matrix-') || 
+        activeStory.id.includes('challenge-')
+      ) : false;
+      const isFreeUser = !userProfile || !userProfile.premiumTier || userProfile.premiumTier === 'free';
+      if (isFreeUser && isHubStory) {
+        pushNotification("Ascend to the Inner Sect to customize hub story visual representations!");
+        throw new Error("Free tier users cannot customize the original codex of hub stories.");
+      }
+
       await checkAndConsumeImageQuota();
 
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -836,13 +850,23 @@ export default function LivingCodex({
         {/* PAGE 1: PORTRAITS (Characters & Beasts, Locations, Timeline Recaps, Factions) */}
         {activePage === 'portraits' && (
           <div className="space-y-8 pb-8">
-            <LivingCodexCharacters
-              charsToRender={charsToRender}
-              locationsToRender={locationsToRender}
-              setDeletePrompt={setDeletePrompt}
-              selectedNodeChar={selectedNodeChar}
-              setSelectedNodeChar={setSelectedNodeChar}
+            {/* Chronicle Photo Memory Collage Album */}
+            <LivingCodexCollage
+              activeStory={activeStory}
+              memory={memory}
+              onJumpToChapter={onJumpToChapter}
+              onSwitchTab={onSwitchTab}
             />
+
+            <div className="border-t border-neutral-900 pt-6">
+              <LivingCodexCharacters
+                charsToRender={charsToRender}
+                locationsToRender={locationsToRender}
+                setDeletePrompt={setDeletePrompt}
+                selectedNodeChar={selectedNodeChar}
+                setSelectedNodeChar={setSelectedNodeChar}
+              />
+            </div>
             
             <div className="border-t border-neutral-900 pt-6">
               <LivingCodexFactions

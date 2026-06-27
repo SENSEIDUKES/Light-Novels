@@ -14,7 +14,7 @@ interface Particle {
   rotationSpeed?: number;
 }
 
-export const CelestialParticleShower: React.FC = () => {
+export const CelestialParticleShower: React.FC = React.memo(() => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -137,4 +137,4 @@ export const CelestialParticleShower: React.FC = () => {
       className="absolute inset-0 w-full h-full pointer-events-none z-0 mix-blend-screen"
     />
   );
-};
+});

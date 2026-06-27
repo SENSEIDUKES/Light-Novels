@@ -167,6 +167,22 @@ export function useImageManifest() {
       const selectedUrl = newImageUrls[0];
 
       if (activeStory) {
+        const newHistoryItem = {
+          id: Math.random().toString(36).substring(2, 10),
+          entityId: `chapter-hero-${chapterNumber}`,
+          entityType: 'chapterHero' as const,
+          imageUrl: selectedUrl,
+          promptUsed: promptText,
+          createdAt: new Date().toISOString(),
+          isCurrent: true,
+          chapterNumber: chapterNumber
+        };
+
+        const currentStoryHistory = activeStory.imageHistory || [];
+        const updatedStoryHistory = currentStoryHistory
+          .map((img: any) => img.entityId === `chapter-hero-${chapterNumber}` ? { ...img, isCurrent: false } : img)
+          .concat(newHistoryItem);
+
         const updatedStories = stories.map(s => {
           if (s.id === activeStoryId) {
             const updatedArcs = s.arcs.map(arc => ({
@@ -188,6 +204,7 @@ export function useImageManifest() {
             return {
               ...s,
               arcs: updatedArcs,
+              imageHistory: updatedStoryHistory,
               updatedAt: new Date().toISOString()
             };
           }

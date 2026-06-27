@@ -7,7 +7,7 @@ interface FateResultCardProps {
   data: FateResultData;
 }
 
-export function FateResultCard({ data }: FateResultCardProps) {
+export const FateResultCard = React.memo(function FateResultCard({ data }: FateResultCardProps) {
   let themeColor = '';
   let Icon = Flame;
   let bgEffect = '';
@@ -112,4 +112,4 @@ export function FateResultCard({ data }: FateResultCardProps) {
       </div>
     </motion.div>
   );
-}
+});

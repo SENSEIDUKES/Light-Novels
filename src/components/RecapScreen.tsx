@@ -27,6 +27,15 @@ export const RecapScreen: React.FC<RecapScreenProps> = ({ story, lastReadChapter
 
   if (recentChapters.length === 0) return null;
 
+  const getShortSummary = (summaryText: string): string => {
+    if (!summaryText) return "The journey evolved rapidly.";
+    const sentences = summaryText.match(/[^.!?]+[.!?]+(\s|$)/g);
+    if (!sentences || sentences.length <= 3) {
+      return summaryText.trim();
+    }
+    return sentences.slice(0, 3).join("").trim();
+  };
+
   return (
     <AnimatePresence>
       {show && (
@@ -68,7 +77,7 @@ export const RecapScreen: React.FC<RecapScreenProps> = ({ story, lastReadChapter
                       Chapter {ch.number}: {ch.title}
                     </p>
                     <p className="text-signal font-serif text-sm sm:text-base md:text-lg leading-relaxed shadow-portal/10 drop-shadow-md">
-                      {ch.summary || "The journey evolved rapidly."}
+                      {getShortSummary(ch.summary || "")}
                     </p>
                   </motion.div>
                 ))}

@@ -8,7 +8,7 @@ interface AgentBadgeProps {
   isWorking?: boolean;
 }
 
-export const AgentBadge: React.FC<AgentBadgeProps> = ({ agent, task, isWorking = true }) => {
+export const AgentBadge: React.FC<AgentBadgeProps> = React.memo(({ agent, task, isWorking = true }) => {
   return (
     <div className="flex flex-col items-center justify-center space-y-4 max-w-sm w-full mx-auto">
       {/* Agent Character with animations */}
@@ -97,4 +97,4 @@ export const AgentBadge: React.FC<AgentBadgeProps> = ({ agent, task, isWorking =
       </div>
     </div>
   );
-};
+});

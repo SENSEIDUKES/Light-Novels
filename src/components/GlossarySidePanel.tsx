@@ -114,6 +114,11 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
                 <option value="zh-TW">Chinese (Traditional)</option>
                 <option value="ja">Japanese</option>
                 <option value="ko">Korean</option>
+                <option value="vi">Vietnamese</option>
+                <option value="id">Indonesian</option>
+                <option value="th">Thai</option>
+                <option value="tl">Tagalog (Filipino)</option>
+                <option value="ms">Malay</option>
                 <option value="es">Spanish</option>
                 <option value="fr">French</option>
                 <option value="hi">Hindi</option>

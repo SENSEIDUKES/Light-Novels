@@ -238,7 +238,7 @@ ${withCue ? `Also allow narrative cue payloads to carry normalized story metadat
 ${!withCue ? `You must return a JSON object with the following fields:
 {
   "chapterText": "The fully formatted narrative text of the chapter. Use double newlines for paragraph breaks so the reader displays it beautifully.",
-  "summary": "A detailed 1-2 paragraph summary of the exact events, conversations, and physical movements that transpired in this chapter to store in our historical archive.",
+  "summary": "A highly concise summary of the physical events that transpired in this chapter. This summary MUST be strictly 1 to 3 sentences max.",
   "arcSummary": "A rolling 2-3 sentence highly concise overview of the ENTIRE current arc up to (and including) this chapter's events. Acts as a coarse history block.",
   "statsChangeMessage": "A short status upgrade notification (e.g. '[System Breakthrough: Qi Condensation Rank 2 reached. Meridians purified!]', or 'None')",
   "cuePayload": { "intensity": 0.8, "tension": 0.5, "powerShift": 1, "emotion": "awe", "danger": 0.2, "mysticism": 0.9, "element": "void", "relationshipShift": 0, "signature": "celestial_chime" },
@@ -247,7 +247,7 @@ ${!withCue ? `You must return a JSON object with the following fields:
     "newCharacters": [],
     "characterStatusUpdates": [],
     "relationshipUpdates": [],
-    "powerSystemViolationFlags": ["Array of string warnings ONLY IF the MC breaks the power progression rules, such as skipping tiers (e.g. going directly from Level 1 to Level 5, or Qi Condensation to Nascent Soul). DO NOT flag normal incremental progression (e.g. Level 5 to 6) as a violation. If progression is normal or no violation, leave empty."],
+    "powerSystemViolationFlags": ["Array of string warnings ONLY IF the MC breaks the power progression rules, such as skipping tiers (e.g. going directly from Level 5 to Level 6, or Qi Condensation to Nascent Soul). DO NOT flag normal incremental progression (e.g. Level 5 to 6) as a violation. If progression is normal or no violation, leave empty."],
     "newUnresolvedPlotThreads": [],
     "resolvedPlotThreads": [],
     "newFactions": [],
@@ -276,7 +276,7 @@ Chapter ${chapterNumber}: "${title}"
 Chapter Text:
 ${chapterText}
 
-Extract updates for the permanent story memory so we can track newly met characters, dead characters, relationship updates, unresolved issues, or potential MC advancement. Also, provide a short summary of events, and an arc summary.
+Extract updates for the permanent story memory so we can track newly met characters, dead characters, relationship updates, unresolved issues, or potential MC advancement. Also, provide an extremely short summary of events (1-3 sentences MAX), and an arc summary.
 
 IMPORTANT STATE PERSISTENCE: You MUST scan the Chapter Text for any System Alerts or Fate Events (e.g., bracketed text like "[Death Flag Detected: ...]", "[Fortuitous Encounter: ...]" OR JSON objects like {"system": {"title": "Death Flag Detected...", ...}}). If any such events or alerts occurred in the text, you MUST automatically inject their core message/threat into the "newUnresolvedPlotThreads" array so the system remembers to honor them in future chapters.
 
@@ -286,7 +286,7 @@ Within the "cuePayload" object:
 
 You must return a JSON object with the following fields:
 {
-  "summary": "A detailed 1-2 paragraph summary of the exact events, conversations, and physical movements that transpired in this chapter to store in our historical archive.",
+  "summary": "A highly concise summary of the physical events that transpired in this chapter. This summary MUST be strictly 1 to 3 sentences max.",
   "arcSummary": "A rolling 2-3 sentence highly concise overview of the ENTIRE current arc up to (and including) this chapter's events. Acts as a coarse history block.",
   "statsChangeMessage": "A short status upgrade notification (e.g. '[System Breakthrough: Qi Condensation Rank 2 reached. Meridians purified!]', or 'None')",
   "cuePayload": {

@@ -441,7 +441,7 @@ export function getAuraTextStyle(
 
   let extraClass = '';
   if (hasCursedTome) {
-    extraClass = ' animate-pulse text-red-500/90 shadow-[0_0_12px_rgba(139,0,0,0.8)]';
+    extraClass = ' animate-pulse text-red-400/90 shadow-[0_0_12px_rgba(139,0,0,0.8)]';
   }
   
   if (colorHexOrAura === 'gradient-violet-gold') {
@@ -457,7 +457,7 @@ export function getAuraTextStyle(
   
   // Normal hex colors
   return {
-    style: { color: hasCursedTome ? '#8B0000' : colorHexOrAura },
+    style: { color: hasCursedTome ? '#ff3333' : colorHexOrAura },
     className: `drop-shadow-[0_0_5px_rgba(255,255,255,0.15)] font-semibold${extraClass}`
   };
 }

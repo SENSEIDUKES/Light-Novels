@@ -69,6 +69,8 @@ interface ReaderViewportProps {
   hasSystemBlocks: boolean;
   
   chapters: Chapter[];
+  manifestChapterHero?: (chapterNumber: number, promptText: string) => Promise<string>;
+  generatingIds?: Set<string>;
 }
 
 export function ReaderViewport({
@@ -121,7 +123,9 @@ export function ReaderViewport({
   showLegend,
   setShowLegend,
   hasSystemBlocks,
-  chapters
+  chapters,
+  manifestChapterHero,
+  generatingIds
 }: ReaderViewportProps) {
   
   return (
@@ -158,7 +162,7 @@ export function ReaderViewport({
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.8, ease: "easeOut" }}
-                  className="mb-12 w-full rounded-sm overflow-hidden shadow-[0_0_40px_rgba(4,172,255,0.1)] relative border border-neutral-800/80 group"
+                  className="mb-12 w-fit max-w-full mx-auto bg-void rounded-sm overflow-hidden shadow-[0_0_40px_rgba(4,172,255,0.1)] relative border border-neutral-800/80 group"
                 >
                   <div className="absolute top-4 left-4 z-20 px-3 py-1.5 bg-void/80 backdrop-blur-md text-[10px] sm:text-xs font-mono uppercase tracking-widest text-[#04ACFF] border border-[#04ACFF]/20 rounded-sm flex items-center gap-2 shadow-lg">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#04ACFF] animate-pulse" />
@@ -168,7 +172,7 @@ export function ReaderViewport({
                   <img 
                     src={selectedChapter.assetManifest.heroImage} 
                     alt="Chapter Crux Manifestation" 
-                    className="w-full h-auto object-cover max-h-[65vh] mix-blend-screen opacity-90 transition-transform duration-1000 group-hover:scale-105"
+                    className="max-w-full h-auto block mx-auto object-contain max-h-[65vh] mix-blend-screen opacity-90 transition-transform duration-1000 group-hover:scale-105"
                     referrerPolicy="no-referrer"
                   />
                   <div className="absolute bottom-0 left-0 right-0 p-6 z-20 bg-gradient-to-t from-void flex flex-col justify-end">

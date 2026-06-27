@@ -35,7 +35,7 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
       exit={{ height: 0, opacity: 0 }}
       className="bg-neutral-950 border-b border-neutral-900 overflow-hidden px-4 py-4 space-y-4"
     >
-      <div className="max-w-2xl mx-auto grid grid-cols-2 sm:grid-cols-5 gap-4">
+      <div className="max-w-2xl mx-auto grid grid-cols-2 sm:grid-cols-6 gap-4">
         <div className="space-y-1">
           <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">
             Aura Font
@@ -155,6 +155,34 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
               >
                 <span>{t}</span>
                 {currentPrefs.themeOverride === t && (
+                  <Check size={8} />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-1 col-span-2 sm:col-span-1">
+          <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">
+            Aura Highlights
+          </span>
+          <div className="flex flex-col gap-1">
+            {(
+              ["full", "underline", "tint"] as const
+            ).map((h) => (
+              <button
+                key={h}
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleUpdatePreference("highlightStyle", h)}
+                className={`px-2 py-1 text-[10px] rounded border text-left flex items-center justify-between transition-all capitalize ${
+                  (currentPrefs.highlightStyle || "full") === h
+                    ? "bg-portal/10 border-portal text-portal font-bold"
+                    : "bg-void border-neutral-800 text-neutral-400 hover:border-neutral-700"
+                }`}
+              >
+                <span>
+                  {h === "full" ? "Full Block" : h === "underline" ? "Underline" : "Soft Tint"}
+                </span>
+                {(currentPrefs.highlightStyle || "full") === h && (
                   <Check size={8} />
                 )}
               </button>

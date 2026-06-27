@@ -1,10 +1,7 @@
 import { z } from "zod";
 import { Request, Response, NextFunction } from "express";
 
-export const routingConfigSchema = z.object({
-  provider: z.string().optional(),
-  model: z.string().optional(),
-}).optional();
+export const routingConfigSchema = z.any().optional();
 
 export const embedSchema = z.object({
   text: z.string(),
