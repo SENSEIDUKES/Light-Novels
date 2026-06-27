@@ -928,12 +928,6 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                 Auto-saved: {new Date(lastSavedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               </div>
             )}
-
-            <div className="w-[1px] h-8 bg-neutral-900 hidden sm:block mx-2"></div>
-            
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
-              <AudioWidget />
-            </div>
           </div>
 
           {/* Interactive Language & Translation Settings - Un-gatekept */}
@@ -946,12 +940,12 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                   <span className="text-[8px] text-neutral-500 font-sans">Active UI dialect</span>
                 </div>
               </div>
-              <div className="relative">
+              <div className="relative flex-shrink-0">
                 <select 
                   name="preferredLanguage" 
                   value={formData.preferredLanguage || profile?.preferredLanguage || 'English'} 
                   onChange={(e) => handleLanguageChangeDirect('preferredLanguage', e.target.value)}
-                  className="bg-black border border-neutral-800 hover:border-portal/50 rounded px-3 py-1.5 text-[11px] text-signal focus:border-portal outline-none font-sans cursor-pointer transition-all appearance-none pr-8 min-w-[140px]"
+                  className="bg-black border border-neutral-800 hover:border-portal/50 rounded px-3 py-1.5 text-[11px] text-signal focus:border-portal outline-none font-sans cursor-pointer transition-all appearance-none pr-8 w-[105px] sm:w-[140px] truncate"
                 >
                   <option value="English">English</option>
                   <option value="Spanish">Spanish</option>
@@ -977,12 +971,12 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                   <span className="text-[8px] text-neutral-500 font-sans">Automatic translation</span>
                 </div>
               </div>
-              <div className="relative">
+              <div className="relative flex-shrink-0">
                 <select 
                   name="defaultTranslationLanguage" 
                   value={formData.defaultTranslationLanguage || profile?.defaultTranslationLanguage || 'English'} 
                   onChange={(e) => handleLanguageChangeDirect('defaultTranslationLanguage', e.target.value)}
-                  className="bg-black border border-neutral-800 hover:border-human/50 rounded px-3 py-1.5 text-[11px] text-signal focus:border-human outline-none font-sans cursor-pointer transition-all appearance-none pr-8 min-w-[140px]"
+                  className="bg-black border border-neutral-800 hover:border-human/50 rounded px-3 py-1.5 text-[11px] text-signal focus:border-human outline-none font-sans cursor-pointer transition-all appearance-none pr-8 w-[105px] sm:w-[140px] truncate"
                 >
                   <option value="English">English</option>
                   <option value="Spanish">Spanish</option>
