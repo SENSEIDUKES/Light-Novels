@@ -589,7 +589,9 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
   // Derived metrics from actual stories state instead of just the profile fields
   // In a real app we might sync these, but here reading from the stories array is more accurate for the current session
   const userStories = stories.filter(s => s.userId === currentUser?.uid || (!s.userId));
-  const activeStoriesCount = userStories.length;
+  const inactiveFlowIds = profile?.inactiveStories || [];
+  const activeFlows = userStories.filter(s => !inactiveFlowIds.includes(s.id));
+  const activeStoriesCount = activeFlows.length;
   
   const currentStreak = profile?.daoPillarStreak || profile?.writingStreak || 0;
   const isCracked = profile?.daoPillarCracked || false;
@@ -726,7 +728,25 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
   };
 
   const performSave = async (preferredLang: string, defaultTransLang: string) => {
-    if (!currentUser || !profile) return;
+    if (!profile) return;
+
+    if (!currentUser) {
+      // Local Guest Save
+      const localProfileStr = localStorage.getItem('seihouse-local-user-profile');
+      const localProfile = localProfileStr ? JSON.parse(localProfileStr) : {};
+      const updatedLocalProfile = {
+        ...localProfile,
+        preferredLanguage: preferredLang,
+        defaultTranslationLanguage: defaultTransLang,
+        updatedAt: new Date().toISOString()
+      };
+      localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedLocalProfile));
+      setProfile(updatedLocalProfile);
+      setFormData(updatedLocalProfile);
+      useAppStore.setState({ userProfile: updatedLocalProfile });
+      return;
+    }
+
     setIsLoading(true);
     try {
       const updates = {
@@ -753,6 +773,39 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
       setError(err.message || 'Failed to save profile');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleLanguageChangeDirect = async (name: 'preferredLanguage' | 'defaultTranslationLanguage', value: string) => {
+    if (!profile) return;
+    
+    const nextPreferred = name === 'preferredLanguage' ? value : (formData.preferredLanguage || profile.preferredLanguage || 'English');
+    const nextTranslation = name === 'defaultTranslationLanguage' ? value : (formData.defaultTranslationLanguage || profile.defaultTranslationLanguage || 'English');
+
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+
+    if (!pendingLanguageChange) {
+      setPendingLanguageChange({
+        preferred: nextPreferred,
+        translation: nextTranslation,
+        prevPreferred: profile.preferredLanguage || 'English',
+        prevTranslation: profile.defaultTranslationLanguage || 'English'
+      });
+      setCountdown(30);
+      
+      useAppStore.setState(state => ({
+        userProfile: state.userProfile ? {
+          ...state.userProfile,
+          preferredLanguage: nextPreferred,
+          defaultTranslationLanguage: nextTranslation
+        } : {
+          preferredLanguage: nextPreferred,
+          defaultTranslationLanguage: nextTranslation
+        } as any
+      }));
     }
   };
 
@@ -826,8 +879,8 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
           <Sliders size={14} className="text-portal" />
           Environment & Sync Settings
         </h3>
-        <div className="flex flex-col gap-4 bg-[#030303] p-5 rounded-xl border border-neutral-900 shadow-inner">
-          <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-col gap-5 bg-[#030303] p-5 rounded-xl border border-neutral-900 shadow-inner">
+          <div className="flex flex-wrap items-center gap-4 border-b border-neutral-900/50 pb-4">
             <div className="flex items-center space-x-2 border border-neutral-800 px-4 py-2 rounded-lg bg-black">
               {syncStatus === 'offline' ? (
                 <button  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => storyStorage.performSync()} title="Offline / Local Only. Click to sync" className="flex items-center space-x-2 hover:text-portal transition-colors"><CloudOff size={14} className="text-neutral-600" /> <span className="text-[11px] font-sans text-neutral-500 uppercase tracking-widest">Offline Flow</span></button>
@@ -880,6 +933,71 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
             
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
               <AudioWidget />
+            </div>
+          </div>
+
+          {/* Interactive Language & Translation Settings - Un-gatekept */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+            <div className="flex items-center justify-between bg-black/40 border border-neutral-850 rounded-xl p-3.5">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-neutral-900/50 rounded-lg"><Globe size={13} className="text-portal animate-pulse" /></div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] uppercase font-bold tracking-widest text-neutral-400 font-sc">Preferred Language</span>
+                  <span className="text-[8px] text-neutral-500 font-sans">Active UI dialect</span>
+                </div>
+              </div>
+              <div className="relative">
+                <select 
+                  name="preferredLanguage" 
+                  value={formData.preferredLanguage || profile?.preferredLanguage || 'English'} 
+                  onChange={(e) => handleLanguageChangeDirect('preferredLanguage', e.target.value)}
+                  className="bg-black border border-neutral-800 hover:border-portal/50 rounded px-3 py-1.5 text-[11px] text-signal focus:border-portal outline-none font-sans cursor-pointer transition-all appearance-none pr-8 min-w-[140px]"
+                >
+                  <option value="English">English</option>
+                  <option value="Spanish">Spanish</option>
+                  <option value="Simplified Chinese (简体中文)">Simplified Chinese (简体中文)</option>
+                  <option value="Traditional Chinese (繁體中文)">Traditional Chinese (繁體中文)</option>
+                  <option value="Japanese (日本語)">Japanese (日本語)</option>
+                  <option value="Korean (한국어)">Korean (한국어)</option>
+                  <option value="Vietnamese (Tiếng Việt)">Vietnamese (Tiếng Việt)</option>
+                  <option value="Indonesian (Bahasa Indonesia)">Indonesian (Bahasa Indonesia)</option>
+                  <option value="Thai (ภาษาไทย)">Thai (ภาษาไทย)</option>
+                  <option value="Tagalog (Filipino)">Tagalog (Filipino)</option>
+                  <option value="Malay (Bahasa Melayu)">Malay (Bahasa Melayu)</option>
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500 text-[9px]">▼</div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between bg-black/40 border border-neutral-850 rounded-xl p-3.5">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-neutral-900/50 rounded-lg"><Globe size={13} className="text-human animate-pulse" /></div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] uppercase font-bold tracking-widest text-neutral-400 font-sc">Translation Default</span>
+                  <span className="text-[8px] text-neutral-500 font-sans">Automatic translation</span>
+                </div>
+              </div>
+              <div className="relative">
+                <select 
+                  name="defaultTranslationLanguage" 
+                  value={formData.defaultTranslationLanguage || profile?.defaultTranslationLanguage || 'English'} 
+                  onChange={(e) => handleLanguageChangeDirect('defaultTranslationLanguage', e.target.value)}
+                  className="bg-black border border-neutral-800 hover:border-human/50 rounded px-3 py-1.5 text-[11px] text-signal focus:border-human outline-none font-sans cursor-pointer transition-all appearance-none pr-8 min-w-[140px]"
+                >
+                  <option value="English">English</option>
+                  <option value="Spanish">Spanish</option>
+                  <option value="Simplified Chinese (简体中文)">Simplified Chinese (简体中文)</option>
+                  <option value="Traditional Chinese (繁體中文)">Traditional Chinese (繁體中文)</option>
+                  <option value="Japanese (日本語)">Japanese (日本語)</option>
+                  <option value="Korean (한국어)">Korean (한국어)</option>
+                  <option value="Vietnamese (Tiếng Việt)">Vietnamese (Tiếng Việt)</option>
+                  <option value="Indonesian (Bahasa Indonesia)">Indonesian (Bahasa Indonesia)</option>
+                  <option value="Thai (ภาษาไทย)">Thai (ภาษาไทย)</option>
+                  <option value="Tagalog (Filipino)">Tagalog (Filipino)</option>
+                  <option value="Malay (Bahasa Melayu)">Malay (Bahasa Melayu)</option>
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500 text-[9px]">▼</div>
+              </div>
             </div>
           </div>
         </div>
@@ -1188,8 +1306,8 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
           ) : (
             <>
               {/* Top Section - Avatar & Quick Info */}
-              <div className="flex flex-col md:flex-row gap-8 md:items-end border-b border-neutral-900/50 pb-10">
-                <div className="flex flex-col items-center flex-shrink-0">
+              <div className="flex flex-col md:flex-row gap-8 md:items-start border-b border-neutral-900/50 pb-10">
+                <div className="flex flex-col items-center flex-shrink-0 md:w-48">
                   <div className={`w-28 h-28 rounded-full border p-1 relative group transition-all duration-700 ${getAuraGlowStyle(profile?.displayNameColor || '#E5E7EB', profile?.activeStatusEffects)}`}>
                     <div className="w-full h-full rounded-full overflow-hidden bg-black flex items-center justify-center relative">
                       {formData.avatarUrl ? (
@@ -1215,12 +1333,107 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                   {/* Cultivator Portrait Generator Button */}
                   <button
                      tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowPortraitModal(true)}
-                    className="mt-3 px-3 py-1.5 border border-portal/30 hover:border-portal text-portal font-sc text-[10px] font-bold uppercase tracking-widest rounded-lg bg-portal/5 hover:bg-portal/10 transition-all flex items-center gap-1.5 shadow-[0_0_15px_rgba(4,172,255,0.05)] hover:shadow-[0_0_20px_rgba(4,172,255,0.15)] group"
+                    className="mt-3 px-3 py-1.5 border border-portal/30 hover:border-portal text-portal font-sc text-[10px] font-bold uppercase tracking-widest rounded-lg bg-portal/5 hover:bg-portal/10 transition-all flex items-center gap-1.5 shadow-[0_0_15px_rgba(4,172,255,0.05)] hover:shadow-[0_0_20px_rgba(4,172,255,0.15)] group w-full justify-center"
                     title="Divine Mirror: Cast your mortal likeness into the cosmic loom"
                   >
                     <Sparkles size={11} className="text-portal animate-pulse group-hover:scale-110 transition-transform" />
                     Celestial Portrait
                   </button>
+
+                  {/* Collapsible Advanced Settings Panel */}
+                  <div className="mt-4 border-t border-neutral-900/50 pt-4 w-full text-center relative">
+                    <button
+                      type="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
+                      onClick={() => setShowAdvanced(!showAdvanced)}
+                      className="flex items-center justify-between gap-2 w-full text-[10px] font-sc uppercase font-bold tracking-widest text-portal hover:text-signal transition-all py-2 px-3 border border-portal/20 rounded-lg hover:border-portal bg-portal/5 hover:bg-portal/10"
+                    >
+                      <span>{showAdvanced ? "▲ Hide Tools" : "▼ Advanced Tools"}</span>
+                      <Sliders size={11} className="text-portal" />
+                    </button>
+
+                    {showAdvanced && (
+                      <div className="mt-3 p-4 bg-[#030303] border border-neutral-900 rounded-xl space-y-3 animate-fadeIn text-left w-64 max-w-xs absolute left-1/2 -translate-x-1/2 md:left-4 md:translate-x-0 z-20 shadow-[0_10px_30px_rgba(0,0,0,0.8)]">
+                        <p className="text-[9px] font-sans text-neutral-500 leading-normal">
+                          Configure custom model presets, routing overrides, or API credential endpoints.
+                        </p>
+                        <div className="flex flex-col gap-2">
+                          <button
+                            tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setIsSettingsOpen(true)}
+                            className="w-full px-3 py-2 bg-black border border-neutral-850 hover:border-portal/50 text-neutral-400 hover:text-portal transition-all rounded-lg font-sc text-[9px] flex items-center gap-2 font-bold group"
+                            title="Aether Router"
+                          >
+                            <Sliders size={12} className="text-portal group-hover:scale-110 transition-transform shrink-0" />
+                            <span className="uppercase tracking-widest font-semibold whitespace-nowrap">Aether Router</span>
+                          </button>
+                          <button
+                            type="button"
+                            tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => useAppStore.getState().setIsShortcutsOpen(true)}
+                            className="w-full px-3 py-2 bg-black border border-neutral-850 hover:border-portal/50 text-neutral-400 hover:text-portal transition-all rounded-lg font-sc text-[9px] flex items-center gap-2 font-bold group"
+                            title="Shortcuts Manual (or press ? key)"
+                          >
+                            <Keyboard size={12} className="text-portal group-hover:scale-110 transition-transform shrink-0" />
+                            <span className="uppercase tracking-widest font-semibold whitespace-nowrap">Shortcuts</span>
+                          </button>
+                        </div>
+
+                        <div className="border-t border-neutral-900/50 pt-3 flex flex-col gap-2">
+                          <button
+                            tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleRunAudit}
+                            disabled={isAuditing}
+                            className="w-full flex items-center gap-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-portal border border-neutral-800 hover:border-portal/50 px-3 py-2 rounded-lg text-[9px] font-sc font-bold uppercase tracking-wider disabled:opacity-20 disabled:cursor-not-allowed transition-all group"
+                          >
+                            <Database size={12} className="text-portal group-hover:scale-110 transition-transform shrink-0" />
+                            <span>Audit Sync</span>
+                          </button>
+
+                          <label className="flex items-center gap-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-portal border border-neutral-800 hover:border-portal/50 px-3 py-2 rounded-lg text-[9px] font-sc font-bold uppercase tracking-wider cursor-pointer transition-all group" htmlFor="a11y-id-1">
+                            <Upload size={12} className="text-portal group-hover:-translate-y-0.5 transition-transform shrink-0" />
+                            <span>Import Scroll</span>
+                            <input id="a11y-id-1" 
+                              type="file" 
+                              accept=".json" 
+                              onChange={handleImportLibrary} 
+                              className="hidden" 
+                            />
+                          </label>
+
+                          <button
+                            tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleExportLibrary}
+                            disabled={stories.length === 0}
+                            className="w-full flex items-center gap-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-signal border border-neutral-800 hover:border-human/50 px-3 py-2 rounded-lg text-[9px] font-sc font-bold uppercase tracking-wider disabled:opacity-20 disabled:cursor-not-allowed transition-all group"
+                          >
+                            <Download size={12} className="text-human group-hover:translate-y-0.5 transition-transform shrink-0" />
+                            <span>Backup All</span>
+                          </button>
+                        </div>
+
+                        {/* Audit Results */}
+                        {auditResult && (
+                          <div className="mt-2 p-3 border border-portal/30 bg-black rounded-lg text-[9px] font-mono text-neutral-400 space-y-1.5">
+                            <div className="text-portal font-sc uppercase tracking-widest border-b border-neutral-800 pb-1 mb-1 font-bold">Sync Diagnostic</div>
+                            <div className="space-y-0.5">
+                              <div>Local Realms: <span className="text-signal">{auditResult.localStories}</span></div>
+                              <div>Cloud Realms: <span className="text-signal">{auditResult.cloudStories}</span></div>
+                              <div>Pending Writes: <span className="text-signal">{auditResult.pendingWrites}</span></div>
+                              <div>Missing Chapters: <span className={auditResult.missingChapters.length > 0 ? "text-human" : "text-signal"}>{auditResult.missingChapters.length}</span></div>
+                            </div>
+                            {auditResult.missingChapters.length > 0 && (
+                              <div className="pt-1.5 border-t border-neutral-800 mt-1.5">
+                                <button tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleRecover} disabled={isAuditing} className="w-full py-1 bg-human/10 text-human border border-human/30 hover:bg-human/20 rounded uppercase tracking-widest font-sc text-[9px] cursor-pointer">
+                                  Cloud Recovery
+                                </button>
+                              </div>
+                            )}
+                            {auditResult.recovered !== undefined && (
+                              <div className="text-portal mt-1">Recovered {auditResult.recovered} chapters.</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="flex-1 space-y-5">
                   <div className="flex flex-col gap-3 mb-2">
@@ -1470,64 +1683,6 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
 
               {/* Details Section */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 pt-2">
-                <div className="bg-[#030303] border border-neutral-900 rounded-xl p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-neutral-900 rounded-lg"><Globe size={14} className="text-portal" /></div>
-                    <span className="text-[11px] uppercase font-bold tracking-widest text-neutral-400 font-sc">Preferred Language</span>
-                  </div>
-                  {isEditing ? (
-                    <select 
-                      name="preferredLanguage" 
-                      value={formData.preferredLanguage || 'English'} 
-                      onChange={handleChange}
-                      className="bg-black border border-neutral-800 rounded px-3 py-1.5 text-xs text-signal focus:border-portal outline-none font-sans appearance-none"
-                    >
-                      <option value="English">English</option>
-                      <option value="Spanish">Spanish</option>
-                      <option value="Simplified Chinese (简体中文)">Simplified Chinese (简体中文)</option>
-                      <option value="Traditional Chinese (繁體中文)">Traditional Chinese (繁體中文)</option>
-                      <option value="Japanese (日本語)">Japanese (日本語)</option>
-                      <option value="Korean (한국어)">Korean (한국어)</option>
-                      <option value="Vietnamese (Tiếng Việt)">Vietnamese (Tiếng Việt)</option>
-                      <option value="Indonesian (Bahasa Indonesia)">Indonesian (Bahasa Indonesia)</option>
-                      <option value="Thai (ภาษาไทย)">Thai (ภาษาไทย)</option>
-                      <option value="Tagalog (Filipino)">Tagalog (Filipino)</option>
-                      <option value="Malay (Bahasa Melayu)">Malay (Bahasa Melayu)</option>
-                    </select>
-                  ) : (
-                    <div className="text-[11px] text-portal font-sans font-medium uppercase tracking-widest">{profile?.preferredLanguage}</div>
-                  )}
-                </div>
-
-                <div className="bg-[#030303] border border-neutral-900 rounded-xl p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-neutral-900 rounded-lg"><Globe size={14} className="text-human" /></div>
-                    <span className="text-[11px] uppercase font-bold tracking-widest text-neutral-400 font-sc">Translation Default</span>
-                  </div>
-                  {isEditing ? (
-                    <select 
-                      name="defaultTranslationLanguage" 
-                      value={formData.defaultTranslationLanguage || 'English'} 
-                      onChange={handleChange}
-                      className="bg-black border border-neutral-800 rounded px-3 py-1.5 text-xs text-signal focus:border-human outline-none font-sans appearance-none"
-                    >
-                      <option value="English">English</option>
-                      <option value="Spanish">Spanish</option>
-                      <option value="Simplified Chinese (简体中文)">Simplified Chinese (简体中文)</option>
-                      <option value="Traditional Chinese (繁體中文)">Traditional Chinese (繁體中文)</option>
-                      <option value="Japanese (日本語)">Japanese (日本語)</option>
-                      <option value="Korean (한국어)">Korean (한국어)</option>
-                      <option value="Vietnamese (Tiếng Việt)">Vietnamese (Tiếng Việt)</option>
-                      <option value="Indonesian (Bahasa Indonesia)">Indonesian (Bahasa Indonesia)</option>
-                      <option value="Thai (ภาษาไทย)">Thai (ภาษาไทย)</option>
-                      <option value="Tagalog (Filipino)">Tagalog (Filipino)</option>
-                      <option value="Malay (Bahasa Melayu)">Malay (Bahasa Melayu)</option>
-                    </select>
-                  ) : (
-                    <div className="text-[11px] text-human font-sans font-medium uppercase tracking-widest">{profile?.defaultTranslationLanguage}</div>
-                  )}
-                </div>
-
                 <div className="bg-[#030303] border border-neutral-900 rounded-xl p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-neutral-900 rounded-lg"><Calendar size={14} className="text-neutral-400" /></div>
@@ -2079,18 +2234,18 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Active Stories */}
-                  <div className="border border-neutral-900 bg-[#030303] rounded-xl p-5 shadow-inner">
-                    <div className="flex items-center justify-between border-b border-neutral-800/50 pb-3 mb-4">
+                  <div className="border border-portal/10 bg-void rounded-xl p-5 shadow-[0_0_15px_rgba(4,172,255,0.03)] hover:border-portal/30 transition-all duration-300">
+                    <div className="flex items-center justify-between border-b border-neutral-900 pb-3 mb-4">
                       <h4 className="text-[10px] uppercase font-bold tracking-widest text-portal font-sc">Active Flows</h4>
-                      <span className="text-[9px] px-2 py-0.5 bg-portal/10 text-portal rounded-full font-bold">{profile?.activeStories?.length || activeStoriesCount}</span>
+                      <span className="text-[9px] px-2 py-0.5 bg-portal/10 text-portal rounded-full font-bold">{activeFlows.length}</span>
                     </div>
                     <div className="space-y-3">
-                      {userStories.length === 0 ? (
+                      {activeFlows.length === 0 ? (
                         <div className="text-[11px] text-neutral-600 font-sans italic tracking-wide">No realms manifested yet.</div>
                       ) : (
-                        userStories.map(s => (
-                          <div key={s.id} className="text-[13px] text-neutral-300 font-sans flex items-center gap-3 overflow-hidden">
-                            <span className="w-1 h-1 rounded-full bg-portal flex-shrink-0 animate-pulse"></span>
+                        activeFlows.map(s => (
+                          <div key={s.id} className="text-[13px] text-neutral-300 font-sans flex items-center gap-3 overflow-hidden group hover:text-signal transition-colors py-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-portal flex-shrink-0 animate-pulse"></span>
                             <span className="truncate">{s.title}</span>
                           </div>
                         ))
@@ -2099,119 +2254,29 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                   </div>
 
                   {/* Inactive Stories */}
-                  <div className="border border-neutral-900 bg-[#030303] rounded-xl p-5 shadow-inner">
-                    <div className="flex items-center justify-between border-b border-neutral-800/50 pb-3 mb-4">
-                      <h4 className="text-[10px] uppercase font-bold tracking-widest text-neutral-500 font-sc">Sealed Flows</h4>
-                      <span className="text-[9px] px-2 py-0.5 bg-neutral-900 text-neutral-500 rounded-full font-bold">{profile?.inactiveStories?.length || 0}</span>
+                  <div className="border border-human-brand/10 bg-void rounded-xl p-5 shadow-[0_0_15px_rgba(139,0,0,0.03)] hover:border-human-brand/30 transition-all duration-300">
+                    <div className="flex items-center justify-between border-b border-neutral-900 pb-3 mb-4">
+                      <h4 className="text-[10px] uppercase font-bold tracking-widest text-human font-sc">Sealed Flows</h4>
+                      <span className="text-[9px] px-2 py-0.5 bg-human/10 text-human rounded-full font-bold">{inactiveFlowIds.length}</span>
                     </div>
                     <div className="space-y-3">
-                      {(!profile?.inactiveStories || profile.inactiveStories.length === 0) ? (
+                      {inactiveFlowIds.length === 0 ? (
                         <div className="text-[11px] text-neutral-600 font-sans italic tracking-wide">No realms currently sealed.</div>
                       ) : (
-                        profile.inactiveStories.map(id => (
-                          <div key={id} className="text-[13px] text-neutral-500 font-sans flex items-center gap-3 overflow-hidden">
-                            <span className="w-1 h-1 rounded-full bg-neutral-700 flex-shrink-0"></span>
-                            <span className="truncate">Story {id.split('-').pop()}</span>
-                          </div>
-                        ))
+                        inactiveFlowIds.map(id => {
+                          const story = stories.find(s => s.id === id);
+                          const title = story ? story.title : `Story ${id.split('-').pop()}`;
+                          return (
+                            <div key={id} className="text-[13px] text-neutral-500 font-sans flex items-center gap-3 overflow-hidden hover:text-neutral-400 transition-colors py-0.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-human-brand/50 flex-shrink-0"></span>
+                              <span className="truncate italic">{title}</span>
+                            </div>
+                          );
+                        })
                       )}
                     </div>
                   </div>
                 </div>
-              </div>
-
-              {/* Collapsible Advanced Settings Panel */}
-              <div className="pt-8 border-t border-neutral-900/50 mt-8">
-                <button
-                  type="button"
-                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="flex items-center justify-between w-full text-[11px] font-sc uppercase font-bold tracking-widest text-portal hover:text-signal transition-all py-2"
-                >
-                  <span>{showAdvanced ? "▲ Hide Advanced Settings" : "▼ Show Advanced Settings (Admin)"}</span>
-                  <Sliders size={12} className="text-portal" />
-                </button>
-
-                {showAdvanced && (
-                  <div className="mt-4 p-5 bg-[#030303] border border-neutral-900 rounded-xl space-y-4 animate-fadeIn">
-                    <p className="text-[11px] font-sans text-neutral-500 leading-normal">
-                      Configure custom model presets, routing overrides, or API credential endpoints. Standard settings are fully server-managed by default and operate automatically without manual entries.
-                    </p>
-                    <div className="flex flex-wrap gap-4">
-                      <button
-                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setIsSettingsOpen(true)}
-                        className="flex-1 sm:flex-none px-4 py-2 sm:px-5 bg-black border border-neutral-850 hover:border-portal/50 text-neutral-400 hover:text-portal transition-all rounded-lg font-sc text-[10px] sm:text-[11px] flex items-center justify-center space-x-2 font-bold group"
-                        title="Aether Router"
-                      >
-                        <Sliders size={13} className="text-portal group-hover:scale-110 transition-transform shrink-0" />
-                        <span className="uppercase tracking-widest font-semibold whitespace-nowrap">Aether Router Configuration</span>
-                      </button>
-                      <button
-                        type="button"
-                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => useAppStore.getState().setIsShortcutsOpen(true)}
-                        className="flex-1 sm:flex-none px-4 py-2 sm:px-5 bg-black border border-neutral-850 hover:border-portal/50 text-neutral-400 hover:text-portal transition-all rounded-lg font-sc text-[10px] sm:text-[11px] flex items-center justify-center space-x-2 font-bold group"
-                        title="Shortcuts Manual (or press ? key)"
-                      >
-                        <Keyboard size={13} className="text-portal group-hover:scale-110 transition-transform shrink-0" />
-                        <span className="uppercase tracking-widest font-semibold whitespace-nowrap">Shortcuts</span>
-                      </button>
-                    </div>
-
-                    <div className="border-t border-neutral-900/50 pt-4 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
-                      <button
-                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleRunAudit}
-                        disabled={isAuditing}
-                        className="flex items-center justify-center space-x-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-portal border border-neutral-800 hover:border-portal/50 px-4 py-3 sm:py-2 rounded-lg text-[11px] font-sc font-bold uppercase tracking-wider disabled:opacity-20 disabled:cursor-not-allowed transition-all group"
-                      >
-                        <Database size={13} className="text-portal group-hover:scale-110 transition-transform shrink-0" />
-                        <span>Audit Sync Health</span>
-                      </button>
-
-                      <label className="flex items-center justify-center space-x-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-portal border border-neutral-800 hover:border-portal/50 px-4 py-3 sm:py-2 rounded-lg text-[11px] font-sc font-bold uppercase tracking-wider cursor-pointer transition-all group" htmlFor="a11y-id-1">
-                        <Upload size={13} className="text-portal group-hover:-translate-y-0.5 transition-transform shrink-0" />
-                        <span>Import World Scroll</span>
-                        <input id="a11y-id-1" 
-                          type="file" 
-                          accept=".json" 
-                          onChange={handleImportLibrary} 
-                          className="hidden" 
-                        />
-                      </label>
-
-                      <button
-                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleExportLibrary}
-                        disabled={stories.length === 0}
-                        className="flex items-center justify-center space-x-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-signal border border-neutral-800 hover:border-human/50 px-4 py-3 sm:py-2 rounded-lg text-[11px] font-sc font-bold uppercase tracking-wider disabled:opacity-20 disabled:cursor-not-allowed transition-all group"
-                      >
-                        <Download size={13} className="text-human group-hover:translate-y-0.5 transition-transform shrink-0" />
-                        <span>Backup Full Library</span>
-                      </button>
-                    </div>
-
-                    {/* Audit Results */}
-                    {auditResult && (
-                       <div className="mt-4 p-4 border border-portal/30 bg-black rounded-lg text-[11px] font-mono text-neutral-400 space-y-2">
-                         <div className="text-portal font-sc uppercase tracking-widest border-b border-neutral-800 pb-2 mb-2 font-bold">Sync Health Diagnostic</div>
-                         <div className="grid grid-cols-2 gap-4">
-                             <div>Local Realms: <span className="text-signal">{auditResult.localStories}</span></div>
-                             <div>Cloud Realms: <span className="text-signal">{auditResult.cloudStories}</span></div>
-                             <div>Pending Writes: <span className="text-signal">{auditResult.pendingWrites}</span></div>
-                             <div>Missing Chapter Contents: <span className={auditResult.missingChapters.length > 0 ? "text-human" : "text-signal"}>{auditResult.missingChapters.length}</span></div>
-                         </div>
-                         {auditResult.missingChapters.length > 0 && (
-                             <div className="pt-2 border-t border-neutral-800 mt-2">
-                                 <div className="text-human mb-2">Warning: {auditResult.missingChapters.length} chapters are marked as generated but lack local cache content.</div>
-                                 <button  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleRecover} disabled={isAuditing} className="px-4 py-1.5 bg-human/10 text-human border border-human/30 hover:bg-human/20 rounded uppercase tracking-widest font-sc cursor-pointer">
-                                     Attempt Cloud Recovery
-                                 </button>
-                             </div>
-                         )}
-                         {auditResult.recovered !== undefined && (
-                             <div className="text-portal mt-2">Recovered {auditResult.recovered} missing chapters from the cloud.</div>
-                         )}
-                       </div>
-                    )}
-                  </div>
-                )}
               </div>
 
               <div className="pt-8 flex gap-4 min-h-[40px] mt-8">
