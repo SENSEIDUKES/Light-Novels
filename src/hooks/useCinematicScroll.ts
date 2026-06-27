@@ -12,11 +12,11 @@ export function useCinematicScroll(containerRef: React.RefObject<HTMLElement>, i
   const isAutoScrolling = isActive;
   const scrollSpeed = useAppStore(state => state.scrollSpeed);
 
-  const requestRef = useRef<number>();
-  const lastTimeRef = useRef<number>();
+  const requestRef = useRef<number | undefined>(undefined);
+  const lastTimeRef = useRef<number | undefined>(undefined);
   const scrollAccumulatorRef = useRef<number>(0);
   const isYieldingRef = useRef<boolean>(false);
-  const yieldTimeoutRef = useRef<NodeJS.Timeout>();
+  const yieldTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   const isActiveRef = useRef(isActive);
   useEffect(() => {

@@ -375,6 +375,7 @@ export interface WorldCardEvent {
     | "creature"
     | "artifact"
     | "location"
+    | "faction"
     | "system"
     | "fate_event";
   entityName: string;

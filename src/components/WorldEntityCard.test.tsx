@@ -13,14 +13,13 @@ vi.mock('motion/react', () => ({
 describe('WorldEntityCard', () => {
   it('renders correctly', () => {
     const card: WorldCardEvent = {
-      type: 'world_card',
       entityName: 'Test Beast',
       entityType: 'creature',
       displayTitle: 'Beast Title',
       quote: 'A loud roar.',
       imageUrl: 'http://test',
       audioText: 'Roar',
-      audioType: 'sfx'
+      audioType: 'roar'
     };
 
     const { getByText } = render(<WorldEntityCard card={card} />);

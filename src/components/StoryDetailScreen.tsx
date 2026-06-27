@@ -484,7 +484,6 @@ export const StoryDetailScreen: React.FC<{
                       muted
                       playsInline
                       onEnded={handleToggleMotionCover}
-                      referrerPolicy="no-referrer"
                     />
                     
                     {/* Visual Accent Badge */}
