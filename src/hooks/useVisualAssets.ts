@@ -1,16 +1,14 @@
 import { useAppStore } from '../store/useAppStore';
 import { GeneratedImage, StoryWorld } from '../types';
 import { storyApi } from '../services/api';
-import { useSaveStory } from './useStoryQueries';
-import { storyStorage } from '../lib/storage';
 
 export const useVisualAssets = () => {
   const store = useAppStore();
-  const saveStoryMutation = useSaveStory();
 
   const handleUpdateStoryDirect = async (updatedStory: StoryWorld) => {
     updatedStory.updatedAt = new Date().toISOString();
-    await saveStoryMutation.mutateAsync(updatedStory);
+    const updated = store.stories.map(s => s.id === updatedStory.id ? updatedStory : s);
+    await store.saveStories(updated);
   };
 
   const handleGenerateCover = async (): Promise<{ imageUrls: string[], promptUsed: string } | undefined> => {
@@ -21,17 +19,11 @@ export const useVisualAssets = () => {
     }
     currentStoreState.setIsGenerating(true);
 
-    const activeStoryId = currentStoreState.activeStoryId;
-    if (!activeStoryId) {
-      currentStoreState.setIsGenerating(false);
-      return undefined;
-    }
-    const activeStory = await storyStorage.getStory(activeStoryId);
+    const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
     if (!activeStory) {
       currentStoreState.setIsGenerating(false);
       return undefined;
     }
-    
     currentStoreState.setGenerationPhase('cover');
     currentStoreState.setAppError(null);
     try {
@@ -61,9 +53,7 @@ export const useVisualAssets = () => {
   };
 
   const handleApplyCover = async (imageUrl: string, promptUsed: string) => {
-    const activeStoryId = useAppStore.getState().activeStoryId;
-    if (!activeStoryId) return;
-    const activeStory = await storyStorage.getStory(activeStoryId);
+    const activeStory = store.stories.find(s => s.id === store.activeStoryId);
     if (!activeStory) return;
 
     const imageRecord: GeneratedImage = {
@@ -82,7 +72,7 @@ export const useVisualAssets = () => {
       img.entityType === 'cover' ? { ...img, isCurrent: false } : img
     ).concat(imageRecord);
 
-    await handleUpdateStoryDirect({ 
+    handleUpdateStoryDirect({ 
       ...activeStory, 
       imageUrl,
       imageHistory: updatedHistory,

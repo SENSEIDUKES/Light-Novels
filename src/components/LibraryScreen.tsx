@@ -7,7 +7,6 @@ import { Story } from '../types';
 import { getDaoRankData, getAuraTextStyle } from '../lib/qi';
 import { PRESET_CHALLENGES } from '../data/challenges';
 import { auth } from '../lib/firebase';
-import { useStories, useSaveStory } from '../hooks/useStoryQueries';
 
 import { INITIAL_DEMO_STORIES } from '../store/demoStories';
 
@@ -47,9 +46,7 @@ const PUBLISHED_WORLDS: any[] = INITIAL_DEMO_STORIES.map(story => {
 });
 
 export const LibraryScreen: React.FC = () => {
-  const { currentScreen, setCurrentScreen, setActiveStoryId, setStoryToDelete, userProfile } = useAppStore();
-  const { data: stories = [] } = useStories();
-  const saveStoryMutation = useSaveStory();
+  const { currentScreen, setCurrentScreen, stories, setActiveStoryId, setStoryToDelete, userProfile } = useAppStore();
   const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [videoPlaying, setVideoPlaying] = useState(false);
@@ -579,7 +576,7 @@ export const LibraryScreen: React.FC = () => {
                 <div
                   key={world.id}
                   className="group cursor-pointer flex flex-col space-y-3"
-                  onClick={async () => {
+                  onClick={() => {
                     const user = auth.currentUser;
                     const finalId = user ? `${world.id}-${user.uid}` : world.id;
                     const personalizedWorld = {
@@ -589,14 +586,14 @@ export const LibraryScreen: React.FC = () => {
                     };
                     const existing = stories.find(s => s.id === finalId);
                     if (!existing) {
-                      await saveStoryMutation.mutateAsync(personalizedWorld);
+                      useAppStore.getState().setStories([personalizedWorld, ...stories]);
                     }
                     setActiveStoryId(finalId);
                     setCurrentScreen('detail');
                   }}
                   role="button"
                   tabIndex={0}
-                  onKeyDown={async (e) => {
+                  onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
                       const user = auth.currentUser;
@@ -608,7 +605,7 @@ export const LibraryScreen: React.FC = () => {
                       };
                       const existing = stories.find(s => s.id === finalId);
                       if (!existing) {
-                        await saveStoryMutation.mutateAsync(personalizedWorld);
+                        useAppStore.getState().setStories([personalizedWorld, ...stories]);
                       }
                       setActiveStoryId(finalId);
                       setCurrentScreen('detail');

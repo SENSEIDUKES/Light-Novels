@@ -2,14 +2,13 @@ import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { secureStorage } from '../lib/encryption';
 import { checkAndConsumeImageQuota } from '../lib/quota';
-import { storyStorage } from '../lib/storage';
-import { useSaveStory } from './useStoryQueries';
 
 export function useImageManifest() {
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
+  const stories = useAppStore(state => state.stories);
   const activeStoryId = useAppStore(state => state.activeStoryId);
+  const saveStories = useAppStore(state => state.saveStories);
   const routingConfig = useAppStore(state => state.routingConfig);
-  const saveStoryMutation = useSaveStory();
 
   const manifestImage = async (entry: any, type: string) => {
     if (generatingIds.has(entry.id)) return;
@@ -27,7 +26,7 @@ export function useImageManifest() {
       if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
       if (ollama) apiHeaders['x-ollama-host'] = ollama;
 
-      const activeStory = activeStoryId ? await storyStorage.getStory(activeStoryId) : null;
+      const activeStory = stories.find(s => s.id === activeStoryId);
       const res = await fetch('/api/generate-card-image', {
         method: 'POST',
         headers: apiHeaders,
@@ -87,12 +86,19 @@ export function useImageManifest() {
           );
         }
 
-        await saveStoryMutation.mutateAsync({
-          ...activeStory,
-          memory: updatedMemory,
-          imageHistory: updatedStoryHistory,
-          updatedAt: new Date().toISOString()
+        const updatedStories = stories.map(s => {
+          if (s.id === activeStoryId) {
+            return {
+              ...s,
+              memory: updatedMemory,
+              imageHistory: updatedStoryHistory,
+              updatedAt: new Date().toISOString()
+            };
+          }
+          return s;
         });
+
+        saveStories(updatedStories);
       }
       
       setGeneratingIds(prev => {
@@ -135,7 +141,7 @@ export function useImageManifest() {
       if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
       if (ollama) apiHeaders['x-ollama-host'] = ollama;
 
-      const activeStory = activeStoryId ? await storyStorage.getStory(activeStoryId) : null;
+      const activeStory = stories.find(s => s.id === activeStoryId);
       const res = await fetch('/api/generate-card-image', {
         method: 'POST',
         headers: apiHeaders,
@@ -177,28 +183,35 @@ export function useImageManifest() {
           .map((img: any) => img.entityId === `chapter-hero-${chapterNumber}` ? { ...img, isCurrent: false } : img)
           .concat(newHistoryItem);
 
-        const updatedArcs = activeStory.arcs.map(arc => ({
-          ...arc,
-          chapters: arc.chapters.map(ch => {
-            if (ch.number === chapterNumber) {
-              return {
-                ...ch,
-                assetManifest: {
-                  ...(ch.assetManifest || {}),
-                  heroImage: selectedUrl
+        const updatedStories = stories.map(s => {
+          if (s.id === activeStoryId) {
+            const updatedArcs = s.arcs.map(arc => ({
+              ...arc,
+              chapters: arc.chapters.map(ch => {
+                if (ch.number === chapterNumber) {
+                  return {
+                    ...ch,
+                    assetManifest: {
+                      ...(ch.assetManifest || {}),
+                      heroImage: selectedUrl
+                    }
+                  };
                 }
-              };
-            }
-            return ch;
-          })
-        }));
-        
-        await saveStoryMutation.mutateAsync({
-          ...activeStory,
-          arcs: updatedArcs,
-          imageHistory: updatedStoryHistory,
-          updatedAt: new Date().toISOString()
+                return ch;
+              })
+            }));
+            
+            return {
+              ...s,
+              arcs: updatedArcs,
+              imageHistory: updatedStoryHistory,
+              updatedAt: new Date().toISOString()
+            };
+          }
+          return s;
         });
+
+        saveStories(updatedStories);
       }
       
       setGeneratingIds(prev => {

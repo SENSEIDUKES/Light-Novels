@@ -256,8 +256,9 @@ export default function LivingCodex({
 
   const handleDeleteCustomRelationship = (bondId: string) => {
     const currentBonds = activeStory.relationships || [];
+    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
     onUpdateStory({
-      ...activeStory,
+      ...currentActiveStory,
       relationships: currentBonds.filter(b => b.id !== bondId)
     });
   };
@@ -268,8 +269,9 @@ export default function LivingCodex({
 
   const handleDeleteFateNode = (fateId: string) => {
     const currentNodes = activeStory.karmaNodes || [];
+    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
     onUpdateStory({
-      ...activeStory,
+      ...currentActiveStory,
       karmaNodes: currentNodes.filter(n => n.id !== fateId)
     });
   };
@@ -356,8 +358,9 @@ export default function LivingCodex({
       return img;
     }) : [];
 
+    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
     onUpdateStory({
-      ...activeStory,
+      ...currentActiveStory,
       memory: finalMemory,
       imageHistory: updatedStoryHistory
     });
@@ -496,8 +499,9 @@ export default function LivingCodex({
       finalMemory = { ...memory, artifacts: updated };
     }
 
+    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
     onUpdateStory({
-      ...activeStory,
+      ...currentActiveStory,
       memory: finalMemory,
       imageHistory: updatedStoryHistory
     });

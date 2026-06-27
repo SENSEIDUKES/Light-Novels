@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import { DraftRecoverySession, AppUser } from '../types';
+import { Story, Chapter, DraftRecoverySession, AppUser } from '../types';
 import { storyStorage } from '../lib/storage';
 import { AppState } from './useAppStore';
 import { auth } from '../lib/firebase';
@@ -9,6 +9,7 @@ import { secureStorage } from '../lib/encryption';
 const STORAGE_KEY = '@seihouse/fiction-generator-stories-v2';
 
 export interface StorySlice {
+  stories: Story[];
   activeStoryId: string | null;
   storyToDelete: string | null;
   draftRecoverySession: DraftRecoverySession | null;
@@ -22,6 +23,7 @@ export interface StorySlice {
   storageType: string;
   lastSavedTime: Date | null;
 
+  setStories: (stories: Story[]) => void;
   setActiveStoryId: (id: string | null) => void;
   setStoryToDelete: (id: string | null) => void;
   setDraftRecoverySession: (session: DraftRecoverySession | null) => void;
@@ -35,6 +37,10 @@ export interface StorySlice {
   setStorageType: (type: string) => void;
   setLastSavedTime: (time: Date | null) => void;
 
+  saveStories: (updated: Story[]) => Promise<void>;
+  updateChapter: (storyId: string, chapterNumber: number, updates: Partial<Chapter>) => Promise<void>;
+  confirmDeleteStory: () => void;
+  cancelDeleteStory: () => void;
   handleExportLibrary: () => Promise<void>;
   handleImportLibrary: (e: any) => void;
   initStorage: () => Promise<void>;
@@ -42,6 +48,7 @@ export interface StorySlice {
 }
 
 export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set, get) => ({
+  stories: [],
   activeStoryId: null,
   storyToDelete: null,
   draftRecoverySession: null,
@@ -55,6 +62,7 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
   storageType: 'Initializing...',
   lastSavedTime: null,
 
+  setStories: (stories) => set({ stories }),
   setActiveStoryId: (id) => set({ activeStoryId: id }),
   setStoryToDelete: (id) => set({ storyToDelete: id }),
   setDraftRecoverySession: (session) => set({ draftRecoverySession: session }),
@@ -68,10 +76,60 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
   setStorageType: (storageType) => set({ storageType }),
   setLastSavedTime: (lastSavedTime) => set({ lastSavedTime }),
 
-  handleExportLibrary: async () => {
-    const { setAppError } = get();
+  saveStories: async (updated: Story[]) => {
+    const activeId = get().activeStoryId;
+    const markedStories = updated.map(s => {
+      if (s.id.startsWith('demo-matrix-') && s.id === activeId) {
+        return { ...s, isEdited: true };
+      }
+      return s;
+    });
+
+    set({ stories: markedStories });
     try {
-      const stories = await storyStorage.getStories();
+      storyStorage.startTransaction();
+      for (const s of markedStories) {
+        await storyStorage.saveStory(s);
+      }
+      await storyStorage.commitTransaction();
+      set({ lastSavedTime: new Date() });
+    } catch (e) {
+      storyStorage.rollbackTransaction();
+      console.error("Celestial local disk write breached, reverting to standard storage cache:", e);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(markedStories));
+      set({ lastSavedTime: new Date() });
+    }
+  },
+
+  updateChapter: async (storyId: string, chapterNumber: number, updates: Partial<Chapter>) => {
+    const { stories, saveStories } = get();
+    const updated = stories.map(s => {
+      if (s.id === storyId) {
+        return {
+          ...s,
+          arcs: s.arcs.map(a => {
+            const hasChapter = a.chapters.some(c => c.number === chapterNumber);
+            if (!hasChapter) return a;
+            return {
+              ...a,
+              chapters: a.chapters.map(c => {
+                if (c.number === chapterNumber) {
+                  return { ...c, ...updates };
+                }
+                return c;
+              })
+            };
+          })
+        };
+      }
+      return s;
+    });
+    await saveStories(updated);
+  },
+
+  handleExportLibrary: async () => {
+    const { stories, setAppError } = get();
+    try {
       const exportLibrary = [];
       for (const story of stories) {
         const exportData = JSON.parse(JSON.stringify(story));
@@ -112,14 +170,15 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
 
     const fileReader = new FileReader();
     fileReader.onload = async (event) => {
-      const { setAppError } = get();
+      const { stories, saveStories, setAppError } = get();
       try {
         const fileContent = event.target?.result as string;
         const parsedData = JSON.parse(fileContent);
 
+        let mergedList = [...stories];
         let importSuccessCount = 0;
 
-        const mergeSingleStory = async (storyObj: any) => {
+        const mergeSingleStory = (storyObj: any) => {
           if (!storyObj || !storyObj.id || !storyObj.title || !storyObj.memory) {
             throw new Error(`The provided package does not comply with the StoryWorld structural framework.`);
           }
@@ -133,27 +192,46 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
              });
           }
           
-          await storyStorage.saveStory(storyObj);
+          const existingIdx = mergedList.findIndex(s => s.id === storyObj.id);
+          if (existingIdx > -1) {
+            mergedList[existingIdx] = storyObj;
+          } else {
+            mergedList = [storyObj, ...mergedList];
+          }
           importSuccessCount++;
         };
 
         if (Array.isArray(parsedData)) {
-          for (const story of parsedData) {
-            await mergeSingleStory(story);
-          }
+          parsedData.forEach(story => mergeSingleStory(story));
         } else {
-          await mergeSingleStory(parsedData);
+          mergeSingleStory(parsedData);
         }
 
+        await saveStories(mergedList);
         console.log(`Successfully synchronized ${importSuccessCount} Story World memories into your local database!`);
         e.target.value = '';
-        window.dispatchEvent(new CustomEvent('story_library_updated'));
       } catch (err: any) {
         setAppError("The import portal cracked. Validation failed: " + err.message);
       }
     };
     fileReader.readAsText(fileList[0]);
   },
+
+  confirmDeleteStory: () => {
+    const { storyToDelete, stories, saveStories, activeStoryId, setActiveStoryId, setCurrentScreen, setStoryToDelete } = get();
+    if (storyToDelete) {
+      storyStorage.deleteStory(storyToDelete).catch(console.error);
+      const updated = stories.filter(s => s.id !== storyToDelete);
+      saveStories(updated);
+      if (activeStoryId === storyToDelete) {
+        setActiveStoryId(null);
+        setCurrentScreen('home');
+      }
+      setStoryToDelete(null);
+    }
+  },
+
+  cancelDeleteStory: () => set({ storyToDelete: null }),
 
   initStorage: async () => {
     try {
@@ -174,28 +252,94 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
       let loaded = await storyStorage.getStories();
       const user = auth.currentUser;
       
-      if (loaded && loaded.length === 0 && user) {
-        const randomDemo = getRandomDemoStory();
-        randomDemo.id = `demo-matrix-${user.uid}`;
-        randomDemo.userId = user.uid;
-        await storyStorage.saveStory(randomDemo);
+      if (loaded && loaded.length > 0) {
+        if (user) {
+          const unmigratedDemos = loaded.filter(s => 
+            (s.id.startsWith('demo-matrix-') || s.id.startsWith('challenge-')) && !s.id.includes(user.uid)
+          );
+          if (unmigratedDemos.length > 0) {
+            let updatedLoaded: Story[] = [...loaded];
+            let changed = false;
+            
+            storyStorage.startTransaction();
+            try {
+              for (const demo of unmigratedDemos) {
+                const isWorkedOn = demo.isEdited || demo.currentChapterNumber > 1 || demo.arcs.some(arc => 
+                  arc.chapters.some(ch => ch.number > 1 && (ch.status === 'read' || ch.hasContent || ch.generatedContent))
+                );
+                
+                if (isWorkedOn) {
+                  const userDemoId = demo.id.startsWith('demo-matrix-') 
+                    ? `demo-matrix-${user.uid}` 
+                    : `${demo.id}-${user.uid}`;
+                  updatedLoaded = updatedLoaded.map(s => {
+                    if (s.id === demo.id) {
+                      return { ...s, id: userDemoId, userId: user.uid };
+                    }
+                    return s;
+                  });
+                  await storyStorage.deleteStory(demo.id);
+                  changed = true;
+                } else {
+                  updatedLoaded = updatedLoaded.filter(s => s.id !== demo.id);
+                  await storyStorage.deleteStory(demo.id);
+                  changed = true;
+                }
+              }
+              
+              if (changed) {
+                loaded = updatedLoaded;
+                for (const s of loaded) {
+                  await storyStorage.saveStory(s);
+                }
+                await storyStorage.commitTransaction();
+              } else {
+                storyStorage.rollbackTransaction();
+              }
+            } catch (err) {
+              storyStorage.rollbackTransaction();
+              console.error("Failed to migrate demo stories during init", err);
+            }
+          }
+        }
+        set({ stories: loaded });
+      } else {
+        if (user) {
+          const randomDemo = getRandomDemoStory();
+          randomDemo.id = `demo-matrix-${user.uid}`;
+          randomDemo.userId = user.uid;
+          await storyStorage.saveStory(randomDemo);
+          set({ stories: [randomDemo] });
+        } else {
+          set({ stories: [] });
+        }
       }
     } catch (e) {
       console.error("Persistent story memory failed to initialize, reverting to local fallback:", e);
       set({ storageType: 'LocalStorage (Fallback)' });
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          set({ stories: JSON.parse(saved) });
+        } else {
+          set({ stories: [] });
+        }
+      } catch {
+        set({ stories: [] });
+      }
     }
   },
 
   migrateOrDiscardDemoStories: async (user: AppUser | null) => {
     if (!user) return;
-    const { activeStoryId, setActiveStoryId, setCurrentScreen } = get();
-    const stories = await storyStorage.getStories();
+    const { stories, activeStoryId, saveStories, setActiveStoryId, setCurrentScreen } = get();
     
     const unmigratedDemos = stories.filter(s => 
       (s.id.startsWith('demo-matrix-') || s.id.startsWith('challenge-')) && !s.id.includes(user.uid)
     );
     if (unmigratedDemos.length === 0) return;
     
+    let updatedStories = [...stories];
     let updatedActiveId = activeStoryId;
     let changed = false;
     
@@ -210,15 +354,19 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
           const userDemoId = demo.id.startsWith('demo-matrix-') 
             ? `demo-matrix-${user.uid}` 
             : `${demo.id}-${user.uid}`;
-          demo.id = userDemoId;
-          demo.userId = user.uid;
+          updatedStories = updatedStories.map(s => {
+            if (s.id === demo.id) {
+              return { ...s, id: userDemoId, userId: user.uid };
+            }
+            return s;
+          });
           if (updatedActiveId === demo.id) {
             updatedActiveId = userDemoId;
           }
-          await storyStorage.deleteStory(demo.id.replace(`-${user.uid}`, ''));
-          await storyStorage.saveStory(demo);
+          await storyStorage.deleteStory(demo.id);
           changed = true;
         } else {
+          updatedStories = updatedStories.filter(s => s.id !== demo.id);
           if (updatedActiveId === demo.id) {
             updatedActiveId = null;
             setCurrentScreen('home');
@@ -233,6 +381,7 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
           setActiveStoryId(updatedActiveId);
         }
         await storyStorage.commitTransaction();
+        await saveStories(updatedStories);
       } else {
         storyStorage.rollbackTransaction();
       }

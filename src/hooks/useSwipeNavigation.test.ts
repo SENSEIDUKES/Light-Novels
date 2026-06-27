@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { useSwipeNavigation } from './useSwipeNavigation';
 import React from 'react';
@@ -14,9 +14,15 @@ describe('useSwipeNavigation', () => {
       navigatePrev
     }));
 
-    result.current.handleTouchStart({ targetTouches: [{ clientX: 200, clientY: 100 }] } as any);
-    result.current.handleTouchMove({ targetTouches: [{ clientX: 100, clientY: 100 }] } as any);
-    result.current.handleTouchEnd();
+    act(() => {
+      result.current.handleTouchStart({ targetTouches: [{ clientX: 200, clientY: 100 }] } as any);
+    });
+    act(() => {
+      result.current.handleTouchMove({ targetTouches: [{ clientX: 100, clientY: 100 }] } as any);
+    });
+    act(() => {
+      result.current.handleTouchEnd();
+    });
 
     expect(navigateNext).toHaveBeenCalled();
     expect(navigatePrev).not.toHaveBeenCalled();
@@ -32,9 +38,15 @@ describe('useSwipeNavigation', () => {
       navigatePrev
     }));
 
-    result.current.handleTouchStart({ targetTouches: [{ clientX: 100, clientY: 100 }] } as any);
-    result.current.handleTouchMove({ targetTouches: [{ clientX: 200, clientY: 100 }] } as any);
-    result.current.handleTouchEnd();
+    act(() => {
+      result.current.handleTouchStart({ targetTouches: [{ clientX: 100, clientY: 100 }] } as any);
+    });
+    act(() => {
+      result.current.handleTouchMove({ targetTouches: [{ clientX: 200, clientY: 100 }] } as any);
+    });
+    act(() => {
+      result.current.handleTouchEnd();
+    });
 
     expect(navigatePrev).toHaveBeenCalled();
     expect(navigateNext).not.toHaveBeenCalled();
@@ -50,9 +62,15 @@ describe('useSwipeNavigation', () => {
       navigatePrev
     }));
 
-    result.current.handleTouchStart({ targetTouches: [{ clientX: 100, clientY: 100 }] } as any);
-    result.current.handleTouchMove({ targetTouches: [{ clientX: 160, clientY: 300 }] } as any);
-    result.current.handleTouchEnd();
+    act(() => {
+      result.current.handleTouchStart({ targetTouches: [{ clientX: 100, clientY: 100 }] } as any);
+    });
+    act(() => {
+      result.current.handleTouchMove({ targetTouches: [{ clientX: 160, clientY: 300 }] } as any);
+    });
+    act(() => {
+      result.current.handleTouchEnd();
+    });
 
     expect(navigatePrev).not.toHaveBeenCalled();
     expect(navigateNext).not.toHaveBeenCalled();

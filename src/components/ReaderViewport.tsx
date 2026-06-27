@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Loader2, Plus, Trash2, Bookmark as BookmarkIcon, Lock, ArrowLeft, ArrowRight, Sparkles, Zap, Play, ShieldAlert } from 'lucide-react';
 import { Chapter, StoryWorld, Bookmark } from '../types';
@@ -36,7 +36,6 @@ interface ReaderViewportProps {
   isPlayingText: boolean;
   isPausedText: boolean;
   currentNarratedBlockIndex: number | null;
-  pendingScrollToParagraph: number | null;
   
   currentPrefs: any;
   handleUpdatePreference: (key: string, value: any) => void;
@@ -73,6 +72,8 @@ interface ReaderViewportProps {
   chapters: Chapter[];
   manifestChapterHero?: (chapterNumber: number, promptText: string) => Promise<string>;
   generatingIds?: Set<string>;
+  isMomentousChapter?: boolean;
+  triggerHeroGeneration?: () => void;
 }
 
 export function ReaderViewport({
@@ -94,12 +95,15 @@ export function ReaderViewport({
   codexTerms,
   generatingRevealId,
   handleManifestReveal,
+  manifestChapterHero,
+  generatingIds,
+  isMomentousChapter,
+  triggerHeroGeneration,
   readerMode,
   immersion,
   isPlayingText,
   isPausedText,
   currentNarratedBlockIndex,
-  pendingScrollToParagraph,
   currentPrefs,
   handleUpdatePreference,
   activeBookmarks,
@@ -127,624 +131,7 @@ export function ReaderViewport({
   setShowLegend,
   hasSystemBlocks,
   chapters,
-  manifestChapterHero,
-  generatingIds
 }: ReaderViewportProps) {
-  
-  const [scrollTop, setScrollTop] = useState(0);
-  const [measuredHeight, setMeasuredHeight] = useState(600);
-  const virtualListWrapperRef = useRef<HTMLDivElement>(null);
-  const [wrapperOffsetTop, setWrapperOffsetTop] = useState(300);
-
-  useEffect(() => {
-    const el = readerRef?.current;
-    if (!el) return;
-
-    const handleScroll = () => {
-      setScrollTop(el.scrollTop);
-    };
-
-    el.addEventListener('scroll', handleScroll, { passive: true });
-
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const contentHeight = entry.contentRect.height;
-        setMeasuredHeight(contentHeight || el.clientHeight || 600);
-      }
-    });
-    observer.observe(el);
-
-    setMeasuredHeight(el.clientHeight || 600);
-
-    return () => {
-      el.removeEventListener('scroll', handleScroll);
-      observer.disconnect();
-    };
-  }, [readerRef]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const wrapper = virtualListWrapperRef.current;
-      if (wrapper) {
-        setWrapperOffsetTop(wrapper.offsetTop);
-      }
-    }, 150);
-    return () => clearTimeout(timer);
-  }, [selectedChapter, showLegend, activeStory, isTranslating]);
-
-  const translationItems = useMemo(() => {
-    if (!activeTranslationContent) return [];
-    return activeTranslationContent
-      .split("\n\n")
-      .map((paragraph, index) => ({ paragraph, index, type: 'translation' as const }))
-      .filter(item => !!item.paragraph.trim());
-  }, [activeTranslationContent]);
-
-  const blockItems = useMemo(() => {
-    if (!selectedChapter.blocks || selectedChapter.blocks.length === 0) return [];
-    return selectedChapter.blocks
-      .map((block, index) => ({ block, index, type: 'block' as const }))
-      .filter(item => !!item.block.text.trim());
-  }, [selectedChapter.blocks]);
-
-  const generatedItems = useMemo(() => {
-    if (!selectedChapter.generatedContent) return [];
-    return selectedChapter.generatedContent
-      .split("\n\n")
-      .map((paragraph, index) => ({ paragraph, index, type: 'generated' as const }))
-      .filter(item => !!item.paragraph.trim());
-  }, [selectedChapter.generatedContent]);
-
-  const virtualizationItems = useMemo(() => {
-    if (activeTranslationContent) return translationItems;
-    if (selectedChapter.blocks && selectedChapter.blocks.length > 0) return blockItems;
-    return generatedItems;
-  }, [activeTranslationContent, translationItems, selectedChapter.blocks, blockItems, generatedItems]);
-
-  const itemHeight = 115; // estimated average height of each item in pixels
-  const overscan = 5;
-
-  const totalHeight = useMemo(() => {
-    return virtualizationItems.length * itemHeight;
-  }, [virtualizationItems, itemHeight]);
-
-  const { startIndex, endIndex } = useMemo(() => {
-    const relativeScrollTop = Math.max(0, scrollTop - wrapperOffsetTop);
-    let start = Math.max(0, Math.floor(relativeScrollTop / itemHeight) - overscan);
-    let end = Math.min(virtualizationItems.length - 1, Math.floor((relativeScrollTop + measuredHeight) / itemHeight) + overscan);
-
-    if (pendingScrollToParagraph !== null && pendingScrollToParagraph !== undefined) {
-      if (pendingScrollToParagraph < start) {
-        start = Math.max(0, pendingScrollToParagraph - 2);
-      } else if (pendingScrollToParagraph > end) {
-        end = Math.min(virtualizationItems.length - 1, pendingScrollToParagraph + 2);
-      }
-    }
-
-    if (currentNarratedBlockIndex !== null && currentNarratedBlockIndex !== undefined && currentNarratedBlockIndex !== -1) {
-      if (currentNarratedBlockIndex < start) {
-        start = Math.max(0, currentNarratedBlockIndex - 2);
-      } else if (currentNarratedBlockIndex > end) {
-        end = Math.min(virtualizationItems.length - 1, currentNarratedBlockIndex + 2);
-      }
-    }
-
-    return { startIndex: start, endIndex: end };
-  }, [scrollTop, wrapperOffsetTop, measuredHeight, virtualizationItems.length, itemHeight, pendingScrollToParagraph, currentNarratedBlockIndex]);
-
-  const visibleItems = useMemo(() => {
-    const subset: any[] = [];
-    for (let i = startIndex; i <= endIndex; i++) {
-      if (virtualizationItems[i] !== undefined) {
-        subset.push(virtualizationItems[i]);
-      }
-    }
-    return subset;
-  }, [startIndex, endIndex, virtualizationItems]);
-
-  const renderVirtualItem = (item: any) => {
-    if (item.type === 'translation') {
-      const { paragraph, index } = item;
-      const { cleanText, sfxList } = extractSFXCues(paragraph);
-      if (!cleanText) return null;
-      const isSystemLine = cleanText.startsWith("[") && cleanText.endsWith("]");
-      if (isSystemLine) {
-        return (
-          <SystemBlock
-            key={`trans-${index}`}
-            id={`para-${index}`}
-            data-block-index={index}
-            content={cleanText}
-          />
-        );
-      }
-
-      return (
-        <div
-          key={`trans-${index}`}
-          id={`para-${index}`}
-          data-block-index={index}
-          className="group relative transition-all duration-300 border border-transparent rounded-lg p-2.5 -mx-2.5 mb-2"
-        >
-          <div className="flex items-start">
-            <div className="flex-1 min-w-0">
-              {sfxList.map((sfx, i) => (
-                <span
-                  key={`sfx-${index}-${i}`}
-                  className="narrative-trigger hidden"
-                  aria-hidden="true"
-                  data-cue-type="narrative.fx.play"
-                  data-cue-id={`sfx-trans-${selectedChapter.number}-${index}-${i}`}
-                  data-cue-value={sfx}
-                  data-cue-once="true"
-                />
-              ))}
-              <div
-                className={`text-justify indent-8 ${currentPrefs.paragraphSpacing === "normal" ? "mb-0" : currentPrefs.paragraphSpacing === "wide" ? "mb-2" : "mb-4"} ${getFocusClass(index)}`}
-              >
-                {renderHighlightedText(cleanText, index)}
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    } else if (item.type === 'block') {
-      const { block, index } = item;
-      const { cleanText, sfxList } = extractSFXCues(block.text);
-      if (!cleanText) return null;
-
-      const revealEntity = block.metadata?.entities?.find((ent: any) => {
-        if (ent.mention !== 'reveal') return false;
-        const matched = codexTerms.find(
-          (t: any) => t.term.toLowerCase() === ent.name.toLowerCase()
-        );
-        return matched && matched.entry;
-      });
-
-      const revealTerm = revealEntity
-        ? codexTerms.find((t: any) => t.term.toLowerCase() === revealEntity.name.toLowerCase())
-        : undefined;
-
-      const revealImageUrl = revealTerm && 'imageUrl' in revealTerm.entry ? (revealTerm.entry as any).imageUrl : undefined;
-
-      const isSenMode = readerMode === "sen";
-      const currentParaIdx = currentNarratedBlockIndex;
-      const isPlayerPlaying = isPlayingText || isPausedText;
-      const isRevealed = !isSenMode || !immersion.imagePopups || (!isPlayerPlaying) || index <= (currentParaIdx || 0);
-
-      let revealCard = null;
-      if (block.worldCard) {
-        const cardWithImage = { ...block.worldCard };
-        if (!cardWithImage.imageUrl && revealImageUrl) {
-          cardWithImage.imageUrl = revealImageUrl;
-        }
-        revealCard = (isRevealed || !isSenMode || immersion.imagePopups) ? (
-          <WorldEntityCard card={cardWithImage} />
-        ) : null;
-      } else if (revealTerm && (!isSenMode || immersion.imagePopups)) {
-        revealCard = (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={!isSenMode ? { opacity: 1, scale: 1 } : undefined}
-            animate={isSenMode ? (isRevealed ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.95 }) : undefined}
-            viewport={{ once: true, margin: "-50px" }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            className="w-full max-w-sm mx-auto my-6 p-4 min-h-[300px] rounded-xl border border-portal/30 bg-void/80 backdrop-blur-md shadow-[0_0_25px_rgba(4,172,255,0.15)] flex flex-col items-center justify-center text-center group/reveal"
-          >
-            {revealImageUrl ? (
-              <div className="relative w-[180px] h-[180px] shrink-0 rounded-lg overflow-hidden border border-neutral-900 bg-neutral-950 mb-3 shadow-inner">
-                <img
-                  src={revealImageUrl}
-                  alt={revealTerm.entry.name}
-                  loading="lazy"
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover/reveal:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-              </div>
-            ) : (
-              revealTerm.type !== 'faction' && (
-                <button
-                  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleManifestReveal(revealTerm.entry, revealTerm.type)}
-                  disabled={generatingRevealId === revealTerm.entry.id}
-                  className="relative w-[180px] h-[180px] shrink-0 mb-3 overflow-hidden rounded-lg bg-[#010b14] border border-portal/40 hover:border-portal flex flex-col items-center justify-center cursor-pointer transition-all duration-500 group/revealmanifest shadow-[0_0_15px_rgba(4,172,255,0.15)] hover:shadow-[0_0_25px_rgba(4,172,255,0.35)]"
-                >
-                  <div className="absolute inset-x-0 bottom-0 top-0 h-full w-full bg-[radial-gradient(circle_at_center,rgba(4,172,255,0.18)_0%,transparent_70%)] animate-pulse pointer-events-none" />
-                  <div className="absolute w-20 h-20 rounded-full border border-dashed border-portal/25 animate-[spin_12s_linear_infinite] group-hover/revealmanifest:border-portal/50" />
-                  <div className="absolute w-[88px] h-[88px] rounded-full border border-dotted border-portal/15 animate-[spin_20s_linear_infinite_reverse]" />
-                  
-                  {generatingRevealId === revealTerm.entry.id ? (
-                    <div className="flex flex-col items-center gap-1.5 z-10">
-                      <Loader2 size={18} className="text-portal animate-spin" />
-                      <span className="font-mono text-[9px] text-portal/90 uppercase tracking-widest animate-pulse font-medium">
-                        Summoning...
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-1.5 z-10 transition-transform duration-300 group-hover/revealmanifest:scale-105">
-                      <span className="text-portal text-sm group-hover/revealmanifest:animate-bounce">✦</span>
-                      <span className="font-sc text-[10px] text-signal tracking-widest font-bold uppercase">
-                        Manifest
-                      </span>
-                      <span className="font-mono text-[8px] text-neutral-500 tracking-wider">
-                        Awaken Portrait
-                      </span>
-                    </div>
-                  )}
-                </button>
-              )
-            )}
-            <span className="font-mono text-[9px] text-portal uppercase tracking-widest mb-1 font-bold">
-              Reveal · {revealTerm.type}
-            </span>
-            <h4 className="font-display font-medium text-lg text-signal tracking-wide">
-              {revealTerm.entry.name}
-            </h4>
-            {revealTerm.entry.description && (
-              <p className="font-serif italic text-xs text-neutral-400 mt-1 max-w-[280px] line-clamp-2">
-                {revealTerm.entry.description}
-              </p>
-            )}
-          </motion.div>
-        );
-      }
-
-      const isSystemLine = cleanText.startsWith("[") && cleanText.endsWith("]");
-
-      if (isSystemLine || block.system) {
-        return (
-          <React.Fragment key={block.id || `para-${index}`}>
-            {revealCard}
-            <SystemBlock
-              content={cleanText}
-              system={block.system}
-              data-cue-type="narrative.metadata.signature"
-              data-cue-id={
-                block.id ||
-                `system-line-${selectedChapter.number}-${index}`
-              }
-              data-cue-metadata={
-                block.metadata
-                  ? JSON.stringify(block.metadata)
-                  : undefined
-              }
-              data-cue-once="true"
-              data-block-index={index}
-              className={`narrative-trigger ${block.metadata ? "metadata-block" : ""}`}
-            />
-          </React.Fragment>
-        );
-      }
-
-      const existingBookmark = activeBookmarks.find(
-        (b) =>
-          b.chapterNumber === selectedChapter.number &&
-          b.paragraphIndex === index,
-      );
-      const isEditingThisBookmark = editingBookmarkParagraphIndex === index;
-
-      return (
-        <React.Fragment key={block.id || `para-${index}`}>
-          {revealCard}
-          <div
-            id={`para-${index}`}
-            data-block-index={index}
-            data-cue-type={
-              block.metadata
-                ? "narrative.metadata.signature"
-                : undefined
-            }
-            data-cue-id={
-              block.id ||
-              `para-${selectedChapter.number}-${index}`
-            }
-            data-cue-metadata={
-              block.metadata
-                ? JSON.stringify(block.metadata)
-                : undefined
-            }
-            data-cue-once="true"
-            className={`relative group paragraph-block transition-colors duration-200 mb-6 ${existingBookmark ? "custom-bookmark-bg" : ""} ${block.metadata ? "narrative-trigger metadata-block" : ""}`}
-          >
-            {sfxList.map((sfx, i) => (
-              <span
-                key={`sfx-${index}-${i}`}
-                className="narrative-trigger hidden"
-                aria-hidden="true"
-                data-cue-type="narrative.fx.play"
-                data-cue-id={`sfx-block-${selectedChapter.number}-${index}-${i}`}
-                data-cue-value={sfx}
-                data-cue-once="true"
-              />
-            ))}
-            <div className={`text-justify indent-8 relative ${getFocusClass(index)}`}>
-              {renderHighlightedText(cleanText, index)}
-              <button
-                tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-                  if (existingBookmark) {
-                    handleRemoveBookmark(
-                      selectedChapter.number,
-                      index,
-                    );
-                  } else {
-                    setEditingBookmarkParagraphIndex(index);
-                    setBookmarkNoteText(
-                      existingBookmark
-                        ? existingBookmark.note || ""
-                        : "",
-                    );
-                  }
-                }}
-                className={`inline-block ml-3 align-baseline transition-opacity ${existingBookmark ? "text-gold-accent opacity-100" : "text-neutral-500 opacity-20 md:opacity-0 hover:opacity-100 group-hover:opacity-100"}`}
-                title={
-                  existingBookmark
-                    ? "Remove bookmark"
-                    : "Bookmark this position"
-                }
-              >
-                <BookmarkIcon
-                  size={14}
-                  className={
-                    existingBookmark ? "fill-current" : ""
-                  }
-                />
-              </button>
-            </div>
-
-            {/* Inline Bookmark Editor */}
-            {isEditingThisBookmark && (
-              <div className="mt-4 p-4 bg-void border border-neutral-800 rounded-lg shadow-xl relative z-20">
-                <textarea
-                  value={bookmarkNoteText}
-                  onChange={(e) =>
-                    setBookmarkNoteText(e.target.value)
-                  }
-                  placeholder="Add a contemplation or heavenly mechanic note here..."
-                  className="w-full bg-neutral-900 border border-neutral-800 rounded p-3 text-sm text-signal placeholder-neutral-600 focus:outline-none focus:border-portal mb-3 min-h-[80px]"
-                />
-                <div className="flex justify-end space-x-2">
-                  <button
-                    tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() =>
-                      setEditingBookmarkParagraphIndex(null)
-                    }
-                    className="px-4 py-1.5 text-xs text-neutral-400 hover:text-signal transition-colors font-mono"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() =>
-                      handleSaveBookmark(
-                        index,
-                        block.text.substring(0, 100) + "...",
-                        bookmarkNoteText,
-                      )
-                    }
-                    className="px-4 py-1.5 text-xs bg-human text-signal rounded hover:bg-void transition-colors font-sans"
-                  >
-                    Save Bookmark
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Display Saved Bookmark Note (if active) */}
-            {existingBookmark &&
-              existingBookmark.note &&
-              !isEditingThisBookmark && (
-                <div className="mt-2 text-xs font-mono text-gold-accent flex items-start space-x-2 bg-neutral-900/50 p-2 border-l border-gold-accent/50 ml-8">
-                  <span className="opacity-70">Note:</span>
-                  <span className="break-words font-sans italic opacity-90">
-                    {existingBookmark.note}
-                  </span>
-                </div>
-              )}
-          </div>
-        </React.Fragment>
-      );
-    } else {
-      // Case 3: generated paragraph
-      const { paragraph, index } = item;
-      const { cleanText, sfxList } = extractSFXCues(paragraph);
-      if (!cleanText) return null;
-      const isSystemLine = cleanText.startsWith("[") && cleanText.endsWith("]");
-      if (isSystemLine) {
-        return (
-          <SystemBlock
-            key={`gen-${index}`}
-            id={`para-${index}`}
-            data-block-index={index}
-            content={cleanText}
-            data-cue-type="narrative.metadata.signature"
-            data-cue-id={`system-line-${selectedChapter.number}-${index}`}
-            className="narrative-trigger"
-          />
-        );
-      }
-
-      const existingBookmark = activeBookmarks.find(
-        (b) =>
-          b.chapterNumber === selectedChapter.number &&
-          b.paragraphIndex === index,
-      );
-      const isEditingThis = editingBookmarkParagraphIndex === index;
-
-      return (
-        <div
-          key={`gen-${index}`}
-          id={`para-${index}`}
-          data-block-index={index}
-          data-cue-type="narrative.paragraph.enter"
-          data-cue-id={`para-${selectedChapter.number}-${index}`}
-          data-cue-once="true"
-          className="narrative-trigger group relative transition-all duration-300 border border-transparent hover:bg-neutral-900/5 hover:border-neutral-900/10 rounded-lg p-2.5 -mx-2.5 mb-2"
-        >
-          <div className="flex items-start">
-            {/* Interactive Left Margin Anchor Rail */}
-            <div className="flex-shrink-0 w-6 flex flex-col items-center justify-start pt-1 mr-2 bg-transparent select-none">
-              {existingBookmark ? (
-                <button
-                  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-                    setEditingBookmarkParagraphIndex(
-                      index,
-                    );
-                    setBookmarkNoteText(
-                      existingBookmark.note || "",
-                    );
-                  }}
-                  className="text-portal hover:text-gold-accent transition-colors p-1"
-                  title="Engraved Anchor - Edit Note"
-                >
-                  <BookmarkIcon
-                    size={12}
-                    fill="currentColor"
-                  />
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    setEditingBookmarkParagraphIndex(
-                      index,
-                    );
-                    setBookmarkNoteText("");
-                  }}
-                  className="opacity-20 md:opacity-0 group-hover:opacity-100 text-neutral-600 hover:text-portal transition-all p-1"
-                  title="Affix Anchor"
-                >
-                  <Plus size={12} />
-                </button>
-              )}
-            </div>
-
-            {/* Paragraph text */}
-            <div className="flex-1 min-w-0">
-              {sfxList.map((sfx, i) => (
-                <span
-                  key={`sfx-${index}-${i}`}
-                  className="narrative-trigger hidden"
-                  aria-hidden="true"
-                  data-cue-type="narrative.fx.play"
-                  data-cue-id={`sfx-text-${selectedChapter.number}-${index}-${i}`}
-                  data-cue-value={sfx}
-                  data-cue-once="true"
-                />
-              ))}
-              <div
-                className={`text-justify indent-8 ${
-                  currentPrefs.paragraphSpacing === "normal"
-                    ? "mb-0"
-                    : currentPrefs.paragraphSpacing === "wide"
-                      ? "mb-2"
-                      : "mb-4"
-                }`}
-              >
-                {renderHighlightedText(cleanText, index)}
-              </div>
-            </div>
-          </div>
-
-          {/* Display saved Note under anchored paragraph */}
-          {existingBookmark &&
-            !isEditingThis &&
-            existingBookmark.note && (
-              <div className="mt-2 ml-8 pl-3 border-l-2 border-portal bg-portal/5 p-2 rounded text-xs text-neutral-350 font-sans italic flex items-start justify-between">
-                <span>
-                  <span className="font-sc font-semibold text-portal uppercase tracking-wider text-[9px] block not-italic">
-                    Resonance Note:
-                  </span>
-                  {existingBookmark.note}
-                </span>
-                <button
-                  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() =>
-                    handleRemoveBookmark(
-                      selectedChapter.number,
-                      index,
-                    )
-                  }
-                  className="text-neutral-550 hover:text-red-500 p-1 opacity-40 md:opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Release Anchor"
-                >
-                  <Trash2 size={11} />
-                </button>
-              </div>
-            )}
-
-          {/* Editing Panel (Inline) */}
-          {isEditingThis && (
-            <div className="mt-3 ml-8 p-3 bg-neutral-950 border border-neutral-900 rounded space-y-2">
-              <span className="text-[10px] font-sc text-portal uppercase tracking-wider block font-bold">
-                {existingBookmark
-                  ? "Edit Aetherial Resonance"
-                  : "Engrave Aetherial Resonance"}
-              </span>
-              <input
-                type="text"
-                value={bookmarkNoteText}
-                onChange={(e) =>
-                  setBookmarkNoteText(e.target.value)
-                }
-                placeholder="Type an insightful note, prediction, or timeline event..."
-                className="w-full bg-void text-xs text-signal border border-neutral-850 focus:border-portal p-2 rounded focus:outline-none"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleSaveBookmark(
-                      index,
-                      paragraph,
-                      bookmarkNoteText,
-                    );
-                  }
-                }}
-              />
-              <div className="flex items-center justify-between">
-                <span className="text-[9px] text-neutral-500 font-mono">
-                  Press Enter to engrave
-                </span>
-                <div className="flex space-x-2">
-                  {existingBookmark && (
-                    <button
-                      onClick={() => {
-                        handleRemoveBookmark(
-                          selectedChapter.number,
-                          index,
-                        );
-                        setEditingBookmarkParagraphIndex(
-                          null,
-                        );
-                      }}
-                      className="px-2.5 py-1 text-[10px] uppercase font-bold tracking-widest text-red-500 hover:bg-neutral-900"
-                    >
-                      Release
-                    </button>
-                  )}
-                  <button
-                    onClick={() =>
-                      setEditingBookmarkParagraphIndex(
-                        null,
-                      )
-                    }
-                    className="px-2.5 py-1 text-[10px] uppercase font-bold tracking-widest text-neutral-550 hover:bg-neutral-900"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() =>
-                      handleSaveBookmark(
-                        index,
-                        paragraph,
-                        bookmarkNoteText,
-                      )
-                    }
-                    className="px-3 py-1 text-[10px] uppercase font-bold tracking-widest bg-portal text-void font-sc rounded hover:brightness-110"
-                  >
-                    Save
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    }
-  };
   
   return (
     <div
@@ -775,32 +162,6 @@ export function ReaderViewport({
               transition={{ duration: 0.5, ease: "easeOut" }}
               className="max-w-2xl mx-auto"
             >
-              {selectedChapter.assetManifest?.heroImage && (
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.8, ease: "easeOut" }}
-                  className="mb-12 w-fit max-w-full mx-auto bg-void rounded-sm overflow-hidden shadow-[0_0_40px_rgba(4,172,255,0.1)] relative border border-neutral-800/80 group"
-                >
-                  <div className="absolute top-4 left-4 z-20 px-3 py-1.5 bg-void/80 backdrop-blur-md text-[10px] sm:text-xs font-mono uppercase tracking-widest text-[#04ACFF] border border-[#04ACFF]/20 rounded-sm flex items-center gap-2 shadow-lg">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#04ACFF] animate-pulse" />
-                    Visual Memory Captured
-                  </div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-void via-transparent to-void/30 opacity-90 z-10 pointer-events-none" />
-                  <img 
-                    src={selectedChapter.assetManifest.heroImage} 
-                    alt="Chapter Crux Manifestation" 
-                    className="max-w-full h-auto block mx-auto object-contain max-h-[65vh] mix-blend-screen opacity-90 transition-transform duration-1000 group-hover:scale-105"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute bottom-0 left-0 right-0 p-6 z-20 bg-gradient-to-t from-void flex flex-col justify-end">
-                    <p className="text-signal/80 text-sm sm:text-base italic font-serif leading-relaxed line-clamp-3">
-                      "{selectedChapter.summary}"
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-
               {activeStory.genre === 'Fate Survival' && (
                 <div className="mb-8 p-5 rounded-lg bg-neutral-950 border border-red-950/40 relative overflow-hidden shadow-[0_0_25px_rgba(139,0,0,0.15)] animate-fadeIn">
                   <div className="absolute top-0 right-0 h-16 w-16 bg-gradient-to-br from-red-600/10 to-transparent pointer-events-none rounded-bl-full" />
@@ -994,27 +355,576 @@ export function ReaderViewport({
                 } max-w-2xl mx-auto select-text`}
                 dir="auto"
               >
-                {virtualizationItems.length === 0 ? (
-                  null
-                ) : (
-                  <div
-                    ref={virtualListWrapperRef}
-                    style={{ height: totalHeight, width: '100%', position: 'relative' }}
-                  >
-                    <div
-                      style={{
-                        transform: `translateY(${startIndex * itemHeight}px)`,
-                        left: 0,
-                        right: 0,
-                        position: 'absolute',
-                      }}
-                      className="space-y-4"
-                    >
-                      {visibleItems.map((item) => renderVirtualItem(item))}
-                    </div>
-                  </div>
-                )}
+                {activeTranslationContent
+                  ? activeTranslationContent
+                      .split("\n\n")
+                      .map((paragraph, index) => {
+                        if (!paragraph.trim()) return null;
+                        const { cleanText, sfxList } =
+                          extractSFXCues(paragraph);
+                        if (!cleanText) return null;
+                        const isSystemLine =
+                          cleanText.startsWith("[") &&
+                          cleanText.endsWith("]");
+                        if (isSystemLine) {
+                          return (
+                            <SystemBlock
+                              key={index}
+                              id={`para-${index}`}
+                              data-block-index={index}
+                              content={cleanText}
+                            />
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={index}
+                            id={`para-${index}`}
+                            data-block-index={index}
+                            className="group relative transition-all duration-300 border border-transparent rounded-lg p-2.5 -mx-2.5 mb-2"
+                          >
+                            <div className="flex items-start">
+                              <div className="flex-1 min-w-0">
+                                {sfxList.map((sfx, i) => (
+                                  <span
+                                    key={`sfx-${index}-${i}`}
+                                    className="narrative-trigger hidden"
+                                    aria-hidden="true"
+                                    data-cue-type="narrative.fx.play"
+                                    data-cue-id={`sfx-trans-${selectedChapter.number}-${index}-${i}`}
+                                    data-cue-value={sfx}
+                                    data-cue-once="true"
+                                  />
+                                ))}
+                                <div
+                                  className={`text-justify indent-8 ${currentPrefs.paragraphSpacing === "normal" ? "mb-0" : currentPrefs.paragraphSpacing === "wide" ? "mb-2" : "mb-4"} ${getFocusClass(index)}`}
+                                >
+                                  {renderHighlightedText(cleanText, index)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                  : selectedChapter.blocks
+                    ? selectedChapter.blocks.map((block, index) => {
+                        if (!block.text.trim()) return null;
+                        const { cleanText, sfxList } = extractSFXCues(
+                          block.text,
+                        );
+                        if (!cleanText) return null;
+
+                        const revealEntity = block.metadata?.entities?.find(ent => {
+                          if (ent.mention !== 'reveal') return false;
+                          const matched = codexTerms.find(
+                            t => t.term.toLowerCase() === ent.name.toLowerCase()
+                          );
+                          return matched && matched.entry;
+                        });
+
+                        const revealTerm = revealEntity
+                          ? codexTerms.find(t => t.term.toLowerCase() === revealEntity.name.toLowerCase())
+                          : undefined;
+
+                        const revealImageUrl = revealTerm && 'imageUrl' in revealTerm.entry ? (revealTerm.entry as any).imageUrl : undefined;
+
+                        const isSenMode = readerMode === "sen";
+                        const currentParaIdx = currentNarratedBlockIndex;
+                        const isPlayerPlaying = isPlayingText || isPausedText;
+                        const isRevealed = !isSenMode || !immersion.imagePopups || (!isPlayerPlaying) || index <= (currentParaIdx || 0);
+
+                        let revealCard = null;
+                        if (block.worldCard) {
+                          const cardWithImage = { ...block.worldCard };
+                          if (!cardWithImage.imageUrl && revealImageUrl) {
+                            cardWithImage.imageUrl = revealImageUrl;
+                          }
+                          revealCard = (isRevealed || !isSenMode || immersion.imagePopups) ? (
+                            <WorldEntityCard card={cardWithImage} />
+                          ) : null;
+                        } else if (revealTerm && (!isSenMode || immersion.imagePopups)) {
+                          revealCard = (
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              whileInView={!isSenMode ? { opacity: 1, scale: 1 } : undefined}
+                              animate={isSenMode ? (isRevealed ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.95 }) : undefined}
+                              viewport={{ once: true, margin: "-50px" }}
+                              transition={{ duration: 0.5, ease: "easeOut" }}
+                              className="w-full max-w-sm mx-auto my-6 p-4 min-h-[300px] rounded-xl border border-portal/30 bg-void/80 backdrop-blur-md shadow-[0_0_25px_rgba(4,172,255,0.15)] flex flex-col items-center justify-center text-center group/reveal"
+                            >
+                              {revealImageUrl ? (
+                                <div className="relative w-[180px] h-[180px] shrink-0 rounded-lg overflow-hidden border border-neutral-900 bg-neutral-950 mb-3 shadow-inner">
+                                  <img
+                                    src={revealImageUrl}
+                                    alt={revealTerm.entry.name}
+                                    loading="lazy"
+                                    referrerPolicy="no-referrer"
+                                    className="w-full h-full object-cover transition-transform duration-500 group-hover/reveal:scale-105"
+                                  />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+                                </div>
+                              ) : (
+                                revealTerm.type !== 'faction' && (
+                                  <button
+                                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleManifestReveal(revealTerm.entry, revealTerm.type)}
+                                    disabled={generatingRevealId === revealTerm.entry.id}
+                                    className="relative w-[180px] h-[180px] shrink-0 mb-3 overflow-hidden rounded-lg bg-[#010b14] border border-portal/40 hover:border-portal flex flex-col items-center justify-center cursor-pointer transition-all duration-500 group/revealmanifest shadow-[0_0_15px_rgba(4,172,255,0.15)] hover:shadow-[0_0_25px_rgba(4,172,255,0.35)]"
+                                  >
+                                    <div className="absolute inset-x-0 bottom-0 top-0 h-full w-full bg-[radial-gradient(circle_at_center,rgba(4,172,255,0.18)_0%,transparent_70%)] animate-pulse pointer-events-none" />
+                                    <div className="absolute w-20 h-20 rounded-full border border-dashed border-portal/25 animate-[spin_12s_linear_infinite] group-hover/revealmanifest:border-portal/50" />
+                                    <div className="absolute w-[88px] h-[88px] rounded-full border border-dotted border-portal/15 animate-[spin_20s_linear_infinite_reverse]" />
+                                    
+                                    {generatingRevealId === revealTerm.entry.id ? (
+                                      <div className="flex flex-col items-center gap-1.5 z-10">
+                                        <Loader2 size={18} className="text-portal animate-spin" />
+                                        <span className="font-mono text-[9px] text-portal/90 uppercase tracking-widest animate-pulse font-medium">
+                                          Summoning...
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <div className="flex flex-col items-center gap-1.5 z-10 transition-transform duration-300 group-hover/revealmanifest:scale-105">
+                                        <span className="text-portal text-sm group-hover/revealmanifest:animate-bounce">✦</span>
+                                        <span className="font-sc text-[10px] text-signal tracking-widest font-bold uppercase">
+                                          Manifest
+                                        </span>
+                                        <span className="font-mono text-[8px] text-neutral-500 tracking-wider">
+                                          Awaken Portrait
+                                        </span>
+                                      </div>
+                                    )}
+                                  </button>
+                                )
+                              )}
+                              <span className="font-mono text-[9px] text-portal uppercase tracking-widest mb-1 font-bold">
+                                Reveal · {revealTerm.type}
+                              </span>
+                              <h4 className="font-display font-medium text-lg text-signal tracking-wide">
+                                {revealTerm.entry.name}
+                              </h4>
+                              {revealTerm.entry.description && (
+                                <p className="font-serif italic text-xs text-neutral-400 mt-1 max-w-[280px] line-clamp-2">
+                                  {revealTerm.entry.description}
+                                </p>
+                              )}
+                            </motion.div>
+                          );
+                        }
+
+                        const isSystemLine =
+                          cleanText.startsWith("[") &&
+                          cleanText.endsWith("]");
+
+                        if (isSystemLine || block.system) {
+                          return (
+                            <React.Fragment key={block.id || `para-${index}`}>
+                              {revealCard}
+                              <SystemBlock
+                                content={cleanText}
+                                system={block.system}
+                                data-cue-type="narrative.metadata.signature"
+                                data-cue-id={
+                                  block.id ||
+                                  `system-line-${selectedChapter.number}-${index}`
+                                }
+                                data-cue-metadata={
+                                  block.metadata
+                                    ? JSON.stringify(block.metadata)
+                                    : undefined
+                                }
+                                data-cue-once="true"
+                                data-block-index={index}
+                                className={`narrative-trigger ${block.metadata ? "metadata-block" : ""}`}
+                              />
+                            </React.Fragment>
+                          );
+                        }
+
+                        const existingBookmark = activeBookmarks.find(
+                          (b) =>
+                            b.chapterNumber === selectedChapter.number &&
+                            b.paragraphIndex === index,
+                        );
+                        const isEditingThisBookmark =
+                          editingBookmarkParagraphIndex === index;
+
+                        return (
+                          <React.Fragment key={block.id || `para-${index}`}>
+                            {revealCard}
+                            <div
+                              id={`para-${index}`}
+                              data-block-index={index}
+                            data-cue-type={
+                              block.metadata
+                                ? "narrative.metadata.signature"
+                                : undefined
+                            }
+                            data-cue-id={
+                              block.id ||
+                              `para-${selectedChapter.number}-${index}`
+                            }
+                            data-cue-metadata={
+                              block.metadata
+                                ? JSON.stringify(block.metadata)
+                                : undefined
+                            }
+                            data-cue-once="true"
+                            className={`relative group paragraph-block transition-colors duration-200 mb-6 ${existingBookmark ? "custom-bookmark-bg" : ""} ${block.metadata ? "narrative-trigger metadata-block" : ""}`}
+                          >
+                            {sfxList.map((sfx, i) => (
+                              <span
+                                key={`sfx-${index}-${i}`}
+                                className="narrative-trigger hidden"
+                                aria-hidden="true"
+                                data-cue-type="narrative.fx.play"
+                                data-cue-id={`sfx-block-${selectedChapter.number}-${index}-${i}`}
+                                data-cue-value={sfx}
+                                data-cue-once="true"
+                              />
+                            ))}
+                            <div className={`text-justify indent-8 relative ${getFocusClass(index)}`}>
+                              {renderHighlightedText(cleanText, index)}
+                              <button
+                                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
+                                  if (existingBookmark) {
+                                    handleRemoveBookmark(
+                                      selectedChapter.number,
+                                      index,
+                                    );
+                                  } else {
+                                    setEditingBookmarkParagraphIndex(index);
+                                    setBookmarkNoteText(
+                                      existingBookmark
+                                        ? existingBookmark.note || ""
+                                        : "",
+                                    );
+                                  }
+                                }}
+                                className={`inline-block ml-3 align-baseline transition-opacity ${existingBookmark ? "text-gold-accent opacity-100" : "text-neutral-500 opacity-20 md:opacity-0 hover:opacity-100 group-hover:opacity-100"}`}
+                                title={
+                                  existingBookmark
+                                    ? "Remove bookmark"
+                                    : "Bookmark this position"
+                                }
+                              >
+                                <BookmarkIcon
+                                  size={14}
+                                  className={
+                                    existingBookmark ? "fill-current" : ""
+                                  }
+                                />
+                              </button>
+                            </div>
+
+                            {/* Inline Bookmark Editor */}
+                            {isEditingThisBookmark && (
+                              <div className="mt-4 p-4 bg-void border border-neutral-800 rounded-lg shadow-xl relative z-20">
+                                <textarea
+                                  value={bookmarkNoteText}
+                                  onChange={(e) =>
+                                    setBookmarkNoteText(e.target.value)
+                                  }
+                                  placeholder="Add a contemplation or heavenly mechanic note here..."
+                                  className="w-full bg-neutral-900 border border-neutral-800 rounded p-3 text-sm text-signal placeholder-neutral-600 focus:outline-none focus:border-portal mb-3 min-h-[80px]"
+                                />
+                                <div className="flex justify-end space-x-2">
+                                  <button
+                                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() =>
+                                      setEditingBookmarkParagraphIndex(null)
+                                    }
+                                    className="px-4 py-1.5 text-xs text-neutral-400 hover:text-signal transition-colors font-mono"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      handleSaveBookmark(
+                                        index,
+                                        block.text.substring(0, 100) + "...",
+                                        bookmarkNoteText,
+                                      )
+                                    }
+                                    className="px-4 py-1.5 text-xs bg-human text-signal rounded hover:bg-void transition-colors font-sans"
+                                  >
+                                    Save Bookmark
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Display Saved Bookmark Note (if active) */}
+                            {existingBookmark &&
+                              existingBookmark.note &&
+                              !isEditingThisBookmark && (
+                                <div className="mt-2 text-xs font-mono text-gold-accent flex items-start space-x-2 bg-neutral-900/50 p-2 border-l border-gold-accent/50 ml-8">
+                                  <span className="opacity-70">Note:</span>
+                                  <span className="break-words font-sans italic opacity-90">
+                                    {existingBookmark.note}
+                                  </span>
+                                </div>
+                              )}
+                          </div>
+                        </React.Fragment>
+                        );
+                      })
+                    : (selectedChapter.generatedContent || "")
+                        .split("\n\n")
+                        .map((paragraph, index) => {
+                          if (!paragraph.trim()) return null;
+                          const { cleanText, sfxList } =
+                            extractSFXCues(paragraph);
+                          if (!cleanText) return null;
+                          const isSystemLine =
+                            cleanText.startsWith("[") &&
+                            cleanText.endsWith("]");
+                          if (isSystemLine) {
+                            return (
+                              <SystemBlock
+                                key={index}
+                                id={`para-${index}`}
+                                data-block-index={index}
+                                content={cleanText}
+                                data-cue-type="narrative.metadata.signature"
+                                data-cue-id={`system-line-${selectedChapter.number}-${index}`}
+                                className="narrative-trigger"
+                              />
+                            );
+                          }
+
+                          const existingBookmark = activeBookmarks.find(
+                            (b) =>
+                              b.chapterNumber === selectedChapter.number &&
+                              b.paragraphIndex === index,
+                          );
+                          const isEditingThis =
+                            editingBookmarkParagraphIndex === index;
+
+                          return (
+                            <div
+                              key={index}
+                              id={`para-${index}`}
+                              data-block-index={index}
+                              data-cue-type="narrative.paragraph.enter"
+                              data-cue-id={`para-${selectedChapter.number}-${index}`}
+                              data-cue-once="true"
+                              className="narrative-trigger group relative transition-all duration-300 border border-transparent hover:bg-neutral-900/5 hover:border-neutral-900/10 rounded-lg p-2.5 -mx-2.5 mb-2"
+                            >
+                              <div className="flex items-start">
+                                {/* Interactive Left Margin Anchor Rail */}
+                                <div className="flex-shrink-0 w-6 flex flex-col items-center justify-start pt-1 mr-2 bg-transparent select-none">
+                                  {existingBookmark ? (
+                                    <button
+                                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
+                                        setEditingBookmarkParagraphIndex(
+                                          index,
+                                        );
+                                        setBookmarkNoteText(
+                                          existingBookmark.note || "",
+                                        );
+                                      }}
+                                      className="text-portal hover:text-gold-accent transition-colors p-1"
+                                      title="Engraved Anchor - Edit Note"
+                                    >
+                                      <BookmarkIcon
+                                        size={12}
+                                        fill="currentColor"
+                                      />
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => {
+                                        setEditingBookmarkParagraphIndex(
+                                          index,
+                                        );
+                                        setBookmarkNoteText("");
+                                      }}
+                                      className="opacity-20 md:opacity-0 group-hover:opacity-100 text-neutral-600 hover:text-portal transition-all p-1"
+                                      title="Affix Anchor"
+                                    >
+                                      <Plus size={12} />
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Paragraph text */}
+                                <div className="flex-1 min-w-0">
+                                  {sfxList.map((sfx, i) => (
+                                    <span
+                                      key={`sfx-${index}-${i}`}
+                                      className="narrative-trigger hidden"
+                                      aria-hidden="true"
+                                      data-cue-type="narrative.fx.play"
+                                      data-cue-id={`sfx-text-${selectedChapter.number}-${index}-${i}`}
+                                      data-cue-value={sfx}
+                                      data-cue-once="true"
+                                    />
+                                  ))}
+                                  <div
+                                    className={`text-justify indent-8 ${
+                                      currentPrefs.paragraphSpacing ===
+                                      "normal"
+                                        ? "mb-0"
+                                        : currentPrefs.paragraphSpacing ===
+                                            "wide"
+                                          ? "mb-2"
+                                          : "mb-4"
+                                    }`}
+                                  >
+                                    {renderHighlightedText(cleanText, index)}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Display saved Note under anchored paragraph */}
+                              {existingBookmark &&
+                                !isEditingThis &&
+                                existingBookmark.note && (
+                                  <div className="mt-2 ml-8 pl-3 border-l-2 border-portal bg-portal/5 p-2 rounded text-xs text-neutral-350 font-sans italic flex items-start justify-between">
+                                    <span>
+                                      <span className="font-sc font-semibold text-portal uppercase tracking-wider text-[9px] block not-italic">
+                                        Resonance Note:
+                                      </span>
+                                      {existingBookmark.note}
+                                    </span>
+                                    <button
+                                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() =>
+                                        handleRemoveBookmark(
+                                          selectedChapter.number,
+                                          index,
+                                        )
+                                      }
+                                      className="text-neutral-550 hover:text-red-500 p-1 opacity-40 md:opacity-0 group-hover:opacity-100 transition-opacity"
+                                      title="Release Anchor"
+                                    >
+                                      <Trash2 size={11} />
+                                    </button>
+                                  </div>
+                                )}
+
+                              {/* Editing Panel (Inline) */}
+                              {isEditingThis && (
+                                <div className="mt-3 ml-8 p-3 bg-neutral-950 border border-neutral-900 rounded space-y-2">
+                                  <span className="text-[10px] font-sc text-portal uppercase tracking-wider block font-bold">
+                                    {existingBookmark
+                                      ? "Edit Aetherial Resonance"
+                                      : "Engrave Aetherial Resonance"}
+                                  </span>
+                                  <input
+                                    type="text"
+                                    value={bookmarkNoteText}
+                                    onChange={(e) =>
+                                      setBookmarkNoteText(e.target.value)
+                                    }
+                                    placeholder="Type an insightful note, prediction, or timeline event..."
+                                    className="w-full bg-void text-xs text-signal border border-neutral-850 focus:border-portal p-2 rounded focus:outline-none"
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        handleSaveBookmark(
+                                          index,
+                                          paragraph,
+                                          bookmarkNoteText,
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[9px] text-neutral-500 font-mono">
+                                      Press Enter to engrave
+                                    </span>
+                                    <div className="flex space-x-2">
+                                      {existingBookmark && (
+                                        <button
+                                          onClick={() => {
+                                            handleRemoveBookmark(
+                                              selectedChapter.number,
+                                              index,
+                                            );
+                                            setEditingBookmarkParagraphIndex(
+                                              null,
+                                            );
+                                          }}
+                                          className="px-2.5 py-1 text-[10px] uppercase font-bold tracking-widest text-red-500 hover:bg-neutral-900"
+                                        >
+                                          Release
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={() =>
+                                          setEditingBookmarkParagraphIndex(
+                                            null,
+                                          )
+                                        }
+                                        className="px-2.5 py-1 text-[10px] uppercase font-bold tracking-widest text-neutral-550 hover:bg-neutral-900"
+                                      >
+                                        Cancel
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          handleSaveBookmark(
+                                            index,
+                                            paragraph,
+                                            bookmarkNoteText,
+                                          )
+                                        }
+                                        className="px-3 py-1 text-[10px] uppercase font-bold tracking-widest bg-portal text-void font-sc rounded hover:brightness-110"
+                                      >
+                                        Save
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
               </div>
+              
+              {isMomentousChapter && (
+                <motion.div 
+                  onViewportEnter={() => triggerHeroGeneration?.()}
+                  viewport={{ once: true, margin: "-100px" }}
+                  className="mt-20 mb-8 w-fit max-w-full mx-auto"
+                >
+                  {selectedChapter.assetManifest?.heroImage ? (
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      transition={{ duration: 1, ease: "easeOut" }}
+                      className="bg-void rounded-sm overflow-hidden shadow-[0_0_40px_rgba(4,172,255,0.15)] relative border border-neutral-800/80 group"
+                    >
+                      <div className="absolute top-4 left-4 z-20 px-3 py-1.5 bg-void/80 backdrop-blur-md text-[10px] sm:text-xs font-mono uppercase tracking-widest text-[#04ACFF] border border-[#04ACFF]/20 rounded-sm flex items-center gap-2 shadow-lg">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#04ACFF] animate-pulse" />
+                        Memory of this event
+                      </div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-void via-transparent to-void/30 opacity-90 z-10 pointer-events-none" />
+                      <img 
+                        src={selectedChapter.assetManifest.heroImage} 
+                        alt="Chapter Crux Manifestation" 
+                        className="max-w-full h-auto block mx-auto object-contain max-h-[65vh] mix-blend-screen opacity-90 transition-transform duration-1000 group-hover:scale-105"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute bottom-0 left-0 right-0 p-6 z-20 bg-gradient-to-t from-void flex flex-col justify-end">
+                        <p className="text-signal/80 text-sm sm:text-base italic font-serif leading-relaxed line-clamp-3">
+                          "{selectedChapter.summary}"
+                        </p>
+                      </div>
+                    </motion.div>
+                  ) : generatingIds?.has(`chapter-hero-${selectedChapter.number}`) ? (
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="bg-void/50 rounded-sm overflow-hidden border border-neutral-800/40 w-full max-w-2xl min-h-[40vh] flex flex-col items-center justify-center p-8 text-center"
+                    >
+                      <div className="mb-4">
+                        <Loader2 className="animate-spin text-[#04ACFF] mx-auto" size={32} />
+                      </div>
+                      <div className="text-[10px] sm:text-xs font-mono uppercase tracking-widest text-[#04ACFF]">
+                        Distilling Visual Memory...
+                      </div>
+                    </motion.div>
+                  ) : null}
+                </motion.div>
+              )}
             </motion.div>
           </AnimatePresence>
 

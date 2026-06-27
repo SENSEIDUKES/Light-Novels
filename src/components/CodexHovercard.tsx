@@ -4,7 +4,6 @@ import { Shield, MapPin, Swords, User, Loader2 } from 'lucide-react';
 import { Character, Faction, Artifact, Location } from '../types';
 import { useImageManifest } from '../hooks/useImageManifest';
 import { useAppStore } from '../store/useAppStore';
-import { useStories } from '../hooks/useStoryQueries';
 
 interface CodexHovercardProps {
   term: string;
@@ -34,8 +33,9 @@ export const CodexHovercard: React.FC<CodexHovercardProps> = ({ type, entry, chi
   };
 
   const activeStoryId = useAppStore((state) => state.activeStoryId);
-  const { data: stories = [] } = useStories();
-  const activeStory = stories.find((s) => s.id === activeStoryId);
+  const activeStory = useAppStore((state) => 
+    state.stories.find((s) => s.id === activeStoryId)
+  );
 
   const getDynamicTheme = () => {
     const fallback = { 

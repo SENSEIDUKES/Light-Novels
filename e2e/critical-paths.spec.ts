@@ -5,24 +5,21 @@ test.describe('Critical Paths', () => {
     // Navigating to the home page
     await page.goto('/');
 
-    // Verify title or main structure exists; 
-    // Usually wait for main app content to load
-    await expect(page.locator('body')).toBeVisible();
+    // Wait for the initialization veil to disappear
+    await expect(page.locator('text=Initializing Celestial Matrices...')).toBeHidden({ timeout: 15000 });
 
-    // The AILoadingVeil or the standard system block etc should be somewhat reachable
-    // Here we'll do some generic checks as the App might require Firebase or Gemini setup
+    // Verify main structure exists
+    await expect(page.locator('main')).toBeVisible();
+
+    // Verify footer production mark exists
+    await expect(page.locator('#footer-production-mark')).toBeVisible();
   });
 
-  test('should support translation path placeholder', async ({ page }) => {
+  test('should load library screen elements', async ({ page }) => {
     await page.goto('/');
-    // Placeholder to assert that translation interface or elements can launch
-    // Usually requires mocks, but we verify core structural presence
-    await expect(page.locator('html')).toBeVisible();
-  });
-
-  test('should support export path placeholder', async ({ page }) => {
-    await page.goto('/');
-    // Check that there is no obvious crash on load for export
-    await expect(page.locator('body')).not.toBeEmpty();
+    await expect(page.locator('text=Initializing Celestial Matrices...')).toBeHidden({ timeout: 15000 });
+    
+    // Verify the LibraryScreen structure
+    await expect(page.locator('main')).toBeVisible();
   });
 });

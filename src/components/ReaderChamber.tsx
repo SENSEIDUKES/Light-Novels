@@ -86,6 +86,9 @@ export default function ReaderChamber({
   }, [selectedChapter.blocks, selectedChapter.generatedContent]);
 
   const [filter, setFilter] = useState<"all" | "unlocked" | "locked">("all");
+  const stories = useAppStore(state => state.stories);
+  const activeStoryId = useAppStore(state => state.activeStoryId);
+  const saveStories = useAppStore(state => state.saveStories);
   const routingConfig = useAppStore(state => state.routingConfig);
 
   const [isAlterFateOpen, setIsAlterFateOpen] = useState(false);
@@ -104,7 +107,9 @@ export default function ReaderChamber({
     generatingRevealId, 
     codexTerms,
     manifestChapterHero,
-    generatingIds
+    generatingIds,
+    isMomentousChapter,
+    triggerHeroGeneration
   } = useReaderVisuals({
     selectedChapter,
     activeStory,
@@ -203,13 +208,15 @@ export default function ReaderChamber({
     scrollTimeoutRef.current = setTimeout(() => {
       if (Math.abs(scrollTop - lastSavedScrollRef.current) > 100) {
         lastSavedScrollRef.current = scrollTop;
-        
-        onUpdateStory({
-          ...activeStory,
-          lastReadChapter: useAppStore.getState().selectedChapterNum || selectedChapterNum,
-          lastReadScrollPosition: scrollTop,
-          lastReadAt: new Date().toISOString()
-        });
+        const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
+        if (currentActiveStory) {
+          onUpdateStory({
+            ...currentActiveStory,
+            lastReadChapter: useAppStore.getState().selectedChapterNum || selectedChapterNum,
+            lastReadScrollPosition: scrollTop,
+            lastReadAt: new Date().toISOString()
+          });
+        }
       }
     }, 2000); // 2000ms debounce
   };
@@ -304,11 +311,13 @@ export default function ReaderChamber({
       ...currentPrefs,
       [key]: value,
     };
-    
-    onUpdateStory({
-      ...activeStory,
-      readerPreferences: updatedPrefs,
-    });
+    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
+    if (currentActiveStory) {
+      onUpdateStory({
+        ...currentActiveStory,
+        readerPreferences: updatedPrefs,
+      });
+    }
   };
 
   const isDeathOrCriticalHealthScene = useMemo(() => {
@@ -710,12 +719,13 @@ export default function ReaderChamber({
         },
       ];
     }
-    
-    onUpdateStory({
-      ...activeStory,
-      bookmarks: updated,
-    });
-
+    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
+    if (currentActiveStory) {
+      onUpdateStory({
+        ...currentActiveStory,
+        bookmarks: updated,
+      });
+    }
     setEditingBookmarkParagraphIndex(null);
     setBookmarkNoteText("");
   };
@@ -724,11 +734,13 @@ export default function ReaderChamber({
     const updated = activeBookmarks.filter(
       (b) => !(b.chapterNumber === chapterNum && b.paragraphIndex === paraIdx),
     );
-    
-    onUpdateStory({
-      ...activeStory,
-      bookmarks: updated,
-    });
+    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
+    if (currentActiveStory) {
+      onUpdateStory({
+        ...currentActiveStory,
+        bookmarks: updated,
+      });
+    }
   };
 
   const handleJumpToBookmark = (b: Bookmark) => {
@@ -915,13 +927,14 @@ export default function ReaderChamber({
         handleManifestReveal={handleManifestReveal}
         manifestChapterHero={manifestChapterHero}
         generatingIds={generatingIds}
+        isMomentousChapter={isMomentousChapter}
+        triggerHeroGeneration={triggerHeroGeneration}
         
         readerMode={readerMode}
         immersion={immersion}
         isPlayingText={isPlayingText}
         isPausedText={isPausedText}
         currentNarratedBlockIndex={currentNarratedBlockIndex}
-        pendingScrollToParagraph={pendingScrollToParagraph}
         
         currentPrefs={currentPrefs}
         handleUpdatePreference={handleUpdatePreference}

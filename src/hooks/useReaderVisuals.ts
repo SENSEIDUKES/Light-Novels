@@ -17,75 +17,75 @@ export function useReaderVisuals({
   const immersion = useAppStore((state) => state.immersion);
   const { manifestImage, manifestChapterHero, generatingIds } = useImageManifest();
 
-  // Hero Image Generation Logic
-  useEffect(() => {
-    if ((selectedChapter?.generatedContent || selectedChapter?.blocks) && 
-        !selectedChapter?.assetManifest?.heroImage && 
-        !generatingIds.has(`chapter-hero-${selectedChapter?.number}`)) {
-      if (!activeStory) return;
+  const isMomentousChapter = useMemo(() => {
+    if (!activeStory || !selectedChapter) return false;
+    
+    const currentArc = activeStory.arcs.find(a => a.chapters.some(c => c.number === selectedChapter.number));
+    if (!currentArc) return false;
+
+    const momentousEvents = [
+      'breakthrough', 'turning-point', 'evolution', 'betrayal', 'ascension', 
+      'conquest', 'destruction', 'calamity', 'rival_battle', 'romance', 'first_kiss'
+    ];
+
+    // Calculate scores for all chapters in the arc
+    const chapterScores = currentArc.chapters.map(c => {
+      let score = 0;
       
-      const currentArc = activeStory.arcs.find(a => a.chapters.some(c => c.number === selectedChapter.number));
-      if (!currentArc) return;
+      // Prioritize the arc's structural climax (the final chapter of the arc)
+      const isArcFinal = c.number === currentArc.chapters[currentArc.chapters.length - 1].number;
+      if (isArcFinal && currentArc.chapters.length >= 4) {
+        score += 15; // strong prior for structural climax
+      }
 
-      const existingHeroImagesCount = currentArc.chapters.filter(c => c.assetManifest && c.assetManifest.heroImage).length;
+      const chapterCue = c.cuePayload;
+      if (chapterCue?.powerShift) score += chapterCue.powerShift * 2;
+      if (chapterCue?.danger) score += chapterCue.danger * 1.5;
+      if (chapterCue?.mysticism) score += chapterCue.mysticism * 1;
       
-      if (existingHeroImagesCount >= 3) return;
+      if (chapterCue?.beastEvent?.type && momentousEvents.includes(chapterCue.beastEvent.type)) {
+        score += 10;
+      }
 
-      const cue = selectedChapter.cuePayload;
-      
-      const momentousEvents = [
-        'breakthrough', 'turning-point', 'evolution', 'betrayal', 'ascension', 
-        'conquest', 'destruction', 'calamity', 'rival_battle', 'romance', 'first_kiss'
-      ];
-
-      // Semantic keyword matching for high-impact turning points in the narrative text
-      const semanticKeywords = [
-        'climax', 'battle', 'tribulation', 'defeat', 'shatter', 'conquer', 'betrayal', 
-        'sacrifice', 'awakening', 'awaken', 'destiny', 'fate', 'breakthrough', 'immortal',
-        'transcend', 'revelation', 'seal', 'forbidden', 'relic'
-      ];
-
-      const chapterTitleLower = (selectedChapter.title || '').toLowerCase();
-      const chapterSummaryLower = (selectedChapter.summary || '').toLowerCase();
-      const hasSemanticTrigger = semanticKeywords.some(kw => 
-        chapterTitleLower.includes(kw) || chapterSummaryLower.includes(kw)
-      );
-
-      let isMomentous = 
-          (cue?.beastEvent?.type && momentousEvents.includes(cue.beastEvent.type)) ||
-          selectedChapter.blocks?.some((b: any) => 
-               b.system?.promptType && momentousEvents.includes(b.system.promptType)
-          ) ||
-          (cue?.danger && cue.danger > 6) || 
-          (cue?.powerShift && cue.powerShift > 6) ||
-          hasSemanticTrigger;
-
-      const isLongArc = currentArc.chapters.length >= 7;
-      const arcChapterIndex = currentArc.chapters.findIndex(c => c.number === selectedChapter.number);
-      
-      if (isLongArc && arcChapterIndex <= 2 && existingHeroImagesCount === 0) {
-        if (arcChapterIndex === 2 || (cue?.danger && cue.danger > 4) || (cue?.powerShift && cue.powerShift > 4)) {
-          isMomentous = true;
-        }
+      if (c.blocks) {
+        c.blocks.forEach((b: any) => {
+          if (b.system?.promptType && momentousEvents.includes(b.system.promptType)) {
+            score += 8;
+          }
+          if (b.metadata?.danger) score += b.metadata.danger;
+          if (b.metadata?.intensity) score += b.metadata.intensity;
+          if (b.metadata?.tension) score += b.metadata.tension;
+        });
       }
       
-      if (isMomentous) {
-        const promptText = `A cinematic visual memory of the defining moment that just happened: ${selectedChapter.summary || 'A critical climactic climax in the story.'} Render as a vivid frozen memory capturing the emotional core and exact action of the moment.`;
-        manifestChapterHero(selectedChapter.number, promptText).catch(e => console.error("Hero generation failed:", e));
-      }
-    }
-  }, [
-    selectedChapter?.number, 
-    selectedChapter?.generatedContent, 
-    selectedChapter?.blocks, 
-    selectedChapter?.assetManifest?.heroImage, 
-    selectedChapter?.cuePayload, 
-    selectedChapter?.summary, 
-    selectedChapter?.title,
-    manifestChapterHero, 
-    generatingIds, 
-    activeStory
-  ]);
+      return { number: c.number, score };
+    });
+    
+    // Minimum score threshold to be considered a significant memory spike
+    const MIN_SCORE_THRESHOLD = 15;
+    
+    const eligibleChapters = chapterScores.filter(x => x.score >= MIN_SCORE_THRESHOLD);
+    eligibleChapters.sort((a, b) => b.score - a.score);
+    
+    // Peak chapters: the single highest-scoring climax plus at most 1-2 secondary spikes
+    const peakChapters = eligibleChapters.slice(0, 3);
+    
+    return peakChapters.some(x => x.number === selectedChapter.number);
+  }, [activeStory, selectedChapter]);
+
+  const triggerHeroGeneration = () => {
+    if (!isMomentousChapter || !activeStory || !selectedChapter) return;
+    if (selectedChapter.assetManifest?.heroImage || generatingIds.has(`chapter-hero-${selectedChapter.number}`)) return;
+    
+    const currentArc = activeStory.arcs.find(a => a.chapters.some(c => c.number === selectedChapter.number));
+    if (!currentArc) return;
+    
+    const existingHeroImagesCount = currentArc.chapters.filter(c => c.assetManifest && c.assetManifest.heroImage).length;
+    if (existingHeroImagesCount >= 3) return;
+    
+    const promptText = `A cinematic visual memory of the defining moment that just happened: ${selectedChapter.summary || 'A critical climactic climax in the story.'} Render as a vivid frozen memory capturing the emotional core and exact action of the moment.`;
+    manifestChapterHero(selectedChapter.number, promptText).catch(e => console.error("Hero generation failed:", e));
+  };
 
   const handleManifestReveal = async (entry: any, type: string) => {
     if (generatingRevealId) return;
@@ -186,6 +186,8 @@ export function useReaderVisuals({
     generatingRevealId,
     codexTerms,
     manifestChapterHero,
-    generatingIds
+    generatingIds,
+    isMomentousChapter,
+    triggerHeroGeneration
   };
 }

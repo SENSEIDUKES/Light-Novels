@@ -9,7 +9,6 @@ import { Story, StreamingChapter } from "../types";
 import { awardQi } from "../lib/qi";
 import { RecapScreen } from "./RecapScreen";
 import { storyStorage } from "../lib/storage";
-import { useStories } from "../hooks/useStoryQueries";
 
 export const ReaderScreen: React.FC<{
   handleSteerArc: (direction: string, customPrompt: string) => Promise<void>;
@@ -38,6 +37,7 @@ export const ReaderScreen: React.FC<{
     currentScreen,
     setCurrentScreen,
     activeStoryId,
+    stories,
     selectedChapterNum,
     setSelectedChapterNum,
     isGenerating,
@@ -46,7 +46,6 @@ export const ReaderScreen: React.FC<{
     isReaderFullscreen,
     currentUser,
   } = useAppStore();
-  const { data: stories = [] } = useStories();
 
   const activeStory = stories.find((s) => s.id === activeStoryId);
 

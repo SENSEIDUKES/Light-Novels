@@ -3,7 +3,6 @@ import FocusLock from 'react-focus-lock';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Keyboard, Home, PenTool, User, Sliders, BookOpen, Minimize2, Maximize2, HelpCircle, BookText, ScrollText } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
-import { useStories } from '../hooks/useStoryQueries';
 
 const isTyping = (e: KeyboardEvent) => {
   const target = e.target as HTMLElement;
@@ -23,6 +22,7 @@ export const KeyboardShortcuts: React.FC = () => {
     setCurrentScreen,
     setActiveStoryId,
     activeStoryId,
+    stories,
     selectedChapterNum,
     setSelectedChapterNum,
     isSettingsOpen,
@@ -36,7 +36,6 @@ export const KeyboardShortcuts: React.FC = () => {
     immersion,
     setImmersion,
   } = useAppStore();
-  const { data: stories = [] } = useStories();
 
   const activeStory = stories.find(s => s.id === activeStoryId);
 

@@ -74,8 +74,9 @@ export function LivingCodexRelations({
     };
 
     const currentBonds = activeStory.relationships || [];
+    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
     onUpdateStory({
-      ...activeStory,
+      ...currentActiveStory,
       relationships: [newRelationship, ...currentBonds]
     });
 

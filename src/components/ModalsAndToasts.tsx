@@ -8,7 +8,6 @@ import { useStoryEngine } from '../hooks/useStoryEngine';
 import { SearchableModelSelector } from './SearchableModelSelector';
 import { secureStorage } from '../lib/encryption';
 import { CelestialParticleShower } from './CelestialParticleShower';
-import { useDeleteStory } from '../hooks/useStoryQueries';
 
 const DEFAULT_PRESETS = {
   storyMaker: {
@@ -38,29 +37,13 @@ export const ModalsAndToasts: React.FC = () => {
     isSettingsOpen, setIsSettingsOpen, 
     routingConfig, setRoutingConfig,
     localGeminiKey, localOpenrouterKey, localOllamaHost, localDeepinfraKey,
-    storyToDelete, setStoryToDelete,
+    storyToDelete, cancelDeleteStory, confirmDeleteStory,
     appError, setAppError,
     draftRecoverySession, setDraftRecoverySession,
     setActiveStoryId, setSelectedChapterNum, setCurrentScreen, setIsGenerating, setGeneratingChapterNum
   } = useAppStore();
 
   const storyEngine = useStoryEngine();
-  const deleteStoryMutation = useDeleteStory();
-
-  const cancelDeleteStory = () => {
-    setStoryToDelete(null);
-  };
-
-  const confirmDeleteStory = () => {
-    if (storyToDelete) {
-      deleteStoryMutation.mutate(storyToDelete);
-      setStoryToDelete(null);
-      if (useAppStore.getState().activeStoryId === storyToDelete) {
-        useAppStore.getState().setActiveStoryId(null);
-        useAppStore.getState().setCurrentScreen('home');
-      }
-    }
-  };
 
   const [routingPresets, setRoutingPresets] = useState<any>(null);
   const [dynamicModels, setDynamicModels] = useState<{

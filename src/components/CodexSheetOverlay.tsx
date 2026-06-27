@@ -4,15 +4,13 @@ import { ArrowLeft } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import LivingCodex from './LivingCodex';
 import { Story } from '../types';
-import { useStories } from '../hooks/useStoryQueries';
 
 export const CodexSheetOverlay: React.FC<{
   handleUpdateMemoryManual: (updated: any) => void,
   handleUpdateStoryDirect: (story: Story) => void
 }> = ({ handleUpdateMemoryManual, handleUpdateStoryDirect }) => {
 
-  const { isCodexSheetOpen, setIsCodexSheetOpen, activeStoryId, setCurrentScreen, setSelectedChapterNum, routingConfig } = useAppStore();
-  const { data: stories = [] } = useStories();
+  const { isCodexSheetOpen, setIsCodexSheetOpen, stories, activeStoryId, setCurrentScreen, setSelectedChapterNum, routingConfig } = useAppStore();
   const activeStory = stories.find(s => s.id === activeStoryId);
 
   return (
