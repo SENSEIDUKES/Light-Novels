@@ -24,6 +24,7 @@ import { FateTimeline } from "./FateTimeline";
 import { storyStorage } from "../lib/storage";
 import { getAuraTextStyle } from "../lib/qi";
 import { vibrate } from "../lib/vibration";
+import { useStories, useSaveStory } from "../hooks/useStoryQueries";
 
 export const StoryDetailScreen: React.FC<{
   handleGenerateCover: () => Promise<
@@ -48,12 +49,12 @@ export const StoryDetailScreen: React.FC<{
     currentScreen,
     setCurrentScreen,
     activeStoryId,
-    stories,
     isGenerating,
     setSelectedChapterNum,
     userProfile,
-    saveStories,
   } = useAppStore();
+  const { data: stories = [] } = useStories();
+  const saveStoryMutation = useSaveStory();
   const [isStoryMenuOpen, setIsStoryMenuOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [coverPreview, setCoverPreview] = useState<{
@@ -182,16 +183,11 @@ export const StoryDetailScreen: React.FC<{
 
   const handleToggleMotionCover = async () => {
     vibrate("softTap");
-    const updated = stories.map((s) => {
-      if (s.id === activeStory.id) {
-        return {
-          ...s,
-          motionCoverActive: !s.motionCoverActive,
-        };
-      }
-      return s;
-    });
-    await saveStories(updated);
+    const updatedStory = {
+      ...activeStory,
+      motionCoverActive: !activeStory.motionCoverActive,
+    };
+    await saveStoryMutation.mutateAsync(updatedStory);
   };
 
   const isCurrentArcFinished =
@@ -628,52 +624,40 @@ export const StoryDetailScreen: React.FC<{
                         key={img.id}
                         className="relative flex-shrink-0 w-10 h-14 rounded overflow-hidden border border-neutral-800 cursor-pointer hover:border-portal transition-colors shadow-lg"
                         onClick={() => {
-                          const store = useAppStore.getState();
-                          const updated = store.stories.map((s) => {
-                            if (s.id === activeStory.id) {
-                              const updatedHistory = s.imageHistory?.map((h) =>
-                                h.entityType === "cover"
-                                  ? {
-                                      ...h,
-                                      isCurrent: h.imageUrl === img.imageUrl,
-                                    }
-                                  : h,
-                              );
-                              return {
-                                ...s,
-                                imageUrl: img.imageUrl,
-                                imageHistory: updatedHistory,
-                              };
-                            }
-                            return s;
-                          });
-                          store.saveStories(updated);
+                          const updatedHistory = activeStory.imageHistory?.map((h) =>
+                            h.entityType === "cover"
+                              ? {
+                                  ...h,
+                                  isCurrent: h.imageUrl === img.imageUrl,
+                                }
+                              : h,
+                          );
+                          const updatedStory = {
+                            ...activeStory,
+                            imageUrl: img.imageUrl,
+                            imageHistory: updatedHistory,
+                          };
+                          saveStoryMutation.mutate(updatedStory);
                         }}
                         role="button"
                         tabIndex={0}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            const store = useAppStore.getState();
-                            const updated = store.stories.map((s) => {
-                              if (s.id === activeStory.id) {
-                                const updatedHistory = s.imageHistory?.map((h) =>
-                                  h.entityType === "cover"
-                                    ? {
-                                        ...h,
-                                        isCurrent: h.imageUrl === img.imageUrl,
-                                      }
-                                    : h,
-                                );
-                                return {
-                                  ...s,
-                                  imageUrl: img.imageUrl,
-                                  imageHistory: updatedHistory,
-                                };
-                              }
-                              return s;
-                            });
-                            store.saveStories(updated);
+                            const updatedHistory = activeStory.imageHistory?.map((h) =>
+                              h.entityType === "cover"
+                                ? {
+                                    ...h,
+                                    isCurrent: h.imageUrl === img.imageUrl,
+                                  }
+                                : h,
+                            );
+                            const updatedStory = {
+                              ...activeStory,
+                              imageUrl: img.imageUrl,
+                              imageHistory: updatedHistory,
+                            };
+                            saveStoryMutation.mutate(updatedStory);
                           }
                         }}
                         aria-label={`Apply cover image from chapter ${img.chapterNumber || "Unknown"}`}

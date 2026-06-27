@@ -86,9 +86,6 @@ export default function ReaderChamber({
   }, [selectedChapter.blocks, selectedChapter.generatedContent]);
 
   const [filter, setFilter] = useState<"all" | "unlocked" | "locked">("all");
-  const stories = useAppStore(state => state.stories);
-  const activeStoryId = useAppStore(state => state.activeStoryId);
-  const saveStories = useAppStore(state => state.saveStories);
   const routingConfig = useAppStore(state => state.routingConfig);
 
   const [isAlterFateOpen, setIsAlterFateOpen] = useState(false);
@@ -206,15 +203,13 @@ export default function ReaderChamber({
     scrollTimeoutRef.current = setTimeout(() => {
       if (Math.abs(scrollTop - lastSavedScrollRef.current) > 100) {
         lastSavedScrollRef.current = scrollTop;
-        const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
-        if (currentActiveStory) {
-          onUpdateStory({
-            ...currentActiveStory,
-            lastReadChapter: useAppStore.getState().selectedChapterNum || selectedChapterNum,
-            lastReadScrollPosition: scrollTop,
-            lastReadAt: new Date().toISOString()
-          });
-        }
+        
+        onUpdateStory({
+          ...activeStory,
+          lastReadChapter: useAppStore.getState().selectedChapterNum || selectedChapterNum,
+          lastReadScrollPosition: scrollTop,
+          lastReadAt: new Date().toISOString()
+        });
       }
     }, 2000); // 2000ms debounce
   };
@@ -309,13 +304,11 @@ export default function ReaderChamber({
       ...currentPrefs,
       [key]: value,
     };
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
-    if (currentActiveStory) {
-      onUpdateStory({
-        ...currentActiveStory,
-        readerPreferences: updatedPrefs,
-      });
-    }
+    
+    onUpdateStory({
+      ...activeStory,
+      readerPreferences: updatedPrefs,
+    });
   };
 
   const isDeathOrCriticalHealthScene = useMemo(() => {
@@ -717,13 +710,12 @@ export default function ReaderChamber({
         },
       ];
     }
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
-    if (currentActiveStory) {
-      onUpdateStory({
-        ...currentActiveStory,
-        bookmarks: updated,
-      });
-    }
+    
+    onUpdateStory({
+      ...activeStory,
+      bookmarks: updated,
+    });
+
     setEditingBookmarkParagraphIndex(null);
     setBookmarkNoteText("");
   };
@@ -732,13 +724,11 @@ export default function ReaderChamber({
     const updated = activeBookmarks.filter(
       (b) => !(b.chapterNumber === chapterNum && b.paragraphIndex === paraIdx),
     );
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
-    if (currentActiveStory) {
-      onUpdateStory({
-        ...currentActiveStory,
-        bookmarks: updated,
-      });
-    }
+    
+    onUpdateStory({
+      ...activeStory,
+      bookmarks: updated,
+    });
   };
 
   const handleJumpToBookmark = (b: Bookmark) => {
@@ -931,6 +921,7 @@ export default function ReaderChamber({
         isPlayingText={isPlayingText}
         isPausedText={isPausedText}
         currentNarratedBlockIndex={currentNarratedBlockIndex}
+        pendingScrollToParagraph={pendingScrollToParagraph}
         
         currentPrefs={currentPrefs}
         handleUpdatePreference={handleUpdatePreference}

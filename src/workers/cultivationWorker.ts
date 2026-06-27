@@ -59,22 +59,22 @@ function tick() {
 }
 
 self.onmessage = (e: MessageEvent<CultivationMessage>) => {
-  const { type, payload } = e.data;
+  const msg = e.data;
 
-  if (type === 'START') {
-    if (payload) {
-      state = { ...state, ...payload };
+  if (msg.type === 'START') {
+    if (msg.payload) {
+      state = { ...state, ...msg.payload };
     }
     if (!intervalId) {
       intervalId = setInterval(tick, 1000);
     }
-  } else if (type === 'STOP') {
+  } else if (msg.type === 'STOP') {
     if (intervalId) {
       clearInterval(intervalId);
       intervalId = null;
     }
-  } else if (type === 'SET_RATES') {
-    baseQiRate = payload.baseQiRate ?? baseQiRate;
-    baseInsightRate = payload.baseInsightRate ?? baseInsightRate;
+  } else if (msg.type === 'SET_RATES') {
+    baseQiRate = msg.payload.baseQiRate ?? baseQiRate;
+    baseInsightRate = msg.payload.baseInsightRate ?? baseInsightRate;
   }
 };

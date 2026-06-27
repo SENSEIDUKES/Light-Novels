@@ -7,6 +7,8 @@ import { useArcSteering } from './useArcSteering';
 import { useStoryGeneration } from './useStoryGeneration';
 import { useVisualAssets } from './useVisualAssets';
 import { useChapterSealing } from './useChapterSealing';
+import { useSaveStory } from './useStoryQueries';
+import { storyStorage } from '../lib/storage';
 
 export { extractJsonBlocks, extractJsonMeta };
 
@@ -23,25 +25,25 @@ export const useStoryEngine = () => {
   const { handleGenerateBlueprint, handleStartStory } = useStoryGeneration();
   const { handleGenerateCover, handleApplyCover } = useVisualAssets();
   const { handleCheckConsistency, handleSealChapter } = useChapterSealing();
+  
+  const saveStoryMutation = useSaveStory();
 
   /**
    * Replaces the story's memory explicitly.
    * @param {StoryMemory} updatedMemory - The new memory object.
    */
   const handleUpdateMemoryManual = async (updatedMemory: StoryMemory) => {
-    const activeStory = store.stories.find(s => s.id === store.activeStoryId);
+    const activeStoryId = useAppStore.getState().activeStoryId;
+    if (!activeStoryId) return;
+    const activeStory = await storyStorage.getStory(activeStoryId);
     if (!activeStory) return;
-    const updated = store.stories.map(s => {
-      if (s.id === activeStory.id) {
-        return {
-          ...s,
-          memory: updatedMemory,
-          updatedAt: new Date().toISOString()
-        };
-      }
-      return s;
-    });
-    await store.saveStories(updated);
+    
+    const updated = {
+      ...activeStory,
+      memory: updatedMemory,
+      updatedAt: new Date().toISOString()
+    };
+    await saveStoryMutation.mutateAsync(updated);
   };
 
   /**
@@ -50,42 +52,39 @@ export const useStoryEngine = () => {
    */
   const handleUpdateStoryDirect = async (updatedStory: StoryWorld) => {
     updatedStory.updatedAt = new Date().toISOString();
-    const updated = store.stories.map(s => s.id === updatedStory.id ? updatedStory : s);
-    await store.saveStories(updated);
+    await saveStoryMutation.mutateAsync(updatedStory);
   };
 
   const handleToggleRead = async (charNum: number) => {
-    const activeStory = store.stories.find(s => s.id === store.activeStoryId);
+    const activeStoryId = useAppStore.getState().activeStoryId;
+    if (!activeStoryId) return;
+    const activeStory = await storyStorage.getStory(activeStoryId);
     if (!activeStory) return;
-    const updated = store.stories.map(s => {
-      if (s.id === activeStory.id) {
-        return {
-          ...s,
-          arcs: s.arcs.map(arc => ({
-            ...arc,
-            chapters: arc.chapters.map(ch => {
-              if (ch.number === charNum) {
-                const newStatus = ch.status === 'read' ? 'unread' : 'read';
-                if (newStatus === 'read') {
-                  awardQi('chapter_finished');
-                  
-                  // Dao Pillar (Daily Reading Streak) is now an active check-in mechanic on the UserProfile page.
-                }
-                
-                return {
-                  ...ch,
-                  status: newStatus as 'unread' | 'read'
-                };
-              }
-              return ch;
-            })
-          })),
-          updatedAt: new Date().toISOString()
-        };
-      }
-      return s;
-    });
-    await store.saveStories(updated);
+    
+    const updated = {
+      ...activeStory,
+      arcs: activeStory.arcs.map(arc => ({
+        ...arc,
+        chapters: arc.chapters.map(ch => {
+          if (ch.number === charNum) {
+            const newStatus = ch.status === 'read' ? 'unread' : 'read';
+            if (newStatus === 'read') {
+              awardQi('chapter_finished');
+              
+              // Dao Pillar (Daily Reading Streak) is now an active check-in mechanic on the UserProfile page.
+            }
+            
+            return {
+              ...ch,
+              status: newStatus as 'unread' | 'read'
+            };
+          }
+          return ch;
+        })
+      })),
+      updatedAt: new Date().toISOString()
+    };
+    await saveStoryMutation.mutateAsync(updated);
   };
 
   return {

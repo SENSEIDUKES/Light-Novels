@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, GitBranch, Play, Star } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { StoryWorld } from '../types';
+import { useStories } from '../hooks/useStoryQueries';
 
 interface FateTimelineProps {
   isOpen: boolean;
@@ -18,7 +19,8 @@ interface TreeStory {
 }
 
 export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, activeStoryId }) => {
-  const { stories, setActiveStoryId, setCurrentScreen } = useAppStore();
+  const { setActiveStoryId, setCurrentScreen } = useAppStore();
+  const { data: stories = [] } = useStories();
 
   const familyData = useMemo(() => {
     if (!activeStoryId) return null;

@@ -8,6 +8,7 @@ import { signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { AudioWidget } from './AudioWidget';
 import { DaoInsights } from './DaoInsights';
 import { vibrate } from '../lib/vibration';
+import { useStories } from '../hooks/useStoryQueries';
 
 export const GlobalHeader: React.FC = () => {
   const { 
@@ -18,11 +19,11 @@ export const GlobalHeader: React.FC = () => {
     currentUser, 
     lastSavedTime, 
     activeStoryId, 
-    stories, 
     setIsSettingsOpen,
     setIsCodexSheetOpen,
     setIsShortcutsOpen 
   } = useAppStore();
+  const { data: stories = [] } = useStories();
   const [qiCharge, setQiCharge] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
   const [isHubOpen, setIsHubOpen] = useState(false);

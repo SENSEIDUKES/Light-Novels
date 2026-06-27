@@ -30,15 +30,13 @@ export function useReaderScroll({
     scrollTimeoutRef.current = setTimeout(() => {
       if (Math.abs(scrollTop - lastSavedScrollRef.current) > 100) {
         lastSavedScrollRef.current = scrollTop;
-        const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
-        if (currentActiveStory) {
-          onUpdateStory({
-            ...currentActiveStory,
-            lastReadChapter: useAppStore.getState().selectedChapterNum || selectedChapterNum,
-            lastReadScrollPosition: scrollTop,
-            lastReadAt: new Date().toISOString()
-          });
-        }
+        
+        onUpdateStory({
+          ...activeStory,
+          lastReadChapter: useAppStore.getState().selectedChapterNum || selectedChapterNum,
+          lastReadScrollPosition: scrollTop,
+          lastReadAt: new Date().toISOString()
+        });
       }
     }, 2000); // 2000ms debounce
   };

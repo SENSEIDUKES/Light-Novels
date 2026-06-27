@@ -30,7 +30,23 @@ import { PROMPTS } from "./server/prompts";
 
 import * as deepl from "deepl-node";
 
+import { orchestrateChapterGeneration } from "./server/orchestration";
+
 dotenv.config();
+
+import * as Sentry from "@sentry/node";
+import { nodeProfilingIntegration } from "@sentry/profiling-node";
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    integrations: [
+      nodeProfilingIntegration(),
+    ],
+    tracesSampleRate: 1.0,
+    profilesSampleRate: 1.0,
+  });
+}
 
 // DeepL Setup
 let translator: deepl.Translator | null = null;
@@ -214,6 +230,11 @@ app.post("/api/models", validateBody(modelsSchema), async (req, res) => {
     }
     return res.json({ models: fallback, isFallback: true, error: error.message });
   }
+});
+
+// New Orchestration Endpoint
+app.post("/api/orchestrate-chapter", async (req, res) => {
+  await orchestrateChapterGeneration(req.body, getCustomKeys, req, res);
 });
 
 // 0.1. Get API configuration status (safety flags check, no key content is leaked)
@@ -1625,6 +1646,10 @@ app.post("/api/generate-audio", validateBody(generateAudioSchema), async (req, r
 async function startServer() {
   // Validate standard environment keys on startup
   validateEnvironmentOnStartup();
+
+  if (process.env.SENTRY_DSN) {
+    Sentry.setupExpressErrorHandler(app);
+  }
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

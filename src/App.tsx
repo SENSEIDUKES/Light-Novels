@@ -3,12 +3,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import { auth, db } from './lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Store & Hooks
 import { useAppStore } from './store/useAppStore';
 import { useStoryEngine } from './hooks/useStoryEngine';
 import { useStoryExporter } from './hooks/useStoryExporter';
 import { storyStorage } from './lib/storage';
+import { useStories } from './hooks/useStoryQueries';
 
 // Types
 import { UserProfile as UserProfileType } from './types';
@@ -38,6 +40,8 @@ function App() {
   const store = useAppStore();
   const storyEngine = useStoryEngine();
   const storyExporter = useStoryExporter();
+  const queryClient = useQueryClient();
+  const { data: stories = [] } = useStories();
 
   const [isInitializing, setIsInitializing] = useState(true);
 
@@ -91,21 +95,24 @@ function App() {
       try {
         const parsed = JSON.parse(savedGen);
         if (parsed && parsed.isGenerating && Date.now() - parsed.timestamp < 10 * 60 * 1000) {
-          const activeStory = store.stories.find(s => s.id === parsed.activeStoryId);
-          if (activeStory) {
-            if (parsed.generationPhase === 'chapter' && parsed.generatingChapterNum) {
-              store.setDraftRecoverySession(parsed);
-            }
-          } else {
-            localStorage.removeItem('seihouse_active_generation');
-          }
+          const checkRecovery = async () => {
+             const activeStory = await storyStorage.getStory(parsed.activeStoryId);
+             if (activeStory) {
+               if (parsed.generationPhase === 'chapter' && parsed.generatingChapterNum) {
+                 store.setDraftRecoverySession(parsed);
+               }
+             } else {
+               localStorage.removeItem('seihouse_active_generation');
+             }
+          };
+          checkRecovery();
         }
       } catch (err) {
         console.error("Failed to restore active generation state:", err);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isInitializing, store.stories]);
+  }, [isInitializing]);
 
   // Initialize Data Persistence
   useEffect(() => {
@@ -139,6 +146,7 @@ function App() {
 
         // Handle unmigrated demo stories: migrate if worked on, otherwise discard them
         await store.migrateOrDiscardDemoStories(user);
+        queryClient.invalidateQueries({ queryKey: ['stories'] });
       } else {
         store.setUserProfile(null);
       }
@@ -147,9 +155,10 @@ function App() {
     const unsubSync = storyStorage.subscribe(async (status) => {
       store.setSyncStatus(status);
       if (status === 'synced') {
-         // Reload stories from storage to catch cloud-merged data
-         const freshStories = await storyStorage.getStories();
-         store.setStories(freshStories);
+         queryClient.invalidateQueries({ queryKey: ['stories'] });
+         if (store.activeStoryId) {
+             queryClient.invalidateQueries({ queryKey: ['story', store.activeStoryId] });
+         }
       }
     });
 
@@ -159,7 +168,7 @@ function App() {
       if (unsubProfile) unsubProfile();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [queryClient, store.activeStoryId]);
 
 
   // --- IDLE CULTIVATION ---
@@ -226,7 +235,7 @@ function App() {
     );
   }
 
-  const activeStory = store.stories.find(s => s.id === store.activeStoryId);
+  const activeStory = stories.find(s => s.id === store.activeStoryId);
 
   return (
     <div className="min-h-dvh bg-[#050505] text-[#dfd8cf] font-serif overflow-x-hidden selection:bg-human/30 pb-safe">
@@ -322,7 +331,7 @@ function App() {
             >
               <UserProfile 
                 currentUser={store.currentUser}
-                stories={store.stories}
+                stories={stories}
                 onLogout={() => { signOut(auth); store.setCurrentUser(null); }}
                 onNavigateHome={() => store.setCurrentScreen('home')}
               />

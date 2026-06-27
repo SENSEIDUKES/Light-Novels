@@ -3,9 +3,11 @@ import { IntakeData, WorldBlueprint, Chapter, Story } from '../types';
 import { auth } from '../lib/firebase';
 import { awardQi } from '../lib/qi';
 import { storyApi } from '../services/api';
+import { useSaveStory } from './useStoryQueries';
 
 export const useStoryGeneration = () => {
   const store = useAppStore();
+  const saveStoryMutation = useSaveStory();
 
   const handleGenerateBlueprint = async (intake: IntakeData): Promise<WorldBlueprint> => {
     const currentStoreState = useAppStore.getState();
@@ -96,8 +98,7 @@ export const useStoryGeneration = () => {
         ]
       };
 
-      const updated = [newStory, ...store.stories];
-      await store.saveStories(updated);
+      await saveStoryMutation.mutateAsync(newStory);
       store.setActiveStoryId(newStory.id);
       store.setSelectedChapterNum(1);
       store.setCurrentScreen('detail');

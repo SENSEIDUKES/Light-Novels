@@ -4,6 +4,7 @@ import { Chapter, StoryArc, StoryWorld } from '../types';
 import { storyStorage } from '../lib/storage';
 import { awardQi } from '../lib/qi';
 import { getApiHeaders } from './storyEngineHelpers';
+import { useSaveStory } from './useStoryQueries';
 
 /**
  * Custom hook managing branching narratives and Arc-level destiny steering.
@@ -12,6 +13,7 @@ import { getApiHeaders } from './storyEngineHelpers';
  */
 export const useArcSteering = () => {
   const store = useAppStore();
+  const saveStoryMutation = useSaveStory();
 
   /**
    * Appends a new arc to the active story driven by a specific directional prompt.
@@ -27,11 +29,17 @@ export const useArcSteering = () => {
     // Synchronously set generating state on the global store before any async operations
     currentStoreState.setIsGenerating(true);
 
-    const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
+    const activeStoryId = currentStoreState.activeStoryId;
+    if (!activeStoryId) {
+      currentStoreState.setIsGenerating(false);
+      return;
+    }
+    const activeStory = await storyStorage.getStory(activeStoryId);
     if (!activeStory) {
       currentStoreState.setIsGenerating(false);
       return;
     }
+    
     currentStoreState.setGenerationPhase('steer');
     currentStoreState.setAppError(null);
 
@@ -88,40 +96,35 @@ export const useArcSteering = () => {
         isCompleted: false
       };
 
-      const freshStories = await storyStorage.getStories();
-      const updatedStories = freshStories.map(s => {
-        if (s.id !== activeStory.id) return s;
+      const nextStoriesMemory = { ...activeStory.memory };
 
-        const nextStoriesMemory = { ...s.memory };
+      if (data.newCharacters && data.newCharacters.length > 0) {
+        const verified = data.newCharacters.map((c: any) => ({
+          id: `char-${Math.random().toString(36).substr(2, 9)}`,
+          ...c,
+          status: c.status || 'alive'
+        }));
+        nextStoriesMemory.characters = [...(nextStoriesMemory.characters || []), ...verified];
+      }
 
-        if (data.newCharacters && data.newCharacters.length > 0) {
-          const verified = data.newCharacters.map((c: any) => ({
-            id: `char-${Math.random().toString(36).substr(2, 9)}`,
-            ...c,
-            status: c.status || 'alive'
-          }));
-          nextStoriesMemory.characters = [...(nextStoriesMemory.characters || []), ...verified];
-        }
+      if (data.newUnresolvedPlotThreads && data.newUnresolvedPlotThreads.length > 0) {
+        const newThreads = data.newUnresolvedPlotThreads.map((t: string) => ({
+          id: `thread-${Math.random().toString(36).substr(2, 9)}`,
+          description: t,
+          status: 'active',
+          originChapter: nextChapters[0]?.number || activeStory.currentChapterNumber
+        }));
+        nextStoriesMemory.unresolvedPlotThreads = [...(nextStoriesMemory.unresolvedPlotThreads || []), ...newThreads];
+      }
 
-        if (data.newUnresolvedPlotThreads && data.newUnresolvedPlotThreads.length > 0) {
-          const newThreads = data.newUnresolvedPlotThreads.map((t: string) => ({
-            id: `thread-${Math.random().toString(36).substr(2, 9)}`,
-            description: t,
-            status: 'active',
-            originChapter: nextChapters[0]?.number || activeStory.currentChapterNumber
-          }));
-          nextStoriesMemory.unresolvedPlotThreads = [...(nextStoriesMemory.unresolvedPlotThreads || []), ...newThreads];
-        }
+      const updated = {
+        ...activeStory,
+        arcs: [...activeStory.arcs, newArc],
+        memory: nextStoriesMemory,
+        updatedAt: new Date().toISOString()
+      };
 
-        return {
-          ...s,
-          arcs: [...s.arcs, newArc],
-          memory: nextStoriesMemory,
-          updatedAt: new Date().toISOString()
-        };
-      });
-
-      await store.saveStories(updatedStories);
+      await saveStoryMutation.mutateAsync(updated);
       store.setSelectedChapterNum(nextChapters[0].number);
     } catch (err: any) {
       console.error(err);
@@ -148,7 +151,12 @@ export const useArcSteering = () => {
     // Synchronously set generating state on the global store before any async/complex operations
     currentStoreState.setIsGenerating(true);
 
-    const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
+    const activeStoryId = currentStoreState.activeStoryId;
+    if (!activeStoryId) {
+      currentStoreState.setIsGenerating(false);
+      return;
+    }
+    const activeStory = await storyStorage.getStory(activeStoryId);
     if (!activeStory) {
       currentStoreState.setIsGenerating(false);
       return;
@@ -192,8 +200,7 @@ export const useArcSteering = () => {
       updatedAt: new Date().toISOString()
     };
 
-    const updated = [newStory, ...currentStoreState.stories];
-    await currentStoreState.saveStories(updated);
+    await saveStoryMutation.mutateAsync(newStory);
     currentStoreState.setActiveStoryId(newStory.id);
     
     currentStoreState.setGenerationPhase('steer');
@@ -252,40 +259,35 @@ export const useArcSteering = () => {
         isCompleted: false
       };
 
-      const freshStories = await storyStorage.getStories();
-      const updatedStories = freshStories.map((s: StoryWorld) => {
-        if (s.id !== newStory.id) return s;
+      const nextStoriesMemory = { ...newStory.memory };
 
-        const nextStoriesMemory = { ...s.memory };
+      if (data.newCharacters && data.newCharacters.length > 0) {
+        const verified = data.newCharacters.map((c: any) => ({
+          id: `char-${Math.random().toString(36).substr(2, 9)}`,
+          ...c,
+          status: c.status || 'alive'
+        }));
+        nextStoriesMemory.characters = [...(nextStoriesMemory.characters || []), ...verified];
+      }
 
-        if (data.newCharacters && data.newCharacters.length > 0) {
-          const verified = data.newCharacters.map((c: any) => ({
-            id: `char-${Math.random().toString(36).substr(2, 9)}`,
-            ...c,
-            status: c.status || 'alive'
-          }));
-          nextStoriesMemory.characters = [...(nextStoriesMemory.characters || []), ...verified];
-        }
+      if (data.newUnresolvedPlotThreads && data.newUnresolvedPlotThreads.length > 0) {
+        const newThreads = data.newUnresolvedPlotThreads.map((t: string) => ({
+          id: `thread-${Math.random().toString(36).substr(2, 9)}`,
+          description: t,
+          status: 'active',
+          originChapter: nextChapters[0]?.number || chapterNumber
+        }));
+        nextStoriesMemory.unresolvedPlotThreads = [...(nextStoriesMemory.unresolvedPlotThreads || []), ...newThreads];
+      }
 
-        if (data.newUnresolvedPlotThreads && data.newUnresolvedPlotThreads.length > 0) {
-          const newThreads = data.newUnresolvedPlotThreads.map((t: string) => ({
-            id: `thread-${Math.random().toString(36).substr(2, 9)}`,
-            description: t,
-            status: 'active',
-            originChapter: nextChapters[0]?.number || chapterNumber
-          }));
-          nextStoriesMemory.unresolvedPlotThreads = [...(nextStoriesMemory.unresolvedPlotThreads || []), ...newThreads];
-        }
+      const finalStory = {
+        ...newStory,
+        arcs: [...newStory.arcs, newArc],
+        memory: nextStoriesMemory,
+        updatedAt: new Date().toISOString()
+      };
 
-        return {
-          ...s,
-          arcs: [...s.arcs, newArc],
-          memory: nextStoriesMemory,
-          updatedAt: new Date().toISOString()
-        };
-      });
-
-      await store.saveStories(updatedStories);
+      await saveStoryMutation.mutateAsync(finalStory);
       store.setSelectedChapterNum(nextChapters[0].number);
       awardQi('branch_created');
     } catch (err: any) {

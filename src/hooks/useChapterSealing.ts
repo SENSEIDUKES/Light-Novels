@@ -3,18 +3,22 @@ import { StoryWorld } from '../types';
 import { awardQi } from '../lib/qi';
 import { unlockCosmicArtifact } from '../lib/artifacts';
 import { storyApi } from '../services/api';
+import { useSaveStory } from './useStoryQueries';
+import { storyStorage } from '../lib/storage';
 
 export const useChapterSealing = () => {
   const store = useAppStore();
+  const saveStoryMutation = useSaveStory();
 
   const handleUpdateStoryDirect = async (updatedStory: StoryWorld) => {
     updatedStory.updatedAt = new Date().toISOString();
-    const updated = store.stories.map(s => s.id === updatedStory.id ? updatedStory : s);
-    await store.saveStories(updated);
+    await saveStoryMutation.mutateAsync(updatedStory);
   };
 
   const handleCheckConsistency = async (chapterNumber: number): Promise<string[]> => {
-    const activeStory = store.stories.find(s => s.id === store.activeStoryId);
+    const activeStoryId = useAppStore.getState().activeStoryId;
+    if (!activeStoryId) return [];
+    const activeStory = await storyStorage.getStory(activeStoryId);
     if (!activeStory) return [];
     
     const selectedArcIndex = activeStory.arcs.findIndex(arc => arc.chapters.some(c => c.number === chapterNumber));
@@ -37,7 +41,9 @@ export const useChapterSealing = () => {
   };
 
   const handleSealChapter = async (chapterNumber: number) => {
-    const activeStory = store.stories.find((s) => s.id === store.activeStoryId);
+    const activeStoryId = useAppStore.getState().activeStoryId;
+    if (!activeStoryId) return;
+    const activeStory = await storyStorage.getStory(activeStoryId);
     if (!activeStory) return;
 
     const generateContentHash = async (content: string): Promise<string> => {

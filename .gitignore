@@ -8,3 +8,5 @@ test-results/
 *.log
 .env*
 !.env.example
+eslint-output.txt
+eslint_report.json

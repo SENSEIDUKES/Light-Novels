@@ -56,13 +56,12 @@ export function useCosmicBookmarking({
         },
       ];
     }
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
-    if (currentActiveStory) {
-      onUpdateStory({
-        ...currentActiveStory,
-        bookmarks: updated,
-      });
-    }
+    
+    onUpdateStory({
+      ...activeStory,
+      bookmarks: updated,
+    });
+
     setEditingBookmarkParagraphIndex(null);
     setBookmarkNoteText("");
   };
@@ -71,13 +70,11 @@ export function useCosmicBookmarking({
     const updated = activeBookmarks.filter(
       (b) => !(b.chapterNumber === chapterNum && b.paragraphIndex === paraIdx),
     );
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
-    if (currentActiveStory) {
-      onUpdateStory({
-        ...currentActiveStory,
-        bookmarks: updated,
-      });
-    }
+    
+    onUpdateStory({
+      ...activeStory,
+      bookmarks: updated,
+    });
   };
 
   const handleJumpToBookmark = (b: Bookmark) => {
