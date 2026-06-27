@@ -21,7 +21,7 @@ export const extractJsonBlocks = (rawStr: string): any[] => {
           return parsed.map(b => ({ ...b, text: b.text || b.content }));
        }
     }
-  } catch(e) {}
+  } catch {}
 
   const blocks: any[] = [];
   const lines = rawStr.split('\n');
@@ -33,7 +33,7 @@ export const extractJsonBlocks = (rawStr: string): any[] => {
         if (obj && (typeof obj.text === 'string' || typeof obj.content === 'string')) {
           blocks.push({ ...obj, text: obj.text || obj.content });
         }
-      } catch (e) {}
+      } catch {}
     }
   }
   if (blocks.length > 0) return blocks;
@@ -76,7 +76,7 @@ export const extractJsonBlocks = (rawStr: string): any[] => {
             if (obj && (typeof obj.text === 'string' || typeof obj.content === 'string')) {
               braceBlocks.push({ ...obj, text: obj.text || obj.content });
             }
-          } catch(e) {}
+          } catch {}
         }
       } else if (depth > 0) {
          currentBlock += char;
@@ -92,7 +92,7 @@ export const extractJsonMeta = (rawStr: string): any => {
   let cleanJson = rawStr.replace(/```json/gi, '').replace(/```/g, '').trim();
   cleanJson = cleanJson.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
   
-  try { return JSON.parse(cleanJson); } catch (e) {}
+  try { return JSON.parse(cleanJson); } catch {}
 
   let depth = 0;
   let currentBlock = "";
@@ -134,7 +134,7 @@ export const extractJsonMeta = (rawStr: string): any => {
               longestLength = currentBlock.length;
               longestObject = obj;
             }
-          } catch(e) {}
+          } catch {}
         }
       } else if (depth > 0) {
          currentBlock += char;

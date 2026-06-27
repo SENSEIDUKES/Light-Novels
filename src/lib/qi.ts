@@ -1,4 +1,4 @@
-import { doc, setDoc, increment, collection, addDoc, query, where, getDocs, Timestamp, getDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, addDoc, query, where, getDocs, getDoc } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { checkAndAwardRankArtifacts } from './artifacts';
 import type { ActiveStatusEffect } from '../types';
@@ -146,8 +146,8 @@ export async function awardQi(event: QiEvent, sourceId?: string, sourceType?: st
     if (currentHeavenlyQi === undefined) {
       currentHeavenlyQi = currentXp;
     }
-    let currentSectQi = data?.sect_qi || 0;
-    let currentDemonicQi = data?.demonic_qi || 0;
+    const currentSectQi = data?.sect_qi || 0;
+    const currentDemonicQi = data?.demonic_qi || 0;
 
     let qiMultiplier = 1;
     let sectQiMultiplier = 1;
@@ -173,7 +173,7 @@ export async function awardQi(event: QiEvent, sourceId?: string, sourceType?: st
     const todayStr = `${year}-${month}-${day}`;
 
     const lastInteractionDate = data?.lastInteractionDate || '';
-    let currentStreak = data?.writingStreak || 0;
+    const currentStreak = data?.writingStreak || 0;
     
     let newStreak = currentStreak;
     let streakChanged = false;
@@ -529,8 +529,8 @@ export async function awardDirectQi(amount: number, reason: string) {
     if (currentHeavenlyQi === undefined) {
       currentHeavenlyQi = currentXp;
     }
-    let currentSectQi = data?.sect_qi || 0;
-    let currentDemonicQi = data?.demonic_qi || 0;
+    const currentSectQi = data?.sect_qi || 0;
+    const currentDemonicQi = data?.demonic_qi || 0;
 
     let qiMultiplier = 1;
     let sectQiMultiplier = 1;

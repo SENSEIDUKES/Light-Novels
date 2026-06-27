@@ -46,17 +46,17 @@ export class IndexedDBStorageAdapter implements StorageAdapter {
 
       const request = window.indexedDB.open(this.dbName, this.version);
 
-      request.onerror = (event) => {
+      request.onerror = () => {
         console.error('Failed to open IndexedDB:', request.error);
         reject(request.error);
       };
 
-      request.onsuccess = (event) => {
+      request.onsuccess = () => {
         this.db = request.result;
         resolve();
       };
 
-      request.onupgradeneeded = (event) => {
+      request.onupgradeneeded = () => {
         const db = request.result;
         if (!db.objectStoreNames.contains(this.storeName)) {
           db.createObjectStore(this.storeName, { keyPath: 'id' });
@@ -275,11 +275,11 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
     localStorage.removeItem(this.chaptersStorageKey);
   }
 
-  async getAudioBlob(url: string): Promise<Blob | null> {
+  async getAudioBlob(_url: string): Promise<Blob | null> {
     return null;
   }
 
-  async saveAudioBlob(url: string, blob: Blob): Promise<void> {
+  async saveAudioBlob(_url: string, _blob: Blob): Promise<void> {
     // No-op for localstorage to prevent blowing up quota
   }
 
@@ -365,7 +365,7 @@ export class PersistentStorageManager implements StorageAdapter {
     try {
       const q = localStorage.getItem(this.queueKey);
       if (q) this.syncQueue = JSON.parse(q);
-    } catch (e) {
+    } catch {
       console.warn('Failed to load sync queue');
     }
   }
@@ -373,7 +373,7 @@ export class PersistentStorageManager implements StorageAdapter {
   private saveQueue() {
     try {
       localStorage.setItem(this.queueKey, JSON.stringify(this.syncQueue));
-    } catch (e) {
+    } catch {
       console.warn('Failed to save sync queue');
     }
   }

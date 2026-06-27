@@ -15,7 +15,8 @@
         "activeStories": { "type": "array" },
         "inactiveStories": { "type": "array" },
         "joinedDate": { "type": "string" },
-        "updatedAt": { "type": "string" }
+        "updatedAt": { "type": "string" },
+        "role": { "type": "string", "enum": ["owner", "admin", "user"] }
       },
       "required": ["uid", "username", "joinedDate", "updatedAt"]
     },

@@ -64,6 +64,7 @@ export interface UserProfile {
   inactiveStories: string[];
   joinedDate: string;
   updatedAt: string;
+  role?: "owner" | "admin" | "user";
   qi?: number; // legacy
   dao_xp?: number;
   dao_rank?: string;

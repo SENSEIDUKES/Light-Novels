@@ -324,7 +324,7 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
         } else {
           set({ stories: [] });
         }
-      } catch (innerErr) {
+      } catch {
         set({ stories: [] });
       }
     }

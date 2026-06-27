@@ -387,7 +387,6 @@ export async function scanChapterForArtifacts(
 ): Promise<void> {
   const normalized = text.toLowerCase();
   
-  const statsMsg = (metadata?.statsChangeMessage || "").toLowerCase();
   const cuePayload = metadata?.cuePayload;
   const blocks = metadata?.blocks || [];
 

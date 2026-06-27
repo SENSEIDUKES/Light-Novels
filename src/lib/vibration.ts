@@ -21,7 +21,7 @@ export const vibrate = (pattern: keyof typeof VIBRATION_PATTERNS | number | numb
       } else {
         navigator.vibrate(pattern as number | number[]);
       }
-    } catch (e) {
+    } catch {
       // Ignore vibration errors
     }
   }

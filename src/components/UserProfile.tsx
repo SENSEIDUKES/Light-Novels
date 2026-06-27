@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile as UserProfileType, Story, AppUser } from '../types';
 import { db, auth } from '../lib/firebase';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { LogOut, Save, User as UserIcon, Calendar, BookOpen, Globe, Cloud, CloudOff, RefreshCw, Sliders, Upload, Download, Database, Zap, Keyboard, Flame, Award, Shield, Compass, Key, Sparkles, Search, Sword, HelpCircle } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
@@ -26,6 +26,15 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
   const colorInputRef = React.useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Admin / Owner Control Panel States
+  const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
+  const [adminTab, setAdminTab] = useState<'users' | 'stories'>('users');
+  const [allUsers, setAllUsers] = useState<UserProfileType[]>([]);
+  const [allStories, setAllStories] = useState<any[]>([]);
+  const [isFetchingAdminData, setIsFetchingAdminData] = useState(false);
+  const [adminSearchQuery, setAdminSearchQuery] = useState('');
+  const [adminError, setAdminError] = useState('');
 
   // Language safeguard states
   const [pendingLanguageChange, setPendingLanguageChange] = useState<{ preferred: string, translation: string, prevPreferred: string, prevTranslation: string } | null>(null);
@@ -315,6 +324,70 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     checkDaoConnection();
   }, [localGeminiKey, localOpenrouterKey, localOllamaHost, isSettingsOpen]);
 
+  const fetchAdminData = async () => {
+    setIsFetchingAdminData(true);
+    setAdminError('');
+    try {
+      const usersSnap = await getDocs(collection(db, 'users'));
+      const usersList: UserProfileType[] = [];
+      usersSnap.forEach((d) => {
+        usersList.push(d.data() as UserProfileType);
+      });
+      setAllUsers(usersList);
+
+      const storiesSnap = await getDocs(collection(db, 'stories'));
+      const storiesList: any[] = [];
+      storiesSnap.forEach((d) => {
+        storiesList.push(d.data());
+      });
+      setAllStories(storiesList);
+    } catch (err: any) {
+      console.error(err);
+      setAdminError(err.message || 'Failed to fetch admin data. Check security rules or authentication.');
+    } finally {
+      setIsFetchingAdminData(false);
+    }
+  };
+
+  const handleUpdateUserRole = async (targetUid: string, nextRole: 'owner' | 'admin' | 'user') => {
+    try {
+      await setDoc(doc(db, 'users', targetUid), { role: nextRole }, { merge: true });
+      setAllUsers(prev => prev.map(u => u.uid === targetUid ? { ...u, role: nextRole } : u));
+    } catch (err: any) {
+      console.error(err);
+      setAdminError(err.message || 'Failed to update user role');
+    }
+  };
+
+  const handleUpdateUserTier = async (targetUid: string, nextTier: "free" | "inner_sect" | "core_disciple" | "elder") => {
+    try {
+      await setDoc(doc(db, 'users', targetUid), { premiumTier: nextTier }, { merge: true });
+      setAllUsers(prev => prev.map(u => u.uid === targetUid ? { ...u, premiumTier: nextTier } : u));
+    } catch (err: any) {
+      console.error(err);
+      setAdminError(err.message || 'Failed to update user premium tier');
+    }
+  };
+
+  const handleDeleteStoryAdmin = async (storyId: string) => {
+    if (!window.confirm("Are you absolutely sure you want to delete this story? This action is IRREVERSIBLE and will wipe the story and its chapters from existence!")) {
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, 'stories', storyId));
+      setAllStories(prev => prev.filter(s => s.id !== storyId));
+    } catch (err: any) {
+      console.error(err);
+      setAdminError(err.message || 'Failed to delete story');
+    }
+  };
+
+  useEffect(() => {
+    if (isAdminPanelOpen) {
+      fetchAdminData();
+    }
+  }, [isAdminPanelOpen]);
+
   const handleLogin = async () => {
     try {
       const provider = new GoogleAuthProvider();
@@ -335,6 +408,15 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     const unsubscribe = onSnapshot(doc(db, 'users', currentUser.uid), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data() as UserProfileType;
+        
+        // Auto-bootstrap Owner role for owner emails
+        if ((currentUser.email === 'amaurylindy@gmail.com' || currentUser.email === 'seihouseproductions@gmail.com') && data.role !== 'owner') {
+          setDoc(doc(db, 'users', currentUser.uid), { role: 'owner' }, { merge: true }).catch(err => {
+            console.error("Failed to bootstrap owner role", err);
+          });
+          data.role = 'owner';
+        }
+
         setProfile(data);
         if (!isEditing) {
           setFormData(data);
@@ -352,7 +434,8 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
           activeStories: [],
           inactiveStories: [],
           joinedDate: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
+          role: (currentUser.email === 'amaurylindy@gmail.com' || currentUser.email === 'seihouseproductions@gmail.com') ? 'owner' : 'user'
         };
         
         // This will trigger the snapshot again
@@ -804,6 +887,228 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     </>
   );
 
+  const renderAdminPanel = () => {
+    const filteredUsers = allUsers.filter(u => {
+      const query = adminSearchQuery.toLowerCase();
+      return (
+        (u.username || '').toLowerCase().includes(query) ||
+        (u.displayName || '').toLowerCase().includes(query) ||
+        (u.uid || '').toLowerCase().includes(query)
+      );
+    });
+
+    const filteredStories = allStories.filter(s => {
+      const query = adminSearchQuery.toLowerCase();
+      return (
+        (s.title || '').toLowerCase().includes(query) ||
+        (s.genre || '').toLowerCase().includes(query) ||
+        (s.mcName || '').toLowerCase().includes(query) ||
+        (s.id || '').toLowerCase().includes(query) ||
+        (s.userId || '').toLowerCase().includes(query)
+      );
+    });
+
+    const isOwnerUser = profile?.role === 'owner';
+
+    return (
+      <div className="space-y-8 animate-fadeIn">
+        {/* Admin Header */}
+        <div className="border-b border-neutral-900 pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-2xl font-sc font-bold uppercase tracking-wider text-signal flex items-center gap-2">
+              <Shield className="text-human" size={22} />
+              Akashic Records Control Switchboard
+            </h3>
+            <p className="font-serif text-xs text-neutral-400 mt-1.5 max-w-xl leading-relaxed">
+              Authorized access as <span className="text-human font-bold uppercase">{profile?.role}</span>. Purple & Crimson vectors signify high-potency write authority.
+            </p>
+          </div>
+          <button
+            onClick={fetchAdminData}
+            disabled={isFetchingAdminData}
+            className="self-start md:self-auto px-4 py-2 bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-signal hover:border-neutral-600 rounded-xl text-xs font-sc font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw size={12} className={isFetchingAdminData ? 'animate-spin' : ''} />
+            Recalibrate
+          </button>
+        </div>
+
+        {adminError && (
+          <div className="p-4 bg-human/10 border border-human/30 text-human text-xs font-mono rounded-xl">
+            [ERROR_SIGNAL]: {adminError}
+          </div>
+        )}
+
+        {/* Directory/Chronicle Switcher */}
+        <div className="flex border-b border-neutral-900 gap-6">
+          <button
+            onClick={() => { setAdminTab('users'); setAdminSearchQuery(''); }}
+            className={`pb-3 text-xs font-sc font-bold uppercase tracking-widest border-b-2 cursor-pointer transition-all ${
+              adminTab === 'users'
+                ? 'border-portal text-portal font-black'
+                : 'border-transparent text-neutral-500 hover:text-neutral-300'
+            }`}
+          >
+            User Directory ({allUsers.length})
+          </button>
+          <button
+            onClick={() => { setAdminTab('stories'); setAdminSearchQuery(''); }}
+            className={`pb-3 text-xs font-sc font-bold uppercase tracking-widest border-b-2 cursor-pointer transition-all ${
+              adminTab === 'stories'
+                ? 'border-human text-human font-black'
+                : 'border-transparent text-neutral-500 hover:text-neutral-300'
+            }`}
+          >
+            Novel Chronicles ({allStories.length})
+          </button>
+        </div>
+
+        {/* Search input */}
+        <div className="relative">
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" />
+          <input
+            type="text"
+            placeholder={adminTab === 'users' ? "Search users by name, username, or ID..." : "Search stories by title, MC name, genre, or ID..."}
+            value={adminSearchQuery}
+            onChange={(e) => setAdminSearchQuery(e.target.value)}
+            className="w-full pl-11 pr-4 py-3 bg-neutral-950/80 border border-neutral-900 rounded-xl text-xs font-sans text-signal placeholder-neutral-600 focus:outline-none focus:border-neutral-750 transition-all"
+          />
+        </div>
+
+        {isFetchingAdminData ? (
+          <div className="py-20 flex flex-col items-center justify-center space-y-4">
+            <RefreshCw size={36} className="text-portal animate-spin" />
+            <span className="font-sc text-xs tracking-widest uppercase text-neutral-500">Accessing Akashic Nodes...</span>
+          </div>
+        ) : adminTab === 'users' ? (
+          /* USERS MANAGEMENT */
+          <div className="space-y-4">
+            {filteredUsers.length === 0 ? (
+              <div className="py-12 text-center text-neutral-500 font-serif text-sm">
+                No matched entities found in this sector.
+              </div>
+            ) : (
+              filteredUsers.map((u) => {
+                const isSelf = u.uid === currentUser?.uid;
+                return (
+                  <div key={u.uid} className="bg-[#050505] border border-neutral-900 rounded-xl p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-6 hover:border-neutral-800 transition-all">
+                    {/* Left: User stats */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="font-display text-lg text-signal">{u.displayName || u.username || 'Anonymous Entity'}</span>
+                        {isSelf && (
+                          <span className="px-2 py-0.5 bg-portal/10 text-portal text-[9px] font-mono rounded uppercase">You</span>
+                        )}
+                        <span className={`px-2 py-0.5 text-[9px] font-mono rounded uppercase ${
+                          u.role === 'owner' ? 'bg-human/20 text-human border border-human/30' :
+                          u.role === 'admin' ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' :
+                          'bg-neutral-900 text-neutral-400'
+                        }`}>
+                          {u.role || 'user'}
+                        </span>
+                      </div>
+                      <div className="font-mono text-[10px] text-neutral-500 space-y-0.5">
+                        <p>ID: {u.uid}</p>
+                        <p>Username: @{u.username}</p>
+                        <p>Linked Date: {u.joinedDate ? new Date(u.joinedDate).toLocaleDateString() : 'Unknown'}</p>
+                        <p>Premium Rank: <span className="text-signal uppercase">{u.premiumTier || 'free'}</span></p>
+                      </div>
+                    </div>
+
+                    {/* Right: Write commands */}
+                    <div className="flex flex-col sm:flex-row gap-4 lg:items-center">
+                      {/* Premium Tier Selector */}
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] font-sc uppercase tracking-wider text-neutral-500 block">Premium Rank Override</span>
+                        <div className="flex bg-neutral-950 border border-neutral-900 rounded-lg p-0.5 gap-0.5">
+                          {(['free', 'inner_sect', 'core_disciple', 'elder'] as const).map((tier) => (
+                            <button
+                              key={tier}
+                              disabled={!isOwnerUser}
+                              onClick={() => handleUpdateUserTier(u.uid, tier)}
+                              className={`px-2 py-1 text-[9px] font-mono rounded transition-all cursor-pointer ${
+                                u.premiumTier === tier
+                                  ? 'bg-portal/15 text-portal font-bold'
+                                  : isOwnerUser ? 'text-neutral-500 hover:text-neutral-300' : 'text-neutral-700 cursor-not-allowed'
+                              }`}
+                            >
+                              {tier === 'inner_sect' ? 'Inner' : tier === 'core_disciple' ? 'Core' : tier}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Role Selector */}
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] font-sc uppercase tracking-wider text-neutral-500 block">Permission Sector</span>
+                        <div className="flex bg-neutral-950 border border-neutral-900 rounded-lg p-0.5 gap-1">
+                          {(['user', 'admin', 'owner'] as const).map((role) => (
+                            <button
+                              key={role}
+                              disabled={!isOwnerUser || isSelf}
+                              onClick={() => handleUpdateUserRole(u.uid, role)}
+                              className={`px-2.5 py-1 text-[9px] font-sc uppercase tracking-widest rounded transition-all cursor-pointer ${
+                                u.role === role
+                                  ? role === 'owner' ? 'bg-human text-signal font-bold' :
+                                    role === 'admin' ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 font-bold' :
+                                    'bg-neutral-800 text-neutral-300 font-bold'
+                                  : (isOwnerUser && !isSelf) ? 'text-neutral-600 hover:text-neutral-400' : 'text-neutral-800 cursor-not-allowed'
+                              }`}
+                            >
+                              {role}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        ) : (
+          /* STORIES MANAGEMENT */
+          <div className="space-y-4">
+            {filteredStories.length === 0 ? (
+              <div className="py-12 text-center text-neutral-500 font-serif text-sm">
+                No novel matrix configurations found.
+              </div>
+            ) : (
+              filteredStories.map((s) => (
+                <div key={s.id} className="bg-[#050505] border border-neutral-900 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-6 hover:border-neutral-800 transition-all">
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-display text-lg text-signal">{s.title || 'Untitled Chronicle'}</span>
+                      <span className="px-2 py-0.5 bg-neutral-900 border border-neutral-800 text-neutral-400 text-[9px] font-mono rounded">{s.genre}</span>
+                      {s.deleted && (
+                        <span className="px-2 py-0.5 bg-human/20 text-human text-[9px] font-mono rounded uppercase">Deleted (Soft)</span>
+                      )}
+                    </div>
+                    <div className="font-mono text-[10px] text-neutral-500 space-y-0.5">
+                      <p>Story ID: {s.id}</p>
+                      <p>Author ID: {s.userId}</p>
+                      <p>Principal Cultivator: <span className="text-signal">{s.mcName}</span></p>
+                      <p>Scroll Count: <span className="text-portal font-bold">{s.currentChapterNumber || 0} chapters</span></p>
+                      <p>Evolving Since: {s.createdAt ? new Date(s.createdAt).toLocaleDateString() : 'Unknown'}</p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleDeleteStoryAdmin(s.id)}
+                    className="self-start sm:self-auto bg-transparent hover:bg-human/15 border border-human/30 hover:border-human text-human hover:text-signal rounded-xl px-4 py-2.5 transition-all font-sc text-[10px] uppercase font-bold tracking-widest cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Flame size={12} />
+                    Purge Matrix
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (isLoading && !profile && currentUser) {
     return <div className="p-8 text-center text-neutral-500 font-sc tracking-widest uppercase animate-pulse">Accessing Celestial Record...</div>;
   }
@@ -828,6 +1133,33 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
           )}
         </div>
 
+        {currentUser && (profile?.role === 'owner' || profile?.role === 'admin') && (
+          <div className="flex border-b border-neutral-900 bg-black/20">
+            <button
+              onClick={() => setIsAdminPanelOpen(false)}
+              className={`flex-1 py-4 text-xs font-sc font-bold uppercase tracking-widest transition-all border-b-2 text-center flex items-center justify-center gap-2 cursor-pointer ${
+                !isAdminPanelOpen
+                  ? 'border-portal text-portal bg-portal/5'
+                  : 'border-transparent text-neutral-500 hover:text-neutral-300'
+              }`}
+            >
+              <UserIcon size={14} />
+              My Cultivator Profile
+            </button>
+            <button
+              onClick={() => setIsAdminPanelOpen(true)}
+              className={`flex-1 py-4 text-xs font-sc font-bold uppercase tracking-widest transition-all border-b-2 text-center flex items-center justify-center gap-2 cursor-pointer ${
+                isAdminPanelOpen
+                  ? 'border-human text-signal bg-human/10 animate-pulse'
+                  : 'border-transparent text-neutral-500 hover:text-neutral-300'
+              }`}
+            >
+              <Shield size={14} className="text-human" />
+              Akashic Switchboard (Admin)
+            </button>
+          </div>
+        )}
+
         {error && (
           <div className="p-4 bg-human/10 border-b border-human/30 text-human text-sm font-mono text-center">
             {error}
@@ -851,6 +1183,8 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                 Link Spirit Realm
               </button>
             </div>
+          ) : isAdminPanelOpen ? (
+            renderAdminPanel()
           ) : (
             <>
               {/* Top Section - Avatar & Quick Info */}

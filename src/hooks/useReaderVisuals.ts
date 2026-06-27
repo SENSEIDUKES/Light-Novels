@@ -81,6 +81,7 @@ export function useReaderVisuals({
     selectedChapter?.assetManifest?.heroImage, 
     selectedChapter?.cuePayload, 
     selectedChapter?.summary, 
+    selectedChapter?.title,
     manifestChapterHero, 
     generatingIds, 
     activeStory
@@ -118,13 +119,13 @@ export function useReaderVisuals({
                 try {
                   parsedMeta = JSON.parse(metaRaw);
                   parsedValue = parsedValue || parsedMeta;
-                } catch (e) {}
+                } catch {}
               }
 
               if (typeof parsedValue === "string") {
                 try {
                   parsedValue = JSON.parse(parsedValue);
-                } catch (e) {}
+                } catch {}
               }
 
               if (readerMode === "teleprompter") {

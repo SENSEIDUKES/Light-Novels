@@ -56,7 +56,7 @@ export function useReaderScroll({
         }, 100);
       }
     }
-  }, [selectedChapterNum, activeStory.lastReadChapter, selectedChapter.generatedContent, selectedChapter.blocks]);
+  }, [selectedChapterNum, activeStory.lastReadChapter, activeStory.lastReadScrollPosition, selectedChapter.generatedContent, selectedChapter.blocks]);
 
   return { readerRef, handleViewportScroll };
 }
