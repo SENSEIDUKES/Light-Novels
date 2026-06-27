@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { SceneScoreEngine, SceneAudioTrack } from '../lib/audio/musicResolver';
 import { useAppStore } from '../store/useAppStore';
 import { vibrate } from '../lib/vibration';
@@ -85,6 +85,7 @@ export function AtmosphericAudio() {
     window.dispatchEvent(new CustomEvent('seihouse-audio-state', {
       detail: { isMuted, atmosphere, volume }
     }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMuted, atmosphere, volume, currentScreen]);
 
   // Handle incoming control events from UI
@@ -102,7 +103,7 @@ export function AtmosphericAudio() {
               if (ctx.state === 'suspended') {
                  ctx.resume().catch(console.warn);
               }
-            } catch(e) {}
+            } catch {}
           }
         }
         if (customEvent.detail.atmosphere) {
@@ -175,6 +176,7 @@ export function AtmosphericAudio() {
     return () => {
       stopAll();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMuted, atmosphere, currentScreen]);
 
   function stopAll() {
@@ -182,7 +184,7 @@ export function AtmosphericAudio() {
       try {
         source.stop();
         source.disconnect();
-      } catch (e) {}
+      } catch {}
     });
     activeSourcesRef.current = [];
 
@@ -198,7 +200,7 @@ export function AtmosphericAudio() {
     activeIntervalsRef.current.push(interval);
   };
 
-  const createNoiseBuffer = (ctx: AudioContext, type: 'white' | 'pink') => {
+  const createNoiseBuffer = (ctx: AudioContext, _type: 'white' | 'pink') => {
     const bufferSize = ctx.sampleRate * 2; // 2 seconds
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const output = buffer.getChannelData(0);
@@ -705,6 +707,7 @@ export function AtmosphericAudio() {
     
     window.addEventListener('narrative-cue', handleCue);
     return () => window.removeEventListener('narrative-cue', handleCue);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMuted, volume, currentScreen]); // Observe changes to Mute preference directly
 
   // Headless rendering to prevent blocking menu options

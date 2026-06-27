@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode, useState, useMemo } from 'react';
+import React, { createContext, useContext, ReactNode } from 'react';
 import { StoryMemory, StoryArc, StoryWorld, MultiModelRouting } from '../../types';
 
 interface CodexContextType {
@@ -20,6 +20,7 @@ interface CodexContextType {
 
 const CodexContext = createContext<CodexContextType | undefined>(undefined);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useCodex() {
   const context = useContext(CodexContext);
   if (!context) {

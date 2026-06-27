@@ -12,7 +12,7 @@ interface CodexHovercardProps {
   children: React.ReactNode;
 }
 
-export const CodexHovercard: React.FC<CodexHovercardProps> = ({ term, type, entry, children }) => {
+export const CodexHovercard: React.FC<CodexHovercardProps> = ({ type, entry, children }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLSpanElement>(null);
   const imageUrl = 'imageUrl' in entry ? (entry as any).imageUrl : undefined;

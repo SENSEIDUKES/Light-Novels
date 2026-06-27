@@ -11,7 +11,7 @@ import { useStoryExporter } from './hooks/useStoryExporter';
 import { storyStorage } from './lib/storage';
 
 // Types
-import { Story, IntakeData, WorldBlueprint, UserProfile as UserProfileType } from './types';
+import { UserProfile as UserProfileType } from './types';
 
 // Top-Level Layout Components
 import { GlobalHeader } from './components/GlobalHeader';
@@ -103,6 +103,7 @@ function App() {
         console.error("Failed to restore active generation state:", err);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isInitializing, store.stories]);
 
   // Initialize Data Persistence
@@ -186,6 +187,7 @@ function App() {
         });
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store.activeStoryId, store.selectedChapterNum]); // Removed store.stories
 
   // --- IDLE CULTIVATION ---

@@ -9,7 +9,7 @@ interface ImportPanelProps {
   onImport: (blueprint: WorldBlueprint) => void;
 }
 
-export const parseBlueprintData = (inputText: string): WorldBlueprint | null => {
+const parseBlueprintData = (inputText: string): WorldBlueprint | null => {
   const text = inputText.trim();
   if (!text) return null;
 
@@ -41,7 +41,7 @@ export const parseBlueprintData = (inputText: string): WorldBlueprint | null => 
         unresolvedPlotThreads: Array.isArray(data.unresolvedPlotThreads) ? data.unresolvedPlotThreads : [],
       };
     }
-  } catch (e) {
+  } catch {
     // Treat as Markdown if JSON fails
   }
 

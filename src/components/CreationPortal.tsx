@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { Copy, Cloud, ArrowRight } from 'lucide-react';
 import { IntakeData, WorldBlueprint } from '../types';
 import { useAppStore } from '../store/useAppStore';
@@ -40,7 +40,7 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
   const [stage, setStage] = useState<'intake' | 'blueprint'>('intake');
   const [showImportPanel, setShowImportPanel] = useState(false);
   const [blueprint, setBlueprint] = useState<WorldBlueprint | null>(null);
-  const [chapterCount, setChapterCount] = useState(10);
+  const [chapterCount] = useState(10);
   const [activeSection, setActiveSection] = useState<FormSectionId>('core');
 
   const [intake, setIntake] = useState<IntakeData>(() => ({

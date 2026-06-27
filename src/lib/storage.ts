@@ -44,31 +44,36 @@ export class IndexedDBStorageAdapter implements StorageAdapter {
         return;
       }
 
-      const request = window.indexedDB.open(this.dbName, this.version);
+      try {
+        const request = window.indexedDB.open(this.dbName, this.version);
 
-      request.onerror = () => {
-        console.error('Failed to open IndexedDB:', request.error);
-        reject(request.error);
-      };
+        request.onerror = () => {
+          console.error('Failed to open IndexedDB:', request.error);
+          reject(request.error);
+        };
 
-      request.onsuccess = () => {
-        this.db = request.result;
-        resolve();
-      };
+        request.onsuccess = () => {
+          this.db = request.result;
+          resolve();
+        };
 
-      request.onupgradeneeded = () => {
-        const db = request.result;
-        if (!db.objectStoreNames.contains(this.storeName)) {
-          db.createObjectStore(this.storeName, { keyPath: 'id' });
-        }
-        if (!db.objectStoreNames.contains(this.chaptersStoreName)) {
-          // Complex key path for identifying unique chapter contents
-          db.createObjectStore(this.chaptersStoreName, { keyPath: ['storyId', 'chapterNumber'] });
-        }
-        if (!db.objectStoreNames.contains(this.audioStoreName)) {
-          db.createObjectStore(this.audioStoreName, { keyPath: 'url' });
-        }
-      };
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(this.storeName)) {
+            db.createObjectStore(this.storeName, { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains(this.chaptersStoreName)) {
+            // Complex key path for identifying unique chapter contents
+            db.createObjectStore(this.chaptersStoreName, { keyPath: ['storyId', 'chapterNumber'] });
+          }
+          if (!db.objectStoreNames.contains(this.audioStoreName)) {
+            db.createObjectStore(this.audioStoreName, { keyPath: 'url' });
+          }
+        };
+      } catch (err) {
+        console.warn('Synchronous error during IndexedDB open (possibly sandboxed):', err);
+        reject(err);
+      }
     });
   }
 
@@ -261,7 +266,47 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
     } else {
       stories.push(story);
     }
-    localStorage.setItem(this.storageKey, JSON.stringify(stories));
+    
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify(stories));
+    } catch (e: any) {
+      console.warn('LocalStorage Quota exceeded, stripping large fields...', e);
+      // Fallback: strip images to save space
+      const stripped = stories.map(s => {
+         const copy = JSON.parse(JSON.stringify(s));
+         delete copy.imageUrl;
+         delete copy.imageHistory;
+         if (copy.memory) {
+            if (copy.memory.characters) copy.memory.characters.forEach((c: any) => { delete c.imageUrl; delete c.imageHistory; });
+            if (copy.memory.locations) copy.memory.locations.forEach((l: any) => { delete l.imageUrl; delete l.imageHistory; });
+            if (copy.memory.artifacts) copy.memory.artifacts.forEach((a: any) => { delete a.imageUrl; delete a.imageHistory; });
+         }
+         if (copy.arcs) {
+           copy.arcs.forEach((arc: any) => {
+             if (arc.chapters) {
+               arc.chapters.forEach((ch: any) => {
+                 if (ch.assetManifest) delete ch.assetManifest.heroImage;
+               });
+             }
+           });
+         }
+         return copy;
+      });
+      
+      try {
+        localStorage.setItem(this.storageKey, JSON.stringify(stripped));
+      } catch (err2) {
+        console.error('Even stripped stories exceeded quota. Removing older stories...');
+        // If still exceeding, keep only the most recent 2 stories
+        stripped.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        const reduced = stripped.slice(0, 2);
+        try {
+          localStorage.setItem(this.storageKey, JSON.stringify(reduced));
+        } catch (err3) {
+          console.error('Completely out of local storage space!', err3);
+        }
+      }
+    }
   }
 
   async deleteStory(id: string): Promise<void> {
@@ -309,7 +354,20 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
       } else {
         chapters.push(content);
       }
-      localStorage.setItem(this.chaptersStorageKey, JSON.stringify(chapters));
+      
+      try {
+          localStorage.setItem(this.chaptersStorageKey, JSON.stringify(chapters));
+      } catch (e: any) {
+          console.warn('LocalStorage chapters quota exceeded, removing older chapters...', e);
+          // Keep only the most recent 5 chapters for this fallback
+          chapters.sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+          const reduced = chapters.slice(0, 5);
+          try {
+              localStorage.setItem(this.chaptersStorageKey, JSON.stringify(reduced));
+          } catch (err2) {
+              console.error('Reduced chapters still exceed quota!', err2);
+          }
+      }
     } catch (e) {
       console.error('LocalStorage save error:', e);
     }

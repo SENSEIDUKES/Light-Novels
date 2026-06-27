@@ -573,7 +573,7 @@ export async function routeImageGeneration(
     // -------------------------------------------------------------
     try {
       const ai = getAIClient(customKeys?.geminiApiKey);
-      let gModel = (model || "google/gemini-3.1-flash-lite-image-preview").replace(/^google\//, "");
+      const gModel = (model || "google/gemini-3.1-flash-lite-image-preview").replace(/^google\//, "");
 
       let imageUrls: string[] = [];
 
@@ -645,7 +645,7 @@ export async function routeImageGeneration(
       };
     }
   } else if (provider === "openrouter") {
-    let imageModel = model || "black-forest-labs/flux.2-klein-4b";
+    const imageModel = model || "black-forest-labs/flux.2-klein-4b";
 
     try {
       const apiKey = customKeys?.openrouterApiKey || process.env.OPENROUTER_API_KEY;

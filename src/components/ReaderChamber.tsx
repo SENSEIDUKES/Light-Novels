@@ -1,62 +1,23 @@
 import React, { useRef, useState, useEffect, useMemo } from "react";
 import {
-  Sparkles,
-  ChevronRight,
-  Check,
-  Eye,
-  EyeOff,
-  Download,
-  ArrowLeft,
-  ArrowRight,
-  Zap,
-  ListMusic,
-  Award,
   ShieldAlert,
-  CheckCircle,
-  RefreshCcw,
   Play,
-  Pause,
-  Square,
-  Volume2,
-  VolumeX,
-  Sliders,
-  Settings,
-  Bookmark as BookmarkIcon,
-  Trash2,
-  Plus,
-  Globe,
-  Loader2,
-  Lock,
 } from "lucide-react";
 import {
   Chapter,
-  StoryMemory,
   StoryWorld,
   ReaderPreferences,
   Bookmark,
-  VoiceClip,
 } from "../types";
 import { motion, AnimatePresence } from "motion/react";
-import { VirtualizedList } from "./VirtualizedList";
 import { ParticleSystem } from "./ParticleSystem";
-import { AudioWidget } from "./AudioWidget";
-import {
-  dispatchNarrativeCue,
-  NarrativeCueEventType,
-  dispatchNarration
-} from "../lib/narrativeCues";
 import { useChapterTranslation } from "../hooks/useChapterTranslation";
 import { useAppStore } from "../store/useAppStore";
-import { secureStorage } from "../lib/encryption";
-import { SystemBlock, SYSTEM_COLORS_LEGEND } from "./SystemBlock";
-import { FateSurvivalExplanation } from "./FateSurvivalExplanation";
-
+import { SystemBlock } from "./SystemBlock";
 import { AlterFatePanel } from "./AlterFatePanel";
-
 import { ReaderPreferencesPanel } from "./ReaderPreferencesPanel";
 import { CosmicBookmarksPanel } from "./CosmicBookmarksPanel";
 import { CodexHovercard } from "./CodexHovercard";
-import { WorldEntityCard } from "./WorldEntityCard";
 import { useReaderPlayback, extractSFXCues } from "../hooks/useReaderPlayback";
 import { useReaderVisuals } from "../hooks/useReaderVisuals";
 
