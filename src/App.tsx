@@ -32,6 +32,7 @@ import UserProfile from './components/UserProfile';
 import { ChallengeScreen } from './components/ChallengeScreen';
 import { SectsScreen } from './components/SectsScreen';
 import { IdleCultivationModal } from './components/IdleCultivationModal';
+import { ActiveCultivationLoop } from './components/ActiveCultivationLoop';
 
 function App() {
   const store = useAppStore();
@@ -160,35 +161,6 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Dynamically fetch missing content for active chapter
-  useEffect(() => {
-    // Narrow dependency to just ID and chapter num to avoid looping on whole stories array
-    const activeStory = useAppStore.getState().stories.find(s => s.id === store.activeStoryId);
-    if (activeStory && store.selectedChapterNum !== -1) {
-      const tgtArc = activeStory.arcs.find(a => a.chapters.some(c => c.number === store.selectedChapterNum));
-      const tgtChapter = tgtArc?.chapters.find(c => c.number === store.selectedChapterNum);
-      
-      if (tgtChapter && !tgtChapter.generatedContent && (!tgtChapter.blocks || tgtChapter.blocks.length === 0) && (tgtChapter.status === 'read' || tgtChapter.status === 'unlocked' || tgtChapter.status === 'generating' || tgtChapter.hasContent)) {
-        storyStorage.getChapterContent(activeStory.id, store.selectedChapterNum).then(content => {
-          if (content) {
-            store.updateChapter(activeStory.id, store.selectedChapterNum, {
-              generatedContent: content.generatedContent,
-              blocks: content.blocks,
-              summary: content.summary,
-              statsChangeMessage: content.statsChangeMessage,
-              cuePayload: content.cuePayload
-            });
-          } else {
-            // Failed to fetch or missing: un-mark hasContent so user can regenerate
-            store.updateChapter(activeStory.id, store.selectedChapterNum, {
-              hasContent: false
-            });
-          }
-        });
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store.activeStoryId, store.selectedChapterNum]); // Removed store.stories
 
   // --- IDLE CULTIVATION ---
   const [idleQiEarned, setIdleQiEarned] = useState<number | null>(null);
@@ -417,6 +389,7 @@ function App() {
       <KeyboardShortcuts />
       <AtmosphericAudio />
       <IdleCultivationModal qiEarned={idleQiEarned} onClose={() => setIdleQiEarned(null)} />
+      <ActiveCultivationLoop />
     </div>
   );
 }

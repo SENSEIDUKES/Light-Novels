@@ -62,7 +62,24 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
   storageType: 'Initializing...',
   lastSavedTime: null,
 
-  setStories: (stories) => set({ stories }),
+  setStories: (stories) => {
+    const pruned = stories.map(s => {
+      const cloned = JSON.parse(JSON.stringify(s));
+      if (cloned.arcs) {
+        for (const arc of cloned.arcs) {
+          for (const chapter of arc.chapters) {
+            delete chapter.generatedContent;
+            delete chapter.blocks;
+            delete chapter.translationCache;
+            delete chapter.audioCueCache;
+            delete chapter._isNewContent;
+          }
+        }
+      }
+      return cloned;
+    });
+    set({ stories: pruned });
+  },
   setActiveStoryId: (id) => set({ activeStoryId: id }),
   setStoryToDelete: (id) => set({ storyToDelete: id }),
   setDraftRecoverySession: (session) => set({ draftRecoverySession: session }),
@@ -75,7 +92,7 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
   setActiveAgentId: (activeAgentId) => set({ activeAgentId }),
   setStorageType: (storageType) => set({ storageType }),
   setLastSavedTime: (lastSavedTime) => set({ lastSavedTime }),
-
+ 
   saveStories: async (updated: Story[]) => {
     const activeId = get().activeStoryId;
     const markedStories = updated.map(s => {
@@ -85,7 +102,7 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
       return s;
     });
 
-    set({ stories: markedStories });
+    // 1. Perform persistent storage writes using the full objects (which contains heavy chapter prose to be split out)
     try {
       storyStorage.startTransaction();
       for (const s of markedStories) {
@@ -99,6 +116,27 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
       localStorage.setItem(STORAGE_KEY, JSON.stringify(markedStories));
       set({ lastSavedTime: new Date() });
     }
+
+    // 2. Proactively strip heavy chapter contents before writing to the global store state.
+    // This ensures that our global Zustand store ONLY maintains the lightweight "Metadata"
+    // (story name, arc titles, settings, user stats, etc.), keeping memory footprint exceptionally light.
+    const strippedStoriesForState = markedStories.map(s => {
+      const cloned = JSON.parse(JSON.stringify(s));
+      if (cloned.arcs) {
+        for (const arc of cloned.arcs) {
+          for (const chapter of arc.chapters) {
+            delete chapter.generatedContent;
+            delete chapter.blocks;
+            delete chapter.translationCache;
+            delete chapter.audioCueCache;
+            delete chapter._isNewContent;
+          }
+        }
+      }
+      return cloned;
+    });
+
+    set({ stories: strippedStoriesForState });
   },
 
   updateChapter: async (storyId: string, chapterNumber: number, updates: Partial<Chapter>) => {
@@ -309,7 +347,8 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
           randomDemo.id = `demo-matrix-${user.uid}`;
           randomDemo.userId = user.uid;
           await storyStorage.saveStory(randomDemo);
-          set({ stories: [randomDemo] });
+          const loadedDemos = await storyStorage.getStories();
+          set({ stories: loadedDemos });
         } else {
           set({ stories: [] });
         }
@@ -320,7 +359,23 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
-          set({ stories: JSON.parse(saved) });
+          const stories = JSON.parse(saved) as Story[];
+          const pruned = stories.map(s => {
+            const cloned = JSON.parse(JSON.stringify(s));
+            if (cloned.arcs) {
+              for (const arc of cloned.arcs) {
+                for (const chapter of arc.chapters) {
+                  delete chapter.generatedContent;
+                  delete chapter.blocks;
+                  delete chapter.translationCache;
+                  delete chapter.audioCueCache;
+                  delete chapter._isNewContent;
+                }
+              }
+            }
+            return cloned;
+          });
+          set({ stories: pruned });
         } else {
           set({ stories: [] });
         }

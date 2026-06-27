@@ -260,11 +260,28 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
 
   async saveStory(story: StoryWorld): Promise<void> {
     const stories = await this.getStories();
-    const existingIndex = stories.findIndex((s) => s.id === story.id);
+    
+    // Proactively prune raw chapter content from the story object itself before saving to localStorage
+    const prunedStory: StoryWorld = JSON.parse(JSON.stringify(story));
+    if (prunedStory.arcs) {
+      for (const arc of prunedStory.arcs) {
+        for (const chapter of arc.chapters) {
+          delete chapter.generatedContent;
+          delete chapter.blocks;
+          delete chapter.cuePayload;
+          delete chapter.audioManifest;
+          delete chapter.translationCache;
+          delete chapter.audioCueCache;
+          delete chapter._isNewContent;
+        }
+      }
+    }
+
+    const existingIndex = stories.findIndex((s) => s.id === prunedStory.id);
     if (existingIndex > -1) {
-      stories[existingIndex] = story;
+      stories[existingIndex] = prunedStory;
     } else {
-      stories.push(story);
+      stories.push(prunedStory);
     }
     
     try {
@@ -348,11 +365,23 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
       if (saved) {
         chapters = JSON.parse(saved) as ChapterContent[];
       }
-      const existingIndex = chapters.findIndex((c: ChapterContent) => c.storyId === content.storyId && c.chapterNumber === content.chapterNumber);
+      
+      // Proactively prune raw chapter content for LocalStorage fallback to avoid exceeding the 5MB limit
+      const prunedContent: ChapterContent = {
+        storyId: content.storyId,
+        chapterNumber: content.chapterNumber,
+        generatedContent: "", // Prune raw content to bypass 5MB limit
+        blocks: [], // Prune blocks
+        summary: content.summary,
+        statsChangeMessage: content.statsChangeMessage,
+        updatedAt: content.updatedAt || new Date().toISOString()
+      };
+
+      const existingIndex = chapters.findIndex((c: ChapterContent) => c.storyId === prunedContent.storyId && c.chapterNumber === prunedContent.chapterNumber);
       if (existingIndex > -1) {
-        chapters[existingIndex] = content;
+        chapters[existingIndex] = prunedContent;
       } else {
-        chapters.push(content);
+        chapters.push(prunedContent);
       }
       
       try {
