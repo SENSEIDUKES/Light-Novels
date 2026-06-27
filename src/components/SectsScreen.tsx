@@ -183,8 +183,9 @@ export const SectsScreen: React.FC = () => {
 
       <div className="bg-neutral-950/40 border border-neutral-900 p-6 rounded-2xl space-y-6">
         <div className="space-y-2">
-          <span className="text-xs font-mono uppercase tracking-widest text-neutral-500">Sect Name</span>
+          <label htmlFor="sectName" className="block text-xs font-mono uppercase tracking-widest text-neutral-500 mb-1">Sect Name</label>
           <input 
+            id="sectName"
             type="text" 
             value={newSectName}
             onChange={(e) => setNewSectName(e.target.value)}
@@ -194,8 +195,9 @@ export const SectsScreen: React.FC = () => {
         </div>
         
         <div className="space-y-2">
-          <span className="text-xs font-mono uppercase tracking-widest text-neutral-500">Doctrine / Motto</span>
+          <label htmlFor="sectDesc" className="block text-xs font-mono uppercase tracking-widest text-neutral-500 mb-1">Doctrine / Motto</label>
           <textarea 
+            id="sectDesc"
             value={newSectDesc}
             onChange={(e) => setNewSectDesc(e.target.value)}
             placeholder="What principles guide your sect?"
@@ -204,16 +206,14 @@ export const SectsScreen: React.FC = () => {
         </div>
 
         <div className="space-y-3">
-          <span className="text-xs font-mono uppercase tracking-widest text-neutral-500">Major Faction Alignment</span>
+          <span className="block text-xs font-mono uppercase tracking-widest text-neutral-500 mb-1">Major Faction Alignment</span>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {FACTIONS.map(faction => (
-              <div 
+              <button 
+                type="button"
                 key={faction.id}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setNewSectFaction(faction.name); } }}
                 onClick={() => setNewSectFaction(faction.name)}
-                className={`p-4 rounded-xl border cursor-pointer transition-colors ${newSectFaction === faction.name ? 'bg-black ' + faction.borderClass : 'bg-black/50 border-neutral-900 hover:border-neutral-800'}`}
+                className={`text-left p-4 rounded-xl border cursor-pointer transition-colors ${newSectFaction === faction.name ? 'bg-black ' + faction.borderClass : 'bg-black/50 border-neutral-900 hover:border-neutral-800'}`}
               >
                 <div className={`text-sm font-bold font-sans mb-1 ${newSectFaction === faction.name ? faction.colorClass : 'text-neutral-300'}`}>
                   {faction.name}
@@ -224,7 +224,7 @@ export const SectsScreen: React.FC = () => {
                 <div className="text-[9px] font-mono text-neutral-600 uppercase">
                   Rewards: {faction.rewards}
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>

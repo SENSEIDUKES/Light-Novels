@@ -2030,12 +2030,10 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                         }
 
                         return (
-                          <div
+                          <button
+                            type="button"
                             key={art.id}
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setInspectArtifact(art); } }}
-                            className={`border rounded-xl p-4 flex flex-col justify-between transition-all duration-300 relative group cursor-pointer ${borderClass} ${bgGlowClass}`}
+                            className={`text-left w-full border rounded-xl p-4 flex flex-col justify-between transition-all duration-300 relative group cursor-pointer ${borderClass} ${bgGlowClass}`}
                             onClick={() => setInspectArtifact(art)}
                           >
                             {/* Equipped indicator */}
@@ -2078,7 +2076,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                                 {art.milestoneName}
                               </span>
                             </div>
-                          </div>
+                          </button>
                         );
                       })}
                     </div>
