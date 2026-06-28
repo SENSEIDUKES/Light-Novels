@@ -3,7 +3,8 @@ import { motion } from 'motion/react';
 import { Skull, AlertTriangle } from 'lucide-react';
 import { SystemEvent } from '../types';
 import { FateResultCard } from './FateResultCard';
-import { getSystemPromptColor, getSystemColorMeaning, SystemColorMeaning, SYSTEM_COLORS_LEGEND } from '../lib/systemColors';
+import { getSystemPromptColor, getSystemColorMeaning, SystemColorMeaning } from '../lib/systemColors';
+export { SYSTEM_COLORS_LEGEND } from '../lib/systemColors';
 
 interface SystemBlockProps extends React.HTMLAttributes<HTMLDivElement> {
   content: string;
