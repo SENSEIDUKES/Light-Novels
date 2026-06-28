@@ -8,6 +8,7 @@ import { SYSTEM_COLORS_LEGEND } from '../lib/systemColors';
 import { FateSurvivalExplanation } from './FateSurvivalExplanation';
 import { CodexHovercard } from './CodexHovercard';
 import { WorldEntityCard } from './WorldEntityCard';
+import { useAppStore } from '../store/useAppStore';
 
 const FALLBACK_BACKDROPS = [
   "https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/images/LIBRARY%20BACKDROPS/LIBRARY_THUNDER.PNG",
@@ -149,7 +150,58 @@ export function ReaderViewport({
   hasSystemBlocks,
   chapters,
 }: ReaderViewportProps) {
-  
+  const { updateStory } = useAppStore();
+
+  React.useEffect(() => {
+    if (!selectedChapter?.blocks || !activeStory) return;
+    let hasChanges = false;
+    const newAssignments: Record<string, string> = {};
+    let lastUsedUrl = "";
+
+    const existingAssignments = activeStory.assignedRevealBackdrops || {};
+    const existingValues = Object.values(existingAssignments);
+    if (existingValues.length > 0) {
+      lastUsedUrl = existingValues[existingValues.length - 1];
+    }
+
+    selectedChapter.blocks.forEach((block) => {
+      const revealEntity = block.metadata?.entities?.find(
+        (ent) => ent.mention === "reveal"
+      );
+      if (revealEntity) {
+        const matched = codexTerms.find(
+          (t) => t.term.toLowerCase() === revealEntity.name.toLowerCase()
+        );
+        if (matched && matched.entry) {
+          const id = matched.entry.id;
+          const currentAssign = existingAssignments[id] || newAssignments[id];
+          if (!currentAssign) {
+            let available = FALLBACK_BACKDROPS.filter(
+              (url) => url !== lastUsedUrl
+            );
+            if (available.length === 0) available = FALLBACK_BACKDROPS;
+            const picked =
+              available[Math.floor(Math.random() * available.length)];
+            newAssignments[id] = picked;
+            lastUsedUrl = picked;
+            hasChanges = true;
+          } else {
+            lastUsedUrl = currentAssign;
+          }
+        }
+      }
+    });
+
+    if (hasChanges) {
+      updateStory(activeStory.id, {
+        assignedRevealBackdrops: {
+          ...existingAssignments,
+          ...newAssignments,
+        },
+      });
+    }
+  }, [selectedChapter?.blocks, activeStory, codexTerms, updateStory]);
+
   return (
     <div
       ref={readerRef as any}
@@ -473,7 +525,7 @@ export function ReaderViewport({
                               {!revealImageUrl && (
                                 <>
                                   <img 
-                                    src={getFallbackBackdrop(revealTerm.entry.id)} 
+                                    src={activeStory.assignedRevealBackdrops?.[revealTerm.entry.id] || getFallbackBackdrop(revealTerm.entry.id)} 
                                     alt="Backdrop" 
                                     className="absolute inset-0 w-full h-full object-cover opacity-[0.25] pointer-events-none transition-transform duration-1000 group-hover/reveal:scale-105 mix-blend-screen"
                                   />

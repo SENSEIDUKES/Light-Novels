@@ -672,6 +672,7 @@ export interface StoryWorld {
   karmaNodes?: KarmaFateNode[];
   readerPreferences?: ReaderPreferences;
   bookmarks?: Bookmark[];
+  assignedRevealBackdrops?: Record<string, string>;
 
   // Reader experience tracking
   lastReadChapter?: number;

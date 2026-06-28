@@ -64,8 +64,14 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
       saveStories: saveStoriesSpy,
     };
 
-    (useAppStore as any).mockReturnValue(mockStore);
+    (useAppStore as any).mockImplementation((selector: any) => {
+      if (typeof selector === 'function') {
+        return selector(mockStore);
+      }
+      return mockStore;
+    });
     (useAppStore as any).getState = vi.fn().mockReturnValue(mockStore);
+    (useAppStore as any).setState = vi.fn();
     (storyStorage.getStories as any).mockResolvedValue(mockStore.stories);
     global.fetch = vi.fn();
   });
@@ -180,5 +186,104 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
     });
 
     expect(setAppErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Celestial stream dissipated prematurely'));
+  });
+
+  it('hydrates complex memory updates correctly (new characters, updates, factions, threads, relationships)', async () => {
+    const { result } = renderHook(() => useChapterGeneration());
+    
+    const mockReader = { read: vi.fn() };
+    const encoder = new TextEncoder();
+    
+    // Minimal stream content
+    const chunks = [
+      `data: {"chunk": "{\\"text\\": \\"${'A'.repeat(160)}\\"}\\n"}\n`,
+      'data: [DONE]\n'
+    ];
+    
+    chunks.forEach(c => {
+      mockReader.read.mockResolvedValueOnce({ done: false, value: encoder.encode(c) });
+    });
+    mockReader.read.mockResolvedValueOnce({ done: true, value: undefined });
+
+    const fullMemoryUpdates = {
+      currentPowerStage: 'Ascendant',
+      newCharacters: [{ name: 'Elder Lin', role: 'Mentor' }],
+      characterStatusUpdates: [{ name: 'Elder Lin', newStatus: 'deceased', descriptionAppend: ' Died bravely.', newPowerLevel: 'God', newAbilities: ['Flight'] }],
+      factionUpdates: [{ name: 'Sect', statusOverride: 'Destroyed', descriptionAppend: ' Reduced to ashes.' }],
+      locationUpdates: [{ name: 'Cave', safetyLevelOverride: 'Dangerous', descriptionAppend: ' Collapsed.' }],
+      artifactUpdates: [{ name: 'Sword', newOwner: 'MC', descriptionAppend: ' Glowing.' }],
+      newUnresolvedPlotThreads: ['Defeat the demon lord'],
+      resolvedPlotThreads: ['Find the hidden core'],
+      newFactions: [{ name: 'New Sect', description: 'Old sect' }],
+      newLocations: [{ name: 'New Cave', description: 'Old cave' }],
+      newArtifacts: [{ name: 'New Sword', description: 'Sharp' }],
+      newMCAbilities: ['Fireball'],
+      relationshipUpdates: [{ sourceName: 'MC', targetName: 'Elder Lin', affinityDelta: 10, threatDelta: -5, reason: 'Helped' }],
+      powerSystemViolationFlags: ['Used wrong element']
+    };
+
+    (global.fetch as any).mockImplementation((url: string) => {
+      if (url.includes('generate-chapter-stream')) {
+        return Promise.resolve({ ok: true, body: { getReader: () => mockReader } });
+      }
+      if (url.includes('extract-chapter-metadata')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ summary: 'Sum', memoryUpdates: fullMemoryUpdates }) });
+      }
+      return Promise.reject(new Error('Unknown'));
+    });
+
+    // Need to initialize some existing memory to test updates properly
+    mockStore.stories[0].memory = {
+      characters: [{ name: 'Elder Lin', status: 'alive' }],
+      factions: [{ name: 'Sect', status: 'Active' }],
+      locations: [{ name: 'Cave', safetyLevel: 'Safe' }],
+      artifacts: [{ name: 'Sword', currentOwner: 'None' }],
+      unresolvedPlotThreads: ['Find the hidden core', { description: 'Old thread', status: 'active', originChapter: 1 }],
+      resolvedPlotThreads: [],
+      abilities: ['Punch'],
+      relationships: []
+    };
+
+    await act(async () => {
+      await result.current.handleGenerateChapter(1);
+    });
+
+    expect(saveStoriesSpy).toHaveBeenCalled();
+    const updated = saveStoriesSpy.mock.calls[0][0];
+    const newMemory = updated[0].memory;
+    
+    // Check characters
+    expect(newMemory.currentPowerStage).toBe('Ascendant');
+    expect(newMemory.characters.length).toBe(2); // Existing + New
+    expect(newMemory.characters.find((c: any) => c.name === 'Elder Lin' && c.status === 'deceased').abilities).toContain('Flight');
+    
+    // Check factions
+    expect(newMemory.factions.length).toBe(2);
+    expect(newMemory.factions.find((f: any) => f.name === 'Sect').status).toBe('Destroyed');
+    
+    // Check locations
+    expect(newMemory.locations.length).toBe(2);
+    expect(newMemory.locations.find((l: any) => l.name === 'Cave').safetyLevel).toBe('Dangerous');
+    
+    // Check artifacts
+    expect(newMemory.artifacts.length).toBe(2);
+    expect(newMemory.artifacts.find((a: any) => a.name === 'Sword').currentOwner).toBe('MC');
+
+    // Check plot threads
+    expect(newMemory.resolvedPlotThreads.length).toBe(1);
+    expect(newMemory.resolvedPlotThreads[0].description).toBe('Find the hidden core');
+    expect(newMemory.unresolvedPlotThreads.length).toBe(2);
+
+    // Check abilities
+    expect(newMemory.abilities).toContain('Fireball');
+    expect(newMemory.abilities).toContain('Punch');
+
+    // Check relationships
+    expect(updated[0].relationships.length).toBe(1);
+    expect(updated[0].relationships[0].sourceCharName).toBe('MC');
+    expect(updated[0].relationships[0].affinity).toBe(10);
+    
+    // Check linter/warnings
+    expect(newMemory.memoryWarnings).toContain('Used wrong element');
   });
 });

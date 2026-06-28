@@ -671,7 +671,7 @@ export const ModalsAndToasts: React.FC = () => {
       </AnimatePresence>
 
       {/* System Feed Layer / Heavenly Notices */}
-      <div className="fixed top-20 right-4 md:right-6 z-[100] flex flex-col gap-3 w-[calc(100%-2rem)] md:w-[380px] items-end pointer-events-none">
+      <div className="fixed bottom-20 right-4 md:right-6 z-[100] flex flex-col-reverse gap-3 w-[calc(100%-2rem)] md:w-[380px] items-end pointer-events-none">
         <AnimatePresence>
           {appError && (
             <motion.div

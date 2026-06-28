@@ -332,9 +332,9 @@ export const LibraryScreen: React.FC = () => {
               <div className="w-full md:w-auto flex-shrink-0 flex items-center justify-end">
                 <button
                    tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleResumeReading(mostRecentStory)}
-                  className="w-full md:w-auto px-6 py-3 bg-human border border-human text-signal text-sm font-sc font-bold uppercase tracking-wider rounded-xl transition-all flex items-center justify-center space-x-2 shadow-[0_0_15px_rgba(139,0,0,0.5)] hover:bg-void hover:text-human"
+                  className="group w-full md:w-auto px-6 py-2.5 bg-signal hover:bg-white text-void text-xs font-sc font-bold uppercase tracking-widest rounded-full transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg active:scale-95"
                 >
-                  <Play size={16} />
+                  <Play size={14} className="fill-current transition-transform group-hover:scale-110" />
                   <span>Quick Resume</span>
                 </button>
               </div>
@@ -382,7 +382,7 @@ export const LibraryScreen: React.FC = () => {
                     aria-label={`View story ${story.title}`}
                     className="group cursor-pointer flex flex-col space-y-3"
                   >
-                    <div className="relative aspect-[2/3] rounded-md overflow-hidden border border-neutral-800 group-hover:border-gold-accent shadow-lg transition-all duration-300 transform group-hover:-translate-y-1">
+                    <div className="relative aspect-[2/3] rounded-md overflow-hidden border border-neutral-800 group-hover:border-gold-accent/60 shadow-lg group-hover:shadow-[0_0_15px_rgba(212,175,55,0.15)] transition-all duration-300 transform group-hover:-translate-y-1">
                       <img 
                         src={story.imageUrl || `https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?auto=format&fit=crop&q=80`} 
                         alt={story.title}
@@ -401,15 +401,33 @@ export const LibraryScreen: React.FC = () => {
                       >
                          <Trash2 size={12} />
                       </button>
-                      <div className="absolute bottom-2 left-2 right-2">
-                        <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-jade-accent px-1.5 py-0.5 bg-black/80 border border-neutral-800 rounded mb-1 inline-block">
-                          {story.genre}
-                        </span>
-                        {story.hardcoreFateMode && (
-                          <span className="ml-1.5 text-[9px] font-mono font-bold uppercase tracking-widest text-red-500 px-1.5 py-0.5 bg-black/80 border border-red-950/40 rounded mb-1 inline-block animate-pulse">
-                            ☠️ HARDCORE
+                      <div className="absolute bottom-2 left-2 right-2 flex flex-col items-start gap-1">
+                        <div className="flex flex-wrap gap-1">
+                          <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-jade-accent px-1.5 py-0.5 bg-black/80 border border-neutral-800 rounded inline-block">
+                            {story.genre}
                           </span>
-                        )}
+                          {story.hardcoreFateMode && (
+                            <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-red-500 px-1.5 py-0.5 bg-black/80 border border-red-950/40 rounded inline-block animate-pulse">
+                              ☠️ HARDCORE
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-0.5">
+                          {mostRecentStory && story.id === mostRecentStory.id && (
+                            <span className="text-[8px] font-sans font-bold uppercase tracking-widest text-portal px-1.5 py-0.5 bg-portal/10 border border-portal/30 rounded inline-block">
+                              ✦ Recently Read
+                            </span>
+                          )}
+                          {story.arcs.some(arc => arc.chapters.some(c => !c.isSealed)) ? (
+                            <span className="text-[8px] font-sans font-bold uppercase tracking-widest text-[#ff3333] px-1.5 py-0.5 bg-human-brand/20 border border-human/30 rounded inline-block">
+                              ✍ Draft
+                            </span>
+                          ) : (
+                            <span className="text-[8px] font-sans font-bold uppercase tracking-widest text-gold-accent px-1.5 py-0.5 bg-black/80 border border-gold-accent/30 rounded inline-block">
+                              🔒 Sealed
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     
@@ -577,30 +595,18 @@ export const LibraryScreen: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6">
-              {filteredAndSortedWorlds.map((world) => (
-                <div
-                  key={world.id}
-                  className="group cursor-pointer flex flex-col space-y-3"
-                  onClick={() => {
-                    const user = auth.currentUser;
-                    const finalId = user ? `${world.id}-${user.uid}` : world.id;
-                    const personalizedWorld = {
-                      ...world,
-                      id: finalId,
-                      userId: user?.uid
-                    };
-                    const existing = stories.find(s => s.id === finalId);
-                    if (!existing) {
-                      useAppStore.getState().setStories([personalizedWorld, ...stories]);
-                    }
-                    setActiveStoryId(finalId);
-                    setCurrentScreen('detail');
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
+              {filteredAndSortedWorlds.map((world) => {
+                const user = auth.currentUser;
+                const finalId = user ? `${world.id}-${user.uid}` : world.id;
+                const inLibraryStory = stories.find(s => s.id === finalId || s.id === world.id);
+                const isWorldRecentlyRead = inLibraryStory && mostRecentStory && inLibraryStory.id === mostRecentStory.id;
+                const isWorldDraft = inLibraryStory ? inLibraryStory.arcs.some(arc => arc.chapters.some(c => !c.isSealed)) : false;
+
+                return (
+                  <div
+                    key={world.id}
+                    className="group cursor-pointer flex flex-col space-y-3"
+                    onClick={() => {
                       const user = auth.currentUser;
                       const finalId = user ? `${world.id}-${user.uid}` : world.id;
                       const personalizedWorld = {
@@ -614,42 +620,86 @@ export const LibraryScreen: React.FC = () => {
                       }
                       setActiveStoryId(finalId);
                       setCurrentScreen('detail');
-                    }
-                  }}
-                  aria-label={`View published world ${world.title}`}
-                >
-                  <div className="relative aspect-[2/3] rounded-md overflow-hidden border border-neutral-800 group-hover:border-portal shadow-lg transition-all duration-300 transform group-hover:-translate-y-1">
-                    <img 
-                      src={world.imageUrl} 
-                      alt={world.title}
-                      className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
-                    <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm border border-neutral-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-signal tracking-wider font-sc flex items-center space-x-1">
-                       <Eye size={10} className="text-portal" />
-                       <span>{world.reads}</span>
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        const user = auth.currentUser;
+                        const finalId = user ? `${world.id}-${user.uid}` : world.id;
+                        const personalizedWorld = {
+                          ...world,
+                          id: finalId,
+                          userId: user?.uid
+                        };
+                        const existing = stories.find(s => s.id === finalId);
+                        if (!existing) {
+                          useAppStore.getState().setStories([personalizedWorld, ...stories]);
+                        }
+                        setActiveStoryId(finalId);
+                        setCurrentScreen('detail');
+                      }
+                    }}
+                    aria-label={`View published world ${world.title}`}
+                  >
+                    <div className="relative aspect-[2/3] rounded-md overflow-hidden border border-neutral-800 group-hover:border-portal/60 shadow-lg group-hover:shadow-[0_0_15px_rgba(4,172,255,0.15)] transition-all duration-300 transform group-hover:-translate-y-1">
+                      <img 
+                        src={world.imageUrl} 
+                        alt={world.title}
+                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
+                      <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm border border-neutral-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-signal tracking-wider font-sc flex items-center space-x-1">
+                         <Eye size={10} className="text-portal" />
+                         <span>{world.reads}</span>
+                      </div>
+                      <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm border border-neutral-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-signal tracking-wider font-sc">
+                        {world.chapterCount} Ch
+                      </div>
+                      <div className="absolute bottom-2 left-2 right-2 flex flex-col items-start gap-1">
+                        <div className="flex flex-wrap gap-1">
+                          <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-[#00A86B] px-1.5 py-0.5 bg-black/80 border border-neutral-800 rounded inline-block">
+                            {world.genre}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-0.5">
+                          {isWorldRecentlyRead && (
+                            <span className="text-[8px] font-sans font-bold uppercase tracking-widest text-portal px-1.5 py-0.5 bg-portal/10 border border-portal/30 rounded inline-block">
+                              ✦ Recently Read
+                            </span>
+                          )}
+                          {inLibraryStory ? (
+                            isWorldDraft ? (
+                              <span className="text-[8px] font-sans font-bold uppercase tracking-widest text-[#ff3333] px-1.5 py-0.5 bg-human-brand/20 border border-human/30 rounded inline-block">
+                                ✍ Draft
+                              </span>
+                            ) : (
+                              <span className="text-[8px] font-sans font-bold uppercase tracking-widest text-gold-accent px-1.5 py-0.5 bg-black/80 border border-gold-accent/30 rounded inline-block">
+                                🔒 Sealed
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-[8px] font-sans font-bold uppercase tracking-widest text-neutral-400 px-1.5 py-0.5 bg-black/80 border border-neutral-800 rounded inline-block">
+                              ✧ Unacquired
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm border border-neutral-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-signal tracking-wider font-sc">
-                      {world.chapterCount} Ch
-                    </div>
-                    <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1">
-                      <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-[#00A86B] px-1.5 py-0.5 bg-black/80 border border-neutral-800 rounded inline-block">
-                        {world.genre}
-                      </span>
+                    
+                    <div className="space-y-1">
+                      <h4 className="font-display font-bold text-base text-signal group-hover:text-portal transition-colors leading-tight line-clamp-2">
+                        {world.title}
+                      </h4>
+                      <p className="text-[10px] text-neutral-500 font-sans truncate">
+                        MC: {world.mcName} • {world.powerStage}
+                      </p>
                     </div>
                   </div>
-                  
-                  <div className="space-y-1">
-                    <h4 className="font-display font-bold text-base text-signal group-hover:text-portal transition-colors leading-tight line-clamp-2">
-                      {world.title}
-                    </h4>
-                    <p className="text-[10px] text-neutral-500 font-sans truncate">
-                      MC: {world.mcName} • {world.powerStage}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

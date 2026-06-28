@@ -838,9 +838,9 @@ export const StoryDetailScreen: React.FC<{
                 }
                 setCurrentScreen("reader");
               }}
-              className="px-6 py-2.5 bg-human border border-human text-signal font-sc font-bold uppercase tracking-wider rounded shadow-md hover:bg-void hover:text-human transition-all flex items-center space-x-2 text-xs"
+              className="group w-full sm:w-auto px-6 py-2.5 bg-signal hover:bg-white text-void font-sc font-bold uppercase tracking-widest rounded-full transition-all duration-300 flex items-center justify-center space-x-2 text-xs shadow-lg active:scale-95"
             >
-              <BookOpen size={16} />
+              <BookOpen size={14} className="transition-transform group-hover:scale-110" />
               <span>
                 {activeStory.lastReadChapter
                   ? "Resume Reading"
@@ -860,9 +860,9 @@ export const StoryDetailScreen: React.FC<{
                 vibrate("softTap");
                 setIsCodexSheetOpen(true);
               }}
-              className="px-6 py-2.5 bg-void border border-portal text-portal font-sc font-bold uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-all flex items-center space-x-2 text-xs"
+              className="group w-full sm:w-auto px-6 py-2.5 bg-void border border-portal text-portal font-sc font-bold uppercase tracking-widest rounded-full hover:bg-portal hover:text-void transition-all duration-300 flex items-center justify-center space-x-2 text-xs shadow-sm active:scale-95"
             >
-              <Sparkles size={16} />
+              <Sparkles size={14} className="transition-transform group-hover:scale-110" />
               <span>Open Codex</span>
             </button>
 
@@ -878,9 +878,9 @@ export const StoryDetailScreen: React.FC<{
                 vibrate("softTap");
                 setIsTimelineOpen(true);
               }}
-              className="px-6 py-2.5 bg-void border border-jade-accent text-jade-accent font-sc font-bold uppercase tracking-wider rounded hover:bg-jade-accent hover:text-void transition-all flex items-center space-x-2 text-xs"
+              className="group w-full sm:w-auto px-6 py-2.5 bg-void border border-jade-accent text-jade-accent font-sc font-bold uppercase tracking-widest rounded-full hover:bg-jade-accent hover:text-void transition-all duration-300 flex items-center justify-center space-x-2 text-xs shadow-sm active:scale-95"
             >
-              <GitBranch size={16} />
+              <GitBranch size={14} className="transition-transform group-hover:scale-110" />
               <span>Fate Timeline</span>
             </button>
 
@@ -899,11 +899,11 @@ export const StoryDetailScreen: React.FC<{
                 }}
                 aria-expanded={isStoryMenuOpen}
                 aria-label="More options"
-                className="p-2.5 bg-void border border-neutral-800 text-neutral-400 hover:text-signal rounded hover:bg-neutral-900 hover:border-neutral-750 transition-all flex items-center justify-center"
+                className="p-2.5 bg-void border border-neutral-800 text-neutral-400 hover:text-signal rounded-full hover:bg-neutral-900 hover:border-neutral-750 transition-all duration-300 flex items-center justify-center shadow-sm active:scale-95 group"
                 title="More options"
                 type="button"
               >
-                <MoreHorizontal size={18} />
+                <MoreHorizontal size={16} className="transition-transform group-hover:scale-110" />
               </button>
 
               {isStoryMenuOpen && (

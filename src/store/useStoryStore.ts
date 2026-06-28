@@ -38,6 +38,7 @@ export interface StorySlice {
   setLastSavedTime: (time: Date | null) => void;
 
   saveStories: (updated: Story[]) => Promise<void>;
+  updateStory: (storyId: string, updates: Partial<Story>) => Promise<void>;
   updateChapter: (storyId: string, chapterNumber: number, updates: Partial<Chapter>) => Promise<void>;
   confirmDeleteStory: () => void;
   cancelDeleteStory: () => void;
@@ -129,6 +130,17 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
       }
       set({ lastSavedTime: new Date() });
     }
+  },
+
+  updateStory: async (storyId: string, updates: Partial<Story>) => {
+    const { stories, saveStories } = get();
+    const updated = stories.map(s => {
+      if (s.id === storyId) {
+        return { ...s, ...updates, isEdited: true };
+      }
+      return s;
+    });
+    await saveStories(updated);
   },
 
   updateChapter: async (storyId: string, chapterNumber: number, updates: Partial<Chapter>) => {

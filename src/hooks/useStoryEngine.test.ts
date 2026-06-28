@@ -154,7 +154,12 @@ describe('useStoryEngine hook functionalities', () => {
       setCurrentScreen: vi.fn(),
     };
 
-    (useAppStore as any).mockReturnValue(mockStore);
+    (useAppStore as any).mockImplementation((selector: any) => {
+      if (typeof selector === 'function') {
+        return selector(mockStore);
+      }
+      return mockStore;
+    });
     (useAppStore as any).getState = vi.fn().mockReturnValue(mockStore);
     (storyStorage.getStories as any).mockResolvedValue(mockStore.stories);
     

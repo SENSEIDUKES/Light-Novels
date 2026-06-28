@@ -6,7 +6,6 @@ import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { LogOut, Save, User as UserIcon, Calendar, BookOpen, Globe, Cloud, CloudOff, RefreshCw, Sliders, Upload, Download, Database, Zap, Keyboard, Flame, Award, Shield, Compass, Key, Sparkles, Search, Sword, HelpCircle } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
-import { AudioWidget } from './AudioWidget';
 import { getDaoRankData, AURA_TIERS, getAuraTextStyle, getAuraGlowStyle } from '../lib/qi';
 import { getApiHeaders } from '../hooks/storyEngineHelpers';
 
@@ -960,12 +959,6 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                 Auto-saved: {new Date(lastSavedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               </div>
             )}
-
-            <div className="w-[1px] h-8 bg-neutral-900 hidden sm:block mx-2"></div>
-            
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
-              <AudioWidget />
-            </div>
           </div>
 
           {/* Interactive Language & Translation Settings - Un-gatekept */}

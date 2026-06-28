@@ -235,7 +235,13 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
   private chaptersStorageKey = '@seihouse/fiction-generator-chapters-v2';
 
   async init(): Promise<void> {
-    // LocalStorage doesn't require asynchronous initialization.
+    // Check if localStorage is available
+    try {
+      localStorage.setItem('__test_ls_availability__', 'test');
+      localStorage.removeItem('__test_ls_availability__');
+    } catch (e) {
+      throw new Error('LocalStorage is not available');
+    }
     return Promise.resolve();
   }
 
@@ -378,6 +384,65 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
   }
 }
 
+export class InMemoryFallbackAdapter implements StorageAdapter {
+  name = 'InMemory';
+  private stories: StoryWorld[] = [];
+  private chapters: ChapterContent[] = [];
+  private audioBlobs: Map<string, Blob> = new Map();
+
+  async init(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  async getStories(): Promise<StoryWorld[]> {
+    return [...this.stories].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }
+
+  async getStory(id: string): Promise<StoryWorld | null> {
+    return this.stories.find((s) => s.id === id) || null;
+  }
+
+  async saveStory(story: StoryWorld): Promise<void> {
+    const existingIndex = this.stories.findIndex((s) => s.id === story.id);
+    if (existingIndex > -1) {
+      this.stories[existingIndex] = story;
+    } else {
+      this.stories.push(story);
+    }
+  }
+
+  async deleteStory(id: string): Promise<void> {
+    this.stories = this.stories.filter((s) => s.id !== id);
+  }
+
+  async clearAll(): Promise<void> {
+    this.stories = [];
+    this.chapters = [];
+    this.audioBlobs.clear();
+  }
+
+  async getAudioBlob(url: string): Promise<Blob | null> {
+    return this.audioBlobs.get(url) || null;
+  }
+
+  async saveAudioBlob(url: string, blob: Blob): Promise<void> {
+    this.audioBlobs.set(url, blob);
+  }
+
+  async getChapterContent(storyId: string, chapterNumber: number): Promise<ChapterContent | null> {
+    return this.chapters.find((c) => c.storyId === storyId && c.chapterNumber === chapterNumber) || null;
+  }
+
+  async saveChapterContent(content: ChapterContent): Promise<void> {
+    const existingIndex = this.chapters.findIndex((c) => c.storyId === content.storyId && c.chapterNumber === content.chapterNumber);
+    if (existingIndex > -1) {
+      this.chapters[existingIndex] = content;
+    } else {
+      this.chapters.push(content);
+    }
+  }
+}
+
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'offline';
 
 export interface SyncTask {
@@ -506,10 +571,18 @@ export class PersistentStorageManager implements StorageAdapter {
       this.localAdapter = idbAdapter;
       console.log('Successfully active local-first story world memory: IndexedDB');
     } catch (err) {
-      console.warn('Sandboxed frame or private window detected. Falling back to LocalStorage:', err);
+      console.warn('IndexedDB failed (sandboxed frame or private window). Falling back to LocalStorage:', err);
       const lsAdapter = new LocalStorageFallbackAdapter();
-      await lsAdapter.init();
-      this.localAdapter = lsAdapter;
+      try {
+        await lsAdapter.init();
+        this.localAdapter = lsAdapter;
+        console.log('Successfully active local-first story world memory: LocalStorage');
+      } catch (err2) {
+        console.warn('LocalStorage failed. Falling back to InMemory storage (data will not persist):', err2);
+        const memAdapter = new InMemoryFallbackAdapter();
+        await memAdapter.init();
+        this.localAdapter = memAdapter;
+      }
     }
 
     try {
@@ -871,7 +944,11 @@ export class PersistentStorageManager implements StorageAdapter {
     }
 
     // Save stripped story to local immediately to maintain snappy UI
-    await this.localAdapter.saveStory(strippedStory);
+    try {
+      await this.localAdapter.saveStory(strippedStory);
+    } catch (e) {
+      console.error('Failed to save story locally (quota exceeded?). Attempting to continue with cloud sync:', e);
+    }
 
     if (this.isCloudAvailable && this.syncStatus !== 'syncing') {
       this.setStatus('syncing');
@@ -905,7 +982,11 @@ export class PersistentStorageManager implements StorageAdapter {
     story.deleted = true;
     story.updatedAt = new Date().toISOString();
 
-    await this.localAdapter.saveStory(story);
+    try {
+      await this.localAdapter.saveStory(story);
+    } catch (e) {
+      console.error('Failed to mark story as deleted locally:', e);
+    }
 
     if (this.isCloudAvailable && this.syncStatus !== 'syncing') {
       (async () => {
@@ -939,7 +1020,11 @@ export class PersistentStorageManager implements StorageAdapter {
         const cloudItem = await this.cloudAdapter.getChapterContent(storyId, chapterNumber);
         if (cloudItem) {
           // Cache locally
-          await this.localAdapter.saveChapterContent(cloudItem);
+          try {
+            await this.localAdapter.saveChapterContent(cloudItem);
+          } catch (e) {
+            console.warn('Failed to cache cloud chapter locally', e);
+          }
           return cloudItem;
         }
       } catch (e) {
@@ -958,7 +1043,12 @@ export class PersistentStorageManager implements StorageAdapter {
       return;
     }
 
-    await this.localAdapter.saveChapterContent(content);
+    try {
+      await this.localAdapter.saveChapterContent(content);
+    } catch (e) {
+      console.error('Failed to save chapter locally (quota exceeded?). Attempting to continue with cloud sync:', e);
+    }
+    
     if (this.isCloudAvailable && this.syncStatus !== 'syncing') {
       (async () => {
         try {
@@ -986,7 +1076,11 @@ export class PersistentStorageManager implements StorageAdapter {
 
   async saveAudioBlob(url: string, blob: Blob): Promise<void> {
     if (this.localAdapter.saveAudioBlob) {
-      return this.localAdapter.saveAudioBlob(url, blob);
+      try {
+        await this.localAdapter.saveAudioBlob(url, blob);
+      } catch (e) {
+        console.warn('Failed to save audio blob locally (quota exceeded?)', e);
+      }
     }
   }
 

@@ -109,8 +109,12 @@ function App() {
     if (savedGen) {
       try {
         const parsed = JSON.parse(savedGen);
+        const state = useAppStore.getState();
+        // If we are actively generating right now, don't trigger recovery
+        if (state.isGenerating) return;
+        
         if (parsed && parsed.isGenerating && Date.now() - parsed.timestamp < 10 * 60 * 1000) {
-          const activeStory = store_stories.find(s => s.id === parsed.activeStoryId);
+          const activeStory = state.stories.find(s => s.id === parsed.activeStoryId);
           if (activeStory) {
             if (parsed.generationPhase === 'chapter' && parsed.generatingChapterNum) {
               store_setDraftRecoverySession(parsed);
@@ -123,8 +127,9 @@ function App() {
         console.error("Failed to restore active generation state:", err);
       }
     }
+    // We only want to run this once after initialization completes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isInitializing, store_stories]);
+  }, [isInitializing]);
 
   // Initialize Data Persistence
   useEffect(() => {
