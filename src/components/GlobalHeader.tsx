@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Cloud, CloudOff, RefreshCw, User, LogOut, Plus, Sliders, ScrollText, Scroll, Link, Keyboard, Gem, BookOpen, Users } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, User, LogOut, Plus, Sliders, ScrollText, Scroll, Link, Keyboard, Gem, BookOpen, Users, PenTool, Sword } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
@@ -16,6 +16,7 @@ export const GlobalHeader: React.FC = () => {
     setActiveStoryId, 
     syncStatus, 
     currentUser, 
+    userProfile,
     lastSavedTime, 
     activeStoryId, 
     stories, 
@@ -237,7 +238,15 @@ export const GlobalHeader: React.FC = () => {
 
                   {/* Navigation Links */}
                   <div className="p-2 space-y-1 max-h-[360px] overflow-y-auto">
-                    <span className="block px-3 pt-2 pb-1 font-sc font-semibold text-[9px] tracking-widest text-human/70 uppercase">Primary Sects</span>
+                    <span className="block px-3 pt-2 pb-1 font-sc font-semibold text-[9px] tracking-widest text-human/70 uppercase">
+                      {currentUser ? `${userProfile?.displayName || currentUser.displayName || 'Sensei'} - ${
+                        userProfile?.premiumTier === 'immortal' ? 'Immortal' :
+                        userProfile?.premiumTier === 'sect_master' ? 'Sect Master' :
+                        userProfile?.premiumTier === 'inner_sect' ? 'Inner Sect' :
+                        userProfile?.premiumTier === 'outer_sect' ? 'Outer Sect' :
+                        'Mortal'
+                      }` : 'Primary Sects'}
+                    </span>
                     
                     {/* Library Vault (Home) */}
                     <button
@@ -255,7 +264,7 @@ export const GlobalHeader: React.FC = () => {
                     >
                       <BookOpen size={16} className={currentScreen === 'home' ? 'text-portal' : 'text-neutral-500'} />
                       <div className="min-w-0">
-                        <div className="font-sans font-medium text-xs">Library Floor</div>
+                        <div className="font-sans font-medium text-xs">Library</div>
                         <div className="font-sans text-[9px] text-neutral-500 truncate">Browse your accumulated scroll logs</div>
                       </div>
                     </button>
@@ -275,7 +284,7 @@ export const GlobalHeader: React.FC = () => {
                     >
                       <Plus size={16} className={currentScreen === 'creator' ? 'text-portal' : 'text-neutral-500'} />
                       <div className="min-w-0">
-                        <div className="font-sans font-medium text-xs">Story Weaver</div>
+                        <div className="font-sans font-medium text-xs">Story Seed</div>
                         <div className="font-sans text-[9px] text-neutral-500 truncate">Forge a new cosmic story seed</div>
                       </div>
                     </button>
@@ -315,7 +324,7 @@ export const GlobalHeader: React.FC = () => {
                     >
                       <Gem size={16} className={currentScreen === 'pricing' ? 'text-portal' : 'text-neutral-500'} />
                       <div className="min-w-0">
-                        <div className="font-sans font-medium text-xs">Spirit Stones</div>
+                        <div className="font-sans font-medium text-xs">Tiers</div>
                         <div className="font-sans text-[9px] text-neutral-500 truncate">Replenish your creative Qi</div>
                       </div>
                     </button>
@@ -405,8 +414,8 @@ export const GlobalHeader: React.FC = () => {
                     )}
 
                     {/* System Controls */}
-                    <div className="border-t border-portal/10 my-2 pt-2" />
-                    <span className="block px-3 pb-1 font-sc font-semibold text-[9px] tracking-widest text-neutral-500 uppercase">System Matrix</span>
+                    <div className="hidden md:block border-t border-portal/10 my-2 pt-2" />
+                    <span className="hidden md:block px-3 pb-1 font-sc font-semibold text-[9px] tracking-widest text-neutral-500 uppercase">System Matrix</span>
 
                     {/* Keyboard Shortcuts */}
                     <button
@@ -415,12 +424,46 @@ export const GlobalHeader: React.FC = () => {
                         setIsShortcutsOpen(true);
                         setIsHubOpen(false);
                       }}
-                      className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-all hover:bg-white/[0.04] text-neutral-300 hover:text-signal"
+                      className="hidden md:flex w-full items-center space-x-3 px-3 py-2 rounded-lg text-left transition-all hover:bg-white/[0.04] text-neutral-300 hover:text-signal"
                     >
                       <Keyboard size={16} className="text-neutral-500" />
                       <div className="min-w-0">
                         <div className="font-sans font-medium text-xs">Shortcut Spells</div>
                         <div className="font-sans text-[9px] text-neutral-500 truncate">View keyboard system keys</div>
+                      </div>
+                    </button>
+
+                    {/* Companion Apps */}
+                    <div className="border-t border-portal/10 my-2 pt-2" />
+                    <span className="block px-3 pb-1 font-sc font-semibold text-[9px] tracking-widest text-neutral-500 uppercase">Companion Realms</span>
+
+                    {/* Manga Studio Mock */}
+                    <button
+                      className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-all opacity-50 cursor-not-allowed"
+                      title="Coming Soon"
+                    >
+                      <PenTool size={16} className="text-neutral-500" />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-sans font-medium text-xs flex justify-between items-center">
+                          Manga Studio
+                          <span className="text-[8px] font-mono bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded ml-2">SOON</span>
+                        </div>
+                        <div className="font-sans text-[9px] text-neutral-500 truncate">Visualize your chapters</div>
+                      </div>
+                    </button>
+
+                    {/* Qi Battles Mock */}
+                    <button
+                      className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-all opacity-50 cursor-not-allowed"
+                      title="Coming Soon"
+                    >
+                      <Sword size={16} className="text-neutral-500" />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-sans font-medium text-xs flex justify-between items-center">
+                          Qi Battles
+                          <span className="text-[8px] font-mono bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded ml-2">SOON</span>
+                        </div>
+                        <div className="font-sans text-[9px] text-neutral-500 truncate">Test your cultivation realm</div>
                       </div>
                     </button>
                   </div>

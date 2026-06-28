@@ -14,7 +14,7 @@ export async function checkAndConsumeImageQuota(opts?: { automatic?: boolean }):
   if (userSnap.exists()) {
     const data = userSnap.data();
     let count = data.imageGenerationCount || 0;
-    const tier = data.premiumTier || 'free';
+    const tier = data.premiumTier || 'mortal';
     const resetAtStr = data.imageQuotaResetAt;
     const now = Date.now();
     let shouldReset = false;
@@ -34,8 +34,8 @@ export async function checkAndConsumeImageQuota(opts?: { automatic?: boolean }):
       count = 0;
     }
     
-    if (tier === 'free' && count >= 4) {
-      throw new Error("Free tier limits reached (4 manifestations max per day). Please Ascend to the Inner Sect to manifest more visuals.");
+    if (tier === 'mortal' && count >= 4) {
+      throw new Error("Mortal tier limits reached (4 manifestations max per day). Please Ascend to the Outer Sect to manifest more visuals.");
     }
     
     if (shouldReset) {

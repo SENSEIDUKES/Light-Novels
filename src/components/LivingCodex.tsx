@@ -412,10 +412,10 @@ export default function LivingCodex({
         activeStory.id.includes('demo-matrix-') || 
         activeStory.id.includes('challenge-')
       ) : false;
-      const isFreeUser = !userProfile || !userProfile.premiumTier || userProfile.premiumTier === 'free';
+      const isFreeUser = !userProfile || !userProfile.premiumTier || userProfile.premiumTier === 'mortal';
       if (isFreeUser && isHubStory) {
         pushNotification("Ascend to the Inner Sect to customize hub story visual representations!");
-        throw new Error("Free tier users cannot customize the original codex of hub stories.");
+        throw new Error("Mortal tier users cannot customize the original codex of hub stories.");
       }
 
       await checkAndConsumeImageQuota();

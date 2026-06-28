@@ -359,7 +359,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     }
   };
 
-  const handleUpdateUserTier = async (targetUid: string, nextTier: "free" | "inner_sect" | "core_disciple" | "elder") => {
+  const handleUpdateUserTier = async (targetUid: string, nextTier: "mortal" | "outer_sect" | "inner_sect" | "sect_master" | "immortal") => {
     try {
       await setDoc(doc(db, 'users', targetUid), { premiumTier: nextTier }, { merge: true });
       setAllUsers(prev => prev.map(u => u.uid === targetUid ? { ...u, premiumTier: nextTier } : u));
@@ -409,12 +409,22 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
       if (docSnap.exists()) {
         const data = docSnap.data() as UserProfileType;
         
-        // Auto-bootstrap Owner role for owner emails
-        if ((currentUser.email === 'amaurylindy@gmail.com' || currentUser.email === 'seihouseproductions@gmail.com') && data.role !== 'owner') {
-          setDoc(doc(db, 'users', currentUser.uid), { role: 'owner' }, { merge: true }).catch(err => {
-            console.error("Failed to bootstrap owner role", err);
-          });
-          data.role = 'owner';
+        // Auto-bootstrap Owner role and Immortal tier for owner emails
+        if ((currentUser.email === 'amaurylindy@gmail.com' || currentUser.email === 'seihouseproductions@gmail.com' || currentUser.email === 'Amaurylindy@gmail.com' || currentUser.email === 'Seihouseproductions@gmail.com')) {
+          let updates: Partial<UserProfileType> = {};
+          if (data.role !== 'owner') {
+            updates.role = 'owner';
+            data.role = 'owner';
+          }
+          if (data.premiumTier !== 'immortal') {
+            updates.premiumTier = 'immortal';
+            data.premiumTier = 'immortal';
+          }
+          if (Object.keys(updates).length > 0) {
+            setDoc(doc(db, 'users', currentUser.uid), updates, { merge: true }).catch(err => {
+              console.error("Failed to bootstrap owner/immortal", err);
+            });
+          }
         }
 
         setProfile(data);
@@ -435,7 +445,8 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
           inactiveStories: [],
           joinedDate: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          role: (currentUser.email === 'amaurylindy@gmail.com' || currentUser.email === 'seihouseproductions@gmail.com') ? 'owner' : 'user'
+          role: (currentUser.email === 'amaurylindy@gmail.com' || currentUser.email === 'seihouseproductions@gmail.com' || currentUser.email === 'Amaurylindy@gmail.com' || currentUser.email === 'Seihouseproductions@gmail.com') ? 'owner' : 'user',
+          premiumTier: (currentUser.email === 'amaurylindy@gmail.com' || currentUser.email === 'seihouseproductions@gmail.com' || currentUser.email === 'Amaurylindy@gmail.com' || currentUser.email === 'Seihouseproductions@gmail.com') ? 'immortal' : 'mortal'
         };
         
         // This will trigger the snapshot again
@@ -938,20 +949,20 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
 
           {/* Interactive Language & Translation Settings - Un-gatekept */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-            <div className="flex items-center justify-between bg-black/40 border border-neutral-850 rounded-xl p-3.5">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-neutral-900/50 rounded-lg"><Globe size={13} className="text-portal animate-pulse" /></div>
-                <div className="flex flex-col">
-                  <span className="text-[10px] uppercase font-bold tracking-widest text-neutral-400 font-sc">Preferred Language</span>
-                  <span className="text-[8px] text-neutral-500 font-sans">Active UI dialect</span>
+            <div className="flex items-center justify-between bg-black/40 border border-neutral-850 rounded-xl p-3 sm:p-3.5 gap-2">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className="p-2 bg-neutral-900/50 rounded-lg shrink-0"><Globe size={13} className="text-portal animate-pulse" /></div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-widest text-neutral-400 font-sc truncate">Preferred Language</span>
+                  <span className="text-[8px] text-neutral-500 font-sans truncate">Active UI dialect</span>
                 </div>
               </div>
-              <div className="relative">
+              <div className="relative shrink-0">
                 <select 
                   name="preferredLanguage" 
                   value={formData.preferredLanguage || profile?.preferredLanguage || 'English'} 
                   onChange={(e) => handleLanguageChangeDirect('preferredLanguage', e.target.value)}
-                  className="bg-black border border-neutral-800 hover:border-portal/50 rounded px-3 py-1.5 text-[11px] text-signal focus:border-portal outline-none font-sans cursor-pointer transition-all appearance-none pr-8 min-w-[140px]"
+                  className="bg-black border border-neutral-800 hover:border-portal/50 rounded pl-2 pr-6 py-1.5 text-[11px] text-signal focus:border-portal outline-none font-sans cursor-pointer transition-all appearance-none w-24 sm:w-32 text-ellipsis overflow-hidden"
                 >
                   <option value="English">English</option>
                   <option value="Spanish">Spanish</option>
@@ -965,24 +976,24 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                   <option value="Tagalog (Filipino)">Tagalog (Filipino)</option>
                   <option value="Malay (Bahasa Melayu)">Malay (Bahasa Melayu)</option>
                 </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500 text-[9px]">▼</div>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500 text-[9px]">▼</div>
               </div>
             </div>
 
-            <div className="flex items-center justify-between bg-black/40 border border-neutral-850 rounded-xl p-3.5">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-neutral-900/50 rounded-lg"><Globe size={13} className="text-human animate-pulse" /></div>
-                <div className="flex flex-col">
-                  <span className="text-[10px] uppercase font-bold tracking-widest text-neutral-400 font-sc">Translation Default</span>
-                  <span className="text-[8px] text-neutral-500 font-sans">Automatic translation</span>
+            <div className="flex items-center justify-between bg-black/40 border border-neutral-850 rounded-xl p-3 sm:p-3.5 gap-2">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className="p-2 bg-neutral-900/50 rounded-lg shrink-0"><Globe size={13} className="text-human animate-pulse" /></div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-widest text-neutral-400 font-sc truncate">Translation Default</span>
+                  <span className="text-[8px] text-neutral-500 font-sans truncate">Automatic translation</span>
                 </div>
               </div>
-              <div className="relative">
+              <div className="relative shrink-0">
                 <select 
                   name="defaultTranslationLanguage" 
                   value={formData.defaultTranslationLanguage || profile?.defaultTranslationLanguage || 'English'} 
                   onChange={(e) => handleLanguageChangeDirect('defaultTranslationLanguage', e.target.value)}
-                  className="bg-black border border-neutral-800 hover:border-human/50 rounded px-3 py-1.5 text-[11px] text-signal focus:border-human outline-none font-sans cursor-pointer transition-all appearance-none pr-8 min-w-[140px]"
+                  className="bg-black border border-neutral-800 hover:border-human/50 rounded pl-2 pr-6 py-1.5 text-[11px] text-signal focus:border-human outline-none font-sans cursor-pointer transition-all appearance-none w-24 sm:w-32 text-ellipsis overflow-hidden"
                 >
                   <option value="English">English</option>
                   <option value="Spanish">Spanish</option>
@@ -996,7 +1007,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                   <option value="Tagalog (Filipino)">Tagalog (Filipino)</option>
                   <option value="Malay (Bahasa Melayu)">Malay (Bahasa Melayu)</option>
                 </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500 text-[9px]">▼</div>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500 text-[9px]">▼</div>
               </div>
             </div>
           </div>
@@ -1129,7 +1140,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                         <p>ID: {u.uid}</p>
                         <p>Username: @{u.username}</p>
                         <p>Linked Date: {u.joinedDate ? new Date(u.joinedDate).toLocaleDateString() : 'Unknown'}</p>
-                        <p>Premium Rank: <span className="text-signal uppercase">{u.premiumTier || 'free'}</span></p>
+                        <p>Premium Rank: <span className="text-signal uppercase">{u.premiumTier || 'mortal'}</span></p>
                       </div>
                     </div>
 
@@ -1139,7 +1150,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                       <div className="space-y-1.5">
                         <span className="text-[10px] font-sc uppercase tracking-wider text-neutral-500 block">Premium Rank Override</span>
                         <div className="flex bg-neutral-950 border border-neutral-900 rounded-lg p-0.5 gap-0.5">
-                          {(['free', 'inner_sect', 'core_disciple', 'elder'] as const).map((tier) => (
+                          {(['mortal', 'outer_sect', 'inner_sect', 'sect_master', 'immortal'] as const).map((tier) => (
                             <button
                               key={tier}
                               disabled={!isOwnerUser}
@@ -1150,7 +1161,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                                   : isOwnerUser ? 'text-neutral-500 hover:text-neutral-300' : 'text-neutral-700 cursor-not-allowed'
                               }`}
                             >
-                              {tier === 'inner_sect' ? 'Inner' : tier === 'core_disciple' ? 'Core' : tier}
+                              {tier === 'outer_sect' ? 'Outer' : tier === 'inner_sect' ? 'Inner' : tier === 'sect_master' ? 'Master' : tier === 'immortal' ? 'Immortal' : tier}
                             </button>
                           ))}
                         </div>

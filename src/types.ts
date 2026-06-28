@@ -71,7 +71,7 @@ export interface UserProfile {
   heavenly_qi?: number;
   sect_qi?: number;
   demonic_qi?: number;
-  premiumTier?: "free" | "inner_sect" | "core_disciple" | "elder";
+  premiumTier?: "mortal" | "outer_sect" | "inner_sect" | "sect_master" | "immortal";
   imageGenerationCount?: number;
   imageQuotaResetAt?: string;
   writingStreak?: number;

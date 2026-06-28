@@ -652,96 +652,102 @@ export const ModalsAndToasts: React.FC = () => {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {appError && (
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-neutral-900 border border-human/60 border-b-2 border-b-human shadow-2xl p-4 pr-12 rounded z-[100] max-w-lg w-[calc(100%-2rem)] md:w-full overflow-hidden"
-          >
-            <div className="flex items-start">
-              <div className="pt-1 pr-3 text-human">
-                <AlertCircle size={20} />
-              </div>
-              <div>
-                <h4 className="font-sc font-bold text-human tracking-[0.1em] text-xs uppercase mb-1 drop-shadow-md">
-                  Celestial Disruption
-                </h4>
-                <p className="font-mono text-[11px] leading-relaxed text-neutral-300">
-                  {appError}
-                </p>
-              </div>
-            </div>
-            <button
-               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setAppError(null)}
-              className="absolute top-4 right-4 text-neutral-500 hover:text-signal transition-colors p-1 bg-black/20 rounded backdrop-blur"
-              aria-label="Dismiss error"
+      {/* System Feed Layer / Heavenly Notices */}
+      <div className="fixed top-20 right-4 md:right-6 z-[100] flex flex-col gap-3 w-[calc(100%-2rem)] md:w-[380px] items-end pointer-events-none">
+        <AnimatePresence>
+          {appError && (
+            <motion.div
+              key="appError"
+              initial={{ opacity: 0, x: 50, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+              className="bg-neutral-900 border border-human/60 border-b-2 border-b-human shadow-2xl p-4 pr-12 rounded w-full overflow-hidden pointer-events-auto relative"
             >
-              <X size={16} />
-            </button>
-            <div className="absolute top-0 right-0 w-32 h-32 bg-human/5 rounded-full blur-3xl pointer-events-none" />
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {draftRecoverySession && (
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-neutral-900 border border-portal/60 border-b-2 border-b-portal shadow-2xl p-4 pr-12 rounded z-[100] max-w-lg w-[calc(100%-2rem)] md:w-full overflow-hidden"
-          >
-            <div className="flex items-start">
-              <div className="pt-1 pr-3 text-portal">
-                <RefreshCw size={20} className="animate-spin-slow" />
-              </div>
-              <div>
-                <h4 className="font-sc font-bold text-portal tracking-[0.1em] text-xs uppercase mb-1 drop-shadow-md">
-                  Unsaved Session Detected
-                </h4>
-                <p className="font-mono text-[11px] leading-relaxed text-neutral-300 mb-3">
-                  An interrupted draft for Chapter {draftRecoverySession.generatingChapterNum} was found in the astral weave. Do you wish to restore it?
-                </p>
-                <div className="flex space-x-3">
-                  <button
-                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-                      setActiveStoryId(draftRecoverySession.activeStoryId);
-                      setSelectedChapterNum(draftRecoverySession.generatingChapterNum);
-                      setCurrentScreen('reader');
-                      storyEngine.handleGenerateChapter(draftRecoverySession.generatingChapterNum);
-                      setDraftRecoverySession(null);
-                    }}
-                    className="px-3 py-1.5 bg-portal/10 border border-portal/30 text-portal text-[10px] font-bold uppercase font-mono rounded hover:bg-portal hover:text-void transition-colors"
-                  >
-                    Restore Draft
-                  </button>
-                  <button
-                    onClick={() => {
-                      localStorage.removeItem('seihouse_active_generation');
-                      setDraftRecoverySession(null);
-                    }}
-                    className="px-3 py-1.5 bg-void border border-neutral-700 text-neutral-400 text-[10px] uppercase font-mono rounded hover:bg-neutral-800 transition-colors"
-                  >
-                    Discard
-                  </button>
+              <div className="flex items-start">
+                <div className="pt-1 pr-3 text-human shrink-0">
+                  <AlertCircle size={20} />
+                </div>
+                <div>
+                  <h4 className="font-sc font-bold text-human tracking-[0.1em] text-xs uppercase mb-1 drop-shadow-md">
+                    Celestial Disruption
+                  </h4>
+                  <p className="font-mono text-[11px] leading-relaxed text-neutral-300">
+                    {appError}
+                  </p>
                 </div>
               </div>
-            </div>
-            <button
-              onClick={() => {
-                localStorage.removeItem('seihouse_active_generation');
-                setDraftRecoverySession(null);
-              }}
-              className="absolute top-4 right-4 text-neutral-500 hover:text-signal transition-colors p-1 bg-black/20 rounded backdrop-blur"
-              aria-label="Dismiss error"
+              <button
+                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setAppError(null)}
+                className="absolute top-4 right-4 text-neutral-500 hover:text-signal transition-colors p-1 bg-black/20 rounded backdrop-blur"
+                aria-label="Dismiss error"
+              >
+                <X size={16} />
+              </button>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-human/5 rounded-full blur-3xl pointer-events-none" />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {draftRecoverySession && (
+            <motion.div
+              key="draftRecovery"
+              initial={{ opacity: 0, x: 50, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+              className="bg-neutral-900 border border-portal/60 border-b-2 border-b-portal shadow-2xl p-4 pr-12 rounded w-full overflow-hidden pointer-events-auto relative"
             >
-              <X size={16} />
-            </button>
-            <div className="absolute top-0 right-0 w-32 h-32 bg-portal/5 rounded-full blur-3xl pointer-events-none" />
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <div className="flex items-start">
+                <div className="pt-1 pr-3 text-portal shrink-0">
+                  <RefreshCw size={20} className="animate-spin-slow" />
+                </div>
+                <div>
+                  <h4 className="font-sc font-bold text-portal tracking-[0.1em] text-xs uppercase mb-1 drop-shadow-md">
+                    Unsaved Session Detected
+                  </h4>
+                  <p className="font-mono text-[11px] leading-relaxed text-neutral-300 mb-3">
+                    An interrupted draft for Chapter {draftRecoverySession.generatingChapterNum} was found in the astral weave. Do you wish to restore it?
+                  </p>
+                  <div className="flex space-x-3">
+                    <button
+                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
+                        setActiveStoryId(draftRecoverySession.activeStoryId);
+                        setSelectedChapterNum(draftRecoverySession.generatingChapterNum);
+                        setCurrentScreen('reader');
+                        storyEngine.handleGenerateChapter(draftRecoverySession.generatingChapterNum);
+                        setDraftRecoverySession(null);
+                      }}
+                      className="px-3 py-1.5 bg-portal/10 border border-portal/30 text-portal text-[10px] font-bold uppercase font-mono rounded hover:bg-portal hover:text-void transition-colors"
+                    >
+                      Restore Draft
+                    </button>
+                    <button
+                      onClick={() => {
+                        localStorage.removeItem('seihouse_active_generation');
+                        setDraftRecoverySession(null);
+                      }}
+                      className="px-3 py-1.5 bg-void border border-neutral-700 text-neutral-400 text-[10px] uppercase font-mono rounded hover:bg-neutral-800 transition-colors"
+                    >
+                      Discard
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  localStorage.removeItem('seihouse_active_generation');
+                  setDraftRecoverySession(null);
+                }}
+                className="absolute top-4 right-4 text-neutral-500 hover:text-signal transition-colors p-1 bg-black/20 rounded backdrop-blur"
+                aria-label="Dismiss error"
+              >
+                <X size={16} />
+              </button>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-portal/5 rounded-full blur-3xl pointer-events-none" />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </>
   );
 };

@@ -54,7 +54,7 @@ export function LivingCodexArtifacts({
     activeStory.id.includes('demo-matrix-') || 
     activeStory.id.includes('challenge-')
   ) : false;
-  const isFreeUser = !userProfile || !userProfile.premiumTier || userProfile.premiumTier === 'free';
+  const isFreeUser = !userProfile || !userProfile.premiumTier || userProfile.premiumTier === 'mortal';
   const isFreeUserOnHubStory = isFreeUser && isHubStory;
 
   const [showAddArtifactForm, setShowAddArtifactForm] = useState(false);
