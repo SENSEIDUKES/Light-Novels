@@ -326,7 +326,7 @@ export const useChapterGeneration = () => {
 
                 const powerLevelChanged = rule.newPowerLevel && rule.newPowerLevel !== char.powerLevel;
                 const statusChanged = rule.newStatus && rule.newStatus !== char.status;
-                const evolutionReady = powerLevelChanged || statusChanged || char.evolutionReady || false;
+                const pendingEvolution = powerLevelChanged || statusChanged || char.pendingEvolution || false;
                 const evolutionReason = powerLevelChanged ? "Breakthrough in Power Level" : (statusChanged ? "Major Status Change" : char.evolutionReason);
 
                 return {
@@ -340,9 +340,8 @@ export const useChapterGeneration = () => {
                   currentRelevance: rule.currentRelevance || char.currentRelevance,
                   toneMemory: rule.toneMemory || char.toneMemory,
                   lastMajorInvolvement: rule.lastMajorInvolvement || char.lastMajorInvolvement,
-                  evolutionReady: evolutionReady,
-                  evolutionReason: evolutionReason,
-                  availableVisualUpdate: evolutionReady
+                  pendingEvolution,
+                  evolutionReason: pendingEvolution ? evolutionReason : char.evolutionReason,
                 };
               }
               return char;
@@ -378,7 +377,7 @@ export const useChapterGeneration = () => {
                   newDesc = newDesc ? `${newDesc} ${rule.descriptionAppend}` : rule.descriptionAppend;
                 }
                 const safetyChanged = rule.safetyLevelOverride && rule.safetyLevelOverride !== l.safetyLevel;
-                const evolutionReady = safetyChanged || l.evolutionReady || false;
+                const pendingEvolution = safetyChanged || l.pendingEvolution || false;
                 const evolutionReason = safetyChanged ? "Atmosphere/Safety Shift" : l.evolutionReason;
                 return {
                   ...l,
@@ -386,9 +385,8 @@ export const useChapterGeneration = () => {
                   safetyLevel: rule.safetyLevelOverride || l.safetyLevel,
                   relevanceState: rule.relevanceState || l.relevanceState,
                   currentRelevance: rule.currentRelevance || l.currentRelevance,
-                  evolutionReady,
-                  evolutionReason,
-                  availableVisualUpdate: evolutionReady
+                  pendingEvolution,
+                  evolutionReason: pendingEvolution ? evolutionReason : l.evolutionReason,
                 };
               }
               return l;
@@ -404,7 +402,7 @@ export const useChapterGeneration = () => {
                   newDesc = newDesc ? `${newDesc} ${rule.descriptionAppend}` : rule.descriptionAppend;
                 }
                 const ownerChanged = rule.newOwner && rule.newOwner !== a.currentOwner;
-                const evolutionReady = ownerChanged || a.evolutionReady || false;
+                const pendingEvolution = ownerChanged || a.pendingEvolution || false;
                 const evolutionReason = ownerChanged ? "New Artifact Master" : a.evolutionReason;
                 return {
                   ...a,
@@ -412,9 +410,8 @@ export const useChapterGeneration = () => {
                   currentOwner: rule.newOwner || a.currentOwner,
                   relevanceState: rule.relevanceState || a.relevanceState,
                   currentRelevance: rule.currentRelevance || a.currentRelevance,
-                  evolutionReady,
-                  evolutionReason,
-                  availableVisualUpdate: evolutionReady
+                  pendingEvolution,
+                  evolutionReason: pendingEvolution ? evolutionReason : a.evolutionReason,
                 };
               }
               return a;
@@ -570,6 +567,19 @@ export const useChapterGeneration = () => {
           
           if (allWarnings.length > 0) {
             nextMemory.memoryWarnings = [...(nextMemory.memoryWarnings || []), ...allWarnings];
+          }
+
+          if (isArcFinished) {
+            const arcSummary = cloned.arcs[selectedArcIndex].summary || "A new phase of destiny has concluded.";
+            if (nextMemory.characters) {
+              nextMemory.characters = nextMemory.characters.map(c => c.pendingEvolution ? { ...c, evolutionReady: true, availableVisualUpdate: true, pendingEvolution: false, arcAccumulation: arcSummary } : c);
+            }
+            if (nextMemory.locations) {
+              nextMemory.locations = nextMemory.locations.map(l => l.pendingEvolution ? { ...l, evolutionReady: true, availableVisualUpdate: true, pendingEvolution: false, arcAccumulation: arcSummary } : l);
+            }
+            if (nextMemory.artifacts) {
+              nextMemory.artifacts = nextMemory.artifacts.map(a => a.pendingEvolution ? { ...a, evolutionReady: true, availableVisualUpdate: true, pendingEvolution: false, arcAccumulation: arcSummary } : a);
+            }
           }
 
           cloned.memory = nextMemory;

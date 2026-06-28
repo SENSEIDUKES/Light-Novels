@@ -190,6 +190,8 @@ export interface BaseCodexEntry {
   currentRelevance?: string;
   toneMemory?: string;
   provenance?: MemoryProvenance;
+  pendingEvolution?: boolean;
+  arcAccumulation?: string;
 }
 
 export interface Character extends BaseCodexEntry {

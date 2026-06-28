@@ -26,7 +26,7 @@ import { getAuraTextStyle } from "../lib/qi";
 import { vibrate } from "../lib/vibration";
 
 export const StoryDetailScreen: React.FC<{
-  handleGenerateCover: () => Promise<
+  handleGenerateCover: (customModifier?: string) => Promise<
     { imageUrls: string[]; promptUsed: string } | undefined
   >;
   handleApplyCover: (imageUrl: string, promptUsed: string) => void;
@@ -59,6 +59,7 @@ export const StoryDetailScreen: React.FC<{
     prompt: string;
     selectedIndex: number;
   } | null>(null);
+  const [customPromptModifier, setCustomPromptModifier] = useState<string>("");
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isDownloadingOffline, setIsDownloadingOffline] = useState(false);
   const [offlineProgress, setOfflineProgress] = useState({
@@ -197,6 +198,14 @@ export const StoryDetailScreen: React.FC<{
     activeStory.arcs[activeStory.arcs.length - 1].chapters.every(
       (c) => c.hasContent || !!c.generatedContent,
     );
+
+  const allChaptersGenerated = activeStory.arcs.every(arc => 
+    arc.chapters.every(c => c.hasContent || !!c.generatedContent)
+  );
+  const hasReachedEnding = allChaptersGenerated || (activeStory.arcs.length > 0 && activeStory.arcs[activeStory.arcs.length - 1].isCompleted);
+  const userQi = userProfile?.dao_xp || userProfile?.qi || 0;
+  const isSage = userQi >= 12000;
+  const isCompletedAndSage = hasReachedEnding && isSage;
 
   return (
     <motion.div
@@ -453,7 +462,13 @@ export const StoryDetailScreen: React.FC<{
             </AnimatePresence>
 
             <div
-              className={`relative z-10 group aspect-[2/3] rounded-lg overflow-hidden border ${activeStory.evolutionReady && !coverPreview ? "border-portal/50 shadow-[0_0_15px_rgba(4,172,255,0.15)]" : "border-neutral-800"} mb-2`}
+              className={`relative z-10 group aspect-[2/3] rounded-lg overflow-hidden border transition-all duration-500 ${
+                isCompletedAndSage && !coverPreview
+                  ? "border-yellow-500/80 shadow-[0_0_30px_rgba(250,204,21,0.35)] ring-2 ring-yellow-500/30"
+                  : activeStory.evolutionReady && !coverPreview
+                    ? "border-portal/50 shadow-[0_0_15px_rgba(4,172,255,0.15)]"
+                    : "border-neutral-800"
+              } mb-2`}
             >
               <img
                 src={
@@ -504,7 +519,7 @@ export const StoryDetailScreen: React.FC<{
                   }}
                   onClick={async () => {
                     vibrate("mediumTap");
-                    const result = await handleGenerateCover();
+                    const result = await handleGenerateCover(customPromptModifier);
                     if (result)
                       setCoverPreview({
                         urls: result.imageUrls,
@@ -514,17 +529,23 @@ export const StoryDetailScreen: React.FC<{
                   }}
                   disabled={
                     isGenerating ||
-                    (!!activeStory.imageUrl && !activeStory.evolutionReady)
+                    (!!activeStory.imageUrl && !activeStory.evolutionReady && !isCompletedAndSage)
                   }
-                  className="w-full py-2 bg-portal/20 border border-portal/50 text-portal text-[10px] font-bold font-sc uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-colors flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(4,172,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`w-full py-2 border text-[10px] font-bold font-sc uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-colors flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(4,172,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed ${
+                    isCompletedAndSage
+                      ? "bg-yellow-500/20 border-yellow-500/50 text-yellow-500 hover:bg-yellow-500 hover:text-void shadow-[0_0_15px_rgba(250,204,21,0.4)]"
+                      : "bg-portal/20 border-portal/50 text-portal"
+                  }`}
                 >
                   <Sparkles size={14} />
                   <span>
-                    {activeStory.evolutionReady
-                      ? "Awaken Evolution"
-                      : activeStory.imageUrl
-                        ? "Progression"
-                        : "Forge Cover"}
+                    {isCompletedAndSage
+                      ? "Sage Upgrade"
+                      : activeStory.evolutionReady
+                        ? "Awaken Evolution"
+                        : activeStory.imageUrl
+                          ? "Progression"
+                          : "Forge Cover"}
                   </span>
                 </button>
 
@@ -550,6 +571,25 @@ export const StoryDetailScreen: React.FC<{
               </div>
             </div>
 
+            {/* Sage Custom Modifier Input */}
+            {isCompletedAndSage && (
+              <div className="mb-3 p-3 bg-neutral-950 border border-yellow-500/20 rounded-lg space-y-1.5 shadow-[0_0_15px_rgba(250,204,21,0.05)]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-mono text-yellow-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                    <Sparkles size={10} /> Sage Upgrade Unlocked
+                  </span>
+                  <span className="text-[8px] text-neutral-500 font-sans">12k+ Qi</span>
+                </div>
+                <input
+                  type="text"
+                  value={customPromptModifier}
+                  onChange={(e) => setCustomPromptModifier(e.target.value)}
+                  placeholder="e.g. Celestial dragon, gold armor..."
+                  className="w-full bg-void border border-neutral-800 text-[10px] font-sans text-signal placeholder-neutral-600 focus:outline-none focus:border-yellow-500 rounded px-2 py-1"
+                />
+              </div>
+            )}
+
             {/* Mobile / Tablet buttons below Cover Card */}
             <div className="flex flex-col gap-2 mt-2 mb-3">
               <button
@@ -562,7 +602,7 @@ export const StoryDetailScreen: React.FC<{
                 }}
                 onClick={async () => {
                   vibrate("mediumTap");
-                  const result = await handleGenerateCover();
+                  const result = await handleGenerateCover(customPromptModifier);
                   if (result)
                     setCoverPreview({
                       urls: result.imageUrls,
@@ -572,17 +612,23 @@ export const StoryDetailScreen: React.FC<{
                 }}
                 disabled={
                   isGenerating ||
-                  (!!activeStory.imageUrl && !activeStory.evolutionReady)
+                  (!!activeStory.imageUrl && !activeStory.evolutionReady && !isCompletedAndSage)
                 }
-                className="w-full py-2.5 bg-portal/10 border border-portal/30 text-portal text-[11px] font-bold font-sc uppercase tracking-wider rounded flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_10px_rgba(4,172,255,0.1)] hover:bg-portal hover:text-void transition-all"
+                className={`w-full py-2.5 border text-[11px] font-bold font-sc uppercase tracking-wider rounded flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed transition-all ${
+                  isCompletedAndSage
+                    ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-500 hover:bg-yellow-500 hover:text-void shadow-[0_0_10px_rgba(250,204,21,0.2)]"
+                    : "bg-portal/10 border-portal/30 text-portal shadow-[0_0_10px_rgba(4,172,255,0.1)] hover:bg-portal hover:text-void"
+                }`}
               >
-                <Sparkles size={12} />
+                <Sparkles size={12} className={isCompletedAndSage ? "text-yellow-500" : ""} />
                 <span>
-                  {activeStory.evolutionReady
-                    ? "Awaken Evolution"
-                    : activeStory.imageUrl
-                      ? "Progression Required"
-                      : "Forge Core Cover"}
+                  {isCompletedAndSage
+                    ? "Sage Cover Upgrade"
+                    : activeStory.evolutionReady
+                      ? "Awaken Evolution"
+                      : activeStory.imageUrl
+                        ? "Progression Required"
+                        : "Forge Core Cover"}
                 </span>
               </button>
 

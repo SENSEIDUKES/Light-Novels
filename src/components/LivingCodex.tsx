@@ -24,6 +24,9 @@ import { DestinyChoicePanel } from './DestinyChoicePanel';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppStore } from '../store/useAppStore';
 import { checkAndConsumeImageQuota } from '../lib/quota';
+import { useCodexAnalytics } from '../hooks/useCodexAnalytics';
+import { useCodexImageEvolution } from '../hooks/useCodexImageEvolution';
+import { useCodexDeletions } from '../hooks/useCodexDeletions';
 
 interface LivingCodexProps {
   memory: StoryMemory;
@@ -74,297 +77,46 @@ export default function LivingCodex({
   const [codexNotification, setCodexNotification] = useState<string | null>(null);
   const [selectedChartCharId, setSelectedChartCharId] = useState<string>('');
     
+  const [deletePrompt, setDeletePrompt] = useState<{type: string, id: string, name?: string} | null>(null);
+  
   useEffect(() => {
     if (!selectedChartCharId && memory.characters && memory.characters.length > 0) {
       setSelectedChartCharId(memory.characters[0].id);
     }
   }, [memory.characters, selectedChartCharId]);
   
-  // Flatten written chapters with arc details for virtualized listing
-  const flatChapters = useMemo(() => {
-    const list: Array<{
-      chapter: Chapter;
-      arcTitle: string;
-      arcIndex: number;
-      isFirstInArc: boolean;
-    }> = [];
-    
-    arcs.forEach((arc, aIdx) => {
-      const written = (arc.chapters || []).filter(ch => ch.hasContent || !!ch.generatedContent);
-      written.forEach((ch, cIndex) => {
-        list.push({
-          chapter: ch,
-          arcTitle: arc.title || `Arc Vol ${aIdx + 1}`,
-          arcIndex: aIdx,
-          isFirstInArc: cIndex === 0,
-        });
-      });
-    });
-    
-    return list;
-  }, [arcs]);
-  
-  const powerTimeline = useMemo(() => {
-    const list: Array<{
-      chapterNumber: number;
-      title: string;
-      score: number;
-      stageName: string;
-      breakthrough: boolean;
-      summary?: string;
-      cuePayload?: any;
-    }> = [];
-
-    flatChapters.forEach((fc, idx) => {
-      const ch = fc.chapter;
-      let stageName = memory.currentPowerStage || 'Qi Condensation';
-      
-      const finalScoreRef = getPowerRankScore(memory.currentPowerStage).score;
-      const initialScoreRef = 15;
-      
-      const text = `${ch.statsChangeMessage || ''} ${ch.summary || ''} ${ch.title || ''}`.toLowerCase();
-      let estScore = initialScoreRef;
-      let breakthrough = false;
-
-      if (text.includes('nascent soul') || text.includes('nascent')) {
-        estScore = 85;
-        stageName = 'Nascent Soul';
-        breakthrough = true;
-      } else if (text.includes('core formation') || text.includes('grandmaster')) {
-        estScore = 70;
-        stageName = 'Core Formation';
-        breakthrough = true;
-      } else if (text.includes('foundation') || text.includes('establishment')) {
-        estScore = 55;
-        stageName = 'Foundation Establishment';
-        breakthrough = true;
-      } else if (text.includes('tier 7') || text.includes('tier 8') || text.includes('tier 9') || text.includes('tier 10')) {
-        estScore = 45;
-        stageName = 'Qi Refining Late Stage';
-        breakthrough = true;
-      } else if (text.includes('tier 4') || text.includes('tier 5') || text.includes('tier 6')) {
-        estScore = 32;
-        stageName = 'Qi Refining Mid Stage';
-        breakthrough = true;
-      } else if (text.includes('tier 1') || text.includes('tier 2') || text.includes('tier 3')) {
-        estScore = 20;
-        stageName = 'Qi Refining Early Stage';
-      } else {
-        const ratio = flatChapters.length > 1 ? idx / (flatChapters.length - 1) : 1;
-        estScore = Math.round(initialScoreRef + (finalScoreRef - initialScoreRef) * ratio);
-      }
-
-      if (ch.cuePayload?.powerShift) {
-        estScore += ch.cuePayload.powerShift;
-        breakthrough = true;
-      }
-
-      list.push({
-        chapterNumber: ch.number,
-        title: ch.title,
-        score: Math.min(100, Math.max(10, estScore)),
-        stageName: stageName,
-        breakthrough,
-        summary: ch.summary || ch.statsChangeMessage || 'Sensing gradual increase in raw spiritual reserves.',
-        cuePayload: ch.cuePayload
-      });
-    });
-
-    return list;
-  }, [flatChapters, memory.currentPowerStage]);
-
-  const affinityTimelineOfChar = useMemo(() => {
-    if (!selectedChartCharId) return [];
-    const char = memory.characters.find(c => c.id === selectedChartCharId);
-    if (!char) return [];
-
-    const bond = activeStory.relationships?.find(
-      r => r.sourceCharId === selectedChartCharId || r.targetCharId === selectedChartCharId
-    );
-    const targetAffinity = bond ? bond.affinity : 0;
-
-    const relString = (char.relationshipToMC || '').toLowerCase();
-    const startAff = relString.includes('hostil') || relString.includes('enemy')
-      ? -45
-      : relString.includes('friend') || relString.includes('ally') || relString.includes('mentor')
-      ? 35
-      : 0;
-
-    const list: Array<{
-      chapterNumber: number;
-      title: string;
-      affinity: number;
-      eventSummary: string;
-      hasInteraction: boolean;
-    }> = [];
-
-    const total = flatChapters.length;
-    flatChapters.forEach((fc, idx) => {
-      const ch = fc.chapter;
-      const text = `${ch.generatedContent || ''} ${ch.summary || ''} ${ch.title || ''}`.toLowerCase();
-      const hasInteraction = text.includes((char.name || '').toLowerCase());
-
-      let baseInterpolated = startAff;
-      if (total > 1) {
-        baseInterpolated = startAff + (targetAffinity - startAff) * (idx / (total - 1));
-      } else {
-        baseInterpolated = targetAffinity;
-      }
-
-      let spike = 0;
-      if (hasInteraction) {
-        if (text.includes('attack') || text.includes('clash') || text.includes('betray') || text.includes('wound') || text.includes('mock')) {
-          spike = -15;
-        } else if (text.includes('save') || text.includes('trust') || text.includes('help') || text.includes('gift') || text.includes('reconcile')) {
-          spike = 15;
-        } else {
-          spike = 5;
-        }
-      }
-
-      const affinityVal = Math.min(100, Math.max(-100, Math.round(baseInterpolated + spike)));
-
-      let summary = `${char.name} was not present in this chapter of the saga.`;
-      if (hasInteraction) {
-        if (spike < 0) {
-          summary = `Hostility sparked: ${char.name} engaged in a tense conflict or clash of perspectives with ${mcName}.`;
-        } else if (spike > 0) {
-          summary = `Bonds strengthened: ${char.name} and ${mcName} shared an exchange of trust, assistance, or mutual protection.`;
-        } else {
-          summary = `${char.name} appeared, their active karma threads vibrating inside the chapter narrative.`;
-        }
-      }
-
-      list.push({
-        chapterNumber: ch.number,
-        title: ch.title,
-        affinity: affinityVal,
-        eventSummary: summary,
-        hasInteraction
-      });
-    });
-
-    return list;
-  }, [selectedChartCharId, flatChapters, memory.characters, activeStory.relationships, mcName]);
-
   const pushNotification = (msg: string) => {
     setCodexNotification(msg);
     setTimeout(() => setCodexNotification(null), 3000);
   };
 
-  
+  const {
+    flatChapters,
+    powerTimeline,
+    affinityTimelineOfChar,
+    getPowerRankScore,
+    getPowerStageLevel,
+  } = useCodexAnalytics(memory, arcs, activeStory, selectedChartCharId, mcName);
 
-  const handleDeleteCustomRelationship = (bondId: string) => {
-    const currentBonds = activeStory.relationships || [];
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
-    onUpdateStory({
-      ...currentActiveStory,
-      relationships: currentBonds.filter(b => b.id !== bondId)
-    });
-  };
+  const {
+    generatingId,
+    generationError,
+    setGenerationError,
+    previews,
+    setPreviews,
+    handleRevertImage,
+    handleAwakenCardImage,
+    handleSaveEvolution,
+    handleDiscardPreview
+  } = useCodexImageEvolution(memory, activeStory, onUpdateStory, routingConfig, pushNotification);
 
-  
-
-  
-
-  const handleDeleteFateNode = (fateId: string) => {
-    const currentNodes = activeStory.karmaNodes || [];
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
-    onUpdateStory({
-      ...currentActiveStory,
-      karmaNodes: currentNodes.filter(n => n.id !== fateId)
-    });
-  };
-
-  // Active sub-navigation for Characters ("Detailed list" vs "Illustrated Canvas Cards")
-  
-  // Interactive state for visual generation triggers
-  const [generatingId, setGeneratingId] = useState<string | null>(null);
-  const [generationError, setGenerationError] = useState<string | null>(null);
-  const [previews, setPreviews] = useState<Record<string, { urls: string[], prompt: string, selectedIndex: number, type: 'character' | 'location' | 'artifact' | 'beast' }>>({});
-
-  // Form states primitive handlers
-  
-
-  
-
-  
-
-  const getPowerStageLevel = (stageName?: string) => {
-    // dummy helper if not defined elsewhere
-    return { score: 1, title: stageName || '' };
-  };
-
-  
-
-  // Local state for direct editing of Character abilities / power
-  
-
-  const [deletePrompt, setDeletePrompt] = useState<{
-    id: string;
-    type: 'faction' | 'artifact' | 'location' | 'relationship' | 'fate' | 'character' | 'memory';
-    name?: string;
-  } | null>(null);
-  const [deleteInput, setDeleteInput] = useState('');
-
-  
-
-  
-
-  // Assign numeric power rankings based on parsed cultivation stages
-  function getPowerRankScore(powerStr: string | undefined): { score: number, title: string } {
-    if (!powerStr) return { score: 10, title: 'Mortal Tier' };
-    const p = powerStr.toLowerCase();
-    
-    if (p.includes('primordial') || p.includes('sovereign') || p.includes('god') || p.includes('ancestor') || p.includes('immortal emperor') || p.includes('grade 10') || p.includes('tier 10')) {
-      return { score: 100, title: 'Primordial Sovereignty' };
-    }
-    if (p.includes('nascent') || p.includes('saint') || p.includes('sss') || p.includes('tribulation') || p.includes('grade 9') || p.includes('grade 8')) {
-      return { score: 85, title: 'Nascent Saint Ascendancy' };
-    }
-    if (p.includes('formation') || p.includes('grandmaster') || p.includes('rank a') || p.includes('grade 6') || p.includes('grade 7')) {
-      return { score: 70, title: 'Core Formation Grandmaster' };
-    }
-    if (p.includes('foundation') || p.includes('establishment') || p.includes('master') || p.includes('grade 4') || p.includes('grade 5')) {
-      return { score: 55, title: 'Foundation Establishment' };
-    }
-    if (p.includes('qi') || p.includes('refining') || p.includes('condensation') || p.includes('disciple') || p.includes('grade 2') || p.includes('grade 3')) {
-      return { score: 35, title: 'Qi Refining Tier' };
-    }
-    if (p.includes('crippled') || p.includes('mortal') || p.includes('disabled') || p.includes('grade 1')) {
-      return { score: 12, title: 'Mortal Meridian Blockade' };
-    }
-    return { score: 40, title: 'Spiritual Adept' };
-  }
-
-  // Generate Image Card API trigger
-  const handleRevertImage = (id: string, type: string, newUrl: string) => {
-    let finalMemory = { ...memory };
-    if (type === 'character' || type === 'beast') {
-      const updated = memory.characters.map(c => c.id === id ? { ...c, imageUrl: newUrl } : c);
-      finalMemory = { ...memory, characters: updated };
-    } else if (type === 'location') {
-      const updated = (memory.locations || []).map(l => l.id === id ? { ...l, imageUrl: newUrl } : l);
-      finalMemory = { ...memory, locations: updated };
-    } else if (type === 'artifact') {
-      const updated = (memory.artifacts || []).map(a => a.id === id ? { ...a, imageUrl: newUrl } : a);
-      finalMemory = { ...memory, artifacts: updated };
-    }
-
-    const updatedStoryHistory = activeStory.imageHistory ? activeStory.imageHistory.map(img => {
-      if (img.entityId === id) {
-        return { ...img, isCurrent: img.imageUrl === newUrl };
-      }
-      return img;
-    }) : [];
-
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
-    onUpdateStory({
-      ...currentActiveStory,
-      memory: finalMemory,
-      imageHistory: updatedStoryHistory
-    });
-  };
+  const {
+    handleDeleteFaction,
+    handleDeleteArtifact,
+    handleDeleteLocation,
+    handleDeleteCustomRelationship,
+    handleDeleteFateNode
+  } = useCodexDeletions(memory, onUpdateMemory, activeStory, onUpdateStory);
 
   const renderImageHistoryGallery = (entityId: string, type: 'character' | 'location' | 'artifact' | 'beast', imageHistory: any[] | undefined) => {
     if (!imageHistory || imageHistory.length <= 1) return null;
@@ -383,194 +135,7 @@ export default function LivingCodex({
       </div>
     );
   };
-  const handleAwakenCardImage = async (
-    id: string, 
-    type: 'character' | 'location' | 'artifact' | 'beast', 
-    entity: any
-  ) => {
-    setGeneratingId(id);
-    setGenerationError(null);
 
-    const styleConfig = activeStory.blueprint?.styleBible || "Chinese light novel world aesthetic, xianxia / wuxia fantasy illustration, cinematic, mystical, premium webnovel art.";
-
-    let targetPrompt = "";
-    if (type === 'character') {
-      targetPrompt = `Character image. Name: ${entity.name}. Visual description: ${entity.description}. Role: ${entity.role}. Current state/status: ${entity.status}. Power level / aura: ${entity.powerLevel || 'Unknown'}. Shared visual style: ${styleConfig}.`;
-    } else if (type === 'beast') {
-      targetPrompt = `Beast image. Name: ${entity.name}. Species/Type: ${entity.beastProfile?.bodyType || 'Unknown Beast'}. Visual description: ${entity.description}. Evolution state/Threat Tier: ${entity.beastProfile?.threatTier || 'Unknown'}. Aura / element style: ${entity.beastProfile?.element || 'Unknown'}. Shared visual style: ${styleConfig}.`;
-    } else if (type === 'location') {
-      targetPrompt = `Location image. Name: ${entity.name}. Visual description: ${entity.description}. Realm/Zone type: ${entity.realm || 'Unknown'}. Atmosphere/Safety: ${entity.safetyLevel || 'Unknown'}. Shared visual style: ${styleConfig}.`;
-    } else if (type === 'artifact') {
-      targetPrompt = `Artifact image. Name: ${entity.name}. Visual description: ${entity.description}. Tier/Rarity: ${entity.tier || 'Unknown'}. Aura/Energy style: visually striking. Shared visual style: ${styleConfig}.`;
-    }
-
-    try {
-      const userProfile = useAppStore.getState().userProfile;
-      const isHubStory = activeStory?.id ? (
-        activeStory.id.startsWith('demo-matrix-') || 
-        activeStory.id.startsWith('challenge-') || 
-        activeStory.id.includes('demo-matrix-') || 
-        activeStory.id.includes('challenge-')
-      ) : false;
-      const isFreeUser = !userProfile || !userProfile.premiumTier || userProfile.premiumTier === 'mortal';
-      if (isFreeUser && isHubStory) {
-        pushNotification("Ascend to the Inner Sect to customize hub story visual representations!");
-        throw new Error("Mortal tier users cannot customize the original codex of hub stories.");
-      }
-
-      await checkAndConsumeImageQuota();
-
-      const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-      const gemini = await secureStorage.getItem('@seihouse/api-key-gemini');
-      const openrouter = await secureStorage.getItem('@seihouse/api-key-openrouter');
-      const ollama = await secureStorage.getItem('@seihouse/api-key-ollama-host');
-      if (gemini) apiHeaders['x-gemini-key'] = gemini;
-      if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
-      if (ollama) apiHeaders['x-ollama-host'] = ollama;
-
-      const res = await fetch('/api/generate-card-image', {
-        method: 'POST',
-        headers: apiHeaders,
-        body: JSON.stringify({ prompt: targetPrompt, type, routingConfig })
-      });
-
-      const data = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(data.error || "Aetherial alignment gate failed to synchronize imagery.");
-      }
-
-      let newImageUrls = data.imageUrls;
-      if (!newImageUrls && data.imageUrl) newImageUrls = [data.imageUrl];
-      if (!newImageUrls && data.fallbackUrl) newImageUrls = [data.fallbackUrl];
-
-      if (newImageUrls && newImageUrls.length > 0) {
-        setPreviews(prev => ({ ...prev, [id]: { urls: newImageUrls, prompt: targetPrompt, selectedIndex: 0, type } }));
-      } else {
-        throw new Error("No imagery frames returned.");
-      }
-
-    } catch (err: any) {
-      console.error(err);
-      setGenerationError(err.message || "Failed to trigger visual aura synthesis.");
-    } finally {
-      setGeneratingId(null);
-    }
-  };
-
-  const handleSaveEvolution = (id: string, type: 'character' | 'location' | 'artifact' | 'beast') => {
-    const preview = previews[id];
-    if (!preview) return;
-
-    const selectedUrl = preview.urls[preview.selectedIndex];
-
-    const newHistoryItem: GeneratedImage = {
-      id: Math.random().toString(36).substring(2, 10),
-      entityId: id,
-      entityType: type,
-      imageUrl: selectedUrl,
-      promptUsed: preview.prompt,
-      createdAt: new Date().toISOString(),
-      isCurrent: true,
-      chapterNumber: activeStory.currentChapterNumber
-    };
-
-    const currentStoryHistory = activeStory.imageHistory || [];
-    const updatedStoryHistory: GeneratedImage[] = currentStoryHistory
-      .map(img => img.entityId === id ? { ...img, isCurrent: false } : img)
-      .concat(newHistoryItem);
-
-    let finalMemory = { ...memory };
-
-    if (type === 'character' || type === 'beast') {
-      const updated = memory.characters.map(c => 
-        c.id === id ? { ...c, imageUrl: selectedUrl, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber } : c
-      );
-      finalMemory = { ...memory, characters: updated };
-    } else if (type === 'location') {
-      const updated = (memory.locations || []).map(l => 
-        l.id === id ? { ...l, imageUrl: selectedUrl, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber } : l
-      );
-      finalMemory = { ...memory, locations: updated };
-    } else if (type === 'artifact') {
-      const updated = (memory.artifacts || []).map(a => 
-        a.id === id ? { ...a, imageUrl: selectedUrl, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber } : a
-      );
-      finalMemory = { ...memory, artifacts: updated };
-    }
-
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
-    onUpdateStory({
-      ...currentActiveStory,
-      memory: finalMemory,
-      imageHistory: updatedStoryHistory
-    });
-
-    setPreviews(prev => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-
-    pushNotification("Evolution successfully bonded to entity record.");
-  };
-
-  const handleDiscardPreview = (id: string) => {
-    setPreviews(prev => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-  };
-
-  // Action: Add Faction
-  
-
-  // Action: Delete Faction
-  const handleDeleteFaction = (id: string) => {
-    const currentFactions = memory.factions || [];
-    onUpdateMemory({
-      ...memory,
-      factions: currentFactions.filter(f => f.id !== id)
-    });
-  };
-
-  // Action: Add Artifact
-  
-
-  // Action: Delete Artifact
-  const handleDeleteArtifact = (id: string) => {
-    const currentArtifacts = memory.artifacts || [];
-    onUpdateMemory({
-      ...memory,
-      artifacts: currentArtifacts.filter(a => a.id !== id)
-    });
-  };
-
-  // Action: Add Location
-  
-
-
-
-  // Action: Delete Location
-  const handleDeleteLocation = (id: string) => {
-    const currentLocations = memory.locations || [];
-    onUpdateMemory({
-      ...memory,
-      locations: currentLocations.filter(l => l.id !== id)
-    });
-  };
-
-  // Action: Add MC Ability
-  
-
-  // Action: Delete MC Ability
-  
-
-  // Action: Save character edit overlay content
-  
-
-  
   const activePreviewId = Object.keys(previews)[0];
   const activePreview = activePreviewId ? previews[activePreviewId] : null;
 

@@ -16,7 +16,7 @@ export const useVisualAssets = () => {
     await store_saveStories(updated);
   };
 
-  const handleGenerateCover = async (): Promise<{ imageUrls: string[], promptUsed: string } | undefined> => {
+  const handleGenerateCover = async (customModifier?: string): Promise<{ imageUrls: string[], promptUsed: string } | undefined> => {
     const currentStoreState = useAppStore.getState();
     if (currentStoreState.isGenerating) {
       console.warn("Generation already in progress. Ignoring duplicate click.");
@@ -37,7 +37,11 @@ export const useVisualAssets = () => {
       const worldOverview = activeStory.blueprint?.worldOverview || activeStory.genre;
       const firstArcPromise = activeStory.blueprint?.firstArcPromise || activeStory.customPremise;
 
-      const prompt = `Cover image for a story titled "${activeStory.title}". Genre: ${activeStory.genre}. Core Premise: ${activeStory.customPremise}. Main character visual description: ${mcProfile}. Main visual conflict: ${firstArcPromise}. World aesthetic: ${worldOverview}. Shared visual style: ${styleConfig}. Epic fantasy webnovel book cover, digital painting, textless.`;
+      let prompt = `Cover image for a story titled "${activeStory.title}". Genre: ${activeStory.genre}. Core Premise: ${activeStory.customPremise}. Main character visual description: ${mcProfile}. Main visual conflict: ${firstArcPromise}. World aesthetic: ${worldOverview}. Shared visual style: ${styleConfig}. Epic fantasy webnovel book cover, digital painting, textless.`;
+
+      if (customModifier) {
+        prompt = `Ascended Sage custom Cover image. Story: "${activeStory.title}". Genre: ${activeStory.genre}. Ultimate theme: ${customModifier}. Core Premise: ${activeStory.customPremise}. Main character visual description: ${mcProfile}. Main visual conflict: ${firstArcPromise}. World aesthetic: ${worldOverview}. Shared visual style: ${styleConfig}. Epic fantasy webnovel book cover, divine sage of branching paths, majestic cosmic aura, digital painting, textless.`;
+      }
 
       const data = await storyApi.generateCardImage(prompt, "cover", currentStoreState.routingConfig.imageGenerator);
 
