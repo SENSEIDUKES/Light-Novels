@@ -33,19 +33,17 @@ export const ReaderScreen: React.FC<{
   handleSealChapter,
   handleCheckConsistency,
 }) => {
-  const {
-    currentScreen,
-    setCurrentScreen,
-    activeStoryId,
-    stories,
-    selectedChapterNum,
-    setSelectedChapterNum,
-    isGenerating,
-    routingConfig,
-    streamingChapter,
-    isReaderFullscreen,
-    currentUser,
-  } = useAppStore();
+  const currentScreen = useAppStore(state => state.currentScreen);
+    const setCurrentScreen = useAppStore(state => state.setCurrentScreen);
+    const activeStoryId = useAppStore(state => state.activeStoryId);
+    const stories = useAppStore(state => state.stories);
+    const selectedChapterNum = useAppStore(state => state.selectedChapterNum);
+    const setSelectedChapterNum = useAppStore(state => state.setSelectedChapterNum);
+    const isGenerating = useAppStore(state => state.isGenerating);
+    const routingConfig = useAppStore(state => state.routingConfig);
+    const streamingChapter = useAppStore(state => state.streamingChapter);
+    const isReaderFullscreen = useAppStore(state => state.isReaderFullscreen);
+    const currentUser = useAppStore(state => state.currentUser);
 
   const activeStory = stories.find((s) => s.id === activeStoryId);
 

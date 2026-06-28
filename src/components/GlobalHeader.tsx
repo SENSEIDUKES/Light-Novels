@@ -10,20 +10,18 @@ import { DaoInsights } from './DaoInsights';
 import { vibrate } from '../lib/vibration';
 
 export const GlobalHeader: React.FC = () => {
-  const { 
-    currentScreen, 
-    setCurrentScreen, 
-    setActiveStoryId, 
-    syncStatus, 
-    currentUser, 
-    userProfile,
-    lastSavedTime, 
-    activeStoryId, 
-    stories, 
-    setIsSettingsOpen,
-    setIsCodexSheetOpen,
-    setIsShortcutsOpen 
-  } = useAppStore();
+  const currentScreen = useAppStore(state => state.currentScreen);
+    const setCurrentScreen = useAppStore(state => state.setCurrentScreen);
+    const setActiveStoryId = useAppStore(state => state.setActiveStoryId);
+    const syncStatus = useAppStore(state => state.syncStatus);
+    const currentUser = useAppStore(state => state.currentUser);
+    const userProfile = useAppStore(state => state.userProfile);
+    const lastSavedTime = useAppStore(state => state.lastSavedTime);
+    const activeStoryId = useAppStore(state => state.activeStoryId);
+    const stories = useAppStore(state => state.stories);
+    const setIsSettingsOpen = useAppStore(state => state.setIsSettingsOpen);
+    const setIsCodexSheetOpen = useAppStore(state => state.setIsCodexSheetOpen);
+    const setIsShortcutsOpen = useAppStore(state => state.setIsShortcutsOpen);
   const [qiCharge, setQiCharge] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
   const [isHubOpen, setIsHubOpen] = useState(false);

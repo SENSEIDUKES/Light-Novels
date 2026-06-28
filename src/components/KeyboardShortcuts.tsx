@@ -17,25 +17,23 @@ const isTyping = (e: KeyboardEvent) => {
 };
 
 export const KeyboardShortcuts: React.FC = () => {
-  const {
-    currentScreen,
-    setCurrentScreen,
-    setActiveStoryId,
-    activeStoryId,
-    stories,
-    selectedChapterNum,
-    setSelectedChapterNum,
-    isSettingsOpen,
-    setIsSettingsOpen,
-    isCodexSheetOpen,
-    setIsCodexSheetOpen,
-    isReaderFullscreen,
-    setIsReaderFullscreen,
-    isShortcutsOpen,
-    setIsShortcutsOpen,
-    immersion,
-    setImmersion,
-  } = useAppStore();
+  const currentScreen = useAppStore(state => state.currentScreen);
+    const setCurrentScreen = useAppStore(state => state.setCurrentScreen);
+    const setActiveStoryId = useAppStore(state => state.setActiveStoryId);
+    const activeStoryId = useAppStore(state => state.activeStoryId);
+    const stories = useAppStore(state => state.stories);
+    const selectedChapterNum = useAppStore(state => state.selectedChapterNum);
+    const setSelectedChapterNum = useAppStore(state => state.setSelectedChapterNum);
+    const isSettingsOpen = useAppStore(state => state.isSettingsOpen);
+    const setIsSettingsOpen = useAppStore(state => state.setIsSettingsOpen);
+    const isCodexSheetOpen = useAppStore(state => state.isCodexSheetOpen);
+    const setIsCodexSheetOpen = useAppStore(state => state.setIsCodexSheetOpen);
+    const isReaderFullscreen = useAppStore(state => state.isReaderFullscreen);
+    const setIsReaderFullscreen = useAppStore(state => state.setIsReaderFullscreen);
+    const isShortcutsOpen = useAppStore(state => state.isShortcutsOpen);
+    const setIsShortcutsOpen = useAppStore(state => state.setIsShortcutsOpen);
+    const immersion = useAppStore(state => state.immersion);
+    const setImmersion = useAppStore(state => state.setImmersion);
 
   const activeStory = stories.find(s => s.id === activeStoryId);
 

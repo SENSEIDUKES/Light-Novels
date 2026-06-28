@@ -18,7 +18,18 @@ interface UserProfileProps {
 }
 
 export default function UserProfile({ currentUser, stories, onLogout, onNavigateHome }: UserProfileProps) {
-  const { syncStatus, lastSavedTime, setIsSettingsOpen, handleExportLibrary, handleImportLibrary, storageType, localGeminiKey, localOpenrouterKey, localOllamaHost, isSettingsOpen, activeStoryId, routingConfig } = useAppStore();
+  const syncStatus = useAppStore(state => state.syncStatus);
+    const lastSavedTime = useAppStore(state => state.lastSavedTime);
+    const setIsSettingsOpen = useAppStore(state => state.setIsSettingsOpen);
+    const handleExportLibrary = useAppStore(state => state.handleExportLibrary);
+    const handleImportLibrary = useAppStore(state => state.handleImportLibrary);
+    const storageType = useAppStore(state => state.storageType);
+    const localGeminiKey = useAppStore(state => state.localGeminiKey);
+    const localOpenrouterKey = useAppStore(state => state.localOpenrouterKey);
+    const localOllamaHost = useAppStore(state => state.localOllamaHost);
+    const isSettingsOpen = useAppStore(state => state.isSettingsOpen);
+    const activeStoryId = useAppStore(state => state.activeStoryId);
+    const routingConfig = useAppStore(state => state.routingConfig);
   const [profile, setProfile] = useState<UserProfileType | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Partial<UserProfileType>>({});

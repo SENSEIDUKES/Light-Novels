@@ -118,7 +118,10 @@ export const DaoInsights: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [daoStatus, setDaoStatus] = useState<'connected' | 'checking' | 'disconnected'>('checking');
   
-  const { routingConfig, localGeminiKey, localOpenrouterKey, localOllamaHost } = useAppStore();
+  const routingConfig = useAppStore(state => state.routingConfig);
+    const localGeminiKey = useAppStore(state => state.localGeminiKey);
+    const localOpenrouterKey = useAppStore(state => state.localOpenrouterKey);
+    const localOllamaHost = useAppStore(state => state.localOllamaHost);
 
   // Pick a random quote initially and set mounted state
   useEffect(() => {

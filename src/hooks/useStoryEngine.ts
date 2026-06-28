@@ -17,7 +17,9 @@ export { extractJsonBlocks, extractJsonMeta };
  * @returns Object containing async handlers for various generation phases.
  */
 export const useStoryEngine = () => {
-  const store = useAppStore();
+  const store_stories = useAppStore(state => state.stories);
+    const store_activeStoryId = useAppStore(state => state.activeStoryId);
+    const store_saveStories = useAppStore(state => state.saveStories);
   const { handleGenerateChapter } = useChapterGeneration();
   const { handleSteerArc, handleAlterFate } = useArcSteering();
   const { handleGenerateBlueprint, handleStartStory } = useStoryGeneration();
@@ -29,9 +31,9 @@ export const useStoryEngine = () => {
    * @param {StoryMemory} updatedMemory - The new memory object.
    */
   const handleUpdateMemoryManual = async (updatedMemory: StoryMemory) => {
-    const activeStory = store.stories.find(s => s.id === store.activeStoryId);
+    const activeStory = store_stories.find(s => s.id === store_activeStoryId);
     if (!activeStory) return;
-    const updated = store.stories.map(s => {
+    const updated = store_stories.map(s => {
       if (s.id === activeStory.id) {
         return {
           ...s,
@@ -41,7 +43,7 @@ export const useStoryEngine = () => {
       }
       return s;
     });
-    await store.saveStories(updated);
+    await store_saveStories(updated);
   };
 
   /**
@@ -50,14 +52,14 @@ export const useStoryEngine = () => {
    */
   const handleUpdateStoryDirect = async (updatedStory: StoryWorld) => {
     updatedStory.updatedAt = new Date().toISOString();
-    const updated = store.stories.map(s => s.id === updatedStory.id ? updatedStory : s);
-    await store.saveStories(updated);
+    const updated = store_stories.map(s => s.id === updatedStory.id ? updatedStory : s);
+    await store_saveStories(updated);
   };
 
   const handleToggleRead = async (charNum: number) => {
-    const activeStory = store.stories.find(s => s.id === store.activeStoryId);
+    const activeStory = store_stories.find(s => s.id === store_activeStoryId);
     if (!activeStory) return;
-    const updated = store.stories.map(s => {
+    const updated = store_stories.map(s => {
       if (s.id === activeStory.id) {
         return {
           ...s,
@@ -85,7 +87,7 @@ export const useStoryEngine = () => {
       }
       return s;
     });
-    await store.saveStories(updated);
+    await store_saveStories(updated);
   };
 
   return {

@@ -3,12 +3,17 @@ import { GeneratedImage, StoryWorld } from '../types';
 import { storyApi } from '../services/api';
 
 export const useVisualAssets = () => {
-  const store = useAppStore();
+  const store_stories = useAppStore(state => state.stories);
+    const store_saveStories = useAppStore(state => state.saveStories);
+    const store_setAppError = useAppStore(state => state.setAppError);
+    const store_setIsGenerating = useAppStore(state => state.setIsGenerating);
+    const store_setGenerationPhase = useAppStore(state => state.setGenerationPhase);
+    const store_activeStoryId = useAppStore(state => state.activeStoryId);
 
   const handleUpdateStoryDirect = async (updatedStory: StoryWorld) => {
     updatedStory.updatedAt = new Date().toISOString();
-    const updated = store.stories.map(s => s.id === updatedStory.id ? updatedStory : s);
-    await store.saveStories(updated);
+    const updated = store_stories.map(s => s.id === updatedStory.id ? updatedStory : s);
+    await store_saveStories(updated);
   };
 
   const handleGenerateCover = async (): Promise<{ imageUrls: string[], promptUsed: string } | undefined> => {
@@ -44,16 +49,16 @@ export const useVisualAssets = () => {
         return { imageUrls: newImageUrls, promptUsed: prompt };
       }
     } catch(err: any) {
-      store.setAppError(err.message || "Failed to forge new cover.");
+      store_setAppError(err.message || "Failed to forge new cover.");
     } finally {
-      store.setIsGenerating(false);
-      store.setGenerationPhase(null);
+      store_setIsGenerating(false);
+      store_setGenerationPhase(null);
     }
     return undefined;
   };
 
   const handleApplyCover = async (imageUrl: string, promptUsed: string) => {
-    const activeStory = store.stories.find(s => s.id === store.activeStoryId);
+    const activeStory = store_stories.find(s => s.id === store_activeStoryId);
     if (!activeStory) return;
 
     const imageRecord: GeneratedImage = {

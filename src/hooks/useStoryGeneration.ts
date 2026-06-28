@@ -5,7 +5,15 @@ import { awardQi } from '../lib/qi';
 import { storyApi } from '../services/api';
 
 export const useStoryGeneration = () => {
-  const store = useAppStore();
+  const store_stories = useAppStore(state => state.stories);
+    const store_saveStories = useAppStore(state => state.saveStories);
+    const store_setActiveStoryId = useAppStore(state => state.setActiveStoryId);
+    const store_setSelectedChapterNum = useAppStore(state => state.setSelectedChapterNum);
+    const store_setCurrentScreen = useAppStore(state => state.setCurrentScreen);
+    const store_setAppError = useAppStore(state => state.setAppError);
+    const store_setIsGenerating = useAppStore(state => state.setIsGenerating);
+    const store_setGenerationPhase = useAppStore(state => state.setGenerationPhase);
+    const store_setActiveAgentId = useAppStore(state => state.setActiveAgentId);
 
   const handleGenerateBlueprint = async (intake: IntakeData): Promise<WorldBlueprint> => {
     const currentStoreState = useAppStore.getState();
@@ -96,19 +104,19 @@ export const useStoryGeneration = () => {
         ]
       };
 
-      const updated = [newStory, ...store.stories];
-      await store.saveStories(updated);
-      store.setActiveStoryId(newStory.id);
-      store.setSelectedChapterNum(1);
-      store.setCurrentScreen('detail');
+      const updated = [newStory, ...store_stories];
+      await store_saveStories(updated);
+      store_setActiveStoryId(newStory.id);
+      store_setSelectedChapterNum(1);
+      store_setCurrentScreen('detail');
       awardQi('world_created');
     } catch (err: any) {
       console.error(err);
-      store.setAppError(err.message || "Failed to align celestial gates.");
+      store_setAppError(err.message || "Failed to align celestial gates.");
     } finally {
-      store.setIsGenerating(false);
-      store.setGenerationPhase(null);
-      store.setActiveAgentId(null);
+      store_setIsGenerating(false);
+      store_setGenerationPhase(null);
+      store_setActiveAgentId(null);
     }
   };
 

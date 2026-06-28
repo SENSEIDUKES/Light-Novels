@@ -16,7 +16,7 @@ interface CoreSeedFormProps {
 }
 
 export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSection }: CoreSeedFormProps) => {
-  const { routingConfig } = useAppStore();
+  const routingConfig = useAppStore(state => state.routingConfig);
   const [customTagInput, setCustomTagInput] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [tagSearch, setTagSearch] = useState<string>('');

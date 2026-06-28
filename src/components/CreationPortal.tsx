@@ -35,7 +35,9 @@ const getRandomName = () => {
 };
 
 export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGenerating: isGeneratingProp, error }: CreationPortalProps) {
-  const { isGenerating: storeIsGenerating, activeAgentId, currentUser } = useAppStore();
+  const storeIsGenerating = useAppStore(state => state.isGenerating);
+    const activeAgentId = useAppStore(state => state.activeAgentId);
+    const currentUser = useAppStore(state => state.currentUser);
   const isGenerating = isGeneratingProp || storeIsGenerating;
   const [stage, setStage] = useState<'intake' | 'blueprint'>('intake');
   const [showImportPanel, setShowImportPanel] = useState(false);

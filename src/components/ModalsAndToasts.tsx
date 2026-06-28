@@ -33,15 +33,26 @@ const DEFAULT_PRESETS = {
 };
 
 export const ModalsAndToasts: React.FC = () => {
-  const { 
-    isSettingsOpen, setIsSettingsOpen, 
-    routingConfig, setRoutingConfig,
-    localGeminiKey, localOpenrouterKey, localOllamaHost, localDeepinfraKey,
-    storyToDelete, cancelDeleteStory, confirmDeleteStory,
-    appError, setAppError,
-    draftRecoverySession, setDraftRecoverySession,
-    setActiveStoryId, setSelectedChapterNum, setCurrentScreen, setIsGenerating, setGeneratingChapterNum
-  } = useAppStore();
+  const isSettingsOpen = useAppStore(state => state.isSettingsOpen);
+    const setIsSettingsOpen = useAppStore(state => state.setIsSettingsOpen);
+    const routingConfig = useAppStore(state => state.routingConfig);
+    const setRoutingConfig = useAppStore(state => state.setRoutingConfig);
+    const localGeminiKey = useAppStore(state => state.localGeminiKey);
+    const localOpenrouterKey = useAppStore(state => state.localOpenrouterKey);
+    const localOllamaHost = useAppStore(state => state.localOllamaHost);
+    const localDeepinfraKey = useAppStore(state => state.localDeepinfraKey);
+    const storyToDelete = useAppStore(state => state.storyToDelete);
+    const cancelDeleteStory = useAppStore(state => state.cancelDeleteStory);
+    const confirmDeleteStory = useAppStore(state => state.confirmDeleteStory);
+    const appError = useAppStore(state => state.appError);
+    const setAppError = useAppStore(state => state.setAppError);
+    const draftRecoverySession = useAppStore(state => state.draftRecoverySession);
+    const setDraftRecoverySession = useAppStore(state => state.setDraftRecoverySession);
+    const setActiveStoryId = useAppStore(state => state.setActiveStoryId);
+    const setSelectedChapterNum = useAppStore(state => state.setSelectedChapterNum);
+    const setCurrentScreen = useAppStore(state => state.setCurrentScreen);
+    const setIsGenerating = useAppStore(state => state.setIsGenerating);
+    const setGeneratingChapterNum = useAppStore(state => state.setGeneratingChapterNum);
 
   const storyEngine = useStoryEngine();
 

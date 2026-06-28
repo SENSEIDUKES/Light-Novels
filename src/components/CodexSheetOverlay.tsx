@@ -10,7 +10,13 @@ export const CodexSheetOverlay: React.FC<{
   handleUpdateStoryDirect: (story: Story) => void
 }> = ({ handleUpdateMemoryManual, handleUpdateStoryDirect }) => {
 
-  const { isCodexSheetOpen, setIsCodexSheetOpen, stories, activeStoryId, setCurrentScreen, setSelectedChapterNum, routingConfig } = useAppStore();
+  const isCodexSheetOpen = useAppStore(state => state.isCodexSheetOpen);
+    const setIsCodexSheetOpen = useAppStore(state => state.setIsCodexSheetOpen);
+    const stories = useAppStore(state => state.stories);
+    const activeStoryId = useAppStore(state => state.activeStoryId);
+    const setCurrentScreen = useAppStore(state => state.setCurrentScreen);
+    const setSelectedChapterNum = useAppStore(state => state.setSelectedChapterNum);
+    const routingConfig = useAppStore(state => state.routingConfig);
   const activeStory = stories.find(s => s.id === activeStoryId);
 
   return (

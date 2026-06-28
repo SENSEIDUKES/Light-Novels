@@ -18,7 +18,9 @@ interface TreeStory {
 }
 
 export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, activeStoryId }) => {
-  const { stories, setActiveStoryId, setCurrentScreen } = useAppStore();
+  const stories = useAppStore(state => state.stories);
+    const setActiveStoryId = useAppStore(state => state.setActiveStoryId);
+    const setCurrentScreen = useAppStore(state => state.setCurrentScreen);
 
   const familyData = useMemo(() => {
     if (!activeStoryId) return null;

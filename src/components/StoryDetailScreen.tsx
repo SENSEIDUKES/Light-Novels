@@ -44,16 +44,14 @@ export const StoryDetailScreen: React.FC<{
   handleDeleteStory,
   setIsCodexSheetOpen,
 }) => {
-  const {
-    currentScreen,
-    setCurrentScreen,
-    activeStoryId,
-    stories,
-    isGenerating,
-    setSelectedChapterNum,
-    userProfile,
-    saveStories,
-  } = useAppStore();
+  const currentScreen = useAppStore(state => state.currentScreen);
+    const setCurrentScreen = useAppStore(state => state.setCurrentScreen);
+    const activeStoryId = useAppStore(state => state.activeStoryId);
+    const stories = useAppStore(state => state.stories);
+    const isGenerating = useAppStore(state => state.isGenerating);
+    const setSelectedChapterNum = useAppStore(state => state.setSelectedChapterNum);
+    const userProfile = useAppStore(state => state.userProfile);
+    const saveStories = useAppStore(state => state.saveStories);
   const [isStoryMenuOpen, setIsStoryMenuOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [coverPreview, setCoverPreview] = useState<{

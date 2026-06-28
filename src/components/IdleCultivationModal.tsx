@@ -48,7 +48,8 @@ interface Props {
 }
 
 export function IdleCultivationModal({ qiEarned, onClose }: Props) {
-  const { userProfile, setUserProfile } = useAppStore();
+  const userProfile = useAppStore(state => state.userProfile);
+    const setUserProfile = useAppStore(state => state.setUserProfile);
   const [isClaiming, setIsClaiming] = useState(false);
 
   const handleClaim = async () => {

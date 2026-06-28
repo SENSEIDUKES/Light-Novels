@@ -5,16 +5,19 @@ import { unlockCosmicArtifact } from '../lib/artifacts';
 import { storyApi } from '../services/api';
 
 export const useChapterSealing = () => {
-  const store = useAppStore();
+  const store_stories = useAppStore(state => state.stories);
+    const store_saveStories = useAppStore(state => state.saveStories);
+    const store_activeStoryId = useAppStore(state => state.activeStoryId);
+    const store_routingConfig = useAppStore(state => state.routingConfig);
 
   const handleUpdateStoryDirect = async (updatedStory: StoryWorld) => {
     updatedStory.updatedAt = new Date().toISOString();
-    const updated = store.stories.map(s => s.id === updatedStory.id ? updatedStory : s);
-    await store.saveStories(updated);
+    const updated = store_stories.map(s => s.id === updatedStory.id ? updatedStory : s);
+    await store_saveStories(updated);
   };
 
   const handleCheckConsistency = async (chapterNumber: number): Promise<string[]> => {
-    const activeStory = store.stories.find(s => s.id === store.activeStoryId);
+    const activeStory = store_stories.find(s => s.id === store_activeStoryId);
     if (!activeStory) return [];
     
     const selectedArcIndex = activeStory.arcs.findIndex(arc => arc.chapters.some(c => c.number === chapterNumber));
@@ -29,7 +32,7 @@ export const useChapterSealing = () => {
     }
 
     try {
-      return await storyApi.checkConsistency(text, activeStory.memory, store.routingConfig.storyMaker);
+      return await storyApi.checkConsistency(text, activeStory.memory, store_routingConfig.storyMaker);
     } catch (err) {
       console.error(err);
       return [];
@@ -37,7 +40,7 @@ export const useChapterSealing = () => {
   };
 
   const handleSealChapter = async (chapterNumber: number) => {
-    const activeStory = store.stories.find((s) => s.id === store.activeStoryId);
+    const activeStory = store_stories.find((s) => s.id === store_activeStoryId);
     if (!activeStory) return;
 
     const generateContentHash = async (content: string): Promise<string> => {

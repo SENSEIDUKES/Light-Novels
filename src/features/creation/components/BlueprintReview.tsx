@@ -14,7 +14,7 @@ interface BlueprintReviewProps {
 }
 
 export const BlueprintReview = ({ blueprint, setBlueprint, onBack, onStartStory, isGenerating }: BlueprintReviewProps) => {
-  const { activeAgentId } = useAppStore();
+  const activeAgentId = useAppStore(state => state.activeAgentId);
   const [copied, setCopied] = useState(false);
   const [copiedJson, setCopiedJson] = useState(false);
 

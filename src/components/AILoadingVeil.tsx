@@ -7,17 +7,15 @@ import { AgentBadge } from './AgentBadge';
 
 export default function AILoadingVeil() {
   const [showDetails, setShowDetails] = React.useState(false);
-  const {
-    isGenerating,
-    generationPhase,
-    generationProgressMessage,
-    estimatedSecondsRemaining,
-    activeAgentId,
-    streamingChapter,
-    isVeilMinimized,
-    setIsVeilMinimized,
-    generatingChapterNum
-  } = useAppStore();
+  const isGenerating = useAppStore(state => state.isGenerating);
+    const generationPhase = useAppStore(state => state.generationPhase);
+    const generationProgressMessage = useAppStore(state => state.generationProgressMessage);
+    const estimatedSecondsRemaining = useAppStore(state => state.estimatedSecondsRemaining);
+    const activeAgentId = useAppStore(state => state.activeAgentId);
+    const streamingChapter = useAppStore(state => state.streamingChapter);
+    const isVeilMinimized = useAppStore(state => state.isVeilMinimized);
+    const setIsVeilMinimized = useAppStore(state => state.setIsVeilMinimized);
+    const generatingChapterNum = useAppStore(state => state.generatingChapterNum);
 
   const activeAgent = activeAgentId ? (activeAgentId === 'versa' ? AGENTS.VERSA : AGENTS.SCOUT) : null;
   const isVersa = !activeAgentId || activeAgentId === 'versa';

@@ -4,7 +4,7 @@ import { Story } from '../types';
 import JSZip from 'jszip';
 
 export const useStoryExporter = () => {
-  const store = useAppStore();
+  const store_setAppError = useAppStore(state => state.setAppError);
 
   const cleanNovelProse = (text: string): string => {
     if (!text) return "";
@@ -59,7 +59,7 @@ export const useStoryExporter = () => {
       downloadAnchor.click();
       downloadAnchor.remove();
     } catch (err: any) {
-      store.setAppError("Failed to transcribe story ledger to output: " + err.message);
+      store_setAppError("Failed to transcribe story ledger to output: " + err.message);
     }
   };
 
@@ -248,7 +248,7 @@ export const useStoryExporter = () => {
       downloadAnchor.remove();
       window.URL.revokeObjectURL(url);
     } catch (err: any) {
-      store.setAppError("Failed to forge EPUB Tome: " + err.message);
+      store_setAppError("Failed to forge EPUB Tome: " + err.message);
     }
   };
 

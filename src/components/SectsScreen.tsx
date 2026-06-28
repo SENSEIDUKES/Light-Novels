@@ -77,7 +77,7 @@ const SHARED_BADGES = [
 ];
 
 export const SectsScreen: React.FC = () => {
-  const { setCurrentScreen } = useAppStore();
+  const setCurrentScreen = useAppStore(state => state.setCurrentScreen);
   
   const [view, setView] = useState<SectViewState>('discovery');
   const [activeSect, setActiveSect] = useState<SectData | null>(null);

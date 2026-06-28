@@ -11,7 +11,14 @@ import { getApiHeaders, extractJsonBlocks, runMemoryLinter } from './storyEngine
  * Handles pacing logic, RAG history fetching, memory updating, and UI stream coordination.
  */
 export const useChapterGeneration = () => {
-  const store = useAppStore();
+  const store_setActiveAgentId = useAppStore(state => state.setActiveAgentId);
+    const store_routingConfig = useAppStore(state => state.routingConfig);
+    const store_saveStories = useAppStore(state => state.saveStories);
+    const store_setAppError = useAppStore(state => state.setAppError);
+    const store_setIsGenerating = useAppStore(state => state.setIsGenerating);
+    const store_setGenerationPhase = useAppStore(state => state.setGenerationPhase);
+    const store_setGeneratingChapterNum = useAppStore(state => state.setGeneratingChapterNum);
+    const store_setStreamingChapter = useAppStore(state => state.setStreamingChapter);
 
   /**
    * Generates content and metadata for a specific chapter within the active story.
@@ -53,7 +60,7 @@ export const useChapterGeneration = () => {
     }
 
     try {
-      store.setActiveAgentId('scout');
+      store_setActiveAgentId('scout');
       const apiHeaders = await getApiHeaders();
 
       const pastSummaries = await retrieveRelevantContext(
@@ -96,7 +103,7 @@ export const useChapterGeneration = () => {
         }
       }
 
-      store.setActiveAgentId('versa');
+      store_setActiveAgentId('versa');
       const response = await fetch('/api/generate-chapter-stream', {
         method: 'POST',
         headers: apiHeaders,
@@ -114,7 +121,7 @@ export const useChapterGeneration = () => {
             title: targetChapter.title,
             premise: targetChapter.premise
           },
-          routingConfig: store.routingConfig.storyMaker,
+          routingConfig: store_routingConfig.storyMaker,
           styleBible: activeStory.blueprint?.styleBible,
           tropeRules: activeStory.blueprint?.tropeRules,
           storyTags: activeStory.intake?.storyTags
@@ -226,7 +233,7 @@ export const useChapterGeneration = () => {
           chapterNumber: targetChapter.number,
           title: targetChapter.title,
           chapterText: rawBlocksStr,
-          routingConfig: store.routingConfig.storyMaker
+          routingConfig: store_routingConfig.storyMaker
         })
       });
 
@@ -572,7 +579,7 @@ export const useChapterGeneration = () => {
         return cloned;
       });
 
-      await store.saveStories(updatedStories);
+      await store_saveStories(updatedStories);
       awardQi('chapter_generated');
       
       // Scan chapter content for epic story-event artifacts
@@ -592,13 +599,13 @@ export const useChapterGeneration = () => {
 
     } catch (err: any) {
       console.error(err);
-      store.setAppError(err.message || "Celestial feedback received. Chapter generation failed.");
+      store_setAppError(err.message || "Celestial feedback received. Chapter generation failed.");
     } finally {
-      store.setIsGenerating(false);
-      store.setGenerationPhase(null);
-      store.setGeneratingChapterNum(null);
-      store.setActiveAgentId(null);
-      store.setStreamingChapter(null);
+      store_setIsGenerating(false);
+      store_setGenerationPhase(null);
+      store_setGeneratingChapterNum(null);
+      store_setActiveAgentId(null);
+      store_setStreamingChapter(null);
     }
   };
 

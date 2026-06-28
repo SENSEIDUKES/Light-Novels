@@ -34,7 +34,25 @@ import { SectsScreen } from './components/SectsScreen';
 import { IdleCultivationModal } from './components/IdleCultivationModal';
 
 function App() {
-  const store = useAppStore();
+  const store_userProfile = useAppStore(state => state.userProfile);
+    const store_stories = useAppStore(state => state.stories);
+    const store_setDraftRecoverySession = useAppStore(state => state.setDraftRecoverySession);
+    const store_initStorage = useAppStore(state => state.initStorage);
+    const store_setCurrentUser = useAppStore(state => state.setCurrentUser);
+    const store_setUserProfile = useAppStore(state => state.setUserProfile);
+    const store_migrateOrDiscardDemoStories = useAppStore(state => state.migrateOrDiscardDemoStories);
+    const store_setSyncStatus = useAppStore(state => state.setSyncStatus);
+    const store_setStories = useAppStore(state => state.setStories);
+    const store_activeStoryId = useAppStore(state => state.activeStoryId);
+    const store_selectedChapterNum = useAppStore(state => state.selectedChapterNum);
+    const store_updateChapter = useAppStore(state => state.updateChapter);
+    const store_currentScreen = useAppStore(state => state.currentScreen);
+    const store_isGenerating = useAppStore(state => state.isGenerating);
+    const store_appError = useAppStore(state => state.appError);
+    const store_setStoryToDelete = useAppStore(state => state.setStoryToDelete);
+    const store_setIsCodexSheetOpen = useAppStore(state => state.setIsCodexSheetOpen);
+    const store_currentUser = useAppStore(state => state.currentUser);
+    const store_setCurrentScreen = useAppStore(state => state.setCurrentScreen);
   const storyEngine = useStoryEngine();
   const storyExporter = useStoryExporter();
 
@@ -61,7 +79,7 @@ function App() {
 
   // Set HTML lang attribute based on preferred language for native browser UI translation
   useEffect(() => {
-    const lang = store.userProfile?.preferredLanguage || 'English';
+    const lang = store_userProfile?.preferredLanguage || 'English';
     const normalized = lang.toLowerCase();
     let langCode = 'en';
     if (normalized.includes("simplified chinese") || normalized.includes("简体中文") || (normalized.includes("chinese") && !normalized.includes("traditional"))) langCode = "zh-CN";
@@ -79,7 +97,7 @@ function App() {
     else if (normalized.includes("malay") || normalized.includes("bahasa melayu")) langCode = "ms";
     
     document.documentElement.lang = langCode;
-  }, [store.userProfile?.preferredLanguage]);
+  }, [store_userProfile?.preferredLanguage]);
 
   // Check for unsaved chapter session after initialization
   useEffect(() => {
@@ -90,10 +108,10 @@ function App() {
       try {
         const parsed = JSON.parse(savedGen);
         if (parsed && parsed.isGenerating && Date.now() - parsed.timestamp < 10 * 60 * 1000) {
-          const activeStory = store.stories.find(s => s.id === parsed.activeStoryId);
+          const activeStory = store_stories.find(s => s.id === parsed.activeStoryId);
           if (activeStory) {
             if (parsed.generationPhase === 'chapter' && parsed.generatingChapterNum) {
-              store.setDraftRecoverySession(parsed);
+              store_setDraftRecoverySession(parsed);
             }
           } else {
             localStorage.removeItem('seihouse_active_generation');
@@ -104,13 +122,13 @@ function App() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isInitializing, store.stories]);
+  }, [isInitializing, store_stories]);
 
   // Initialize Data Persistence
   useEffect(() => {
     const initAndLoad = async () => {
       try {
-        await store.initStorage();
+        await store_initStorage();
       } finally {
         setIsInitializing(false);
       }
@@ -120,7 +138,7 @@ function App() {
     let unsubProfile: (() => void) | undefined;
 
     const unsubAuth = onAuthStateChanged(auth, async (user) => {
-      store.setCurrentUser(user);
+      store_setCurrentUser(user);
       
       if (unsubProfile) {
         unsubProfile();
@@ -130,25 +148,25 @@ function App() {
       if (user) {
         unsubProfile = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
           if (docSnap.exists()) {
-            store.setUserProfile(docSnap.data() as UserProfileType);
+            store_setUserProfile(docSnap.data() as UserProfileType);
           } else {
-            store.setUserProfile(null);
+            store_setUserProfile(null);
           }
         });
 
         // Handle unmigrated demo stories: migrate if worked on, otherwise discard them
-        await store.migrateOrDiscardDemoStories(user);
+        await store_migrateOrDiscardDemoStories(user);
       } else {
-        store.setUserProfile(null);
+        store_setUserProfile(null);
       }
     });
 
     const unsubSync = storyStorage.subscribe(async (status) => {
-      store.setSyncStatus(status);
+      store_setSyncStatus(status);
       if (status === 'synced') {
          // Reload stories from storage to catch cloud-merged data
          const freshStories = await storyStorage.getStories();
-         store.setStories(freshStories);
+         store_setStories(freshStories);
       }
     });
 
@@ -163,15 +181,15 @@ function App() {
   // Dynamically fetch missing content for active chapter
   useEffect(() => {
     // Narrow dependency to just ID and chapter num to avoid looping on whole stories array
-    const activeStory = useAppStore.getState().stories.find(s => s.id === store.activeStoryId);
-    if (activeStory && store.selectedChapterNum !== -1) {
-      const tgtArc = activeStory.arcs.find(a => a.chapters.some(c => c.number === store.selectedChapterNum));
-      const tgtChapter = tgtArc?.chapters.find(c => c.number === store.selectedChapterNum);
+    const activeStory = useAppStore.getState().stories.find(s => s.id === store_activeStoryId);
+    if (activeStory && store_selectedChapterNum !== -1) {
+      const tgtArc = activeStory.arcs.find(a => a.chapters.some(c => c.number === store_selectedChapterNum));
+      const tgtChapter = tgtArc?.chapters.find(c => c.number === store_selectedChapterNum);
       
       if (tgtChapter && !tgtChapter.generatedContent && (!tgtChapter.blocks || tgtChapter.blocks.length === 0) && (tgtChapter.status === 'read' || tgtChapter.status === 'unlocked' || tgtChapter.status === 'generating' || tgtChapter.hasContent)) {
-        storyStorage.getChapterContent(activeStory.id, store.selectedChapterNum).then(content => {
+        storyStorage.getChapterContent(activeStory.id, store_selectedChapterNum).then(content => {
           if (content) {
-            store.updateChapter(activeStory.id, store.selectedChapterNum, {
+            store_updateChapter(activeStory.id, store_selectedChapterNum, {
               generatedContent: content.generatedContent,
               blocks: content.blocks,
               summary: content.summary,
@@ -180,7 +198,7 @@ function App() {
             });
           } else {
             // Failed to fetch or missing: un-mark hasContent so user can regenerate
-            store.updateChapter(activeStory.id, store.selectedChapterNum, {
+            store_updateChapter(activeStory.id, store_selectedChapterNum, {
               hasContent: false
             });
           }
@@ -188,7 +206,7 @@ function App() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store.activeStoryId, store.selectedChapterNum]); // Removed store.stories
+  }, [store_activeStoryId, store_selectedChapterNum]); // Removed store.stories
 
   // --- IDLE CULTIVATION ---
   const [idleQiEarned, setIdleQiEarned] = useState<number | null>(null);
@@ -254,7 +272,7 @@ function App() {
     );
   }
 
-  const activeStory = store.stories.find(s => s.id === store.activeStoryId);
+  const activeStory = store_stories.find(s => s.id === store_activeStoryId);
 
   return (
     <div className="min-h-dvh bg-[#050505] text-[#dfd8cf] font-serif overflow-x-hidden selection:bg-human/30 pb-safe">
@@ -264,7 +282,7 @@ function App() {
 
       <main className="relative z-10 w-full min-h-[calc(100dvh-140px)]">
         <AnimatePresence mode="wait">
-          {store.currentScreen === 'home' && (
+          {store_currentScreen === 'home' && (
             <motion.div
               key="home"
               initial={{ opacity: 0, x: -20 }}
@@ -277,7 +295,7 @@ function App() {
             </motion.div>
           )}
 
-          {store.currentScreen === 'creator' && (
+          {store_currentScreen === 'creator' && (
             <motion.div
               key="creator"
               initial={{ opacity: 0, y: 20 }}
@@ -289,13 +307,13 @@ function App() {
               <CreationPortal
                 onGenerateBlueprint={storyEngine.handleGenerateBlueprint}
                 onStartStory={storyEngine.handleStartStory}
-                isGenerating={store.isGenerating}
-                error={store.appError}
+                isGenerating={store_isGenerating}
+                error={store_appError}
               />
             </motion.div>
           )}
 
-          {store.currentScreen === 'detail' && activeStory && (
+          {store_currentScreen === 'detail' && activeStory && (
             <motion.div
               key="detail"
               initial={{ opacity: 0, scale: 0.98 }}
@@ -312,14 +330,14 @@ function App() {
                  handleExportSingleStory={storyExporter.handleExportSingleStory}
                  handleDeleteStory={(id, e) => {
                    e.stopPropagation();
-                   store.setStoryToDelete(id);
+                   store_setStoryToDelete(id);
                  }}
-                 setIsCodexSheetOpen={store.setIsCodexSheetOpen}
+                 setIsCodexSheetOpen={store_setIsCodexSheetOpen}
               />
             </motion.div>
           )}
 
-          {store.currentScreen === 'reader' && activeStory && (
+          {store_currentScreen === 'reader' && activeStory && (
             <motion.div
               key="reader"
               initial={{ opacity: 0, y: 20 }}
@@ -331,7 +349,7 @@ function App() {
                   handleToggleRead={storyEngine.handleToggleRead}
                   handleSteerArc={storyEngine.handleSteerArc}
                   handleUpdateStoryDirect={storyEngine.handleUpdateStoryDirect}
-                  setIsCodexSheetOpen={store.setIsCodexSheetOpen}
+                  setIsCodexSheetOpen={store_setIsCodexSheetOpen}
                   handleAlterFate={storyEngine.handleAlterFate}
                   handleSealChapter={storyEngine.handleSealChapter}
                   handleCheckConsistency={storyEngine.handleCheckConsistency}
@@ -339,7 +357,7 @@ function App() {
             </motion.div>
           )}
 
-          {store.currentScreen === 'profile' && (
+          {store_currentScreen === 'profile' && (
             <motion.div
               key="profile"
               initial={{ opacity: 0, scale: 0.98 }}
@@ -349,14 +367,14 @@ function App() {
               className="w-full"
             >
               <UserProfile 
-                currentUser={store.currentUser}
-                stories={store.stories}
-                onLogout={() => { signOut(auth); store.setCurrentUser(null); }}
-                onNavigateHome={() => store.setCurrentScreen('home')}
+                currentUser={store_currentUser}
+                stories={store_stories}
+                onLogout={() => { signOut(auth); store_setCurrentUser(null); }}
+                onNavigateHome={() => store_setCurrentScreen('home')}
               />
             </motion.div>
           )}
-          {store.currentScreen === 'pricing' && (
+          {store_currentScreen === 'pricing' && (
             <motion.div
               key="pricing"
               initial={{ opacity: 0, y: 20 }}
@@ -368,7 +386,7 @@ function App() {
               <PricingScreen />
             </motion.div>
           )}
-          {store.currentScreen === 'challenge' && (
+          {store_currentScreen === 'challenge' && (
             <motion.div
               key="challenge"
               initial={{ opacity: 0, scale: 0.98 }}
@@ -380,7 +398,7 @@ function App() {
               <ChallengeScreen />
             </motion.div>
           )}
-          {store.currentScreen === 'sects' && (
+          {store_currentScreen === 'sects' && (
             <motion.div
               key="sects"
               initial={{ opacity: 0, scale: 0.98 }}

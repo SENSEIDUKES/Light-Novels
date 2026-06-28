@@ -81,7 +81,7 @@ export default function SteerPortal({
   activeStory, 
   routingConfig 
 }: SteerPortalProps) {
-  const { activeAgentId } = useAppStore();
+  const activeAgentId = useAppStore(state => state.activeAgentId);
   const [selectedPreset, setSelectedPreset] = useState('continue');
   const [customDirections, setCustomDirections] = useState('');
   const [directions, setDirections] = useState<DirectionCard[]>([]);

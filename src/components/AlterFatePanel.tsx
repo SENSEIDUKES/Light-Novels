@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import FocusLock from 'react-focus-lock';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, GitBranch, ShieldAlert, ArrowRight, X } from 'lucide-react';
+import { Sparkles, GitBranch, ShieldAlert, ChevronDown, X } from 'lucide-react';
 
 interface AlterFatePanelProps {
   isOpen: boolean;
@@ -32,8 +32,30 @@ const FORK_TEMPLATES = [
 ];
 
 export const AlterFatePanel: React.FC<AlterFatePanelProps> = ({ isOpen, onClose, onConfirmFork, chapterNumber }) => {
-  const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [selectedTemplate, setSelectedTemplate] = useState(FORK_TEMPLATES[0].id);
   const [customPrompt, setCustomPrompt] = useState('');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedTemplate(FORK_TEMPLATES[0].id);
+      setCustomPrompt(FORK_TEMPLATES[0].examples[0].replace(/"/g, ''));
+      setIsMenuOpen(false);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const activeTemplate = FORK_TEMPLATES.find(t => t.id === selectedTemplate) || FORK_TEMPLATES[0];
 
   return (
     <AnimatePresence>
@@ -50,7 +72,7 @@ export const AlterFatePanel: React.FC<AlterFatePanelProps> = ({ isOpen, onClose,
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            className="bg-void border border-portal/30 rounded-xl shadow-[0_0_40px_rgba(4,172,255,0.15)] overflow-hidden max-w-2xl w-full flex flex-col"
+            className="bg-void border border-portal/30 rounded-xl shadow-[0_0_40px_rgba(4,172,255,0.15)] overflow-hidden max-w-xl w-full flex flex-col"
           >
           <div className="p-6 border-b border-neutral-900 bg-neutral-950 flex justify-between items-center relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-portal/10 blur-3xl rounded-full"></div>
@@ -68,52 +90,69 @@ export const AlterFatePanel: React.FC<AlterFatePanelProps> = ({ isOpen, onClose,
             </button>
           </div>
 
-          <div className="p-6 space-y-6 overflow-y-auto max-h-[60vh] bg-[#0a0a0a]">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {FORK_TEMPLATES.map(t => {
-                const isSelected = selectedTemplate === t.id;
-                return (
-                  <button
-                    key={t.id}
-                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-                      setSelectedTemplate(t.id);
-                      setCustomPrompt(t.examples[0].replace(/"/g, ''));
-                    }}
-                    className={`text-left p-4 rounded border transition-all ${
-                      isSelected 
-                        ? 'bg-portal/10 border-portal shadow-[0_0_15px_rgba(4,172,255,0.2)] text-signal' 
-                        : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:border-portal/50'
-                    }`}
-                  >
-                    <h3 className={`font-sc text-[11px] uppercase tracking-wider font-bold mb-2 ${isSelected ? 'text-portal' : 'text-neutral-500'}`}>
-                      {t.title}
-                    </h3>
-                    <p className="text-[10px] font-sans text-neutral-400 mb-2">{t.description}</p>
-                    <div className="space-y-1">
-                      {t.examples.map((ex, i) => (
-                        <div key={i} className="text-[9px] font-mono opacity-60 truncate">{ex}</div>
+          <div className="p-6 space-y-6 overflow-y-visible bg-[#0a0a0a]">
+            
+            <div className="space-y-4" ref={menuRef}>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  className="w-full flex items-center justify-between bg-neutral-950 border border-neutral-800 hover:border-portal text-signal p-3 rounded transition-colors"
+                >
+                  <div className="flex flex-col items-start text-left">
+                    <span className="font-sc text-[12px] uppercase tracking-wider font-bold text-portal">{activeTemplate.title}</span>
+                    <span className="text-[10px] text-neutral-500 mt-0.5">{activeTemplate.description}</span>
+                  </div>
+                  <ChevronDown size={16} className={`text-neutral-400 transition-transform ${isMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                <AnimatePresence>
+                  {isMenuOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -5 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute top-full left-0 right-0 mt-1 bg-neutral-950 border border-neutral-800 rounded shadow-2xl z-20 overflow-hidden"
+                    >
+                      {FORK_TEMPLATES.map(t => (
+                        <button
+                          key={t.id}
+                          onClick={() => {
+                            setSelectedTemplate(t.id);
+                            setCustomPrompt(t.examples[0].replace(/"/g, ''));
+                            setIsMenuOpen(false);
+                          }}
+                          className={`w-full text-left p-3 hover:bg-neutral-900 transition-colors flex flex-col border-b border-neutral-900/50 last:border-0 ${selectedTemplate === t.id ? 'bg-neutral-900/50' : ''}`}
+                        >
+                          <span className={`font-sc text-[11px] uppercase tracking-wider font-bold ${selectedTemplate === t.id ? 'text-portal' : 'text-signal'}`}>
+                            {t.title}
+                          </span>
+                          <span className="text-[10px] text-neutral-500 mt-0.5">{t.description}</span>
+                        </button>
                       ))}
-                    </div>
-                  </button>
-                );
-              })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] uppercase font-sc tracking-widest text-neutral-400 font-bold" htmlFor="a11y-control-${labelCounter}">
+              <label className="text-[10px] uppercase font-sc tracking-widest text-neutral-400 font-bold" htmlFor="custom-prompt">
                 Divine Command (Prompt)
               </label>
               <textarea
+                id="custom-prompt"
                 value={customPrompt}
                 onChange={(e) => setCustomPrompt(e.target.value)}
                 placeholder="Declare the new destiny parameter. E.g. 'Turn the jade beauty into a rival instead of a love interest.'"
-                className="w-full h-24 bg-neutral-950 border border-neutral-800 focus:border-portal focus:ring-1 focus:ring-portal text-signal text-xs p-3 rounded resize-none" id="a11y-control-${labelCounter}"
+                className="w-full h-32 bg-neutral-950 border border-neutral-800 focus:border-portal focus:ring-1 focus:ring-portal text-signal text-sm p-4 rounded resize-none"
               />
             </div>
           </div>
 
           <div className="p-5 border-t border-neutral-900 bg-neutral-950 flex justify-between items-center">
-            <div className="text-[10px] text-neutral-500 flex items-center gap-1.5 max-w-[200px]">
+            <div className="text-[10px] text-neutral-500 flex items-center gap-1.5 max-w-[250px]">
               <ShieldAlert size={12} className="text-portal shrink-0" />
               <span>This creates a new linked copy in your library, preserving the original timeline.</span>
             </div>

@@ -4,7 +4,10 @@ import { ArrowLeft, Shield, Flame, Activity, Sparkles, Heart, Award, RotateCcw, 
 import { useAppStore } from '../store/useAppStore';
 
 export const ChallengeScreen: React.FC = () => {
-  const { activeChallenge, activeChallengeRun, progressChallenge, resetChallenge } = useAppStore();
+  const activeChallenge = useAppStore(state => state.activeChallenge);
+    const activeChallengeRun = useAppStore(state => state.activeChallengeRun);
+    const progressChallenge = useAppStore(state => state.progressChallenge);
+    const resetChallenge = useAppStore(state => state.resetChallenge);
 
   if (!activeChallenge || !activeChallengeRun) {
     return (

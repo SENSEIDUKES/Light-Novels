@@ -11,7 +11,13 @@ import { getApiHeaders } from './storyEngineHelpers';
  * or branch out from a specific chapter to rewrite history.
  */
 export const useArcSteering = () => {
-  const store = useAppStore();
+  const store_setActiveAgentId = useAppStore(state => state.setActiveAgentId);
+    const store_routingConfig = useAppStore(state => state.routingConfig);
+    const store_saveStories = useAppStore(state => state.saveStories);
+    const store_setSelectedChapterNum = useAppStore(state => state.setSelectedChapterNum);
+    const store_setAppError = useAppStore(state => state.setAppError);
+    const store_setIsGenerating = useAppStore(state => state.setIsGenerating);
+    const store_setGenerationPhase = useAppStore(state => state.setGenerationPhase);
 
   /**
    * Appends a new arc to the active story driven by a specific directional prompt.
@@ -40,7 +46,7 @@ export const useArcSteering = () => {
     const nextChapterNumber = totalPreviousChapters + 1;
     
     try {
-      store.setActiveAgentId('scout');
+      store_setActiveAgentId('scout');
       const apiHeaders = await getApiHeaders();
 
       const pastSummaries = await retrieveRelevantContext(
@@ -51,7 +57,7 @@ export const useArcSteering = () => {
         10 
       );
 
-      store.setActiveAgentId('versa');
+      store_setActiveAgentId('versa');
       const response = await fetch('/api/steer-arc', {
         method: 'POST',
         headers: apiHeaders,
@@ -64,7 +70,7 @@ export const useArcSteering = () => {
           currentArcCount: totalPreviousChapters,
           steerDirection: direction,
           userCustomDirections: customPrompt,
-          routingConfig: store.routingConfig.storyMaker
+          routingConfig: store_routingConfig.storyMaker
         })
       });
 
@@ -121,15 +127,15 @@ export const useArcSteering = () => {
         };
       });
 
-      await store.saveStories(updatedStories);
-      store.setSelectedChapterNum(nextChapters[0].number);
+      await store_saveStories(updatedStories);
+      store_setSelectedChapterNum(nextChapters[0].number);
     } catch (err: any) {
       console.error(err);
-      store.setAppError(err.message || "Failed to steer next story arc successfully.");
+      store_setAppError(err.message || "Failed to steer next story arc successfully.");
     } finally {
-      store.setIsGenerating(false);
-      store.setGenerationPhase(null);
-      store.setActiveAgentId(null);
+      store_setIsGenerating(false);
+      store_setGenerationPhase(null);
+      store_setActiveAgentId(null);
     }
   };
 
@@ -204,7 +210,7 @@ export const useArcSteering = () => {
     const nextChapterNumber = totalPreviousChapters + 1;
     
     try {
-      store.setActiveAgentId('scout');
+      store_setActiveAgentId('scout');
       const apiHeaders = await getApiHeaders();
 
       const pastSummaries = await retrieveRelevantContext(
@@ -215,7 +221,7 @@ export const useArcSteering = () => {
         10 
       );
 
-      store.setActiveAgentId('versa');
+      store_setActiveAgentId('versa');
       const response = await fetch('/api/steer-arc', {
         method: 'POST',
         headers: apiHeaders,
@@ -228,7 +234,7 @@ export const useArcSteering = () => {
           currentArcCount: clonedArcs.length,
           steerDirection: direction,
           userCustomDirections: customPrompt,
-          routingConfig: store.routingConfig.storyMaker
+          routingConfig: store_routingConfig.storyMaker
         })
       });
 
@@ -285,16 +291,16 @@ export const useArcSteering = () => {
         };
       });
 
-      await store.saveStories(updatedStories);
-      store.setSelectedChapterNum(nextChapters[0].number);
+      await store_saveStories(updatedStories);
+      store_setSelectedChapterNum(nextChapters[0].number);
       awardQi('branch_created');
     } catch (err: any) {
       console.error(err);
-      store.setAppError(err.message || "Failed to alter fate successfully.");
+      store_setAppError(err.message || "Failed to alter fate successfully.");
     } finally {
-      store.setIsGenerating(false);
-      store.setGenerationPhase(null);
-      store.setActiveAgentId(null);
+      store_setIsGenerating(false);
+      store_setGenerationPhase(null);
+      store_setActiveAgentId(null);
     }
   };
 

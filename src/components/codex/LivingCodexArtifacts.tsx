@@ -47,7 +47,7 @@ export function LivingCodexArtifacts({
     handleAwakenCardImage
   } = useCodex();
 
-  const { userProfile } = useAppStore();
+  const userProfile = useAppStore(state => state.userProfile);
   const isHubStory = activeStory?.id ? (
     activeStory.id.startsWith('demo-matrix-') || 
     activeStory.id.startsWith('challenge-') || 

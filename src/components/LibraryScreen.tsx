@@ -46,7 +46,12 @@ const PUBLISHED_WORLDS: any[] = INITIAL_DEMO_STORIES.map(story => {
 });
 
 export const LibraryScreen: React.FC = () => {
-  const { currentScreen, setCurrentScreen, stories, setActiveStoryId, setStoryToDelete, userProfile } = useAppStore();
+  const currentScreen = useAppStore(state => state.currentScreen);
+    const setCurrentScreen = useAppStore(state => state.setCurrentScreen);
+    const stories = useAppStore(state => state.stories);
+    const setActiveStoryId = useAppStore(state => state.setActiveStoryId);
+    const setStoryToDelete = useAppStore(state => state.setStoryToDelete);
+    const userProfile = useAppStore(state => state.userProfile);
   const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [videoPlaying, setVideoPlaying] = useState(false);
