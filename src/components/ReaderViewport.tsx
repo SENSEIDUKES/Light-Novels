@@ -5,10 +5,12 @@ import { Chapter, StoryWorld, Bookmark } from '../types';
 import { extractSFXCues } from '../hooks/useReaderPlayback';
 import { SystemBlock } from './SystemBlock';
 import { SYSTEM_COLORS_LEGEND } from '../lib/systemColors';
-import { FateSurvivalExplanation } from './FateSurvivalExplanation';
 import { CodexHovercard } from './CodexHovercard';
 import { WorldEntityCard } from './WorldEntityCard';
 import { useAppStore } from '../store/useAppStore';
+import { ReaderFateAlerts } from './ReaderFateAlerts';
+import { AetherialSystemLegend } from './AetherialSystemLegend';
+import { ManifestHeroImage } from './ManifestHeroImage';
 
 const FALLBACK_BACKDROPS = [
   "https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/images/LIBRARY%20BACKDROPS/LIBRARY_THUNDER.PNG",
@@ -231,169 +233,20 @@ export function ReaderViewport({
               transition={{ duration: 0.5, ease: "easeOut" }}
               className="max-w-2xl mx-auto"
             >
-              {activeStory.genre === 'Fate Survival' && (
-                <div className="mb-8 p-5 rounded-lg bg-neutral-950 border border-red-950/40 relative overflow-hidden shadow-[0_0_25px_rgba(139,0,0,0.15)] animate-fadeIn">
-                  <div className="absolute top-0 right-0 h-16 w-16 bg-gradient-to-br from-red-600/10 to-transparent pointer-events-none rounded-bl-full" />
-                  <div className="flex items-center justify-between border-b border-red-950/20 pb-2 mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-red-500 animate-pulse text-xs">💀</span>
-                      <h4 className="font-sc font-bold text-xs sm:text-sm text-red-500 tracking-[0.2em] uppercase">
-                        Fate Survival Mode Active
-                      </h4>
-                    </div>
-                    <div className="px-2 py-0.5 rounded bg-red-950/30 border border-red-900/30 text-red-400 font-mono text-[9px] tracking-wider uppercase">
-                      DOOM DEADLINE: CHAPTER 7
-                    </div>
-                  </div>
-                  
-                  <p className="text-neutral-300 font-serif text-sm italic mb-4 leading-relaxed">
-                    "The timeline is moving toward a fated outcome. You must use limited choices, clues, and intervention to alter destiny before it becomes irreversible."
-                  </p>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-sans mb-4">
-                    <div className="space-y-1.5 p-3 rounded bg-black/40 border border-neutral-900">
-                      <div className="text-[10px] uppercase font-mono tracking-wider text-neutral-500">
-                        Target Profile
-                      </div>
-                      <div className="font-display font-medium text-signal">
-                        MC: <span className="text-neutral-200 font-bold">{activeStory.mcName}</span>
-                      </div>
-                      <div className="text-neutral-400">
-                        Current Stage: <span className="text-gold-accent font-mono">{activeStory.memory?.currentPowerStage || currentPowerStage}</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5 p-3 rounded bg-black/40 border border-neutral-900">
-                      <div className="text-[10px] uppercase font-mono tracking-wider text-neutral-500">
-                        Chronos Calibration
-                      </div>
-                      <div className="font-display font-medium text-signal">
-                        Remaining Steps: <span className="text-red-500 font-bold">{Math.max(0, 7 - selectedChapterNum)} Chapters</span>
-                      </div>
-                      <div className="text-neutral-400">
-                        Status: <span className="text-red-400 font-bold uppercase tracking-wider">{selectedChapterNum >= 7 ? 'Critical Apex' : 'Fate Approaching'}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="p-3 rounded-md bg-void border border-neutral-900 text-[11px] leading-relaxed text-neutral-400 font-sans">
-                      <strong className="text-neutral-300">How to intervene:</strong> Read carefully for death or crisis flags. The danger is not always physical—you could be surviving a Death, Love, Kingdom, Villain, Betrayal, Poverty, War, Regression, Reputation, or World Fate. Use the <span className="text-portal font-semibold">Alter Fate (Branch)</span> panel below to force a timeline shift!
-                    </div>
-
-                    <div className="flex justify-start">
-                      <button
-                        type="button"
-                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowFateCodex(!showFateCodex)}
-                        className="px-3 py-1.5 rounded bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-signal text-xs font-sc uppercase tracking-wider transition-all duration-300 flex items-center gap-1.5"
-                      >
-                        <span>{showFateCodex ? "✦ Hide Fate Codex" : "🔍 Inspect Fate Codex"}</span>
-                      </button>
-                    </div>
-
-                    <AnimatePresence>
-                      {showFateCodex && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.3 }}
-                          className="overflow-hidden pt-2"
-                        >
-                          <FateSurvivalExplanation compact={true} />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </div>
-              )}
-
-              {activeStory.hardcoreFateMode && (
-                <div className="mb-8 p-5 rounded-lg bg-neutral-950 border border-red-950/40 relative overflow-hidden shadow-[0_0_20px_rgba(139,0,0,0.1)] animate-fadeIn">
-                  <div className="absolute top-0 right-0 h-16 w-16 bg-gradient-to-br from-red-600/10 to-transparent pointer-events-none rounded-bl-full" />
-                  <div className="flex items-center justify-between border-b border-red-950/20 pb-2 mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-red-500 animate-pulse text-xs">☠️</span>
-                      <h4 className="font-sc font-bold text-xs sm:text-sm text-red-500 tracking-[0.2em] uppercase">
-                        Hardcore Fate Mode Engaged
-                      </h4>
-                    </div>
-                    <div className="px-2 py-0.5 rounded bg-red-950/30 border border-red-900/30 text-red-400 font-mono text-[9px] tracking-wider uppercase animate-pulse">
-                      HIGH DANGER
-                    </div>
-                  </div>
-                  
-                  <p className="text-neutral-300 font-sans text-xs leading-relaxed">
-                    The system is authorized to introduce irreversible consequences, death flags on allies, sudden betrayals, and forced tradeoffs. There are no safe choices. Protect your timeline!
-                  </p>
-                </div>
-              )}
+              <ReaderFateAlerts 
+                activeStory={activeStory}
+                currentPowerStage={currentPowerStage}
+                selectedChapterNum={selectedChapterNum}
+                showFateCodex={showFateCodex}
+                setShowFateCodex={setShowFateCodex}
+              />
 
               {showLegend && hasSystemBlocks && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="mb-8 p-5 bg-[#080808]/90 border border-portal/30 rounded-lg max-w-2xl mx-auto shadow-[0_0_30px_rgba(4,172,255,0.1)] relative z-10"
-                >
-                  <div className="flex items-center justify-between border-b border-portal/20 pb-2 mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-portal text-sm animate-pulse">✦</span>
-                      <h4 className="font-display font-medium text-xs sm:text-sm text-signal tracking-widest uppercase">
-                        Aetherial System Codes
-                      </h4>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={currentPrefs?.colorPaletteId || 'default'}
-                        onChange={(e) => handleUpdatePreference('colorPaletteId', e.target.value)}
-                        className="text-[9px] uppercase font-mono tracking-wider text-portal transition-colors px-2.5 py-1.5 border border-portal/30 hover:border-portal rounded-sm bg-portal/5 hover:bg-portal/15 cursor-pointer outline-none focus:ring-1 focus:ring-portal appearance-none"
-                      >
-                        <option value="default" className="bg-void text-signal">Custom Mapping: Default</option>
-                        <option value="protanopia" className="bg-void text-signal">Protanopia (Red-Blind)</option>
-                        <option value="deuteranopia" className="bg-void text-signal">Deuteranopia (Green-Blind)</option>
-                        <option value="tritanopia" className="bg-void text-signal">Tritanopia (Blue-Blind)</option>
-                        <option value="high_contrast_dark" className="bg-void text-signal">High Contrast Dark</option>
-                      </select>
-                      <button
-                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-                          localStorage.setItem("seihouse-system-legend-dismissed", "true");
-                          setShowLegend(false);
-                        }}
-                        className="text-[9px] uppercase font-mono tracking-wider text-portal hover:text-signal transition-colors px-2.5 py-1.5 border border-portal/30 hover:border-portal rounded-sm bg-portal/5 hover:bg-portal/15 cursor-pointer shadow-[0_0_10px_rgba(4,172,255,0.1)]"
-                      >
-                        Dismiss
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <p className="text-neutral-400 text-xs font-serif italic mb-4 leading-relaxed">
-                    The Heavenly System speaks through colors. The resonance of each hue carries deep narrative significance. Learn to feel the thread of your fate.
-                  </p>
-                  
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
-                    {SYSTEM_COLORS_LEGEND.map((m) => (
-                      <div
-                        key={m.type}
-                        className={`p-2 border rounded-md ${m.cssVar ? '' : `${m.bgColor} ${m.borderColor}`} flex flex-col justify-between min-h-[60px] transition-all hover:scale-[1.02]`}
-                        style={m.cssVar ? {
-                          backgroundColor: `color-mix(in srgb, var(${m.cssVar}) 15%, transparent)`,
-                          borderColor: `color-mix(in srgb, var(${m.cssVar}) 40%, transparent)`
-                        } : {}}
-                      >
-                        <span 
-                          className={`text-[10px] font-bold uppercase tracking-wider ${m.cssVar ? '' : m.textColor}`}
-                          style={m.cssVar ? { color: `var(${m.cssVar})` } : {}}
-                        >
-                          {m.name}
-                        </span>
-                        <span className="text-[9px] text-neutral-400 font-mono tracking-tight mt-1 leading-normal">
-                          {m.playerMeaning}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
+                <AetherialSystemLegend 
+                  currentPrefs={currentPrefs}
+                  handleUpdatePreference={handleUpdatePreference}
+                  setShowLegend={setShowLegend}
+                />
               )}
 
               <div
@@ -962,50 +815,11 @@ export function ReaderViewport({
               </div>
               
               {isMomentousChapter && (
-                <motion.div 
-                  onViewportEnter={() => triggerHeroGeneration?.()}
-                  viewport={{ once: true, margin: "-100px" }}
-                  className="mt-20 mb-8 w-fit max-w-full mx-auto"
-                >
-                  {selectedChapter.assetManifest?.heroImage ? (
-                    <motion.div 
-                      initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      transition={{ duration: 1, ease: "easeOut" }}
-                      className="bg-void rounded-sm overflow-hidden shadow-[0_0_40px_rgba(4,172,255,0.15)] relative border border-neutral-800/80 group"
-                    >
-                      <div className="absolute top-4 left-4 z-20 px-3 py-1.5 bg-void/80 backdrop-blur-md text-[10px] sm:text-xs font-mono uppercase tracking-widest text-[#04ACFF] border border-[#04ACFF]/20 rounded-sm flex items-center gap-2 shadow-lg">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#04ACFF] animate-pulse" />
-                        Memory of this event
-                      </div>
-                      <div className="absolute inset-0 bg-gradient-to-t from-void via-transparent to-void/30 opacity-90 z-10 pointer-events-none" />
-                      <img 
-                        src={selectedChapter.assetManifest.heroImage} 
-                        alt="Chapter Crux Manifestation" 
-                        className="max-w-full h-auto block mx-auto object-contain max-h-[65vh] mix-blend-screen opacity-90 transition-transform duration-1000 group-hover:scale-105"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute bottom-0 left-0 right-0 p-6 z-20 bg-gradient-to-t from-void flex flex-col justify-end">
-                        <p className="text-signal/80 text-sm sm:text-base italic font-serif leading-relaxed line-clamp-3">
-                          "{selectedChapter.summary}"
-                        </p>
-                      </div>
-                    </motion.div>
-                  ) : generatingIds?.has(`chapter-hero-${selectedChapter.number}`) ? (
-                    <motion.div 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="bg-void/50 rounded-sm overflow-hidden border border-neutral-800/40 w-full max-w-2xl min-h-[40vh] flex flex-col items-center justify-center p-8 text-center"
-                    >
-                      <div className="mb-4">
-                        <Loader2 className="animate-spin text-[#04ACFF] mx-auto" size={32} />
-                      </div>
-                      <div className="text-[10px] sm:text-xs font-mono uppercase tracking-widest text-[#04ACFF]">
-                        Distilling Visual Memory...
-                      </div>
-                    </motion.div>
-                  ) : null}
-                </motion.div>
+                <ManifestHeroImage
+                  selectedChapter={selectedChapter}
+                  generatingIds={generatingIds}
+                  triggerHeroGeneration={triggerHeroGeneration}
+                />
               )}
             </motion.div>
           </AnimatePresence>
