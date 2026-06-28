@@ -9,6 +9,23 @@ import { FateSurvivalExplanation } from './FateSurvivalExplanation';
 import { CodexHovercard } from './CodexHovercard';
 import { WorldEntityCard } from './WorldEntityCard';
 
+const FALLBACK_BACKDROPS = [
+  "https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/images/LIBRARY%20BACKDROPS/LIBRARY_THUNDER.PNG",
+  "https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/images/LIBRARY%20BACKDROPS/LIBRARY_RAIN.PNG",
+  "https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/images/LIBRARY%20BACKDROPS/LIBRARY_MOUNTAINS.PNG",
+  "https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/images/LIBRARY%20BACKDROPS/LIBRARY_FOREST.PNG",
+  "https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/images/LIBRARY%20BACKDROPS/LIBRARY_DAYTIME.PNG"
+];
+
+function getFallbackBackdrop(id: string) {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % FALLBACK_BACKDROPS.length;
+  return FALLBACK_BACKDROPS[index];
+}
+
 interface ReaderViewportProps {
   readerRef: React.RefObject<HTMLDivElement | null>;
   driftInnerRef: React.RefObject<HTMLDivElement | null>;
@@ -451,62 +468,75 @@ export function ReaderViewport({
                               animate={isSenMode ? (isRevealed ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.95 }) : undefined}
                               viewport={{ once: true, margin: "-50px" }}
                               transition={{ duration: 0.5, ease: "easeOut" }}
-                              className="w-full max-w-sm mx-auto my-6 p-4 min-h-[300px] rounded-xl border border-portal/30 bg-void/80 backdrop-blur-md shadow-[0_0_25px_rgba(4,172,255,0.15)] flex flex-col items-center justify-center text-center group/reveal"
+                              className="relative overflow-hidden w-full max-w-sm mx-auto my-6 p-4 min-h-[300px] rounded-xl border border-portal/30 bg-void/80 backdrop-blur-md shadow-[0_0_25px_rgba(4,172,255,0.15)] flex flex-col items-center justify-center text-center group/reveal"
                             >
-                              {revealImageUrl ? (
-                                <div className="relative w-[180px] h-[180px] shrink-0 rounded-lg overflow-hidden border border-neutral-900 bg-neutral-950 mb-3 shadow-inner">
-                                  <img
-                                    src={revealImageUrl}
-                                    alt={revealTerm.entry.name}
-                                    loading="lazy"
-                                    referrerPolicy="no-referrer"
-                                    className="w-full h-full object-cover transition-transform duration-500 group-hover/reveal:scale-105"
+                              {!revealImageUrl && (
+                                <>
+                                  <img 
+                                    src={getFallbackBackdrop(revealTerm.entry.id)} 
+                                    alt="Backdrop" 
+                                    className="absolute inset-0 w-full h-full object-cover opacity-[0.25] pointer-events-none transition-transform duration-1000 group-hover/reveal:scale-105 mix-blend-screen"
                                   />
-                                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-                                </div>
-                              ) : (
-                                revealTerm.type !== 'faction' && (
-                                  <button
-                                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleManifestReveal(revealTerm.entry, revealTerm.type)}
-                                    disabled={generatingRevealId === revealTerm.entry.id}
-                                    className="relative w-[180px] h-[180px] shrink-0 mb-3 overflow-hidden rounded-lg bg-[#010b14] border border-portal/40 hover:border-portal flex flex-col items-center justify-center cursor-pointer transition-all duration-500 group/revealmanifest shadow-[0_0_15px_rgba(4,172,255,0.15)] hover:shadow-[0_0_25px_rgba(4,172,255,0.35)]"
-                                  >
-                                    <div className="absolute inset-x-0 bottom-0 top-0 h-full w-full bg-[radial-gradient(circle_at_center,rgba(4,172,255,0.18)_0%,transparent_70%)] animate-pulse pointer-events-none" />
-                                    <div className="absolute w-20 h-20 rounded-full border border-dashed border-portal/25 animate-[spin_12s_linear_infinite] group-hover/revealmanifest:border-portal/50" />
-                                    <div className="absolute w-[88px] h-[88px] rounded-full border border-dotted border-portal/15 animate-[spin_20s_linear_infinite_reverse]" />
-                                    
-                                    {generatingRevealId === revealTerm.entry.id ? (
-                                      <div className="flex flex-col items-center gap-1.5 z-10">
-                                        <Loader2 size={18} className="text-portal animate-spin" />
-                                        <span className="font-mono text-[9px] text-portal/90 uppercase tracking-widest animate-pulse font-medium">
-                                          Summoning...
-                                        </span>
-                                      </div>
-                                    ) : (
-                                      <div className="flex flex-col items-center gap-1.5 z-10 transition-transform duration-300 group-hover/revealmanifest:scale-105">
-                                        <span className="text-portal text-sm group-hover/revealmanifest:animate-bounce">✦</span>
-                                        <span className="font-sc text-[10px] text-signal tracking-widest font-bold uppercase">
-                                          Manifest
-                                        </span>
-                                        <span className="font-mono text-[8px] text-neutral-500 tracking-wider">
-                                          Awaken Portrait
-                                        </span>
-                                      </div>
-                                    )}
-                                  </button>
-                                )
+                                  <div className="absolute inset-0 bg-gradient-to-t from-void via-void/40 to-transparent pointer-events-none" />
+                                </>
                               )}
-                              <span className="font-mono text-[9px] text-portal uppercase tracking-widest mb-1 font-bold">
-                                Reveal · {revealTerm.type}
-                              </span>
-                              <h4 className="font-display font-medium text-lg text-signal tracking-wide">
-                                {revealTerm.entry.name}
-                              </h4>
-                              {revealTerm.entry.description && (
-                                <p className="font-serif italic text-xs text-neutral-400 mt-1 max-w-[280px] line-clamp-2">
-                                  {revealTerm.entry.description}
-                                </p>
-                              )}
+                              
+                              <div className="relative z-10 flex flex-col items-center w-full">
+                                {revealImageUrl ? (
+                                  <div className="relative w-[180px] h-[180px] shrink-0 rounded-lg overflow-hidden border border-neutral-900 bg-neutral-950 mb-3 shadow-inner">
+                                    <img
+                                      src={revealImageUrl}
+                                      alt={revealTerm.entry.name}
+                                      loading="lazy"
+                                      referrerPolicy="no-referrer"
+                                      className="w-full h-full object-cover transition-transform duration-500 group-hover/reveal:scale-105"
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+                                  </div>
+                                ) : (
+                                  revealTerm.type !== 'faction' && (
+                                    <button
+                                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleManifestReveal(revealTerm.entry, revealTerm.type)}
+                                      disabled={generatingRevealId === revealTerm.entry.id}
+                                      className="relative w-[180px] h-[180px] shrink-0 mb-3 overflow-hidden rounded-lg bg-[#010b14] border border-portal/40 hover:border-portal flex flex-col items-center justify-center cursor-pointer transition-all duration-500 group/revealmanifest shadow-[0_0_15px_rgba(4,172,255,0.15)] hover:shadow-[0_0_25px_rgba(4,172,255,0.35)] backdrop-blur-sm"
+                                    >
+                                      <div className="absolute inset-x-0 bottom-0 top-0 h-full w-full bg-[radial-gradient(circle_at_center,rgba(4,172,255,0.18)_0%,transparent_70%)] animate-pulse pointer-events-none" />
+                                      <div className="absolute w-20 h-20 rounded-full border border-dashed border-portal/25 animate-[spin_12s_linear_infinite] group-hover/revealmanifest:border-portal/50" />
+                                      <div className="absolute w-[88px] h-[88px] rounded-full border border-dotted border-portal/15 animate-[spin_20s_linear_infinite_reverse]" />
+                                      
+                                      {generatingRevealId === revealTerm.entry.id ? (
+                                        <div className="flex flex-col items-center gap-1.5 z-10">
+                                          <Loader2 size={18} className="text-portal animate-spin" />
+                                          <span className="font-mono text-[9px] text-portal/90 uppercase tracking-widest animate-pulse font-medium">
+                                            Summoning...
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <div className="flex flex-col items-center gap-1.5 z-10 transition-transform duration-300 group-hover/revealmanifest:scale-105">
+                                          <span className="text-portal text-sm group-hover/revealmanifest:animate-bounce">✦</span>
+                                          <span className="font-sc text-[10px] text-signal tracking-widest font-bold uppercase">
+                                            Manifest
+                                          </span>
+                                          <span className="font-mono text-[8px] text-neutral-500 tracking-wider">
+                                            Awaken Portrait
+                                          </span>
+                                        </div>
+                                      )}
+                                    </button>
+                                  )
+                                )}
+                                <span className="font-mono text-[9px] text-portal uppercase tracking-widest mb-1 font-bold">
+                                  Reveal · {revealTerm.type}
+                                </span>
+                                <h4 className="font-display font-medium text-lg text-signal tracking-wide drop-shadow-md">
+                                  {revealTerm.entry.name}
+                                </h4>
+                                {revealTerm.entry.description && (
+                                  <p className="font-serif italic text-xs text-neutral-300 mt-1 max-w-[280px] line-clamp-2 drop-shadow">
+                                    {revealTerm.entry.description}
+                                  </p>
+                                )}
+                              </div>
                             </motion.div>
                           );
                         }

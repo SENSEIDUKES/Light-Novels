@@ -39,7 +39,11 @@ export function LivingCodexGlossary({ memory, arcs, mcName, routingConfig }: Liv
 
   const saveCustomGlossaryLocally = (terms: Array<{ term: string; category: string; definition: string; }>) => {
     setCustomGlossary(terms);
-    localStorage.setItem(`custom_glossary_${mcName}`, JSON.stringify(terms));
+    try {
+      localStorage.setItem(`custom_glossary_${mcName}`, JSON.stringify(terms));
+    } catch (e) {
+      console.warn('LocalStorage Quota exceeded for glossary:', e);
+    }
   };
 
   const handleGenerateCustomGlossary = async () => {

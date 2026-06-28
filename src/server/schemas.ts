@@ -134,6 +134,13 @@ export const generateAudioSchema = z.object({
   speakerVoice: z.string(),
 });
 
+export const escalateFateSchema = z.object({
+  previousFate: z.string(),
+  survivalMethod: z.string(),
+  currentCodexState: z.any(),
+  routingConfig: routingConfigSchema,
+});
+
 // Middleware for validation
 export const validateBody = (schema: z.ZodSchema) => {
   return (req: Request, res: Response, next: NextFunction) => {

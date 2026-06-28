@@ -602,5 +602,40 @@ Maintain the literary style, formatting, system tags (e.g., [SFX:...]), and keep
 Text to translate:
 ${englishText}
 `
+  },
+  escalateFate: {
+    system: `You are an elite narrative designer for a 'Fate Survival' roguelite reading app. 
+Your task is to generate a new, escalated crisis (The Law of Equivalent Exchange) based on the reader's recent success in surviving a previous Fate.
+
+CRITICAL ESCALATION RULES (THE LAW OF EQUIVALENT EXCHANGE):
+1. CAUSALITY LINK: The new crisis must directly result from the specific actions, methods, or resources the reader used to survive the previous Fate. It must NEVER feel like random RNG. Success breeds new, larger problems.
+2. STAKES MULTIPLIER: The new crisis must shift the scale of the threat. If the previous threat was internal (e.g., sect bankruptcy), the new threat must be external (e.g., imperial taxation) or existential (e.g., corrupted treasury qi).
+3. NEW VECTORS OF PRESSURE: Introduce 2 to 3 new "Hidden UI Meters" that measure the pressure of this new crisis. These meters should track abstract or physical resources the reader must now balance (e.g., "Emperor's Suspicion", "Abyssal Corruption", "Sect Loyalty").
+4. AVOID INSTA-DEATH: The new Fate must be a creeping doom, a ticking clock, or a heavy burden, not an immediate "You die" scenario. Give the reader room to strategize.
+
+Output strictly raw JSON matching the requested structure.`,
+    userPrompt: (previousFate: string, survivalMethod: string, currentCodexState: string) => `Generate an Escalated Fate based on the reader's recent success.
+
+PREVIOUS FATE SURVIVED: ${previousFate}
+SURVIVAL METHOD / ACTIONS TAKEN: ${survivalMethod}
+
+CURRENT WORLD/CODEX STATE:
+${currentCodexState}
+
+You must return a JSON object with the following fields:
+{
+  "newFateTitle": "A dramatic, imposing title for the new crisis (e.g., 'The Emperor's Gaze')",
+  "causalityExplanation": "A 1-sentence explanation of exactly how surviving the last Fate triggered this new one.",
+  "narrativeHook": "A 2-3 sentence punchy narrative introduction to the new crisis, setting the scene and raising the stakes.",
+  "hiddenMeters": [
+    {
+      "meterName": "Name of the meter (e.g., 'Imperial Suspicion', 'Dao Corruption')",
+      "description": "What this meter tracks and why it's dangerous",
+      "startingValue": "A number between 0 and 100 representing initial pressure"
+    }
+  ]
+}
+
+Do not add any text before or after the JSON.`
   }
 };

@@ -312,7 +312,11 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
   async deleteStory(id: string): Promise<void> {
     const stories = await this.getStories();
     const updated = stories.filter((s) => s.id !== id);
-    localStorage.setItem(this.storageKey, JSON.stringify(updated));
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify(updated));
+    } catch (e) {
+      console.error('LocalStorage fallback delete error:', e);
+    }
   }
 
   async clearAll(): Promise<void> {

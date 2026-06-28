@@ -55,13 +55,18 @@ export const ReaderScreen: React.FC<{
   const pendingFetches = React.useRef<Set<number>>(new Set());
 
   // Reading time tracking state
-  const [sessionReadingTime, setSessionReadingTime] = useState(0); // in seconds
+  const [clockTime, setClockTime] = useState(new Date());
   const [localStatsDelta, setLocalStatsDelta] = useState<{
     total: number;
     arc: Record<number, number>;
   }>({ total: 0, arc: {} });
   const readingTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   const lastActiveTimeRef = React.useRef<number>(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setClockTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Determine current arc index
   const currentArcIndex =
@@ -86,8 +91,6 @@ export const ReaderScreen: React.FC<{
         const now = Date.now();
         const deltaMs = now - lastActiveTimeRef.current;
         lastActiveTimeRef.current = now;
-
-        setSessionReadingTime((prev) => prev + deltaMs / 1000);
 
         setLocalStatsDelta((prev) => {
           const newArc = { ...prev.arc };
@@ -146,14 +149,16 @@ export const ReaderScreen: React.FC<{
   }, [activeStory, localStatsDelta, handleUpdateStoryDirect]);
 
   const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
     const s = Math.floor(seconds % 60);
+    if (h > 0) return `${h}h ${m}m ${s}s`;
     return `${m}m ${s}s`;
   };
 
-  const arcTotalTimeS =
-    ((activeStory?.readingStats?.arcReadingTimeMs?.[currentArcIndex] || 0) +
-      (localStatsDelta.arc[currentArcIndex] || 0)) /
+  const storyTotalTimeS =
+    ((activeStory?.readingStats?.totalReadingTimeMs || 0) +
+      (localStatsDelta.total || 0)) /
     1000;
 
   // Listen to custom DOM event to toggle glossary sidelobe via global hotkey
@@ -287,18 +292,23 @@ export const ReaderScreen: React.FC<{
             <div className="hidden md:flex items-center space-x-2 px-3 py-1 bg-black/40 border border-neutral-800 rounded text-neutral-400 font-mono text-[10px]">
               <div
                 className="flex items-center space-x-1"
-                title="Session Reading Time"
+                title="Current Local Time"
               >
-                <span className="text-jade-accent">Session:</span>
-                <span>{formatTime(sessionReadingTime)}</span>
+                <span className="text-jade-accent">Time:</span>
+                <span>
+                  {clockTime.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
               </div>
               <span className="text-neutral-700">|</span>
               <div
                 className="flex items-center space-x-1"
-                title="Total Arc Time"
+                title="Total Story Reading Time"
               >
-                <span className="text-gold-accent">Arc:</span>
-                <span>{formatTime(arcTotalTimeS)}</span>
+                <span className="text-gold-accent">Story:</span>
+                <span>{formatTime(storyTotalTimeS)}</span>
               </div>
             </div>
             <button

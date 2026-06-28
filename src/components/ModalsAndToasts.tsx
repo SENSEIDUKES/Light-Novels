@@ -26,7 +26,7 @@ const DEFAULT_PRESETS = {
     ollama: ["llama3", "gemma2", "mistral", "phi3"]
   },
   imageGenerator: {
-    gemini: ["google/gemini-3.1-flash-lite-image-preview", "gemini-3.1-flash-lite-image-preview", "google/gemini-3.1-flash-image", "imagen-3.0-generate-002"],
+    gemini: ["gemini-2.5-flash-image", "google/gemini-3.1-flash-lite-image-preview", "gemini-3.1-flash-lite-image-preview", "google/gemini-3.1-flash-image", "imagen-3.0-generate-002"],
     openrouter: ["google/gemini-3.1-flash-lite-image-preview", "google/gemini-3.1-flash-image", "stable-diffusion-xl", "playgroundai/playground-v2.5", "shuttle-ai/shuttle-3-diffusion"],
     ollama: ["local-sd-mortal", "local-sd-celestial"]
   }
@@ -173,6 +173,12 @@ export const ModalsAndToasts: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    fetchDynamicModels('storyMaker', routingConfig.storyMaker.provider as any);
+    fetchDynamicModels('imageGenerator', routingConfig.imageGenerator.provider as any);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleUpdateProvider = (route: 'storyMaker' | 'imageGenerator', provider: 'gemini' | 'openrouter' | 'ollama') => {
     const presets = routingPresets || DEFAULT_PRESETS;
     const availableModels = presets[route][provider] || [];
@@ -181,6 +187,7 @@ export const ModalsAndToasts: React.FC = () => {
       ...routingConfig,
       [route]: { provider, model }
     });
+    fetchDynamicModels(route, provider);
   };
 
   const handleUpdateModel = (route: 'storyMaker' | 'imageGenerator', model: string) => {

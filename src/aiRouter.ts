@@ -50,7 +50,7 @@ export const ROUTER_PRESETS = {
     ollama: ["llama3", "gemma2", "mistral", "phi3"]
   },
   imageGenerator: {
-    gemini: ["google/gemini-3.1-flash-lite-image-preview", "gemini-2.5-flash-image", "google/gemini-3.1-flash-image", "imagen-3.0-generate-002"],
+    gemini: ["gemini-2.5-flash-image", "google/gemini-3.1-flash-lite-image-preview", "google/gemini-3.1-flash-image", "imagen-3.0-generate-002"],
     openrouter: ["google/gemini-3.1-flash-lite-image-preview", "black-forest-labs/flux.2-klein-4b", "google/gemini-3.1-flash-image", "stable-diffusion-xl", "playgroundai/playground-v2.5", "shuttle-ai/shuttle-3-diffusion"],
     ollama: ["local-sd-mortal", "local-sd-celestial"]
   }
@@ -533,12 +533,12 @@ export async function routeImageGeneration(
 ): Promise<{ imageUrls: string[]; note?: string; isFallback?: boolean }> {
   let activeConfig: RouteConfig = (routingConfig as any)?.imageGenerator || routingConfig || {
     provider: "gemini",
-    model: "google/gemini-3.1-flash-lite-image-preview"
+    model: "gemini-2.5-flash-image"
   };
   if (!activeConfig.provider) {
     activeConfig = {
       provider: "gemini",
-      model: "google/gemini-3.1-flash-lite-image-preview"
+      model: "gemini-2.5-flash-image"
     };
   }
 
@@ -573,7 +573,7 @@ export async function routeImageGeneration(
     // -------------------------------------------------------------
     try {
       const ai = getAIClient(customKeys?.geminiApiKey);
-      const gModel = (model || "google/gemini-3.1-flash-lite-image-preview").replace(/^google\//, "");
+      const gModel = (model || "gemini-2.5-flash-image").replace(/^google\//, "");
 
       let imageUrls: string[] = [];
 

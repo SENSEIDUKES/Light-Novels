@@ -298,7 +298,11 @@ export async function unlockCosmicArtifact(
     }
     
     const updatedInventory = [...currentInventory, newArtifact];
-    localStorage.setItem('seihouse-local-cosmic-inventory', JSON.stringify(updatedInventory));
+    try {
+      localStorage.setItem('seihouse-local-cosmic-inventory', JSON.stringify(updatedInventory));
+    } catch (e) {
+      console.warn('LocalStorage Quota exceeded for artifacts:', e);
+    }
     
     // Also update local store userProfile if we are offline/guest
     const localProfile = useAppStore.getState().userProfile;

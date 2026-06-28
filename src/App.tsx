@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth, db } from './lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 
 // Store & Hooks
 import { useAppStore } from './store/useAppStore';
@@ -69,7 +69,9 @@ function App() {
           generatingChapterNum: state.generatingChapterNum,
           timestamp: Date.now()
         };
-        localStorage.setItem('seihouse_active_generation', JSON.stringify(activeGen));
+        try {
+          localStorage.setItem('seihouse_active_generation', JSON.stringify(activeGen));
+        } catch(e) {}
       } else {
         localStorage.removeItem('seihouse_active_generation');
       }
@@ -148,7 +150,15 @@ function App() {
       if (user) {
         unsubProfile = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
           if (docSnap.exists()) {
-            store_setUserProfile(docSnap.data() as UserProfileType);
+            const data = docSnap.data() as UserProfileType;
+            if (user.email && ['amaurylindy@gmail.com', 'seihouseproductions@gmail.com'].includes(user.email.toLowerCase())) {
+              data.premiumTier = 'immortal';
+              data.role = 'owner';
+              if (docSnap.data().premiumTier !== 'immortal' || docSnap.data().role !== 'owner') {
+                updateDoc(doc(db, 'users', user.uid), { premiumTier: 'immortal', role: 'owner' }).catch(console.error);
+              }
+            }
+            store_setUserProfile(data);
           } else {
             store_setUserProfile(null);
           }
@@ -214,14 +224,18 @@ function App() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        localStorage.setItem('seihouse-last-session-end', new Date().toISOString());
+        try {
+          localStorage.setItem('seihouse-last-session-end', new Date().toISOString());
+        } catch (e) {}
       } else if (document.visibilityState === 'visible') {
         checkIdleQi();
       }
     };
     
     const handleBeforeUnload = () => {
-      localStorage.setItem('seihouse-last-session-end', new Date().toISOString());
+      try {
+        localStorage.setItem('seihouse-last-session-end', new Date().toISOString());
+      } catch (e) {}
     };
 
     const checkIdleQi = () => {

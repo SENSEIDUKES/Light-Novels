@@ -96,7 +96,37 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
     } catch (e) {
       storyStorage.rollbackTransaction();
       console.error("Celestial local disk write breached, reverting to standard storage cache:", e);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(markedStories));
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(markedStories));
+      } catch (storageError) {
+        console.warn("Standard storage cache quota exceeded:", storageError);
+        // Attempt a stripped version to save minimal data
+        try {
+          const stripped = markedStories.map(s => {
+            const copy = JSON.parse(JSON.stringify(s));
+            delete copy.imageUrl;
+            delete copy.imageHistory;
+            if (copy.memory) {
+              if (copy.memory.characters) copy.memory.characters.forEach((c: any) => { delete c.imageUrl; delete c.imageHistory; });
+              if (copy.memory.locations) copy.memory.locations.forEach((l: any) => { delete l.imageUrl; delete l.imageHistory; });
+              if (copy.memory.artifacts) copy.memory.artifacts.forEach((a: any) => { delete a.imageUrl; delete a.imageHistory; });
+            }
+            if (copy.arcs) {
+              copy.arcs.forEach((arc: any) => {
+                if (arc.chapters) {
+                  arc.chapters.forEach((ch: any) => {
+                    if (ch.assetManifest) delete ch.assetManifest.heroImage;
+                  });
+                }
+              });
+            }
+            return copy;
+          });
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
+        } catch (stripError) {
+           console.error("Even stripped stories exceeded quota.", stripError);
+        }
+      }
       set({ lastSavedTime: new Date() });
     }
   },

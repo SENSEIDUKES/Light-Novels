@@ -8,7 +8,7 @@ It empowers readers to dynamically manifest new celestial worlds, forge illustra
 
 ## 🌌 Brand Philosophy, Color Palette & Identity
 
-**MISSION**: *"SEIHouse exists to make a better time capsule and translator of artistic expression. A meaning-first creator infrastructure company for music and literature."*
+**MISSION**: *"SEIHouse exists to make a better time capsule and translator of artistic expression. A meaning-first creator infrastructure company for music."*
 
 *   🖤 **Foundation / Void & Depth** (`#000000`): The absolute canvas. Represents the infinite ink background from which narrative possibilities, ancient scripts, and cosmos are born.
 *   ⬜ **Signal / Clarity** (`#FAFAFA`): Pristine transmission. Standardizes long-form comfort on parchment-feel content cards with ultimate legibility and high contrast.
@@ -17,9 +17,9 @@ It empowers readers to dynamically manifest new celestial worlds, forge illustra
 
 ### 🎭 Aesthetic Typography
 To balance narrative voice with modern user interface ergonomics, SEIHOUSE utilizes a strict three-tier font system:
-1.  **Emotional Headers & Grand Arc Titles**: *Alegreya* & *Alegreya SC* (Serif / Small Caps) — invoking an ancient, weight-bearing, divine-ritual scribe style with deep tracking.
-2.  **UI/System Overlays & Holorails**: *Rubik* & *Rubik Oblique* (Sans-Serif) — optimizing razor-sharp readability for touch targets, numeric power levels, and settings panels.
-3.  **Reading Viewport & Scripture Core**: *Noto Serif* — tailored for continuous high-contrast light-on-dark immersion with custom text line-heights, character indents, and proportional margins.
+1.  **Emotional Headers & Grand Arc Titles**: *Alegreya* & *Alegreya SC* (Weight 500-700) — invoking an ancient, weight-bearing, divine-ritual scribe style with deep tracking.
+2.  **UI/System Overlays & Holorails**: *Rubik* & *Rubik Oblique* (Weight 300-500) — optimizing razor-sharp readability for touch targets, numeric power levels, and settings panels.
+3.  **Reading Viewport & Scripture Core**: *Noto Serif* (Weight 200-400) — tailored for continuous high-contrast light-on-dark immersion with custom text line-heights, character indents, and proportional margins.
 
 ---
 
@@ -36,6 +36,10 @@ SEIHOUSE operates on a fully integrated state loops structure. Rather than gener
 - **Destiny Steering & Model Provider Router; Lets users pick the next story arc direction or swap AI models** | *Example: After 10 chapters, electing to send the main character on a dark revenge path instead of a tournament arc.* | **Dev: Halts the stream at boundaries to inject predictive prompts. Exposes `routingConfig` for seamless API switching across Gemini, OpenRouter, or Ollama.**
 
 - **Multi-System Illustrated Cover & Entity Forgery; Generates character art that adheres to universe styles** | *Example: Forging a visual portrait of a newly introduced beast or updating the main character's look after a timeline skip.* | **Dev: Wraps user prompts with a stable background style injected into the image generation tool to ensure consistent visual aesthetics.**
+
+- **Fate Survival Challenges & Dao Pillar Idle Cultivation; Gamified engagement and offline progression** | *Example: Testing your cultivation knowledge in a 'Fate Survival' text minigame or returning after 24 hours to collect condensed Dao XP.* | **Dev: Implements a standalone `FateSurvivalChallenge` routing module with choice-trees, alongside an idle `lastSessionEnd` offline timer tracking progression.**
+
+- **Cosmic Relics & Destiny Scars; Persistent account-wide status effects and visual artifacts** | *Example: Earning a 'Mythic' artifact after surviving a deadly arc, permanently boosting your profile's Qi multiplier.* | **Dev: Integrates `CosmicArtifact` and `ActiveStatusEffect` schemas attached to the `UserProfile`, mapping milestone achievements to cross-story buffs and aesthetics.**
 
 ---
 

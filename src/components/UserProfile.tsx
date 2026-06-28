@@ -287,7 +287,9 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
         avatarUrl: finalUrl,
         updatedAt: new Date().toISOString()
       };
-      localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedLocalProfile));
+      try {
+        localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedLocalProfile));
+      } catch(e) {}
       if (profile) {
         setProfile({
           ...profile,
@@ -601,7 +603,9 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
         updatedAt: new Date().toISOString()
       };
       
-      localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedLocalProfile));
+      try {
+        localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedLocalProfile));
+      } catch(e) {}
       setProfile(updatedLocalProfile);
       setFormData(updatedLocalProfile);
       useAppStore.setState({ userProfile: updatedLocalProfile });
@@ -650,7 +654,9 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
           console.error("Failed to repair pillar in db:", e);
         }
       } else {
-        localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedProfile));
+        try {
+          localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedProfile));
+        } catch(e) {}
       }
       setError('');
       window.dispatchEvent(new CustomEvent('seihouse-toast', {
@@ -737,7 +743,9 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
         console.error("Failed to check in to pillar in db:", e);
       }
     } else {
-      localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedProfile));
+      try {
+        localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedProfile));
+      } catch(e) {}
     }
     
     setError('');
@@ -762,7 +770,9 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
         defaultTranslationLanguage: defaultTransLang,
         updatedAt: new Date().toISOString()
       };
-      localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedLocalProfile));
+      try {
+        localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedLocalProfile));
+      } catch(e) {}
       setProfile(updatedLocalProfile);
       setFormData(updatedLocalProfile);
       useAppStore.setState({ userProfile: updatedLocalProfile });
