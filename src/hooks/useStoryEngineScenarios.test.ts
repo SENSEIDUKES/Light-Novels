@@ -106,14 +106,12 @@ describe('useStoryEngine Scenarios', () => {
       expect(newStory.title).toContain('[Fate Fork]');
       expect(newStory.forkChapterNumber).toBe(2);
 
-      // It should have the original arc 1, but truncated down to 2 chapters
-      expect(newStory.arcs[0].chapters.length).toBe(2);
       expect(newStory.arcs[0].chapters[1].number).toBe(2);
       
-      // It should have appended the newly generated arc from the steering API
-      expect(newStory.arcs.length).toBe(2);
-      expect(newStory.arcs[1].title).toBe('Arc 2 Forked');
-      expect(newStory.arcs[1].chapters[0].title).toBe('Fork C3');
+      // It should have appended the newly generated arc chapters from the steering API to the existing arc
+      expect(newStory.arcs.length).toBe(1); // Appends to existing arc
+      expect(newStory.arcs[0].chapters.length).toBe(3);
+      expect(newStory.arcs[0].chapters[2].title).toBe('Fork C3');
       
       // We should be focused on the new story
       expect(state.activeStoryId).toBe(newStory.id);
@@ -145,10 +143,9 @@ describe('useStoryEngine Scenarios', () => {
       expect(state.stories.length).toBe(1);
       const story = state.stories[0];
       
-      expect(story.arcs.length).toBe(2);
-      expect(story.arcs[0].chapters.length).toBe(3); // untouched original
-      expect(story.arcs[1].title).toBe('Arc 2 Direct');
-      expect(story.arcs[1].chapters[0].title).toBe('Direct C4');
+      expect(story.arcs.length).toBe(1); // Appends to existing arc
+      expect(story.arcs[0].chapters.length).toBe(4); // original 3 + 1 new
+      expect(story.arcs[0].chapters[3].title).toBe('Direct C4');
     });
   });
 
@@ -193,6 +190,9 @@ describe('useStoryEngine Scenarios', () => {
         }
         if (url.includes('extract-chapter-metadata')) {
           return Promise.resolve({ ok: true, json: () => Promise.resolve({ summary: 'E2E Summary', memoryUpdates: {} }) });
+        }
+        if (url.includes('check-consistency')) {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({ hasFaults: false, warnings: [] }) });
         }
         return Promise.resolve({ ok: true });
       });

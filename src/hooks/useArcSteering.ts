@@ -88,12 +88,6 @@ export const useArcSteering = () => {
         status: 'unread'
       }));
 
-      const newArc: StoryArc = {
-        title: data.title || `Volume ${activeStory.arcs.length + 1}`,
-        chapters: nextChapters,
-        isCompleted: false
-      };
-
       const freshStories = await storyStorage.getStories();
       const updatedStories = freshStories.map(s => {
         if (s.id !== activeStory.id) return s;
@@ -119,9 +113,25 @@ export const useArcSteering = () => {
           nextStoriesMemory.unresolvedPlotThreads = [...(nextStoriesMemory.unresolvedPlotThreads || []), ...newThreads];
         }
 
+        let updatedArcs = [...s.arcs];
+        const lastArc = updatedArcs[updatedArcs.length - 1];
+
+        if (lastArc && lastArc.chapters.length < 100) {
+          updatedArcs[updatedArcs.length - 1] = {
+            ...lastArc,
+            chapters: [...lastArc.chapters, ...nextChapters],
+          };
+        } else {
+          const newArcTitle = data.title || `Volume ${s.arcs.length + 1}`;
+          updatedArcs = [
+            ...updatedArcs,
+            { title: newArcTitle, chapters: nextChapters, isCompleted: false },
+          ];
+        }
+
         return {
           ...s,
-          arcs: [...s.arcs, newArc],
+          arcs: updatedArcs,
           memory: nextStoriesMemory,
           updatedAt: new Date().toISOString()
         };
@@ -231,7 +241,7 @@ export const useArcSteering = () => {
           customPremise: newStory.customPremise,
           memory: newStory.memory,
           pastSummaries,
-          currentArcCount: clonedArcs.length,
+          currentArcCount: totalPreviousChapters,
           steerDirection: direction,
           userCustomDirections: customPrompt,
           routingConfig: store_routingConfig.storyMaker
@@ -251,12 +261,6 @@ export const useArcSteering = () => {
         premise: ch.premise,
         status: 'unread'
       }));
-
-      const newArc: StoryArc = {
-        title: data.title || `Vivergence Path`,
-        chapters: nextChapters,
-        isCompleted: false
-      };
 
       const freshStories = await storyStorage.getStories();
       const updatedStories = freshStories.map((s: StoryWorld) => {
@@ -283,9 +287,25 @@ export const useArcSteering = () => {
           nextStoriesMemory.unresolvedPlotThreads = [...(nextStoriesMemory.unresolvedPlotThreads || []), ...newThreads];
         }
 
+        let updatedArcs = [...s.arcs];
+        const lastArc = updatedArcs[updatedArcs.length - 1];
+
+        if (lastArc && lastArc.chapters.length < 100) {
+          updatedArcs[updatedArcs.length - 1] = {
+            ...lastArc,
+            chapters: [...lastArc.chapters, ...nextChapters],
+          };
+        } else {
+          const newArcTitle = data.title || `Vivergence Path`;
+          updatedArcs = [
+            ...updatedArcs,
+            { title: newArcTitle, chapters: nextChapters, isCompleted: false },
+          ];
+        }
+
         return {
           ...s,
-          arcs: [...s.arcs, newArc],
+          arcs: updatedArcs,
           memory: nextStoriesMemory,
           updatedAt: new Date().toISOString()
         };

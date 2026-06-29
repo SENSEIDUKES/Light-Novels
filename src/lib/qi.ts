@@ -2,6 +2,29 @@ import { doc, setDoc, collection, addDoc, query, where, getDocs, getDoc } from '
 import { db, auth } from './firebase';
 import { checkAndAwardRankArtifacts } from './artifacts';
 import type { ActiveStatusEffect } from '../types';
+import { useAppStore } from '../store/useAppStore';
+
+let pendingProfileUpdates: any = null;
+let profileSyncTimeout: any = null;
+
+function queueProfileSync(updates: any, uid: string) {
+  if (!pendingProfileUpdates) {
+    pendingProfileUpdates = { ...updates };
+  } else {
+    pendingProfileUpdates = { ...pendingProfileUpdates, ...updates };
+  }
+  
+  if (profileSyncTimeout) clearTimeout(profileSyncTimeout);
+  profileSyncTimeout = setTimeout(async () => {
+    const toSync = pendingProfileUpdates;
+    pendingProfileUpdates = null;
+    try {
+      await setDoc(doc(db, 'users', uid), toSync, { merge: true });
+    } catch (err) {
+      console.error('Failed to sync XP to cloud', err);
+    }
+  }, 10000); // 10 second debounce for batching writes
+}
 
 export const DAO_RANKS = [
   { threshold: 0, name: 'Mortal Reader' },
@@ -105,34 +128,18 @@ export async function awardQi(event: QiEvent, sourceId?: string, sourceType?: st
 
     const limit = DAILY_CAPS[event];
     if (limit) {
-       // Anti-spam check: query dao_xp_events for today
-       const q = query(
-         collection(db, 'dao_xp_events'), 
-         where('user_id', '==', user.uid),
-         where('event_type', '==', event),
-         where('created_at', '>=', startOfDayStr)
-       );
-       const snap = await getDocs(q);
-       if (snap.size >= limit) {
+       const key = `dao_events_${event}_${startOfDayStr}`;
+       const currentCount = parseInt(localStorage.getItem(key) || '0', 10);
+       if (currentCount >= limit) {
          console.log(`[AntiSpam] Daily cap reached for ${event}. Qi not awarded.`);
          return; // limit reached
        }
+       localStorage.setItem(key, (currentCount + 1).toString());
     }
 
-    const eventDoc = {
-      user_id: user.uid,
-      event_type: event,
-      xp_amount: amount,
-      source_id: sourceId || null,
-      source_type: sourceType || null,
-      created_at: new Date().toISOString()
-    };
-    await addDoc(collection(db, 'dao_xp_events'), eventDoc);
-
-    // Also get the new user doc to update dao_rank
-    const userRef = doc(db, 'users', user.uid);
-    const uDoc = await getDoc(userRef);
-    const data = uDoc.data();
+    // Instead of directly querying the cloud, rely on the locally loaded profile
+    const data = useAppStore.getState().userProfile;
+    if (!data) return; // If profile isn't loaded yet, we can't reliably update it in-memory
     
     // Support migrating from `qi` to `dao_xp`
     let currentXp = data?.dao_xp;
@@ -211,22 +218,6 @@ export async function awardQi(event: QiEvent, sourceId?: string, sourceType?: st
       }
     }
 
-    if (bonusQi > 0 && streakEventName) {
-      try {
-        const streakEventDoc = {
-          user_id: user.uid,
-          event_type: streakEventName,
-          xp_amount: bonusQi,
-          source_id: `streak_${newStreak}`,
-          source_type: 'streak_bonus',
-          created_at: new Date().toISOString()
-        };
-        await addDoc(collection(db, 'dao_xp_events'), streakEventDoc);
-      } catch (e) {
-        console.error('Failed to log streak reward event:', e);
-      }
-    }
-
     const calculatedAmount = Math.round(amount * qiMultiplier);
     const calculatedBonus = Math.round(bonusQi * qiMultiplier);
 
@@ -291,19 +282,12 @@ export async function awardQi(event: QiEvent, sourceId?: string, sourceType?: st
       activeStatusEffects: updatedEffects,
       updatedAt: new Date().toISOString()
     };
-
-    if (!data) {
-      userUpdates.uid = user.uid;
-      userUpdates.username = user.email?.split('@')[0] || `user_${user.uid.substring(0, 5)}`;
-      userUpdates.displayName = user.displayName || '';
-      userUpdates.avatarUrl = user.photoURL || '';
-      userUpdates.joinedDate = new Date().toISOString();
-      userUpdates.savedStoryCount = 0;
-      userUpdates.activeStories = [];
-      userUpdates.inactiveStories = [];
-    }
-
-    await setDoc(userRef, userUpdates, { merge: true });
+    
+    // Update local immediately for instantaneous UI updates
+    useAppStore.getState().setUserProfile({ ...data, ...userUpdates });
+    
+    // Queue background sync to firestore
+    queueProfileSync(userUpdates, user.uid);
 
   } catch (error) {
     console.error('Failed to award Qi:', error);
@@ -504,19 +488,8 @@ export async function awardDirectQi(amount: number, reason: string) {
   if (!amount || amount <= 0) return;
 
   try {
-    const eventDoc = {
-      user_id: user.uid,
-      event_type: 'challenge_reward',
-      xp_amount: amount,
-      source_id: reason,
-      source_type: 'fate_challenge',
-      created_at: new Date().toISOString()
-    };
-    await addDoc(collection(db, 'dao_xp_events'), eventDoc);
-
-    const userRef = doc(db, 'users', user.uid);
-    const uDoc = await getDoc(userRef);
-    const data = uDoc.data();
+    const data = useAppStore.getState().userProfile;
+    if (!data) return;
     
     let currentXp = data?.dao_xp;
     if (currentXp === undefined && data?.qi !== undefined) {
@@ -594,7 +567,7 @@ export async function awardDirectQi(amount: number, reason: string) {
       });
     }
 
-    await setDoc(userRef, {
+    const userUpdates = {
       dao_xp: newXp,
       qi: newXp,
       heavenly_qi: newHeavenlyQi,
@@ -603,7 +576,10 @@ export async function awardDirectQi(amount: number, reason: string) {
       dao_rank: newRank,
       activeStatusEffects: updatedEffects,
       updatedAt: new Date().toISOString()
-    }, { merge: true });
+    };
+    
+    useAppStore.getState().setUserProfile({ ...data, ...userUpdates });
+    queueProfileSync(userUpdates, user.uid);
 
   } catch (error) {
     console.error('Failed to award direct Qi:', error);

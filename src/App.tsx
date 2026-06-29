@@ -202,22 +202,27 @@ function App() {
       const tgtChapter = tgtArc?.chapters.find(c => c.number === store_selectedChapterNum);
       
       if (tgtChapter && !tgtChapter.generatedContent && (!tgtChapter.blocks || tgtChapter.blocks.length === 0) && (tgtChapter.status === 'read' || tgtChapter.status === 'unlocked' || tgtChapter.status === 'generating' || tgtChapter.hasContent)) {
-        storyStorage.getChapterContent(activeStory.id, store_selectedChapterNum).then(content => {
-          if (content) {
-            store_updateChapter(activeStory.id, store_selectedChapterNum, {
-              generatedContent: content.generatedContent,
-              blocks: content.blocks,
-              summary: content.summary,
-              statsChangeMessage: content.statsChangeMessage,
-              cuePayload: content.cuePayload
-            });
-          } else {
-            // Failed to fetch or missing: un-mark hasContent so user can regenerate
-            store_updateChapter(activeStory.id, store_selectedChapterNum, {
-              hasContent: false
-            });
-          }
-        });
+        storyStorage.getChapterContent(activeStory.id, store_selectedChapterNum)
+          .then(content => {
+            if (content) {
+              store_updateChapter(activeStory.id, store_selectedChapterNum, {
+                generatedContent: content.generatedContent,
+                blocks: content.blocks,
+                summary: content.summary,
+                statsChangeMessage: content.statsChangeMessage,
+                cuePayload: content.cuePayload
+              });
+            } else {
+              // Failed to fetch or missing: un-mark hasContent so user can regenerate
+              store_updateChapter(activeStory.id, store_selectedChapterNum, {
+                hasContent: false
+              });
+            }
+          })
+          .catch(error => {
+            console.error("Failed to load chapter content due to error (e.g. quota exceeded):", error);
+            // Do NOT un-mark hasContent on network failure.
+          });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

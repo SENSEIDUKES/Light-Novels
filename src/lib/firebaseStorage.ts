@@ -77,6 +77,14 @@ export class FirebaseStorageAdapter implements StorageAdapter {
     if (!this.isAuth()) throw new Error('Cannot delete from Firebase without authentication');
     
     try {
+      const chaptersRef = collection(db, `${this.collectionName}/${id}/chapters`);
+      const chapsSnap = await getDocs(chaptersRef);
+      const deletes: Promise<void>[] = [];
+      chapsSnap.forEach(chapSnap => {
+        deletes.push(deleteDoc(chapSnap.ref));
+      });
+      await Promise.all(deletes);
+
       const docRef = doc(db, this.collectionName, id);
       await deleteDoc(docRef);
     } catch (error) {
@@ -144,6 +152,39 @@ export class FirebaseStorageAdapter implements StorageAdapter {
       await deleteDoc(doc(db, 'lore_glossary', termId));
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, 'lore_glossary');
+    }
+  }
+
+  async wipeMyCloudData(): Promise<void> {
+    if (!this.isAuth()) throw new Error('Cannot wipe data without authentication');
+    try {
+      const q = query(
+        collection(db, this.collectionName), 
+        where('userId', '==', auth.currentUser!.uid)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      const batchPromises = [];
+      querySnapshot.forEach((docSnap) => {
+        const storyId = docSnap.id;
+        // Since we can't easily query all subcollections without knowing chapter IDs,
+        // and chapter numbers are 1, 2, 3... we can't do a simple delete without cloud functions.
+        // Wait, we CAN query a subcollection!
+        const chaptersRef = collection(db, `${this.collectionName}/${storyId}/chapters`);
+        batchPromises.push(getDocs(chaptersRef).then(chapsSnap => {
+           const deletes = [];
+           chapsSnap.forEach(chapSnap => {
+              deletes.push(deleteDoc(chapSnap.ref));
+           });
+           return Promise.all(deletes);
+        }).then(() => {
+           return deleteDoc(docSnap.ref);
+        }));
+      });
+      
+      await Promise.all(batchPromises);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, this.collectionName);
     }
   }
 

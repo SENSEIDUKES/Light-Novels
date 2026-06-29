@@ -175,11 +175,17 @@ export interface PlotThread {
   originChapter?: number;
 }
 
-export interface Ability {
-  id?: string;
+export interface Ability extends BaseCodexEntry {
+  id: string;
   name: string;
-  description?: string;
-  provenance?: MemoryProvenance;
+  description: string;
+  source?: string;
+  acquiredChapter?: number;
+  acquisitionMethod?: string;
+  cost?: string;
+  limits?: string;
+  masteryLevel?: string;
+  lastUsedChapter?: number;
 }
 
 export interface BaseCodexEntry {
@@ -487,6 +493,8 @@ export interface Chapter {
   };
   audioManifest?: AudioManifest;
   _isNewContent?: boolean;
+  hasContinuityFaults?: boolean;
+  continuityWarnings?: string[];
 }
 
 export interface StoryArc {

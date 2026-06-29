@@ -52,6 +52,7 @@ export const LibraryScreen: React.FC = () => {
     const setActiveStoryId = useAppStore(state => state.setActiveStoryId);
     const setStoryToDelete = useAppStore(state => state.setStoryToDelete);
     const userProfile = useAppStore(state => state.userProfile);
+    const syncStatus = useAppStore(state => state.syncStatus);
   const [currentVideoIdx, setCurrentVideoIdx] = useState(0);
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [videoPlaying, setVideoPlaying] = useState(false);
@@ -238,11 +239,13 @@ export const LibraryScreen: React.FC = () => {
         </button>
         <button 
           onClick={() => setActiveTab('my-library')}
-          className={`pb-3 px-1 text-xs sm:text-sm whitespace-nowrap font-sc font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 ${
+          className={`pb-3 px-1 text-xs sm:text-sm whitespace-nowrap font-sc font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 flex items-center gap-2 ${
             activeTab === 'my-library' ? 'border-gold-accent text-gold-accent' : 'border-transparent text-neutral-500 hover:text-neutral-300'
           }`}
         >
           My Library {stories.length > 0 && `(${stories.length})`}
+          {syncStatus === 'syncing' && <div className="ml-1 w-2 h-2 rounded-full bg-portal animate-pulse" title="Syncing..." />}
+          {syncStatus === 'error' && <div className="ml-1 w-2 h-2 rounded-full bg-red-500" title="Sync Pending (Offline or Quota)" />}
         </button>
         <button 
           onClick={() => setActiveTab('challenges')}

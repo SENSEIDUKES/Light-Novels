@@ -1,7 +1,7 @@
-import React from 'react';
-import { CloudOff, RefreshCw, Cloud, Globe, Sliders } from 'lucide-react';
+import { CloudOff, RefreshCw, Cloud, Globe, Sliders, AlertTriangle } from 'lucide-react';
 import { storyStorage } from '../lib/storage';
 import { UserProfile as UserProfileType } from '../types';
+import { useState } from 'react';
 
 interface UserProfileSettingsPanelProps {
   syncStatus: string;
@@ -24,6 +24,22 @@ export function UserProfileSettingsPanel({
   profile,
   handleLanguageChangeDirect
 }: UserProfileSettingsPanelProps) {
+  const [isWiping, setIsWiping] = useState(false);
+
+  const handleWipeData = async () => {
+    if (window.confirm("WARNING: This will permanently delete ALL of your stories and chapters from Firebase Cloud Storage to free up space. This action cannot be undone. Are you absolutely sure?")) {
+       setIsWiping(true);
+       try {
+         await storyStorage.wipeMyCloudData();
+         alert("Your cloud storage has been wiped clean.");
+       } catch (err: any) {
+         alert("Failed to wipe data: " + err.message);
+       } finally {
+         setIsWiping(false);
+       }
+    }
+  };
+
   return (
     <>
       {/* Celestial Tools Section (Always Visible) */}
@@ -84,7 +100,7 @@ export function UserProfileSettingsPanel({
           </div>
 
           {/* Interactive Language & Translation Settings - Un-gatekept */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 border-b border-neutral-900/50 pb-5">
             <div className="flex items-center justify-between bg-black/40 border border-neutral-850 rounded-xl p-3 sm:p-3.5 gap-2">
               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 <div className="p-2 bg-neutral-900/50 rounded-lg shrink-0"><Globe size={13} className="text-portal animate-pulse" /></div>
@@ -146,6 +162,24 @@ export function UserProfileSettingsPanel({
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500 text-[9px]">▼</div>
               </div>
             </div>
+          </div>
+          
+          {/* Danger Zone */}
+          <div className="flex items-center justify-between bg-red-950/10 border border-red-900/20 rounded-xl p-3 sm:p-3.5 gap-2 mt-1">
+             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className="p-2 bg-red-900/20 rounded-lg shrink-0"><AlertTriangle size={13} className="text-red-500" /></div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-widest text-red-400 font-sc truncate">Wipe Cloud Storage</span>
+                  <span className="text-[8px] text-neutral-500 font-sans truncate">Delete all stories to free quota</span>
+                </div>
+              </div>
+              <button
+                onClick={handleWipeData}
+                disabled={isWiping}
+                className="px-3 py-1.5 bg-red-950 hover:bg-red-900 text-red-200 text-[10px] uppercase tracking-wider font-bold rounded border border-red-900/50 transition-colors disabled:opacity-50"
+              >
+                 {isWiping ? 'Wiping...' : 'Clear All'}
+              </button>
           </div>
         </div>
       </div>

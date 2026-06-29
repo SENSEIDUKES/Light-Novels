@@ -111,25 +111,32 @@ export const ReaderScreen: React.FC<{
     return () => clearInterval(timer);
   }, [activeStory?.id, currentScreen, selectedChapterNum, currentArcIndex]);
 
+  const activeStoryRef = React.useRef(activeStory);
+  useEffect(() => { activeStoryRef.current = activeStory; }, [activeStory]);
+  const localStatsDeltaRef = React.useRef(localStatsDelta);
+  useEffect(() => { localStatsDeltaRef.current = localStatsDelta; }, [localStatsDelta]);
+
   // Flush stats to store periodically
   useEffect(() => {
     const flushInterval = setInterval(() => {
-      if (activeStory && localStatsDelta.total > 0) {
-        const stats = activeStory.readingStats || {
+      const currentStory = activeStoryRef.current;
+      const currentDelta = localStatsDeltaRef.current;
+      if (currentStory && currentDelta.total > 0) {
+        const stats = currentStory.readingStats || {
           totalReadingTimeMs: 0,
           arcReadingTimeMs: {},
         };
         const newTotal =
-          (stats.totalReadingTimeMs || 0) + localStatsDelta.total;
+          (stats.totalReadingTimeMs || 0) + currentDelta.total;
 
         const newArcTimes = { ...(stats.arcReadingTimeMs || {}) };
-        for (const [arcIdx, timeMs] of Object.entries(localStatsDelta.arc)) {
+        for (const [arcIdx, timeMs] of Object.entries(currentDelta.arc)) {
           newArcTimes[Number(arcIdx)] =
             (newArcTimes[Number(arcIdx)] || 0) + timeMs;
         }
 
         handleUpdateStoryDirect({
-          ...activeStory,
+          ...currentStory,
           readingStats: {
             totalReadingTimeMs: newTotal,
             arcReadingTimeMs: newArcTimes,
@@ -139,14 +146,12 @@ export const ReaderScreen: React.FC<{
         // Reset delta
         setLocalStatsDelta({ total: 0, arc: {} });
       }
-    }, 15000);
+    }, 180000);
 
     return () => {
       clearInterval(flushInterval);
-      // We don't flush on unmount here to avoid react state update on unmounted component
-      // 15 seconds is a reasonable loss window if they immediately close.
     };
-  }, [activeStory, localStatsDelta, handleUpdateStoryDirect]);
+  }, [handleUpdateStoryDirect]);
 
   const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);

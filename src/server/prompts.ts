@@ -132,10 +132,11 @@ GENRE-SENSITIVE WRITING DIRECTIVES:
 - Cozy / Slice-of-Life / Mystery / Urban / Romance: If the style is cozy/slice-of-life/mystery/urban/romance, suppress combat and cultivation-tempest conventions unless the scene premise explicitly demands them. Keep the tone grounded, focusing on interpersonal bonds, atmospheric details, or daily progression instead.
 
 CRITICAL ANTI-DRIFT MANDATE (COHERENCE PROTOCOL):
-1. STABILITY OF THE VOID: You must NEVER contradict, neglect, or rewrite any facts established in the current story memory (MC power stage, living/dead characters, world rules, unresolved threads) or previous summaries. The current story memory and past summaries are absolute cosmic law.
+1. STABILITY OF THE VOID: You must NEVER contradict, neglect, or rewrite any facts established in the current story memory (MC power stage, living/dead characters, world rules, unresolved threads, or acquired abilities) or previous summaries. The current story memory and past summaries are absolute cosmic law.
 2. CONTINUITY LOCK: Acknowledge the immediate climax, physical position, or conversation from the LAST paragraph of the previous chapter summary in PAST SUMMARY CONTEXT. There can be zero unexplained timeskips, spatial transitions, or sudden narrative jumps.
 3. CHARACTER ACCORD: Never create a new character that conflicts with or duplicates the name of an existing one. If a character from the 'Living/Met Characters' list appears, treat them as fully known to the MC and the reader. DO NOT re-introduce them or describe them as a stranger. Respect historical character relationships and status.
 4. SEQUENTIAL ASCENSION: If the character advances in their cultivation rank, it must crawl logically from the current stage to the next sequential stage defined in the Power System ranks; skipping ranks is forbidden.
+5. ABILITY LEDGER STRICTNESS: The MC can ONLY use abilities, spells, or techniques that are already listed in the 'abilities' section of the Story Memory (the Ability Ledger), or if they are explicitly learning/acquiring them on-page in this chapter. Do not invent random pre-existing powers that are not in the ledger. Abilities are canon, not flavor.
 
 CONTENT AND AGE SAFETY PROTOCOLS:
 1. AGE APPROPRIATENESS (Ages 8-12): You are highly comfortable starting or continuing the story around this age when the character starts learning their craft, exploring, or training as an apprentice, student, or young cultivator. Generate adventurous, wholesome, or action-based narrative actions for younger protagonists.
@@ -168,11 +169,12 @@ GENRE-SENSITIVE WRITING DIRECTIVES:
 - Cozy / Slice-of-Life / Mystery / Urban / Romance: If the style is cozy/slice-of-life/mystery/urban/romance, suppress combat and cultivation-tempest conventions unless the scene premise explicitly demands them. Keep the tone grounded, focusing on interpersonal bonds, atmospheric details, or daily progression instead.
 
 CRITICAL ANTI-DRIFT MANDATE (COHERENCE PROTOCOL):
-1. STABILITY OF THE VOID: You must NEVER contradict, neglect, or rewrite any facts established in the current story memory (MC power stage, living/dead characters, world rules, unresolved threads) or previous summaries. The current story memory and past summaries are absolute cosmic law.
+1. STABILITY OF THE VOID: You must NEVER contradict, neglect, or rewrite any facts established in the current story memory (MC power stage, living/dead characters, world rules, unresolved threads, or acquired abilities) or previous summaries. The current story memory and past summaries are absolute cosmic law.
 2. CONTINUITY LOCK: Acknowledge the immediate climax, physical position, or conversation from the LAST paragraph of the previous chapter summary in PAST SUMMARY CONTEXT. There can be zero unexplained timeskips, spatial transitions, or sudden narrative jumps.
 3. CHARACTER ACCORD: Never create a new character that conflicts with or duplicates the name of an existing one. If a character from the 'Living/Met Characters' list appears, treat them as fully known to the MC and the reader. DO NOT re-introduce them or describe them as a stranger. Respect historical character relationships and status.
 4. SEQUENTIAL ASCENSION & GUARDRAILS: If the protagonist (MC) advances in their cultivation rank or power level, they MUST proceed logically to the VERY NEXT sequential stage defined in the Power System ranks. You are explicitly FORBIDDEN from skipping power stages without an extensive on-screen justification or tribulation. The power tiers are absolute laws, not flavor text. If you violate this, the chapter will be rejected.
-5. CLEAN MEMORY SECTIONS: The "memoryUpdates" field must contain true logical deltas (introducing actual newly met characters with distinct names, moving unresolved plot threads to resolved only if they are fully completed in the text, and changing statuses on existing characters based on the physical events in this chapter).
+5. ABILITY LEDGER STRICTNESS: The MC can ONLY use abilities, spells, or techniques that are already listed in the 'abilities' section of the Story Memory (the Ability Ledger), or if they are explicitly learning/acquiring them on-page in this chapter. Do not invent random pre-existing powers that are not in the ledger. Abilities are canon, not flavor.
+6. CLEAN MEMORY SECTIONS: The "memoryUpdates" field must contain true logical deltas (introducing actual newly met characters with distinct names, moving unresolved plot threads to resolved only if they are fully completed in the text, and changing statuses on existing characters based on the physical events in this chapter).
 
 CONTENT AND AGE SAFETY PROTOCOLS:
 1. AGE APPROPRIATENESS (Ages 8-12): You are highly comfortable starting or continuing the story around this age when the character starts learning their craft, exploring, or training as an apprentice, student, or young cultivator. Generate adventurous, wholesome, or action-based narrative actions for younger protagonists.
@@ -256,7 +258,24 @@ ${!withCue ? `You must return a JSON object with the following fields:
     "locationUpdates": [],
     "newArtifacts": [],
     "artifactUpdates": [],
-    "newMCAbilities": []
+    "newMCAbilities": [
+      {
+        "name": "Name of newly mastered skill, spell, fist technique, or sword form learned by the MC",
+        "description": "What it does",
+        "source": "Where they got it (e.g. scroll, mentor, bloodline)",
+        "acquisitionMethod": "How they got it (e.g. studied for 10 years, epiphany)",
+        "cost": "What it costs to use (e.g. 50% Qi, lifespan)",
+        "limits": "Restrictions (e.g. 1 per day, requires moon)",
+        "masteryLevel": "e.g. Novice, Initial, Perfected"
+      }
+    ],
+    "mcAbilityUpdates": [
+      {
+        "name": "Exact name of the ability from the ledger",
+        "newMasteryLevel": "Optional. Updated mastery level if they progressed it",
+        "lastUsedChapter": "Number of this chapter if they actively used it."
+      }
+    ]
   }
 }
 
@@ -432,7 +451,22 @@ You must return a JSON object with the following fields:
       }
     ],
     "newMCAbilities": [
-      "Any newly mastered skill, spell, fist technique, or sword form learned by the MC"
+      {
+        "name": "Name of newly mastered skill, spell, fist technique, or sword form learned by the MC",
+        "description": "What it does",
+        "source": "Where they got it (e.g. scroll, mentor, bloodline)",
+        "acquisitionMethod": "How they got it (e.g. studied for 10 years, epiphany)",
+        "cost": "What it costs to use (e.g. 50% Qi, lifespan)",
+        "limits": "Restrictions (e.g. 1 per day, requires moon)",
+        "masteryLevel": "e.g. Novice, Initial, Perfected"
+      }
+    ],
+    "mcAbilityUpdates": [
+      {
+        "name": "Exact name of the ability from the ledger",
+        "newMasteryLevel": "Optional. Updated mastery level if they progressed it",
+        "lastUsedChapter": "Number of this chapter if they actively used it."
+      }
     ]
   }
 }
@@ -463,6 +497,8 @@ Create exactly 4 to 6 potential direction options. Each option must have:
 1. "title": A poetic, high-energy light novel style volume/arc title.
 2. "directionType": Must be exactly one of: 'action' | 'darker' | 'romance' | 'twist' | 'new location' | 'continue'.
 3. "description": A short, intriguing 1-2 sentence overview of what might happen. References existing characters/rules/factions where applicable to maintain deep lore coherence.
+
+IMPORTANT CONTINUITY RULE: These directions are for the IMMEDIATE next arc. You must logically continue from EXACTLY where the last arc ended (based on the past story context summary). Do NOT introduce unexplained time skips or hard cuts. If the characters just finished a battle, the next arc must start with the aftermath or their immediate next move.
 
 ${destinedEnding ? `IMPORTANT DESTINED ENDING RULES:
 The story's ultimate goal is: "${destinedEnding}". Since the story is progressing, provide at least one option that directly advances toward, triggers, or confronts this destined ending, and one option that explicitly swerves, delays, or alters the trajectory of this fate.` : ''}
@@ -495,7 +531,11 @@ ${memoryJson}
 
 Find any continuity breaks or contradictions. Common examples:
 - A character marked 'deceased', 'dead', or 'destroyed' in the codex is actively speaking or performing actions in the present (unless explicitly a flashback/ghost).
-- A character jumping power stages inexplicably or using an ability they shouldn't possess.
+- A character jumping power stages inexplicably.
+- ABILITIES: The MC or another character uses an ability that is not in their Codex record (Ability Ledger).
+- ABILITIES: The MC skips mastery levels too fast (e.g., from Novice directly to Perfected).
+- ABILITIES: Uses an ability with no cost when the codex specifies it should have one.
+- ABILITIES: Suddenly has a new technique with no acquisition scene on-page.
 - World rules being blatantly broken.
 
 Return strictly a JSON object with this shape:
@@ -507,6 +547,24 @@ Return strictly a JSON object with this shape:
 If no contradictions are found, return an empty array for "warnings". Do not add any text before or after the JSON.`
   },
 
+  repairChapter: {
+    system: `You are an elite fantasy web-novel editor and ghostwriter. Your task is to fix a chapter that has continuity errors, contradictions, or power scaling issues, as identified by the Continuity Guard.
+Your output must strictly be NDJSON (Newline Delimited JSON) blocks, just like the original chapter generation format. Start it with ---CHAPTER_BLOCKS--- on a new line.`,
+    userPrompt: (chapterText: string, memoryJson: string, warnings: string[]) => `The following chapter text has been flagged for continuity errors against the story's Codex memory.
+
+CONTINUITY WARNINGS:
+${warnings.map(w => `- ${w}`).join('\n')}
+
+STORY MEMORY (Codex):
+${memoryJson}
+
+ORIGINAL CHAPTER TEXT BLOCKS:
+${chapterText}
+
+Rewrite the necessary blocks to fix ALL the continuity warnings. Maintain the exact same style, formatting, and pacing. Do not introduce new continuity errors.
+Output strictly the corrected NDJSON blocks starting with ---CHAPTER_BLOCKS---.`
+  },
+
   steer: {
     system: `You are a visionary series consultant and lead author for bestselling serialized Chinese web-novels. 
 Your task is to take a completed story volume, process the steering direction chosen by the reader, and outline a brand new high-stakes sequel story arc (exactly 10 chapters, continuing the chapter numbering sequence).
@@ -514,7 +572,12 @@ Your task is to take a completed story volume, process the steering direction ch
 CRITICAL COHERENCE ENFORCEMENT:
 1. CONSTANT COMPATIBILITY: The sequel MUST fully respect all rules, existing living characters, and power structures defined in the CURRENT COMPREHENSIVE STORY MEMORY. Do not erase, forget, or contradict pre-existing lore.
 2. STABILIZED KARMA CHAIN: The sequel must actively address unresolved plot threads inherited from previous volumes. Incorporating them builds a satisfying narrative growth.
-3. ORGANIC INITIATION: The first chapters of the sequel should pick up seamlessly from where the final summarised chapter ended, explaining any transition, voyage, or core shift smoothly.
+3. ORGANIC INITIATION (NO HARD CUTS): The first chapters of the sequel MUST pick up logically from where the final summarized chapter ended. You must explicitly track:
+   - Where the last arc ended and what happened immediately after.
+   - Whether there is a time skip (and if so, justify it).
+   - Where the characters physically moved.
+   - Injuries, status changes, and unresolved consequences.
+   - The opening scene of the next arc must seamlessly anchor to these facts. No sudden "hospital scenes" or unexplained shifts.
 4. SEQUENTIAL POWER SCALING: If the MC's power tier advances in this arc, it MUST advance sequentially according to the Power System Outline. Skipping tiers is strictly forbidden.
 
 CONTENT AND AGE SAFETY PROTOCOLS:
@@ -544,12 +607,13 @@ You must return a JSON object containing the new sequential chapter lists (Chapt
 JSON fields required:
 {
   "title": "A grand, poetic sequel Arc title (e.g. 'Volume 2: Descent into the Nine Netherworlds')",
+  "transitionNotes": "A short, internal logic track explaining how the story connects from the exact end of the last arc to the opening scene of chapter ${startNum}. Explain physical movement, time skips, or immediate aftermath of the last event.",
   "chapters": [
     // Must generate exactly ${count} chapters!
     {
       "number": ${startNum},
       "title": "A dramatic title matching the new direction",
-      "premise": "Exciting premises showing how the MC starts tackling the new location, fight or twist"
+      "premise": "Exciting premise that must logically anchor to the transitionNotes. No unexplained hard cuts."
     }
     // ... up to Chapter ${startNum + count - 1}
   ],

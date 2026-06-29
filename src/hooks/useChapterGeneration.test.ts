@@ -100,6 +100,9 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
       if (url.includes('generate-chapter-stream')) {
         return Promise.resolve({ ok: true, body: { getReader: () => mockReader } });
       }
+      if (url.includes('check-consistency')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ warnings: [] }) });
+      }
       if (url.includes('extract-chapter-metadata')) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ summary: 'Sum', memoryUpdates: {} }) });
       }
@@ -139,10 +142,13 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
       if (url.includes('generate-chapter-stream')) {
         return Promise.resolve({ ok: true, body: { getReader: () => mockReader } });
       }
+      if (url.includes('check-consistency')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ warnings: [] }) });
+      }
       if (url.includes('extract-chapter-metadata')) {
         return Promise.resolve({ ok: false });
       }
-      return Promise.reject();
+      return Promise.reject(new Error('Unknown'));
     });
 
     await act(async () => {
@@ -188,6 +194,70 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
     expect(setAppErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Celestial stream dissipated prematurely'));
   });
 
+  it('handles continuity guard auto-repair flow', async () => {
+    const { result } = renderHook(() => useChapterGeneration());
+    
+    const mockReader = { read: vi.fn() };
+    const encoder = new TextEncoder();
+    
+    const chunks = [
+      `data: {"chunk": "{\\"text\\": \\"${'A'.repeat(160)}\\"}\\n"}\n`,
+      'data: [DONE]\n'
+    ];
+    
+    chunks.forEach(c => {
+      mockReader.read.mockResolvedValueOnce({ done: false, value: encoder.encode(c) });
+    });
+    mockReader.read.mockResolvedValueOnce({ done: true, value: undefined });
+
+    const repairReader = { read: vi.fn() };
+    const repairChunks = [
+      `data: {"chunk": "{\\"text\\": \\"${'B'.repeat(160)}\\"}\\n"}\n`,
+      'data: [DONE]\n'
+    ];
+    
+    repairChunks.forEach(c => {
+      repairReader.read.mockResolvedValueOnce({ done: false, value: encoder.encode(c) });
+    });
+    repairReader.read.mockResolvedValueOnce({ done: true, value: undefined });
+
+    let consistencyCallCount = 0;
+
+    (global.fetch as any).mockImplementation((url: string) => {
+      if (url.includes('generate-chapter-stream')) {
+        return Promise.resolve({ ok: true, body: { getReader: () => mockReader } });
+      }
+      if (url.includes('check-consistency')) {
+        consistencyCallCount++;
+        // First call returns a warning, second call still returns a warning (to test fault flags)
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ warnings: ['Broken plot hole'] }) });
+      }
+      if (url.includes('repair-chapter-stream')) {
+        return Promise.resolve({ ok: true, body: { getReader: () => repairReader } });
+      }
+      if (url.includes('extract-chapter-metadata')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ summary: 'Sum', memoryUpdates: {} }) });
+      }
+      return Promise.reject(new Error('Unknown url: ' + url));
+    });
+
+    await act(async () => {
+      await result.current.handleGenerateChapter(1);
+    });
+
+    expect(consistencyCallCount).toBe(2);
+    expect(saveStoriesSpy).toHaveBeenCalled();
+    const updated = saveStoriesSpy.mock.calls[0][0];
+    const ch = updated[0].arcs[0].chapters[0];
+    
+    // Check that repair replaced the blocks
+    expect(ch.blocks[0].text).toBe('B'.repeat(160));
+    
+    // Check fault flags were set because second check-consistency returned warnings
+    expect(ch.hasContinuityFaults).toBe(true);
+    expect(ch.continuityWarnings).toContain('Broken plot hole');
+  });
+
   it('hydrates complex memory updates correctly (new characters, updates, factions, threads, relationships)', async () => {
     const { result } = renderHook(() => useChapterGeneration());
     
@@ -217,7 +287,8 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
       newFactions: [{ name: 'New Sect', description: 'Old sect' }],
       newLocations: [{ name: 'New Cave', description: 'Old cave' }],
       newArtifacts: [{ name: 'New Sword', description: 'Sharp' }],
-      newMCAbilities: ['Fireball'],
+      newMCAbilities: [{ name: 'Fireball', masteryLevel: 'Novice' }],
+      mcAbilityUpdates: [{ name: 'Fireball', newMasteryLevel: 'Adept' }],
       relationshipUpdates: [{ sourceName: 'MC', targetName: 'Elder Lin', affinityDelta: 10, threatDelta: -5, reason: 'Helped' }],
       powerSystemViolationFlags: ['Used wrong element']
     };
@@ -225,6 +296,9 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
     (global.fetch as any).mockImplementation((url: string) => {
       if (url.includes('generate-chapter-stream')) {
         return Promise.resolve({ ok: true, body: { getReader: () => mockReader } });
+      }
+      if (url.includes('check-consistency')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ warnings: [] }) });
       }
       if (url.includes('extract-chapter-metadata')) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ summary: 'Sum', memoryUpdates: fullMemoryUpdates }) });
@@ -275,8 +349,10 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
     expect(newMemory.unresolvedPlotThreads.length).toBe(2);
 
     // Check abilities
-    expect(newMemory.abilities).toContain('Fireball');
-    expect(newMemory.abilities).toContain('Punch');
+    const fireballObj = newMemory.abilities.find((a: any) => typeof a !== 'string' && a.name === 'Fireball');
+    expect(fireballObj).toBeDefined();
+    expect(fireballObj.masteryLevel).toBe('Adept'); // since we passed Adept in mcAbilityUpdates
+    expect(newMemory.abilities).toContain('Punch'); // Assuming punch is a legacy string
 
     // Check relationships
     expect(updated[0].relationships.length).toBe(1);

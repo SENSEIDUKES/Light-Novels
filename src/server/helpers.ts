@@ -300,7 +300,7 @@ export function cleanChapterResponse(resp: Record<string, unknown> | null | unde
     if ("currentPowerStage" in mu) mu.currentPowerStage = ensureString(mu.currentPowerStage);
     
     // Arrays of strings
-    const stringArrayFields = ["newUnresolvedPlotThreads", "resolvedPlotThreads", "newMCAbilities", "powerSystemViolationFlags"];
+    const stringArrayFields = ["newUnresolvedPlotThreads", "resolvedPlotThreads", "powerSystemViolationFlags"];
     stringArrayFields.forEach(field => {
       if (field in mu && Array.isArray(mu[field])) {
         mu[field] = mu[field].map((i: unknown) => ensureString(i));
@@ -308,7 +308,7 @@ export function cleanChapterResponse(resp: Record<string, unknown> | null | unde
     });
 
     // Arrays of objects
-    const objArrayFields = ["newCharacters", "characterStatusUpdates", "relationshipUpdates", "newFactions", "factionUpdates", "newLocations", "locationUpdates", "newArtifacts", "artifactUpdates"];
+    const objArrayFields = ["newCharacters", "characterStatusUpdates", "relationshipUpdates", "newFactions", "factionUpdates", "newLocations", "locationUpdates", "newArtifacts", "artifactUpdates", "newMCAbilities", "mcAbilityUpdates"];
     objArrayFields.forEach(field => {
       if (field in mu && Array.isArray(mu[field])) {
         mu[field] = mu[field].filter((i: unknown) => i && typeof i === "object");

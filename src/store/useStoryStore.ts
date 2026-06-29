@@ -78,6 +78,7 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
   setLastSavedTime: (lastSavedTime) => set({ lastSavedTime }),
 
   saveStories: async (updated: Story[]) => {
+    const currentStories = get().stories;
     const activeId = get().activeStoryId;
     const markedStories = updated.map(s => {
       if (s.id.startsWith('demo-matrix-') && s.id === activeId) {
@@ -86,10 +87,18 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
       return s;
     });
 
+    // Find which stories actually changed to avoid massive redundant writes
+    const changedStories = markedStories.filter(newStory => {
+       const oldStory = currentStories.find(s => s.id === newStory.id);
+       return !oldStory || oldStory !== newStory;
+    });
+
+    const toSave = changedStories.length > 0 ? changedStories : markedStories;
+
     set({ stories: markedStories });
     try {
       storyStorage.startTransaction();
-      for (const s of markedStories) {
+      for (const s of toSave) {
         await storyStorage.saveStory(s);
       }
       await storyStorage.commitTransaction();

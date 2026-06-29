@@ -15,6 +15,7 @@ import {
   chapterGenerationSchema,
   extractMetadataSchema,
   checkConsistencySchema,
+  repairChapterSchema,
   generateNextDirectionsSchema,
   suggestTagsSchema,
   steerArcSchema,
@@ -805,7 +806,32 @@ app.post("/api/extract-chapter-metadata", validateBody(extractMetadataSchema), a
             locationUpdates: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, safetyLevelOverride: { type: "STRING"}, descriptionAppend: { type: "STRING"} } } },
             newArtifacts: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, description: { type: "STRING"}, tier: { type: "STRING"}, currentOwner: { type: "STRING"} } } },
             artifactUpdates: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, newOwner: { type: "STRING"}, descriptionAppend: { type: "STRING"} } } },
-            newMCAbilities: { type: "ARRAY", items: { type: "STRING" } }
+            newMCAbilities: { 
+              type: "ARRAY", 
+              items: { 
+                type: "OBJECT", 
+                properties: { 
+                  name: { type: "STRING" }, 
+                  description: { type: "STRING" }, 
+                  source: { type: "STRING" }, 
+                  acquisitionMethod: { type: "STRING" }, 
+                  cost: { type: "STRING" }, 
+                  limits: { type: "STRING" }, 
+                  masteryLevel: { type: "STRING" } 
+                } 
+              } 
+            },
+            mcAbilityUpdates: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: {
+                  name: { type: "STRING" },
+                  newMasteryLevel: { type: "STRING" },
+                  lastUsedChapter: { type: "NUMBER" }
+                }
+              }
+            }
           }
         }
       },
@@ -826,6 +852,47 @@ app.post("/api/extract-chapter-metadata", validateBody(extractMetadataSchema), a
   } catch (error: any) {
     console.error("Error extracting memory updates:", error);
     return res.status(500).json({ error: error.message || "Internal server error" });
+  }
+});
+
+// 2.2.1 Repair Chapter Stream
+app.post("/api/repair-chapter-stream", validateBody(repairChapterSchema), async (req, res) => {
+  try {
+    const { chapterText, memory, warnings, routingConfig } = req.body;
+    
+    if (!chapterText || !memory || !warnings) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const memoryStr = JSON.stringify(memory, null, 2);
+    const systemInstruction = PROMPTS.repairChapter.system;
+    const userPrompt = PROMPTS.repairChapter.userPrompt(chapterText, memoryStr, warnings);
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    const stream = await routeTextGenerationStream(
+      "storyMaker",
+      systemInstruction,
+      userPrompt,
+      "repair-chapter-stream",
+      routingConfig,
+      getCustomKeys(req)
+    );
+
+    for await (const chunk of stream) {
+      if (chunk) {
+        res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+      }
+    }
+    res.write("data: [DONE]\n\n");
+    res.end();
+  } catch (error: any) {
+    console.error("Error repairing chapter stream:", error);
+    res.write(`data: ${JSON.stringify({ error: error.message || "Internal server error" })}\n\n`);
+    res.write("data: [DONE]\n\n");
+    res.end();
   }
 });
 

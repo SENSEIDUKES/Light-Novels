@@ -92,4 +92,23 @@ describe('Server Helpers', () => {
       expect(Array.isArray(cleaned.loreAdditions)).toBe(true);
     });
   });
+
+  describe('cleanChapterResponse with abilities', () => {
+    it('cleans memory updates with abilities', async () => {
+      const { cleanChapterResponse } = await import('./helpers');
+      const mockMeta = { 
+        summary: 'Test', 
+        memoryUpdates: {
+          newMCAbilities: [{ name: 'Fireball', masteryLevel: 'Novice' }],
+          mcAbilityUpdates: [{ name: 'Fireball', newMasteryLevel: 'Adept' }]
+        }
+      };
+      const cleaned = cleanChapterResponse(mockMeta);
+      expect(cleaned.summary).toBe('Test');
+      expect(Array.isArray(cleaned.memoryUpdates.newMCAbilities)).toBe(true);
+      expect(cleaned.memoryUpdates.newMCAbilities[0].name).toBe('Fireball');
+      expect(Array.isArray(cleaned.memoryUpdates.mcAbilityUpdates)).toBe(true);
+      expect(cleaned.memoryUpdates.mcAbilityUpdates[0].name).toBe('Fireball');
+    });
+  });
 });

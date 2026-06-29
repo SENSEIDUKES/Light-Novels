@@ -139,17 +139,25 @@ export class IndexedDBStorageAdapter implements StorageAdapter {
   async deleteStory(id: string): Promise<void> {
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(this.storeName, 'readwrite');
+      const transaction = db.transaction([this.storeName, this.chaptersStoreName], 'readwrite');
+      
       const store = transaction.objectStore(this.storeName);
-      const request = store.delete(id);
+      store.delete(id);
 
-      request.onsuccess = () => {
-        resolve();
+      const chaptersStore = transaction.objectStore(this.chaptersStoreName);
+      const cursorReq = chaptersStore.openCursor();
+      cursorReq.onsuccess = (e: any) => {
+        const cursor = e.target.result;
+        if (cursor) {
+          if (cursor.value.storyId === id) {
+            cursor.delete();
+          }
+          cursor.continue();
+        }
       };
 
-      request.onerror = () => {
-        reject(request.error);
-      };
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
     });
   }
 
@@ -323,6 +331,16 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
     } catch (e) {
       console.error('LocalStorage fallback delete error:', e);
     }
+    try {
+      const chaptersStr = localStorage.getItem(this.chaptersStorageKey);
+      if (chaptersStr) {
+        let chapters = JSON.parse(chaptersStr) as ChapterContent[];
+        chapters = chapters.filter(c => c.storyId !== id);
+        localStorage.setItem(this.chaptersStorageKey, JSON.stringify(chapters));
+      }
+    } catch (e) {
+      console.error('LocalStorage chapters delete error:', e);
+    }
   }
 
   async clearAll(): Promise<void> {
@@ -446,7 +464,7 @@ export class InMemoryFallbackAdapter implements StorageAdapter {
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'offline';
 
 export interface SyncTask {
-  type: 'story' | 'chapter';
+  type: 'story' | 'chapter' | 'delete_story';
   storyId: string;
   chapterNumber?: number;
   timestamp: number;
@@ -506,7 +524,11 @@ export class PersistentStorageManager implements StorageAdapter {
   }
 
   private enqueueTask(task: SyncTask) {
-    this.syncQueue.push(task);
+    // Deduplicate if the exact same task is already in the queue
+    const exists = this.syncQueue.some(t => t.type === task.type && t.storyId === task.storyId && t.chapterNumber === task.chapterNumber);
+    if (!exists) {
+      this.syncQueue.push(task);
+    }
     this.saveQueue();
     if (this.isCloudAvailable && this.syncStatus !== 'syncing') {
       this.flushSyncQueue();
@@ -517,11 +539,10 @@ export class PersistentStorageManager implements StorageAdapter {
     if (!this.isCloudAvailable || this.syncQueue.length === 0) return;
     this.setStatus('syncing');
 
-    let tasksProcessed = 0;
-    const currentQueue = [...this.syncQueue];
-    
     try {
-      for (const task of currentQueue) {
+      while (this.syncQueue.length > 0) {
+        const task = this.syncQueue[0];
+
         if (task.type === 'story') {
           const localStory = await this.localAdapter.getStory(task.storyId);
           if (localStory) {
@@ -534,18 +555,19 @@ export class PersistentStorageManager implements StorageAdapter {
           if (localChapter) {
             await this.cloudAdapter.saveChapterContent(localChapter);
           }
+        } else if (task.type === 'delete_story') {
+          await this.cloudAdapter.deleteStory(task.storyId);
         }
-        tasksProcessed++;
+        
+        // Remove the processed operation
+        this.syncQueue.shift();
+        this.saveQueue();
       }
       
-      // Remove processed operations
-      this.syncQueue = this.syncQueue.slice(tasksProcessed);
-      this.saveQueue();
       this.setStatus('synced');
     } catch (error) {
       console.error('Failed to flush sync queue', error);
-      // Keep unprocessed tasks in queue
-      this.syncQueue = this.syncQueue.slice(tasksProcessed);
+      // Keep remaining unprocessed tasks in queue
       this.saveQueue();
       this.setStatus('error');
     }
@@ -570,6 +592,36 @@ export class PersistentStorageManager implements StorageAdapter {
       await idbAdapter.init();
       this.localAdapter = idbAdapter;
       console.log('Successfully active local-first story world memory: IndexedDB');
+      
+      // MIGRATION: Migrate from LocalStorage to IndexedDB if IndexedDB is empty
+      try {
+        const existingStories = await idbAdapter.getStories();
+        if (existingStories.length === 0) {
+          const lsAdapter = new LocalStorageFallbackAdapter();
+          await lsAdapter.init();
+          const lsStories = await lsAdapter.getStories();
+          if (lsStories.length > 0) {
+            console.log(`Migrating ${lsStories.length} stories from LocalStorage to IndexedDB...`);
+            for (const story of lsStories) {
+              await idbAdapter.saveStory(story);
+            }
+            try {
+              const chaptersStr = localStorage.getItem('@seihouse/fiction-generator-chapters-v2');
+              if (chaptersStr) {
+                const chapters = JSON.parse(chaptersStr);
+                for (const chap of chapters) {
+                  await idbAdapter.saveChapterContent(chap);
+                }
+              }
+            } catch (e) {
+              console.warn("Failed to migrate chapters from LocalStorage", e);
+            }
+            console.log('Migration complete.');
+          }
+        }
+      } catch (migErr) {
+        console.error("Migration from LocalStorage failed:", migErr);
+      }
     } catch (err) {
       console.warn('IndexedDB failed (sandboxed frame or private window). Falling back to LocalStorage:', err);
       const lsAdapter = new LocalStorageFallbackAdapter();
@@ -773,6 +825,14 @@ export class PersistentStorageManager implements StorageAdapter {
     return result;
   }
 
+  public async wipeMyCloudData(): Promise<void> {
+     if (!this.isCloudAvailable) throw new Error("Cloud is not available");
+     await this.cloudAdapter.wipeMyCloudData();
+     // Optionally wipe local queue so it doesn't push them right back
+     this.syncQueue = [];
+     this.saveQueue();
+  }
+
   startTransaction() {
     this.activeTransaction = {
       stories: new Map(),
@@ -950,23 +1010,7 @@ export class PersistentStorageManager implements StorageAdapter {
       console.error('Failed to save story locally (quota exceeded?). Attempting to continue with cloud sync:', e);
     }
 
-    if (this.isCloudAvailable && this.syncStatus !== 'syncing') {
-      this.setStatus('syncing');
-      (async () => {
-        try {
-          const cloudStory = JSON.parse(JSON.stringify(strippedStory));
-          await this.compressDataUrls(cloudStory);
-          await this.cloudAdapter.saveStory(cloudStory);
-          this.setStatus('synced');
-        } catch (err) {
-          console.error('Failed to save to cloud', err);
-          this.enqueueTask({ type: 'story', storyId: strippedStory.id, timestamp: Date.now() });
-          this.setStatus('error');
-        }
-      })();
-    } else {
-      this.enqueueTask({ type: 'story', storyId: strippedStory.id, timestamp: Date.now() });
-    }
+    this.enqueueTask({ type: 'story', storyId: strippedStory.id, timestamp: Date.now() });
   }
 
   async deleteStory(id: string): Promise<void> {
@@ -976,29 +1020,23 @@ export class PersistentStorageManager implements StorageAdapter {
       return;
     }
 
-    const story = await this.localAdapter.getStory(id);
-    if (!story) return;
-
-    story.deleted = true;
-    story.updatedAt = new Date().toISOString();
-
     try {
-      await this.localAdapter.saveStory(story);
+      await this.localAdapter.deleteStory(id);
     } catch (e) {
-      console.error('Failed to mark story as deleted locally:', e);
+      console.error('Failed to hard delete story locally:', e);
     }
 
     if (this.isCloudAvailable && this.syncStatus !== 'syncing') {
       (async () => {
         try {
-          await this.cloudAdapter.saveStory(story);
+          await this.cloudAdapter.deleteStory(id);
         } catch (err) {
-          console.error('Failed to soft delete from cloud', err);
-          this.enqueueTask({ type: 'story', storyId: id, timestamp: Date.now() });
+          console.error('Failed to hard delete from cloud', err);
+          this.enqueueTask({ type: 'delete_story', storyId: id, timestamp: Date.now() });
         }
       })();
     } else {
-      this.enqueueTask({ type: 'story', storyId: id, timestamp: Date.now() });
+      this.enqueueTask({ type: 'delete_story', storyId: id, timestamp: Date.now() });
     }
   }
 
@@ -1029,6 +1067,7 @@ export class PersistentStorageManager implements StorageAdapter {
         }
       } catch (e) {
         console.error("Cloud fetch failed", e);
+        throw e; // Throw the error so the caller knows it was a network/quota issue, not a missing chapter
       }
     }
     return null;
@@ -1049,18 +1088,7 @@ export class PersistentStorageManager implements StorageAdapter {
       console.error('Failed to save chapter locally (quota exceeded?). Attempting to continue with cloud sync:', e);
     }
     
-    if (this.isCloudAvailable && this.syncStatus !== 'syncing') {
-      (async () => {
-        try {
-          await this.cloudAdapter.saveChapterContent(content);
-        } catch (err) {
-           console.error('Failed to save chapter content to cloud', err);
-           this.enqueueTask({ type: 'chapter', storyId: content.storyId, chapterNumber: content.chapterNumber, timestamp: Date.now() });
-        }
-      })();
-    } else {
-       this.enqueueTask({ type: 'chapter', storyId: content.storyId, chapterNumber: content.chapterNumber, timestamp: Date.now() });
-    }
+    this.enqueueTask({ type: 'chapter', storyId: content.storyId, chapterNumber: content.chapterNumber, timestamp: Date.now() });
   }
 
   async clearAll(): Promise<void> {

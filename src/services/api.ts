@@ -64,5 +64,19 @@ export const storyApi = {
     }
     const data = await response.json();
     return data.warnings || [];
+  },
+
+  async repairChapterStream(chapterText: string, memory: StoryMemory, warnings: string[], routingConfig: any): Promise<Response> {
+    const apiHeaders = await getApiHeaders();
+    return fetch('/api/repair-chapter-stream', {
+      method: 'POST',
+      headers: apiHeaders,
+      body: JSON.stringify({
+        chapterText,
+        memory,
+        warnings,
+        routingConfig
+      })
+    });
   }
 };

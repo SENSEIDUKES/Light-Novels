@@ -121,6 +121,77 @@ export function LivingCodexPower({
                 </ul>
               </div>
             </div>
+
+            {/* Ability Ledger */}
+            <div className="space-y-4 pt-6 border-t border-neutral-900 mt-6" id="codex-ability-ledger">
+              <div>
+                <h3 className="font-sc text-sm text-signal font-bold uppercase tracking-widest">Ability Ledger</h3>
+                <p className="text-[10px] text-neutral-500 font-sans">Formal record of all confirmed abilities acquired by {mcName}.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {memory.abilities?.map((ability, idx) => {
+                  if (typeof ability === 'string') {
+                    return (
+                      <div key={idx} className="p-3 bg-neutral-950 border border-neutral-900 rounded-lg space-y-1">
+                        <span className="text-signal font-bold text-xs">{ability}</span>
+                        <span className="block text-[10px] text-neutral-500 font-mono">Legacy Text Record</span>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={ability.id || idx} className="p-4 bg-void border border-neutral-900 hover:border-portal/50 transition-colors rounded-lg space-y-3">
+                      <div className="flex justify-between items-start">
+                        <h4 className="text-signal font-bold text-sm tracking-wide">{ability.name}</h4>
+                        {ability.masteryLevel && (
+                          <span className="text-[9px] px-2 py-0.5 bg-portal/10 text-portal font-mono rounded border border-portal/20">
+                            {ability.masteryLevel}
+                          </span>
+                        )}
+                      </div>
+                      
+                      <p className="text-neutral-400 text-xs leading-relaxed font-serif italic">
+                        {ability.description}
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-2 text-[10px] font-mono border-t border-neutral-900/50 pt-2">
+                        {ability.cost && (
+                          <div className="flex flex-col">
+                            <span className="text-neutral-600 uppercase">Cost</span>
+                            <span className="text-rose-400/80 truncate" title={ability.cost}>{ability.cost}</span>
+                          </div>
+                        )}
+                        {ability.limits && (
+                          <div className="flex flex-col">
+                            <span className="text-neutral-600 uppercase">Limits</span>
+                            <span className="text-neutral-300 truncate" title={ability.limits}>{ability.limits}</span>
+                          </div>
+                        )}
+                        {ability.source && (
+                          <div className="flex flex-col">
+                            <span className="text-neutral-600 uppercase">Source</span>
+                            <span className="text-amber-500/80 truncate" title={ability.source}>{ability.source}</span>
+                          </div>
+                        )}
+                        {ability.acquiredChapter && (
+                          <div className="flex flex-col">
+                            <span className="text-neutral-600 uppercase">Acquired</span>
+                            <span className="text-neutral-400">Chapter {ability.acquiredChapter}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {(!memory.abilities || memory.abilities.length === 0) && (
+                  <div className="col-span-1 md:col-span-2 p-6 border border-neutral-900 border-dashed rounded-lg text-center">
+                     <span className="text-neutral-500 text-xs font-mono">No formalized abilities recorded in the ledger yet.</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         
     </>

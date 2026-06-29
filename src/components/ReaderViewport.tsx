@@ -241,6 +241,33 @@ export function ReaderViewport({
                 setShowFateCodex={setShowFateCodex}
               />
 
+              {selectedChapter.hasContinuityFaults && (
+                <div className="mb-6 p-5 border border-rose-500/30 bg-rose-950/20 rounded-lg shadow-[0_0_15px_rgba(239,68,68,0.1)]">
+                  <div className="flex items-start gap-3">
+                    <ShieldAlert className="text-rose-400 shrink-0 mt-0.5" size={20} />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-display font-medium text-rose-300 uppercase tracking-wider mb-1">
+                        Temporal Logic Fracture Detected (Saved as Draft)
+                      </h4>
+                      <p className="text-xs text-rose-400/80 font-sans mb-3 leading-relaxed">
+                        The Continuity Guard has detected contradictions that survived the celestial repair attempt. The chapter has been saved as a Draft with errors.
+                      </p>
+                      <ul className="space-y-1.5 mb-4">
+                        {(selectedChapter.continuityWarnings || []).map((warning, idx) => (
+                          <li key={idx} className="text-xs text-rose-200/90 bg-rose-500/10 border-l border-rose-500 rounded-r px-2.5 py-1.5 font-sans flex items-start gap-1.5">
+                            <span className="text-rose-400 font-mono select-none">•</span>
+                            <span>{warning}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="text-[10px] text-rose-400/60 font-serif italic">
+                        Tip: You can regenerate this chapter with new directives, manually edit the text, or update your living Codex to reconcile the lore.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {showLegend && hasSystemBlocks && (
                 <AetherialSystemLegend 
                   currentPrefs={currentPrefs}

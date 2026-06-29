@@ -226,13 +226,142 @@ export const useChapterGeneration = () => {
         throw new Error("Celestial stream dissipated prematurely. Chapter content is incomplete; creation has been safeguarded.");
       }
 
+      // --- CONTINUITY GUARD INTERVENTION ---
+      let finalRawBlocksStr = rawBlocksStr;
+      data.hasContinuityFaults = false;
+      data.continuityWarnings = [];
+      
+      const consistencyResponse = await fetch('/api/check-consistency', {
+        method: 'POST',
+        headers: apiHeaders,
+        body: JSON.stringify({
+          chapterText: finalRawBlocksStr,
+          memory: activeStory.memory,
+          routingConfig: store_routingConfig.storyMaker
+        })
+      });
+
+      if (consistencyResponse.ok) {
+        const consistencyData = await consistencyResponse.json();
+        const warnings = consistencyData.warnings || [];
+        
+        if (warnings.length > 0) {
+          console.log("Continuity Guard detected issues during generation:", warnings);
+          
+          currentStoreState.setStreamingChapter({
+            number: chapterNumber,
+            content: "Continuity Guard detected temporal fractures. Initiating celestial repair protocols...",
+            blocks: []
+          });
+
+          const repairResponse = await fetch('/api/repair-chapter-stream', {
+            method: 'POST',
+            headers: apiHeaders,
+            body: JSON.stringify({
+              chapterText: finalRawBlocksStr,
+              memory: activeStory.memory,
+              warnings,
+              routingConfig: store_routingConfig.storyMaker
+            })
+          });
+
+          if (repairResponse.ok && repairResponse.body) {
+            const repairReader = repairResponse.body.getReader();
+            const repairDecoder = new TextDecoder("utf-8");
+            let repairAccumulated = "";
+            let repairBuffer = "";
+
+            while(true) {
+              const { value, done } = await repairReader.read();
+              if (done) break;
+              repairBuffer += repairDecoder.decode(value, { stream: true });
+              
+              const lines = repairBuffer.split('\n');
+              repairBuffer = lines.pop() || "";
+              
+              for (const line of lines) {
+                if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                  try {
+                    const parsed = JSON.parse(line.substring(6));
+                    if (parsed.chunk) {
+                      repairAccumulated += parsed.chunk;
+                      
+                      let currentChapterText = "";
+                      let blocksData: any[] = [];
+                      let currentRawStr = repairAccumulated;
+
+                      if (repairAccumulated.includes(textHeader)) {
+                        const startIndex = repairAccumulated.indexOf(textHeader) + textHeader.length;
+                        currentRawStr = repairAccumulated.substring(startIndex).trim();
+                      }
+
+                      blocksData = extractJsonBlocks(currentRawStr);
+                      if (blocksData.length > 0) {
+                        currentChapterText = blocksData.map(b => b.text).join('\n\n');
+                      }
+                      
+                      currentStoreState.setStreamingChapter({
+                        number: chapterNumber,
+                        content: currentChapterText || repairAccumulated,
+                        blocks: blocksData
+                      });
+                    }
+                  } catch (e: any) {}
+                }
+              }
+            }
+
+            if (repairAccumulated.includes(textHeader)) {
+              const startIndex = repairAccumulated.indexOf(textHeader) + textHeader.length;
+              finalRawBlocksStr = repairAccumulated.substring(startIndex).trim();
+            } else {
+              finalRawBlocksStr = repairAccumulated;
+            }
+
+            const repairedBlocks = extractJsonBlocks(finalRawBlocksStr);
+            data.blocks = repairedBlocks;
+            if (repairedBlocks.length > 0) {
+              data.chapterText = repairedBlocks.map((b: any) => b.text).join('\n\n');
+            } else {
+              data.chapterText = finalRawBlocksStr.replace(/```json/gi, '').replace(/```/g, '').trim();
+            }
+            
+            if (!data.chapterText || data.chapterText.trim().length < 150) {
+               throw new Error("Repair stream dissipated prematurely.");
+            }
+
+            // --- RUN CONTINUITY GUARD AGAIN AFTER REPAIR ---
+            const secondConsistencyResponse = await fetch('/api/check-consistency', {
+              method: 'POST',
+              headers: apiHeaders,
+              body: JSON.stringify({
+                chapterText: data.chapterText,
+                memory: activeStory.memory,
+                routingConfig: store_routingConfig.storyMaker
+              })
+            });
+
+            if (secondConsistencyResponse.ok) {
+              const secondConsistencyData = await secondConsistencyResponse.json();
+              const secondWarnings = secondConsistencyData.warnings || [];
+              if (secondWarnings.length > 0) {
+                console.log("Continuity Guard found persistent issues after repair attempt:", secondWarnings);
+                data.hasContinuityFaults = true;
+                data.continuityWarnings = secondWarnings;
+              }
+            }
+          }
+        }
+      }
+      // --- END CONTINUITY GUARD ---
+
       const extractResponse = await fetch('/api/extract-chapter-metadata', {
         method: 'POST',
         headers: apiHeaders,
         body: JSON.stringify({
           chapterNumber: targetChapter.number,
           title: targetChapter.title,
-          chapterText: rawBlocksStr,
+          chapterText: finalRawBlocksStr,
           routingConfig: store_routingConfig.storyMaker
         })
       });
@@ -271,7 +400,9 @@ export const useChapterGeneration = () => {
                 embedding: newChapterEmbedding,
                 statsChangeMessage: data.statsChangeMessage !== 'None' ? data.statsChangeMessage : undefined,
                 cuePayload: data.cuePayload,
-                status: 'read' as const
+                status: 'read' as const,
+                hasContinuityFaults: data.hasContinuityFaults || false,
+                continuityWarnings: data.continuityWarnings || []
               };
             })
           };
@@ -512,8 +643,51 @@ export const useChapterGeneration = () => {
 
           if (memoryUpdates.newMCAbilities && memoryUpdates.newMCAbilities.length > 0) {
             const currentAbilities = nextMemory.abilities || [];
-            const filteredAbilities = memoryUpdates.newMCAbilities.filter((ab: string) => !currentAbilities.includes(ab));
+            const added = memoryUpdates.newMCAbilities.map((ab: any) => {
+              if (typeof ab === 'string') {
+                return {
+                  id: `abil-${Math.random().toString(36).substr(2, 9)}`,
+                  name: ab,
+                  description: '',
+                  acquiredChapter: chapterNumber,
+                  relevanceState: 'active',
+                  firstAppeared: chapterNumber
+                };
+              }
+              return {
+                id: `abil-${Math.random().toString(36).substr(2, 9)}`,
+                name: ab.name || 'Unknown Ability',
+                description: ab.description || '',
+                source: ab.source || '',
+                acquiredChapter: ab.acquiredChapter || chapterNumber,
+                acquisitionMethod: ab.acquisitionMethod || '',
+                cost: ab.cost || '',
+                limits: ab.limits || '',
+                masteryLevel: ab.masteryLevel || 'Novice',
+                lastUsedChapter: chapterNumber,
+                relevanceState: 'active',
+                firstAppeared: chapterNumber
+              };
+            });
+            // Filter duplicates by name for objects, or strict equality for strings
+            const filteredAbilities = added.filter((newAb: any) => {
+               return !currentAbilities.some((ca: any) => {
+                 if (typeof ca === 'string') return ca.toLowerCase() === newAb.name.toLowerCase();
+                 return ca.name?.toLowerCase() === newAb.name.toLowerCase();
+               });
+            });
             nextMemory.abilities = [...currentAbilities, ...filteredAbilities];
+          }
+
+          if (memoryUpdates.mcAbilityUpdates && memoryUpdates.mcAbilityUpdates.length > 0) {
+            const currentAbilities = nextMemory.abilities || [];
+            memoryUpdates.mcAbilityUpdates.forEach((update: any) => {
+               const ability = currentAbilities.find((ca: any) => typeof ca !== 'string' && ca.name?.toLowerCase() === update.name?.toLowerCase());
+               if (ability && typeof ability !== 'string') {
+                  if (update.newMasteryLevel) ability.masteryLevel = update.newMasteryLevel;
+                  if (update.lastUsedChapter) ability.lastUsedChapter = update.lastUsedChapter;
+               }
+            });
           }
 
           if (memoryUpdates.relationshipUpdates && memoryUpdates.relationshipUpdates.length > 0) {

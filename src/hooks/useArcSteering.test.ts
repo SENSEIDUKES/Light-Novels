@@ -65,7 +65,12 @@ describe('useArcSteering - Steering action processing', () => {
       setActiveStoryId: vi.fn(),
     };
 
-    (useAppStore as any).mockReturnValue(mockStore);
+    (useAppStore as any).mockImplementation((selector: any) => {
+      if (typeof selector === 'function') {
+        return selector(mockStore);
+      }
+      return mockStore;
+    });
     (useAppStore as any).getState = vi.fn().mockReturnValue(mockStore);
     
     (storyStorage.getStories as any).mockResolvedValue(mockStore.stories);
@@ -111,9 +116,9 @@ describe('useArcSteering - Steering action processing', () => {
 
     expect(saveStoriesSpy).toHaveBeenCalled();
     const updated = saveStoriesSpy.mock.calls[0][0];
-    expect(updated[0].arcs.length).toBe(2);
-    expect(updated[0].arcs[1].title).toBe('Next Arc');
-    expect(updated[0].arcs[1].chapters[0].title).toBe('C2');
+    expect(updated[0].arcs.length).toBe(1); // Should append to existing arc since it has < 100 chapters
+    expect(updated[0].arcs[0].chapters.length).toBe(2);
+    expect(updated[0].arcs[0].chapters[1].title).toBe('C2');
     expect(updated[0].memory.characters.length).toBe(1);
     expect(updated[0].memory.unresolvedPlotThreads.length).toBe(1);
   });
@@ -180,8 +185,9 @@ describe('useArcSteering - Steering action processing', () => {
     
     // Second save: adding the new arc
     const steeredStories = saveStoriesSpy.mock.calls[1][0];
-    expect(steeredStories[0].arcs.length).toBe(2);
-    expect(steeredStories[0].arcs[1].title).toBe('Forked Arc');
+    expect(steeredStories[0].arcs.length).toBe(1); // Appends to existing arc
+    expect(steeredStories[0].arcs[0].chapters.length).toBe(2);
+    expect(steeredStories[0].arcs[0].chapters[1].title).toBe('C2');
   });
 
   it('handles API error correctly in handleAlterFate', async () => {

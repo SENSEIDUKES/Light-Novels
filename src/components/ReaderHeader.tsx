@@ -54,6 +54,11 @@ export function ReaderHeader({
               <Lock size={10} className="text-portal shrink-0" />
             </span>
           )}
+          {selectedChapter.hasContinuityFaults && (
+            <span title="Continuity Fracture Detected (Draft/Problem State)" className="flex items-center bg-rose-500/15 text-rose-400 border border-rose-500/30 px-1.5 py-0.5 rounded text-[8px] font-sans font-bold uppercase tracking-normal gap-1">
+              <span className="animate-pulse">●</span> Logic Fracture
+            </span>
+          )}
         </span>
         <h2 className="font-display font-medium text-signal text-base sm:text-xl line-clamp-1 mt-0.5">
           {selectedChapter.title}
@@ -119,7 +124,7 @@ export function ReaderHeader({
           >
             {chapters.map((ch) => (
               <option key={ch.number} value={ch.number}>
-                Ch. {ch.number}: {ch.title.substring(0, 20)}...
+                Ch. {ch.number}: {ch.title.substring(0, 20)}...{ch.hasContinuityFaults ? " ⚠️" : ""}
               </option>
             ))}
           </select>

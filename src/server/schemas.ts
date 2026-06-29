@@ -65,6 +65,13 @@ export const checkConsistencySchema = z.object({
   routingConfig: routingConfigSchema,
 });
 
+export const repairChapterSchema = z.object({
+  chapterText: z.string(),
+  memory: z.any(),
+  warnings: z.array(z.string()),
+  routingConfig: routingConfigSchema,
+});
+
 export const generateNextDirectionsSchema = z.object({
   mcName: z.string(),
   genre: z.string().optional(),
