@@ -7,7 +7,7 @@ vi.mock('../lib/qi', () => ({
 }));
 
 vi.mock('../lib/artifacts', () => ({
-  unlockCosmicArtifact: vi.fn(),
+  unlockCosmicArtifact: vi.fn().mockResolvedValue(null),
 }));
 
 describe('ChallengeSlice via useAppStore', () => {

@@ -3,9 +3,11 @@ import { render } from '@testing-library/react';
 import { GlobalHeader } from './GlobalHeader';
 
 vi.mock('../store/useAppStore', () => ({
-  useAppStore: () => ({
+  useAppStore: (selector: any) => selector({
     userProfile: { qi: 0 },
-    currentScreen: 'library'
+    currentScreen: 'library',
+    stories: [],
+    activeStoryId: ''
   })
 }));
 

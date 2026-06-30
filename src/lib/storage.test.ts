@@ -76,7 +76,7 @@ describe('PersistentStorageManager', () => {
   });
 
   describe('Firestore sync conflicts', () => {
-    it('should handle timestamp-based conflict resolution correctly', async () => {
+    it('should set an active conflict and skip sync when significant differences exist', async () => {
       const localAdapter = (manager as any).localAdapter;
       const cloudAdapter = (manager as any).cloudAdapter;
 
@@ -111,20 +111,23 @@ describe('PersistentStorageManager', () => {
 
       await manager.performSync();
 
-      // Cloud was newer by > 5 min, so Local Version should be duplicated as a conflict copy
-      // and cloud version replaces the old local version.
       const localStories = await localAdapter.getStories();
-      expect(localStories.length).toBe(2);
+      expect(localStories.length).toBe(1);
+      expect(localStories[0].title).toBe('Local Version');
 
-      const resolvedMain = localStories.find((s: StoryWorld) => s.id === 'conflict_story');
-      expect(resolvedMain?.title).toBe('Cloud Version');
+      // Wait a tick for the dynamic import to finish
+      await new Promise(resolve => setTimeout(resolve, 50));
 
-      const conflictBackup = localStories.find((s: StoryWorld) => s.id.includes('conflict_story-conflict-'));
-      expect(conflictBackup).toBeDefined();
-      expect(conflictBackup?.title).toContain('Local Conflict Copied');
+      const { useAppStore } = await import('../store/useAppStore');
+      const conflict = useAppStore.getState().activeConflict;
       
-      // Also the backup should be saved to the cloud
-      expect(cloudAdapter.saveStory).toHaveBeenCalledWith(expect.objectContaining({ title: expect.stringContaining('Local Version (Local Conflict Copied)') }));
+      expect(conflict).toBeDefined();
+      expect(conflict?.storyId).toBe('conflict_story');
+      expect(conflict?.localStory.title).toBe('Local Version');
+      expect(conflict?.cloudStory.title).toBe('Cloud Version');
+      
+      // Cleanup state
+      useAppStore.getState().setActiveConflict(null);
     });
   });
 });

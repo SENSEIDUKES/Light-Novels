@@ -3,24 +3,29 @@ import { render } from '@testing-library/react';
 import { ReaderScreen } from './ReaderScreen';
 
 vi.mock('../store/useAppStore', () => ({
-  useAppStore: () => ({
-    currentScreen: 'reader',
-    setCurrentScreen: vi.fn(),
-    activeStoryId: 'test-story',
-    stories: [{ 
-      id: 'test-story', 
-      title: 'Test', 
-      arcs: [{ title: 'Arc 1', chapters: [{ number: 1 }] }], 
-      memory: { unresolvedPlotThreads: [], characters: [], glossary: [] } 
-    }],
-    selectedChapterNum: 1,
-    setSelectedChapterNum: vi.fn(),
-    isGenerating: false,
-    routingConfig: {},
-    streamingChapter: null,
-    isReaderFullscreen: false,
-    currentUser: { uid: '123' }
-  })
+  useAppStore: (selector?: any) => {
+    const state = {
+      currentScreen: 'reader',
+      setCurrentScreen: vi.fn(),
+      activeStoryId: 'test-story',
+      stories: [{ 
+        id: 'test-story', 
+        title: 'Test', 
+        arcs: [{ title: 'Arc 1', chapters: [{ number: 1, title: 'Chapter 1' }] }], 
+        memory: { unresolvedPlotThreads: [], characters: [], glossary: [] } 
+      }],
+      selectedChapterNum: 1,
+      setSelectedChapterNum: vi.fn(),
+      isGenerating: false,
+      routingConfig: {},
+      streamingChapter: null,
+      isReaderFullscreen: false,
+      currentUser: { uid: '123' },
+      immersion: { imagePopups: true, audioCues: true, defaultVoices: {} },
+      updateStory: vi.fn()
+    };
+    return selector ? selector(state) : state;
+  }
 }));
 
 describe('ReaderScreen', () => {

@@ -229,8 +229,13 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
       }
       if (url.includes('check-consistency')) {
         consistencyCallCount++;
-        // Returns a warning
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({ warnings: ['Broken plot hole'] }) });
+        if (consistencyCallCount === 1) {
+          // First check: return a warning to trigger repair
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({ warnings: ['Broken plot hole'] }) });
+        } else {
+          // Second check (after repair): no warnings, repair successful
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({ warnings: [] }) });
+        }
       }
       if (url.includes('repair-chapter-stream')) {
         return Promise.resolve({ ok: true, body: { getReader: () => repairReader } });
@@ -245,17 +250,17 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
       await result.current.handleGenerateChapter(1);
     });
 
-    expect(consistencyCallCount).toBe(1);
+    expect(consistencyCallCount).toBe(2);
     expect(saveStoriesSpy).toHaveBeenCalled();
     const updated = saveStoriesSpy.mock.calls[0][0];
     const ch = updated[0].arcs[0].chapters[0];
     
-    // Check that repair did NOT replace the blocks
-    expect(ch.blocks[0].text).toBe('A'.repeat(160));
+    // Check that repair DID replace the blocks
+    expect(ch.blocks[0].text).toBe('B'.repeat(160));
     
-    // Check fault flags were set because check-consistency returned warnings
-    expect(ch.hasContinuityFaults).toBe(true);
-    expect(ch.continuityWarnings).toContain('Broken plot hole');
+    // Check fault flags were cleared because second check-consistency returned no warnings
+    expect(ch.hasContinuityFaults).toBe(false);
+    expect(ch.continuityWarnings).toEqual([]);
   });
 
   it('hydrates complex memory updates correctly (new characters, updates, factions, threads, relationships)', async () => {
@@ -284,9 +289,9 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
       artifactUpdates: [{ name: 'Sword', newOwner: 'MC', descriptionAppend: ' Glowing.' }],
       newUnresolvedPlotThreads: ['Defeat the demon lord'],
       resolvedPlotThreads: ['Find the hidden core'],
-      newFactions: [{ name: 'New Sect', description: 'Old sect' }],
-      newLocations: [{ name: 'New Cave', description: 'Old cave' }],
-      newArtifacts: [{ name: 'New Sword', description: 'Sharp' }],
+      newFactions: [{ name: 'Different Clan', description: 'Old clan' }],
+      newLocations: [{ name: 'Dark Forest', description: 'Old forest' }],
+      newArtifacts: [{ name: 'Battle Axe', description: 'Sharp' }],
       newMCAbilities: [{ name: 'Fireball', masteryLevel: 'Novice' }],
       mcAbilityUpdates: [{ name: 'Fireball', newMasteryLevel: 'Adept' }],
       relationshipUpdates: [{ sourceName: 'MC', targetName: 'Elder Lin', affinityDelta: 10, threatDelta: -5, reason: 'Helped' }],

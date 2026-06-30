@@ -3,7 +3,7 @@ import { render } from '@testing-library/react';
 import { CodexSheetOverlay } from './CodexSheetOverlay';
 
 vi.mock('../store/useAppStore', () => ({
-  useAppStore: () => ({
+  useAppStore: (selector: any) => selector({
     isCodexSheetOpen: true,
     setIsCodexSheetOpen: vi.fn(),
     stories: [{ id: 'test', memory: { characters: [], relationships: [] }, arcs: [] }],

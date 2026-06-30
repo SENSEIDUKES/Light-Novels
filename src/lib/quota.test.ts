@@ -5,7 +5,8 @@ import { getDoc, updateDoc } from 'firebase/firestore';
 
 vi.mock('./firebase', () => ({
   auth: { currentUser: { uid: '123' } },
-  db: {}
+  db: {},
+  LOCAL_ONLY_MODE: false
 }));
 
 vi.mock('firebase/firestore', () => ({

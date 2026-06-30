@@ -4,7 +4,7 @@ import { LibraryScreen } from './LibraryScreen';
 import { GlobalHeader } from './GlobalHeader';
 
 vi.mock('../store/useAppStore', () => ({
-  useAppStore: () => ({
+  useAppStore: (selector: any) => selector({
     currentScreen: 'library',
     setCurrentScreen: vi.fn(),
     stories: [],

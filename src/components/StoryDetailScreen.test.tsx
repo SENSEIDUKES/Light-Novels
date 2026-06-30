@@ -3,7 +3,7 @@ import { render } from '@testing-library/react';
 import { StoryDetailScreen } from './StoryDetailScreen';
 
 vi.mock('../store/useAppStore', () => ({
-  useAppStore: () => ({
+  useAppStore: (selector: any) => selector({
     currentScreen: 'detail',
     setCurrentScreen: vi.fn(),
     activeStoryId: 'test-story',

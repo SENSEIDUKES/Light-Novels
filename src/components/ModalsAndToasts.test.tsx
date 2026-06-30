@@ -2,8 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { ModalsAndToasts } from './ModalsAndToasts';
 
-vi.mock('../store/useAppStore', () => ({
-  useAppStore: () => ({
+const { useAppStoreMock } = vi.hoisted(() => {
+  const state = {
     authModalOpen: false,
     setAuthModalOpen: vi.fn(),
     quotaModalOpen: false,
@@ -22,9 +22,20 @@ vi.mock('../store/useAppStore', () => ({
     setReaderMode: vi.fn(),
     themeMode: 'dark',
     setThemeMode: vi.fn(),
-    routingConfig: {},
+    routingConfig: {
+      storyMaker: { provider: 'google' },
+      imageGenerator: { provider: 'google' }
+    },
     setRoutingConfig: vi.fn()
-  })
+  };
+  const mock: any = (selector?: any) => selector ? selector(state) : state;
+  mock.setState = vi.fn();
+  mock.getState = () => state;
+  return { useAppStoreMock: mock };
+});
+
+vi.mock('../store/useAppStore', () => ({
+  useAppStore: useAppStoreMock
 }));
 
 describe('ModalsAndToasts', () => {
