@@ -1,7 +1,233 @@
 import { z } from "zod";
 import { Request, Response, NextFunction } from "express";
 
-export const routingConfigSchema = z.any().optional();
+export const routeConfigSchema = z.object({
+  provider: z.string().optional(),
+  model: z.string().optional(),
+  temperature: z.number().optional(),
+  maxOutputTokens: z.number().optional(),
+}).passthrough();
+
+export const routingConfigSchema = z.object({
+  storyMaker: routeConfigSchema.optional(),
+  imageGenerator: routeConfigSchema.optional(),
+  provider: z.string().optional(),
+  model: z.string().optional(),
+  temperature: z.number().optional(),
+  maxOutputTokens: z.number().optional(),
+}).passthrough().optional();
+
+const memoryProvenanceSchema = z.object({
+  sourceChapterNumber: z.number().optional(),
+  sourceBlockId: z.string().optional(),
+  createdBy: z.string().optional(),
+}).passthrough();
+
+const relevanceStateSchema = z.enum(["active", "warm", "dormant", "archived", "reactivated"]);
+
+const baseCodexEntrySchema = z.object({
+  relevanceState: relevanceStateSchema.optional(),
+  firstAppeared: z.number().optional(),
+  lastMajorInvolvement: z.number().optional(),
+  unresolvedThreads: z.array(z.string()).optional(),
+  currentRelevance: z.string().optional(),
+  toneMemory: z.string().optional(),
+  provenance: memoryProvenanceSchema.optional(),
+  pendingEvolution: z.boolean().optional(),
+  arcAccumulation: z.string().optional(),
+}).passthrough();
+
+const generatedImageSchema = z.object({
+  url: z.string().optional(),
+  prompt: z.string().optional(),
+  chapter: z.number().optional(),
+}).passthrough();
+
+const characterSchema = baseCodexEntrySchema.extend({
+  id: z.string(),
+  name: z.string(),
+  role: z.string(),
+  description: z.string(),
+  relationshipToMC: z.string(),
+  status: z.string(),
+  powerLevel: z.string().optional(),
+  abilities: z.array(z.any()).optional(),
+  faction: z.string().optional(),
+  imageUrl: z.string().optional(),
+  imageHistory: z.array(generatedImageSchema).optional(),
+  isBeast: z.boolean().optional(),
+  beastProfile: z.any().optional(),
+  lastImageChapter: z.number().optional(),
+  evolutionReady: z.boolean().optional(),
+  evolutionReason: z.string().optional(),
+  availableVisualUpdate: z.boolean().optional(),
+  voicePresetId: z.string().optional(),
+  signatureQuote: z.string().optional(),
+  voiceClipUrl: z.string().optional(),
+}).passthrough();
+
+const factionSchema = baseCodexEntrySchema.extend({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  alignment: z.string(),
+  headquarters: z.string().optional(),
+  status: z.string().optional(),
+}).passthrough();
+
+const locationSchema = baseCodexEntrySchema.extend({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  realm: z.string().optional(),
+  safetyLevel: z.string().optional(),
+  imageUrl: z.string().optional(),
+  imageHistory: z.array(generatedImageSchema).optional(),
+  lastImageChapter: z.number().optional(),
+  evolutionReady: z.boolean().optional(),
+  evolutionReason: z.string().optional(),
+  availableVisualUpdate: z.boolean().optional(),
+}).passthrough();
+
+const artifactSchema = baseCodexEntrySchema.extend({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  tier: z.string().optional(),
+  currentOwner: z.string().optional(),
+  imageUrl: z.string().optional(),
+  imageHistory: z.array(generatedImageSchema).optional(),
+  lastImageChapter: z.number().optional(),
+  evolutionReady: z.boolean().optional(),
+  evolutionReason: z.string().optional(),
+}).passthrough();
+
+const abilitySchema = baseCodexEntrySchema.extend({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  source: z.string().optional(),
+  acquiredChapter: z.number().optional(),
+  acquisitionMethod: z.string().optional(),
+  cost: z.string().optional(),
+  limits: z.string().optional(),
+  masteryLevel: z.string().optional(),
+  lastUsedChapter: z.number().optional(),
+}).passthrough();
+
+const plotThreadSchema = z.object({
+  id: z.string().optional(),
+  description: z.string(),
+  status: z.enum(["active", "resolved"]),
+  provenance: memoryProvenanceSchema.optional(),
+  originChapter: z.number().optional(),
+}).passthrough();
+
+export const storyMemorySchema = z.object({
+  powerSystem: z.string(),
+  currentPowerStage: z.string(),
+  worldRules: z.array(z.string()),
+  characters: z.array(characterSchema),
+  unresolvedPlotThreads: z.array(z.union([z.string(), plotThreadSchema])),
+  resolvedPlotThreads: z.array(z.union([z.string(), plotThreadSchema])),
+  memoryWarnings: z.array(z.string()).optional(),
+  factions: z.array(factionSchema).optional(),
+  locations: z.array(locationSchema).optional(),
+  artifacts: z.array(artifactSchema).optional(),
+  abilities: z.array(z.union([z.string(), abilitySchema])).optional(),
+}).passthrough();
+
+const intakeCharacterSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  age: z.string().optional(),
+  skinTone: z.string().optional(),
+  eyeColor: z.string().optional(),
+  powerType: z.string().optional(),
+  rankLevel: z.string().optional(),
+  role: z.string().optional(),
+  connectionToMC: z.string().optional(),
+  bio: z.string().optional(),
+}).passthrough();
+
+const intakeFactionSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  role: z.string().optional(),
+  powerLevel: z.string().optional(),
+  alignment: z.string().optional(),
+  connectionToMC: z.string().optional(),
+  description: z.string().optional(),
+}).passthrough();
+
+export const intakeDataSchema = z.object({
+  novelTitle: z.string().optional(),
+  mcName: z.string().optional(),
+  genrePath: z.string().optional(),
+  corePremise: z.string().optional(),
+  desiredPlotDirection: z.string().optional(),
+  storyTags: z.array(z.string()).optional(),
+  destinedEnding: z.string().optional(),
+  estimatedArcs: z.number().optional(),
+  
+  worldType: z.string().optional(),
+  startingLocation: z.string().optional(),
+  societyStructure: z.string().optional(),
+  dangerLevel: z.string().optional(),
+  generalAtmosphere: z.string().optional(),
+  
+  startingIdentity: z.string().optional(),
+  personality: z.string().optional(),
+  mainFlaw: z.string().optional(),
+  secretAdvantage: z.string().optional(),
+  startingWeakness: z.string().optional(),
+  moralAlignment: z.string().optional(),
+  mcBio: z.string().optional(),
+  
+  customCharacters: z.array(intakeCharacterSchema).optional(),
+  customFactions: z.array(intakeFactionSchema).optional(),
+  
+  startingPowerConcept: z.string().optional(),
+  powerFlavor: z.string().optional(),
+  powerPace: z.string().optional(),
+  knownRanks: z.string().optional(),
+  uniquePath: z.string().optional(),
+  
+  longTermGoal: z.string().optional(),
+  firstMajorConflict: z.string().optional(),
+  mainAntagonistPressure: z.string().optional(),
+  romanceLevel: z.string().optional(),
+  faceSlappingLevel: z.string().optional(),
+  comedyLevel: z.string().optional(),
+  tournamentArcPreference: z.string().optional(),
+  haremPreference: z.string().optional(),
+  betrayalLevel: z.string().optional(),
+  thingsToAvoid: z.string().optional(),
+  mustIncludeElements: z.string().optional(),
+  hardcoreFateMode: z.boolean().optional(),
+  fatePressure: z.string().optional(),
+  
+  makeItWorkInstruction: z.string().optional(),
+}).passthrough();
+
+export const worldBlueprintSchema = z.object({
+  title: z.string(),
+  logline: z.string(),
+  worldOverview: z.string(),
+  startingLocation: z.string(),
+  societyStructure: z.string(),
+  powerSystemOutline: z.string(),
+  mcProfile: z.string(),
+  majorFactions: z.array(z.string()),
+  initialCharacters: z.array(z.string()),
+  majorMysteries: z.array(z.string()),
+  firstArcPromise: z.string(),
+  tropeRules: z.string(),
+  styleBible: z.string(),
+  destinedEnding: z.string().optional(),
+  estimatedArcs: z.number(),
+  unresolvedPlotThreads: z.array(z.string()),
+}).passthrough();
 
 export const embedSchema = z.object({
   text: z.string(),
@@ -19,13 +245,13 @@ export const daoInsightSchema = z.object({
 });
 
 export const generateBlueprintSchema = z.object({
-  intake: z.any(), // Since intake format is complex
+  intake: intakeDataSchema, // Since intake format is complex
   routingConfig: routingConfigSchema,
 });
 
 export const generateInitialArcSchema = z.object({
-  intake: z.any(),
-  blueprint: z.any(),
+  intake: intakeDataSchema,
+  blueprint: worldBlueprintSchema,
   chapterCount: z.union([z.string(), z.number()]).optional(),
   routingConfig: routingConfigSchema,
 });
@@ -34,7 +260,7 @@ export const chapterGenerationSchema = z.object({
   mcName: z.string(),
   genre: z.string().optional(),
   customPremise: z.string().optional(),
-  memory: z.any(),
+  memory: storyMemorySchema,
   pastSummaries: z.array(z.string()).optional(),
   currentChapter: z.object({
     number: z.number().optional(),
@@ -61,13 +287,13 @@ export const extractMetadataSchema = z.object({
 
 export const checkConsistencySchema = z.object({
   chapterText: z.string(),
-  memory: z.any(),
+  memory: storyMemorySchema,
   routingConfig: routingConfigSchema,
 });
 
 export const repairChapterSchema = z.object({
   chapterText: z.string(),
-  memory: z.any(),
+  memory: storyMemorySchema,
   warnings: z.array(z.string()),
   routingConfig: routingConfigSchema,
 });
@@ -76,7 +302,7 @@ export const generateNextDirectionsSchema = z.object({
   mcName: z.string(),
   genre: z.string().optional(),
   customPremise: z.string().optional(),
-  memory: z.any(),
+  memory: storyMemorySchema,
   pastSummaries: z.array(z.string()).optional(),
   routingConfig: routingConfigSchema,
   destinedEnding: z.string().optional(),
@@ -94,7 +320,7 @@ export const steerArcSchema = z.object({
   mcName: z.string(),
   genre: z.string().optional(),
   customPremise: z.string().optional(),
-  memory: z.any(),
+  memory: storyMemorySchema,
   pastSummaries: z.array(z.string()).optional(),
   currentArcCount: z.union([z.string(), z.number()]).optional(),
   steerDirection: z.string(),
@@ -114,7 +340,7 @@ export const generateCultivatorPortraitSchema = z.object({
   daoRank: z.string().optional(),
   daoXp: z.number().optional(),
   powerStage: z.string().optional(),
-  equippedArtifact: z.any().optional(),
+  equippedArtifact: artifactSchema.optional(),
   routingConfig: routingConfigSchema,
 });
 
@@ -132,7 +358,10 @@ export const translateChapterSchema = z.object({
   chapterId: z.string().optional(),
   targetLang: z.string(),
   englishText: z.string(),
-  glossaryTerms: z.array(z.any()).optional(),
+  glossaryTerms: z.array(z.object({
+    term: z.string().optional(),
+    definition: z.string().optional(),
+  }).passthrough()).optional(),
   routingConfig: routingConfigSchema,
 });
 
@@ -144,7 +373,7 @@ export const generateAudioSchema = z.object({
 export const escalateFateSchema = z.object({
   previousFate: z.string(),
   survivalMethod: z.string(),
-  currentCodexState: z.any(),
+  currentCodexState: storyMemorySchema,
   routingConfig: routingConfigSchema,
 });
 

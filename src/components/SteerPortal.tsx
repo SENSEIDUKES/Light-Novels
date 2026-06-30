@@ -89,7 +89,7 @@ export default function SteerPortal({
   const [error, setError] = useState<string | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
 
-  const fetchDirections = async () => {
+  const fetchDirections = React.useCallback(async () => {
     if (!activeStory) return;
     setIsLoading(true);
     setError(null);
@@ -154,11 +154,11 @@ export default function SteerPortal({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeStory, routingConfig]);
 
   useEffect(() => {
     fetchDirections();
-  }, [activeStory?.id]);
+  }, [fetchDirections]);
 
   const handleSelectCard = (card: DirectionCard) => {
     setSelectedCardId(card.id);

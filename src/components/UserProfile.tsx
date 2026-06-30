@@ -312,7 +312,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
   const [daoStatus, setDaoStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
   const [daoDetail, setDaoDetail] = useState<string>('Sensing alignment with the cosmic Dao...');
 
-  const checkDaoConnection = async () => {
+  const checkDaoConnection = React.useCallback(async () => {
     setDaoStatus('checking');
     try {
       const res = await fetch('/api/config-status');
@@ -329,11 +329,11 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
       setDaoStatus('connected');
       setDaoDetail('Divine Flow Stable (Server-managed Gemini active)');
     }
-  };
+  }, [localGeminiKey, localOpenrouterKey, localOllamaHost]);
 
   useEffect(() => {
     checkDaoConnection();
-  }, [localGeminiKey, localOpenrouterKey, localOllamaHost, isSettingsOpen]);
+  }, [localGeminiKey, localOpenrouterKey, localOllamaHost, isSettingsOpen, checkDaoConnection]);
 
   const fetchAdminData = async () => {
     setIsFetchingAdminData(true);
@@ -461,7 +461,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     });
 
     return () => unsubscribe();
-  }, [currentUser]);
+  }, [currentUser, isEditing]);
 
   useEffect(() => {
     if (!currentUser) {

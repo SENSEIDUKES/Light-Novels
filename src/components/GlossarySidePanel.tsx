@@ -20,7 +20,7 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
   const [newSource, setNewSource] = useState('');
   const [newTarget, setNewTarget] = useState('');
 
-  const loadTerms = async () => {
+  const loadTerms = React.useCallback(async () => {
     setIsLoading(true);
     try {
       const dbTerms = await firebaseStorage.getLoreGlossary(novelId);
@@ -30,13 +30,13 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [novelId]);
 
   useEffect(() => {
     if (isOpen && novelId) {
       loadTerms();
     }
-  }, [isOpen, novelId]);
+  }, [isOpen, novelId, loadTerms]);
 
   const handleAddWord = async () => {
     if (!newSource.trim() || !newTarget.trim()) return;

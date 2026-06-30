@@ -235,7 +235,7 @@ export default function ReaderChamber({
         }, 100);
       }
     }
-  }, [selectedChapterNum, activeStory.lastReadChapter, selectedChapter.generatedContent, selectedChapter.blocks]);
+  }, [selectedChapterNum, activeStory.lastReadChapter, selectedChapter.generatedContent, selectedChapter.blocks, activeStory.lastReadScrollPosition]);
 
   // --- atmospheric audio (just reference, no actual addition needed here)
   const isReaderFullscreen = useAppStore((state) => state.isReaderFullscreen);
@@ -280,6 +280,8 @@ export default function ReaderChamber({
     selectedChapter.generatedContent,
     selectedChapter.blocks,
     selectedChapter.translations,
+    activeStory.id,
+    translateChapter
   ]);
 
   // --- Theme & Reader Typography Customizer States ---
@@ -660,6 +662,8 @@ export default function ReaderChamber({
     pendingScrollToParagraph,
     selectedChapterNum,
     selectedChapter.generatedContent,
+    selectedChapter.blocks,
+    pauseAutoScroll
   ]);
 
   const handleSealClick = async () => {

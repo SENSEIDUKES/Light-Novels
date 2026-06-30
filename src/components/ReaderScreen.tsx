@@ -110,7 +110,7 @@ export const ReaderScreen: React.FC<{
     readingTimerRef.current = timer;
 
     return () => clearInterval(timer);
-  }, [activeStory?.id, currentScreen, selectedChapterNum, currentArcIndex]);
+  }, [activeStory, currentScreen, selectedChapterNum, currentArcIndex]);
 
   const activeStoryRef = React.useRef(activeStory);
   useEffect(() => { activeStoryRef.current = activeStory; }, [activeStory]);
@@ -257,7 +257,7 @@ export const ReaderScreen: React.FC<{
     } else {
       setShowRecap(false);
     }
-  }, [activeStoryId, currentScreen, activeStory?.id]);
+  }, [activeStoryId, currentScreen, activeStory, selectedChapterNum]);
 
   useEffect(() => {
     if (
