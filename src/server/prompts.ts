@@ -567,12 +567,12 @@ Output strictly the full set of corrected NDJSON blocks for the entire chapter s
 
   steer: {
     system: `You are a visionary series consultant and lead author for bestselling serialized Chinese web-novels. 
-Your task is to take a completed story volume, process the steering direction chosen by the reader, and outline a brand new high-stakes sequel story arc (exactly 10 chapters, continuing the chapter numbering sequence).
+Your task is to take the current state of the story, process the steering direction chosen by the reader, and outline the next high-stakes phase of the story (exactly 10 chapters, continuing the chapter numbering sequence).
 
 CRITICAL COHERENCE ENFORCEMENT:
 1. CONSTANT COMPATIBILITY: The sequel MUST fully respect all rules, existing living characters, and power structures defined in the CURRENT COMPREHENSIVE STORY MEMORY. Do not erase, forget, or contradict pre-existing lore.
 2. STABILIZED KARMA CHAIN: The sequel must actively address unresolved plot threads inherited from previous volumes. Incorporating them builds a satisfying narrative growth.
-3. ORGANIC INITIATION (NO HARD CUTS): The first chapters of the sequel MUST pick up logically from where the final summarized chapter ended. You must explicitly track:
+3. ORGANIC INITIATION (NO HARD CUTS): The next 10 chapters MUST pick up logically from where the final summarized chapter ended. You must explicitly track:
    - Where the last arc ended and what happened immediately after.
    - Whether there is a time skip (and if so, justify it).
    - Where the characters physically moved.
@@ -587,12 +587,12 @@ CONTENT AND AGE SAFETY PROTOCOLS:
 4. ADULT INTIMACY: Physical intimacy and highly suggestive themes require ALL involved characters to be clearly 18 years or older. Avoid graphic erotica or pornography under all circumstances. Keep intimacy of adult characters clean and focus on emotional narrative progression.
 
 Output strictly raw JSON matching the requested structure.`,
-    userPrompt: (startNum: number, mcName: string, genre: string, customPremise: string, steerDirection: string, userCustomDirections: string, memoryJson: string, pastSummariesJson: string, count: number) => `Create a brand new ${count}-chapter sequel story arc continuing from chapter ${startNum} for:
+    userPrompt: (startNum: number, mcName: string, genre: string, customPremise: string, steerDirection: string, userCustomDirections: string, memoryJson: string, pastSummariesJson: string, count: number) => `Create the next ${count} sequential chapters starting from chapter ${startNum} for:
 Main Character: ${mcName}
 Genre Category: ${genre}
 Original Premise: ${customPremise}
 
-STEERING SELECTION FOR THIS NEW ARC:
+STEERING SELECTION FOR THE NEXT PHASE:
 - Direction: "${steerDirection.toUpperCase()}" 
 ${userCustomDirections ? `- User Specific Guidance: "${userCustomDirections}"` : ""}
 

@@ -38,7 +38,7 @@ export function getAIClient(customApiKey?: string) {
 // Router default presets
 export const ROUTER_PRESETS = {
   storyMaker: {
-    gemini: ["google/gemini-3.1-flash-lite-preview", "google/gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
+    gemini: ["google/gemini-2.5-flash-lite", "google/gemini-3.1-flash-lite-preview", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
     openrouter: [
       "@preset/light-novel-story",
       "google/gemini-3.1-flash-lite-preview",
@@ -50,8 +50,16 @@ export const ROUTER_PRESETS = {
     ollama: ["llama3", "gemma2", "mistral", "phi3"]
   },
   imageGenerator: {
-    gemini: ["gemini-2.5-flash-image", "google/gemini-3.1-flash-lite-image-preview", "google/gemini-3.1-flash-image", "imagen-3.0-generate-002"],
-    openrouter: ["google/gemini-3.1-flash-lite-image-preview", "black-forest-labs/flux.2-klein-4b", "google/gemini-3.1-flash-image", "stable-diffusion-xl", "playgroundai/playground-v2.5", "shuttle-ai/shuttle-3-diffusion"],
+    gemini: ["gemini-3.1-flash-lite-image", "google/gemini-3.1-flash-lite-image", "gemini-2.5-flash-image", "google/gemini-3.1-flash-lite-image-preview", "google/gemini-3.1-flash-image", "imagen-3.0-generate-002"],
+    openrouter: [
+      "@preset/library-pictures",
+      "google/gemini-3.1-flash-lite-image-preview",
+      "black-forest-labs/flux.2-klein-4b",
+      "google/gemini-3.1-flash-image",
+      "stable-diffusion-xl",
+      "playgroundai/playground-v2.5",
+      "shuttle-ai/shuttle-3-diffusion"
+    ],
     ollama: ["local-sd-mortal", "local-sd-celestial"]
   }
 };
@@ -147,7 +155,7 @@ export async function* routeTextGenerationStream(
 
   if (provider === "gemini") {
     const ai = getAIClient(customKeys?.geminiApiKey);
-    const geminiModel = (model || "google/gemini-3.1-flash-lite-preview").replace(/^google\//, "");
+    const geminiModel = (model || "google/gemini-2.5-flash-lite").replace(/^google\//, "");
     try {
       const responseStream = await ai.models.generateContentStream({
         model: geminiModel,
@@ -346,7 +354,7 @@ export async function routeTextGeneration(
     // GOOGLE GEMINI ROUTE
     // -------------------------------------------------------------
     const ai = getAIClient(customKeys?.geminiApiKey);
-    const geminiModel = (model || "google/gemini-3.1-flash-lite-preview").replace(/^google\//, "");
+    const geminiModel = (model || "google/gemini-2.5-flash-lite").replace(/^google\//, "");
     const config: any = {
       systemInstruction: safeSystem,
       responseMimeType: "application/json",
@@ -533,12 +541,12 @@ export async function routeImageGeneration(
 ): Promise<{ imageUrls: string[]; note?: string; isFallback?: boolean }> {
   let activeConfig: RouteConfig = (routingConfig as any)?.imageGenerator || routingConfig || {
     provider: "gemini",
-    model: "gemini-2.5-flash-image"
+    model: "gemini-3.1-flash-lite-image"
   };
   if (!activeConfig.provider) {
     activeConfig = {
       provider: "gemini",
-      model: "gemini-2.5-flash-image"
+      model: "gemini-3.1-flash-lite-image"
     };
   }
 
@@ -547,7 +555,9 @@ export async function routeImageGeneration(
     console.log(`[aiRouter] Routing Image task -> Provider: '${provider}', Model: '${model}'`);
   }
 
-  const styleEnhancer = type === "location"
+  const styleEnhancer = model === "@preset/library-pictures"
+    ? "highly-detailed fantasy illustration, premium light novel art style, vibrant and crisp book illustration, cinematic lighting, masterpiece"
+    : type === "location"
     ? "mystical landscape, fantasy environment concept art, high-energy light novel scenery, dramatic lighting, celestial aura, beautiful composition, vibrant colors"
     : type === "chapterHero"
     ? "Visual Memory: stark, stylized cinematic illustration, dramatic crucial moment frozen in time. SEIHouse canonical brand palette: #000000, #FAFAFA, #8B0000, #04ACFF. Emotional core, meaning-first creator artwork, high contrast, immersive mood piece."
@@ -573,7 +583,7 @@ export async function routeImageGeneration(
     // -------------------------------------------------------------
     try {
       const ai = getAIClient(customKeys?.geminiApiKey);
-      const gModel = (model || "gemini-2.5-flash-image").replace(/^google\//, "");
+      const gModel = (model || "gemini-3.1-flash-lite-image").replace(/^google\//, "");
 
       let imageUrls: string[] = [];
 
@@ -645,7 +655,7 @@ export async function routeImageGeneration(
       };
     }
   } else if (provider === "openrouter") {
-    const imageModel = model || "black-forest-labs/flux.2-klein-4b";
+    const imageModel = model === "@preset/library-pictures" ? "stabilityai/stable-diffusion-xl" : model || "black-forest-labs/flux.2-klein-4b";
 
     try {
       const apiKey = customKeys?.openrouterApiKey || process.env.OPENROUTER_API_KEY;

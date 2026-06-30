@@ -9,6 +9,7 @@ import { Story, StreamingChapter } from "../types";
 import { awardQi } from "../lib/qi";
 import { RecapScreen } from "./RecapScreen";
 import { storyStorage } from "../lib/storage";
+import { LOCAL_ONLY_MODE } from "../lib/firebase";
 
 export const ReaderScreen: React.FC<{
   handleSteerArc: (direction: string, customPrompt: string) => Promise<void>;
@@ -166,6 +167,57 @@ export const ReaderScreen: React.FC<{
       (localStatsDelta.total || 0)) /
     1000;
 
+  // Word count calculations
+  const chaptersWithLoadedContent = activeStory
+    ? activeStory.arcs
+        .flatMap((a) => a.chapters)
+        .map((ch) => {
+          if (streamingChapter && ch.number === streamingChapter.number) {
+            return {
+              ...ch,
+              generatedContent: streamingChapter.content,
+              blocks: streamingChapter.blocks,
+            };
+          }
+          if (localChapterCache[ch.number]) {
+            const cached = localChapterCache[ch.number];
+            return {
+              ...ch,
+              generatedContent: cached.generatedContent,
+              blocks: cached.blocks,
+            };
+          }
+          return ch;
+        })
+    : [];
+
+  const countWords = (text?: string): number => {
+    if (!text) return 0;
+    const cleanText = text.trim();
+    if (!cleanText) return 0;
+    return cleanText.split(/\s+/).filter(Boolean).length;
+  };
+
+  const getChapterWordCount = (ch: any): number => {
+    if (ch.blocks && ch.blocks.length > 0) {
+      return ch.blocks.reduce((sum: number, b: any) => sum + countWords(b.text), 0);
+    }
+    return countWords(ch.generatedContent);
+  };
+
+  const totalStoryWords = chaptersWithLoadedContent.reduce((sum, ch) => {
+    const count = getChapterWordCount(ch);
+    if (count > 0) return sum + count;
+    // Estimate 2,200 words for generated chapters that aren't loaded in memory
+    if (ch.hasContent || ch.status === "read") return sum + 2200;
+    return sum;
+  }, 0);
+
+  const activeChapter = chaptersWithLoadedContent.find(
+    (ch) => ch.number === selectedChapterNum
+  );
+  const activeChapterWords = activeChapter ? getChapterWordCount(activeChapter) : 0;
+
   // Listen to custom DOM event to toggle glossary sidelobe via global hotkey
   useEffect(() => {
     const handleToggleGlossary = () => {
@@ -270,86 +322,112 @@ export const ReaderScreen: React.FC<{
       className={`space-y-6 ${isReaderFullscreen ? "!space-y-0 relative" : ""}`}
     >
       {!isReaderFullscreen && (
-        <div className="flex items-center justify-between bg-black/60 border border-neutral-900 px-3 py-1.5 sm:px-4 sm:py-2 rounded shadow-md backdrop-blur-md sticky top-0 z-30">
-          <div className="flex items-center space-x-1.5 sm:space-x-2 min-w-0">
-            <button
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  e.currentTarget.click();
-                }
-              }}
-              onClick={() => setCurrentScreen("detail")}
-              className="text-neutral-500 hover:text-gold-accent transition-colors flex-shrink-0"
-            >
-              <ArrowLeft size={18} />
-            </button>
-            <span className="font-sc uppercase tracking-[0.12em] text-gold-accent font-bold text-[10px] sm:text-xs flex-shrink-0">
-              {activeStory.genre}
-            </span>
-            <span className="text-neutral-700 font-mono flex-shrink-0">•</span>
-            <span className="text-neutral-400 font-display text-xs sm:text-sm truncate pr-2">
-              {activeStory.title}
-            </span>
-          </div>
-          <div className="flex-shrink-0 flex items-center space-x-2">
-            <div className="hidden md:flex items-center space-x-2 px-3 py-1 bg-black/40 border border-neutral-800 rounded text-neutral-400 font-mono text-[10px]">
-              <div
-                className="flex items-center space-x-1"
-                title="Current Local Time"
+        <div className="flex flex-col bg-black/60 border border-neutral-900 rounded shadow-md backdrop-blur-md sticky top-0 z-30 overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-1.5 sm:px-4 sm:py-2 min-w-0">
+            <div className="flex items-center space-x-1.5 sm:space-x-2 min-w-0">
+              <button
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.currentTarget.click();
+                  }
+                }}
+                onClick={() => setCurrentScreen("detail")}
+                className="text-neutral-500 hover:text-gold-accent transition-colors flex-shrink-0"
               >
-                <span className="text-jade-accent">Time:</span>
-                <span>
-                  {clockTime.toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
-              </div>
-              <span className="text-neutral-700">|</span>
-              <div
-                className="flex items-center space-x-1"
-                title="Total Story Reading Time"
-              >
-                <span className="text-gold-accent">Story:</span>
-                <span>{formatTime(storyTotalTimeS)}</span>
-              </div>
+                <ArrowLeft size={18} />
+              </button>
+              <span className="font-sc uppercase tracking-[0.12em] text-gold-accent font-bold text-[10px] sm:text-xs flex-shrink-0">
+                {activeStory.genre}
+              </span>
+              <span className="text-neutral-700 font-mono flex-shrink-0">•</span>
+              <span className="text-neutral-400 font-display text-xs sm:text-sm truncate pr-2">
+                {activeStory.title}
+              </span>
             </div>
-            <button
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  e.currentTarget.click();
-                }
-              }}
-              onClick={() => setIsGlossaryOpen(true)}
-              className="px-2.5 py-1 sm:px-4 sm:py-1.5 bg-neutral-900 border border-neutral-800 text-neutral-400 font-sc font-bold uppercase tracking-wider rounded hover:bg-neutral-800 hover:text-white transition-all flex items-center space-x-1 sm:space-x-2 text-[9px] sm:text-[10px]"
-            >
-              <BookA size={11} />
-              <span className="hidden sm:inline">Lore Glossary</span>
-              <span className="sm:hidden">Lore</span>
-            </button>
-            <button
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  e.currentTarget.click();
-                }
-              }}
-              onClick={() => setIsCodexSheetOpen(true)}
-              className="px-2.5 py-1 sm:px-4 sm:py-1.5 bg-void border border-portal text-portal font-sc font-bold uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-all flex items-center space-x-1 sm:space-x-2 text-[9px] sm:text-[10px]"
-            >
-              <Sparkles size={11} />
-              <span>Codex</span>
-            </button>
+            <div className="flex-shrink-0 flex items-center space-x-2">
+              <div className="hidden md:flex items-center space-x-2 px-3 py-1 bg-black/40 border border-neutral-800 rounded text-neutral-400 font-mono text-[10px]">
+                <div
+                  className="flex items-center space-x-1"
+                  title="Current Local Time"
+                >
+                  <span className="text-jade-accent">Time:</span>
+                  <span>
+                    {clockTime.toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+                <span className="text-neutral-700">|</span>
+                <div
+                  className="flex items-center space-x-1"
+                  title={`Total Story Words (Current Chapter: ${activeChapterWords.toLocaleString()} words)`}
+                >
+                  <span className="text-gold-accent">Words:</span>
+                  <span>{totalStoryWords.toLocaleString()}</span>
+                </div>
+              </div>
+              <button
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.currentTarget.click();
+                  }
+                }}
+                onClick={() => setIsGlossaryOpen(true)}
+                className="px-2.5 py-1 sm:px-4 sm:py-1.5 bg-neutral-900 border border-neutral-800 text-neutral-400 font-sc font-bold uppercase tracking-wider rounded hover:bg-neutral-800 hover:text-white transition-all flex items-center space-x-1 sm:space-x-2 text-[9px] sm:text-[10px]"
+              >
+                <BookA size={11} />
+                <span className="hidden sm:inline">Lore Glossary</span>
+                <span className="sm:hidden">Lore</span>
+              </button>
+              <button
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.currentTarget.click();
+                  }
+                }}
+                onClick={() => setIsCodexSheetOpen(true)}
+                className="px-2.5 py-1 sm:px-4 sm:py-1.5 bg-void border border-portal text-portal font-sc font-bold uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-all flex items-center space-x-1 sm:space-x-2 text-[9px] sm:text-[10px]"
+              >
+                <Sparkles size={11} />
+                <span>Codex</span>
+              </button>
+            </div>
           </div>
+          
+          {/* Arc Progress Bar */}
+          {(() => {
+            const displayedArcIndex = currentArcIndex !== -1 ? currentArcIndex : (activeStory ? activeStory.arcs.length - 1 : -1);
+            const displayedArc = activeStory?.arcs[displayedArcIndex];
+            const arcChaptersCount = displayedArc ? displayedArc.chapters.length : 0;
+            return (
+              <div className="w-full h-1 bg-neutral-900 relative flex group" title={`Arc Progress: ${arcChaptersCount}/100 Chapters`}>
+                {[...Array(9)].map((_, i) => (
+                  <div 
+                    key={i} 
+                    className="absolute top-0 bottom-0 w-[2px] bg-neutral-800/80 z-10" 
+                    style={{ left: `${(i + 1) * 10}%` }}
+                  />
+                ))}
+                <div 
+                  className="h-full bg-portal transition-all duration-500 ease-out z-0 relative"
+                  style={{ width: `${(arcChaptersCount / 100) * 100}%` }}
+                >
+                  <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
-      {!currentUser &&
+      {!currentUser && !LOCAL_ONLY_MODE &&
       (selectedChapterNum === -1 || selectedChapterNum > 10) ? (
         <div className="max-w-xl mx-auto mt-20 text-center bg-black/60 border border-neutral-900 p-10 rounded-xl shadow-2xl animate-fadeIn">
           <h2 className="font-display font-bold text-3xl text-signal mb-4">

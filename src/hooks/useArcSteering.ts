@@ -120,6 +120,7 @@ export const useArcSteering = () => {
           updatedArcs[updatedArcs.length - 1] = {
             ...lastArc,
             chapters: [...lastArc.chapters, ...nextChapters],
+            isCompleted: false
           };
         } else {
           const newArcTitle = data.title || `Volume ${s.arcs.length + 1}`;
@@ -294,6 +295,7 @@ export const useArcSteering = () => {
           updatedArcs[updatedArcs.length - 1] = {
             ...lastArc,
             chapters: [...lastArc.chapters, ...nextChapters],
+            isCompleted: false
           };
         } else {
           const newArcTitle = data.title || `Vivergence Path`;

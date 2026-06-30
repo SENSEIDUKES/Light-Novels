@@ -168,12 +168,13 @@ app.post("/api/models", validateBody(modelsSchema), async (req, res) => {
       if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
         return res.json({
           models: [
+            "gemini-3.1-flash-lite-image",
+            "google/gemini-2.5-flash-lite",
             "gemini-2.5-flash-image",
             "google/gemini-3.1-flash-lite-image-preview",
             "google/gemini-3.1-flash-lite-preview",
             "gemini-3.5-flash",
             "gemini-3.5-pro",
-            "google/gemini-2.5-flash-lite",
             "google/gemini-3.1-flash-image",
             "gemini-2.5-flash",
             "gemini-2.5-pro",
@@ -1249,7 +1250,7 @@ app.post("/api/generate-card-image", validateBody(generateCardImageSchema), asyn
 // 4.5 Generate Cultivator Portrait from uploaded image and description
 app.post("/api/test-image-gen", async (req, res) => {
   try {
-    const result = await routeImageGeneration("test", "portrait", { provider: "gemini", model: "gemini-2.5-flash-image" }, getCustomKeys(req));
+    const result = await routeImageGeneration("test", "portrait", { provider: "gemini", model: "gemini-3.1-flash-lite-image" }, getCustomKeys(req));
     res.json(result);
   } catch (err: any) {
     res.status(500).json({error: err.message});

@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { ParticleSystem } from "./ParticleSystem";
 import { useChapterTranslation } from "../hooks/useChapterTranslation";
 import { useAppStore } from "../store/useAppStore";
+import { LOCAL_ONLY_MODE } from "../lib/firebase";
 import { SystemBlock } from "./SystemBlock";
 import { AlterFatePanel } from "./AlterFatePanel";
 import { ReaderPreferencesPanel } from "./ReaderPreferencesPanel";
@@ -752,7 +753,7 @@ export default function ReaderChamber({
   const handleGenerate = () => {
     if (isGenerating || useAppStore.getState().isGenerating) return;
     const { currentUser } = useAppStore.getState();
-    if (!currentUser) {
+    if (!currentUser && !LOCAL_ONLY_MODE) {
       alert("You must sync your spirit (sign in) to forge new chapters.");
       return;
     }

@@ -190,7 +190,7 @@ describe('useAppStore', () => {
 
   it('initStorage works with user', async () => {
     const store = useAppStore.getState();
-    // @ts-expect-error - mock user
+    // mock user
     auth.currentUser = { uid: 'user1' };
     vi.mocked(storyStorage.getStories).mockResolvedValue([
       { id: 'demo-matrix-test', isEdited: true, currentChapterNumber: 2, arcs: [], memory: {} } as any

@@ -567,20 +567,8 @@ export class PersistentStorageManager implements StorageAdapter {
       this.setStatus('synced');
     } catch (error: any) {
       console.error('Failed to flush sync queue', error);
-      
-      const errMsg = typeof error === 'string' ? error : (error?.message || '');
-      if (errMsg.includes('Missing or insufficient permissions') || errMsg.includes('permission-denied') || errMsg.includes('permission denied')) {
-         console.warn('Dropping sync task due to permission denied');
-         this.syncQueue.shift();
-         this.saveQueue();
-         // Try processing the rest of the queue
-         if (this.syncQueue.length > 0) {
-            setTimeout(() => this.processQueue(), 100);
-         }
-      } else {
-         // Keep remaining unprocessed tasks in queue
-         this.setStatus('error');
-      }
+      // Keep remaining unprocessed tasks in queue to try again later
+      this.setStatus('error');
     }
   }
 
@@ -825,11 +813,15 @@ export class PersistentStorageManager implements StorageAdapter {
                const localContent = await this.localAdapter.getChapterContent(storyId, chapter.number);
                if (!localContent && this.isCloudAvailable) {
                    // Try to recover from cloud
-                   const cloudContent = await this.cloudAdapter.getChapterContent(storyId, chapter.number);
-                   if (cloudContent) {
-                       await this.localAdapter.saveChapterContent(cloudContent);
-                       recovered++;
-                       continue;
+                   try {
+                     const cloudContent = await this.cloudAdapter.getChapterContent(storyId, chapter.number);
+                     if (cloudContent) {
+                         await this.localAdapter.saveChapterContent(cloudContent);
+                         recovered++;
+                         continue;
+                     }
+                   } catch (e) {
+                     console.error("Failed to recover chapter from cloud", e);
                    }
                }
                
@@ -1109,8 +1101,8 @@ export class PersistentStorageManager implements StorageAdapter {
           return cloudItem;
         }
       } catch (e) {
-        console.error("Cloud fetch failed", e);
-        throw e; // Throw the error so the caller knows it was a network/quota issue, not a missing chapter
+        console.error("Cloud fetch failed, failing silently", e);
+        // Fail silently
       }
     }
     return null;

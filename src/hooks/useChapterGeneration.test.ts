@@ -229,7 +229,7 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
       }
       if (url.includes('check-consistency')) {
         consistencyCallCount++;
-        // First call returns a warning, second call still returns a warning (to test fault flags)
+        // Returns a warning
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ warnings: ['Broken plot hole'] }) });
       }
       if (url.includes('repair-chapter-stream')) {
@@ -245,15 +245,15 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
       await result.current.handleGenerateChapter(1);
     });
 
-    expect(consistencyCallCount).toBe(2);
+    expect(consistencyCallCount).toBe(1);
     expect(saveStoriesSpy).toHaveBeenCalled();
     const updated = saveStoriesSpy.mock.calls[0][0];
     const ch = updated[0].arcs[0].chapters[0];
     
-    // Check that repair replaced the blocks
-    expect(ch.blocks[0].text).toBe('B'.repeat(160));
+    // Check that repair did NOT replace the blocks
+    expect(ch.blocks[0].text).toBe('A'.repeat(160));
     
-    // Check fault flags were set because second check-consistency returned warnings
+    // Check fault flags were set because check-consistency returned warnings
     expect(ch.hasContinuityFaults).toBe(true);
     expect(ch.continuityWarnings).toContain('Broken plot hole');
   });

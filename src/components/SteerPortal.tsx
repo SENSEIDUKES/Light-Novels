@@ -109,7 +109,7 @@ export default function SteerPortal({
       // Extract context dynamically using RAG
       const nextChapterNumber = totalPreviousChapters + 1;
       const pastSummaries = await retrieveRelevantContext(
-        `Focus: Brainstorm new arc directions. Outline overarching macro events based on unresolved plot threads.`,
+        `Focus: Brainstorm directions for the next 10 chapters. Outline overarching macro events based on unresolved plot threads.`,
         nextChapterNumber,
         activeStory,
         apiHeaders,
@@ -179,12 +179,12 @@ export default function SteerPortal({
 
       {/* Header */}
       <div className="text-center mb-8 border-b border-neutral-950 pb-6">
-        <span className="font-sc text-portal font-semibold tracking-[0.2em] text-xs block mb-1 uppercase">Shatter Volume Boundary</span>
+        <span className="font-sc text-portal font-semibold tracking-[0.2em] text-xs block mb-1 uppercase">Shatter Boundary</span>
         <h2 className="font-display font-medium text-signal text-3xl sm:text-4xl tracking-tight mb-2">
           The Great Steering Chamber
         </h2>
         <p className="text-neutral-400 font-sans text-xs max-w-xl mx-auto leading-relaxed">
-          The currents of destiny have concluded this story arc. Assert your cosmic will as the sovereign architect to dictate where this serialized light novel matrix should ascend next.
+          The currents of destiny pause at this breakpoint. Assert your cosmic will as the sovereign architect to dictate where this story should ascend for the next 10 chapters.
         </p>
       </div>
 
@@ -320,7 +320,7 @@ export default function SteerPortal({
             className="w-full bg-neutral-950 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-4 text-xs leading-relaxed transition-all resize-none shadow-inner"
           />
           <p className="text-[10px] text-neutral-500 font-sans font-light">
-            Merging selected path notes above with your custom text changes. These directives instruct the genesis engine to craft the next arc chapter structures perfectly.
+            Merging selected path notes above with your custom text changes. These directives instruct the genesis engine to craft the next 10 chapters perfectly.
           </p>
         </div>
 
@@ -353,7 +353,7 @@ export default function SteerPortal({
               </>
             ) : (
               <>
-                <span>Unveil Next Chapter Arc</span>
+                <span>Unveil Next Chapters</span>
                 <ArrowRight size={14} />
               </>
             )}

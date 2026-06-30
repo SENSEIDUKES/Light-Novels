@@ -247,136 +247,8 @@ export const useChapterGeneration = () => {
         
         if (warnings.length > 0) {
           console.log("Continuity Guard detected issues during generation:", warnings);
-          
-          let repairAttempts = 0;
-          const MAX_REPAIR_ATTEMPTS = 2;
-          
-          while (warnings.length > 0 && repairAttempts < MAX_REPAIR_ATTEMPTS) {
-            repairAttempts++;
-            currentStoreState.setStreamingChapter({
-              number: chapterNumber,
-              content: `Continuity Guard detected temporal fractures. Initiating celestial repair protocols (Attempt ${repairAttempts}/${MAX_REPAIR_ATTEMPTS})...`,
-              blocks: []
-            });
-
-            const repairResponse = await fetch('/api/repair-chapter-stream', {
-              method: 'POST',
-              headers: apiHeaders,
-              body: JSON.stringify({
-                chapterText: finalRawBlocksStr,
-                memory: activeStory.memory,
-                warnings,
-                routingConfig: store_routingConfig.storyMaker
-              })
-            });
-
-            if (repairResponse.ok && repairResponse.body) {
-              const repairReader = repairResponse.body.getReader();
-              const repairDecoder = new TextDecoder("utf-8");
-              let repairAccumulated = "";
-              let repairBuffer = "";
-
-              while(true) {
-                const { value, done } = await repairReader.read();
-                if (done) break;
-                repairBuffer += repairDecoder.decode(value, { stream: true });
-                
-                const lines = repairBuffer.split('\n');
-                repairBuffer = lines.pop() || "";
-                
-                for (const line of lines) {
-                  if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-                    try {
-                      const parsed = JSON.parse(line.substring(6));
-                      if (parsed.chunk) {
-                        repairAccumulated += parsed.chunk;
-                        
-                        let currentChapterText = "";
-                        let blocksData: any[] = [];
-                        let currentRawStr = repairAccumulated;
-
-                        if (repairAccumulated.includes(textHeader)) {
-                          const startIndex = repairAccumulated.indexOf(textHeader) + textHeader.length;
-                          currentRawStr = repairAccumulated.substring(startIndex).trim();
-                        }
-
-                        blocksData = extractJsonBlocks(currentRawStr);
-                        if (blocksData.length > 0) {
-                          currentChapterText = blocksData.map(b => b.text).join('\n\n');
-                        }
-                        
-                        currentStoreState.setStreamingChapter({
-                          number: chapterNumber,
-                          content: currentChapterText || repairAccumulated,
-                          blocks: blocksData
-                        });
-                      }
-                    } catch (e: any) {}
-                  }
-                }
-              }
-
-              let iterationFinalRawBlocksStr = "";
-              if (repairAccumulated.includes(textHeader)) {
-                const startIndex = repairAccumulated.indexOf(textHeader) + textHeader.length;
-                iterationFinalRawBlocksStr = repairAccumulated.substring(startIndex).trim();
-              } else {
-                iterationFinalRawBlocksStr = repairAccumulated;
-              }
-
-              const repairedBlocks = extractJsonBlocks(iterationFinalRawBlocksStr);
-              if (repairedBlocks.length > 0 && repairedBlocks.length >= parsedBlocks.length * 0.5) {
-                data.blocks = repairedBlocks;
-                data.chapterText = repairedBlocks.map((b: any) => b.text).join('\n\n');
-                finalRawBlocksStr = iterationFinalRawBlocksStr;
-              } else {
-                console.warn(`Repair attempt ${repairAttempts} returned ${repairedBlocks.length} blocks vs original ${parsedBlocks.length}. Discarding repair to prevent truncation.`);
-                // Do not update finalRawBlocksStr, it keeps the previous iteration's text
-                if (!data.chapterText) {
-                   data.chapterText = finalRawBlocksStr.replace(/```json/gi, '').replace(/```/g, '').trim();
-                }
-              }
-              
-              if (!data.chapterText || data.chapterText.trim().length < 150) {
-                 // Fallback to absolute original if still failing
-                 finalRawBlocksStr = rawBlocksStr;
-                 data.blocks = parsedBlocks;
-                 data.chapterText = accumulatedRaw;
-              }
-
-              // --- RUN CONTINUITY GUARD AGAIN AFTER REPAIR ---
-              const secondConsistencyResponse = await fetch('/api/check-consistency', {
-                method: 'POST',
-                headers: apiHeaders,
-                body: JSON.stringify({
-                  chapterText: data.chapterText,
-                  memory: activeStory.memory,
-                  routingConfig: store_routingConfig.storyMaker
-                })
-              });
-
-              if (secondConsistencyResponse.ok) {
-                const secondConsistencyData = await secondConsistencyResponse.json();
-                warnings = secondConsistencyData.warnings || [];
-                if (warnings.length > 0) {
-                  console.log(`Continuity Guard found persistent issues after repair attempt ${repairAttempts}:`, warnings);
-                  if (repairAttempts >= MAX_REPAIR_ATTEMPTS) {
-                    data.hasContinuityFaults = true;
-                    data.continuityWarnings = warnings;
-                  }
-                } else {
-                  console.log(`Continuity Guard cleared issues after repair attempt ${repairAttempts}.`);
-                  data.hasContinuityFaults = false;
-                  data.continuityWarnings = [];
-                }
-              } else {
-                // If consistency check fails unexpectedly, exit loop safely
-                break;
-              }
-            } else {
-              break;
-            }
-          }
+          data.hasContinuityFaults = true;
+          data.continuityWarnings = warnings;
         }
       }
       // --- END CONTINUITY GUARD ---
@@ -394,6 +266,12 @@ export const useChapterGeneration = () => {
 
       if (!extractResponse.ok) {
          console.warn("Failed to extract chapter metadata explicitly. Setting defaults.");
+         // Fallback for local models that fail the complex JSON extraction: use the first sentence as a summary
+         let fallbackSummary = data.chapterText.substring(0, 300).trim() + "...";
+         if (fallbackSummary.includes('\n')) {
+             fallbackSummary = fallbackSummary.split('\n')[0];
+         }
+         data.summary = fallbackSummary;
       } else {
          const extractedData = await extractResponse.json();
          data = { ...data, ...extractedData };

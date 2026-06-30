@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { Copy, Cloud, ArrowRight } from 'lucide-react';
 import { IntakeData, WorldBlueprint } from '../types';
 import { useAppStore } from '../store/useAppStore';
-import { auth } from '../lib/firebase';
+import { auth, LOCAL_ONLY_MODE } from '../lib/firebase';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { AGENTS } from '../lib/agents';
 
@@ -131,7 +131,7 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
     await onStartStory(intake, cleanBlueprint, chapterCount);
   };
 
-  if (!currentUser) {
+  if (!currentUser && !LOCAL_ONLY_MODE) {
     return (
       <div className="max-w-xl mx-auto pb-20 pt-20 text-center" id="creation-portal-root">
         <h1 className="font-display font-bold text-3xl sm:text-4xl text-signal tracking-tight mb-4">

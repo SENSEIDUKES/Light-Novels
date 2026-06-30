@@ -12,7 +12,7 @@ import { SyncConflictModal } from './SyncConflictModal';
 
 const DEFAULT_PRESETS = {
   storyMaker: {
-    gemini: ["google/gemini-3.1-flash-lite-preview", "gemini-3.1-flash-lite-preview", "gemini-3.5-flash", "gemini-3.5-pro", "google/gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
+    gemini: ["google/gemini-2.5-flash-lite", "google/gemini-3.1-flash-lite-preview", "gemini-3.1-flash-lite-preview", "gemini-3.5-flash", "gemini-3.5-pro", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
     openrouter: [
       "@preset/light-novel-story",
       "google/gemini-3.1-flash-lite-preview",
@@ -27,8 +27,8 @@ const DEFAULT_PRESETS = {
     ollama: ["llama3", "gemma2", "mistral", "phi3"]
   },
   imageGenerator: {
-    gemini: ["gemini-2.5-flash-image", "google/gemini-3.1-flash-lite-image-preview", "gemini-3.1-flash-lite-image-preview", "google/gemini-3.1-flash-image", "imagen-3.0-generate-002"],
-    openrouter: ["google/gemini-3.1-flash-lite-image-preview", "google/gemini-3.1-flash-image", "stable-diffusion-xl", "playgroundai/playground-v2.5", "shuttle-ai/shuttle-3-diffusion"],
+    gemini: ["gemini-3.1-flash-lite-image", "google/gemini-3.1-flash-lite-image", "gemini-2.5-flash-image", "google/gemini-3.1-flash-lite-image-preview", "gemini-3.1-flash-lite-image-preview", "google/gemini-3.1-flash-image", "imagen-3.0-generate-002"],
+    openrouter: ["@preset/library-pictures", "google/gemini-3.1-flash-lite-image-preview", "google/gemini-3.1-flash-image", "stable-diffusion-xl", "playgroundai/playground-v2.5", "shuttle-ai/shuttle-3-diffusion"],
     ollama: ["local-sd-mortal", "local-sd-celestial"]
   }
 };
@@ -69,6 +69,7 @@ export const ModalsAndToasts: React.FC = () => {
   const [deleteText, setDeleteText] = useState('');
   const [unlockedArtifactAlert, setUnlockedArtifactAlert] = useState<any | null>(null);
   const [isArtifactRevealed, setIsArtifactRevealed] = useState(false);
+  const [ollamaStatus, setOllamaStatus] = useState<'checking' | 'connected' | 'disconnected' | 'idle'>('idle');
 
   useEffect(() => {
     if (!storyToDelete) {
@@ -134,38 +135,117 @@ export const ModalsAndToasts: React.FC = () => {
     };
   }, [setAppError]);
 
+  const checkOllamaConnection = async (hostUrl: string) => {
+    if (!hostUrl) {
+      setOllamaStatus('idle');
+      return;
+    }
+    setOllamaStatus('checking');
+    try {
+      // Direct client-side fetch from user's machine (always works if they are on localhost)
+      const res = await fetch(`${hostUrl}/api/tags`);
+      if (res.ok) {
+        const data = await res.json();
+        setOllamaStatus('connected');
+        if (data && Array.isArray(data.models)) {
+          const names = data.models.map((m: any) => m.name);
+          setDynamicModels(prev => ({
+            ...prev,
+            storyMaker: { ...prev.storyMaker, ollama: names },
+            imageGenerator: { ...prev.imageGenerator, ollama: names }
+          }));
+        }
+        return;
+      }
+    } catch (e) {
+      console.warn("Direct client-side Ollama tag fetch failed, trying server-side proxy...", e);
+    }
+
+    // Try server-side check if direct client fetch fails
+    try {
+      const res = await fetch('/api/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'ollama', host: hostUrl })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && !data.error && Array.isArray(data.models)) {
+          setOllamaStatus('connected');
+          setDynamicModels(prev => ({
+            ...prev,
+            storyMaker: { ...prev.storyMaker, ollama: data.models },
+            imageGenerator: { ...prev.imageGenerator, ollama: data.models }
+          }));
+          return;
+        }
+      }
+    } catch (err) {
+      console.error("Server-side Ollama connection proxy failed:", err);
+    }
+    setOllamaStatus('disconnected');
+  };
+
   const fetchDynamicModels = async (route: 'storyMaker' | 'imageGenerator', provider: 'gemini' | 'openrouter' | 'ollama') => {
     const key = `${route}-${provider}`;
     setLoadingModels(prev => ({ ...prev, [key]: true }));
     try {
-      let reqKey = '';
-      if (provider === 'gemini') {
-        reqKey = localGeminiKey;
-      } else if (provider === 'openrouter') {
-        reqKey = localOpenrouterKey;
-      }
-      
-      const res = await fetch('/api/models', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider,
-          host: provider === 'ollama' ? localOllamaHost : undefined,
-          key: reqKey || undefined
-        })
-      });
+      let models: string[] = [];
+      let success = false;
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.models)) {
-          setDynamicModels(prev => ({
-            ...prev,
-            [route]: {
-              ...prev[route],
-              [provider]: data.models
+      const currentOllamaHost = useAppStore.getState().localOllamaHost || localOllamaHost;
+
+      if (provider === 'ollama') {
+        const hostUrl = currentOllamaHost || 'http://localhost:11434';
+        try {
+          const clientRes = await fetch(`${hostUrl}/api/tags`);
+          if (clientRes.ok) {
+            const data = await clientRes.json();
+            if (data && Array.isArray(data.models)) {
+              models = data.models.map((m: any) => m.name);
+              success = true;
             }
-          }));
+          }
+        } catch (clientErr) {
+          console.warn("Direct client-side Ollama model fetch failed, trying server-side proxy...", clientErr);
         }
+      }
+
+      if (!success) {
+        let reqKey = '';
+        if (provider === 'gemini') {
+          reqKey = useAppStore.getState().localGeminiKey || localGeminiKey;
+        } else if (provider === 'openrouter') {
+          reqKey = useAppStore.getState().localOpenrouterKey || localOpenrouterKey;
+        }
+        
+        const res = await fetch('/api/models', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider,
+            host: provider === 'ollama' ? (currentOllamaHost || undefined) : undefined,
+            key: reqKey || undefined
+          })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.models)) {
+            models = data.models;
+            success = true;
+          }
+        }
+      }
+
+      if (success && models.length > 0) {
+        setDynamicModels(prev => ({
+          ...prev,
+          [route]: {
+            ...prev[route],
+            [provider]: models
+          }
+        }));
       }
     } catch (err) {
       console.error(`Failed to fetch dynamic models for ${route}/${provider}:`, err);
@@ -174,11 +254,44 @@ export const ModalsAndToasts: React.FC = () => {
     }
   };
 
+  // Load keys from secure storage on mount and configure initial connection checks
   useEffect(() => {
-    fetchDynamicModels('storyMaker', routingConfig.storyMaker.provider as any);
-    fetchDynamicModels('imageGenerator', routingConfig.imageGenerator.provider as any);
+    const loadKeys = async () => {
+      const gKey = await secureStorage.getItem('@seihouse/api-key-gemini') || '';
+      const orKey = await secureStorage.getItem('@seihouse/api-key-openrouter') || '';
+      const ollHost = await secureStorage.getItem('@seihouse/api-key-ollama-host') || '';
+      const diKey = await secureStorage.getItem('@seihouse/api-key-deepinfra') || '';
+
+      useAppStore.setState({
+        localGeminiKey: gKey,
+        localOpenrouterKey: orKey,
+        localOllamaHost: ollHost,
+        localDeepinfraKey: diKey
+      });
+
+      if (ollHost) {
+        checkOllamaConnection(ollHost);
+      }
+
+      fetchDynamicModels('storyMaker', routingConfig.storyMaker.provider as any);
+      fetchDynamicModels('imageGenerator', routingConfig.imageGenerator.provider as any);
+    };
+
+    loadKeys();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Automatically watch localOllamaHost and run a debounced check to verify connection
+  useEffect(() => {
+    if (localOllamaHost) {
+      const timer = setTimeout(() => {
+        checkOllamaConnection(localOllamaHost);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else {
+      setOllamaStatus('idle');
+    }
+  }, [localOllamaHost]);
 
   const handleUpdateProvider = (route: 'storyMaker' | 'imageGenerator', provider: 'gemini' | 'openrouter' | 'ollama') => {
     const presets = routingPresets || DEFAULT_PRESETS;
@@ -296,14 +409,22 @@ export const ModalsAndToasts: React.FC = () => {
                           {prov === 'gemini' 
                             ? 'Gemini' 
                             : prov === 'openrouter' 
-                              ? 'Preview Fallback' 
+                              ? 'OpenRouter' 
                               : 'Free Placeholder'}
                         </button>
                       ))}
                     </div>
                     {routingConfig.imageGenerator.provider !== 'gemini' && (
                       <p className="text-[10px] font-mono text-neutral-500 italic mt-1 px-1 text-center leading-normal">
-                        ★ Standard {routingConfig.imageGenerator.provider === 'openrouter' ? 'OpenRouter' : 'Ollama'} handles text-only; image requests default to our <span className="text-human font-bold font-sans">Free Visual Placeholder</span>.
+                        {routingConfig.imageGenerator.provider === 'openrouter' ? (
+                          <>
+                            ★ <span className="text-human font-bold font-sans">OpenRouter</span> supports high-quality visual generation (using SD, Flux, or presets like <span className="text-portal font-semibold">@preset/library-pictures</span>).
+                          </>
+                        ) : (
+                          <>
+                            ★ Standard <span className="text-human font-bold font-sans">Ollama</span> handles text-only; image requests default to our <span className="text-human font-bold font-sans">Free Visual Placeholder</span>.
+                          </>
+                        )}
                       </p>
                     )}
                   </div>
@@ -366,6 +487,10 @@ export const ModalsAndToasts: React.FC = () => {
                     <div>
                       <div className="flex justify-between items-center mb-1">
                         <label htmlFor="ollama-host-override" className="text-[10px] font-mono text-neutral-400">Ollama Host Override</label>
+                        {ollamaStatus === 'checking' && <span className="text-[8px] font-mono text-amber-500 animate-pulse">● TESTING</span>}
+                        {ollamaStatus === 'connected' && <span className="text-[8px] font-mono text-emerald-500 font-bold">● CONNECTED</span>}
+                        {ollamaStatus === 'disconnected' && <span className="text-[8px] font-mono text-rose-500 font-bold">● DISCONNECTED</span>}
+                        {ollamaStatus === 'idle' && <span className="text-[8px] font-mono text-neutral-600">● NOT CONFIGURED</span>}
                       </div>
                       <input
                         id="ollama-host-override"
@@ -376,6 +501,11 @@ export const ModalsAndToasts: React.FC = () => {
                           const val = e.target.value;
                           useAppStore.setState({ localOllamaHost: val });
                           secureStorage.setItem('@seihouse/api-key-ollama-host', val);
+                          if (val) {
+                            setOllamaStatus('checking');
+                          } else {
+                            setOllamaStatus('idle');
+                          }
                         }}
                         className="w-full bg-void text-xs text-neutral-300 border border-neutral-900 focus:border-portal p-1.5 rounded focus:outline-none font-mono placeholder:text-neutral-700"
                       />

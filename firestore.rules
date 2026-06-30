@@ -181,7 +181,8 @@ service cloud.firestore {
           'bookmarks', 'memory', 'arcs', 'parentStoryId', 'forkChapterNumber', 'imageHistory', 
           'lastImageChapter', 'evolutionReady', 'evolutionReason', 'availableVisualUpdate',
           'isEdited', 'userId', 'hardcoreFateMode', 'fatePressure', 'lastReadChapter', 
-          'lastReadScrollPosition', 'lastReadAt', 'deleted', 'readingStats', 'createdAt'
+          'lastReadScrollPosition', 'lastReadAt', 'deleted', 'readingStats', 'createdAt',
+          'assignedRevealBackdrops', 'motionCoverActive'
         ])
         && (!('title' in incoming().diff(existing()).affectedKeys()) || (incoming().title is string && incoming().title.size() <= 500))
         && (!('updatedAt' in incoming().diff(existing()).affectedKeys()) || (incoming().updatedAt is string && incoming().updatedAt.size() <= 40));
