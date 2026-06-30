@@ -5,6 +5,7 @@ import { AppState } from './useAppStore';
 import { auth } from '../lib/firebase';
 import { getRandomDemoStory } from './demoStories';
 import { secureStorage } from '../lib/encryption';
+import { mergeStories } from '../lib/merge';
 
 const STORAGE_KEY = '@seihouse/fiction-generator-stories-v2';
 
@@ -46,6 +47,9 @@ export interface StorySlice {
   handleImportLibrary: (e: any) => void;
   initStorage: () => Promise<void>;
   migrateOrDiscardDemoStories: (user: AppUser | null) => Promise<void>;
+  activeConflict: { storyId: string; localStory: Story; cloudStory: Story } | null;
+  setActiveConflict: (conflict: { storyId: string; localStory: Story; cloudStory: Story } | null) => void;
+  resolveConflict: (resolution: 'local' | 'cloud' | 'merge') => Promise<void>;
 }
 
 export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set, get) => ({
@@ -76,6 +80,42 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
   setActiveAgentId: (activeAgentId) => set({ activeAgentId }),
   setStorageType: (storageType) => set({ storageType }),
   setLastSavedTime: (lastSavedTime) => set({ lastSavedTime }),
+  activeConflict: null,
+  setActiveConflict: (activeConflict) => set({ activeConflict }),
+  resolveConflict: async (resolution: 'local' | 'cloud' | 'merge') => {
+    const conflict = get().activeConflict;
+    if (!conflict) return;
+
+    const { storyId, localStory, cloudStory } = conflict;
+    const { setStories } = get();
+
+    try {
+      let resolvedStory: Story;
+
+      if (resolution === 'local') {
+        resolvedStory = { ...localStory, updatedAt: new Date().toISOString() };
+      } else if (resolution === 'cloud') {
+        resolvedStory = { ...cloudStory, updatedAt: new Date().toISOString() };
+      } else {
+        // Use smart merge helper
+        resolvedStory = mergeStories(localStory, cloudStory);
+      }
+
+      // Clear the active conflict first to avoid re-triggering the check
+      set({ activeConflict: null });
+
+      // Save to storage (triggers sync internally)
+      await storyStorage.saveStory(resolvedStory);
+      await storyStorage.performSync();
+
+      // Update state
+      const freshStories = await storyStorage.getStories();
+      setStories(freshStories);
+    } catch (err: any) {
+      console.error("Failed to resolve sync conflict:", err);
+      set({ appError: "Failed to resolve sync conflict: " + err.message });
+    }
+  },
 
   saveStories: async (updated: Story[]) => {
     const currentStories = get().stories;
@@ -90,10 +130,16 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
     // Find which stories actually changed to avoid massive redundant writes
     const changedStories = markedStories.filter(newStory => {
        const oldStory = currentStories.find(s => s.id === newStory.id);
-       return !oldStory || oldStory !== newStory;
+       if (!oldStory) return true;
+       return JSON.stringify(oldStory) !== JSON.stringify(newStory);
     });
 
-    const toSave = changedStories.length > 0 ? changedStories : markedStories;
+    if (changedStories.length === 0) {
+      set({ stories: markedStories }); // update state just in case reference changed
+      return;
+    }
+
+    const toSave = changedStories;
 
     set({ stories: markedStories });
     try {

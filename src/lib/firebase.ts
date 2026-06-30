@@ -3,11 +3,18 @@ import { getAuth } from 'firebase/auth';
 import { initializeFirestore } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfig);
-export const db = initializeFirestore(app, {
+export const LOCAL_ONLY_MODE = localStorage.getItem('seihouse_local_only_mode') === 'true';
+
+export const setLocalOnlyMode = (enabled: boolean) => {
+  localStorage.setItem('seihouse_local_only_mode', enabled ? 'true' : 'false');
+  window.location.reload();
+};
+
+const app = LOCAL_ONLY_MODE ? null as any : initializeApp(firebaseConfig);
+export const db = LOCAL_ONLY_MODE ? ({} as any) : initializeFirestore(app, {
   ignoreUndefinedProperties: true
 }, firebaseConfig.firestoreDatabaseId);
-export const auth = getAuth(app);
+export const auth = LOCAL_ONLY_MODE ? ({ currentUser: null, onAuthStateChanged: () => () => {} } as any) : getAuth(app);
 
 // Helper for error handling
 export enum OperationType {

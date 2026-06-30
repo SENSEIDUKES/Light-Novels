@@ -126,10 +126,10 @@ service cloud.firestore {
         && (
           (
             userId == request.auth.uid
-            && existing().uid == request.auth.uid
-            && incoming().uid == existing().uid
-            && incoming().joinedDate == existing().joinedDate
-            && (!('role' in incoming()) || ('role' in existing() && incoming().role == existing().role) || (!('role' in existing()) && incoming().role == 'user'))
+            && existing().get('uid', '') == request.auth.uid
+            && incoming().get('uid', '') == existing().get('uid', '')
+            && incoming().get('joinedDate', '') == existing().get('joinedDate', '')
+            && (!('role' in incoming()) || ('role' in existing() && incoming().role == existing().get('role', 'user')) || (!('role' in existing()) && incoming().role == 'user'))
             && isValidUserProfile(incoming())
             && incoming().diff(existing()).affectedKeys().hasOnly([
               'username', 'displayName', 'displayNameColor', 'avatarUrl', 'preferredLanguage', 
@@ -142,8 +142,8 @@ service cloud.firestore {
             ])
           ) || (
             isOwner()
-            && incoming().uid == existing().uid
-            && incoming().joinedDate == existing().joinedDate
+            && incoming().get('uid', '') == existing().get('uid', '')
+            && incoming().get('joinedDate', '') == existing().get('joinedDate', '')
             && isValidUserProfile(incoming())
             && incoming().diff(existing()).affectedKeys().hasOnly([
               'role', 'premiumTier', 'heavenly_qi', 'sect_qi', 'username', 'displayName', 'updatedAt'
@@ -168,10 +168,10 @@ service cloud.firestore {
         
       allow update: if isSignedIn()
         && isValidId(storyId)
-        && (existing().userId == request.auth.uid || isAdmin())
-        && incoming().userId == existing().userId
-        && incoming().id == existing().id
-        && (!('createdAt' in existing()) || !('createdAt' in incoming()) || incoming().createdAt == existing().createdAt)
+        && (existing().get('userId', '') == request.auth.uid || isAdmin())
+        && incoming().get('userId', '') == existing().get('userId', '')
+        && incoming().get('id', '') == existing().get('id', '')
+        && (!('createdAt' in existing()) || !('createdAt' in incoming()) || incoming().createdAt == existing().get('createdAt', ''))
         && (
             isValidStoryWorld(incoming())
         )
@@ -186,10 +186,10 @@ service cloud.firestore {
         && (!('title' in incoming().diff(existing()).affectedKeys()) || (incoming().title is string && incoming().title.size() <= 500))
         && (!('updatedAt' in incoming().diff(existing()).affectedKeys()) || (incoming().updatedAt is string && incoming().updatedAt.size() <= 40));
 
-      allow delete: if isSignedIn() && isValidId(storyId) && (existing().userId == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && isValidId(storyId) && (!exists(/databases/$(database)/documents/stories/$(storyId)) || existing().userId == request.auth.uid || isAdmin());
 
       match /chapters/{chapterId} {
-        allow read: if isSignedIn() && (get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid || isAdmin());
+        allow read: if isSignedIn() && (!exists(/databases/$(database)/documents/stories/$(storyId)) || get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid || isAdmin());
         
         allow create: if isSignedIn()
           && isValidId(chapterId)
@@ -200,12 +200,12 @@ service cloud.firestore {
         allow update: if isSignedIn()
           && isValidId(chapterId)
           && (get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid || isAdmin())
-          && incoming().storyId == existing().storyId
-          && incoming().chapterNumber == existing().chapterNumber
+          && incoming().get('storyId', '') == existing().get('storyId', '')
+          && incoming().get('chapterNumber', -1) == existing().get('chapterNumber', -1)
           && (isValidChapter(incoming()))
           && incoming().diff(existing()).affectedKeys().hasOnly(['generatedContent', 'blocks', 'archivedBlocks', 'summary', 'episodicSummary', 'statsChangeMessage', 'cuePayload', 'translations', 'audioManifest', 'updatedAt', 'revisionId', 'syncStatus', 'imageUrl']);
           
-        allow delete: if isSignedIn() && isValidId(chapterId) && (get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid || isAdmin());
+        allow delete: if isSignedIn() && isValidId(chapterId) && (!exists(/databases/$(database)/documents/stories/$(storyId)) || get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid || isAdmin());
       }
     }
     match /lore_glossary/{termId} {
@@ -221,14 +221,14 @@ service cloud.firestore {
         
       allow update: if isSignedIn()
         && isValidId(termId)
-        && existing().novel_id == incoming().novel_id
+        && existing().get('novel_id', '') == incoming().get('novel_id', '')
         && isValidLoreGlossary(incoming())
         && incoming().diff(existing()).affectedKeys().hasOnly(['source_text', 'target_text', 'target_lang'])
-        && get(/databases/$(database)/documents/stories/$(existing().novel_id)).data.userId == request.auth.uid;
+        && get(/databases/$(database)/documents/stories/$(existing().get('novel_id', ''))).data.userId == request.auth.uid;
 
       allow delete: if isSignedIn() 
         && isValidId(termId) 
-        && get(/databases/$(database)/documents/stories/$(existing().novel_id)).data.userId == request.auth.uid;
+        && get(/databases/$(database)/documents/stories/$(existing().get('novel_id', ''))).data.userId == request.auth.uid;
     }
   }
 }

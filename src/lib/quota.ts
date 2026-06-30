@@ -1,7 +1,8 @@
 import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
-import { db, auth } from './firebase';
+import { db, auth, LOCAL_ONLY_MODE } from './firebase';
 
 export async function checkAndConsumeImageQuota(opts?: { automatic?: boolean }): Promise<void> {
+  if (LOCAL_ONLY_MODE) return;
   if (opts?.automatic) {
     return; // System actions do not count against manual user limits and do not throw
   }

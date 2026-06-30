@@ -78,6 +78,7 @@ export default function LivingCodex({
   const [selectedChartCharId, setSelectedChartCharId] = useState<string>('');
     
   const [deletePrompt, setDeletePrompt] = useState<{type: string, id: string, name?: string} | null>(null);
+  const [deleteInput, setDeleteInput] = useState('');
   
   useEffect(() => {
     if (!selectedChartCharId && memory.characters && memory.characters.length > 0) {

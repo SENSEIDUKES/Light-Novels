@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { StoryMemory, StoryWorld, Chapter, StoryArc, Character } from '../../types';
+import { StoryMemory, StoryWorld, Chapter, StoryArc, Character } from '../types';
 
 export function useCodexAnalytics(
   memory: StoryMemory,

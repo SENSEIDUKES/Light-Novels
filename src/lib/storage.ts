@@ -1,6 +1,6 @@
 import { StoryWorld, ChapterContent } from '../types';
 import { FirebaseStorageAdapter } from './firebaseStorage';
-import { auth } from './firebase';
+import { auth, LOCAL_ONLY_MODE } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 /**
@@ -565,11 +565,22 @@ export class PersistentStorageManager implements StorageAdapter {
       }
       
       this.setStatus('synced');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to flush sync queue', error);
-      // Keep remaining unprocessed tasks in queue
-      this.saveQueue();
-      this.setStatus('error');
+      
+      const errMsg = typeof error === 'string' ? error : (error?.message || '');
+      if (errMsg.includes('Missing or insufficient permissions') || errMsg.includes('permission-denied') || errMsg.includes('permission denied')) {
+         console.warn('Dropping sync task due to permission denied');
+         this.syncQueue.shift();
+         this.saveQueue();
+         // Try processing the rest of the queue
+         if (this.syncQueue.length > 0) {
+            setTimeout(() => this.processQueue(), 100);
+         }
+      } else {
+         // Keep remaining unprocessed tasks in queue
+         this.setStatus('error');
+      }
     }
   }
 
@@ -638,6 +649,11 @@ export class PersistentStorageManager implements StorageAdapter {
     }
 
     try {
+      if (LOCAL_ONLY_MODE) {
+        this.isCloudAvailable = false;
+        this.setStatus('offline');
+        return;
+      }
       await this.cloudAdapter.init();
       
       onAuthStateChanged(auth, async (user) => {
@@ -654,6 +670,39 @@ export class PersistentStorageManager implements StorageAdapter {
       console.warn('Firebase init failed, running local only.', err);
       this.setStatus('offline');
     }
+  }
+
+  private checkSignificantDifference(local: StoryWorld, cloud: StoryWorld): boolean {
+    const localTime = new Date(local.updatedAt).getTime();
+    const cloudTime = new Date(cloud.updatedAt).getTime();
+    
+    // If modification times are within 5 seconds, treat as trivial delay
+    if (Math.abs(localTime - cloudTime) <= 5000) return false;
+
+    // Check significant structural differences
+    if (local.title !== cloud.title) return true;
+    if (local.currentChapterNumber !== cloud.currentChapterNumber) return true;
+    
+    // Check character count difference
+    const localChars = local.memory?.characters?.length || 0;
+    const cloudChars = cloud.memory?.characters?.length || 0;
+    if (localChars !== cloudChars) return true;
+
+    // Check total chapters with content difference
+    const getHasContentCount = (story: StoryWorld) => {
+      let count = 0;
+      if (story.arcs) {
+        for (const arc of story.arcs) {
+          for (const ch of arc.chapters) {
+            if (ch.hasContent || ch.generatedContent) count++;
+          }
+        }
+      }
+      return count;
+    };
+    if (getHasContentCount(local) !== getHasContentCount(cloud)) return true;
+
+    return false;
   }
 
   public async performSync() {
@@ -681,40 +730,34 @@ export class PersistentStorageManager implements StorageAdapter {
           await this.compressDataUrls(cloudPayload);
           await this.cloudAdapter.saveStory(cloudPayload);
         } else {
-          // Exists in both. Check timestamps and revisions
+          // Exists in both. Check if they differ significantly.
+          if (this.checkSignificantDifference(localStory, cloudStory)) {
+            try {
+              const { useAppStore } = await import('../store/useAppStore');
+              const currentConflict = useAppStore.getState().activeConflict;
+              if (!currentConflict || currentConflict.storyId !== localStory.id) {
+                useAppStore.getState().setActiveConflict({
+                  storyId: localStory.id,
+                  localStory: JSON.parse(JSON.stringify(localStory)),
+                  cloudStory: JSON.parse(JSON.stringify(cloudStory))
+                });
+              }
+            } catch (err) {
+              console.warn('Failed to dispatch active conflict to store:', err);
+            }
+            // Skip syncing this story until the user resolves the conflict
+            continue;
+          }
+
+          // Otherwise, proceed with minor automatic timestamp syncing
           const localTime = new Date(localStory.updatedAt).getTime();
           const cloudTime = new Date(cloudStory.updatedAt).getTime();
           
           if (localTime > cloudTime) {
-             const timeDiff = localTime - cloudTime;
              const cloudPayload = JSON.parse(JSON.stringify(localStory));
              await this.compressDataUrls(cloudPayload);
-             if (timeDiff > 5000) { // Large gap means potential conflict if cloud also changed independently
-                // We overwrite cloud if we are newer, but if the cloud version has a significantly different version/content, we could branch it.
-                // For simplicity, local wins but we ensure we pushed it cleanly.
-                await this.cloudAdapter.saveStory(cloudPayload);
-             } else {
-                await this.cloudAdapter.saveStory(cloudPayload);
-             }
+             await this.cloudAdapter.saveStory(cloudPayload);
           } else if (cloudTime > localTime) {
-             const timeDiff = cloudTime - localTime;
-             
-             // Conflict: Local changed but Cloud changed MORE recently. 
-             // We don't want to blindly overwrite local and lose local edits.
-             // If they diverged, we create a conflict copy.
-             // Here, let's just make a safe backup of the local story if it's considered 'dirty'
-             // Since we lack deep dirty checking, we duplicate if diff is substantial
-             if (timeDiff > 1000 * 60 * 5 && !cloudStory.deleted) { // 5 minutes diff, skip if it's a deletion
-                 const localCopy = JSON.parse(JSON.stringify(localStory)) as StoryWorld;
-                 localCopy.id = `${localStory.id}-conflict-${Date.now()}`;
-                 localCopy.title = `${localCopy.title} (Local Conflict Copied)`;
-                 await this.localAdapter.saveStory(localCopy);
-                 
-                 const localCopyCloudPayload = JSON.parse(JSON.stringify(localCopy));
-                 await this.compressDataUrls(localCopyCloudPayload);
-                 await this.cloudAdapter.saveStory(localCopyCloudPayload); // Save the conflict copy to cloud too
-             }
-             
              await this.localAdapter.saveStory(cloudStory);
           }
         }

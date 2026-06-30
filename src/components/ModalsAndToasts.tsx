@@ -8,6 +8,7 @@ import { useStoryEngine } from '../hooks/useStoryEngine';
 import { SearchableModelSelector } from './SearchableModelSelector';
 import { secureStorage } from '../lib/encryption';
 import { CelestialParticleShower } from './CelestialParticleShower';
+import { SyncConflictModal } from './SyncConflictModal';
 
 const DEFAULT_PRESETS = {
   storyMaker: {
@@ -766,6 +767,7 @@ export const ModalsAndToasts: React.FC = () => {
           )}
         </AnimatePresence>
       </div>
+      <SyncConflictModal />
     </>
   );
 };

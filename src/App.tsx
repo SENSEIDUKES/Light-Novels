@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { auth, db } from './lib/firebase';
+import { auth, db, LOCAL_ONLY_MODE } from './lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 
@@ -144,37 +144,40 @@ function App() {
 
     let unsubProfile: (() => void) | undefined;
 
-    const unsubAuth = onAuthStateChanged(auth, async (user) => {
-      store_setCurrentUser(user);
-      
-      if (unsubProfile) {
-        unsubProfile();
-        unsubProfile = undefined;
-      }
-      
-      if (user) {
-        unsubProfile = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
-          if (docSnap.exists()) {
-            const data = docSnap.data() as UserProfileType;
-            if (user.email && ['amaurylindy@gmail.com', 'seihouseproductions@gmail.com'].includes(user.email.toLowerCase())) {
-              data.premiumTier = 'immortal';
-              data.role = 'owner';
-              if (docSnap.data().premiumTier !== 'immortal' || docSnap.data().role !== 'owner') {
-                updateDoc(doc(db, 'users', user.uid), { premiumTier: 'immortal', role: 'owner' }).catch(console.error);
+    let unsubAuth = () => {};
+    if (LOCAL_ONLY_MODE) {
+      store_setCurrentUser(null);
+      store_setUserProfile(null);
+    } else {
+      unsubAuth = onAuthStateChanged(auth, async (user) => {
+        store_setCurrentUser(user);
+        
+        if (unsubProfile) {
+          unsubProfile();
+          unsubProfile = undefined;
+        }
+        
+        if (user) {
+          unsubProfile = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
+            if (docSnap.exists()) {
+              const data = docSnap.data() as UserProfileType;
+              if (user.email && ['amaurylindy@gmail.com', 'seihouseproductions@gmail.com'].includes(user.email.toLowerCase())) {
+                data.premiumTier = 'immortal';
+                data.role = 'owner';
               }
+              store_setUserProfile(data);
+            } else {
+              store_setUserProfile(null);
             }
-            store_setUserProfile(data);
-          } else {
-            store_setUserProfile(null);
-          }
-        });
+          });
 
-        // Handle unmigrated demo stories: migrate if worked on, otherwise discard them
-        await store_migrateOrDiscardDemoStories(user);
-      } else {
-        store_setUserProfile(null);
-      }
-    });
+          // Handle unmigrated demo stories: migrate if worked on, otherwise discard them
+          await store_migrateOrDiscardDemoStories(user);
+        } else {
+          store_setUserProfile(null);
+        }
+      });
+    }
 
     const unsubSync = storyStorage.subscribe(async (status) => {
       store_setSyncStatus(status);
@@ -205,12 +208,14 @@ function App() {
         storyStorage.getChapterContent(activeStory.id, store_selectedChapterNum)
           .then(content => {
             if (content) {
+              const isEmptyContent = !content.generatedContent && (!content.blocks || content.blocks.length === 0);
               store_updateChapter(activeStory.id, store_selectedChapterNum, {
                 generatedContent: content.generatedContent,
                 blocks: content.blocks,
                 summary: content.summary,
                 statsChangeMessage: content.statsChangeMessage,
-                cuePayload: content.cuePayload
+                cuePayload: content.cuePayload,
+                hasContent: isEmptyContent ? false : true
               });
             } else {
               // Failed to fetch or missing: un-mark hasContent so user can regenerate

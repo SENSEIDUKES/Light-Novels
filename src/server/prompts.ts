@@ -529,14 +529,14 @@ ${chapterText}
 Story Memory (Codex):
 ${memoryJson}
 
-Find any continuity breaks or contradictions. Common examples:
-- A character marked 'deceased', 'dead', or 'destroyed' in the codex is actively speaking or performing actions in the present (unless explicitly a flashback/ghost).
-- A character jumping power stages inexplicably.
-- ABILITIES: The MC or another character uses an ability that is not in their Codex record (Ability Ledger).
-- ABILITIES: The MC skips mastery levels too fast (e.g., from Novice directly to Perfected).
-- ABILITIES: Uses an ability with no cost when the codex specifies it should have one.
-- ABILITIES: Suddenly has a new technique with no acquisition scene on-page.
-- World rules being blatantly broken.
+Find EXPLICIT, MAJOR continuity breaks or contradictions. 
+CRITICAL RULE: DO NOT flag minor power-scaling differences or subjective interpretations of what a power stage "implies". ONLY flag absolute, indisputable contradictions with the Codex.
+
+Common examples of valid contradictions to flag:
+- A character explicitly marked 'deceased', 'dead', or 'destroyed' in the codex is actively speaking or performing actions in the present (unless explicitly a flashback/ghost).
+- A character explicitly uses an ability that is entirely missing from their Codex record.
+- A character explicitly skips mastery levels (e.g., from Novice directly to Perfected in one second).
+- World rules being blatantly and undeniably broken.
 
 Return strictly a JSON object with this shape:
 {
@@ -544,7 +544,7 @@ Return strictly a JSON object with this shape:
     "A clear, concise 1-sentence warning describing the contradiction (e.g. 'Elder Zhao is marked deceased in the codex but speaks in paragraph 4.')"
   ]
 }
-If no contradictions are found, return an empty array for "warnings". Do not add any text before or after the JSON.`
+If no EXPLICIT contradictions are found, return an empty array for "warnings". Do not add any text before or after the JSON.`
   },
 
   repairChapter: {
@@ -561,8 +561,8 @@ ${memoryJson}
 ORIGINAL CHAPTER TEXT BLOCKS:
 ${chapterText}
 
-Rewrite the necessary blocks to fix ALL the continuity warnings. Maintain the exact same style, formatting, and pacing. Do not introduce new continuity errors.
-Output strictly the corrected NDJSON blocks starting with ---CHAPTER_BLOCKS---.`
+Rewrite the ENTIRE chapter to fix ALL the continuity warnings. Maintain the exact same style, formatting, pacing, and length. Do not introduce new continuity errors.
+Output strictly the full set of corrected NDJSON blocks for the entire chapter starting with ---CHAPTER_BLOCKS---.`
   },
 
   steer: {

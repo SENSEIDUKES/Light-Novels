@@ -8,7 +8,7 @@ interface UserProfileSettingsPanelProps {
   daoStatus: 'checking' | 'connected' | 'disconnected';
   daoDetail: string;
   checkDaoConnection: () => void;
-  lastSavedTime: number | null;
+  lastSavedTime: Date | null;
   formData: Partial<UserProfileType>;
   profile: UserProfileType | null;
   handleLanguageChangeDirect: (name: 'preferredLanguage' | 'defaultTranslationLanguage', value: string) => void;

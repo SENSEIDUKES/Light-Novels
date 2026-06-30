@@ -1,11 +1,11 @@
 import React from 'react';
-import { UserProfile as UserProfileType, AppUser, StoryState } from '../types';
+import { UserProfile as UserProfileType, AppUser, Story } from '../types';
 import { BookOpen } from 'lucide-react';
 
 interface UserProfileStoriesPanelProps {
   profile: UserProfileType | null;
   currentUser: AppUser | null;
-  stories: StoryState[];
+  stories: Story[];
 }
 
 export function UserProfileStoriesPanel({ profile, currentUser, stories }: UserProfileStoriesPanelProps) {
