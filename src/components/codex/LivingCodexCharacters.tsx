@@ -110,19 +110,44 @@ export function LivingCodexCharacters({
       if (!res.ok) throw new Error("Audio generation failed");
       const data = await res.json();
       
+      let finalAudioUrl = data.audioUrl || `data:audio/mp3;base64,${data.audioBase64}`;
+      if (finalAudioUrl.startsWith('data:audio/')) {
+        const mimeTypeMatch = finalAudioUrl.match(/^data:(audio\/[a-zA-Z0-9]+);base64,/);
+        if (mimeTypeMatch) {
+          try {
+            const mimeType = mimeTypeMatch[1];
+            const base64Data = finalAudioUrl.split(',')[1];
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: mimeType });
+            const fileName = `generated_audio/${Date.now()}_${char.id}.${mimeType.split('/')[1]}`;
+            
+            const { uploadFileToR2, getDownloadUrlFromR2 } = await import('../../lib/r2');
+            const uploadedFileName = await uploadFileToR2(blob, fileName, mimeType);
+            finalAudioUrl = await getDownloadUrlFromR2(uploadedFileName); // Store the public download url
+          } catch (r2Error) {
+             console.error("Failed to upload audio to R2, falling back to base64", r2Error);
+          }
+        }
+      }
+      
       const updatedChars = memory.characters.map(c => {
         if (c.id === char.id) {
           return {
             ...c,
             voicePresetId: preset.id,
-            voiceClipUrl: data.audioUrl || `data:audio/mp3;base64,${data.audioBase64}`
+            voiceClipUrl: finalAudioUrl
           };
         }
         return c;
       });
       
       onUpdateMemory({ ...memory, characters: updatedChars });
-      handlePlayVoice(data.audioUrl || `data:audio/mp3;base64,${data.audioBase64}`, char.id);
+      handlePlayVoice(finalAudioUrl, char.id);
     } catch (e) {
       console.error(e);
     } finally {
