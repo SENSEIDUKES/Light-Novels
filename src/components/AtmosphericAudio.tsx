@@ -33,12 +33,19 @@ export function AtmosphericAudio() {
 
   useEffect(() => {
     if (!sceneMixRef.current) {
-      sceneMixRef.current = createSceneMixEngine({ loop: true });
+      const mix = createSceneMixEngine({ loop: true });
+      // Apply the saved volume/mute state before anything can play, so the
+      // first crossfade never bursts in at the engine's default level.
+      const isActuallyMuted = isMuted || currentScreen !== 'reader';
+      mix.setMuted(isActuallyMuted);
+      mix.setLevel(isActuallyMuted ? 0 : (volume * 0.5 * bgmIntensityRef.current));
+      sceneMixRef.current = mix;
     }
     return () => {
       sceneMixRef.current?.dispose();
       sceneMixRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const syncBgmVolumes = () => {
