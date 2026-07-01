@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { SceneScoreEngine, SceneAudioTrack } from '../lib/audio/musicResolver';
+import { createSceneMixEngine, type SceneMixEngine } from '@seihouse/audio-player';
+import { SceneScoreEngine } from '../lib/audio/musicResolver';
 import { useAppStore } from '../store/useAppStore';
 import { vibrate } from '../lib/vibration';
 
@@ -24,53 +25,28 @@ export function AtmosphericAudio() {
   const activeIntervalsRef = useRef<NodeJS.Timeout[]>([]);
   const masterGainRef = useRef<GainNode | null>(null);
 
-  // BGM refs
-  const bgmPlayerA = useRef<HTMLAudioElement | null>(null);
-
-  const bgmPlayerB = useRef<HTMLAudioElement | null>(null);
-  const activeBgmPlayer = useRef<'A' | 'B'>('A');
+  // BGM: the SEIHouse Audio Player scene-mix engine owns the decks and the
+  // equal-power crossfades; this component only tells it what to play.
+  const sceneMixRef = useRef<SceneMixEngine | null>(null);
   const scoreEngineRef = useRef(new SceneScoreEngine());
-  const currentBgmTrackRef = useRef<SceneAudioTrack | null>(null);
   const bgmIntensityRef = useRef<number>(1.0);
-  const bgmFadeInterval = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Initialize headless HTML5 Audio Element for BGM tracking
-    if (!bgmPlayerA.current) {
-      const audioA = new Audio();
-      audioA.loop = true;
-      audioA.crossOrigin = "anonymous";
-      bgmPlayerA.current = audioA;
-
-      const audioB = new Audio();
-      audioB.loop = true;
-      audioB.crossOrigin = "anonymous";
-      bgmPlayerB.current = audioB;
+    if (!sceneMixRef.current) {
+      sceneMixRef.current = createSceneMixEngine({ loop: true });
     }
     return () => {
-      bgmPlayerA.current?.pause();
-      bgmPlayerB.current?.pause();
-      if (bgmFadeInterval.current) clearInterval(bgmFadeInterval.current);
+      sceneMixRef.current?.dispose();
+      sceneMixRef.current = null;
     };
   }, []);
 
   const syncBgmVolumes = () => {
+    const mix = sceneMixRef.current;
+    if (!mix) return;
     const isActuallyMuted = isMuted || currentScreen !== 'reader';
-    const targetVolume = isActuallyMuted ? 0 : (volume * 0.5 * bgmIntensityRef.current);
-    
-    if (bgmPlayerA.current) bgmPlayerA.current.muted = isActuallyMuted;
-    if (bgmPlayerB.current) bgmPlayerB.current.muted = isActuallyMuted;
-    
-    // Auto-sync active player volume if not currently cross-fading
-    if (!bgmFadeInterval.current) {
-      if (activeBgmPlayer.current === 'A' && bgmPlayerA.current) {
-        bgmPlayerA.current.volume = targetVolume;
-        if (bgmPlayerB.current) bgmPlayerB.current.volume = 0;
-      } else if (activeBgmPlayer.current === 'B' && bgmPlayerB.current) {
-        bgmPlayerB.current.volume = targetVolume;
-        if (bgmPlayerA.current) bgmPlayerA.current.volume = 0;
-      }
-    }
+    mix.setMuted(isActuallyMuted);
+    mix.setLevel(isActuallyMuted ? 0 : (volume * 0.5 * bgmIntensityRef.current));
   };
 
   // Sync state changes with localStorage and dispatch state event to UI
@@ -603,40 +579,16 @@ export function AtmosphericAudio() {
 
              if (meta.music) {
                const newTrack = scoreEngineRef.current.evaluateSceneContext(meta.music, meta.environment || []);
-               if (newTrack && currentBgmTrackRef.current?.id !== newTrack.id) {
-                 currentBgmTrackRef.current = newTrack;
-                 const nextPlayerKey = activeBgmPlayer.current === 'A' ? 'B' : 'A';
-                 const nextPlayer = nextPlayerKey === 'A' ? bgmPlayerA.current : bgmPlayerB.current;
-                 const prevPlayer = activeBgmPlayer.current === 'A' ? bgmPlayerA.current : bgmPlayerB.current;
-                 
-                 if (nextPlayer && prevPlayer && newTrack.url) {
-                   activeBgmPlayer.current = nextPlayerKey;
-                   nextPlayer.src = newTrack.url;
-                   nextPlayer.volume = 0;
-                   nextPlayer.play().catch(console.warn);
-
-                   const targetVolume = volume * 0.5 * bgmIntensityRef.current;
-                   const fadeSteps = 20;
-                   const fadeDuration = 2000;
-                   const stepTime = fadeDuration / fadeSteps;
-                   let step = 0;
-
-                   if (bgmFadeInterval.current) clearInterval(bgmFadeInterval.current);
-                   
-                   bgmFadeInterval.current = setInterval(() => {
-                     step++;
-                     const t = step / fadeSteps;
-                     nextPlayer.volume = Math.min(1, Math.max(0, targetVolume * t));
-                     prevPlayer.volume = Math.min(1, Math.max(0, targetVolume * (1 - t)));
-                     if (step >= fadeSteps) {
-                       if (bgmFadeInterval.current) clearInterval(bgmFadeInterval.current);
-                       bgmFadeInterval.current = null;
-                       prevPlayer.pause();
-                       prevPlayer.volume = 0;
-                       nextPlayer.volume = targetVolume;
-                     }
-                   }, stepTime);
-                 }
+               if (newTrack && newTrack.url && sceneMixRef.current) {
+                 // The engine no-ops on the already-active track, parks the
+                 // incoming deck past leading silence, and runs an
+                 // equal-power crossfade between the scores.
+                 sceneMixRef.current.crossfadeTo({
+                   id: newTrack.id,
+                   title: newTrack.id,
+                   artist: 'SEIHouse',
+                   audioFile: newTrack.url,
+                 });
                }
              }
 
