@@ -11,6 +11,7 @@ export default defineConfig(() => {
       rollupOptions: {
         output: {
           manualChunks: {
+            firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
             motion: ['motion/react'],
             vendor: ['react', 'react-dom', 'zustand', 'lucide-react']
           }
@@ -81,9 +82,6 @@ export default defineConfig(() => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
-        'firebase/app': path.resolve(__dirname, 'src/lib/firebaseMock.ts'),
-        'firebase/firestore': path.resolve(__dirname, 'src/lib/firebaseMock.ts'),
-        'firebase/auth': path.resolve(__dirname, 'src/lib/firebaseMock.ts'),
       },
     },
     server: {

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile as UserProfileType, Story, AppUser } from '../types';
-import { LOCAL_ONLY_MODE, setLocalOnlyMode } from '../lib/firebase';
-import { supabase } from '../lib/supabase';
+import { db, auth, LOCAL_ONLY_MODE, setLocalOnlyMode } from '../lib/firebase';
 import { doc, getDoc, setDoc, onSnapshot, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { LogOut, Save, User as UserIcon, Calendar, BookOpen, Globe, Cloud, CloudOff, RefreshCw, Sliders, Upload, Download, Database, Zap, Keyboard, Flame, Award, Shield, Compass, Key, Sparkles, Search, Sword, HelpCircle } from 'lucide-react';
@@ -270,10 +269,10 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
 
     if (currentUser) {
       try {
-        await supabase.from('users').update({
+        await setDoc(doc(db, 'users', currentUser.uid), {
           avatarUrl: finalUrl,
           updatedAt: new Date().toISOString()
-        }).eq('uid', currentUser.uid);
+        }, { merge: true });
         
         if (profile) {
           setProfile({
@@ -343,14 +342,14 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     setIsFetchingAdminData(true);
     setAdminError('');
     try {
-      const { data: usersSnapData } = await supabase.from('users').select('*');
+      const usersSnap = await getDocs(collection(db, 'users'));
       const usersList: UserProfileType[] = [];
       usersSnap.forEach((d) => {
         usersList.push(d.data() as UserProfileType);
       });
       setAllUsers(usersList);
 
-      const { data: storiesSnapData } = await supabase.from('stories').select('id, user_id, payload');
+      const storiesSnap = await getDocs(collection(db, 'stories'));
       const storiesList: any[] = [];
       storiesSnap.forEach((d) => {
         storiesList.push(d.data());
@@ -366,7 +365,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
 
   const handleUpdateUserRole = async (targetUid: string, nextRole: 'owner' | 'admin' | 'user') => {
     try {
-      await supabase.from('users').update({ role: nextRole }).eq('uid', targetUid);
+      await setDoc(doc(db, 'users', targetUid), { role: nextRole }, { merge: true });
       setAllUsers(prev => prev.map(u => u.uid === targetUid ? { ...u, role: nextRole } : u));
     } catch (err: any) {
       console.error(err);
@@ -376,7 +375,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
 
   const handleUpdateUserTier = async (targetUid: string, nextTier: "mortal" | "outer_sect" | "inner_sect" | "sect_master" | "immortal") => {
     try {
-      await supabase.from('users').update({ premiumTier: nextTier }).eq('uid', targetUid);
+      await setDoc(doc(db, 'users', targetUid), { premiumTier: nextTier }, { merge: true });
       setAllUsers(prev => prev.map(u => u.uid === targetUid ? { ...u, premiumTier: nextTier } : u));
     } catch (err: any) {
       console.error(err);
@@ -389,7 +388,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
       return;
     }
     try {
-      await supabase.from('stories').delete().eq('id', storyId);
+      await deleteDoc(doc(db, 'stories', storyId));
       setAllStories(prev => prev.filter(s => s.id !== storyId));
     } catch (err: any) {
       console.error(err);
@@ -420,10 +419,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     
     setIsLoading(true);
     // Subscribe to profile updates
-    const channel = supabase.channel('public:users:uid=eq.'+currentUser.uid)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'users', filter: `uid=eq.${currentUser.uid}` }, (payload) => {
-        const data = payload.new;
-        
+    const unsubscribe = onSnapshot(doc(db, 'users', currentUser.uid), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data() as UserProfileType;
         
@@ -456,17 +452,9 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
         };
         
         // This will trigger the snapshot again
-        supabase.from('users').update(defaultProfile).eq('uid', currentUser.uid).catch(err => {
+        setDoc(doc(db, 'users', currentUser.uid), defaultProfile, { merge: true }).catch(err => {
           console.error("Failed to create profile", err);
-        
-      }).subscribe();
-    const unsubscribe = () => supabase.removeChannel(channel);
-
-    supabase.from('users').select('*').eq('uid', currentUser.uid).single().then(({ data }) => {
-      if (data) {
-        setProfileData(data);
-      }
-    });
+        });
       }
       setIsLoading(false);
     }, (err) => {
@@ -575,10 +563,10 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     
     if (currentUser) {
       try {
-        await supabase.from('users').update({ 
+        await setDoc(doc(db, 'users', currentUser.uid), { 
           equippedArtifactId: nextAttunementId,
           activeStatusEffects: updatedActiveEffects
-        }).eq('uid', currentUser.uid);
+        }, { merge: true });
       } catch (e) {
         console.error("Failed to save attunement to Firestore:", e);
       }
@@ -644,13 +632,13 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
       
       if (currentUser) {
         try {
-          await supabase.from('users').update({
+          await setDoc(doc(db, 'users', currentUser.uid), {
             qi: updatedProfile.qi,
             dao_xp: updatedProfile.dao_xp,
             heavenly_qi: updatedProfile.heavenly_qi,
             daoPillarCracked: false,
             daoPillarStreak: updatedProfile.daoPillarStreak
-          }).eq('uid', currentUser.uid);
+          }, { merge: true });
         } catch (e) {
           console.error("Failed to repair pillar in db:", e);
         }
@@ -732,14 +720,14 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     
     if (currentUser) {
       try {
-        await supabase.from('users').update({
+        await setDoc(doc(db, 'users', currentUser.uid), {
           lastReadDate: todayStr,
           daoPillarStreak: newStreak,
           daoPillarCracked: isCracked,
           qi: updatedProfile.qi,
           dao_xp: updatedProfile.dao_xp,
           heavenly_qi: updatedProfile.heavenly_qi
-        }).eq('uid', currentUser.uid);
+        }, { merge: true });
       } catch (e) {
         console.error("Failed to check in to pillar in db:", e);
       }
@@ -799,7 +787,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
         }
       });
 
-      await supabase.from('users').update(updates).eq('uid', currentUser.uid);
+      await setDoc(doc(db, 'users', currentUser.uid), updates, { merge: true });
       setIsEditing(false);
       setError('');
     } catch (err: any) {

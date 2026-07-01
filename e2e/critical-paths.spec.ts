@@ -26,7 +26,7 @@ test.describe('Critical Paths', () => {
 
     // Switch to Challenges tab
     await page.locator('button', { hasText: '☠️ Fate Survival' }).click();
-    await expect(page.locator('text=The Wedding That Never Happens')).toBeVisible();
+    await expect(page.locator('text=The Prince Who Dies in Every Timeline')).toBeVisible();
   });
 
   test('should navigate to the creation portal', async ({ page }) => {
@@ -36,7 +36,7 @@ test.describe('Critical Paths', () => {
     await createBtn.click();
 
     // Verify CreationPortal loaded
-    await expect(page.locator('text=Story Seed Intake')).toBeVisible();
+    await expect(page.locator('text=Celestial Forge')).toBeVisible();
   });
 
   test('should open command hub and navigate to pricing', async ({ page }) => {
@@ -51,6 +51,6 @@ test.describe('Critical Paths', () => {
     await tiersBtn.click();
 
     // Verify Pricing Screen loaded
-    await expect(page.locator('text=Guild Notice Board')).toBeVisible();
+    await expect(page.locator('text=Choose Your Cultivation Realm')).toBeVisible();
   });
 });

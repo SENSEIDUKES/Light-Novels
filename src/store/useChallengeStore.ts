@@ -2,6 +2,7 @@ import { StateCreator } from 'zustand';
 import { FateSurvivalChallenge, FateSurvivalRun } from '../types';
 import { AppState } from './useAppStore';
 import { auth } from '../lib/firebase';
+import { awardDirectQi } from '../lib/qi';
 
 export interface ChallengeSlice {
   activeChallenge: FateSurvivalChallenge | null;
@@ -39,6 +40,9 @@ export const createChallengeSlice: StateCreator<AppState, [], [], ChallengeSlice
       currentScreen: 'challenge',
     });
     
+    if (auth.currentUser) {
+      await awardDirectQi(challenge.rewards.attemptQi, `attempt-${challenge.id}-${Date.now()}`);
+    }
     
     const localProfile = get().userProfile;
     if (localProfile) {
@@ -113,6 +117,9 @@ export const createChallengeSlice: StateCreator<AppState, [], [], ChallengeSlice
     set({ activeChallengeRun: updatedRun });
 
     if (isCompleted) {
+      if (auth.currentUser) {
+        await awardDirectQi(qiEarned, `complete-${activeChallenge.id}-${outcome}-${Date.now()}`);
+      }
       
       if (outcome === 'success') {
         import('../lib/artifacts').then(({ unlockCosmicArtifact }) => {

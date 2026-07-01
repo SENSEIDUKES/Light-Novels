@@ -1,11 +1,20 @@
-export const LOCAL_ONLY_MODE = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
+import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { initializeFirestore } from 'firebase/firestore';
+import firebaseConfig from '../../firebase-applet-config.json';
+
+export const LOCAL_ONLY_MODE = localStorage.getItem('seihouse_local_only_mode') === 'true';
 
 export const setLocalOnlyMode = (enabled: boolean) => {
-  // Local mode is now dynamically checked based on Supabase keys
+  localStorage.setItem('seihouse_local_only_mode', enabled ? 'true' : 'false');
+  window.location.reload();
 };
 
-export const db = {} as any;
-export const auth = { currentUser: null, onAuthStateChanged: () => () => {} } as any;
+const app = LOCAL_ONLY_MODE ? null as any : initializeApp(firebaseConfig);
+export const db = LOCAL_ONLY_MODE ? ({} as any) : initializeFirestore(app, {
+  ignoreUndefinedProperties: true
+}, firebaseConfig.firestoreDatabaseId);
+export const auth = LOCAL_ONLY_MODE ? ({ currentUser: null, onAuthStateChanged: () => () => {} } as any) : getAuth(app);
 
 // Helper for error handling
 export enum OperationType {

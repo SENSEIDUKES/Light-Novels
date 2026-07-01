@@ -49,31 +49,7 @@ export function useImageManifest() {
       if (!newImageUrls || newImageUrls.length === 0) {
         throw new Error("No imagery frames returned.");
       }
-      let selectedUrl = newImageUrls[0];
-
-      if (selectedUrl.startsWith('data:image/')) {
-        const mimeTypeMatch = selectedUrl.match(/^data:(image\/[a-zA-Z0-9]+);base64,/);
-        if (mimeTypeMatch) {
-          try {
-            const mimeType = mimeTypeMatch[1];
-            const base64Data = selectedUrl.split(',')[1];
-            const byteCharacters = atob(base64Data);
-            const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-              byteNumbers[i] = byteCharacters.charCodeAt(i);
-            }
-            const byteArray = new Uint8Array(byteNumbers);
-            const blob = new Blob([byteArray], { type: mimeType });
-            const fileName = `generated_images/${Date.now()}_${Math.random().toString(36).substring(7)}.${mimeType.split('/')[1]}`;
-            
-            const { uploadFileToR2, getDownloadUrlFromR2 } = await import('../lib/r2');
-            const uploadedFileName = await uploadFileToR2(blob, fileName, mimeType);
-            selectedUrl = await getDownloadUrlFromR2(uploadedFileName); // Store the public download url
-          } catch (r2Error) {
-             console.error("Failed to upload to R2, falling back to base64", r2Error);
-          }
-        }
-      }
+      const selectedUrl = newImageUrls[0];
 
       if (activeStory && type !== 'faction') {
         const id = entry.id;

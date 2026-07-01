@@ -18,10 +18,7 @@
     "paths": {
       "@/*": [
         "./*"
-      ],
-      "firebase/app": ["./src/lib/firebaseMock.ts"],
-      "firebase/firestore": ["./src/lib/firebaseMock.ts"],
-      "firebase/auth": ["./src/lib/firebaseMock.ts"]
+      ]
     },
     "types": ["vitest/globals"],
     "allowImportingTsExtensions": true,

@@ -2,22 +2,22 @@ import { StorageAdapter } from "./types";
 import { StoryWorld, ChapterContent } from "../../types";
 import { SyncStatus, SyncTask, SyncAuditResult } from "./types";
 import { LocalStorageFallbackAdapter } from "./localStorageAdapter";
-import { SupabaseStorageAdapter } from "../supabaseStorage";
-import { supabase } from "../supabase";
+import { FirebaseStorageAdapter } from "../firebaseStorage";
+import { auth } from "../firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import { IndexedDBStorageAdapter } from "./indexedDBAdapter";
 import { InMemoryFallbackAdapter } from "./inMemoryAdapter";
-// Note: LOCAL_ONLY_MODE flag could be managed differently now, assuming it's still available or we can just bypass it.
-import { LOCAL_ONLY_MODE } from "../firebase"; // Keep this if we still have it in firebase.ts, or just define it here.
+import { LOCAL_ONLY_MODE } from "../firebase";
 
 /**
  * Universal Storage Manager utilizing IndexedDB for high storage capacity
  * with dynamic and silent fallback to local storage under secure sandboxed contexts.
- * Also handles seamless Supabase Cloud Syncing and merging when authenticated.
+ * Also handles seamless Firebase Cloud Syncing and merging when authenticated.
  */
 export class PersistentStorageManager implements StorageAdapter {
     name = 'PersistentStorageManager';
     private localAdapter: StorageAdapter;
-    private cloudAdapter: SupabaseStorageAdapter;
+    private cloudAdapter: FirebaseStorageAdapter;
     private isCloudAvailable = false;
     private syncStatus: SyncStatus = 'idle';
     private subscribers: ((status: SyncStatus) => void)[] = [];
@@ -33,7 +33,7 @@ export class PersistentStorageManager implements StorageAdapter {
 
     constructor() {
         this.localAdapter = new LocalStorageFallbackAdapter();
-        this.cloudAdapter = new SupabaseStorageAdapter();
+        this.cloudAdapter = new FirebaseStorageAdapter();
         this.loadQueue();
     }
 
@@ -182,15 +182,15 @@ export class PersistentStorageManager implements StorageAdapter {
         }
 
         try {
-          if (LOCAL_ONLY_MODE || !supabase) {
+          if (LOCAL_ONLY_MODE) {
             this.isCloudAvailable = false;
             this.setStatus('offline');
             return;
           }
           await this.cloudAdapter.init();
           
-          supabase.auth.onAuthStateChange(async (event, session) => {
-            if (session?.user) {
+          onAuthStateChanged(auth, async (user) => {
+            if (user) {
               this.isCloudAvailable = true;
               await this.performSync();
             } else {
@@ -198,11 +198,9 @@ export class PersistentStorageManager implements StorageAdapter {
               this.setStatus('offline');
             }
           });
-          
-          const { data: { session } } = await supabase.auth.getSession();
-          this.setStatus(session?.user ? 'idle' : 'offline');
+          this.setStatus(auth.currentUser ? 'idle' : 'offline');
         } catch (err) {
-          console.warn('Supabase init failed, running local only.', err);
+          console.warn('Firebase init failed, running local only.', err);
           this.setStatus('offline');
         }
     }

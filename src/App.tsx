@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { db, LOCAL_ONLY_MODE } from './lib/firebase';
+import { auth, db, LOCAL_ONLY_MODE } from './lib/firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
-import { supabase } from './lib/supabase';
 
 // Store & Hooks
 import { useAppStore } from './store/useAppStore';
@@ -147,22 +147,11 @@ function App() {
     let unsubProfile: (() => void) | undefined;
 
     let unsubAuth = () => {};
-    if (LOCAL_ONLY_MODE || !supabase) {
+    if (LOCAL_ONLY_MODE) {
       store_setCurrentUser(null);
       store_setUserProfile(null);
     } else {
-      unsubAuth = supabase.auth.onAuthStateChange(async (event, session) => {
-        const supaUser = session?.user || null;
-        let user: any = null;
-        if (supaUser) {
-          user = {
-            uid: supaUser.id,
-            email: supaUser.email,
-            displayName: supaUser.user_metadata?.full_name || supaUser.email,
-            photoURL: supaUser.user_metadata?.avatar_url || null,
-          };
-        }
-        
+      unsubAuth = onAuthStateChanged(auth, async (user) => {
         store_setCurrentUser(user);
         
         if (unsubProfile) {
@@ -171,36 +160,16 @@ function App() {
         }
         
         if (user) {
-          // Unsubscribe from old profile real-time if any
-          const profileChannel = supabase
-            .channel(`public:users:uid=eq.${user.uid}`)
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'users',
-                filter: `uid=eq.${user.uid}`
-              },
-              (payload) => {
-                const data = payload.new as UserProfileType;
-                if (data && user.email && ['amaurylindy@gmail.com', 'seihouseproductions@gmail.com'].includes(user.email.toLowerCase())) {
-                  data.premiumTier = 'immortal';
-                  data.role = 'owner';
-                }
-                store_setUserProfile(data || null);
+          unsubProfile = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
+            if (docSnap.exists()) {
+              const data = docSnap.data() as UserProfileType;
+              if (user.email && ['amaurylindy@gmail.com', 'seihouseproductions@gmail.com'].includes(user.email.toLowerCase())) {
+                data.premiumTier = 'immortal';
+                data.role = 'owner';
               }
-            ).subscribe();
-            
-          unsubProfile = () => supabase.removeChannel(profileChannel);
-
-          // Initial fetch
-          supabase.from('users').select('*').eq('uid', user.uid).single().then(({ data }) => {
-            if (data) {
-                const profile = data as UserProfileType;
-                if (user.email && ['amaurylindy@gmail.com', 'seihouseproductions@gmail.com'].includes(user.email.toLowerCase())) {
-                  profile.premiumTier = 'immortal';
-                  profile.role = 'owner';
-                }
-                store_setUserProfile(profile);
+              store_setUserProfile(data);
+            } else {
+              store_setUserProfile(null);
             }
           });
 
@@ -209,7 +178,7 @@ function App() {
         } else {
           store_setUserProfile(null);
         }
-      }).data.subscription.unsubscribe;
+      });
     }
 
     const unsubSync = storyStorage.subscribe(async (status) => {
@@ -433,7 +402,7 @@ function App() {
               <UserProfile 
                 currentUser={store_currentUser}
                 stories={store_stories}
-                onLogout={() => { supabase?.auth.signOut(); store_setCurrentUser(null); }}
+                onLogout={() => { signOut(auth); store_setCurrentUser(null); }}
                 onNavigateHome={() => store_setCurrentScreen('home')}
               />
             </motion.div>

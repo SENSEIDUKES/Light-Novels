@@ -1,0 +1,117 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "username": { "type": "string" },
+        "displayName": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "preferredLanguage": { "type": "string" },
+        "defaultTranslationLanguage": { "type": "string" },
+        "savedStoryCount": { "type": "number" },
+        "activeStories": { "type": "array" },
+        "inactiveStories": { "type": "array" },
+        "joinedDate": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "role": { "type": "string", "enum": ["owner", "admin", "user"] }
+      },
+      "required": ["uid", "username", "joinedDate", "updatedAt"]
+    },
+    "StoryWorld": {
+      "title": "Story World",
+      "description": "A novel's story world, containing chapters, memory, and settings. Belongs to a specific user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The user ID of the author." },
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "genre": { "type": "string" },
+        "mcName": { "type": "string" },
+        "customPremise": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "memory": { "$ref": "#/entities/StoryMemory" },
+        "arcs": { "$ref": "#/entities/StoryArcs" },
+        "currentChapterNumber": { "type": "number" },
+        "imageUrl": { "type": "string" },
+        "imageHistory": { "type": "array" },
+        "intake": { "$ref": "#/entities/IntakeData" },
+        "blueprint": { "$ref": "#/entities/WorldBlueprint" },
+        "relationships": { "type": "array" },
+        "karmaNodes": { "type": "array" },
+        "readerPreferences": { "type": "object" },
+        "bookmarks": { "type": "array" }
+      },
+      "required": ["userId", "id", "title", "genre", "mcName", "customPremise", "createdAt", "updatedAt", "currentChapterNumber"]
+    },
+    "StoryMemory": {
+      "title": "Story Memory",
+      "description": "Story state tracking",
+      "type": "object",
+      "properties": {}
+    },
+    "StoryArcs": {
+      "title": "Story Arcs List",
+      "description": "Array of story arcs",
+      "type": "array",
+      "properties": {}
+    },
+    "Chapter": {
+      "title": "Story Chapter",
+      "description": "A single chapter content.",
+      "type": "object",
+      "properties": {}
+    },
+    "IntakeData": {
+      "title": "Intake Data",
+      "description": "Intake forms",
+      "type": "object",
+      "properties": {
+        "storyTags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Custom selected and defined story tags"
+        }
+      }
+    },
+    "WorldBlueprint": {
+      "title": "World Blueprint",
+      "description": "World building",
+      "type": "object",
+      "properties": {}
+    },
+    "LoreGlossary": {
+      "title": "Lore Glossary",
+      "description": "Glossary for translating original terms to target language",
+      "type": "object",
+      "properties": {
+        "novel_id": { "type": "string" },
+        "source_text": { "type": "string" },
+        "target_text": { "type": "string" },
+        "target_lang": { "type": "string" }
+      },
+      "required": ["novel_id", "source_text", "target_text", "target_lang"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "#/entities/UserProfile",
+      "description": "User profiles containing public and preference data."
+    },
+    "stories/{storyId}": {
+      "schema": "#/entities/StoryWorld",
+      "description": "Stories belonging to users."
+    },
+    "stories/{storyId}/chapters/{chapterId}": {
+      "schema": "#/entities/Chapter",
+      "description": "Individual chapters belonging to a story."
+    },
+    "lore_glossary/{termId}": {
+      "schema": "#/entities/LoreGlossary",
+      "description": "Glossary terms used for translation within novels."
+    }
+  }
+}

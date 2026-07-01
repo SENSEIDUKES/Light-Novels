@@ -3,7 +3,8 @@ import { Cloud, CloudOff, RefreshCw, User, LogOut, Plus, Sliders, ScrollText, Sc
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
-import { supabase } from '../lib/supabase';
+import { auth } from '../lib/firebase';
+import { signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { AudioWidget } from './AudioWidget';
 import { DaoInsights } from './DaoInsights';
 import { vibrate } from '../lib/vibration';
@@ -56,13 +57,8 @@ export const GlobalHeader: React.FC = () => {
 
   const handleLogin = async () => {
     try {
-      if (!supabase) throw new Error("Supabase is not configured.");
-      await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin,
-        },
-      });
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
     } catch (error) {
       console.error("Login failed", error);
     }

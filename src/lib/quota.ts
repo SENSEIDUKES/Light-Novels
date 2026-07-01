@@ -1,19 +1,19 @@
-import { supabase } from './supabase';
-import { LOCAL_ONLY_MODE } from './firebase'; // we can just keep using LOCAL_ONLY_MODE flag
+import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
+import { db, auth, LOCAL_ONLY_MODE } from './firebase';
 
 export async function checkAndConsumeImageQuota(opts?: { automatic?: boolean }): Promise<void> {
-  if (LOCAL_ONLY_MODE || !supabase) return;
+  if (LOCAL_ONLY_MODE) return;
   if (opts?.automatic) {
     return; // System actions do not count against manual user limits and do not throw
   }
-  
-  const { data: { session } } = await supabase.auth.getSession();
-  const user = session?.user;
+  const user = auth.currentUser;
   if (!user) return; // Allow if not logged in (or we can block, but let's allow for now)
   
-  const { data } = await supabase.from('users').select('*').eq('uid', user.id).single();
+  const userRef = doc(db, 'users', user.uid);
+  const userSnap = await getDoc(userRef);
   
-  if (data) {
+  if (userSnap.exists()) {
+    const data = userSnap.data();
     let count = data.imageGenerationCount || 0;
     const tier = data.premiumTier || 'mortal';
     const resetAtStr = data.imageQuotaResetAt;
@@ -40,15 +40,14 @@ export async function checkAndConsumeImageQuota(opts?: { automatic?: boolean }):
     }
     
     if (shouldReset) {
-      await supabase.from('users').update({
+      await updateDoc(userRef, {
         imageGenerationCount: 1,
         imageQuotaResetAt: nextReset
-      }).eq('uid', user.id);
+      });
     } else {
-      // Supabase has an RPC function for incrementing, but for now we can just read/write since it's personal quota
-      await supabase.from('users').update({
-        imageGenerationCount: count + 1
-      }).eq('uid', user.id);
+      await updateDoc(userRef, {
+        imageGenerationCount: increment(1)
+      });
     }
   }
 }
