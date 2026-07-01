@@ -1,5 +1,4 @@
-import { doc, setDoc, collection, addDoc, query, where, getDocs, getDoc } from 'firebase/firestore';
-import { db, auth } from './firebase';
+import { supabase } from './supabase';
 import { checkAndAwardRankArtifacts } from './artifacts';
 import type { ActiveStatusEffect } from '../types';
 import { useAppStore } from '../store/useAppStore';
@@ -19,7 +18,9 @@ function queueProfileSync(updates: any, uid: string) {
     const toSync = pendingProfileUpdates;
     pendingProfileUpdates = null;
     try {
-      await setDoc(doc(db, 'users', uid), toSync, { merge: true });
+      if (supabase) {
+        await supabase.from('users').update(toSync).eq('uid', uid);
+      }
     } catch (err) {
       console.error('Failed to sync XP to cloud', err);
     }
@@ -115,7 +116,7 @@ const DAILY_CAPS: Partial<Record<QiEvent, number>> = {
 };
 
 export async function awardQi(event: QiEvent, sourceId?: string, sourceType?: string) {
-  const user = auth.currentUser;
+  const user = useAppStore.getState().currentUser;
   if (!user) return; 
   
   const amount = QI_VALUES[event];
@@ -483,7 +484,7 @@ export function getAuraGlowStyle(
 }
 
 export async function awardDirectQi(amount: number, reason: string) {
-  const user = auth.currentUser;
+  const user = useAppStore.getState().currentUser;
   if (!user) return; 
   if (!amount || amount <= 0) return;
 

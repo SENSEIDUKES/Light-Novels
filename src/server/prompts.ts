@@ -226,10 +226,12 @@ ${memoryJson}
 PAST SUMMARY CONTEXT (What happened in previous chapters to prevent plot holes):
 ${pastSummariesJson}
 
-CHAPTER LENGTH & PACING DIRECTIVES:
-- Default Target Length: 2,200 words.
-- Allowed Range: 1,800 to 2,600 words.
-- Absolute Minimum: 1,500 words.
+CHAPTER LENGTH & EXPANSION DIRECTIVES:
+- Default Target Length: 2,500 words.
+- Absolute Minimum: 2,000 words.
+- CRITICAL: Do NOT write a short 400-word summary. You MUST write out every single scene in extreme real-time detail.
+- Expand every conversation, describe the physical environment, facial expressions, and inner thoughts of the characters.
+- A typical chapter should contain at least 60 to 100 paragraphs.
 - Avoid rambling or overly repetitive internal monologues. Instead, natively reach the word count through dynamic dialogue, deeply immersive sensory descriptions, engaging combat choreography, detailed cultivation revelations, and world-building that advances the plot.
 
 Write a fully fleshed-out chapter following the length directives. Split it into multiple beautiful paragraphs with plenty of dialogue, combat choreography or cultivation breakthroughs where descriptive details make it feel real. 

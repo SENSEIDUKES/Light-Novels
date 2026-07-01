@@ -1,5 +1,4 @@
-import { db, auth } from './firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { supabase } from './supabase';
 import { useAppStore } from '../store/useAppStore';
 import { CosmicArtifact } from '../types';
 
@@ -214,7 +213,7 @@ export async function unlockCosmicArtifact(
   sourceId?: string,
   sourceTitle?: string
 ): Promise<CosmicArtifact | null> {
-  const user = auth.currentUser;
+  const user = useAppStore.getState().currentUser;
   const now = new Date().toISOString();
   
   let baseArtifact: Omit<CosmicArtifact, 'id' | 'unlockedAt'>;
@@ -291,10 +290,8 @@ export async function unlockCosmicArtifact(
   
   if (user) {
     try {
-      const userRef = doc(db, 'users', user.uid);
-      const uDoc = await getDoc(userRef);
-      if (uDoc.exists()) {
-        const data = uDoc.data();
+      const { data } = await supabase.from('users').select('*').eq('uid', user.uid).single();
+      if (data) {
         const currentInventory: CosmicArtifact[] = data.inventory || data.cosmicInventory || [];
         
         if (checkDuplicate(currentInventory)) {
@@ -302,7 +299,7 @@ export async function unlockCosmicArtifact(
         }
         
         const updatedInventory = [...currentInventory, newArtifact];
-        await setDoc(userRef, { cosmicInventory: updatedInventory, inventory: updatedInventory }, { merge: true });
+        await supabase.from('users').update({ cosmicInventory: updatedInventory, inventory: updatedInventory }).eq('uid', user.uid);
         
         // Dispatch window event for live-unlock celebration UI
         window.dispatchEvent(new CustomEvent('seihouse-artifact-unlocked', { detail: { artifact: newArtifact } }));
@@ -368,12 +365,11 @@ export async function unlockCosmicArtifact(
 }
 
 export async function getUnlockedArtifacts(): Promise<CosmicArtifact[]> {
-  const user = auth.currentUser;
+  const user = useAppStore.getState().currentUser;
   if (user) {
     try {
-      const uDoc = await getDoc(doc(db, 'users', user.uid));
-      if (uDoc.exists()) {
-        const data = uDoc.data();
+      const { data } = await supabase.from('users').select('*').eq('uid', user.uid).single();
+      if (data) {
         return data.inventory || data.cosmicInventory || [];
       }
     } catch (e) {
@@ -402,16 +398,16 @@ export async function submitCurrentWeekOfferings(): Promise<{qi: number, sectMer
   });
 
   if (changed) {
-    const user = auth.currentUser;
+    const user = useAppStore.getState().currentUser;
     if (user) {
-      const userRef = doc(db, 'users', user.uid);
-      const uDoc = await getDoc(userRef);
-      const data = uDoc.data() || {};
-      await setDoc(userRef, { 
+      const { data } = await supabase.from('users').select('*').eq('uid', user.uid).single();
+      if (data) {
+        await supabase.from('users').update({ 
         cosmicInventory: updatedArtifacts,
         qi: (data.qi || 0) + gainedQi,
         sect_qi: (data.sect_qi || 0) + gainedSectMerit
-      }, { merge: true });
+      }).eq('uid', user.uid);
+      }
     } else {
       localStorage.setItem('seihouse-local-cosmic-inventory', JSON.stringify(updatedArtifacts));
     }
@@ -456,16 +452,16 @@ export async function autoSubmitPreviousWeeksOfferings(): Promise<void> {
   });
 
   if (changed) {
-    const user = auth.currentUser;
+    const user = useAppStore.getState().currentUser;
     if (user) {
-      const userRef = doc(db, 'users', user.uid);
-      const uDoc = await getDoc(userRef);
-      const data = uDoc.data() || {};
-      await setDoc(userRef, { 
+      const { data } = await supabase.from('users').select('*').eq('uid', user.uid).single();
+      if (data) {
+        await supabase.from('users').update({ 
         cosmicInventory: updatedArtifacts,
         qi: (data.qi || 0) + gainedQi,
         sect_qi: (data.sect_qi || 0) + gainedSectMerit
-      }, { merge: true });
+      }).eq('uid', user.uid);
+      }
     } else {
       localStorage.setItem('seihouse-local-cosmic-inventory', JSON.stringify(updatedArtifacts));
     }

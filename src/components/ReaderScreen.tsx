@@ -55,6 +55,7 @@ export const ReaderScreen: React.FC<{
     Record<number, any>
   >({});
   const pendingFetches = React.useRef<Set<number>>(new Set());
+  const recapCheckedForStoryId = React.useRef<string | null>(null);
 
   // Reading time tracking state
   const [clockTime, setClockTime] = useState(new Date());
@@ -244,19 +245,28 @@ export const ReaderScreen: React.FC<{
       }
 
       // Check if we need to show recap (has been gone for > 24 hours)
-      // Since it's testing, let's also show it if lastReadAt doesn't exist but we are past chapter 3.
-      if (activeStory.lastReadAt) {
-        const lastReadDate = new Date(activeStory.lastReadAt).getTime();
-        const now = Date.now();
-        const hrsElapsed = (now - lastReadDate) / (1000 * 60 * 60);
-        if (hrsElapsed > 12) {
+      // Only do this check once per story load to avoid showing it between chapter generations
+      if (recapCheckedForStoryId.current !== activeStoryId) {
+        recapCheckedForStoryId.current = activeStoryId;
+        
+        if (activeStory.lastReadAt) {
+          const lastReadDate = new Date(activeStory.lastReadAt).getTime();
+          const now = Date.now();
+          const hrsElapsed = (now - lastReadDate) / (1000 * 60 * 60);
+          if (hrsElapsed > 12) {
+            setShowRecap(true);
+          } else {
+            setShowRecap(false);
+          }
+        } else if (selectedChapterNum > 2) {
           setShowRecap(true);
+        } else {
+          setShowRecap(false);
         }
-      } else if (selectedChapterNum > 2) {
-        setShowRecap(true);
       }
     } else {
       setShowRecap(false);
+      recapCheckedForStoryId.current = null;
     }
   }, [activeStoryId, currentScreen, activeStory, selectedChapterNum]);
 
@@ -365,9 +375,11 @@ export const ReaderScreen: React.FC<{
                 <span className="text-neutral-700">|</span>
                 <div
                   className="flex items-center space-x-1"
-                  title={`Total Story Words (Current Chapter: ${activeChapterWords.toLocaleString()} words)`}
+                  title="Total Story Words"
                 >
-                  <span className="text-gold-accent">Words:</span>
+                  <span className="text-gold-accent">Chapter:</span>
+                  <span className="mr-2">{activeChapterWords.toLocaleString()}</span>
+                  <span className="text-gold-accent">Total:</span>
                   <span>{totalStoryWords.toLocaleString()}</span>
                 </div>
               </div>
