@@ -7,6 +7,17 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
   return {
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+            motion: ['motion/react'],
+            vendor: ['react', 'react-dom', 'zustand', 'lucide-react']
+          }
+        }
+      }
+    },
     plugins: [
       react(), 
       tailwindcss(),

@@ -332,6 +332,7 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
   cancelDeleteStory: () => set({ storyToDelete: null }),
 
   initStorage: async () => {
+    storyStorage.onConflict((conflict) => set({ activeConflict: conflict }));
     try {
       await storyStorage.init();
       set({ storageType: storyStorage.getActiveAdapterName() });

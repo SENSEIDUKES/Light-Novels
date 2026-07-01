@@ -32,6 +32,7 @@ import UserProfile from './components/UserProfile';
 import { ChallengeScreen } from './components/ChallengeScreen';
 import { SectsScreen } from './components/SectsScreen';
 import { IdleCultivationModal } from './components/IdleCultivationModal';
+import { RankUpCelebration } from './components/RankUpCelebration';
 
 function App() {
   const store_userProfile = useAppStore(state => state.userProfile);
@@ -306,6 +307,7 @@ function App() {
   return (
     <div className="min-h-dvh bg-[#050505] text-[#dfd8cf] font-serif overflow-x-hidden selection:bg-human/30 pb-safe">
       <ParticleSystem />
+      <RankUpCelebration />
 
       <GlobalHeader />
 

@@ -328,7 +328,7 @@ export function truncateContextIfNeeded(
   maxTokens: number = 80000,
   fallbackSummary: string = "This is the very first chapter of the story arc! Set the scene dramatically."
 ): { memoryJsonStr: string, pastSummariesStr: string } {
-  let workingSummaries = pastSummaries ? [...pastSummaries] : [];
+  const workingSummaries = pastSummaries ? [...pastSummaries] : [];
   let memoryStr = JSON.stringify(memoryObj, null, 2);
   let summariesStr = workingSummaries.length > 0 
     ? workingSummaries.join("\n") 

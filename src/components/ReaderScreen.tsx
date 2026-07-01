@@ -9,7 +9,8 @@ import { Story, StreamingChapter } from "../types";
 import { awardQi } from "../lib/qi";
 import { RecapScreen } from "./RecapScreen";
 import { storyStorage } from "../lib/storage";
-import { LOCAL_ONLY_MODE } from "../lib/firebase";
+import { LOCAL_ONLY_MODE, auth } from "../lib/firebase";
+import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 
 export const ReaderScreen: React.FC<{
   handleSteerArc: (direction: string, customPrompt: string) => Promise<void>;
@@ -447,13 +448,7 @@ export const ReaderScreen: React.FC<{
               }
             }}
             onClick={() => {
-              import("../lib/firebase").then(({ auth }) => {
-                import("firebase/auth").then(
-                  ({ signInWithPopup, GoogleAuthProvider }) => {
-                    signInWithPopup(auth, new GoogleAuthProvider());
-                  },
-                );
-              });
+              signInWithPopup(auth, new GoogleAuthProvider());
             }}
             className="px-8 py-3 bg-human text-signal font-sc font-bold uppercase tracking-widest text-sm rounded border border-human shadow-[0_0_15px_rgba(139,0,0,0.4)] hover:bg-void transition-all"
           >

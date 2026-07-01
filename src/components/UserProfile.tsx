@@ -12,6 +12,7 @@ import { UserProfileAdminPanel } from './UserProfileAdminPanel';
 import { UserProfileSettingsPanel } from './UserProfileSettingsPanel';
 import { UserProfileInventoryPanel } from './UserProfileInventoryPanel';
 import { UserProfileStoriesPanel } from './UserProfileStoriesPanel';
+import { UserProfilePortraitModal } from './UserProfilePortraitModal';
 
 interface UserProfileProps {
   currentUser: AppUser | null;
@@ -1669,284 +1670,25 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
 
       {/* Divine Mirror of the Soul Modal */}
       {showPortraitModal && (
-        <div className="fixed inset-0 bg-void/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-void border border-neutral-900 w-full max-w-lg rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(4,172,255,0.12)] flex flex-col relative max-h-[90vh] text-signal font-sans">
-            {/* Ethereal top border light */}
-            <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-portal to-transparent"></div>
-            
-            {/* Header */}
-            <div className="p-4 sm:p-6 border-b border-neutral-900/50 flex justify-between items-center bg-black/30 shrink-0">
-              <div>
-                <h3 className="font-display text-xl sm:text-2xl text-signal font-bold tracking-wide flex items-center gap-2">
-                  <Sparkles className="text-portal animate-pulse" size={18} />
-                  Divine Mirror of the Soul
-                </h3>
-                <p className="text-[10px] sm:text-[11px] text-portal/70 font-sc font-bold uppercase tracking-widest mt-1">
-                  Weave Mortal likeness into Immortal Essence
-                </p>
-              </div>
-              <button 
-                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-                  setShowPortraitModal(false);
-                  setPortraitUploadFile(null);
-                  setPortraitUploadBase64('');
-                  setPortraitDesc('');
-                  setGeneratedPortraitUrl('');
-                  setPortraitError('');
-                }}
-                className="text-neutral-500 hover:text-signal transition-colors p-1"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Scrollable Content */}
-            <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto flex-1">
-              
-              {portraitError && (
-                <div className="p-3.5 bg-human/10 border border-human/30 text-human rounded-lg text-xs font-mono text-center">
-                  {portraitError}
-                </div>
-              )}
-
-              {/* Upload and Side-by-side View */}
-              {!generatedPortraitUrl && !isGeneratingPortrait ? (
-                <div className="space-y-4">
-                  <label htmlFor="portrait-file-input" className="block text-xs font-sc font-bold uppercase tracking-widest text-neutral-400">
-                    Mortal likeness projection
-                  </label>
-                  
-                  {portraitUploadBase64 ? (
-                    <div className="relative group rounded-xl overflow-hidden border border-neutral-900 bg-black/60 p-4 flex flex-col items-center justify-center">
-                      <img 
-                        src={portraitUploadBase64} 
-                        alt="Mortal Looks Preview" 
-                        className="w-32 h-32 object-cover rounded-full border border-neutral-800/80 grayscale filter group-hover:grayscale-0 transition-all duration-500 animate-[pulse_3s_infinite]"
-                      />
-                      <button 
-                         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-                          setPortraitUploadFile(null);
-                          setPortraitUploadBase64('');
-                        }}
-                        className="mt-3 text-[10px] font-sc font-bold uppercase tracking-widest text-human/80 hover:text-human border border-human/20 hover:border-human/50 px-2.5 py-1 bg-human/5 rounded transition-all"
-                      >
-                        Reset Likeness
-                      </button>
-                    </div>
-                  ) : (
-                    <div 
-                      onDragEnter={handleDrag}
-                      onDragOver={handleDrag}
-                      onDragLeave={handleDrag}
-                      onDrop={handleDrop}
-                      onClick={() => document.getElementById('portrait-file-input')?.click()}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          document.getElementById('portrait-file-input')?.click();
-                        }
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 ${
-                        dragActive 
-                          ? 'border-portal bg-portal/5 shadow-[0_0_20px_rgba(4,172,255,0.1)]' 
-                          : 'border-neutral-800 hover:border-portal/50 hover:bg-neutral-900/20'
-                      }`}
-                    >
-                      <input 
-                        type="file" 
-                        id="portrait-file-input" 
-                        className="hidden" 
-                        accept="image/*"
-                        onChange={(e) => e.target.files && e.target.files[0] && handleFileChange(e.target.files[0])}
-                      />
-                      <Upload size={24} className="text-neutral-500 mb-2 animate-pulse" />
-                      <p className="text-xs text-neutral-300 font-sans">
-                        Drag & drop your portrait here, or <span className="text-portal font-semibold">click to browse</span>
-                      </p>
-                      <p className="text-[10px] text-neutral-500 font-mono mt-1">
-                        PNG, JPG or WEBP (Standard Photo)
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ) : null}
-
-              {/* Form Input for Custom Affiliation/Details */}
-              {!generatedPortraitUrl && !isGeneratingPortrait ? (
-                <div className="space-y-2">
-                  <label htmlFor="portrait-desc-input" className="block text-xs font-sc font-bold uppercase tracking-widest text-neutral-400">
-                    Spiritual Path & Attunements (Optional Description)
-                  </label>
-                  <textarea
-                    id="portrait-desc-input"
-                    value={portraitDesc}
-                    onChange={(e) => setPortraitDesc(e.target.value)}
-                    placeholder="e.g., A thunder-infused cultivator with glowing crimson eyes, clad in midnight-black battle robes. Wielding a jade lightning sword."
-                    rows={2}
-                    maxLength={200}
-                    className="w-full bg-black border border-neutral-800 rounded-xl px-4 py-3 text-sm text-signal focus:outline-none focus:border-portal/70 transition-colors placeholder-neutral-600 font-sans resize-none"
-                  />
-                  <div className="flex justify-between text-[10px] text-neutral-500 font-mono">
-                    <span>Incorporate custom Xianxia visual themes</span>
-                    <span>{portraitDesc.length}/200</span>
-                  </div>
-                </div>
-              ) : null}
-
-              {/* Spiritual Attunements Panel */}
-              <div className="p-4 bg-neutral-950/80 border border-neutral-900 rounded-xl space-y-3 shadow-inner">
-                <div className="flex justify-between items-center pb-2 border-b border-neutral-900/50">
-                  <span className="text-[10px] font-sc font-bold uppercase tracking-widest text-neutral-400">Spiritual Attunements Channeled</span>
-                  <span className="text-[9px] font-mono text-portal font-bold bg-portal/10 border border-portal/30 px-2 py-0.5 rounded-full uppercase animate-pulse">Loom Ready</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <span className="text-[9px] font-sc font-bold uppercase tracking-wider text-neutral-500 block">Sect Dao Rank</span>
-                    <div className="flex items-center gap-1.5 text-xs font-semibold">
-                      <Award size={12} className="text-portal" />
-                      <span className="text-signal truncate" title={profile?.dao_rank || 'Mortal Reader'}>
-                        {profile?.dao_rank || 'Mortal Reader'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-[9px] font-sc font-bold uppercase tracking-wider text-neutral-500 block">Active Power Stage</span>
-                    <div className="flex items-center gap-1.5 text-xs font-semibold flex-row">
-                      <Flame size={12} className="text-human" />
-                      <span className="text-signal truncate" title={currentPowerStage || 'Mortal Seeker'}>
-                        {currentPowerStage || 'Mortal Seeker'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-[9px] font-sc font-bold uppercase tracking-wider text-neutral-500 block">Equipped Artifact</span>
-                    <div className="flex items-center gap-1.5 text-xs font-semibold">
-                      <Compass size={12} className="text-amber-500" />
-                      <span className="text-signal truncate" title={equippedArtifact?.name || 'No Relic'}>
-                        {equippedArtifact?.name || 'No Relic'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <p className="text-[10px] font-serif italic text-neutral-500 leading-normal border-t border-neutral-900/50 pt-2">
-                  "The Divine Mirror automatically reads your achievements and weaves robes, relics, and celestial auras directly into your final likeness."
-                </p>
-              </div>
-
-              {/* Generation Progress Overlay */}
-              {isGeneratingPortrait && (
-                <div className="py-12 flex flex-col items-center justify-center text-center space-y-6">
-                  {/* Glowing custom loader spinner */}
-                  <div className="relative w-16 h-16">
-                    <div className="absolute inset-0 rounded-full border-4 border-portal/10 border-t-portal animate-spin"></div>
-                    <div className="absolute inset-2 rounded-full border border-human/10 border-b-human animate-[spin_3s_linear_infinite_reverse]"></div>
-                    <div className="absolute inset-4 rounded-full bg-void flex items-center justify-center">
-                      <Sparkles size={16} className="text-portal animate-pulse" />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2 max-w-sm">
-                    <h4 className="font-display text-lg text-signal animate-pulse">Refining Soul Signature</h4>
-                    <p className="text-xs text-neutral-400 font-mono min-h-[1.5rem] tracking-wide">
-                      {generationSteps[generationStep]}
-                    </p>
-                  </div>
-                  
-                  <div className="w-48 h-[2px] bg-neutral-900 rounded-full overflow-hidden relative">
-                    <div 
-                      className="absolute left-0 top-0 h-full bg-gradient-to-r from-portal to-human transition-all duration-1000"
-                      style={{ width: `${((generationStep + 1) / generationSteps.length) * 100}%` }}
-                    ></div>
-                  </div>
-                </div>
-              )}
-
-              {/* Successful Portrait View */}
-              {generatedPortraitUrl && !isGeneratingPortrait && (
-                <div className="space-y-6 flex flex-col items-center justify-center">
-                  <div className="text-center">
-                    <p className="text-[10px] font-sc font-bold uppercase tracking-[0.25em] text-portal mb-2">Immortal Manifestation</p>
-                    <h4 className="font-display text-2xl text-signal">Cultivator Portrait Forged</h4>
-                  </div>
-                  
-                  <div className="relative w-64 h-64 rounded-full p-1.5 border border-portal/40 shadow-[0_0_30px_rgba(4,172,255,0.15)] bg-black/40 overflow-hidden flex items-center justify-center group">
-                    <img 
-                      src={generatedPortraitUrl} 
-                      alt="Cultivator Portrait" 
-                      className="w-full h-full object-cover rounded-full border border-neutral-900 transition-transform duration-700 group-hover:scale-105"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 rounded-full border border-portal/20 pointer-events-none scale-105 animate-[spin_20s_linear_infinite]"></div>
-                  </div>
-
-                  <p className="text-xs text-neutral-400 font-serif text-center max-w-sm italic leading-relaxed">
-                    "Your features have been aligned with the ancient celestial laws, weaving your mortal likeness into the divine fabric."
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Footer Control Panel */}
-            <div className="border-t border-neutral-900/50 bg-black/20 shrink-0">
-              <div className="p-6 flex gap-3">
-                {generatedPortraitUrl ? (
-                  <>
-                    <button 
-                       tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleApplyPortrait}
-                      className="flex-1 py-3 bg-portal hover:bg-portal/90 text-void font-sc font-bold uppercase text-[11px] tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(4,172,255,0.25)] flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Save size={13} /> Attune as Avatar
-                    </button>
-                    <button 
-                      onClick={() => {
-                        setGeneratedPortraitUrl('');
-                        setPortraitError('');
-                      }}
-                      className="px-5 py-3 border border-neutral-800 hover:border-neutral-600 text-neutral-300 font-sc font-bold uppercase text-[11px] tracking-widest rounded-xl transition-all cursor-pointer"
-                    >
-                      Re-forge
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button 
-                      disabled={!portraitUploadBase64 || isGeneratingPortrait}
-                      onClick={handleGeneratePortrait}
-                      className={`flex-1 py-3 font-sc font-bold uppercase text-[11px] tracking-widest rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-                        portraitUploadBase64 && !isGeneratingPortrait
-                          ? 'bg-portal hover:bg-portal/90 text-void shadow-[0_0_20px_rgba(4,172,255,0.25)] cursor-pointer'
-                          : 'bg-neutral-900 text-neutral-600 cursor-not-allowed border border-neutral-800'
-                      }`}
-                    >
-                      <Sparkles size={13} /> Forge Portrait
-                    </button>
-                    <button 
-                      disabled={isGeneratingPortrait}
-                      onClick={() => {
-                        setShowPortraitModal(false);
-                        setPortraitUploadFile(null);
-                        setPortraitUploadBase64('');
-                        setPortraitDesc('');
-                        setGeneratedPortraitUrl('');
-                        setPortraitError('');
-                      }}
-                      className="px-5 py-3 border border-neutral-800 hover:border-neutral-600 hover:text-signal text-neutral-400 font-sc font-bold uppercase text-[11px] tracking-widest rounded-xl transition-all disabled:opacity-50 cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                  </>
-                )}
-              </div>
-              
-              {/* Privacy Shield Notice (Moved to Bottom) */}
-              <div className="px-6 py-3 bg-neutral-900/30 border-t border-neutral-900/50 flex items-center justify-center gap-2 text-[10px] text-neutral-500 font-serif">
-                <Shield size={12} className="text-portal/60" />
-                <span>Absolute Privacy: Images are transient and never stored or displayed publicly.</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <UserProfilePortraitModal
+          showPortraitModal={showPortraitModal}
+          setShowPortraitModal={setShowPortraitModal}
+          portraitUploadFile={portraitUploadFile}
+          setPortraitUploadFile={setPortraitUploadFile}
+          portraitUploadBase64={portraitUploadBase64}
+          setPortraitUploadBase64={setPortraitUploadBase64}
+          portraitDesc={portraitDesc}
+          setPortraitDesc={setPortraitDesc}
+          isGeneratingPortrait={isGeneratingPortrait}
+          portraitError={portraitError}
+          generatedPortraitUrl={generatedPortraitUrl}
+          generationStep={generationStep}
+          handleGeneratePortrait={handleGeneratePortrait}
+          handleApplyPortrait={handleApplyPortrait}
+          daoData={daoData}
+          equippedArtifact={equippedArtifact}
+          profile={profile}
+        />
       )}
 
           {/* Settings & boring things at the very bottom! */}
