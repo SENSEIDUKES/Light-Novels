@@ -336,6 +336,7 @@ export const ReaderScreen: React.FC<{
                 }}
                 onClick={() => setCurrentScreen("detail")}
                 className="text-neutral-500 hover:text-gold-accent transition-colors flex-shrink-0"
+                aria-label="Back to story details"
               >
                 <ArrowLeft size={18} />
               </button>
@@ -380,6 +381,7 @@ export const ReaderScreen: React.FC<{
                 }}
                 onClick={() => setIsGlossaryOpen(true)}
                 className="px-2.5 py-1 sm:px-4 sm:py-1.5 bg-neutral-900 border border-neutral-800 text-neutral-400 font-sc font-bold uppercase tracking-wider rounded hover:bg-neutral-800 hover:text-white transition-all flex items-center space-x-1 sm:space-x-2 text-[9px] sm:text-[10px]"
+                aria-label="Open Lore Glossary"
               >
                 <BookA size={11} />
                 <span className="hidden sm:inline">Lore Glossary</span>
@@ -395,6 +397,7 @@ export const ReaderScreen: React.FC<{
                 }}
                 onClick={() => setIsCodexSheetOpen(true)}
                 className="px-2.5 py-1 sm:px-4 sm:py-1.5 bg-void border border-portal text-portal font-sc font-bold uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-all flex items-center space-x-1 sm:space-x-2 text-[9px] sm:text-[10px]"
+                aria-label="Open Codex Sheet"
               >
                 <Sparkles size={11} />
                 <span>Codex</span>
@@ -529,6 +532,7 @@ export const ReaderScreen: React.FC<{
                 }}
                 onClick={() => setSelectedChapterNum(-1)}
                 className="px-4 py-1.5 bg-human text-signal text-[10px] font-bold font-sc uppercase tracking-wider rounded border border-human hover:bg-void transition-all"
+                aria-label="Steer Story Fate"
               >
                 Steer Story Fate
               </button>

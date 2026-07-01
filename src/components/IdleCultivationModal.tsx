@@ -91,6 +91,8 @@ export function IdleCultivationModal({ qiEarned, onClose }: Props) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             className="fixed bottom-24 left-4 right-4 sm:left-auto sm:bottom-6 sm:right-6 z-[100] sm:w-[320px] bg-[#050505]/95 backdrop-blur-xl border border-portal/20 rounded-xl overflow-hidden shadow-[0_8px_32px_rgba(4,172,255,0.15)]"
+            role="dialog"
+            aria-labelledby="idle-cultivation-title"
           >
             <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-portal/0 via-portal/50 to-portal/0" />
             
@@ -102,7 +104,7 @@ export function IdleCultivationModal({ qiEarned, onClose }: Props) {
                 </div>
                 
                 <div className="flex-1 space-y-1">
-                  <h2 className="text-sm font-display text-signal">Closed-Door Cultivation</h2>
+                  <h2 id="idle-cultivation-title" className="text-sm font-display text-signal">Closed-Door Cultivation</h2>
                   <p className="text-[11px] font-serif text-neutral-400 leading-tight">
                     Your avatar cultivated in silence while you were away.
                   </p>
@@ -120,6 +122,7 @@ export function IdleCultivationModal({ qiEarned, onClose }: Props) {
                 onClick={handleClaim}
                 disabled={isClaiming}
                 className="w-full relative group bg-portal/10 border border-portal/30 hover:bg-portal hover:text-void text-portal px-4 py-2.5 rounded-lg font-sc uppercase tracking-widest font-bold text-xs transition-all overflow-hidden"
+                aria-label={isClaiming ? 'Absorbing Qi...' : 'Claim & Awaken'}
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:animate-[shimmer_1.5s_infinite]" />
                 {isClaiming ? 'Absorbing...' : 'Claim & Awaken'}

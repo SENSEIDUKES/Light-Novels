@@ -1332,7 +1332,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                                             className={`text-[12px] font-bold uppercase tracking-wider truncate ${!isUnlocked ? 'text-neutral-400' : ''}`} 
                                           >
                                             <span className={isUnlocked && (tier.textColor.includes('text-') || tier.textColor.includes('bg-')) ? tier.textColor : ''} style={!tier.textColor.includes('text') && !tier.textColor.includes('bg-') && isUnlocked ? { color: tier.colorHex } : undefined}>
-                                              {tier.rank}
+                                              {formData.displayName || profile?.displayName || tier.rank}
                                             </span>
                                           </span>
                                           {isSelected && (

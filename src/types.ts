@@ -49,6 +49,13 @@ export interface CosmicArtifact {
   rarity: "Common" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Transcendent";
   attributeBoost?: string;
   statusEffectDef?: StatusEffectDef;
+  
+  // Weekly Offering System
+  offeringWeekId?: string;
+  gatheredAt?: string;
+  status?: "unsubmitted" | "submitted" | "auto_submitted";
+  rewardValueQi?: number;
+  rewardValueSectMerit?: number;
 }
 
 export interface UserProfile {

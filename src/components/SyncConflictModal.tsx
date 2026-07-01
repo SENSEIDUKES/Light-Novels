@@ -93,6 +93,7 @@ export const SyncConflictModal: React.FC = () => {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto"
+          role="presentation"
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 15 }}
@@ -100,6 +101,8 @@ export const SyncConflictModal: React.FC = () => {
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ type: 'spring', damping: 25, stiffness: 350 }}
             className="relative bg-neutral-950 border border-neutral-900 rounded-2xl shadow-2xl max-w-3xl w-full p-5 md:p-7 overflow-hidden my-8"
+            role="dialog"
+            aria-labelledby="sync-conflict-title"
           >
             {/* Top cosmic visual light bar */}
             <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-portal via-human to-gold-accent opacity-75"></div>
@@ -110,7 +113,7 @@ export const SyncConflictModal: React.FC = () => {
                 <AlertTriangle size={24} />
               </div>
               <div>
-                <h2 className="text-xl md:text-2xl font-display font-bold text-signal tracking-wide">
+                <h2 id="sync-conflict-title" className="text-xl md:text-2xl font-display font-bold text-signal tracking-wide">
                   Aetheric Sync Divergence
                 </h2>
                 <p className="text-xs text-neutral-500 font-mono uppercase tracking-widest mt-1">

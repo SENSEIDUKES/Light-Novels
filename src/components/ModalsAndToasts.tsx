@@ -326,6 +326,7 @@ export const ModalsAndToasts: React.FC = () => {
             <div
               className="absolute inset-0 bg-black/80 backdrop-blur-sm"
               onClick={() => setIsSettingsOpen(false)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsSettingsOpen(false); } }}
+              aria-label="Close Settings"
             />
             
             <motion.div
@@ -566,7 +567,7 @@ export const ModalsAndToasts: React.FC = () => {
               </p>
               
               <div className="mb-6">
-                <label className="text-[10px] text-neutral-500 uppercase tracking-widest font-mono block mb-2" htmlFor="a11y-control-${labelCounter}">
+                <label className="text-[10px] text-neutral-500 uppercase tracking-widest font-mono block mb-2" htmlFor="delete-story-input">
                   Type <span className="text-red-400 font-bold">DELETE</span> to confirm{' '}
                   <button
                     type="button"
@@ -582,10 +583,11 @@ export const ModalsAndToasts: React.FC = () => {
                 </label>
                 <input
                   type="text"
+                  id="delete-story-input"
                   placeholder="DELETE"
                   value={deleteText}
                   onChange={(e) => setDeleteText(e.target.value)}
-                  className="w-full bg-void text-xs text-signal border border-neutral-700 focus:border-red-500 p-2 rounded focus:outline-none font-mono placeholder:text-neutral-700" id="a11y-control-${labelCounter}"
+                  className="w-full bg-void text-xs text-signal border border-neutral-700 focus:border-red-500 p-2 rounded focus:outline-none font-mono placeholder:text-neutral-700"
                 />
               </div>
 

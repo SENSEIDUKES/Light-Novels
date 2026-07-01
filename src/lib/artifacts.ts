@@ -190,6 +190,25 @@ export const COSMIC_ARTIFACT_TEMPLATES = {
   }
 };
 
+export function getCurrentOfferingWeekId(): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
+}
+
+function getArtifactRewards(rarity: CosmicArtifact["rarity"]) {
+  switch (rarity) {
+    case "Transcendent": return { qi: 5000, sectMerit: 100 };
+    case "Mythic": return { qi: 2000, sectMerit: 50 };
+    case "Legendary": return { qi: 250, sectMerit: 25 };
+    case "Epic": return { qi: 100, sectMerit: 10 };
+    case "Rare": return { qi: 50, sectMerit: 5 };
+    case "Common": default: return { qi: 10, sectMerit: 1 };
+  }
+}
+
 export async function unlockCosmicArtifact(
   keyOrArtifact: string | Omit<CosmicArtifact, 'id' | 'unlockedAt'>,
   sourceId?: string,
@@ -250,10 +269,16 @@ export async function unlockCosmicArtifact(
   }
   
   const id = `art-${artifactKey || 'custom'}-${Date.now()}`;
+  const rewards = getArtifactRewards(baseArtifact.rarity);
   const newArtifact: CosmicArtifact = {
     ...baseArtifact,
     id,
-    unlockedAt: now
+    unlockedAt: now,
+    offeringWeekId: getCurrentOfferingWeekId(),
+    gatheredAt: now,
+    status: "unsubmitted",
+    rewardValueQi: rewards.qi,
+    rewardValueSectMerit: rewards.sectMerit
   };
   
   // Check duplicates to avoid multi-award
@@ -357,6 +382,107 @@ export async function getUnlockedArtifacts(): Promise<CosmicArtifact[]> {
   }
   const localInvStr = localStorage.getItem('seihouse-local-cosmic-inventory');
   return localInvStr ? JSON.parse(localInvStr) : [];
+}
+
+export async function submitCurrentWeekOfferings(): Promise<{qi: number, sectMerit: number}> {
+  const currentWeek = getCurrentOfferingWeekId();
+  const artifacts = await getUnlockedArtifacts();
+  let gainedQi = 0;
+  let gainedSectMerit = 0;
+  let changed = false;
+
+  const updatedArtifacts = artifacts.map(a => {
+    if (a.status !== 'submitted' && a.status !== 'auto_submitted' && a.offeringWeekId === currentWeek) {
+      changed = true;
+      gainedQi += a.rewardValueQi || 0;
+      gainedSectMerit += a.rewardValueSectMerit || 0;
+      return { ...a, status: 'submitted' as const };
+    }
+    return a;
+  });
+
+  if (changed) {
+    const user = auth.currentUser;
+    if (user) {
+      const userRef = doc(db, 'users', user.uid);
+      const uDoc = await getDoc(userRef);
+      const data = uDoc.data() || {};
+      await setDoc(userRef, { 
+        cosmicInventory: updatedArtifacts,
+        qi: (data.qi || 0) + gainedQi,
+        sect_qi: (data.sect_qi || 0) + gainedSectMerit
+      }, { merge: true });
+    } else {
+      localStorage.setItem('seihouse-local-cosmic-inventory', JSON.stringify(updatedArtifacts));
+    }
+    
+    // Update local store
+    const localProfile = useAppStore.getState().userProfile;
+    if (localProfile) {
+      useAppStore.setState({
+        userProfile: {
+          ...localProfile,
+          cosmicInventory: updatedArtifacts,
+          qi: (localProfile.qi || 0) + gainedQi,
+          sect_qi: (localProfile.sect_qi || 0) + gainedSectMerit
+        }
+      });
+    }
+  }
+  return { qi: gainedQi, sectMerit: gainedSectMerit };
+}
+
+export async function autoSubmitPreviousWeeksOfferings(): Promise<void> {
+  const currentWeek = getCurrentOfferingWeekId();
+  const artifacts = await getUnlockedArtifacts();
+  let gainedQi = 0;
+  let gainedSectMerit = 0;
+  let changed = false;
+
+  const updatedArtifacts = artifacts.map(a => {
+    // If it has an offeringWeekId, and it's not the current week, and it's not submitted yet
+    if (a.status !== 'submitted' && a.status !== 'auto_submitted' && a.offeringWeekId && a.offeringWeekId !== currentWeek) {
+      changed = true;
+      gainedQi += a.rewardValueQi || 0;
+      gainedSectMerit += a.rewardValueSectMerit || 0;
+      return { ...a, status: 'auto_submitted' as const };
+    }
+    // Also upgrade old artifacts that didn't have offeringWeekId
+    if (!a.offeringWeekId) {
+      changed = true;
+      return { ...a, offeringWeekId: currentWeek, status: 'unsubmitted' as const, rewardValueQi: getArtifactRewards(a.rarity).qi, rewardValueSectMerit: getArtifactRewards(a.rarity).sectMerit };
+    }
+    return a;
+  });
+
+  if (changed) {
+    const user = auth.currentUser;
+    if (user) {
+      const userRef = doc(db, 'users', user.uid);
+      const uDoc = await getDoc(userRef);
+      const data = uDoc.data() || {};
+      await setDoc(userRef, { 
+        cosmicInventory: updatedArtifacts,
+        qi: (data.qi || 0) + gainedQi,
+        sect_qi: (data.sect_qi || 0) + gainedSectMerit
+      }, { merge: true });
+    } else {
+      localStorage.setItem('seihouse-local-cosmic-inventory', JSON.stringify(updatedArtifacts));
+    }
+    
+    // Update local store
+    const localProfile = useAppStore.getState().userProfile;
+    if (localProfile) {
+      useAppStore.setState({
+        userProfile: {
+          ...localProfile,
+          cosmicInventory: updatedArtifacts,
+          qi: (localProfile.qi || 0) + gainedQi,
+          sect_qi: (localProfile.sect_qi || 0) + gainedSectMerit
+        }
+      });
+    }
+  }
 }
 
 /**

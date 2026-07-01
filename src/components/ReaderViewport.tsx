@@ -214,7 +214,7 @@ export function ReaderViewport({
       onClick={handleTextClick}
       onScroll={handleViewportScroll} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); (handleTextClick)(e as any); } }}
     >
-      <div ref={driftInnerRef as any} style={{ willChange: 'transform' }}>
+      <div ref={driftInnerRef as any} style={{ willChange: 'transform' }} role="presentation">
       {isTranslating ? (
         <div className="flex flex-col items-center justify-center h-full py-32 space-y-4">
           <Loader2 className="animate-spin text-portal w-10 h-10" />
@@ -431,6 +431,7 @@ export function ReaderViewport({
                                        tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleManifestReveal(revealTerm.entry, revealTerm.type)}
                                       disabled={generatingRevealId === revealTerm.entry.id}
                                       className="relative w-[180px] h-[180px] shrink-0 mb-3 overflow-hidden rounded-lg bg-[#010b14] border border-portal/40 hover:border-portal flex flex-col items-center justify-center cursor-pointer transition-all duration-500 group/revealmanifest shadow-[0_0_15px_rgba(4,172,255,0.15)] hover:shadow-[0_0_25px_rgba(4,172,255,0.35)] backdrop-blur-sm"
+                                      aria-label={`Manifest portrait for ${revealTerm.entry.name}`}
                                     >
                                       <div className="absolute inset-x-0 bottom-0 top-0 h-full w-full bg-[radial-gradient(circle_at_center,rgba(4,172,255,0.18)_0%,transparent_70%)] animate-pulse pointer-events-none" />
                                       <div className="absolute w-20 h-20 rounded-full border border-dashed border-portal/25 animate-[spin_12s_linear_infinite] group-hover/revealmanifest:border-portal/50" />
@@ -595,6 +596,7 @@ export function ReaderViewport({
                                       setEditingBookmarkParagraphIndex(null)
                                     }
                                     className="px-4 py-1.5 text-xs text-neutral-400 hover:text-signal transition-colors font-mono"
+                                    aria-label="Cancel bookmark editing"
                                   >
                                     Cancel
                                   </button>
@@ -607,6 +609,7 @@ export function ReaderViewport({
                                       )
                                     }
                                     className="px-4 py-1.5 text-xs bg-human text-signal rounded hover:bg-void transition-colors font-sans"
+                                    aria-label="Save bookmark"
                                   >
                                     Save Bookmark
                                   </button>
@@ -806,6 +809,7 @@ export function ReaderViewport({
                                             );
                                           }}
                                           className="px-2.5 py-1 text-[10px] uppercase font-bold tracking-widest text-red-500 hover:bg-neutral-900"
+                                          aria-label="Release bookmark"
                                         >
                                           Release
                                         </button>
@@ -817,6 +821,7 @@ export function ReaderViewport({
                                           )
                                         }
                                         className="px-2.5 py-1 text-[10px] uppercase font-bold tracking-widest text-neutral-550 hover:bg-neutral-900"
+                                        aria-label="Cancel bookmark editing"
                                       >
                                         Cancel
                                       </button>
@@ -829,6 +834,7 @@ export function ReaderViewport({
                                           )
                                         }
                                         className="px-3 py-1 text-[10px] uppercase font-bold tracking-widest bg-portal text-void font-sc rounded hover:brightness-110"
+                                        aria-label="Save bookmark"
                                       >
                                         Save
                                       </button>

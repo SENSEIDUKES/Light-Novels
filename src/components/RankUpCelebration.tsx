@@ -17,9 +17,19 @@ export function RankUpCelebration() {
   const [celebrationTier, setCelebrationTier] = useState<AuraTier | null>(null);
   const prevRankRef = useRef<number>(-1);
   const isInitialMount = useRef(true);
+  const hasLoadedProfile = useRef(false);
   
   useEffect(() => {
     if (AURA_TIERS.length === 0) return;
+
+    // Wait until profile is loaded before we start tracking changes.
+    // Reset if profile is cleared (e.g., logout).
+    if (!profile) {
+      isInitialMount.current = true;
+      hasLoadedProfile.current = false;
+      return;
+    }
+    hasLoadedProfile.current = true;
 
     // Find the highest unlocked tier index
     const actualIndex = AURA_TIERS.reduce((highestIndex, tier, index) => {
@@ -46,7 +56,7 @@ export function RankUpCelebration() {
     }
     
     prevRankRef.current = actualIndex;
-  }, [currentQi]);
+  }, [currentQi, profile]);
   
   return (
     <AnimatePresence>

@@ -32,6 +32,15 @@ export default [
     },
     rules: {
       ...reactHooksPlugin.configs.recommended.rules,
+      ...Object.fromEntries(
+        Object.entries(jsxA11yPlugin.flatConfigs.recommended.rules).map(([rule, val]) => {
+          const isOff = val === 'off' || val === 0 || (Array.isArray(val) && (val[0] === 'off' || val[0] === 0));
+          return [
+            rule,
+            isOff ? val : Array.isArray(val) ? ['error', ...val.slice(1)] : 'error'
+          ];
+        })
+      ),
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       'react/react-in-jsx-scope': 'off',
       '@typescript-eslint/no-explicit-any': 'off',

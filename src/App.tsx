@@ -9,6 +9,7 @@ import { useAppStore } from './store/useAppStore';
 import { useStoryEngine } from './hooks/useStoryEngine';
 import { useStoryExporter } from './hooks/useStoryExporter';
 import { storyStorage } from './lib/storage';
+import { autoSubmitPreviousWeeksOfferings } from './lib/artifacts';
 
 // Types
 import { UserProfile as UserProfileType } from './types';
@@ -283,6 +284,7 @@ function App() {
     // Initial check on load
     if (!isInitializing) {
       checkIdleQi();
+      autoSubmitPreviousWeeksOfferings().catch(console.error);
     }
 
     return () => {

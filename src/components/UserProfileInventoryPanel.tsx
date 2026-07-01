@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { UserProfile as UserProfileType } from '../types';
-import { Award, Search, Sparkles, HelpCircle, Shield, Zap, RefreshCw, Save, Sliders, Compass, Globe, Key } from 'lucide-react';
+import { UserProfile as UserProfileType, CosmicArtifact } from '../types';
+import { Award, Sparkles, HelpCircle, Shield, Zap, RefreshCw, Save, Sliders, Compass, Globe, Key, Library, Archive } from 'lucide-react';
+import { submitCurrentWeekOfferings, getCurrentOfferingWeekId } from '../lib/artifacts';
 
 interface UserProfileInventoryPanelProps {
   profile: UserProfileType | null;
@@ -8,24 +9,30 @@ interface UserProfileInventoryPanelProps {
 }
 
 export function UserProfileInventoryPanel({ profile, handleAttuneArtifact }: UserProfileInventoryPanelProps) {
-  const [inventorySearch, setInventorySearch] = useState('');
-  const [rarityFilter, setRarityFilter] = useState('all');
-  const [milestoneFilter, setMilestoneFilter] = useState('all');
   const [inspectArtifact, setInspectArtifact] = useState<any | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [viewHistory, setViewHistory] = useState(false);
 
   const artifacts = profile?.cosmicInventory || [];
-  const filteredArtifacts = artifacts.filter(art => {
-    const matchesSearch = 
-      art.name.toLowerCase().includes(inventorySearch.toLowerCase()) ||
-      art.description.toLowerCase().includes(inventorySearch.toLowerCase()) ||
-      (art.attributeBoost && art.attributeBoost.toLowerCase().includes(inventorySearch.toLowerCase())) ||
-      art.milestoneName.toLowerCase().includes(inventorySearch.toLowerCase());
-      
-    const matchesRarity = rarityFilter === 'all' || art.rarity === rarityFilter;
-    const matchesMilestone = milestoneFilter === 'all' || art.milestoneType === milestoneFilter;
-    
-    return matchesSearch && matchesRarity && matchesMilestone;
-  });
+  const currentWeek = getCurrentOfferingWeekId();
+
+  const unsubmitted = artifacts.filter(art => art.status === 'unsubmitted' || (!art.status && art.offeringWeekId === currentWeek));
+  const submittedHistory = artifacts.filter(art => art.status === 'submitted' || art.status === 'auto_submitted').sort((a, b) => new Date(b.gatheredAt || b.unlockedAt).getTime() - new Date(a.gatheredAt || a.unlockedAt).getTime());
+
+  const totalRewardQi = unsubmitted.reduce((acc, art) => acc + (art.rewardValueQi || 0), 0);
+  const totalRewardSectMerit = unsubmitted.reduce((acc, art) => acc + (art.rewardValueSectMerit || 0), 0);
+
+  const handleSubmitOfferings = async () => {
+    setIsSubmitting(true);
+    try {
+      await submitCurrentWeekOfferings();
+      // AppStore listener handles the state update if it was done locally or via cloud sync
+    } catch(err) {
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const renderArtifactIcon = (name: string, rarity: string) => {
     const lower = name.toLowerCase();
@@ -51,169 +58,158 @@ export function UserProfileInventoryPanel({ profile, handleAttuneArtifact }: Use
     return <Sparkles size={size} className={className} />;
   };
 
+  const renderGrid = (items: CosmicArtifact[]) => {
+    return items.map((art) => {
+      const isTranscendent = art.rarity === 'Transcendent';
+      const isMythic = art.rarity === 'Mythic';
+      const isLegendary = art.rarity === 'Legendary';
+      const isEpic = art.rarity === 'Epic';
+      const isRare = art.rarity === 'Rare';
+
+      let borderClass = 'border-neutral-900 hover:border-neutral-800';
+      let bgGlowClass = 'bg-[#030303]';
+      let rarityTextClass = 'text-neutral-500';
+
+      if (isTranscendent) {
+        borderClass = 'border-cyan-500/30 hover:border-cyan-400/50';
+        bgGlowClass = 'bg-cyan-950/5 shadow-[0_0_20px_rgba(6,182,212,0.15)]';
+        rarityTextClass = 'bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-rose-400 to-yellow-400 font-extrabold animate-pulse';
+      } else if (isMythic) {
+        borderClass = 'border-red-950/60 hover:border-red-500/30';
+        bgGlowClass = 'bg-red-950/5 shadow-[0_0_15px_rgba(220,38,38,0.1)]';
+        rarityTextClass = 'text-red-400 font-extrabold animate-pulse';
+      } else if (isLegendary) {
+        borderClass = 'border-amber-950/80 hover:border-amber-500/30';
+        bgGlowClass = 'bg-amber-950/5 shadow-[0_0_12px_rgba(245,158,11,0.08)]';
+        rarityTextClass = 'text-amber-400 font-bold';
+      } else if (isEpic) {
+        borderClass = 'border-purple-950/80 hover:border-purple-500/20';
+        bgGlowClass = 'bg-purple-950/5 shadow-[0_0_10px_rgba(139,92,246,0.05)]';
+        rarityTextClass = 'text-purple-400';
+      } else if (isRare) {
+        borderClass = 'border-emerald-950/80 hover:border-emerald-500/20';
+        bgGlowClass = 'bg-emerald-950/5';
+        rarityTextClass = 'text-emerald-400';
+      }
+
+      return (
+        <button
+          type="button"
+          key={art.id}
+          className={`text-left w-full border rounded-xl p-4 flex flex-col justify-between transition-all duration-300 relative group cursor-pointer ${borderClass} ${bgGlowClass}`}
+          onClick={() => setInspectArtifact(art)}
+        >
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-black/40 border border-neutral-900 flex items-center justify-center relative overflow-hidden group-hover:border-neutral-850 transition-all shrink-0">
+                {renderArtifactIcon(art.name, art.rarity)}
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-[13px] font-sans font-medium text-signal truncate group-hover:text-portal transition-colors flex items-center gap-1.5">
+                  {art.name}
+                </h4>
+                <span className={`text-[9px] uppercase tracking-widest font-mono font-medium block ${rarityTextClass}`}>
+                  {art.rarity}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-[11px] font-serif text-neutral-400 line-clamp-2 leading-relaxed italic">
+              "{art.description}"
+            </p>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-neutral-900/40 flex items-center justify-between text-[9px] text-neutral-500 font-mono">
+            <div className="flex items-center gap-1 text-portal/70">
+              <Zap size={10} />
+              <span>+{art.rewardValueQi || 0} Qi</span>
+              <Award size={10} className="ml-1" />
+              <span>+{art.rewardValueSectMerit || 0} Merit</span>
+            </div>
+            <span className="text-neutral-600 truncate max-w-[100px] text-right">
+              {art.milestoneName}
+            </span>
+          </div>
+        </button>
+      );
+    });
+  };
+
   return (
     <>
-      {/* Cosmic Inventory Section */}
       <div className="pt-10 border-t border-neutral-900/50 mt-10">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <h3 className="text-[11px] uppercase font-bold tracking-widest text-neutral-500 font-sc flex items-center gap-2">
-            <Award size={14} className="text-portal animate-pulse" />
-            Cosmic Inventory (Sacred Treasury)
+            <Library size={14} className="text-portal animate-pulse" />
+            Celestial Library Offering Hall
           </h3>
-          <div className="text-[10px] text-neutral-400 font-mono bg-neutral-900/40 border border-neutral-850 px-3 py-1 rounded-full flex items-center gap-1.5 w-fit">
-            <Sparkles size={11} className="text-portal" />
-            <span>Unlocked: {(profile?.cosmicInventory || []).length} Relics</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setViewHistory(!viewHistory)}
+              className="text-[10px] text-neutral-400 font-mono bg-neutral-900/40 border border-neutral-850 px-3 py-1.5 rounded-full hover:bg-neutral-800 transition-colors flex items-center gap-1.5"
+            >
+              {viewHistory ? <Sparkles size={11} className="text-portal" /> : <Archive size={11} className="text-neutral-400" />}
+              <span>{viewHistory ? 'View Pouch' : 'View Submitted History'}</span>
+            </button>
           </div>
         </div>
 
-        {/* Search & Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-          {/* Search bar */}
-          <div className="relative">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500">
-              <Search size={14} />
-            </span>
-            <input
-              type="text"
-              placeholder="Search sacred relics..."
-              value={inventorySearch}
-              onChange={(e) => setInventorySearch(e.target.value)}
-              className="w-full bg-black/50 border border-neutral-900 rounded-lg pl-9 pr-4 py-2 text-xs text-signal focus:border-portal/50 outline-none transition-all placeholder:text-neutral-600 font-sans"
-            />
-          </div>
+        {!viewHistory ? (
+          <>
+            <div className="bg-neutral-900/30 border border-neutral-800/50 rounded-xl p-5 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h4 className="text-sm font-display text-signal">Weekly Offering Pouch</h4>
+                <p className="text-[11px] text-neutral-400 font-mono mt-1 max-w-2xl">
+                  The Celestial Library accepts all records of fate, battle, wisdom, and karma.
+                  Offer your gathered relics to deepen your cultivation.
+                </p>
+                {unsubmitted.length > 0 && (
+                  <div className="flex items-center gap-3 mt-3 text-[11px] font-mono text-portal">
+                    <span className="flex items-center gap-1"><Zap size={12}/> +{totalRewardQi} Qi</span>
+                    <span className="flex items-center gap-1"><Award size={12}/> +{totalRewardSectMerit} Sect Merit</span>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={handleSubmitOfferings}
+                disabled={unsubmitted.length === 0 || isSubmitting}
+                className="px-5 py-2.5 bg-portal/10 border border-portal/30 text-portal rounded-lg font-sc uppercase tracking-widest text-xs font-bold hover:bg-portal hover:text-void transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit Offerings'}
+              </button>
+            </div>
 
-          {/* Rarity Filter */}
-          <div>
-            <select
-              value={rarityFilter}
-              onChange={(e) => setRarityFilter(e.target.value)}
-              className="w-full bg-black/50 border border-neutral-900 rounded-lg px-3 py-2 text-xs text-neutral-400 focus:border-portal/50 outline-none transition-all appearance-none cursor-pointer font-sans"
-            >
-              <option value="all">All Rarities</option>
-              <option value="Common">Common</option>
-              <option value="Rare">Rare</option>
-              <option value="Epic">Epic</option>
-              <option value="Legendary">Legendary</option>
-              <option value="Mythic">Mythic</option>
-              <option value="Transcendent">Transcendent</option>
-            </select>
-          </div>
-
-          {/* Milestone Filter */}
-          <div>
-            <select
-              value={milestoneFilter}
-              onChange={(e) => setMilestoneFilter(e.target.value)}
-              className="w-full bg-black/50 border border-neutral-900 rounded-lg px-3 py-2 text-xs text-neutral-400 focus:border-portal/50 outline-none transition-all appearance-none cursor-pointer font-sans"
-            >
-              <option value="all">All Milestones</option>
-              <option value="rank_up">Dao Breakthroughs</option>
-              <option value="chapter_seal">Chapter Sealing</option>
-              <option value="chapter_5">Story Depth (Ch. 5)</option>
-              <option value="challenge_complete">Fate Survival Runs</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Artifacts Grid */}
-        {filteredArtifacts.length === 0 ? (
-          <div className="border border-dashed border-neutral-900 rounded-xl p-8 text-center bg-black/10">
-            <HelpCircle size={32} className="text-neutral-700 mx-auto mb-2.5 animate-pulse" />
-            <p className="text-xs font-serif text-neutral-500">
-              No sacred relics manifest under current filters. Ascend your Dao level, seal chapters, or succeed in challenges to gain relics!
-            </p>
-          </div>
+            {unsubmitted.length === 0 ? (
+              <div className="border border-dashed border-neutral-900 rounded-xl p-8 text-center bg-black/10">
+                <Library size={32} className="text-neutral-700 mx-auto mb-2.5" />
+                <p className="text-xs font-serif text-neutral-500">
+                  Your pouch is empty. Seal chapters, breakthrough bottlenecks, or survive challenges to gather relics.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {renderGrid(unsubmitted)}
+              </div>
+            )}
+          </>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredArtifacts.map((art) => {
-              const isEquipped = profile?.equippedArtifactId === art.id;
-              const isTranscendent = art.rarity === 'Transcendent';
-              const isMythic = art.rarity === 'Mythic';
-              const isLegendary = art.rarity === 'Legendary';
-              const isEpic = art.rarity === 'Epic';
-              const isRare = art.rarity === 'Rare';
-
-              let borderClass = 'border-neutral-900 hover:border-neutral-800';
-              let bgGlowClass = 'bg-[#030303]';
-              let rarityTextClass = 'text-neutral-500';
-
-              if (isTranscendent) {
-                borderClass = 'border-cyan-500/30 hover:border-cyan-400/50';
-                bgGlowClass = 'bg-cyan-950/5 shadow-[0_0_20px_rgba(6,182,212,0.15)]';
-                rarityTextClass = 'bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-rose-400 to-yellow-400 font-extrabold animate-pulse';
-              } else if (isMythic) {
-                borderClass = 'border-red-950/60 hover:border-red-500/30';
-                bgGlowClass = 'bg-red-950/5 shadow-[0_0_15px_rgba(220,38,38,0.1)]';
-                rarityTextClass = 'text-red-400 font-extrabold animate-pulse';
-              } else if (isLegendary) {
-                borderClass = 'border-amber-950/80 hover:border-amber-500/30';
-                bgGlowClass = 'bg-amber-950/5 shadow-[0_0_12px_rgba(245,158,11,0.08)]';
-                rarityTextClass = 'text-amber-400 font-bold';
-              } else if (isEpic) {
-                borderClass = 'border-purple-950/80 hover:border-purple-500/20';
-                bgGlowClass = 'bg-purple-950/5 shadow-[0_0_10px_rgba(139,92,246,0.05)]';
-                rarityTextClass = 'text-purple-400';
-              } else if (isRare) {
-                borderClass = 'border-emerald-950/80 hover:border-emerald-500/20';
-                bgGlowClass = 'bg-emerald-950/5';
-                rarityTextClass = 'text-emerald-400';
-              }
-
-              return (
-                <button
-                  type="button"
-                  key={art.id}
-                  className={`text-left w-full border rounded-xl p-4 flex flex-col justify-between transition-all duration-300 relative group cursor-pointer ${borderClass} ${bgGlowClass}`}
-                  onClick={() => setInspectArtifact(art)}
-                >
-                  {/* Equipped indicator */}
-                  {isEquipped && (
-                    <div className="absolute top-2 right-2 flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                    </div>
-                  )}
-
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-black/40 border border-neutral-900 flex items-center justify-center relative overflow-hidden group-hover:border-neutral-850 transition-all shrink-0">
-                        {renderArtifactIcon(art.name, art.rarity)}
-                        {isEquipped && (
-                          <div className="absolute inset-0 border border-amber-500/40 rounded-lg animate-pulse"></div>
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="text-[13px] font-sans font-medium text-signal truncate group-hover:text-portal transition-colors flex items-center gap-1.5">
-                          {art.name}
-                        </h4>
-                        <span className={`text-[9px] uppercase tracking-widest font-mono font-medium block ${rarityTextClass}`}>
-                          {art.rarity}
-                        </span>
-                      </div>
-                    </div>
-
-                    <p className="text-[11px] font-serif text-neutral-400 line-clamp-2 leading-relaxed italic">
-                      "{art.description}"
-                    </p>
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-neutral-900/40 flex items-center justify-between text-[9px] text-neutral-500 font-mono">
-                    <div className="flex items-center gap-1 text-portal/70">
-                      <Sparkles size={10} />
-                      <span>{art.attributeBoost}</span>
-                    </div>
-                    <span className="text-neutral-600 truncate max-w-[100px] text-right">
-                      {art.milestoneName}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          <>
+            {submittedHistory.length === 0 ? (
+              <div className="border border-dashed border-neutral-900 rounded-xl p-8 text-center bg-black/10">
+                <Archive size={32} className="text-neutral-700 mx-auto mb-2.5" />
+                <p className="text-xs font-serif text-neutral-500">
+                  You have not submitted any offerings to the Celestial Library yet.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {renderGrid(submittedHistory)}
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      {/* Detailed Artifact Inspect Modal */}
       {inspectArtifact && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" 
@@ -229,7 +225,6 @@ export function UserProfileInventoryPanel({ profile, handleAttuneArtifact }: Use
             role="dialog"
             aria-modal="true"
           >
-            {/* Top glow indicator */}
             <div className={`absolute top-0 inset-x-0 h-[2px] ${
               inspectArtifact.rarity === 'Transcendent' 
                 ? 'bg-gradient-to-r from-transparent via-cyan-400 to-transparent' 
@@ -245,7 +240,6 @@ export function UserProfileInventoryPanel({ profile, handleAttuneArtifact }: Use
             }`}></div>
             
             <div className="p-6 space-y-6">
-              {/* Icon & Title */}
               <div className="flex flex-col items-center text-center space-y-4">
                 <div className="w-16 h-16 rounded-2xl bg-black/60 border border-neutral-900 flex items-center justify-center relative shadow-inner overflow-hidden">
                   {(() => {
@@ -295,10 +289,12 @@ export function UserProfileInventoryPanel({ profile, handleAttuneArtifact }: Use
                   <p className="text-[10px] text-neutral-500 font-mono">
                     Acquired on {new Date(inspectArtifact.unlockedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
                   </p>
+                  <p className="text-[10px] text-neutral-500 font-mono">
+                    Status: {inspectArtifact.status === 'submitted' || inspectArtifact.status === 'auto_submitted' ? 'Submitted to Library' : 'In Pouch'}
+                  </p>
                 </div>
               </div>
 
-              {/* Lore / Story description */}
               <div className="bg-[#030303] border border-neutral-900 p-4 rounded-xl space-y-2 shadow-inner">
                 <h4 className="text-[9px] uppercase font-bold tracking-widest text-neutral-500 font-sc">Sacred Relic Lore</h4>
                 <p className="text-xs font-serif text-neutral-300 leading-relaxed italic">
@@ -306,43 +302,27 @@ export function UserProfileInventoryPanel({ profile, handleAttuneArtifact }: Use
                 </p>
               </div>
 
-              {/* Meridian Attribute Boost */}
               <div className="bg-[#030303] border border-neutral-900 p-4 rounded-xl flex items-center justify-between">
                 <div>
-                  <h4 className="text-[9px] uppercase font-bold tracking-widest text-neutral-500 font-sc">Karmic Resonance</h4>
-                  <p className="text-[10px] text-neutral-500 font-sans mt-0.5">Continuous soul-meridian boost</p>
+                  <h4 className="text-[9px] uppercase font-bold tracking-widest text-neutral-500 font-sc">Offering Rewards</h4>
+                  <p className="text-[10px] text-neutral-500 font-sans mt-0.5">Granted by the Celestial Library upon submission</p>
                 </div>
-                <div className="px-3 py-1.5 bg-portal/10 border border-portal/30 rounded-lg text-xs font-bold font-mono text-portal animate-pulse flex items-center gap-1.5 shadow-[0_0_10px_rgba(4,172,255,0.1)]">
-                  <Sparkles size={12} />
-                  <span>{inspectArtifact.attributeBoost}</span>
+                <div className="px-3 py-1.5 bg-portal/10 border border-portal/30 rounded-lg text-xs font-bold font-mono text-portal animate-pulse flex flex-col items-end gap-0.5 shadow-[0_0_10px_rgba(4,172,255,0.1)]">
+                  <div className="flex items-center gap-1.5"><Zap size={12} /><span>+{inspectArtifact.rewardValueQi || 0} Qi</span></div>
+                  <div className="flex items-center gap-1.5"><Award size={12} /><span>+{inspectArtifact.rewardValueSectMerit || 0} Sect Merit</span></div>
                 </div>
               </div>
 
-              {/* Milestone Details */}
               <div className="text-[10px] text-neutral-500 font-mono flex justify-between items-center px-1">
                 <span>Unlock Catalyst:</span>
                 <span className="text-neutral-300 font-sans font-medium">{inspectArtifact.milestoneName}</span>
               </div>
 
-              {/* Actions */}
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-                    handleAttuneArtifact(inspectArtifact.id);
-                  }}
-                  className={`flex-1 py-2.5 border rounded-full font-sc uppercase tracking-widest text-[11px] font-bold transition-all ${
-                    profile?.equippedArtifactId === inspectArtifact.id
-                      ? 'bg-transparent border-amber-500/40 text-amber-500 hover:bg-amber-500/10'
-                      : 'bg-portal/10 border border-portal/30 text-portal hover:bg-portal hover:text-void shadow-[0_0_15px_rgba(4,172,255,0.1)]'
-                  }`}
-                >
-                  {profile?.equippedArtifactId === inspectArtifact.id ? 'Sever Attunement' : 'Attune Soul to Relic'}
-                </button>
-                <button
-                  type="button"
                   onClick={() => setInspectArtifact(null)}
-                  className="px-6 py-2.5 border border-neutral-800 text-neutral-400 hover:text-signal hover:border-neutral-700 rounded-full font-sc uppercase tracking-widest text-[11px] font-bold transition-all"
+                  className="w-full px-6 py-2.5 border border-neutral-800 text-neutral-400 hover:text-signal hover:border-neutral-700 rounded-full font-sc uppercase tracking-widest text-[11px] font-bold transition-all"
                 >
                   Close
                 </button>

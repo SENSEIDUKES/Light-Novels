@@ -67,13 +67,17 @@ export const UserProfilePortraitModal: React.FC<UserProfilePortraitModalProps> =
   if (!showPortraitModal) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-[#050505] border border-portal/30 rounded-2xl w-full max-w-lg shadow-[0_0_50px_rgba(4,172,255,0.15)] overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn" role="presentation">
+      <div 
+        className="bg-[#050505] border border-portal/30 rounded-2xl w-full max-w-lg shadow-[0_0_50px_rgba(4,172,255,0.15)] overflow-hidden flex flex-col max-h-[90vh]"
+        role="dialog"
+        aria-labelledby="portrait-modal-title"
+      >
         <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-          <h3 className="font-sc font-bold uppercase tracking-widest text-portal text-xs flex items-center gap-2">
+          <h3 id="portrait-modal-title" className="font-sc font-bold uppercase tracking-widest text-portal text-xs flex items-center gap-2">
             <Camera size={14} /> Cultivator Portrait Builder
           </h3>
-          <button onClick={() => setShowPortraitModal(false)} className="text-neutral-500 hover:text-white transition-colors">
+          <button onClick={() => setShowPortraitModal(false)} className="text-neutral-500 hover:text-white transition-colors" aria-label="Close Portrait Builder">
             <X size={16} />
           </button>
         </div>
