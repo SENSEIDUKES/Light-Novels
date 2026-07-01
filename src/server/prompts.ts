@@ -529,22 +529,32 @@ ${chapterText}
 Story Memory (Codex):
 ${memoryJson}
 
-Find EXPLICIT, MAJOR continuity breaks or contradictions. 
-CRITICAL RULE: DO NOT flag minor power-scaling differences or subjective interpretations of what a power stage "implies". ONLY flag absolute, indisputable contradictions with the Codex.
+CRITICAL RULE: Continuity checks should never retry, repair, or block a chapter unless the issue would make a normal reader confused about what is physically happening in the scene. 
 
-Common examples of valid contradictions to flag:
+NARRATIVE TENSION EXEMPTION (CRITICAL):
+- Do NOT flag a character committing a crime, heresy, or forbidden act (e.g., "private cultivation", "automation", "stealing") just because the Codex says it's illegal. Characters are allowed to break the rules of their world!
+- Do NOT flag implied risk, secrecy, illegality, taboo behavior, forbidden actions, hidden motives, unclear consequences, or delayed explanations as continuity problems.
+- Do NOT flag the introduction of new terms, institutions, decrees, or cultivation stages just because they are not yet in the Codex. The world is allowed to expand.
+- Do NOT flag contradictions that create suspense, danger, mystery, dramatic irony, hidden motives, taboo action, criminal behavior, or delayed revelation. These are valid storytelling tools.
+
+You must separate your findings into two categories:
+1. SEVERE ("warnings"): Literal physical impossibilities that break the scene.
+Common examples of SEVERE issues:
 - A character explicitly marked 'deceased', 'dead', or 'destroyed' in the codex is actively speaking or performing actions in the present (unless explicitly a flashback/ghost).
-- A character explicitly uses an ability that is entirely missing from their Codex record.
-- A character explicitly skips mastery levels (e.g., from Novice directly to Perfected in one second).
-- World rules being blatantly and undeniably broken.
+- A character is physically in two places at once in the same scene without a cloning ability.
+
+2. MINOR ("silentLogs"): EVERYTHING ELSE. Put it here if it's not a literal physical impossibility. Minor contradictions, soft inconsistencies, rule-breaking, crimes, trope drift, missing callbacks, relationship nuance changes, outfit/item mismatches, new terms, and lore expansions.
 
 Return strictly a JSON object with this shape:
 {
   "warnings": [
-    "A clear, concise 1-sentence warning describing the contradiction (e.g. 'Elder Zhao is marked deceased in the codex but speaks in paragraph 4.')"
+    "A clear, concise 1-sentence warning for SEVERE issues only (e.g. 'Elder Zhao is marked deceased but speaks in paragraph 4.')"
+  ],
+  "silentLogs": [
+    "A clear, concise 1-sentence log for MINOR issues only"
   ]
 }
-If no EXPLICIT contradictions are found, return an empty array for "warnings". Do not add any text before or after the JSON.`
+If no issues are found in a category, return an empty array for that category. Do not add any text before or after the JSON.`
   },
 
   repairChapter: {

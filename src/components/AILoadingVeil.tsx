@@ -127,7 +127,7 @@ export default function AILoadingVeil() {
 
       {/* 2. PERSISTENT FLOATING CORNER INDICATOR (BOTTOM-LEFT GLOWING ICON) */}
       {isGenerating && (!shouldShowFullScreen) && (
-        <div className="fixed bottom-6 left-6 z-[9999] flex flex-col items-start select-none">
+        <div className="fixed bottom-32 left-6 z-[9999] flex flex-col items-start select-none">
           <AnimatePresence>
             {showDetails && (
               <motion.div

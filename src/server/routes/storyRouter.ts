@@ -651,9 +651,13 @@ storyRouter.post("/api/check-consistency", validateBody(checkConsistencySchema),
         warnings: {
           type: "ARRAY",
           items: { type: "STRING" }
+        },
+        silentLogs: {
+          type: "ARRAY",
+          items: { type: "STRING" }
         }
       },
-      required: ["warnings"]
+      required: ["warnings", "silentLogs"]
     };
 
     const data = await routeTextGeneration(
@@ -666,7 +670,7 @@ storyRouter.post("/api/check-consistency", validateBody(checkConsistencySchema),
       schema
     );
 
-    return res.json({ warnings: data.warnings || [] });
+    return res.json({ warnings: data.warnings || [], silentLogs: data.silentLogs || [] });
   } catch (error: any) {
     console.error("Error in consistency guard:", error);
     return res.status(500).json({ error: error.message || "Consistency check failed" });

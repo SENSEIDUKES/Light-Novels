@@ -24,9 +24,14 @@ export const runContinuityPass = async (
     if (consistencyResponse.ok) {
       const consistencyData = await consistencyResponse.json();
       let warnings = consistencyData.warnings || [];
+      const silentLogs = consistencyData.silentLogs || [];
       
+      if (silentLogs.length > 0) {
+        console.log("Continuity Guard found minor issues (silently logged):", silentLogs);
+      }
+
       if (warnings.length > 0) {
-        console.log("Continuity Guard detected issues during generation:", warnings);
+        console.log("Continuity Guard detected SEVERE issues during generation:", warnings);
         
         console.log("Attempting Continuity Repair...");
         const repairResponse = await fetch('/api/repair-chapter-stream', {
@@ -82,6 +87,10 @@ export const runContinuityPass = async (
              if (recheckResponse.ok) {
                 const recheckData = await recheckResponse.json();
                 warnings = recheckData.warnings || [];
+                const recheckSilentLogs = recheckData.silentLogs || [];
+                if (recheckSilentLogs.length > 0) {
+                  console.log("Continuity Guard found minor issues after repair (silently logged):", recheckSilentLogs);
+                }
              } else {
                 warnings = [];
              }
