@@ -535,41 +535,55 @@ export class PersistentStorageManager implements StorageAdapter {
     }
   }
 
+  private activeFlushPromise: Promise<void> | null = null;
+
   private async flushSyncQueue() {
     if (!this.isCloudAvailable || this.syncQueue.length === 0) return;
-    this.setStatus('syncing');
+    
+    if (this.activeFlushPromise) {
+      return this.activeFlushPromise;
+    }
 
-    try {
-      while (this.syncQueue.length > 0) {
-        const task = this.syncQueue[0];
+    this.activeFlushPromise = (async () => {
+      this.setStatus('syncing');
 
-        if (task.type === 'story') {
-          const localStory = await this.localAdapter.getStory(task.storyId);
-          if (localStory) {
-            const cloudPayload = JSON.parse(JSON.stringify(localStory));
-            await this.compressDataUrls(cloudPayload);
-            await this.cloudAdapter.saveStory(cloudPayload);
+      try {
+        while (this.syncQueue.length > 0) {
+          const task = this.syncQueue.shift()!;
+          this.saveQueue();
+
+          try {
+            if (task.type === 'story') {
+              const localStory = await this.localAdapter.getStory(task.storyId);
+              if (localStory) {
+                const cloudPayload = JSON.parse(JSON.stringify(localStory));
+                await this.compressDataUrls(cloudPayload);
+                await this.cloudAdapter.saveStory(cloudPayload);
+              }
+            } else if (task.type === 'chapter' && task.chapterNumber !== undefined) {
+              const localChapter = await this.localAdapter.getChapterContent(task.storyId, task.chapterNumber);
+              if (localChapter) {
+                await this.cloudAdapter.saveChapterContent(localChapter);
+              }
+            } else if (task.type === 'delete_story') {
+              await this.cloudAdapter.deleteStory(task.storyId);
+            }
+          } catch (taskError: any) {
+            console.error('Task failed, dropping from queue to prevent jam:', taskError);
           }
-        } else if (task.type === 'chapter' && task.chapterNumber !== undefined) {
-          const localChapter = await this.localAdapter.getChapterContent(task.storyId, task.chapterNumber);
-          if (localChapter) {
-            await this.cloudAdapter.saveChapterContent(localChapter);
-          }
-        } else if (task.type === 'delete_story') {
-          await this.cloudAdapter.deleteStory(task.storyId);
         }
         
-        // Remove the processed operation
-        this.syncQueue.shift();
-        this.saveQueue();
+        this.setStatus('synced');
+      } catch (error: any) {
+        console.error('Failed to flush sync queue', error);
+        // Keep remaining unprocessed tasks in queue to try again later
+        this.setStatus('error');
+      } finally {
+        this.activeFlushPromise = null;
       }
-      
-      this.setStatus('synced');
-    } catch (error: any) {
-      console.error('Failed to flush sync queue', error);
-      // Keep remaining unprocessed tasks in queue to try again later
-      this.setStatus('error');
-    }
+    })();
+
+    return this.activeFlushPromise;
   }
 
   subscribe(callback: (status: SyncStatus) => void) {
@@ -664,6 +678,13 @@ export class PersistentStorageManager implements StorageAdapter {
     const localTime = new Date(local.updatedAt).getTime();
     const cloudTime = new Date(cloud.updatedAt).getTime();
     
+    if (local.conflictResolvedAt) {
+      const resolvedTime = new Date(local.conflictResolvedAt).getTime();
+      if (resolvedTime >= cloudTime) {
+        return false; // Local has already resolved this conflict
+      }
+    }
+
     // If modification times are within 5 seconds, treat as trivial delay
     if (Math.abs(localTime - cloudTime) <= 5000) return false;
 

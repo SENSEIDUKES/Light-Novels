@@ -692,6 +692,7 @@ export interface StoryWorld {
     arcReadingTimeMs?: Record<number, number>;
   };
   lastReadAt?: string;
+  conflictResolvedAt?: string;
 }
 
 export interface Bookmark {

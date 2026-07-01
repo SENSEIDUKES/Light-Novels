@@ -93,12 +93,13 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
       let resolvedStory: Story;
 
       if (resolution === 'local') {
-        resolvedStory = { ...localStory, updatedAt: new Date().toISOString() };
+        resolvedStory = { ...localStory, updatedAt: new Date().toISOString(), conflictResolvedAt: new Date().toISOString() };
       } else if (resolution === 'cloud') {
-        resolvedStory = { ...cloudStory, updatedAt: new Date().toISOString() };
+        resolvedStory = { ...cloudStory, updatedAt: new Date().toISOString(), conflictResolvedAt: new Date().toISOString() };
       } else {
         // Use smart merge helper
         resolvedStory = mergeStories(localStory, cloudStory);
+        resolvedStory.conflictResolvedAt = new Date().toISOString();
       }
 
       // Clear the active conflict first to avoid re-triggering the check

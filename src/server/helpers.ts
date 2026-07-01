@@ -317,3 +317,42 @@ export function cleanChapterResponse(resp: Record<string, unknown> | null | unde
   }
   return cleaned;
 }
+
+export function estimateTokens(text: string): number {
+  return Math.ceil((text || "").length / 4);
+}
+
+export function truncateContextIfNeeded(
+  memoryObj: any,
+  pastSummaries: string[] | undefined,
+  maxTokens: number = 80000,
+  fallbackSummary: string = "This is the very first chapter of the story arc! Set the scene dramatically."
+): { memoryJsonStr: string, pastSummariesStr: string } {
+  let workingSummaries = pastSummaries ? [...pastSummaries] : [];
+  let memoryStr = JSON.stringify(memoryObj, null, 2);
+  let summariesStr = workingSummaries.length > 0 
+    ? workingSummaries.join("\n") 
+    : fallbackSummary;
+  
+  let currentTokens = estimateTokens(memoryStr) + estimateTokens(summariesStr);
+
+  if (currentTokens > maxTokens) {
+    while (workingSummaries.length > 5 && currentTokens > maxTokens) {
+      workingSummaries.shift();
+      summariesStr = workingSummaries.length > 0 
+        ? workingSummaries.join("\n") 
+        : fallbackSummary;
+      currentTokens = estimateTokens(memoryStr) + estimateTokens(summariesStr);
+    }
+
+    if (currentTokens > maxTokens && memoryObj.unresolvedPlotThreads && Array.isArray(memoryObj.unresolvedPlotThreads)) {
+      while (memoryObj.unresolvedPlotThreads.length > 3 && currentTokens > maxTokens) {
+        memoryObj.unresolvedPlotThreads.pop();
+        memoryStr = JSON.stringify(memoryObj, null, 2);
+        currentTokens = estimateTokens(memoryStr) + estimateTokens(summariesStr);
+      }
+    }
+  }
+
+  return { memoryJsonStr: memoryStr, pastSummariesStr: summariesStr };
+}

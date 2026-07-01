@@ -40,6 +40,8 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
   const colorInputRef = React.useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isQiMenuOpen, setIsQiMenuOpen] = useState(false);
+  const [activeQiTooltip, setActiveQiTooltip] = useState<string | null>(null);
 
   // Admin / Owner Control Panel States
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
@@ -1137,24 +1139,73 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                       <div className="px-3 py-1 bg-portal/10 border border-portal/30 text-portal text-[10px] font-bold tracking-[0.2em] uppercase rounded font-sc">
                         {daoData.rank}
                       </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {/* Heavenly Qi Badge */}
-                        <div className="flex items-center gap-1.5 text-[10px] text-portal font-sc uppercase font-bold tracking-widest border border-portal/20 px-2.5 py-1 rounded bg-portal/5 shadow-[0_0_10px_rgba(4,172,255,0.05)]" title="Heavenly Qi: Your primary cultivation power, unlocking higher Dao Ranks.">
-                          <Zap size={10} className="text-portal animate-pulse" />
-                          <span>Heavenly Qi: {profile?.heavenly_qi !== undefined ? profile.heavenly_qi : daoData.currentQi}</span>
-                        </div>
+                      <div className="relative flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsQiMenuOpen(!isQiMenuOpen)}
+                          className="flex items-center gap-2 px-4 py-1.5 bg-portal/10 border border-portal/30 text-portal text-[11px] font-bold tracking-widest uppercase rounded-lg shadow-[0_0_15px_rgba(4,172,255,0.1)] hover:bg-portal/20 transition-all z-10"
+                        >
+                          <Zap size={14} className="animate-pulse" />
+                          <span>Qi Cores</span>
+                        </button>
                         
-                        {/* Sect Qi Badge */}
-                        <div className="flex items-center gap-1.5 text-[10px] text-[#FAFAFA] font-sc uppercase font-bold tracking-widest border border-[#8B0000]/40 px-2.5 py-1 rounded bg-[#8B0000]/10 shadow-[0_0_10px_rgba(139,0,0,0.15)]" title="Sect Qi: Your contribution points to the Sect, to be utilized in the upcoming Sect Contribution system.">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#8B0000] animate-pulse" />
-                          <span>Sect Qi: {profile?.sect_qi || 0}</span>
-                        </div>
+                        {isQiMenuOpen && (
+                          <div className="absolute top-full mt-2 left-0 sm:left-auto sm:right-0 w-[280px] bg-black/95 border border-neutral-800 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] p-3 z-50 animate-fadeIn space-y-2 backdrop-blur-md">
+                            {/* Heavenly Qi Badge */}
+                            <div className="space-y-1">
+                              <button 
+                                onClick={() => setActiveQiTooltip(activeQiTooltip === 'heavenly' ? null : 'heavenly')}
+                                className="w-full flex justify-between items-center text-[10px] text-portal font-sc uppercase font-bold tracking-widest border border-portal/20 px-3 py-2.5 rounded-lg bg-portal/5 shadow-[0_0_10px_rgba(4,172,255,0.05)] hover:bg-portal/10 transition-colors"
+                              >
+                                <div className="flex items-center gap-2.5"><Zap size={14} className="text-portal animate-pulse" /> Heavenly Qi</div>
+                                <span className="text-sm font-sans">{profile?.heavenly_qi !== undefined ? profile.heavenly_qi : daoData.currentQi}</span>
+                              </button>
+                              {activeQiTooltip === 'heavenly' && (
+                                <div className="p-2 border-l border-portal/30 ml-1 mb-1 animate-fadeIn">
+                                  <p className="text-[10px] text-neutral-400 font-sans leading-relaxed">
+                                    Your fundamental essence gained from reading realms, making choices, and overcoming tribulations. Tracks your progression to higher cultivator ranks and determines your celestial aura color.
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Sect Qi Badge */}
+                            <div className="space-y-1">
+                              <button 
+                                onClick={() => setActiveQiTooltip(activeQiTooltip === 'sect' ? null : 'sect')}
+                                className="w-full flex justify-between items-center text-[10px] text-[#FAFAFA] font-sc uppercase font-bold tracking-widest border border-[#8B0000]/40 px-3 py-2.5 rounded-lg bg-[#8B0000]/10 shadow-[0_0_10px_rgba(139,0,0,0.15)] hover:bg-[#8B0000]/20 transition-colors"
+                              >
+                                <div className="flex items-center gap-2.5"><span className="w-2.5 h-2.5 rounded-full bg-[#8B0000] animate-pulse shadow-[0_0_8px_rgba(139,0,0,0.8)]" /> Sect Qi</div>
+                                <span className="text-sm font-sans">{profile?.sect_qi || 0}</span>
+                              </button>
+                              {activeQiTooltip === 'sect' && (
+                                <div className="p-2 border-l border-[#8B0000]/50 ml-1 mb-1 animate-fadeIn">
+                                  <p className="text-[10px] text-neutral-400 font-sans leading-relaxed">
+                                    Essence stored for your upcoming community contribution achievements. Utilized to exchange for special titles, customize sect affiliations, and fund cooperative arrays when the contribution hall is unlocked.
+                                  </p>
+                                </div>
+                              )}
+                            </div>
 
-                        {/* Demonic Qi Badge */}
-                        <div className="flex items-center gap-1.5 text-[10px] text-amber-500 font-sc uppercase font-bold tracking-widest border border-amber-600/40 px-2.5 py-1 rounded bg-amber-950/10 shadow-[0_0_10px_rgba(245,158,11,0.15)]" title="Demonic Qi: Corrupted cultivation power, unlocked from demonic artifacts or taboos.">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
-                          <span>Demonic Qi: {profile?.demonic_qi || 0}</span>
-                        </div>
+                            {/* Demonic Qi Badge */}
+                            <div className="space-y-1">
+                              <button 
+                                onClick={() => setActiveQiTooltip(activeQiTooltip === 'demonic' ? null : 'demonic')}
+                                className="w-full flex justify-between items-center text-[10px] text-amber-500 font-sc uppercase font-bold tracking-widest border border-amber-600/40 px-3 py-2.5 rounded-lg bg-amber-950/20 shadow-[0_0_10px_rgba(245,158,11,0.15)] hover:bg-amber-950/40 transition-colors"
+                              >
+                                <div className="flex items-center gap-2.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-600 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.8)]" /> Demonic Qi</div>
+                                <span className="text-sm font-sans">{profile?.demonic_qi || 0}</span>
+                              </button>
+                              {activeQiTooltip === 'demonic' && (
+                                <div className="p-2 border-l border-amber-600/50 ml-1 mb-1 animate-fadeIn">
+                                  <p className="text-[10px] text-neutral-400 font-sans leading-relaxed">
+                                    Corrupted cultivation power, unlocked from demonic artifacts or taboos. Proceed with caution when harnessing this forbidden essence.
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                     {attunedArtifact && (
@@ -1228,12 +1279,12 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                               <span className="text-[9px] font-mono text-neutral-500">Current XP: {profile?.dao_xp || profile?.qi || 0} Qi</span>
                             </div>
                             
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[280px] overflow-y-auto pr-1 custom-scrollbar">
+                            <div className="grid grid-cols-1 gap-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
                               {AURA_TIERS.map((tier) => {
                                 const currentXp = profile?.dao_xp || profile?.qi || 0;
                                 const isUnlocked = currentXp >= tier.unlockedAt;
                                 const isSelected = formData.displayNameColor === tier.colorHex;
-                                const textStyles = getAuraTextStyle(tier.colorHex);
+                                const progress = isUnlocked ? 100 : Math.min(100, Math.max(0, (currentXp / tier.unlockedAt) * 100));
                                 
                                 return (
                                   <button
@@ -1245,42 +1296,73 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                                         setFormData(prev => ({ ...prev, displayNameColor: tier.colorHex }));
                                       }
                                     }}
-                                    className={`p-2.5 border rounded-lg text-left transition-all relative flex flex-col justify-between min-h-[75px] group/item ${
+                                    className={`p-3 border rounded-xl text-left transition-all relative flex flex-col gap-3 group overflow-hidden ${
                                       !isUnlocked
-                                        ? 'bg-neutral-950/40 border-neutral-900/60 opacity-40 cursor-not-allowed'
+                                        ? 'bg-black/40 border-neutral-900/80 cursor-not-allowed'
                                         : isSelected
-                                        ? 'bg-portal/5 border-portal shadow-[0_0_12px_rgba(4,172,255,0.1)]'
-                                        : 'bg-black/30 border-neutral-850 hover:border-neutral-700 hover:bg-neutral-900/30'
+                                        ? 'bg-portal/5 border-portal shadow-[0_0_15px_rgba(4,172,255,0.15)]'
+                                        : 'bg-black/40 border-neutral-800 hover:border-neutral-600 hover:bg-neutral-900/40'
                                     }`}
                                   >
-                                    <div className="flex justify-between items-start w-full gap-2">
-                                      <span 
-                                        className={`text-[11px] font-bold uppercase tracking-wider ${isUnlocked ? '' : 'text-neutral-500'}`} 
-                                        style={!tier.textColor.includes('text') && !tier.textColor.includes('bg-') && isUnlocked ? { color: tier.colorHex } : undefined}
-                                      >
-                                        <span className={isUnlocked && (tier.textColor.includes('text-') || tier.textColor.includes('bg-')) ? tier.textColor : ''}>
-                                          {tier.rank}
+                                    {/* Progress bar background for locked tiers */}
+                                    {!isUnlocked && (
+                                      <div className="absolute top-0 left-0 bottom-0 bg-neutral-900/30 -z-10" style={{ width: `${progress}%` }} />
+                                    )}
+                                    {/* Subtle glow background for unlocked tiers */}
+                                    {isUnlocked && (
+                                      <div className={`absolute inset-0 opacity-20 pointer-events-none -z-10 ${tier.bgGlow}`} />
+                                    )}
+                                    
+                                    <div className="flex items-center gap-3 w-full z-10">
+                                      {/* Color Preview Orb */}
+                                      <div className="relative shrink-0 flex items-center justify-center w-10 h-10">
+                                        <div className={`absolute inset-0 rounded-full opacity-30 ${isUnlocked ? 'animate-ping' : ''}`} style={tier.colorHex.startsWith('#') ? { backgroundColor: tier.colorHex } : undefined}></div>
+                                        <div 
+                                          className={`w-8 h-8 rounded-full border border-black/50 shadow-inner flex items-center justify-center ${!isUnlocked ? 'grayscale opacity-60' : ''}`}
+                                          style={tier.colorHex.startsWith('#') ? { backgroundColor: tier.colorHex, boxShadow: `0 0 10px ${tier.colorHex}` } : { background: 'linear-gradient(to right, #a855f7, #ec4899, #eab308)' }}
+                                        >
+                                          {!isUnlocked && <span className="text-white drop-shadow-md text-[10px]">🔒</span>}
+                                        </div>
+                                      </div>
+
+                                      <div className="flex-1 min-w-0 flex flex-col">
+                                        <div className="flex justify-between items-center w-full gap-2">
+                                          <span 
+                                            className={`text-[12px] font-bold uppercase tracking-wider truncate ${!isUnlocked ? 'text-neutral-400' : ''}`} 
+                                          >
+                                            <span className={isUnlocked && (tier.textColor.includes('text-') || tier.textColor.includes('bg-')) ? tier.textColor : ''} style={!tier.textColor.includes('text') && !tier.textColor.includes('bg-') && isUnlocked ? { color: tier.colorHex } : undefined}>
+                                              {tier.rank}
+                                            </span>
+                                          </span>
+                                          {isSelected && (
+                                            <span className="text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-portal text-void font-bold shrink-0">
+                                              Equipped
+                                            </span>
+                                          )}
+                                        </div>
+                                        
+                                        <span className="text-[10px] text-neutral-300 font-serif italic mt-0.5 truncate">
+                                          "{tier.rewardFeeling}"
                                         </span>
-                                      </span>
-                                      {isSelected && (
-                                        <span className="text-[8px] uppercase tracking-widest px-1.5 py-0.5 rounded bg-portal text-void font-bold scale-90 shrink-0">
-                                          Equipped
-                                        </span>
-                                      )}
-                                      {!isUnlocked && (
-                                        <span className="text-[8px] text-neutral-500 font-mono shrink-0">
-                                          Locked ({tier.unlockedAt} Qi)
-                                        </span>
-                                      )}
+                                      </div>
                                     </div>
                                     
-                                    <div className="mt-1 flex flex-col gap-0.5">
-                                      <span className="text-[10px] text-neutral-400 font-serif italic line-clamp-1">
-                                        "{tier.rewardFeeling}"
+                                    {/* Detailed Description Footer */}
+                                    <div className="flex items-center justify-between w-full pt-2 border-t border-white/5 z-10">
+                                      <span className={`text-[9px] font-mono tracking-tighter uppercase ${!isUnlocked ? 'text-neutral-500' : 'text-neutral-400'}`}>
+                                        Aura: {tier.name}
                                       </span>
-                                      <span className="text-[8px] text-neutral-600 font-mono tracking-tighter">
-                                        {tier.name}
-                                      </span>
+                                      {!isUnlocked ? (
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-[9px] text-neutral-500 font-mono shrink-0">
+                                            {currentXp} / {tier.unlockedAt} Qi
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-[9px] text-portal/70 font-mono">
+                                          Unlocked
+                                        </span>
+                                      )}
                                     </div>
                                   </button>
                                 );
@@ -1394,32 +1476,6 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                   </div>
                   <div className="text-[11px] text-portal font-sans font-black tracking-widest uppercase">
                     {activeStoriesCount} Realms
-                  </div>
-                </div>
-
-                {/* Dual Qi Core explanation card */}
-                <div className="bg-[#030303] border border-neutral-900/60 rounded-xl p-5 md:col-span-2 relative overflow-hidden shadow-[0_0_20px_rgba(4,172,255,0.02)]">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-portal/5 rounded-full blur-2xl pointer-events-none" />
-                  <div className="absolute bottom-0 left-0 w-24 h-24 bg-[#8B0000]/5 rounded-full blur-2xl pointer-events-none" />
-                  
-                  <h4 className="text-[11px] uppercase font-bold tracking-widest text-[#FAFAFA] font-sc flex items-center gap-2 mb-3">
-                    <Zap size={12} className="text-portal" /> Dual Qi Alignment
-                  </h4>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-[11px] leading-relaxed">
-                    <div className="space-y-1 border-l border-portal/30 pl-3">
-                      <span className="font-sc uppercase text-portal font-bold tracking-wider">Heavenly Qi (Cultivation Power)</span>
-                      <p className="text-neutral-400 font-sans">
-                        Your fundamental essence gained from reading realms, making choices, and overcoming tribulations. Tracks your progression to higher cultivator ranks and determines your celestial aura color.
-                      </p>
-                    </div>
-                    
-                    <div className="space-y-1 border-l border-[#8B0000]/50 pl-3">
-                      <span className="font-sc uppercase text-neutral-300 font-bold tracking-wider">Sect Qi (Contribution Essence)</span>
-                      <p className="text-neutral-400 font-sans">
-                        Essence stored for your upcoming community contribution achievements. Utilized to exchange for special titles, customize sect affiliations, and fund cooperative arrays when the contribution hall is unlocked.
-                      </p>
-                    </div>
                   </div>
                 </div>
 

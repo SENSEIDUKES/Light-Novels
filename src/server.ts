@@ -26,7 +26,7 @@ import {
   generateAudioSchema
 } from "./server/schemas";
 import { routeTextGeneration, routeImageGeneration, routeTextGenerationStream, ROUTER_PRESETS } from "./aiRouter";
-import { ensureString, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChapterResponse, filterRelevantEntities, rankRelevantEntities } from "./server/helpers";
+import { ensureString, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChapterResponse, filterRelevantEntities, rankRelevantEntities, truncateContextIfNeeded } from "./server/helpers";
 import { PROMPTS } from "./server/prompts";
 
 import * as deepl from "deepl-node";
@@ -359,10 +359,6 @@ app.post("/api/generate-chapter-stream", validateBody(chapterGenerationSchema), 
       return res.status(400).json({ error: "Missing required fields for chapter generation" });
     }
 
-    const pastSummariesStr = pastSummaries && pastSummaries.length > 0 
-      ? pastSummaries.join("\n") 
-      : "This is the very first chapter of the story arc! Set the scene dramatically.";
-
     const lastSummary = pastSummaries && pastSummaries.length > 0 ? pastSummaries[pastSummaries.length - 1] : undefined;
 
     const currentChapterNum = currentChapter.number || 1;
@@ -385,7 +381,7 @@ app.post("/api/generate-chapter-stream", validateBody(chapterGenerationSchema), 
 
     const safeStr = (s: string|undefined, max: number = 3000) => (s && s.length > max) ? s.substring(0, max) + "..." : s;
 
-    const memoryJsonStr = JSON.stringify({
+    const rawMemoryObj = {
       powerSystem: safeStr(memory.powerSystem, 4000),
       currentPowerStage: safeStr(memory.currentPowerStage, 1000),
       worldRules: Array.isArray(memory.worldRules) ? memory.worldRules.slice(0, 20).map(r => safeStr(r, 1000)) : safeStr(memory.worldRules, 4000),
@@ -394,7 +390,9 @@ app.post("/api/generate-chapter-stream", validateBody(chapterGenerationSchema), 
       factions: rankRelevantEntities(memory.factions, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
       locations: rankRelevantEntities(memory.locations, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
       artifacts: rankRelevantEntities(memory.artifacts, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise])
-    }, null, 2);
+    };
+
+    const { memoryJsonStr, pastSummariesStr } = truncateContextIfNeeded(rawMemoryObj, pastSummaries, 80000, "This is the very first chapter of the story arc! Set the scene dramatically.");
 
     const systemInstruction = PROMPTS.chapter.system;
     const userPrompt = PROMPTS.chapter.userPrompt(
@@ -559,10 +557,6 @@ app.post("/api/generate-chapter", validateBody(chapterGenerationSchema), async (
       return res.status(400).json({ error: "Missing required fields for chapter generation" });
     }
 
-    const pastSummariesStr = pastSummaries && pastSummaries.length > 0 
-      ? pastSummaries.join("\n") 
-      : "This is the very first chapter of the story arc! Set the scene dramatically.";
-
     const lastSummary = pastSummaries && pastSummaries.length > 0 ? pastSummaries[pastSummaries.length - 1] : undefined;
 
     const currentChapterNum = currentChapter.number || 1;
@@ -585,7 +579,7 @@ app.post("/api/generate-chapter", validateBody(chapterGenerationSchema), async (
 
     const safeStr = (s: string|undefined, max: number = 3000) => (s && s.length > max) ? s.substring(0, max) + "..." : s;
 
-    const memoryJsonStr = JSON.stringify({
+    const rawMemoryObj = {
       powerSystem: safeStr(memory.powerSystem, 4000),
       currentPowerStage: safeStr(memory.currentPowerStage, 1000),
       worldRules: Array.isArray(memory.worldRules) ? memory.worldRules.slice(0, 20).map(r => safeStr(r, 1000)) : safeStr(memory.worldRules, 4000),
@@ -594,7 +588,9 @@ app.post("/api/generate-chapter", validateBody(chapterGenerationSchema), async (
       factions: rankRelevantEntities(memory.factions, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
       locations: rankRelevantEntities(memory.locations, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
       artifacts: rankRelevantEntities(memory.artifacts, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise])
-    }, null, 2);
+    };
+
+    const { memoryJsonStr, pastSummariesStr } = truncateContextIfNeeded(rawMemoryObj, pastSummaries, 80000, "This is the very first chapter of the story arc! Set the scene dramatically.");
 
     const systemInstruction = PROMPTS.chapter.nonStreamSystem;
     const userPrompt = PROMPTS.chapter.userPrompt(
@@ -958,13 +954,9 @@ app.post("/api/generate-next-directions", validateBody(generateNextDirectionsSch
       return res.status(400).json({ error: "Missing required fields for directions generation" });
     }
 
-    const pastSummariesStr = pastSummaries && pastSummaries.length > 0 
-      ? pastSummaries.join("\n") 
-      : "Starting fresh in the immortal matrix.";
-      
     const lastSummary = pastSummaries && pastSummaries.length > 0 ? pastSummaries[pastSummaries.length - 1] : undefined;
 
-    const memoryJsonStr = JSON.stringify({
+    const rawMemoryObj = {
       powerSystem: memory.powerSystem,
       currentPowerStage: memory.currentPowerStage,
       worldRules: memory.worldRules,
@@ -974,7 +966,9 @@ app.post("/api/generate-next-directions", validateBody(generateNextDirectionsSch
       factions: rankRelevantEntities(memory.factions, mcName, lastSummary, "", [memory.unresolvedPlotThreads?.join(" "), customPremise]),
       locations: rankRelevantEntities(memory.locations, mcName, lastSummary, "", [memory.unresolvedPlotThreads?.join(" "), customPremise]),
       artifacts: rankRelevantEntities(memory.artifacts, mcName, lastSummary, "", [memory.unresolvedPlotThreads?.join(" "), customPremise]),
-    }, null, 2);
+    };
+
+    const { memoryJsonStr, pastSummariesStr } = truncateContextIfNeeded(rawMemoryObj, pastSummaries, 80000, "Starting fresh in the immortal matrix.");
 
     const systemInstruction = PROMPTS.directions.system;
     const userPrompt = PROMPTS.directions.userPrompt(
@@ -1189,13 +1183,9 @@ app.post("/api/steer-arc", validateBody(steerArcSchema), async (req, res) => {
     const count = 10; // Generate next 10 chapters max to maintain excellent quality and prevent drift
     const startNum = (parseInt(currentArcCount) || 10) + 1;
 
-    const pastSummariesStr = pastSummaries && pastSummaries.length > 0 
-      ? pastSummaries.join("\n") 
-      : "No previous record. Use your creativity to extend smoothly.";
-
     const lastSummary = pastSummaries && pastSummaries.length > 0 ? pastSummaries[pastSummaries.length - 1] : undefined;
 
-    const memoryJsonStr = JSON.stringify({
+    const rawMemoryObj = {
       currentPowerStage: memory.currentPowerStage,
       powerSystem: memory.powerSystem,
       unresolvedPlotThreads: memory.unresolvedPlotThreads,
@@ -1204,7 +1194,9 @@ app.post("/api/steer-arc", validateBody(steerArcSchema), async (req, res) => {
       factions: rankRelevantEntities(memory.factions, mcName, lastSummary, steerDirection, [userCustomDirections, memory.unresolvedPlotThreads?.join(" "), customPremise]),
       locations: rankRelevantEntities(memory.locations, mcName, lastSummary, steerDirection, [userCustomDirections, memory.unresolvedPlotThreads?.join(" "), customPremise]),
       artifacts: rankRelevantEntities(memory.artifacts, mcName, lastSummary, steerDirection, [userCustomDirections, memory.unresolvedPlotThreads?.join(" "), customPremise])
-    }, null, 2);
+    };
+
+    const { memoryJsonStr, pastSummariesStr } = truncateContextIfNeeded(rawMemoryObj, pastSummaries, 80000, "No previous record. Use your creativity to extend smoothly.");
 
     const data = await routeTextGeneration(
       "storyMaker",

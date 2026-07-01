@@ -276,6 +276,55 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
       </div>
 
       <div className="pt-2 border-t border-neutral-900/60">
+        <div className="flex justify-between items-end mb-2">
+          <label htmlFor="core-premise-input" className="block font-sc text-xs text-neutral-400 uppercase tracking-widest">Core Premise / Secret Catalyst *</label>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-mono text-neutral-500">{(intake.corePremise || '').length} / 3000</span>
+            <div className="flex gap-1">
+              {PREMISE_SUGGESTIONS.map((_, idx) => (
+                <button key={idx} type="button"  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => updateIntake('corePremise', PREMISE_SUGGESTIONS[idx])} className="bg-neutral-900 hover:bg-neutral-800 text-[10px] text-neutral-400 px-1.5 py-0.5 rounded font-mono">#{idx + 1}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="relative">
+          <textarea 
+            id="core-premise-input" 
+            required 
+            maxLength={3000}
+            value={intake.corePremise || ''} 
+            onChange={(e) => updateIntake('corePremise', e.target.value)} 
+            onKeyDown={(e) => {
+              if (e.key === 'Tab' && ghostSuggestion) {
+                e.preventDefault();
+                handleAddGhostTag(ghostSuggestion);
+              }
+            }}
+            rows={3} 
+            placeholder="The main hook or cheat..." 
+            className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm resize-none pr-40" 
+          />
+          <AnimatePresence>
+            {ghostSuggestion && (
+              <motion.button
+                type="button"
+                initial={{ opacity: 0, scale: 0.95, y: 2 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 2 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => handleAddGhostTag(ghostSuggestion)}
+                className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded bg-black/90 border border-portal/40 text-portal hover:text-signal hover:border-portal transition-all flex items-center gap-1.5 text-[10px] font-mono tracking-wider shadow-[0_0_12px_rgba(4,172,255,0.15)] hover:shadow-[0_0_18px_rgba(4,172,255,0.3)] cursor-pointer"
+                title="Click or press Tab to weave this tag into your destiny"
+              >
+                <Sparkles size={11} className="text-portal animate-pulse" />
+                <span>Tab: {ghostSuggestion}</span>
+              </motion.button>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      <div className="pt-2 border-t border-neutral-900/60 mt-4">
         <label htmlFor="custom-tag-input" className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2">Story Refinement Tags (Optional)</label>
         <p className="text-neutral-500 font-sans text-xs mb-3">Add tags to further personalize your story (e.g. Slice of Life, Romantic Comedy, Overpowered MC) to help the AI tailor the universe according to your interests.</p>
         
@@ -487,55 +536,6 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
               })
             )}
           </div>
-        </div>
-      </div>
-
-      <div>
-        <div className="flex justify-between items-end mb-2">
-          <label htmlFor="core-premise-input" className="block font-sc text-xs text-neutral-400 uppercase tracking-widest">Core Premise / Secret Catalyst *</label>
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-mono text-neutral-500">{(intake.corePremise || '').length} / 3000</span>
-            <div className="flex gap-1">
-              {PREMISE_SUGGESTIONS.map((_, idx) => (
-                <button key={idx} type="button"  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => updateIntake('corePremise', PREMISE_SUGGESTIONS[idx])} className="bg-neutral-900 hover:bg-neutral-800 text-[10px] text-neutral-400 px-1.5 py-0.5 rounded font-mono">#{idx + 1}</button>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="relative">
-          <textarea 
-            id="core-premise-input" 
-            required 
-            maxLength={3000}
-            value={intake.corePremise || ''} 
-            onChange={(e) => updateIntake('corePremise', e.target.value)} 
-            onKeyDown={(e) => {
-              if (e.key === 'Tab' && ghostSuggestion) {
-                e.preventDefault();
-                handleAddGhostTag(ghostSuggestion);
-              }
-            }}
-            rows={3} 
-            placeholder="The main hook or cheat..." 
-            className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm resize-none pr-40" 
-          />
-          <AnimatePresence>
-            {ghostSuggestion && (
-              <motion.button
-                type="button"
-                initial={{ opacity: 0, scale: 0.95, y: 2 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 2 }}
-                transition={{ duration: 0.2 }}
-                onClick={() => handleAddGhostTag(ghostSuggestion)}
-                className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded bg-black/90 border border-portal/40 text-portal hover:text-signal hover:border-portal transition-all flex items-center gap-1.5 text-[10px] font-mono tracking-wider shadow-[0_0_12px_rgba(4,172,255,0.15)] hover:shadow-[0_0_18px_rgba(4,172,255,0.3)] cursor-pointer"
-                title="Click or press Tab to weave this tag into your destiny"
-              >
-                <Sparkles size={11} className="text-portal animate-pulse" />
-                <span>Tab: {ghostSuggestion}</span>
-              </motion.button>
-            )}
-          </AnimatePresence>
         </div>
       </div>
 
