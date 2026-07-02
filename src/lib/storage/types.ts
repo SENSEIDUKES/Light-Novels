@@ -24,6 +24,8 @@ export interface SyncTask {
     storyId: string;
     chapterNumber?: number;
     timestamp: number;
+    /** Number of failed cloud-sync attempts; used to give up on a permanently-failing task. */
+    attempts?: number;
 }
 
 export interface SyncAuditResult {

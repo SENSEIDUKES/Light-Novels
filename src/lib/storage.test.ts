@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { PersistentStorageManager, IndexedDBStorageAdapter, LocalStorageFallbackAdapter } from './storage';
 import { StoryWorld, ChapterContent } from '../types';
 
@@ -9,6 +9,12 @@ describe('PersistentStorageManager', () => {
     localStorage.clear();
     manager = new PersistentStorageManager();
     (manager as any).isCloudAvailable = false;
+  });
+
+  afterEach(() => {
+    // Remove the global window listeners the manager registers, so instances from one test
+    // don't accumulate and pollute the next.
+    manager?.dispose?.();
   });
 
   describe('Storage Adapter Selection & IndexedDB Fallback', () => {
@@ -72,6 +78,98 @@ describe('PersistentStorageManager', () => {
       const chapterContent = await manager.getChapterContent('story_split_test', 1);
       expect(chapterContent).toBeDefined();
       expect(chapterContent?.generatedContent).toBe('Heavens opened!');
+    });
+  });
+
+  describe('Cloud write coalescing & circuit breaker', () => {
+    const makeStory = (id: string): StoryWorld => ({
+      id, title: 'T', genre: 'Fantasy', mcName: 'MC', customPremise: 'P',
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      currentChapterNumber: 1,
+      memory: { powerSystem: '', characters: [], currentPowerStage: '', worldRules: [], unresolvedPlotThreads: [], resolvedPlotThreads: [] },
+      arcs: [],
+    });
+
+    it('coalesces a burst of saves for the same story into a single cloud write', async () => {
+      vi.useFakeTimers();
+      try {
+        const cloudAdapter = (manager as any).cloudAdapter;
+        cloudAdapter.saveStory = vi.fn().mockResolvedValue(undefined);
+        (manager as any).isCloudAvailable = true;
+
+        // Three rapid saves within the debounce window.
+        await manager.saveStory(makeStory('burst_story'));
+        await manager.saveStory(makeStory('burst_story'));
+        await manager.saveStory(makeStory('burst_story'));
+
+        // Nothing flushed immediately.
+        expect(cloudAdapter.saveStory).not.toHaveBeenCalled();
+
+        // After the debounce window, exactly one coalesced cloud write happens.
+        await vi.advanceTimersByTimeAsync((manager as any).FLUSH_DEBOUNCE_MS + 10);
+        expect(cloudAdapter.saveStory).toHaveBeenCalledTimes(1);
+      } finally {
+        manager.dispose();
+        vi.useRealTimers();
+      }
+    });
+
+    it('keeps a task queued and retries after a transient sync error (no data loss)', async () => {
+      const cloudAdapter = (manager as any).cloudAdapter;
+      const transient: any = new Error('backend unavailable');
+      transient.code = 'unavailable';
+      cloudAdapter.saveStory = vi.fn().mockRejectedValueOnce(transient).mockResolvedValue(undefined);
+      (manager as any).isCloudAvailable = true;
+
+      await manager.saveStory(makeStory('flaky'));
+
+      // First flush hits a transient error -> task is kept and its attempt count bumped.
+      await (manager as any).flushSyncQueue();
+      expect((manager as any).syncQueue.length).toBe(1);
+      expect((manager as any).syncQueue[0].attempts).toBe(1);
+
+      // Next flush succeeds -> queue drains.
+      await (manager as any).flushSyncQueue();
+      expect(cloudAdapter.saveStory).toHaveBeenCalledTimes(2);
+      expect((manager as any).syncQueue.length).toBe(0);
+    });
+
+    it('drops a task on a permanent (permission) error to avoid a queue jam', async () => {
+      const cloudAdapter = (manager as any).cloudAdapter;
+      const permanent: any = new Error('missing or insufficient permissions');
+      permanent.code = 'permission-denied';
+      cloudAdapter.saveStory = vi.fn().mockRejectedValue(permanent);
+      (manager as any).isCloudAvailable = true;
+
+      await manager.saveStory(makeStory('forbidden'));
+      await (manager as any).flushSyncQueue();
+
+      expect((manager as any).syncQueue.length).toBe(0);
+    });
+
+    it('treats a corrupted write counter as zero so the breaker still works', () => {
+      const today = new Date().toISOString().slice(0, 10);
+      localStorage.setItem('@seihouse/cloud-write-count', JSON.stringify({ date: today, count: 'corrupted' }));
+      expect(manager.getCloudWritesToday()).toBe(0);
+    });
+
+    it('stops writing to the cloud once the daily budget is exceeded', async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const cap = (manager as any).DAILY_WRITE_CAP;
+      localStorage.setItem('@seihouse/cloud-write-count', JSON.stringify({ date: today, count: cap }));
+
+      const cloudAdapter = (manager as any).cloudAdapter;
+      cloudAdapter.saveStory = vi.fn().mockResolvedValue(undefined);
+      (manager as any).isCloudAvailable = true;
+
+      await manager.saveStory(makeStory('over_budget'));
+      await (manager as any).flushSyncQueue();
+
+      // Circuit breaker blocked the write; counter did not increase past the cap.
+      expect(cloudAdapter.saveStory).not.toHaveBeenCalled();
+      expect(manager.getCloudWritesToday()).toBe(cap);
+      // Task remains queued so it can sync once the budget resets.
+      expect((manager as any).syncQueue.length).toBeGreaterThan(0);
     });
   });
 

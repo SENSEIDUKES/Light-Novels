@@ -31,10 +31,58 @@ export class PersistentStorageManager implements StorageAdapter {
     private conflictHandler: ((conflict: any) => void) | null = null;
     private activeFlushPromise: Promise<void> | null = null;
 
+    // --- Cloud write coalescing ---
+    // Rather than firing a cloud write on every single save, we wait a short window and
+    // let repeated saves for the same story collapse into ONE write (the sync queue already
+    // dedupes by story/chapter). This is the main defense against write amplification during
+    // bursty activity (chapter generation, image manifests, reading-stat flushes).
+    private flushTimer: any = null;
+    private readonly FLUSH_DEBOUNCE_MS = 4000;
+
+    // --- Daily cloud-write circuit breaker ---
+    // A hard safety net: every cloud write is counted for the day. If the count ever exceeds
+    // this cap we stop syncing to the cloud for the rest of the day (work still saves locally
+    // and syncs later). This guarantees a runaway loop can never blow up the backend bill.
+    // Firestore's free tier is 20k writes/day for one user; this sits comfortably under it.
+    private writeCountKey = '@seihouse/cloud-write-count';
+    private readonly DAILY_WRITE_CAP = 8000;
+    private budgetTrippedLogged = false;
+    // Give a failing sync task this many retries before dropping it (prevents a poison task
+    // from permanently jamming the queue, while surviving transient network outages).
+    private readonly MAX_TASK_ATTEMPTS = 5;
+    private beforeUnloadListener: (() => void) | null = null;
+    private visibilityChangeListener: (() => void) | null = null;
+
     constructor() {
         this.localAdapter = new LocalStorageFallbackAdapter();
         this.cloudAdapter = new FirebaseStorageAdapter();
         this.loadQueue();
+
+        // Push any coalesced/pending writes when the user navigates away or hides the tab,
+        // so debouncing never costs unsynced work. (The queue is also persisted to
+        // localStorage, so anything not flushed here still syncs on next launch.)
+        // References are retained so dispose() can remove them (avoids leaks / test pollution).
+        if (typeof window !== 'undefined') {
+          this.beforeUnloadListener = () => { void this.flushSyncQueue(); };
+          window.addEventListener('beforeunload', this.beforeUnloadListener);
+          this.visibilityChangeListener = () => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+              void this.flushSyncQueue();
+            }
+          };
+          window.addEventListener('visibilitychange', this.visibilityChangeListener);
+        }
+    }
+
+    /** Remove global listeners and cancel any pending flush. Call when discarding a manager. */
+    public dispose() {
+        if (typeof window !== 'undefined') {
+          if (this.beforeUnloadListener) window.removeEventListener('beforeunload', this.beforeUnloadListener);
+          if (this.visibilityChangeListener) window.removeEventListener('visibilitychange', this.visibilityChangeListener);
+        }
+        this.beforeUnloadListener = null;
+        this.visibilityChangeListener = null;
+        this.cancelScheduledFlush();
     }
 
     onConflict(handler: (conflict: any) => void) {
@@ -66,11 +114,105 @@ export class PersistentStorageManager implements StorageAdapter {
 
         this.saveQueue();
         if (this.isCloudAvailable && this.syncStatus !== 'syncing') {
-          this.flushSyncQueue();
+          this.scheduleFlush();
         }
     }
 
+    // Debounce the cloud flush so a burst of enqueues coalesces into a single sync pass.
+    private scheduleFlush() {
+        if (this.flushTimer) return; // a flush is already scheduled within the window
+        this.flushTimer = setTimeout(() => {
+          this.flushTimer = null;
+          void this.flushSyncQueue();
+        }, this.FLUSH_DEBOUNCE_MS);
+    }
+
+    private cancelScheduledFlush() {
+        if (this.flushTimer) {
+          clearTimeout(this.flushTimer);
+          this.flushTimer = null;
+        }
+    }
+
+    // --- Daily write budget helpers ---
+    private getWriteCounter(): { date: string; count: number } {
+        const today = new Date().toISOString().slice(0, 10);
+        try {
+          const raw = localStorage.getItem(this.writeCountKey);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            // Guard against corrupted values: a non-finite count would make
+            // `count >= cap` always false and silently disable the circuit breaker.
+            if (parsed && parsed.date === today && typeof parsed.count === 'number' && Number.isFinite(parsed.count)) {
+              return parsed;
+            }
+          }
+        } catch { /* ignore */ }
+        return { date: today, count: 0 };
+    }
+
+    /** Number of cloud writes performed so far today (visible for diagnostics/UI). */
+    public getCloudWritesToday(): number {
+        return this.getWriteCounter().count;
+    }
+
+    private bumpWriteCounter(): number {
+        const c = this.getWriteCounter();
+        c.count += 1;
+        try { localStorage.setItem(this.writeCountKey, JSON.stringify(c)); } catch { /* ignore */ }
+        return c.count;
+    }
+
+    private isWriteBudgetExceeded(): boolean {
+        return this.getWriteCounter().count >= this.DAILY_WRITE_CAP;
+    }
+
+    /**
+     * A permanent failure won't succeed on retry (bad permissions, invalid data), so the task
+     * should be dropped rather than jamming the queue. Anything else (network/server hiccups,
+     * or unknown errors) is treated as transient and retried, favouring data safety.
+     */
+    private isPermanentError(err: any): boolean {
+        const code = (err && (err.code || err.name) ? String(err.code || err.name) : '').toLowerCase();
+        const permanentCodes = [
+          'permission-denied', 'permission_denied',
+          'unauthenticated',
+          'invalid-argument', 'invalid_argument',
+          'not-found', 'not_found',
+          'failed-precondition', 'failed_precondition',
+          'already-exists',
+        ];
+        return permanentCodes.some(c => code.includes(c));
+    }
+
+    /**
+     * The single gateway for EVERY cloud write. Enforces the daily budget and counts writes.
+     * Returns true if the write happened, false if it was blocked by the circuit breaker.
+     */
+    private async cloudWrite(op: () => Promise<void>, label: string): Promise<boolean> {
+        if (this.isWriteBudgetExceeded()) {
+          if (!this.budgetTrippedLogged) {
+            this.budgetTrippedLogged = true;
+            console.warn(
+              `[Storage] Daily cloud-write cap (${this.DAILY_WRITE_CAP}) reached — pausing cloud sync ` +
+              `for the rest of the day to protect your quota/bill. Your work is still saved locally ` +
+              `and will sync automatically tomorrow.`
+            );
+            this.setStatus('offline');
+          }
+          return false;
+        }
+        await op();
+        const total = this.bumpWriteCounter();
+        // Lightweight, low-noise visibility: a heartbeat every 25 writes.
+        if (total % 25 === 0) {
+          console.info(`[Storage] cloud writes today: ${total} (last: ${label})`);
+        }
+        return true;
+    }
+
     private async flushSyncQueue() {
+        this.cancelScheduledFlush();
         if (!this.isCloudAvailable || this.syncQueue.length === 0) return;
         if (this.activeFlushPromise) {
           return this.activeFlushPromise;
@@ -81,8 +223,10 @@ export class PersistentStorageManager implements StorageAdapter {
 
           try {
             while (this.syncQueue.length > 0) {
-              const task = this.syncQueue.shift()!;
-              this.saveQueue();
+              // Peek — only remove the task once it is written (or permanently failed), so a
+              // circuit-breaker stop leaves pending work safely queued for later.
+              const task = this.syncQueue[0];
+              let blocked = false;
 
               try {
                 if (task.type === 'story') {
@@ -90,22 +234,44 @@ export class PersistentStorageManager implements StorageAdapter {
                   if (localStory) {
                     const cloudPayload = JSON.parse(JSON.stringify(localStory));
                     await this.compressDataUrls(cloudPayload);
-                    await this.cloudAdapter.saveStory(cloudPayload);
+                    blocked = !(await this.cloudWrite(() => this.cloudAdapter.saveStory(cloudPayload), `story:${task.storyId}`));
                   }
                 } else if (task.type === 'chapter' && task.chapterNumber !== undefined) {
                   const localChapter = await this.localAdapter.getChapterContent(task.storyId, task.chapterNumber);
                   if (localChapter) {
-                    await this.cloudAdapter.saveChapterContent(localChapter);
+                    blocked = !(await this.cloudWrite(() => this.cloudAdapter.saveChapterContent(localChapter), `chapter:${task.storyId}#${task.chapterNumber}`));
                   }
                 } else if (task.type === 'delete_story') {
-                  await this.cloudAdapter.deleteStory(task.storyId);
+                  blocked = !(await this.cloudWrite(() => this.cloudAdapter.deleteStory(task.storyId), `delete:${task.storyId}`));
                 }
               } catch (taskError: any) {
-                console.error('Task failed, dropping from queue to prevent jam:', taskError);
+                // Protect against data loss: a transient network/server hiccup must NOT drop the
+                // task (chapter content only ever syncs through this queue). Keep it and retry on
+                // a later flush. Only give up after repeated failures, to avoid a permanent jam
+                // from a genuinely poison task (e.g. a permission/validation error).
+                task.attempts = (task.attempts || 0) + 1;
+                if (this.isPermanentError(taskError) || task.attempts >= this.MAX_TASK_ATTEMPTS) {
+                  console.error(`Task permanently failed after ${task.attempts} attempt(s), dropping to prevent jam:`, taskError);
+                  this.syncQueue.shift();
+                  this.saveQueue();
+                  continue;
+                }
+                console.warn(`Transient sync error (attempt ${task.attempts}/${this.MAX_TASK_ATTEMPTS}); keeping task queued to retry later:`, taskError);
+                this.saveQueue();
+                this.setStatus('error');
+                break;
               }
+
+              if (blocked) {
+                // Daily write budget hit — stop here and keep remaining tasks for next time.
+                break;
+              }
+
+              this.syncQueue.shift();
+              this.saveQueue();
             }
-            
-            this.setStatus('synced');
+
+            this.setStatus(this.syncQueue.length > 0 ? 'offline' : 'synced');
           } catch (error: any) {
             console.error('Failed to flush sync queue', error);
             // Keep remaining unprocessed tasks in queue to try again later
@@ -255,7 +421,8 @@ export class PersistentStorageManager implements StorageAdapter {
               // Exists locally but not in cloud. Push to cloud.
               const cloudPayload = JSON.parse(JSON.stringify(localStory));
               await this.compressDataUrls(cloudPayload);
-              await this.cloudAdapter.saveStory(cloudPayload);
+              const ok = await this.cloudWrite(() => this.cloudAdapter.saveStory(cloudPayload), `sync-new:${localStory.id}`);
+              if (!ok) break; // budget tripped — stop pushing for now
             } else {
               // Exists in both. Check if they differ significantly.
               if (this.checkSignificantDifference(localStory, cloudStory)) {
@@ -281,7 +448,8 @@ export class PersistentStorageManager implements StorageAdapter {
               if (localTime > cloudTime) {
                  const cloudPayload = JSON.parse(JSON.stringify(localStory));
                  await this.compressDataUrls(cloudPayload);
-                 await this.cloudAdapter.saveStory(cloudPayload);
+                 const ok = await this.cloudWrite(() => this.cloudAdapter.saveStory(cloudPayload), `sync-update:${localStory.id}`);
+                 if (!ok) break; // budget tripped — stop pushing for now
               } else if (cloudTime > localTime) {
                  await this.localAdapter.saveStory(cloudStory);
               }
@@ -295,7 +463,7 @@ export class PersistentStorageManager implements StorageAdapter {
             }
           }
 
-          this.setStatus('synced');
+          this.setStatus(this.isWriteBudgetExceeded() ? 'offline' : 'synced');
         } catch (error) {
           console.error("Cloud sync failed:", error);
           this.setStatus('error');

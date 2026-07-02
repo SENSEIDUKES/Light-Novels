@@ -149,7 +149,7 @@ export const ReaderScreen: React.FC<{
         // Reset delta
         setLocalStatsDelta({ total: 0, arc: {} });
       }
-    }, 180000);
+    }, 300000);
 
     return () => {
       clearInterval(flushInterval);
