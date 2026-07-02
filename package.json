@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
-    "@seihouse/audio-player": "github:SENSEIDUKES/AUDIO-PLAYER#claude/light-novel-audio-player-ui-ngd69y",
+    "@seihouse/audio-player": "github:SENSEIDUKES/AUDIO-PLAYER#main",
     "@sentry/react": "^10.60.0",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
