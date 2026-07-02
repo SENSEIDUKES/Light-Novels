@@ -55,8 +55,8 @@ export function ReaderHeader({
             </span>
           )}
           {selectedChapter.hasContinuityFaults && (
-            <span title="Continuity Fracture Detected (Draft/Problem State)" className="flex items-center bg-rose-500/15 text-rose-400 border border-rose-500/30 px-1.5 py-0.5 rounded text-[8px] font-sans font-bold uppercase tracking-normal gap-1">
-              <span className="animate-pulse">●</span> Logic Fracture
+            <span title="A hard contradiction couldn't be fully reconciled with your Codex — the chapter is still fully readable." className="flex items-center bg-rose-500/15 text-rose-400 border border-rose-500/30 px-1.5 py-0.5 rounded text-[8px] font-sans font-bold uppercase tracking-normal gap-1">
+              <span className="animate-pulse">●</span> Timeline Divergence
             </span>
           )}
         </span>

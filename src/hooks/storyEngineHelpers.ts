@@ -179,11 +179,25 @@ export function runMemoryLinter(
 ): string[] {
   const warnings: string[] = [];
   if (prevMemory.characters) {
+    // A deceased character is allowed to be MENTIONED — mourned, discussed, remembered, or
+    // have a technique/place named after them. That is natural world-building, not drift.
+    // Only flag the genuinely broken case: the dead character appears to actively SPEAK or ACT
+    // in the present, with no flashback / vision / spirit framing anywhere in the chapter.
+    const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const ACTIVE_VERB =
+      '(?:said|says|asked|asks|replied|replies|answered|shouted|shouts|whispered|whispers|' +
+      'growled|roared|snarled|muttered|declared|announced|called|screamed|spoke|speaks|' +
+      'nodded|shrugged|smiled|grinned|laughed|frowned|' +
+      'walked|walks|stepped|steps|strode|ran|rushed|charged|dashed|leapt|jumped|lunged|' +
+      'stood|stands|sat|sits|turned|turns|entered|enters|emerged|appeared|appears|approached|' +
+      'drew|draws|raised|lifted|swung|struck|attacked|grabbed|seized|moved)';
+    const FLASHBACK_CTX = /(flashback|memory|memories|remember|remembered|recall|recalled|reminisce|vision|dream|spirit|ghost|ghostly|apparition|soul|late\s|grave|tomb|funeral|mourn|eulogy|portrait|statue|shrine|legacy|named after|once said|used to|years ago|long ago|in the past|back then|had died|who died|reincarnat|resurrect|revived)/i;
+    const isFlashback = FLASHBACK_CTX.test(chapterText);
     prevMemory.characters.forEach((char) => {
-      if (char.status?.toLowerCase() === 'deceased') {
-        const regex = new RegExp(`\\b${char.name}\\b`, 'i');
-        if (regex.test(chapterText)) {
-          warnings.push(`Deceased character "${char.name}" was referenced in the new text. Verify this was a flashback or memory.`);
+      if (char.status?.toLowerCase() === 'deceased' && char.name) {
+        const activeRegex = new RegExp(`\\b${escapeRegExp(char.name)}\\b\\s+${ACTIVE_VERB}\\b`, 'i');
+        if (activeRegex.test(chapterText) && !isFlashback) {
+          warnings.push(`Deceased character "${char.name}" appears to speak or act in the present. Verify this is a flashback, vision, or resurrection.`);
         }
       }
     });

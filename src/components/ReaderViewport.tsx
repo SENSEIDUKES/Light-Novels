@@ -247,10 +247,10 @@ export function ReaderViewport({
                     <ShieldAlert className="text-rose-400 shrink-0 mt-0.5" size={20} />
                     <div className="flex-1 min-w-0">
                       <h4 className="text-sm font-display font-medium text-rose-300 uppercase tracking-wider mb-1">
-                        Temporal Logic Fracture Detected (Saved as Draft)
+                        Timeline Divergence Note
                       </h4>
                       <p className="text-xs text-rose-400/80 font-sans mb-3 leading-relaxed">
-                        The Continuity Guard has detected contradictions that survived the celestial repair attempt. The chapter has been saved as a Draft with errors.
+                        This chapter is fully readable. The Continuity Guard just wants you to know it couldn't fully reconcile one hard contradiction with your Codex — usually the sign of a dramatic fate shift. Regenerate or update the Codex only if you want it smoothed over.
                       </p>
                       <ul className="space-y-1.5 mb-4">
                         {(selectedChapter.continuityWarnings || []).map((warning, idx) => (

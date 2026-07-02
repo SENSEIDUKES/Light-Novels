@@ -1,16 +1,32 @@
 import { Story } from '../../types';
 
+export type ContinuityPhase = 'checking' | 'repairing';
+
+/**
+ * Runs the Continuity Guard entirely BEHIND the generation veil, before the chapter is
+ * ever revealed to the reader. The flow is: check -> (silent repair) -> re-check.
+ *
+ * By design this is SILENT: transient over-flags are quietly repaired away and never shown.
+ * The only thing that can ever surface to the reader (`hasContinuityFaults`) is a SEVERE
+ * warning that survives a full repair pass — i.e. a genuine, most-extreme physical
+ * impossibility. Everything else is logged to the console and the chapter is revealed as-is.
+ *
+ * @param onProgress optional hook so the veil can show "Verifying continuity..." /
+ *   "Reconciling the timeline..." while this runs.
+ */
 export const runContinuityPass = async (
   finalRawBlocksStr: string,
   activeStory: Story,
   routingConfig: any,
-  apiHeaders: any
+  apiHeaders: any,
+  onProgress?: (phase: ContinuityPhase) => void
 ) => {
   let hasContinuityFaults = false;
   let continuityWarnings: any[] = [];
   let currentRawBlocksStr = finalRawBlocksStr;
-  
+
   try {
+    onProgress?.('checking');
     const consistencyResponse = await fetch('/api/check-consistency', {
       method: 'POST',
       headers: apiHeaders,
@@ -32,8 +48,9 @@ export const runContinuityPass = async (
 
       if (warnings.length > 0) {
         console.log("Continuity Guard detected SEVERE issues during generation:", warnings);
-        
+
         console.log("Attempting Continuity Repair...");
+        onProgress?.('repairing');
         const repairResponse = await fetch('/api/repair-chapter-stream', {
           method: 'POST',
           headers: apiHeaders,
