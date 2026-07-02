@@ -8,6 +8,7 @@ import * as demoStories from './demoStories';
 vi.mock('../lib/storage', () => ({
   storyStorage: {
     init: vi.fn(),
+    onConflict: vi.fn(),
     getActiveAdapterName: vi.fn(),
     getStories: vi.fn(),
     saveStory: vi.fn(),

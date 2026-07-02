@@ -109,25 +109,23 @@ describe('PersistentStorageManager', () => {
       await localAdapter.saveStory(localStory);
       cloudAdapter.getStories.mockResolvedValue([cloudStory]);
 
+      // Conflicts are dispatched through the registered handler (the app
+      // wires this up in initStorage), not by importing the store directly.
+      const onConflict = vi.fn();
+      manager.onConflict(onConflict);
+
       await manager.performSync();
 
       const localStories = await localAdapter.getStories();
       expect(localStories.length).toBe(1);
       expect(localStories[0].title).toBe('Local Version');
 
-      // Wait a tick for the dynamic import to finish
-      await new Promise(resolve => setTimeout(resolve, 50));
-
-      const { useAppStore } = await import('../store/useAppStore');
-      const conflict = useAppStore.getState().activeConflict;
-      
+      expect(onConflict).toHaveBeenCalledTimes(1);
+      const conflict = onConflict.mock.calls[0][0];
       expect(conflict).toBeDefined();
       expect(conflict?.storyId).toBe('conflict_story');
       expect(conflict?.localStory.title).toBe('Local Version');
       expect(conflict?.cloudStory.title).toBe('Cloud Version');
-      
-      // Cleanup state
-      useAppStore.getState().setActiveConflict(null);
     });
   });
 });
