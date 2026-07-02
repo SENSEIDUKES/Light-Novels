@@ -47,6 +47,11 @@ export class PersistentStorageManager implements StorageAdapter {
     private writeCountKey = '@seihouse/cloud-write-count';
     private readonly DAILY_WRITE_CAP = 8000;
     private budgetTrippedLogged = false;
+    // Give a failing sync task this many retries before dropping it (prevents a poison task
+    // from permanently jamming the queue, while surviving transient network outages).
+    private readonly MAX_TASK_ATTEMPTS = 5;
+    private beforeUnloadListener: (() => void) | null = null;
+    private visibilityChangeListener: (() => void) | null = null;
 
     constructor() {
         this.localAdapter = new LocalStorageFallbackAdapter();
@@ -56,13 +61,28 @@ export class PersistentStorageManager implements StorageAdapter {
         // Push any coalesced/pending writes when the user navigates away or hides the tab,
         // so debouncing never costs unsynced work. (The queue is also persisted to
         // localStorage, so anything not flushed here still syncs on next launch.)
+        // References are retained so dispose() can remove them (avoids leaks / test pollution).
         if (typeof window !== 'undefined') {
-          const flushNow = () => { void this.flushSyncQueue(); };
-          window.addEventListener('beforeunload', flushNow);
-          window.addEventListener('visibilitychange', () => {
-            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') flushNow();
-          });
+          this.beforeUnloadListener = () => { void this.flushSyncQueue(); };
+          window.addEventListener('beforeunload', this.beforeUnloadListener);
+          this.visibilityChangeListener = () => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+              void this.flushSyncQueue();
+            }
+          };
+          window.addEventListener('visibilitychange', this.visibilityChangeListener);
         }
+    }
+
+    /** Remove global listeners and cancel any pending flush. Call when discarding a manager. */
+    public dispose() {
+        if (typeof window !== 'undefined') {
+          if (this.beforeUnloadListener) window.removeEventListener('beforeunload', this.beforeUnloadListener);
+          if (this.visibilityChangeListener) window.removeEventListener('visibilitychange', this.visibilityChangeListener);
+        }
+        this.beforeUnloadListener = null;
+        this.visibilityChangeListener = null;
+        this.cancelScheduledFlush();
     }
 
     onConflict(handler: (conflict: any) => void) {
@@ -121,7 +141,11 @@ export class PersistentStorageManager implements StorageAdapter {
           const raw = localStorage.getItem(this.writeCountKey);
           if (raw) {
             const parsed = JSON.parse(raw);
-            if (parsed && parsed.date === today) return parsed;
+            // Guard against corrupted values: a non-finite count would make
+            // `count >= cap` always false and silently disable the circuit breaker.
+            if (parsed && parsed.date === today && typeof parsed.count === 'number' && Number.isFinite(parsed.count)) {
+              return parsed;
+            }
           }
         } catch { /* ignore */ }
         return { date: today, count: 0 };
@@ -141,6 +165,24 @@ export class PersistentStorageManager implements StorageAdapter {
 
     private isWriteBudgetExceeded(): boolean {
         return this.getWriteCounter().count >= this.DAILY_WRITE_CAP;
+    }
+
+    /**
+     * A permanent failure won't succeed on retry (bad permissions, invalid data), so the task
+     * should be dropped rather than jamming the queue. Anything else (network/server hiccups,
+     * or unknown errors) is treated as transient and retried, favouring data safety.
+     */
+    private isPermanentError(err: any): boolean {
+        const code = (err && (err.code || err.name) ? String(err.code || err.name) : '').toLowerCase();
+        const permanentCodes = [
+          'permission-denied', 'permission_denied',
+          'unauthenticated',
+          'invalid-argument', 'invalid_argument',
+          'not-found', 'not_found',
+          'failed-precondition', 'failed_precondition',
+          'already-exists',
+        ];
+        return permanentCodes.some(c => code.includes(c));
     }
 
     /**
@@ -203,10 +245,21 @@ export class PersistentStorageManager implements StorageAdapter {
                   blocked = !(await this.cloudWrite(() => this.cloudAdapter.deleteStory(task.storyId), `delete:${task.storyId}`));
                 }
               } catch (taskError: any) {
-                console.error('Task failed, dropping from queue to prevent jam:', taskError);
-                this.syncQueue.shift();
+                // Protect against data loss: a transient network/server hiccup must NOT drop the
+                // task (chapter content only ever syncs through this queue). Keep it and retry on
+                // a later flush. Only give up after repeated failures, to avoid a permanent jam
+                // from a genuinely poison task (e.g. a permission/validation error).
+                task.attempts = (task.attempts || 0) + 1;
+                if (this.isPermanentError(taskError) || task.attempts >= this.MAX_TASK_ATTEMPTS) {
+                  console.error(`Task permanently failed after ${task.attempts} attempt(s), dropping to prevent jam:`, taskError);
+                  this.syncQueue.shift();
+                  this.saveQueue();
+                  continue;
+                }
+                console.warn(`Transient sync error (attempt ${task.attempts}/${this.MAX_TASK_ATTEMPTS}); keeping task queued to retry later:`, taskError);
                 this.saveQueue();
-                continue;
+                this.setStatus('error');
+                break;
               }
 
               if (blocked) {
