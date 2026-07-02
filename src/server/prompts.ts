@@ -531,26 +531,34 @@ ${chapterText}
 Story Memory (Codex):
 ${memoryJson}
 
-CRITICAL RULE: Continuity checks should never retry, repair, or block a chapter unless the issue would make a normal reader confused about what is physically happening in the scene. 
+YOUR DEFAULT ANSWER IS "NO ISSUES". The "warnings" array must be EMPTY unless the chapter contains a literal, hard physical impossibility that would confuse a normal reader about what is physically happening in the scene. This is a very high bar. When in doubt, it is NOT a warning — put it in "silentLogs" or omit it entirely.
 
-NARRATIVE TENSION EXEMPTION (CRITICAL):
-- Do NOT flag a character committing a crime, heresy, or forbidden act (e.g., "private cultivation", "automation", "stealing") just because the Codex says it's illegal. Characters are allowed to break the rules of their world!
-- Do NOT flag implied risk, secrecy, illegality, taboo behavior, forbidden actions, hidden motives, unclear consequences, or delayed explanations as continuity problems.
-- Do NOT flag the introduction of new terms, institutions, decrees, or cultivation stages just because they are not yet in the Codex. The world is allowed to expand.
-- Do NOT flag contradictions that create suspense, danger, mystery, dramatic irony, hidden motives, taboo action, criminal behavior, or delayed revelation. These are valid storytelling tools.
+WORLD-BUILDING IS NOT DRIFT (CRITICAL — this is the #1 source of false positives):
+The Codex is a growing, INCOMPLETE record, especially in early chapters. Authors expand the world every chapter. NONE of the following are ever issues — do NOT put them in "warnings" OR "silentLogs":
+- New characters, factions, sects, locations, artifacts, techniques, titles, ranks, decrees, institutions, or cultivation stages that are simply not in the Codex yet. The world is allowed to expand.
+- New lore, history, backstory, prophecies, or descriptive detail added to existing entities.
+- A character showing a personality facet, skill, or feeling not previously recorded.
+- Atmospheric, sensory, or stylistic description.
+
+NARRATIVE TENSION IS NOT DRIFT (CRITICAL):
+Never flag any of these — they are valid storytelling tools, not contradictions:
+- A character committing a crime, heresy, taboo, or forbidden act, even if the Codex says it is illegal. Characters are allowed to break their world's rules.
+- Implied risk, secrecy, illegality, hidden motives, unclear consequences, delayed explanations, suspense, mystery, dramatic irony, or foreshadowing.
+- Soft inconsistencies: outfit/item mismatches, relationship nuance shifts, tone drift, missing callbacks, minor timing fuzziness, power-scaling that is roughly sequential.
 
 You must separate your findings into two categories:
-1. SEVERE ("warnings"): Literal physical impossibilities that break the scene.
-Common examples of SEVERE issues:
-- A character explicitly marked 'deceased', 'dead', or 'destroyed' in the codex is actively speaking or performing actions in the present (unless explicitly a flashback/ghost).
-- A character is physically in two places at once in the same scene without a cloning ability.
+1. SEVERE ("warnings"): ONLY a literal physical impossibility that breaks the reader's understanding of the scene. The ONLY things that qualify:
+   - A character EXPLICITLY marked 'deceased', 'dead', or 'destroyed' in the Codex is physically alive and actively speaking/acting in the present scene (NOT a flashback, memory, vision, ghost, resurrection, or dream).
+   - The same character is physically in two different places at the same instant in one continuous scene, with no cloning/avatar/teleport ability.
+   - A hard contradiction of a concrete, established physical fact that makes the scene literally impossible to follow (e.g., a location established as destroyed is standing intact and being walked through as if never destroyed, with no in-text explanation).
+   If it is not one of these, it does NOT go in "warnings".
 
-2. MINOR ("silentLogs"): EVERYTHING ELSE. Put it here if it's not a literal physical impossibility. Minor contradictions, soft inconsistencies, rule-breaking, crimes, trope drift, missing callbacks, relationship nuance changes, outfit/item mismatches, new terms, and lore expansions.
+2. MINOR ("silentLogs"): Optional. Genuinely useful editorial notes only. Leave empty if nothing meaningful. This is never shown to the reader.
 
 Return strictly a JSON object with this shape:
 {
   "warnings": [
-    "A clear, concise 1-sentence warning for SEVERE issues only (e.g. 'Elder Zhao is marked deceased but speaks in paragraph 4.')"
+    "A clear, concise 1-sentence warning for SEVERE physical impossibilities only (e.g. 'Elder Zhao is marked deceased but speaks and fights in the present scene in paragraph 4.')"
   ],
   "silentLogs": [
     "A clear, concise 1-sentence log for MINOR issues only"

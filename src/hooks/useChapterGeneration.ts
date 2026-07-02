@@ -22,6 +22,7 @@ export const useChapterGeneration = () => {
     const store_setGenerationPhase = useAppStore(state => state.setGenerationPhase);
     const store_setGeneratingChapterNum = useAppStore(state => state.setGeneratingChapterNum);
     const store_setStreamingChapter = useAppStore(state => state.setStreamingChapter);
+    const store_setGenerationProgressMessage = useAppStore(state => state.setGenerationProgressMessage);
 
   /**
    * Generates content and metadata for a specific chapter within the active story.
@@ -37,6 +38,9 @@ export const useChapterGeneration = () => {
     // Synchronously set generating state on the global store before any async operations
     currentStoreState.setIsGenerating(true);
     currentStoreState.setGeneratingChapterNum(chapterNumber);
+    // Always start each chapter behind the full veil so continuity is verified before the
+    // reader ever sees the chapter. (They can still minimize mid-generation to watch live.)
+    currentStoreState.setIsVeilMinimized?.(false);
 
     const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
     if (!activeStory) {
@@ -73,7 +77,8 @@ export const useChapterGeneration = () => {
       );
 
       store_setActiveAgentId('versa');
-      
+      store_setGenerationProgressMessage?.('VERSA is weaving the chapter into being...');
+
       const accumulatedRaw = await streamChapterBlocks(
         activeStory,
         targetChapter,
@@ -92,11 +97,20 @@ export const useChapterGeneration = () => {
 
       let { data, finalRawBlocksStr } = parseChapterStream(accumulatedRaw);
 
+      // Continuity runs BEHIND the veil, before the chapter is ever revealed to the reader.
+      // (Manifest -> Continuity check -> silent fixes -> Show clean chapter.)
       const continuityResult = await runContinuityPass(
         finalRawBlocksStr,
         activeStory,
         store_routingConfig.storyMaker,
-        apiHeaders
+        apiHeaders,
+        (phase) => {
+          store_setGenerationProgressMessage?.(
+            phase === 'repairing'
+              ? 'Reconciling the timeline — mending continuity threads...'
+              : 'Verifying continuity against the Codex...'
+          );
+        }
       );
 
       if (continuityResult.finalRawBlocksStr !== finalRawBlocksStr) {
@@ -151,6 +165,7 @@ export const useChapterGeneration = () => {
       store_setGeneratingChapterNum(null);
       store_setActiveAgentId(null);
       store_setStreamingChapter(null);
+      store_setGenerationProgressMessage?.('');
     }
   };
 

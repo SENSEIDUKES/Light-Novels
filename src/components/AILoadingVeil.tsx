@@ -22,8 +22,11 @@ export default function AILoadingVeil() {
   const activeAgentWithDefault = activeAgent || AGENTS.VERSA;
 
   // Determine if we should show the full-screen immersive veil or the minimized floating widget.
-  // By default, if blocks are already streaming, we don't show the full-screen veil.
-  const shouldShowFullScreen = isGenerating && !isVeilMinimized && !(generationPhase === 'chapter' && streamingChapter?.blocks?.length);
+  // The veil stays up for the ENTIRE chapter generation — streaming AND the continuity pass —
+  // so the reader never sees an unverified draft or a jarring re-show. The finished, continuity-
+  // checked chapter is revealed in a single clean reveal when generation completes.
+  // (The reader can still opt into watching live by manually minimizing the veil.)
+  const shouldShowFullScreen = isGenerating && !isVeilMinimized;
 
   return (
     <AnimatePresence>
@@ -117,8 +120,14 @@ export default function AILoadingVeil() {
             <div className="w-full max-w-sm bg-neutral-900/60 border border-neutral-800/80 rounded-lg p-4 flex items-center gap-3">
               <RefreshCw size={16} className="animate-spin text-portal" />
               <div className="text-left">
-                <p className="text-xs font-medium text-signal">Initiating Cosmic Channel...</p>
-                <p className="text-[10px] text-neutral-400">Whispering prompt vectors to the local node.</p>
+                <p className="text-xs font-medium text-signal">
+                  {streamingChapter?.blocks?.length
+                    ? `Woven ${streamingChapter.blocks.length} passages so far...`
+                    : "Initiating Cosmic Channel..."}
+                </p>
+                <p className="text-[10px] text-neutral-400">
+                  The chapter is revealed once its continuity is verified.
+                </p>
               </div>
             </div>
           )}

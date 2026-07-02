@@ -78,13 +78,30 @@ And the main meta: {"title": "Main Title", "summary": "Big summary of the chapte
   });
 
   describe('runMemoryLinter', () => {
-    it('warns if deceased character is mentioned in text', () => {
+    it('warns if a deceased character actively acts in the present', () => {
       const prevMemory = {
         characters: [{ name: 'Bob', status: 'deceased' }]
       } as any;
       const warnings = runMemoryLinter(prevMemory, {} as any, 'Bob walked into the room.');
       expect(warnings).toHaveLength(1);
-      expect(warnings[0]).toContain('Deceased character "Bob" was referenced');
+      expect(warnings[0]).toContain('Deceased character "Bob" appears to speak or act');
+    });
+
+    it('does NOT warn when a deceased character is merely mentioned (natural world-building)', () => {
+      const prevMemory = {
+        characters: [{ name: 'Bob', status: 'deceased' }]
+      } as any;
+      // Mourning / discussing / a technique named after them must not be flagged.
+      const warnings = runMemoryLinter(prevMemory, {} as any, 'They lit incense for Bob and spoke of how much they missed him.');
+      expect(warnings).toHaveLength(0);
+    });
+
+    it('does NOT warn when a deceased character acts within a flashback/vision', () => {
+      const prevMemory = {
+        characters: [{ name: 'Bob', status: 'deceased' }]
+      } as any;
+      const warnings = runMemoryLinter(prevMemory, {} as any, 'In a sudden memory, Bob walked into the room and smiled at her.');
+      expect(warnings).toHaveLength(0);
     });
 
     it('warns about similar character names', () => {
