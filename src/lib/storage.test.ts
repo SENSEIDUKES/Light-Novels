@@ -75,6 +75,58 @@ describe('PersistentStorageManager', () => {
     });
   });
 
+  describe('Cloud write coalescing & circuit breaker', () => {
+    const makeStory = (id: string): StoryWorld => ({
+      id, title: 'T', genre: 'Fantasy', mcName: 'MC', customPremise: 'P',
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      currentChapterNumber: 1,
+      memory: { powerSystem: '', characters: [], currentPowerStage: '', worldRules: [], unresolvedPlotThreads: [], resolvedPlotThreads: [] },
+      arcs: [],
+    });
+
+    it('coalesces a burst of saves for the same story into a single cloud write', async () => {
+      vi.useFakeTimers();
+      try {
+        const cloudAdapter = (manager as any).cloudAdapter;
+        cloudAdapter.saveStory = vi.fn().mockResolvedValue(undefined);
+        (manager as any).isCloudAvailable = true;
+
+        // Three rapid saves within the debounce window.
+        await manager.saveStory(makeStory('burst_story'));
+        await manager.saveStory(makeStory('burst_story'));
+        await manager.saveStory(makeStory('burst_story'));
+
+        // Nothing flushed immediately.
+        expect(cloudAdapter.saveStory).not.toHaveBeenCalled();
+
+        // After the debounce window, exactly one coalesced cloud write happens.
+        await vi.advanceTimersByTimeAsync((manager as any).FLUSH_DEBOUNCE_MS + 10);
+        expect(cloudAdapter.saveStory).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('stops writing to the cloud once the daily budget is exceeded', async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const cap = (manager as any).DAILY_WRITE_CAP;
+      localStorage.setItem('@seihouse/cloud-write-count', JSON.stringify({ date: today, count: cap }));
+
+      const cloudAdapter = (manager as any).cloudAdapter;
+      cloudAdapter.saveStory = vi.fn().mockResolvedValue(undefined);
+      (manager as any).isCloudAvailable = true;
+
+      await manager.saveStory(makeStory('over_budget'));
+      await (manager as any).flushSyncQueue();
+
+      // Circuit breaker blocked the write; counter did not increase past the cap.
+      expect(cloudAdapter.saveStory).not.toHaveBeenCalled();
+      expect(manager.getCloudWritesToday()).toBe(cap);
+      // Task remains queued so it can sync once the budget resets.
+      expect((manager as any).syncQueue.length).toBeGreaterThan(0);
+    });
+  });
+
   describe('Firestore sync conflicts', () => {
     it('should set an active conflict and skip sync when significant differences exist', async () => {
       const localAdapter = (manager as any).localAdapter;
