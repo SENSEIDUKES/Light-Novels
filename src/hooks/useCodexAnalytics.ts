@@ -199,8 +199,155 @@ export function useCodexAnalytics(
     return list;
   }, [selectedChartCharId, flatChapters, memory.characters, activeStory.relationships, mcName]);
 
-  const getPowerStageLevel = (stageName?: string) => {
-    return { score: 1, title: stageName || '' };
+  const getPowerStageLevel = (stageName?: string): { score: number, title: string } => {
+    if (!stageName) return { score: 10, title: 'Mortal' };
+    
+    // Clean up stage name for title - remove parenthetical notes like (Crippled Roots) or (Fragile Destiny Line)
+    let cleanTitle = stageName.replace(/\s*\(.*?\)\s*/g, ' ').trim();
+    if (!cleanTitle) cleanTitle = stageName.trim();
+    
+    const p = stageName.toLowerCase();
+    const hasWord = (word: string) => {
+      const escaped = word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      return new RegExp(`\\b${escaped}\\b`).test(p);
+    };
+    
+    // 1. Primordial/Sovereign/God/Ancestor/Immortal Emperor/Tier 10
+    if (
+      hasWord('primordial') || 
+      hasWord('sovereign') || 
+      hasWord('god') || 
+      hasWord('ancestor') || 
+      hasWord('immortal emperor') || 
+      hasWord('tier x') || 
+      hasWord('tier 10')
+    ) {
+      return { score: 100, title: cleanTitle };
+    }
+    
+    // 2. Nascent / Saint / SSS / Tribulation / Tier 9 / Tier 8
+    if (
+      hasWord('nascent') || 
+      hasWord('saint') || 
+      hasWord('sss') || 
+      hasWord('tribulation') || 
+      hasWord('tier ix') || 
+      hasWord('tier viii') || 
+      hasWord('tier 9') || 
+      hasWord('tier 8')
+    ) {
+      let score = 85;
+      if (hasWord('early') || hasWord('tier 8') || hasWord('tier viii')) score = 80;
+      if (hasWord('late') || hasWord('peak') || hasWord('tier 9') || hasWord('tier ix')) score = 89;
+      return { score, title: cleanTitle };
+    }
+    
+    // 3. Core Formation / Grandmaster / Rank A / Tier 7 / Tier 6
+    if (
+      hasWord('formation') || 
+      hasWord('grandmaster') || 
+      hasWord('rank a') || 
+      hasWord('tier vii') || 
+      hasWord('tier vi') || 
+      hasWord('tier 7') || 
+      hasWord('tier 6')
+    ) {
+      let score = 70;
+      if (hasWord('early') || hasWord('tier 6') || hasWord('tier vi')) score = 65;
+      if (hasWord('late') || hasWord('peak') || hasWord('tier 7') || hasWord('tier vii')) score = 74;
+      return { score, title: cleanTitle };
+    }
+    
+    // 4. Foundation / Establishment / Master / Tier 5 / Tier 4
+    if (
+      hasWord('foundation') || 
+      hasWord('establishment') || 
+      hasWord('master') || 
+      hasWord('tier v') || 
+      hasWord('tier iv') || 
+      hasWord('tier 5') || 
+      hasWord('tier 4')
+    ) {
+      let score = 55;
+      if (hasWord('early') || hasWord('tier 4') || hasWord('tier iv')) score = 50;
+      if (hasWord('late') || hasWord('peak') || hasWord('tier 5') || hasWord('tier v')) score = 59;
+      return { score, title: cleanTitle };
+    }
+    
+    // 5. Qi / Refining / Condensation / Disciple / Apprentice / Tier 3 / Tier 2
+    if (
+      hasWord('qi') || 
+      hasWord('refining') || 
+      hasWord('condensation') || 
+      hasWord('disciple') || 
+      hasWord('apprentice') || 
+      hasWord('initiate') || 
+      hasWord('tier iii') || 
+      hasWord('tier ii') || 
+      hasWord('tier 3') || 
+      hasWord('tier 2')
+    ) {
+      let score = 35;
+      if (hasWord('early') || hasWord('tier 1') || hasWord('tier i') || hasWord('class f')) score = 20;
+      else if (hasWord('mid') || hasWord('tier 2') || hasWord('tier ii') || hasWord('tier 4') || hasWord('tier 5') || hasWord('tier 6')) score = 32;
+      else if (hasWord('late') || hasWord('peak') || hasWord('tier 3') || hasWord('tier iii') || hasWord('tier 7') || hasWord('tier 8') || hasWord('tier 9') || hasWord('tier 10')) score = 45;
+      return { score, title: cleanTitle };
+    }
+    
+    // 6. Crippled / Mortal / Disabled / Seeker / Unranked / Blocked / Tier 1 / Tier I
+    if (
+      hasWord('crippled') || 
+      hasWord('mortal') || 
+      hasWord('disabled') || 
+      hasWord('seeker') || 
+      hasWord('unranked') || 
+      hasWord('blocked') || 
+      hasWord('tier i') || 
+      hasWord('tier 1')
+    ) {
+      let score = 12;
+      if (p.includes('resonance')) {
+        const match = p.match(/(\d+)%/);
+        if (match) {
+          const pct = parseInt(match[1]);
+          score = Math.min(100, Math.max(10, Math.round(10 + pct * 0.9)));
+        }
+      }
+      return { score, title: cleanTitle };
+    }
+
+    // 7. Resonance percentage
+    if (p.includes('resonance')) {
+      const match = p.match(/(\d+)%/);
+      if (match) {
+        const pct = parseInt(match[1]);
+        const score = Math.min(100, Math.max(10, Math.round(10 + pct * 0.9)));
+        return { score, title: cleanTitle };
+      }
+    }
+
+    // 8. Tier Roman Numerals
+    const romanMatch = p.match(/\btier\s+([ivx]+)\b/i);
+    if (romanMatch) {
+      const roman = romanMatch[1].toUpperCase();
+      const romanScores: Record<string, number> = {
+        'I': 15, 'II': 30, 'III': 45, 'IV': 60, 'V': 75,
+        'VI': 85, 'VII': 90, 'VIII': 95, 'IX': 98, 'X': 100
+      };
+      if (romanScores[roman] !== undefined) {
+        return { score: romanScores[roman], title: cleanTitle };
+      }
+    }
+    
+    // 9. Tier Numeric
+    const numMatch = p.match(/\btier\s+(\d+)\b/);
+    if (numMatch) {
+      const num = parseInt(numMatch[1]);
+      const score = Math.min(100, Math.max(10, num * 10));
+      return { score, title: cleanTitle };
+    }
+
+    return { score: 40, title: cleanTitle };
   };
 
   return {

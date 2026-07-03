@@ -12,10 +12,10 @@ interface CodexContextType {
   pushNotification: (msg: string) => void;
   getPowerRankScore: (powerStr: string | undefined) => { score: number; title: string };
   handleAwakenCardImage: (id: string, type: 'character' | 'location' | 'artifact' | 'beast', entity: any) => Promise<void>;
+  handleRevertImage: (id: string, type: 'character' | 'location' | 'artifact' | 'beast', newUrl: string) => void;
   previews: Record<string, any>;
   setPreviews: React.Dispatch<React.SetStateAction<Record<string, any>>>;
   generatingId: string | null;
-  renderImageHistoryGallery: (entityId: string, type: 'character' | 'location' | 'artifact' | 'beast', imageHistory: any[] | undefined) => React.ReactNode;
 }
 
 const CodexContext = createContext<CodexContextType | undefined>(undefined);

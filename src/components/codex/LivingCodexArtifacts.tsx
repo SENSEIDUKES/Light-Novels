@@ -3,6 +3,7 @@ import { Plus, Sword, RefreshCcw, Sparkles, Download, Lock, Compass } from 'luci
 import { Artifact, StoryWorld } from '../../types';
 import { useCodex } from './CodexContext';
 import { useAppStore } from '../../store/useAppStore';
+import { LivingCodexImageGallery } from './LivingCodexImageGallery';
 
 const handleDownload = async (url: string, filename: string) => {
   try {
@@ -43,7 +44,6 @@ export function LivingCodexArtifacts({
     onUpdateMemory,
     generatingId,
     previews,
-    renderImageHistoryGallery,
     handleAwakenCardImage
   } = useCodex();
 
@@ -194,7 +194,11 @@ export function LivingCodexArtifacts({
                 <div className="relative z-10">
                   <div className="relative group overflow-hidden rounded mb-3">
                     {/* Render relational artifact card portrait if available */}
-                    {renderImageHistoryGallery(art.id, 'artifact', activeStory.imageHistory?.filter(img => img.entityId === art.id))}
+                    <LivingCodexImageGallery 
+                      entityId={art.id} 
+                      type="artifact" 
+                      imageHistory={activeStory.imageHistory?.filter(img => img.entityId === art.id)} 
+                    />
                     {displayedImage ? (
                       <div className="h-32 w-full border border-neutral-900 relative">
                         <img src={displayedImage} alt={art.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
