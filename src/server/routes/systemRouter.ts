@@ -1,10 +1,4 @@
 import express from "express";
-import path from "path";
-import { createServer as createViteServer } from "vite";
-import dotenv from "dotenv";
-import { z } from "zod";
-import pinoHttp from "pino-http";
-import { logger } from "../logger";
 import {
   validateBody,
   embedSchema,
@@ -28,7 +22,6 @@ import {
 import { routeTextGeneration, routeImageGeneration, routeTextGenerationStream, ROUTER_PRESETS } from "../../aiRouter";
 import { ensureString, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChapterResponse, filterRelevantEntities, rankRelevantEntities, truncateContextIfNeeded } from "../helpers";
 import { PROMPTS } from "../prompts";
-import * as deepl from "deepl-node";
 export const systemRouter = express.Router();
 systemRouter.get("/__health", (req, res) => {
   res.json({

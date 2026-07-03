@@ -1,24 +1,12 @@
 import express from "express";
-
 import * as deepl from 'deepl-node';
+
 let translator: deepl.Translator | null = null;
 const DEEPL_AUTH_KEY = process.env.DEEPL_AUTH_KEY;
 if (DEEPL_AUTH_KEY) {
   translator = new deepl.Translator(DEEPL_AUTH_KEY);
 }
 
-import path from "path";
-
-
-
-
-
-
-import { createServer as createViteServer } from "vite";
-import dotenv from "dotenv";
-import { z } from "zod";
-import pinoHttp from "pino-http";
-import { logger } from "../logger";
 import {
   validateBody,
   embedSchema,
