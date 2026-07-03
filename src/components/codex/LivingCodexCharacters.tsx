@@ -9,6 +9,7 @@ import { AgentBadge } from '../AgentBadge';
 import { AGENTS } from '../../lib/agents';
 import { useCodex } from './CodexContext';
 import { useAppStore } from '../../store/useAppStore';
+import { LivingCodexImageGallery } from './LivingCodexImageGallery';
 
 const handleDownload = async (url: string, filename: string) => {
   try {
@@ -55,7 +56,6 @@ export function LivingCodexCharacters({
     onUpdateMemory, 
     generatingId, 
     previews, 
-    renderImageHistoryGallery, 
     handleAwakenCardImage,
     getPowerRankScore
   } = useCodex();
@@ -254,7 +254,11 @@ export function LivingCodexCharacters({
                         >
                           {/* Visual Stage illustration header */}
                           <div className="h-44 w-full bg-void relative flex items-center justify-center overflow-hidden border-b border-neutral-900 group">
-                            {renderImageHistoryGallery(char.id, char.isBeast ? 'beast' : 'character', activeStory.imageHistory?.filter(img => img.entityId === char.id))}
+                            <LivingCodexImageGallery 
+                              entityId={char.id} 
+                              type={char.isBeast ? 'beast' : 'character'} 
+                              imageHistory={activeStory.imageHistory?.filter(img => img.entityId === char.id)} 
+                            />
                             {displayedImage ? (
                               <>
                                 <img 
@@ -505,7 +509,11 @@ export function LivingCodexCharacters({
                           <div key={loc.id} className={`bg-neutral-950 border ${loc.evolutionReady && !activePreview ? 'border-portal/50 shadow-[0_0_15px_rgba(4,172,255,0.15)]' : 'border-neutral-900'} hover:border-neutral-800 rounded-lg overflow-hidden flex flex-col justify-between group transition-all duration-300`}>
                             {/* Location Scenery Header */}
                             <div className="h-36 w-full bg-void relative flex items-center justify-center overflow-hidden border-b border-neutral-900 group">
-                              {renderImageHistoryGallery(loc.id, 'location', activeStory.imageHistory?.filter(img => img.entityId === loc.id))}
+                              <LivingCodexImageGallery 
+                                entityId={loc.id} 
+                                type="location" 
+                                imageHistory={activeStory.imageHistory?.filter(img => img.entityId === loc.id)} 
+                              />
                               {displayedImage ? (
                                <>
                                   <img 

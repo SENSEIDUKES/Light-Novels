@@ -199,8 +199,151 @@ export function useCodexAnalytics(
     return list;
   }, [selectedChartCharId, flatChapters, memory.characters, activeStory.relationships, mcName]);
 
-  const getPowerStageLevel = (stageName?: string) => {
-    return { score: 1, title: stageName || '' };
+  const getPowerStageLevel = (stageName?: string): { score: number, title: string } => {
+    if (!stageName) return { score: 10, title: 'Mortal' };
+    
+    // Clean up stage name for title - remove parenthetical notes like (Crippled Roots) or (Fragile Destiny Line)
+    let cleanTitle = stageName.replace(/\s*\(.*?\)\s*/g, ' ').trim();
+    if (!cleanTitle) cleanTitle = stageName.trim();
+    
+    const p = stageName.toLowerCase();
+    
+    // 1. Primordial/Sovereign/God/Ancestor/Immortal Emperor/Tier 10
+    if (
+      p.includes('primordial') || 
+      p.includes('sovereign') || 
+      p.includes('god') || 
+      p.includes('ancestor') || 
+      p.includes('immortal emperor') || 
+      p.includes('tier x') || 
+      p.includes('tier 10')
+    ) {
+      return { score: 100, title: cleanTitle };
+    }
+    
+    // 2. Nascent / Saint / SSS / Tribulation / Tier 9 / Tier 8
+    if (
+      p.includes('nascent') || 
+      p.includes('saint') || 
+      p.includes('sss') || 
+      p.includes('tribulation') || 
+      p.includes('tier ix') || 
+      p.includes('tier viii') || 
+      p.includes('tier 9') || 
+      p.includes('tier 8')
+    ) {
+      let score = 85;
+      if (p.includes('early') || p.includes('tier 8') || p.includes('tier viii')) score = 80;
+      if (p.includes('late') || p.includes('peak') || p.includes('tier 9') || p.includes('tier ix')) score = 89;
+      return { score, title: cleanTitle };
+    }
+    
+    // 3. Core Formation / Grandmaster / Rank A / Tier 7 / Tier 6
+    if (
+      p.includes('formation') || 
+      p.includes('grandmaster') || 
+      p.includes('rank a') || 
+      p.includes('tier vii') || 
+      p.includes('tier vi') || 
+      p.includes('tier 7') || 
+      p.includes('tier 6')
+    ) {
+      let score = 70;
+      if (p.includes('early') || p.includes('tier 6') || p.includes('tier vi')) score = 65;
+      if (p.includes('late') || p.includes('peak') || p.includes('tier 7') || p.includes('tier vii')) score = 74;
+      return { score, title: cleanTitle };
+    }
+    
+    // 4. Foundation / Establishment / Master / Tier 5 / Tier 4
+    if (
+      p.includes('foundation') || 
+      p.includes('establishment') || 
+      p.includes('master') || 
+      p.includes('tier v') || 
+      p.includes('tier iv') || 
+      p.includes('tier 5') || 
+      p.includes('tier 4')
+    ) {
+      let score = 55;
+      if (p.includes('early') || p.includes('tier 4') || p.includes('tier iv')) score = 50;
+      if (p.includes('late') || p.includes('peak') || p.includes('tier 5') || p.includes('tier v')) score = 59;
+      return { score, title: cleanTitle };
+    }
+    
+    // 5. Qi / Refining / Condensation / Disciple / Apprentice / Tier 3 / Tier 2
+    if (
+      p.includes('qi') || 
+      p.includes('refining') || 
+      p.includes('condensation') || 
+      p.includes('disciple') || 
+      p.includes('apprentice') || 
+      p.includes('initiate') || 
+      p.includes('tier iii') || 
+      p.includes('tier ii') || 
+      p.includes('tier 3') || 
+      p.includes('tier 2')
+    ) {
+      let score = 35;
+      if (p.includes('early') || p.includes('tier 1') || p.includes('tier i') || p.includes('class f')) score = 20;
+      else if (p.includes('mid') || p.includes('tier 2') || p.includes('tier ii') || p.includes('tier 4') || p.includes('tier 5') || p.includes('tier 6')) score = 32;
+      else if (p.includes('late') || p.includes('peak') || p.includes('tier 3') || p.includes('tier iii') || p.includes('tier 7') || p.includes('tier 8') || p.includes('tier 9') || p.includes('tier 10')) score = 45;
+      return { score, title: cleanTitle };
+    }
+    
+    // 6. Crippled / Mortal / Disabled / Seeker / Unranked / Blocked / Tier 1 / Tier I
+    if (
+      p.includes('crippled') || 
+      p.includes('mortal') || 
+      p.includes('disabled') || 
+      p.includes('seeker') || 
+      p.includes('unranked') || 
+      p.includes('blocked') || 
+      p.includes('tier i') || 
+      p.includes('tier 1')
+    ) {
+      let score = 12;
+      if (p.includes('resonance')) {
+        const match = p.match(/(\d+)%/);
+        if (match) {
+          const pct = parseInt(match[1]);
+          score = Math.min(100, Math.max(10, Math.round(10 + pct * 0.9)));
+        }
+      }
+      return { score, title: cleanTitle };
+    }
+
+    // 7. Resonance percentage
+    if (p.includes('resonance')) {
+      const match = p.match(/(\d+)%/);
+      if (match) {
+        const pct = parseInt(match[1]);
+        const score = Math.min(100, Math.max(10, Math.round(10 + pct * 0.9)));
+        return { score, title: cleanTitle };
+      }
+    }
+
+    // 8. Tier Roman Numerals
+    const romanMatch = p.match(/tier\s+([ivx]+)/i);
+    if (romanMatch) {
+      const roman = romanMatch[1].toUpperCase();
+      const romanScores: Record<string, number> = {
+        'I': 15, 'II': 30, 'III': 45, 'IV': 60, 'V': 75,
+        'VI': 85, 'VII': 90, 'VIII': 95, 'IX': 98, 'X': 100
+      };
+      if (romanScores[roman] !== undefined) {
+        return { score: romanScores[roman], title: cleanTitle };
+      }
+    }
+    
+    // 9. Tier Numeric
+    const numMatch = p.match(/tier\s+(\d+)/);
+    if (numMatch) {
+      const num = parseInt(numMatch[1]);
+      const score = Math.min(100, Math.max(10, num * 10));
+      return { score, title: cleanTitle };
+    }
+
+    return { score: 40, title: cleanTitle };
   };
 
   return {

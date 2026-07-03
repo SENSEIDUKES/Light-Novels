@@ -119,23 +119,7 @@ export default function LivingCodex({
     handleDeleteFateNode
   } = useCodexDeletions(memory, onUpdateMemory, activeStory, onUpdateStory);
 
-  const renderImageHistoryGallery = (entityId: string, type: 'character' | 'location' | 'artifact' | 'beast', imageHistory: any[] | undefined) => {
-    if (!imageHistory || imageHistory.length <= 1) return null;
-    return (
-      <div className="flex space-x-1 overflow-x-auto p-1.5 bg-neutral-950/80 custom-scrollbar border-b border-neutral-900 absolute top-0 w-full z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-        {imageHistory.map((img) => (
-          <div 
-            key={img.id} 
-            className="relative flex-shrink-0 w-8 h-8 rounded-sm overflow-hidden border border-neutral-800 cursor-pointer hover:border-portal transition-colors shadow-lg" 
-            onClick={() => handleRevertImage(entityId, type, img.imageUrl)}
-            title={`Generated at Chapter ${img.chapterNumber || 'Unknown'}\nPrompt: ${img.promptUsed}`} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRevertImage(entityId, type, img.imageUrl); } }}
-          >
-            <img src={img.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
-          </div>
-        ))}
-      </div>
-    );
-  };
+
 
   const activePreviewId = Object.keys(previews)[0];
   const activePreview = activePreviewId ? previews[activePreviewId] : null;
@@ -170,10 +154,10 @@ export default function LivingCodex({
     pushNotification,
     getPowerRankScore,
     handleAwakenCardImage,
+    handleRevertImage,
     previews,
     setPreviews,
-    generatingId,
-    renderImageHistoryGallery }}>
+    generatingId }}>
       <div className="bg-black border border-neutral-900 rounded-lg p-4 sm:p-6 shadow-2xl flex flex-col md:flex-row gap-6 relative min-h-[690px] overflow-hidden" id="living-codex-container">
       <DestinyChoicePanel 
         isOpen={!!activePreview}
