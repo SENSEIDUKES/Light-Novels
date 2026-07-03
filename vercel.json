@@ -1,6 +1,6 @@
 {
   "framework": "vite",
-  "buildCommand": "vite build",
+  "buildCommand": "vite build && esbuild server-bundle/entry.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=server-bundle/index.js",
   "outputDirectory": "dist",
   "rewrites": [
     {
