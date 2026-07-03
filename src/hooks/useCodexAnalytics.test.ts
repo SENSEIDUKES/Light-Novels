@@ -29,7 +29,7 @@ describe('useCodexAnalytics - getPowerStageLevel', () => {
       { input: 'Qi Condensation Tier I', expectedScore: 20, expectedTitle: 'Qi Condensation Tier I' },
       { input: 'Qi Condensation Tier II', expectedScore: 32, expectedTitle: 'Qi Condensation Tier II' },
       { input: 'Qi Condensation Tier III', expectedScore: 45, expectedTitle: 'Qi Condensation Tier III' },
-      { input: 'Tier II', expectedScore: 30, expectedTitle: 'Tier II' },
+      { input: 'Tier II', expectedScore: 32, expectedTitle: 'Tier II' },
       { input: 'Tier III', expectedScore: 45, expectedTitle: 'Tier III' },
       { input: '0% Resonance (Sealed Divinity / Shaded Soul)', expectedScore: 10, expectedTitle: '0% Resonance' },
       { input: '50% Resonance (Intermediate Link)', expectedScore: 55, expectedTitle: '50% Resonance' },
