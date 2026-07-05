@@ -12,30 +12,8 @@ import { LivingCodexImageGallery } from './LivingCodexImageGallery';
 import { useCodexVoiceCards } from '../../hooks/useCodexVoiceCards';
 import { useCodexLocations } from '../../hooks/useCodexLocations';
 import { useCodexCharacterEditing } from '../../hooks/useCodexCharacterEditing';
+import { handleDownload } from '../../utils/downloadUtils';
 
-const handleDownload = async (url: string, filename: string) => {
-  try {
-    const response = await fetch(url, { mode: 'cors' });
-    if (!response.ok) throw new Error('CORS or Network error');
-    const blob = await response.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = blobUrl;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(blobUrl);
-  } catch (e) {
-    const link = document.createElement('a');
-    link.href = url;
-    link.target = '_blank';
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
-};
 
 interface LivingCodexCharactersProps {
   charsToRender: Character[];
@@ -336,34 +314,34 @@ export function LivingCodexCharacters({
                       <h4 className="font-sc font-extrabold text-xs text-human tracking-wider uppercase">Chart Unexplored domain node</h4>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-${labelCounter}">Domain Name</label>
+                          <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-fx4uxyo">Domain Name</label>
                           <input 
                             type="text"
                             value={newLocation.name}
                             onChange={(e) => setNewLocation({ ...newLocation, name: e.target.value })}
                             placeholder="e.g. Primordial Fog Valley"
                             className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs"
-                            required id="a11y-control-${labelCounter}"
+                            required id="a11y-control-fx4uxyo"
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-${labelCounter}">Broader Realm</label>
+                          <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-1sbu7vi">Broader Realm</label>
                           <input 
                             type="text"
                             value={newLocation.realm}
                             onChange={(e) => setNewLocation({ ...newLocation, realm: e.target.value })}
                             placeholder="e.g. Heavenly Realm"
-                            className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs" id="a11y-control-${labelCounter}"
+                            className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs" id="a11y-control-1sbu7vi"
                           />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-${labelCounter}">Safety Index</label>
+                          <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-b5lg9hw">Safety Index</label>
                           <select
                             value={newLocation.safetyLevel}
                             onChange={(e) => setNewLocation({ ...newLocation, safetyLevel: e.target.value })}
-                            className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs" id="a11y-control-${labelCounter}"
+                            className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs" id="a11y-control-b5lg9hw"
                           >
                             <option value="Safe">Safe Haven (Protected)</option>
                             <option value="Dangerous">Dangerous (Demons)</option>
@@ -371,13 +349,13 @@ export function LivingCodexCharacters({
                           </select>
                         </div>
                         <div>
-                          <label className="text-[10px] text-neutral-400 block mb-1 font-sc" htmlFor="a11y-control-${labelCounter}">Description Atmosphere</label>
+                          <label className="text-[10px] text-neutral-400 block mb-1 font-sc" htmlFor="a11y-control-s3gbkn3">Description Atmosphere</label>
                           <input 
                             type="text"
                             value={newLocation.description}
                             onChange={(e) => setNewLocation({ ...newLocation, description: e.target.value })}
                             placeholder="e.g. Floating islands dripping celestial water..."
-                            className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs" id="a11y-control-${labelCounter}"
+                            className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs" id="a11y-control-s3gbkn3"
                           />
                         </div>
                       </div>
@@ -584,37 +562,37 @@ export function LivingCodexCharacters({
                           <div className="space-y-2">
                             <h5 className="font-sc font-bold uppercase text-portal">Refine {char.name}'s Soul Aura</h5>
                             <div>
-                              <label className="text-[9px] text-neutral-500 uppercase block mb-0.5" htmlFor="a11y-control-${labelCounter}">Cultivation Realm</label>
+                              <label className="text-[9px] text-neutral-500 uppercase block mb-0.5" htmlFor="a11y-control-sq4dgia">Cultivation Realm</label>
                               <input 
                                 type="text"
                                 value={editingCharData.powerLevel}
                                 onChange={(e) => setEditingCharData({ ...editingCharData, powerLevel: e.target.value })}
-                                className="bg-neutral-900 border border-neutral-850 p-1 w-full text-xs text-signal" id="a11y-control-${labelCounter}"
+                                className="bg-neutral-900 border border-neutral-850 p-1 w-full text-xs text-signal" id="a11y-control-sq4dgia"
                               />
                             </div>
                             <div>
-                              <label className="text-[9px] text-neutral-500 uppercase block mb-0.5" htmlFor="a11y-control-${labelCounter}">Sect Affiliation</label>
+                              <label className="text-[9px] text-neutral-500 uppercase block mb-0.5" htmlFor="a11y-control-9xtd382">Sect Affiliation</label>
                               <input 
                                 type="text"
                                 value={editingCharData.faction}
                                 onChange={(e) => setEditingCharData({ ...editingCharData, faction: e.target.value })}
-                                className="bg-neutral-900 border border-neutral-850 p-1 w-full text-xs text-signal" id="a11y-control-${labelCounter}"
+                                className="bg-neutral-900 border border-neutral-850 p-1 w-full text-xs text-signal" id="a11y-control-9xtd382"
                               />
                             </div>
                             <div>
-                              <label className="text-[9px] text-neutral-500 uppercase block mb-0.5" htmlFor="a11y-control-${labelCounter}">Signature Quote</label>
+                              <label className="text-[9px] text-neutral-500 uppercase block mb-0.5" htmlFor="a11y-control-j2vj8if">Signature Quote</label>
                               <textarea
                                 value={editingCharData.signatureQuote}
                                 onChange={(e) => setEditingCharData({ ...editingCharData, signatureQuote: e.target.value })}
-                                className="bg-neutral-900 border border-neutral-850 p-1 w-full text-xs text-signal min-h-[40px] resize-none" id="a11y-control-${labelCounter}"
+                                className="bg-neutral-900 border border-neutral-850 p-1 w-full text-xs text-signal min-h-[40px] resize-none" id="a11y-control-j2vj8if"
                               />
                             </div>
                             <div>
-                              <label className="text-[9px] text-neutral-500 uppercase block mb-0.5" htmlFor="a11y-control-${labelCounter}">Current Status</label>
+                              <label className="text-[9px] text-neutral-500 uppercase block mb-0.5" htmlFor="a11y-control-74tm719">Current Status</label>
                               <select 
                                 value={editingCharData.status}
                                 onChange={(e) => setEditingCharData({ ...editingCharData, status: e.target.value as Character['status'] })}
-                                className="bg-neutral-900 border border-neutral-850 p-1 w-full text-xs text-signal" id="a11y-control-${labelCounter}"
+                                className="bg-neutral-900 border border-neutral-850 p-1 w-full text-xs text-signal" id="a11y-control-74tm719"
                               >
                                 <option value="alive">Alive</option>
                                 <option value="deceased">Deceased</option>

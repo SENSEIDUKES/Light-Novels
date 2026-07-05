@@ -62,23 +62,23 @@ ${blueprint.firstArcPromise || ''}
 
         <div className="max-w-xl mx-auto space-y-3">
           <div>
-            <label className="block text-[10px] font-sc text-portal tracking-widest uppercase mb-1" htmlFor="a11y-control-${labelCounter}">World Seed Title</label>
+            <label className="block text-[10px] font-sc text-portal tracking-widest uppercase mb-1" htmlFor="a11y-control-8rojy1b">World Seed Title</label>
             <input
               type="text"
               value={blueprint.title}
               onChange={(e) => setBlueprint({ ...blueprint, title: e.target.value })}
               className="w-full text-center bg-void border border-neutral-900 focus:border-portal text-signal font-display font-bold text-2xl sm:text-3xl rounded-md px-4 py-2 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all"
-              placeholder="Give your world a name" id="a11y-control-${labelCounter}"
+              placeholder="Give your world a name" id="a11y-control-8rojy1b"
             />
           </div>
           <div>
-            <label className="block text-[10px] font-sc text-portal tracking-widest uppercase mb-1" htmlFor="a11y-control-${labelCounter}">Cosmic Logline</label>
+            <label className="block text-[10px] font-sc text-portal tracking-widest uppercase mb-1" htmlFor="a11y-control-46y56as">Cosmic Logline</label>
             <textarea
               value={blueprint.logline}
               onChange={(e) => setBlueprint({ ...blueprint, logline: e.target.value })}
               rows={2}
               className="w-full text-center bg-void border border-neutral-900 focus:border-portal text-neutral-400 font-sans font-light text-xs sm:text-sm rounded-md px-4 py-1.5 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all resize-none"
-              placeholder="Describe the high-concept premise" id="a11y-control-${labelCounter}"
+              placeholder="Describe the high-concept premise" id="a11y-control-46y56as"
             />
           </div>
         </div>

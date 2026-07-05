@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Camera, Eye, MapPin, Sparkles, BookOpen, Clock, Calendar, ArrowRight, User, Download, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { StoryWorld, StoryMemory, Chapter, GeneratedImage } from '../../types';
+import { handleDownload as utilHandleDownload } from '../../utils/downloadUtils';
 
 interface LivingCodexCollageProps {
   activeStory: StoryWorld;
@@ -59,7 +60,6 @@ export function LivingCodexCollage({
   const [filter, setFilter] = useState<'all' | 'scenes' | 'entities'>('all');
   const [selectedMemory, setSelectedMemory] = useState<VisualMemory | null>(null);
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
-
   const handleDownload = async (mem: VisualMemory, e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
@@ -71,20 +71,8 @@ export function LivingCodexCollage({
     });
 
     try {
-      const response = await fetch(mem.url);
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
       const cleanName = mem.title.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-      link.download = `${cleanName}_portrait.jpg`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-    } catch (error) {
-      console.warn("Direct blob download failed, falling back to safe open in new window:", error);
-      window.open(mem.url, '_blank');
+      await utilHandleDownload(mem.url, `${cleanName}_portrait.jpg`);
     } finally {
       setDownloadingIds(prev => {
         const next = new Set(prev);
@@ -94,6 +82,7 @@ export function LivingCodexCollage({
     }
   };
 
+  
   // Parse and assemble all scene/chapter memories and entity portraits
   const memories = useMemo(() => {
     const items: VisualMemory[] = [];

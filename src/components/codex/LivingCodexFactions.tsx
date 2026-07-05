@@ -62,22 +62,22 @@ export function LivingCodexFactions({
           <h4 className="font-sc font-extrabold text-xs text-human tracking-wider uppercase">Inscribe Celestial Sect / Power</h4>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-${labelCounter}">Sect Name</label>
+              <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-qmkssbq">Sect Name</label>
               <input 
                 type="text"
                 value={newFaction.name}
                 onChange={(e) => setNewFaction({ ...newFaction, name: e.target.value })}
                 placeholder="e.g. Heavenly Peak Sect"
                 className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs"
-                required id="a11y-control-${labelCounter}"
+                required id="a11y-control-qmkssbq"
               />
             </div>
             <div>
-              <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-${labelCounter}">Alignment Creed</label>
+              <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-n2yc9gz">Alignment Creed</label>
               <select
                 value={newFaction.alignment}
                 onChange={(e) => setNewFaction({ ...newFaction, alignment: e.target.value })}
-                className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs" id="a11y-control-${labelCounter}"
+                className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs" id="a11y-control-n2yc9gz"
               >
                 <option value="Righteous">Righteous (Orthodox)</option>
                 <option value="Demonic">Demonic (Unorthodox)</option>
@@ -88,21 +88,21 @@ export function LivingCodexFactions({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-${labelCounter}">Headquarters</label>
+              <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-2aym9vq">Headquarters</label>
               <input 
                 type="text"
                 value={newFaction.headquarters}
                 onChange={(e) => setNewFaction({ ...newFaction, headquarters: e.target.value })}
                 placeholder="e.g. Cloudrest Peak"
-                className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs" id="a11y-control-${labelCounter}"
+                className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs" id="a11y-control-2aym9vq"
               />
             </div>
             <div>
-              <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-${labelCounter}">Status Status</label>
+              <label className="text-[10px] text-neutral-400 block mb-1" htmlFor="a11y-control-r10cd76">Status Status</label>
               <select
                 value={newFaction.status}
                 onChange={(e) => setNewFaction({ ...newFaction, status: e.target.value })}
-                className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs" id="a11y-control-${labelCounter}"
+                className="bg-neutral-900 border border-neutral-800 text-signal p-2 rounded w-full text-xs" id="a11y-control-r10cd76"
               >
                 <option value="Active">Active & Prosperous</option>
                 <option value="Fractured">Fractured Internal Rebellion</option>
@@ -111,13 +111,13 @@ export function LivingCodexFactions({
             </div>
           </div>
           <div>
-            <label className="text-[10px] text-neutral-400 block mb-1 font-sc" htmlFor="a11y-control-${labelCounter}">Sect History & Grand Creed</label>
+            <label className="text-[10px] text-neutral-400 block mb-1 font-sc" htmlFor="a11y-control-32z4rrc">Sect History & Grand Creed</label>
             <textarea 
               value={newFaction.description}
               onChange={(e) => setNewFaction({ ...newFaction, description: e.target.value })}
               placeholder="e.g. Masters of the Nine Heavenly Sword Arrays..."
               rows={2}
-              className="bg-neutral-950 border border-neutral-800 text-signal p-2 rounded w-full text-xs" id="a11y-control-${labelCounter}"
+              className="bg-neutral-950 border border-neutral-800 text-signal p-2 rounded w-full text-xs" id="a11y-control-32z4rrc"
             />
           </div>
           <div className="flex justify-end space-x-2 pt-1 font-mono">
