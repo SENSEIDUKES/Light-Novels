@@ -12,6 +12,77 @@ interface LivingCodexTimelineProps {
   onJumpToChapter?: (chapterNumber: number) => void;
 }
 
+interface TimelineItemProps {
+  item: LivingCodexTimelineProps['flatChapters'][number];
+  onJumpToChapter?: (chapterNumber: number) => void;
+}
+
+function TimelineItem({ item, onJumpToChapter }: TimelineItemProps) {
+  const ch = item.chapter;
+  const summary = ch.summary || "Chapter compiled successfully. View full text inside workspace script chambers.";
+  const readButtonLabel = `Read Scene Text for Chapter ${ch.number}: ${ch.title}`;
+
+  return (
+    <div className="relative pb-2">
+      {/* Arc Title Node */}
+      {item.isFirstInArc && (
+        <div className="relative flex items-center mb-3 mt-4 select-none">
+          <span className="absolute -left-[14px] w-3 h-3 bg-human border-2 border-black rounded-full shadow-red animate-pulse"></span>
+          <h4 className="font-sc text-[10px] sm:text-xs text-human uppercase tracking-widest font-extrabold ml-1.5 leading-normal">
+            {item.arcTitle}
+          </h4>
+        </div>
+      )}
+
+      {/* Chapter Item */}
+      <div className="relative pl-4 space-y-1.5 p-3.5 bg-neutral-950 border border-neutral-900 rounded-lg hover:border-neutral-800 transition-all">
+        {/* Inner chapter dot */}
+        <span className="absolute -left-[13px] top-6.5 w-2.5 h-2.5 bg-portal rounded-full border-2 border-black shadow"></span>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-900 pb-2">
+          <span className="font-sans font-bold text-xs text-signal">
+            Chapter {ch.number}: "{ch.title}"
+          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            {ch.statsChangeMessage && ch.statsChangeMessage !== 'None' && (
+              <span className="text-[8.5px] px-1.5 py-0.25 bg-amber-950/25 border border-amber-950 font-mono text-yellow-500 rounded">
+                {ch.statsChangeMessage}
+              </span>
+            )}
+            {onJumpToChapter && (
+              <button
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
+                onClick={() => onJumpToChapter(ch.number)}
+                aria-label={readButtonLabel}
+                className="px-2 py-0.5 bg-portal/10 text-portal rounded text-[8px] uppercase tracking-wider font-mono hover:bg-portal hover:text-void transition-all whitespace-nowrap"
+              >
+                Read Scene Text
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="font-serif italic leading-relaxed text-[11px] text-neutral-300 line-clamp-3 overflow-hidden" title={summary}>
+          {summary}
+        </div>
+
+        {/* Dynamic detailed highlights reconstructed from chapter contents */}
+        <div className="pt-2 grid grid-cols-2 gap-3 text-[9.5px]">
+          <div className="p-1 px-2.5 bg-void border border-neutral-900 rounded">
+            <span className="text-neutral-500 block font-mono font-bold">Resonance Breakthrough:</span>
+            <span className="text-neutral-300 italic line-clamp-2 overflow-hidden">{ch.statsChangeMessage || 'Internal cultivation locked.'}</span>
+          </div>
+          <div className="p-1 px-2.5 bg-void border border-neutral-900 rounded">
+            <span className="text-neutral-500 block font-mono font-bold">Operational Catalyst:</span>
+            <span className="text-neutral-300 line-clamp-2 overflow-hidden" title={ch.premise}>{ch.premise}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function LivingCodexTimeline({ flatChapters, onJumpToChapter }: LivingCodexTimelineProps) {
   return (
     <div className="space-y-6 animate-fadeIn" id="codex-timeline">
@@ -25,7 +96,7 @@ export function LivingCodexTimeline({ flatChapters, onJumpToChapter }: LivingCod
       <div className="pl-4">
         <VirtualizedList
           items={flatChapters}
-          itemHeight={220} // Estimated average item height including margins and headings
+          itemHeight={220} // Fixed row height; long text is line-clamped inside each card to preserve virtualization math.
           containerHeight={525}
           timelineLine={true}
           className="pr-2"
@@ -34,65 +105,9 @@ export function LivingCodexTimeline({ flatChapters, onJumpToChapter }: LivingCod
               Chronology empty. Generate and read your very first chapter to construct the causal timeline!
             </div>
           }
-          renderItem={(item, index) => {
-            const ch = item.chapter;
-            return (
-              <div key={ch.number} className="relative pb-2">
-                {/* Arc Title Node */}
-                {item.isFirstInArc && (
-                  <div className="relative flex items-center mb-3 mt-4 select-none">
-                    <span className="absolute -left-[14px] w-3 h-3 bg-human border-2 border-black rounded-full shadow-red animate-pulse"></span>
-                    <h4 className="font-sc text-[10px] sm:text-xs text-human uppercase tracking-widest font-extrabold ml-1.5 leading-normal">
-                      {item.arcTitle}
-                    </h4>
-                  </div>
-                )}
-
-                {/* Chapter Item */}
-                <div className="relative pl-4 space-y-1.5 p-3.5 bg-neutral-950 border border-neutral-900 rounded-lg hover:border-neutral-800 transition-all">
-                  {/* Inner chapter dot */}
-                  <span className="absolute -left-[13px] top-6.5 w-2.5 h-2.5 bg-portal rounded-full border-2 border-black shadow"></span>
-                  
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-900 pb-2">
-                    <span className="font-sans font-bold text-xs text-signal">
-                      Chapter {ch.number}: "{ch.title}"
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {ch.statsChangeMessage && ch.statsChangeMessage !== 'None' && (
-                        <span className="text-[8.5px] px-1.5 py-0.25 bg-amber-950/25 border border-amber-950 font-mono text-yellow-500 rounded">
-                          {ch.statsChangeMessage}
-                        </span>
-                      )}
-                      {onJumpToChapter && (
-                        <button
-                           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => onJumpToChapter(ch.number)}
-                          className="px-2 py-0.5 bg-portal/10 text-portal rounded text-[8px] uppercase tracking-wider font-mono hover:bg-portal hover:text-void transition-all"
-                        >
-                          Read Scene Text
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="font-serif italic leading-relaxed text-[11px] text-neutral-300">
-                    {ch.summary || "Chapter compiled successfully. View full text inside workspace script chambers."}
-                  </div>
-
-                  {/* Dynamic detailed highlights reconstructed from chapter contents */}
-                  <div className="pt-2 grid grid-cols-2 gap-3 text-[9.5px]">
-                    <div className="p-1 px-2.5 bg-void border border-neutral-900 rounded">
-                      <span className="text-neutral-500 block font-mono font-bold">Resonance Breakthrough:</span>
-                      <span className="text-neutral-300 italic">{ch.statsChangeMessage || 'Internal cultivation locked.'}</span>
-                    </div>
-                    <div className="p-1 px-2.5 bg-void border border-neutral-900 rounded">
-                      <span className="text-neutral-500 block font-mono font-bold">Operational Catalyst:</span>
-                      <span className="text-neutral-300 truncate block">{ch.premise}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          }}
+          renderItem={(item) => (
+            <TimelineItem key={item.chapter.number} item={item} onJumpToChapter={onJumpToChapter} />
+          )}
         />
       </div>
     </div>
