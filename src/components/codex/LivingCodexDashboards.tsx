@@ -26,10 +26,13 @@ export function LivingCodexDashboards({
   const [hoveredAffPoint, setHoveredAffPoint] = useState<any | null>(null);
   const [hoveredPowerPoint, setHoveredPowerPoint] = useState<any | null>(null);
 
-  // Clear local hover details whenever the parent-controlled character selection changes.
+  // Clear local hover details and ensure selectedChartCharId is valid whenever charsToRender or selectedChartCharId changes.
   React.useEffect(() => {
     setHoveredAffPoint(null);
-  }, [selectedChartCharId]);
+    if (charsToRender.length > 0 && !charsToRender.find(c => c.id === selectedChartCharId)) {
+      setSelectedChartCharId(charsToRender[0].id);
+    }
+  }, [charsToRender, selectedChartCharId, setSelectedChartCharId]);
 
   return (
     <div className="space-y-6 animate-fadeIn text-neutral-225" id="codex-progression-dashboards">

@@ -59,6 +59,23 @@ function ControlledDashboards() {
   );
 }
 
+function DashboardsWithInvalidInitialSelection() {
+  const [selectedChartCharId, setSelectedChartCharId] = React.useState('archived-char');
+
+  return (
+    <LivingCodexDashboards
+      memory={mockMemory}
+      activeStory={mockStory}
+      flatChapters={[{ chapterNumber: 1 }, { chapterNumber: 2 }, { chapterNumber: 3 }, { chapterNumber: 4 }]}
+      charsToRender={characters}
+      affinityTimelineOfChar={timelinesByCharacter[selectedChartCharId] || timelinesByCharacter['char-1']}
+      powerTimeline={[]}
+      selectedChartCharId={selectedChartCharId}
+      setSelectedChartCharId={setSelectedChartCharId}
+    />
+  );
+}
+
 describe('LivingCodexDashboards', () => {
   it('renders without crashing', () => {
     const { container } = render(
@@ -89,4 +106,13 @@ describe('LivingCodexDashboards', () => {
     expect(screen.getByText('Affinity: -72')).toBeTruthy();
     expect(screen.getByText('The Raven Lord swears revenge.')).toBeTruthy();
   });
+
+  it('falls back to the first renderable character when the selected character is unavailable', () => {
+    render(<DashboardsWithInvalidInitialSelection />);
+
+    expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('char-1');
+    expect(screen.getByText('Chapter 3: Jade Rescue')).toBeTruthy();
+    expect(screen.getByText('Affinity: +48')).toBeTruthy();
+  });
+
 });
