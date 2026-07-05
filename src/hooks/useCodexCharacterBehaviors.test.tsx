@@ -48,6 +48,40 @@ describe('codex character behavior hooks', () => {
     expect(consoleError).toHaveBeenCalled();
   });
 
+
+  it('clears old audio handlers before pausing when switching voice playback', () => {
+    const createdAudio: Array<HTMLAudioElement & { pause: ReturnType<typeof vi.fn>; play: ReturnType<typeof vi.fn> }> = [];
+    class MockAudio {
+      onplay: (() => void) | null = null;
+      onended: (() => void) | null = null;
+      onpause: (() => void) | null = null;
+      pause = vi.fn();
+      play = vi.fn().mockResolvedValue(undefined);
+
+      constructor(public src: string) {
+        createdAudio.push(this as unknown as HTMLAudioElement & { pause: ReturnType<typeof vi.fn>; play: ReturnType<typeof vi.fn> });
+      }
+    }
+    vi.stubGlobal('Audio', MockAudio);
+    const { result } = renderHook(() => useCodexVoiceCards({ memory: makeMemory(), onUpdateMemory: vi.fn() }));
+
+    act(() => {
+      result.current.handlePlayVoice('first.mp3', 'char-1');
+    });
+    const firstAudio = createdAudio[0];
+    expect(firstAudio.onpause).toEqual(expect.any(Function));
+
+    act(() => {
+      result.current.handlePlayVoice('second.mp3', 'char-2');
+    });
+
+    expect(firstAudio.onplay).toBeNull();
+    expect(firstAudio.onended).toBeNull();
+    expect(firstAudio.onpause).toBeNull();
+    expect(firstAudio.pause).toHaveBeenCalled();
+    expect(createdAudio[1].src).toBe('second.mp3');
+  });
+
   it('saves edited character fields back into memory', () => {
     const onUpdateMemory = vi.fn();
     const { result } = renderHook(() => useCodexCharacterEditing({ memory: makeMemory(), onUpdateMemory }));

@@ -7,6 +7,12 @@ interface UseCodexVoiceCardsOptions {
   onUpdateMemory: (memory: StoryMemory) => void;
 }
 
+const clearAudioHandlers = (audio: HTMLAudioElement) => {
+  audio.onplay = null;
+  audio.onended = null;
+  audio.onpause = null;
+};
+
 export function useCodexVoiceCards({ memory, onUpdateMemory }: UseCodexVoiceCardsOptions) {
   const [generatingVoiceId, setGeneratingVoiceId] = useState<string | null>(null);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
@@ -15,6 +21,7 @@ export function useCodexVoiceCards({ memory, onUpdateMemory }: UseCodexVoiceCard
   React.useEffect(() => {
     return () => {
       if (audioRef.current) {
+        clearAudioHandlers(audioRef.current);
         audioRef.current.pause();
       }
     };
@@ -22,6 +29,7 @@ export function useCodexVoiceCards({ memory, onUpdateMemory }: UseCodexVoiceCard
 
   const handlePlayVoice = (url: string, charId: string) => {
     if (audioRef.current) {
+      clearAudioHandlers(audioRef.current);
       audioRef.current.pause();
     }
     const audio = new Audio(url);
@@ -36,6 +44,7 @@ export function useCodexVoiceCards({ memory, onUpdateMemory }: UseCodexVoiceCard
 
   const handleStopVoice = () => {
     if (audioRef.current) {
+      clearAudioHandlers(audioRef.current);
       audioRef.current.pause();
       setPlayingVoiceId(null);
     }

@@ -14,12 +14,13 @@ export function useCodexLocations({ memory, onUpdateMemory }: UseCodexLocationsO
 
   const handleAddLocation = (e?: FormEvent) => {
     if (e) e.preventDefault();
-    if (!newLocation.name?.trim()) return;
+    const trimmedName = newLocation.name?.trim();
+    if (!trimmedName) return;
 
     const currentLocations = memory.locations || [];
     const locationObj: Location = {
       id: `loc-${Date.now()}`,
-      name: newLocation.name.trim(),
+      name: trimmedName,
       description: newLocation.description?.trim() || '',
       realm: newLocation.realm?.trim() || undefined,
       safetyLevel: newLocation.safetyLevel || 'Safe',

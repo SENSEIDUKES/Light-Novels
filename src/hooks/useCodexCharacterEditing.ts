@@ -6,9 +6,11 @@ interface UseCodexCharacterEditingOptions {
   onUpdateMemory: (memory: StoryMemory) => void;
 }
 
+type EditingCharData = Partial<Character> & { abilitiesInput?: string };
+
 export function useCodexCharacterEditing({ memory, onUpdateMemory }: UseCodexCharacterEditingOptions) {
   const [editingCharId, setEditingCharId] = useState<string | null>(null);
-  const [editingCharData, setEditingCharData] = useState<any>({});
+  const [editingCharData, setEditingCharData] = useState<EditingCharData>({});
 
   const handleSaveCharEdit = () => {
     if (editingCharId) {
@@ -19,7 +21,7 @@ export function useCodexCharacterEditing({ memory, onUpdateMemory }: UseCodexCha
             powerLevel: editingCharData.powerLevel?.trim() || undefined,
             faction: editingCharData.faction?.trim() || undefined,
             signatureQuote: editingCharData.signatureQuote?.trim() || undefined,
-            status: editingCharData.status,
+            status: editingCharData.status || char.status || 'unknown',
             abilities: editingCharData.abilitiesInput?.trim()
               ? editingCharData.abilitiesInput.split(',').map((a: string) => a.trim()).filter(Boolean)
               : undefined,
