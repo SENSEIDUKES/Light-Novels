@@ -51,8 +51,6 @@ function TimelineItem({ item, onJumpToChapter }: TimelineItemProps) {
             )}
             {onJumpToChapter && (
               <button
-                tabIndex={0}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
                 onClick={() => onJumpToChapter(ch.number)}
                 aria-label={readButtonLabel}
                 className="px-2 py-0.5 bg-portal/10 text-portal rounded text-[8px] uppercase tracking-wider font-mono hover:bg-portal hover:text-void transition-all whitespace-nowrap"
@@ -71,7 +69,7 @@ function TimelineItem({ item, onJumpToChapter }: TimelineItemProps) {
         <div className="pt-2 grid grid-cols-2 gap-3 text-[9.5px]">
           <div className="p-1 px-2.5 bg-void border border-neutral-900 rounded">
             <span className="text-neutral-500 block font-mono font-bold">Resonance Breakthrough:</span>
-            <span className="text-neutral-300 italic line-clamp-2 overflow-hidden">{ch.statsChangeMessage || 'Internal cultivation locked.'}</span>
+            <span className="text-neutral-300 italic line-clamp-2 overflow-hidden" title={ch.statsChangeMessage || 'Internal cultivation locked.'}>{ch.statsChangeMessage || 'Internal cultivation locked.'}</span>
           </div>
           <div className="p-1 px-2.5 bg-void border border-neutral-900 rounded">
             <span className="text-neutral-500 block font-mono font-bold">Operational Catalyst:</span>

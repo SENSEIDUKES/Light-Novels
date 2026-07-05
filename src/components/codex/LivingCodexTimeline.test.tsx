@@ -53,12 +53,19 @@ describe('LivingCodexTimeline', () => {
     const longPremise = Array.from({ length: 18 }, (_, index) => `Premise beat ${index + 1}`).join(' — ');
     const onJumpToChapter = vi.fn();
 
-    renderTimeline(buildChapter({ premise: longPremise }), onJumpToChapter);
+    const longStatsChange = 'A breakthrough detail that spans enough prose to need a tooltip after clamping.';
+
+    renderTimeline(buildChapter({ premise: longPremise, statsChangeMessage: longStatsChange }), onJumpToChapter);
 
     const premise = screen.getByText(longPremise);
     expect(premise.className).toContain('line-clamp-2');
     expect(premise.className).toContain('overflow-hidden');
     expect(premise.getAttribute('title')).toBe(longPremise);
+
+    const statsChange = screen.getAllByText(longStatsChange).find((element) =>
+      element.className.includes('line-clamp-2')
+    );
+    expect(statsChange?.getAttribute('title')).toBe(longStatsChange);
 
     const readButton = screen.getByRole('button', { name: /read scene text for chapter 1/i });
     expect(readButton).toBeDefined();
