@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Camera, Eye, MapPin, Sparkles, BookOpen, Clock, Calendar, ArrowRight, User, Download, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { StoryWorld, StoryMemory, Chapter, GeneratedImage } from '../../types';
-import { handleDownload as downloadFile } from '../../utils/downloadUtils';
+import { handleDownload as utilHandleDownload } from '../../utils/downloadUtils';
 
 interface LivingCodexCollageProps {
   activeStory: StoryWorld;
@@ -60,21 +60,26 @@ export function LivingCodexCollage({
   const [filter, setFilter] = useState<'all' | 'scenes' | 'entities'>('all');
   const [selectedMemory, setSelectedMemory] = useState<VisualMemory | null>(null);
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
-
   const handleDownload = async (mem: VisualMemory, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
+    if (e) {
+      e.stopPropagation();
+    }
     setDownloadingIds(prev => {
       const next = new Set(prev);
       next.add(mem.id);
       return next;
     });
-    const cleanName = mem.title.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-    await downloadFile(mem.url, `${cleanName}_portrait.jpg`);
-    setDownloadingIds(prev => {
-      const next = new Set(prev);
-      next.delete(mem.id);
-      return next;
-    });
+
+    try {
+      const cleanName = mem.title.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      await utilHandleDownload(mem.url, `${cleanName}_portrait.jpg`);
+    } finally {
+      setDownloadingIds(prev => {
+        const next = new Set(prev);
+        next.delete(mem.id);
+        return next;
+      });
+    }
   };
 
   
