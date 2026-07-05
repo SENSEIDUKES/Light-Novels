@@ -20,19 +20,20 @@ const normalizeGlossaryTermName = (term: string) => term.trim().toLowerCase();
 const mergeNewGlossaryTerms = (
   existingTerms: GlossaryTerm[],
   generatedTerms: GlossaryTerm[]
-) => {
+): GlossaryTerm[] => {
   const existingTermNames = new Set(existingTerms.map(({ term }) => normalizeGlossaryTermName(term)));
+  const mergedTerms = [...existingTerms];
 
-  return generatedTerms.reduce<GlossaryTerm[]>((mergedTerms, generatedTerm) => {
+  for (const generatedTerm of generatedTerms) {
     const normalizedTermName = normalizeGlossaryTermName(generatedTerm.term);
 
-    if (existingTermNames.has(normalizedTermName)) {
-      return mergedTerms;
+    if (!existingTermNames.has(normalizedTermName)) {
+      existingTermNames.add(normalizedTermName);
+      mergedTerms.push(generatedTerm);
     }
+  }
 
-    existingTermNames.add(normalizedTermName);
-    return [...mergedTerms, generatedTerm];
-  }, existingTerms);
+  return mergedTerms;
 };
 
 interface LivingCodexGlossaryProps {
