@@ -222,12 +222,12 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
     <FormSection id="core" title="1. Core Seed" icon={<BookOpen size={18} />} activeSection={activeSection} setActiveSection={setActiveSection}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2" htmlFor="a11y-control-${labelCounter}">Optional Novel Title</label>
-          <input type="text" value={intake.novelTitle || ''} onChange={(e) => updateIntake('novelTitle', e.target.value)} placeholder="Will be generated if empty" className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded px-4 py-2 text-sm" id="a11y-control-${labelCounter}" />
+          <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2" htmlFor="a11y-control-v2xlbs8">Optional Novel Title</label>
+          <input type="text" value={intake.novelTitle || ''} onChange={(e) => updateIntake('novelTitle', e.target.value)} placeholder="Will be generated if empty" className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded px-4 py-2 text-sm" id="a11y-control-v2xlbs8" />
         </div>
         <div>
-          <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2" htmlFor="a11y-control-${labelCounter}">Main Character Name</label>
-          <input type="text" value={intake.mcName || ''} onChange={(e) => updateIntake('mcName', e.target.value)} placeholder="e.g., Lin Fan" className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded px-4 py-2 text-sm" id="a11y-control-${labelCounter}" />
+          <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2" htmlFor="a11y-control-7b2mqtu">Main Character Name</label>
+          <input type="text" value={intake.mcName || ''} onChange={(e) => updateIntake('mcName', e.target.value)} placeholder="e.g., Lin Fan" className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded px-4 py-2 text-sm" id="a11y-control-7b2mqtu" />
         </div>
       </div>
       

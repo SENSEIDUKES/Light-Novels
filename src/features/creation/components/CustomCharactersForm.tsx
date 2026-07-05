@@ -29,60 +29,60 @@ export const CustomCharactersForm = ({ intake, updateIntake, activeSection, setA
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-${labelCounter}">Name</label>
+                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-boqy7nd">Name</label>
                 <input type="text" value={char.name || ''} onChange={(e) => {
                   const newChars = [...(intake.customCharacters || [])];
                   newChars[index].name = e.target.value;
                   updateIntake('customCharacters', newChars);
-                }} placeholder="e.g. Lin Yue" className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-${labelCounter}" />
+                }} placeholder="e.g. Lin Yue" className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-boqy7nd" />
               </div>
               <div>
-                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-${labelCounter}">Age</label>
+                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-d46u9ft">Age</label>
                 <input type="text" value={char.age || ''} onChange={(e) => {
                   const newChars = [...(intake.customCharacters || [])];
                   newChars[index].age = e.target.value;
                   updateIntake('customCharacters', newChars);
-                }} placeholder="e.g. 18, Ancient..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-${labelCounter}" />
+                }} placeholder="e.g. 18, Ancient..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-d46u9ft" />
               </div>
               <div>
-                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-${labelCounter}">Skin Tone</label>
+                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-do4p8xt">Skin Tone</label>
                 <input type="text" value={char.skinTone || ''} onChange={(e) => {
                   const newChars = [...(intake.customCharacters || [])];
                   newChars[index].skinTone = e.target.value;
                   updateIntake('customCharacters', newChars);
-                }} placeholder="e.g. Pale, Olive..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-${labelCounter}" />
+                }} placeholder="e.g. Pale, Olive..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-do4p8xt" />
               </div>
               <div>
-                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-${labelCounter}">Eye Color</label>
+                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-6rltp1u">Eye Color</label>
                 <input type="text" value={char.eyeColor || ''} onChange={(e) => {
                   const newChars = [...(intake.customCharacters || [])];
                   newChars[index].eyeColor = e.target.value;
                   updateIntake('customCharacters', newChars);
-                }} placeholder="e.g. Crimson, Blue..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-${labelCounter}" />
+                }} placeholder="e.g. Crimson, Blue..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-6rltp1u" />
               </div>
               <div>
-                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-${labelCounter}">Power Type</label>
+                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-92o8irp">Power Type</label>
                 <input type="text" value={char.powerType || ''} onChange={(e) => {
                   const newChars = [...(intake.customCharacters || [])];
                   newChars[index].powerType = e.target.value;
                   updateIntake('customCharacters', newChars);
-                }} placeholder="e.g. Frost Dao, Sword..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-${labelCounter}" />
+                }} placeholder="e.g. Frost Dao, Sword..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-92o8irp" />
               </div>
               <div>
-                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-${labelCounter}">Rank / Level</label>
+                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-8msejsu">Rank / Level</label>
                 <input type="text" value={char.rankLevel || ''} onChange={(e) => {
                   const newChars = [...(intake.customCharacters || [])];
                   newChars[index].rankLevel = e.target.value;
                   updateIntake('customCharacters', newChars);
-                }} placeholder="e.g. Foundation Est." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-${labelCounter}" />
+                }} placeholder="e.g. Foundation Est." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-8msejsu" />
               </div>
               <div>
-                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-${labelCounter}">Role</label>
+                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor="a11y-control-iupjvwi">Role</label>
                 <input type="text" value={char.role || ''} onChange={(e) => {
                   const newChars = [...(intake.customCharacters || [])];
                   newChars[index].role = e.target.value;
                   updateIntake('customCharacters', newChars);
-                }} placeholder="e.g. Sect Elder, Rogue..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-${labelCounter}" />
+                }} placeholder="e.g. Sect Elder, Rogue..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id="a11y-control-iupjvwi" />
               </div>
               <div>
                 <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor={`mc-char-connection-${char.id}`}>Connection to MC</label>

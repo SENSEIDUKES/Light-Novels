@@ -4,30 +4,8 @@ import { VirtualizedList } from '../VirtualizedList';
 import { Character, CharacterRelationship } from '../../types';
 import { useCodex } from './CodexContext';
 import { useAppStore } from '../../store/useAppStore';
+import { handleDownload } from '../../utils/downloadUtils';
 
-const handleDownload = async (url: string, filename: string) => {
-  try {
-    const response = await fetch(url, { mode: 'cors' });
-    if (!response.ok) throw new Error('CORS or Network error');
-    const blob = await response.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = blobUrl;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(blobUrl);
-  } catch (e) {
-    const link = document.createElement('a');
-    link.href = url;
-    link.target = '_blank';
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
-};
 
 interface LivingCodexRelationsProps {
   charsToRender: Character[];
@@ -43,6 +21,7 @@ export function LivingCodexRelations({
   setSelectedNodeChar
 }: LivingCodexRelationsProps) {
   const { memory, activeStory, mcName, pushNotification, onUpdateStory } = useCodex();
+  const stories = useAppStore(state => state.stories);
 
   const [bondSourceId, setBondSourceId] = useState('');
   const [bondTargetId, setBondTargetId] = useState('');
@@ -74,7 +53,7 @@ export function LivingCodexRelations({
     };
 
     const currentBonds = activeStory.relationships || [];
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
+    const currentActiveStory = stories.find(s => s.id === activeStory.id) || activeStory;
     onUpdateStory({
       ...currentActiveStory,
       relationships: [newRelationship, ...currentBonds]
@@ -308,11 +287,11 @@ export function LivingCodexRelations({
 
                   <div className="space-y-3">
                     <div>
-                      <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1" htmlFor="a11y-control-${labelCounter}">Source Character</label>
+                      <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1" htmlFor="a11y-control-rlm0bgs">Source Character</label>
                       <select
                         value={bondSourceId}
                         onChange={(e) => setBondSourceId(e.target.value)}
-                        className="w-full bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none" id="a11y-control-${labelCounter}"
+                        className="w-full bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none" id="a11y-control-rlm0bgs"
                       >
                         <option value="">-- Choose Soul --</option>
                         {memory.characters.map(c => (
@@ -322,11 +301,11 @@ export function LivingCodexRelations({
                     </div>
 
                     <div>
-                      <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1" htmlFor="a11y-control-${labelCounter}">Target Character</label>
+                      <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1" htmlFor="a11y-control-f5n7va3">Target Character</label>
                       <select
                         value={bondTargetId}
                         onChange={(e) => setBondTargetId(e.target.value)}
-                        className="w-full bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none" id="a11y-control-${labelCounter}"
+                        className="w-full bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none" id="a11y-control-f5n7va3"
                       >
                         <option value="">-- Choose Soul --</option>
                         {memory.characters.map(c => (
@@ -359,12 +338,12 @@ export function LivingCodexRelations({
                     </div>
 
                     <div>
-                      <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1" htmlFor="a11y-control-${labelCounter}">Causal Narrative / Link Description</label>
+                      <label className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block mb-1" htmlFor="a11y-control-nc785iv">Causal Narrative / Link Description</label>
                       <textarea
                         placeholder="e.g. Sworn companion, linked by the blood of the Azure Wyrm..."
                         value={bondDesc}
                         onChange={(e) => setBondDesc(e.target.value)}
-                        className="w-full h-16 bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none resize-none font-serif" id="a11y-control-${labelCounter}"
+                        className="w-full h-16 bg-black border border-neutral-800 text-xs text-neutral-300 rounded p-2 focus:outline-none resize-none font-serif" id="a11y-control-nc785iv"
                       />
                     </div>
 
