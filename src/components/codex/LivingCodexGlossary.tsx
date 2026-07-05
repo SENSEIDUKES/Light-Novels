@@ -13,6 +13,29 @@ const DEFAULT_CULTIVATION_GLOSSARY = [
   { term: "Spiritual Meridians (经脉)", category: "Anatomy", definition: "The internal energetic high-speed channels of the body through which refined Qi flows. Blocked or destroyed meridians lead to crippled cultivation ruins." }
 ];
 
+type GlossaryTerm = { term: string; category: string; definition: string };
+
+const normalizeGlossaryTermName = (term: string) => term.trim().toLowerCase();
+
+const mergeNewGlossaryTerms = (
+  existingTerms: GlossaryTerm[],
+  generatedTerms: GlossaryTerm[]
+): GlossaryTerm[] => {
+  const existingTermNames = new Set(existingTerms.map(({ term }) => normalizeGlossaryTermName(term)));
+  const mergedTerms = [...existingTerms];
+
+  for (const generatedTerm of generatedTerms) {
+    const normalizedTermName = normalizeGlossaryTermName(generatedTerm.term);
+
+    if (!existingTermNames.has(normalizedTermName)) {
+      existingTermNames.add(normalizedTermName);
+      mergedTerms.push(generatedTerm);
+    }
+  }
+
+  return mergedTerms;
+};
+
 interface LivingCodexGlossaryProps {
   memory: StoryMemory;
   arcs: StoryArc[];
@@ -22,7 +45,7 @@ interface LivingCodexGlossaryProps {
 
 export function LivingCodexGlossary({ memory, arcs, mcName, routingConfig }: LivingCodexGlossaryProps) {
   const [glossarySearch, setGlossarySearch] = useState('');
-  const [customGlossary, setCustomGlossary] = useState<Array<{term: string, category: string, definition: string}>>([]);
+  const [customGlossary, setCustomGlossary] = useState<GlossaryTerm[]>([]);
   const [isExtractingGlossary, setIsExtractingGlossary] = useState(false);
   const [glossaryError, setGlossaryError] = useState<string | null>(null);
 
@@ -37,7 +60,7 @@ export function LivingCodexGlossary({ memory, arcs, mcName, routingConfig }: Liv
     }
   }, [mcName]);
 
-  const saveCustomGlossaryLocally = (terms: Array<{ term: string; category: string; definition: string; }>) => {
+  const saveCustomGlossaryLocally = (terms: GlossaryTerm[]) => {
     setCustomGlossary(terms);
     try {
       localStorage.setItem(`custom_glossary_${mcName}`, JSON.stringify(terms));
@@ -83,7 +106,7 @@ export function LivingCodexGlossary({ memory, arcs, mcName, routingConfig }: Liv
       }
 
       if (data.terms && Array.isArray(data.terms)) {
-        saveCustomGlossaryLocally([...customGlossary, ...data.terms]);
+        saveCustomGlossaryLocally(mergeNewGlossaryTerms(customGlossary, data.terms));
       } else {
         throw new Error("Invalid format returned by scribe.");
       }
