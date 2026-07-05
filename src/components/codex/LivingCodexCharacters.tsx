@@ -2,14 +2,16 @@ import React, { useState } from 'react';
 import { 
   Users, MapPin, Sparkles, BookMarked, Eye, Trash2, HelpCircle, Compass, Award, RefreshCcw, Plus, Download, Lock, Play, Square, Loader2, Volume2
 } from 'lucide-react';
-import { Character, Location, StoryMemory, StoryWorld } from '../../types';
-import { resolveKokoroVoicePreset } from '../../lib/voice/voiceResolver';
+import { Character, Location } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AgentBadge } from '../AgentBadge';
 import { AGENTS } from '../../lib/agents';
 import { useCodex } from './CodexContext';
 import { useAppStore } from '../../store/useAppStore';
 import { LivingCodexImageGallery } from './LivingCodexImageGallery';
+import { useCodexVoiceCards } from '../../hooks/useCodexVoiceCards';
+import { useCodexLocations } from '../../hooks/useCodexLocations';
+import { useCodexCharacterEditing } from '../../hooks/useCodexCharacterEditing';
 
 const handleDownload = async (url: string, filename: string) => {
   try {
@@ -71,134 +73,30 @@ export function LivingCodexCharacters({
   const isFreeUserOnHubStory = isFreeUser && isHubStory;
 
   const [charViewStyle, setCharViewStyle] = useState<'cards' | 'profiles'>('cards');
-  const [editingCharId, setEditingCharId] = useState<string | null>(null);
-  const [editingCharData, setEditingCharData] = useState<any>({});
-  const [generatingVoiceId, setGeneratingVoiceId] = useState<string | null>(null);
-  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
-  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  const {
+    generatingVoiceId,
+    playingVoiceId,
+    handleGenerateVoiceCard,
+    handlePlayVoice,
+    handleStopVoice,
+  } = useCodexVoiceCards({ memory, onUpdateMemory });
 
-  React.useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-    };
-  }, []);
+  const {
+    showAddLocationForm,
+    setShowAddLocationForm,
+    newLocation,
+    setNewLocation,
+    handleAddLocation,
+  } = useCodexLocations({ memory, onUpdateMemory });
 
-  const handleGenerateVoiceCard = async (char: Character) => {
-    if (!char.signatureQuote) return;
-    
-    setGeneratingVoiceId(char.id);
-    try {
-      const preset = resolveKokoroVoicePreset({
-        mode: "dialogue",
-        language: "en",
-        speakerName: char.name,
-        speakerRole: char.role,
-        savedVoicePresetId: char.voicePresetId,
-      });
-
-      const res = await fetch('/api/generate-audio', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: char.signatureQuote,
-          speakerVoice: preset.providerVoiceId,
-        })
-      });
-
-      if (!res.ok) throw new Error("Audio generation failed");
-      const data = await res.json();
-      
-      const updatedChars = memory.characters.map(c => {
-        if (c.id === char.id) {
-          return {
-            ...c,
-            voicePresetId: preset.id,
-            voiceClipUrl: data.audioUrl || `data:audio/mp3;base64,${data.audioBase64}`
-          };
-        }
-        return c;
-      });
-      
-      onUpdateMemory({ ...memory, characters: updatedChars });
-      handlePlayVoice(data.audioUrl || `data:audio/mp3;base64,${data.audioBase64}`, char.id);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setGeneratingVoiceId(null);
-    }
-  };
-
-  const handlePlayVoice = (url: string, charId: string) => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-    const audio = new Audio(url);
-    audioRef.current = audio;
-    
-    audio.onplay = () => setPlayingVoiceId(charId);
-    audio.onended = () => setPlayingVoiceId(null);
-    audio.onpause = () => setPlayingVoiceId(null);
-    
-    audio.play().catch(console.error);
-  };
-
-  const handleStopVoice = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      setPlayingVoiceId(null);
-    }
-  };
-
-      const [showAddLocationForm, setShowAddLocationForm] = useState(false);
-  const [newLocation, setNewLocation] = useState<Partial<Location>>({ name: '', description: '', realm: '', safetyLevel: 'Safe' });
-
-  
-
-  const handleAddLocation = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!newLocation.name?.trim()) return;
-
-    const currentLocations = memory.locations || [];
-    const locationObj: Location = {
-      id: `loc-${Date.now()}`,
-      name: newLocation.name.trim(),
-      description: newLocation.description?.trim() || '',
-      realm: newLocation.realm?.trim() || undefined,
-      safetyLevel: newLocation.safetyLevel || 'Safe'
-    };
-
-    onUpdateMemory({
-      ...memory,
-      locations: [...currentLocations, locationObj]
-    });
-
-    setNewLocation({ name: '', description: '', realm: '', safetyLevel: 'Safe' });
-    setShowAddLocationForm(false);
-  };
-
-  const handleSaveCharEdit = () => {
-    if(editingCharId) { 
-      const updated = (memory.characters || []).map(char => {
-        if (char.id === editingCharId) {
-          return {
-            ...char,
-            powerLevel: editingCharData.powerLevel?.trim() || undefined,
-            faction: editingCharData.faction?.trim() || undefined,
-            signatureQuote: editingCharData.signatureQuote?.trim() || undefined,
-            status: editingCharData.status,
-            abilities: editingCharData.abilitiesInput?.trim() 
-              ? editingCharData.abilitiesInput.split(',').map((a: string) => a.trim()).filter(Boolean) 
-              : undefined
-          };
-        }
-        return char;
-      });
-      onUpdateMemory({ ...memory, characters: updated });
-      setEditingCharId(null); 
-    } 
-  };
+  const {
+    editingCharId,
+    setEditingCharId,
+    editingCharData,
+    setEditingCharData,
+    handleSaveCharEdit,
+    beginCharEdit,
+  } = useCodexCharacterEditing({ memory, onUpdateMemory });
 
   return (
     <>
@@ -734,16 +632,7 @@ export function LivingCodexCharacters({
                         <div className="border-t border-neutral-900 mt-4 pt-3 flex justify-between items-center text-[10px]">
                           <span className="text-neutral-500">Relation to MC: <strong className="text-neutral-300 font-medium">{char.relationshipToMC || 'Neutral'}</strong></span>
                           <button
-                             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-                              setEditingCharId(char.id);
-                              setEditingCharData({
-                                powerLevel: char.powerLevel || '',
-                                faction: char.faction || '',
-                                signatureQuote: char.signatureQuote || '',
-                                abilitiesInput: char.abilities ? char.abilities.map(a => typeof a === 'string' ? a : a.description || a.name).join(', ') : '',
-                                status: char.status || 'unknown'
-                              });
-                            }}
+                             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => beginCharEdit(char)}
                             className="text-neutral-500 hover:text-portal transition-colors font-sc uppercase"
                           >
                             Refine
