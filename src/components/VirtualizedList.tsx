@@ -35,21 +35,23 @@ export function VirtualizedList<T>({
 
     el.addEventListener('scroll', handleScroll, { passive: true });
 
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        // Fallback to client height if bounding height is 0
-        const contentHeight = entry.contentRect.height;
-        setMeasuredHeight(contentHeight || el.clientHeight || 400);
-      }
-    });
-    observer.observe(el);
+    const observer = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          // Fallback to client height if bounding height is 0
+          const contentHeight = entry.contentRect.height;
+          setMeasuredHeight(contentHeight || el.clientHeight || 400);
+        }
+      })
+      : null;
+    observer?.observe(el);
 
     // Initial estimation
     setMeasuredHeight(el.clientHeight || (typeof containerHeight === 'number' ? containerHeight : 400));
 
     return () => {
       el.removeEventListener('scroll', handleScroll);
-      observer.disconnect();
+      observer?.disconnect();
     };
   }, [containerHeight]);
 
