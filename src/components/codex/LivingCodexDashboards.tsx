@@ -9,6 +9,8 @@ interface LivingCodexDashboardsProps {
   charsToRender: Character[];
   affinityTimelineOfChar: any[];
   powerTimeline: any[];
+  selectedChartCharId: string;
+  setSelectedChartCharId: React.Dispatch<React.SetStateAction<string>>;
 }
 
 export function LivingCodexDashboards({
@@ -17,18 +19,17 @@ export function LivingCodexDashboards({
   flatChapters,
   charsToRender,
   affinityTimelineOfChar,
-  powerTimeline
+  powerTimeline,
+  selectedChartCharId,
+  setSelectedChartCharId
 }: LivingCodexDashboardsProps) {
-  const [selectedChartCharId, setSelectedChartCharId] = useState<string>(charsToRender[0]?.id || '');
   const [hoveredAffPoint, setHoveredAffPoint] = useState<any | null>(null);
   const [hoveredPowerPoint, setHoveredPowerPoint] = useState<any | null>(null);
 
-  // Sync initial chart selected char
+  // Clear local hover details whenever the parent-controlled character selection changes.
   React.useEffect(() => {
-    if (charsToRender.length > 0 && !charsToRender.find(c => c.id === selectedChartCharId)) {
-      setSelectedChartCharId(charsToRender[0].id);
-    }
-  }, [charsToRender, selectedChartCharId]);
+    setHoveredAffPoint(null);
+  }, [selectedChartCharId]);
 
   return (
     <div className="space-y-6 animate-fadeIn text-neutral-225" id="codex-progression-dashboards">

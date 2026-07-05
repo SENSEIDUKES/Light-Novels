@@ -474,6 +474,8 @@ export default function LivingCodex({
                 charsToRender={charsToRender}
                 affinityTimelineOfChar={affinityTimelineOfChar}
                 powerTimeline={powerTimeline}
+                selectedChartCharId={selectedChartCharId}
+                setSelectedChartCharId={setSelectedChartCharId}
               />
             </div>
           </div>
