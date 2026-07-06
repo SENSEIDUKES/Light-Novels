@@ -144,7 +144,7 @@ export function LivingCodexCharacters({
                                   src={displayedImage} 
                                   alt={char.name}
                                   referrerPolicy="no-referrer"
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500 brightness-95"
+                                  className="w-full h-full object-contain group-hover:scale-105 transition-all duration-500 brightness-95"
                                 />
                                 <button
                                    tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={(e) => {
@@ -399,7 +399,7 @@ export function LivingCodexCharacters({
                                     src={displayedImage} 
                                     alt={loc.name}
                                     referrerPolicy="no-referrer"
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500 brightness-90"
+                                    className="w-full h-full object-contain group-hover:scale-105 transition-all duration-500 brightness-90"
                                   />
                                   <button
                                      tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={(e) => {

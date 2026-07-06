@@ -35,7 +35,7 @@ export function ManifestHeroImage({
           <img 
             src={selectedChapter.assetManifest.heroImage} 
             alt="Chapter Crux Manifestation" 
-            className="max-w-full h-auto block mx-auto object-contain max-h-[65vh] mix-blend-screen opacity-90 transition-transform duration-1000 group-hover:scale-105"
+            className="w-full h-auto object-contain max-h-[65vh] block mx-auto mix-blend-screen opacity-90 transition-transform duration-1000 group-hover:scale-105"
             referrerPolicy="no-referrer"
           />
           <div className="absolute bottom-0 left-0 right-0 p-6 z-20 bg-gradient-to-t from-void flex flex-col justify-end">

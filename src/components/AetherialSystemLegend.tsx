@@ -20,14 +20,14 @@ export function AetherialSystemLegend({
       exit={{ opacity: 0, y: -10 }}
       className="mb-8 p-5 bg-[#080808]/90 border border-portal/30 rounded-lg max-w-2xl mx-auto shadow-[0_0_30px_rgba(4,172,255,0.1)] relative z-10"
     >
-      <div className="flex items-center justify-between border-b border-portal/20 pb-2 mb-3">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-portal/20 pb-2 mb-3">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-portal text-sm animate-pulse">✦</span>
           <h4 className="font-display font-medium text-xs sm:text-sm text-signal tracking-widest uppercase">
             Aetherial System Codes
           </h4>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={currentPrefs?.colorPaletteId || 'default'}
             onChange={(e) => handleUpdatePreference('colorPaletteId', e.target.value)}

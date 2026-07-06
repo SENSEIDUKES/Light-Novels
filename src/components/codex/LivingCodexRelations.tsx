@@ -209,7 +209,7 @@ export function LivingCodexRelations({
 
                       {selectedNodeChar.imageUrl && (
                         <div className="h-28 w-full rounded overflow-hidden border border-neutral-900 relative group/rel">
-                          <img src={selectedNodeChar.imageUrl} alt={selectedNodeChar.name} className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" />
+                          <img src={selectedNodeChar.imageUrl} alt={selectedNodeChar.name} className="w-full h-full object-contain object-top" referrerPolicy="no-referrer" />
                           <button
                              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={(e) => {
                               e.stopPropagation();

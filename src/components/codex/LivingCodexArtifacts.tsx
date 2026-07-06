@@ -179,7 +179,7 @@ export function LivingCodexArtifacts({
                     />
                     {displayedImage ? (
                       <div className="h-32 w-full border border-neutral-900 relative">
-                        <img src={displayedImage} alt={art.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                        <img src={displayedImage} alt={art.name} referrerPolicy="no-referrer" className="w-full h-full object-contain" />
                         <button
                            tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={(e) => {
                             e.stopPropagation();
