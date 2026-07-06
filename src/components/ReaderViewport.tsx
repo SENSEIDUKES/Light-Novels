@@ -153,6 +153,18 @@ export function ReaderViewport({
   chapters,
 }: ReaderViewportProps) {
   const { updateStory } = useAppStore();
+  const codexMap = React.useMemo(() => {
+    const map = new Map<string, any>();
+    codexTerms?.forEach(t => {
+      if (typeof t?.term === 'string') {
+        const termLower = t.term.toLowerCase();
+        if (!map.has(termLower)) {
+          map.set(termLower, t);
+        }
+      }
+    });
+    return map;
+  }, [codexTerms]);
 
   React.useEffect(() => {
     if (!selectedChapter?.blocks || !activeStory) return;
@@ -171,9 +183,7 @@ export function ReaderViewport({
         (ent) => ent.mention === "reveal"
       );
       if (revealEntity) {
-        const matched = codexTerms.find(
-          (t) => t.term.toLowerCase() === revealEntity.name.toLowerCase()
-        );
+        const matched = codexMap.get(revealEntity.name.toLowerCase());
         if (matched && matched.entry) {
           const id = matched.entry.id;
           const currentAssign = existingAssignments[id] || newAssignments[id];
@@ -202,7 +212,7 @@ export function ReaderViewport({
         },
       });
     }
-  }, [selectedChapter?.blocks, activeStory, codexTerms, updateStory]);
+  }, [selectedChapter?.blocks, activeStory, codexMap, updateStory]);
 
   return (
     <div
@@ -392,17 +402,16 @@ export function ReaderViewport({
                         );
                         if (!cleanText) return null;
 
+                        let revealTerm: any = undefined;
                         const revealEntity = block.metadata?.entities?.find(ent => {
                           if (ent.mention !== 'reveal') return false;
-                          const matched = codexTerms.find(
-                            t => t.term.toLowerCase() === ent.name.toLowerCase()
-                          );
-                          return matched && matched.entry;
+                          const matched = codexMap.get(ent.name.toLowerCase());
+                          if (matched && matched.entry) {
+                            revealTerm = matched;
+                            return true;
+                          }
+                          return false;
                         });
-
-                        const revealTerm = revealEntity
-                          ? codexTerms.find(t => t.term.toLowerCase() === revealEntity.name.toLowerCase())
-                          : undefined;
 
                         const revealImageUrl = revealTerm && 'imageUrl' in revealTerm.entry ? (revealTerm.entry as any).imageUrl : undefined;
 
