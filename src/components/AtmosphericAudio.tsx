@@ -4,6 +4,15 @@ import { SceneScoreEngine } from '../lib/audio/musicResolver';
 import { useAppStore } from '../store/useAppStore';
 import { vibrate } from '../lib/vibration';
 
+// Scene-score BGM sits under the narration: with the master slider at its
+// 0.5 default the tracks play at 25%, and they never exceed the 40% cap no
+// matter how high the slider goes. Narrative intensity can only duck below.
+const BGM_MAX_LEVEL = 0.4;
+const BGM_VOLUME_SCALE = 0.5;
+
+const bgmLevelFor = (volume: number, intensity: number) =>
+  Math.min(volume * BGM_VOLUME_SCALE, BGM_MAX_LEVEL) * intensity;
+
 type AtmosphereType = 'none' | 'wind' | 'rain' | 'ocean' | 'crowd' | 'combat';
 type FXType = 'footsteps' | 'footsteps_snow' | 'footsteps_wood' | 'footsteps_stone' | 'system_alert' | 'combat_hit';
 
@@ -38,7 +47,7 @@ export function AtmosphericAudio() {
       // first crossfade never bursts in at the engine's default level.
       const isActuallyMuted = isMuted || currentScreen !== 'reader';
       mix.setMuted(isActuallyMuted);
-      mix.setLevel(isActuallyMuted ? 0 : (volume * 0.5 * bgmIntensityRef.current));
+      mix.setLevel(isActuallyMuted ? 0 : bgmLevelFor(volume, bgmIntensityRef.current));
       sceneMixRef.current = mix;
     }
     return () => {
@@ -53,7 +62,7 @@ export function AtmosphericAudio() {
     if (!mix) return;
     const isActuallyMuted = isMuted || currentScreen !== 'reader';
     mix.setMuted(isActuallyMuted);
-    mix.setLevel(isActuallyMuted ? 0 : (volume * 0.5 * bgmIntensityRef.current));
+    mix.setLevel(isActuallyMuted ? 0 : bgmLevelFor(volume, bgmIntensityRef.current));
   };
 
   // Sync state changes with localStorage and dispatch state event to UI
@@ -585,7 +594,11 @@ export function AtmosphericAudio() {
              }
 
              if (meta.music) {
-               const newTrack = scoreEngineRef.current.evaluateSceneContext(meta.music, meta.environment || []);
+               const newTrack = scoreEngineRef.current.evaluateSceneContext(
+                 meta.music,
+                 meta.environment || [],
+                 { danger: meta.danger, tension: meta.tension, intensity: meta.intensity }
+               );
                if (newTrack && newTrack.url && sceneMixRef.current) {
                  // The engine no-ops on the already-active track, parks the
                  // incoming deck past leading silence, and runs an
@@ -620,6 +633,28 @@ export function AtmosphericAudio() {
           scoreEngineRef.current.resetScene();
           const meta = cue.value;
           if (meta) {
+            // Raise the escalation baseline for the whole chapter so a
+            // high-stakes chapter can score war/fighting music even on
+            // blocks that don't restate the danger value.
+            scoreEngineRef.current.setChapterContext({
+              danger: meta.danger,
+              tension: meta.tension,
+              intensity: meta.intensity,
+            });
+
+            // Start a calm bed immediately — adventure/ambient carry the
+            // chapter until a block earns an escalation.
+            const chapterTags: string[] = [meta.environment, meta.theme].flat().filter(Boolean);
+            const bedTrack = scoreEngineRef.current.resolveChapterDefault(chapterTags);
+            if (bedTrack && bedTrack.url && sceneMixRef.current) {
+              sceneMixRef.current.crossfadeTo({
+                id: bedTrack.id,
+                title: bedTrack.id,
+                artist: 'SEIHouse',
+                audioFile: bedTrack.url,
+              });
+            }
+
             if (typeof meta.intensity === 'number') {
               bgmIntensityRef.current = Math.max(0.2, Math.min(1.0, meta.intensity));
               syncBgmVolumes();
