@@ -88,6 +88,11 @@ export function LivingCodexCollage({
     const items: VisualMemory[] = [];
     const seenUrls = new Set<string>();
 
+    // Pre-compute lookup maps for efficient entity resolution
+    const characterMap = new Map(memory.characters?.map(c => [c.id, c]) || []);
+    const locationMap = new Map(memory.locations?.map(l => [l.id, l]) || []);
+    const artifactMap = new Map(memory.artifacts?.map(a => [a.id, a]) || []);
+
     // 1. Gather Scene Memories from Chapter Hero Images (Automatic or manual)
     if (activeStory.arcs) {
       activeStory.arcs.forEach((arc) => {
@@ -129,7 +134,7 @@ export function LivingCodexCollage({
         let type: VisualMemory['type'] = img.entityType as any;
 
         if (img.entityType === 'character' || img.entityType === 'beast') {
-          const char = memory.characters?.find((c) => c.id === img.entityId);
+          const char = characterMap.get(img.entityId);
           if (char) {
             title = char.name;
             subtitle = char.isBeast ? 'Sacred Beast' : 'Immortal cultivator';
@@ -137,7 +142,7 @@ export function LivingCodexCollage({
             type = char.isBeast ? 'beast' : 'character';
           }
         } else if (img.entityType === 'location') {
-          const loc = memory.locations?.find((l) => l.id === img.entityId);
+          const loc = locationMap.get(img.entityId);
           if (loc) {
             title = loc.name;
             subtitle = 'Sacred Domain Scenery';
@@ -145,7 +150,7 @@ export function LivingCodexCollage({
             type = 'location';
           }
         } else if (img.entityType === 'artifact') {
-          const art = memory.artifacts?.find((a) => a.id === img.entityId);
+          const art = artifactMap.get(img.entityId);
           if (art) {
             title = art.name;
             subtitle = `${art.tier || 'Mortal'} Tier Relic`;
