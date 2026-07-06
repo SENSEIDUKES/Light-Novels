@@ -146,39 +146,45 @@ export function useReaderPlayback({
         setAvailableVoices(voices);
 
         if (voices.length > 0) {
+          // Resolve the default narrator/dialogue picks once so the side
+          // voice can avoid whatever they actually resolve to — on
+          // platforms without "daniel"/"rishi" the fallback chains land on
+          // other voices, and the side voice must not collide with those.
+          const narratorDefault =
+            voices.find((v) => v.name.toLowerCase().includes("daniel")) ||
+            voices.find((v) => v.lang.includes("en-US") && v.name.toLowerCase().includes("google")) ||
+            voices.find((v) => v.lang.includes("en-US")) ||
+            voices.find((v) => v.lang.includes("en")) ||
+            voices.find((v) => v.lang.includes("zh")) ||
+            voices[0];
+          const dialogueDefault =
+            voices.find((v) => v.name.toLowerCase().includes("rishi")) ||
+            voices.find((v) => v.voiceURI !== narratorDefault?.voiceURI && v.lang.includes("en")) ||
+            voices[0];
+
           setSelectedVoiceURI((current) => {
             if (current && voices.some((v) => v.voiceURI === current)) {
               return current;
             }
-            const defaultVoice =
-              voices.find((v) => v.name.toLowerCase().includes("daniel")) ||
-              voices.find((v) => v.lang.includes("en-US") && v.name.toLowerCase().includes("google")) ||
-              voices.find((v) => v.lang.includes("en-US")) ||
-              voices.find((v) => v.lang.includes("en")) ||
-              voices.find((v) => v.lang.includes("zh")) ||
-              voices[0];
-            return defaultVoice?.voiceURI || "";
+            return narratorDefault?.voiceURI || "";
           });
 
           setSelectedDialogueVoiceURI((current) => {
             if (current && voices.some((v) => v.voiceURI === current)) {
               return current;
             }
-            const defaultVoiceURI = voices.find((v) => v.name.toLowerCase().includes("daniel"))?.voiceURI || "";
-            const dialogueVoice =
-              voices.find((v) => v.name.toLowerCase().includes("rishi")) ||
-              voices.find((v) => v.voiceURI !== defaultVoiceURI && v.lang.includes("en")) ||
-              voices[0];
-            return dialogueVoice?.voiceURI || "";
+            return dialogueDefault?.voiceURI || "";
           });
 
           setSelectedSideVoiceURI((current) => {
             if (current && voices.some((v) => v.voiceURI === current)) {
               return current;
             }
-            const narratorURI = voices.find((v) => v.name.toLowerCase().includes("daniel"))?.voiceURI || "";
-            const dialogueURI = voices.find((v) => v.name.toLowerCase().includes("rishi"))?.voiceURI || "";
-            return pickDefaultSideVoice(voices, narratorURI, dialogueURI)?.voiceURI || "";
+            return pickDefaultSideVoice(
+              voices,
+              narratorDefault?.voiceURI || "",
+              dialogueDefault?.voiceURI || ""
+            )?.voiceURI || "";
           });
         }
       };
