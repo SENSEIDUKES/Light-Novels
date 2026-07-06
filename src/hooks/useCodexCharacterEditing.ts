@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Character, StoryMemory } from '../types';
+import { Character, StoryMemory, Ability } from '../types';
 
 interface UseCodexCharacterEditingOptions {
   memory: StoryMemory;
   onUpdateMemory: (memory: StoryMemory) => void;
 }
 
-type EditingCharData = Partial<Character> & { abilitiesInput?: string };
+type EditingCharData = Partial<Character> & { abilitiesList?: Ability[] };
 
 export function useCodexCharacterEditing({ memory, onUpdateMemory }: UseCodexCharacterEditingOptions) {
   const [editingCharId, setEditingCharId] = useState<string | null>(null);
@@ -22,8 +22,8 @@ export function useCodexCharacterEditing({ memory, onUpdateMemory }: UseCodexCha
             faction: editingCharData.faction?.trim() || undefined,
             signatureQuote: editingCharData.signatureQuote?.trim() || undefined,
             status: editingCharData.status || char.status || 'unknown',
-            abilities: editingCharData.abilitiesInput?.trim()
-              ? editingCharData.abilitiesInput.split(',').map((a: string) => a.trim()).filter(Boolean)
+            abilities: editingCharData.abilitiesList && editingCharData.abilitiesList.length > 0
+              ? editingCharData.abilitiesList
               : undefined,
           };
         }
@@ -36,13 +36,51 @@ export function useCodexCharacterEditing({ memory, onUpdateMemory }: UseCodexCha
 
   const beginCharEdit = (char: Character) => {
     setEditingCharId(char.id);
+    
+    const normalizedAbilities: Ability[] = (char.abilities || []).map((a, index) => {
+      if (typeof a === 'string') {
+        return {
+          id: `ability-${Date.now()}-${index}`,
+          name: a,
+          description: '',
+        };
+      }
+      return a;
+    });
+
     setEditingCharData({
       powerLevel: char.powerLevel || '',
       faction: char.faction || '',
       signatureQuote: char.signatureQuote || '',
-      abilitiesInput: char.abilities ? char.abilities.map(a => typeof a === 'string' ? a : a.description || a.name).join(', ') : '',
+      abilitiesList: normalizedAbilities,
       status: char.status || 'unknown',
     });
+  };
+
+  const addAbility = () => {
+    setEditingCharData((prev) => ({
+      ...prev,
+      abilitiesList: [
+        ...(prev.abilitiesList || []),
+        { id: `ability-${Date.now()}`, name: '', description: '' }
+      ]
+    }));
+  };
+
+  const updateAbility = (id: string, updates: Partial<Ability>) => {
+    setEditingCharData((prev) => ({
+      ...prev,
+      abilitiesList: (prev.abilitiesList || []).map(a => 
+        a.id === id ? { ...a, ...updates } : a
+      )
+    }));
+  };
+
+  const removeAbility = (id: string) => {
+    setEditingCharData((prev) => ({
+      ...prev,
+      abilitiesList: (prev.abilitiesList || []).filter(a => a.id !== id)
+    }));
   };
 
   return {
@@ -52,5 +90,8 @@ export function useCodexCharacterEditing({ memory, onUpdateMemory }: UseCodexCha
     setEditingCharData,
     handleSaveCharEdit,
     beginCharEdit,
+    addAbility,
+    updateAbility,
+    removeAbility,
   };
 }
