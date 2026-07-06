@@ -68,7 +68,7 @@ export default function ReaderChamber({
     chapters.find((c) => c.number === selectedChapterNum) || chapters[0];
 
   const [showLegend, setShowLegend] = useState(() => {
-    return localStorage.getItem("seihouse-system-legend-dismissed") !== "true";
+    return localStorage.getItem("seihouse-system-legend-show") === "true";
   });
 
   const hasSystemBlocks = useMemo(() => {
@@ -903,11 +903,7 @@ export default function ReaderChamber({
             onToggleLegend={() => {
               const nextState = !showLegend;
               setShowLegend(nextState);
-              if (!nextState) {
-                localStorage.setItem("seihouse-system-legend-dismissed", "true");
-              } else {
-                localStorage.removeItem("seihouse-system-legend-dismissed");
-              }
+              localStorage.setItem("seihouse-system-legend-show", nextState ? "true" : "false");
             }}
           />
         )}

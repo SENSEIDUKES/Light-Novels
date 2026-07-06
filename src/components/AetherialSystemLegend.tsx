@@ -18,44 +18,44 @@ export function AetherialSystemLegend({
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="mb-8 p-5 bg-[#080808]/90 border border-portal/30 rounded-lg max-w-2xl mx-auto shadow-[0_0_30px_rgba(4,172,255,0.1)] relative z-10"
+      className="mb-8 p-3 sm:p-5 bg-[#080808]/90 border border-portal/30 rounded-lg w-full max-w-2xl mx-auto shadow-[0_0_30px_rgba(4,172,255,0.1)] relative z-10"
     >
-      <div className="flex items-center justify-between border-b border-portal/20 pb-2 mb-3">
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between border-b border-portal/20 pb-2.5 mb-3">
         <div className="flex items-center gap-2">
           <span className="text-portal text-sm animate-pulse">✦</span>
           <h4 className="font-display font-medium text-xs sm:text-sm text-signal tracking-widest uppercase">
             Aetherial System Codes
           </h4>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
           <select
             value={currentPrefs?.colorPaletteId || 'default'}
             onChange={(e) => handleUpdatePreference('colorPaletteId', e.target.value)}
-            className="text-[9px] uppercase font-mono tracking-wider text-portal transition-colors px-2.5 py-1.5 border border-portal/30 hover:border-portal rounded-sm bg-portal/5 hover:bg-portal/15 cursor-pointer outline-none focus:ring-1 focus:ring-portal appearance-none"
+            className="text-[9px] uppercase font-mono tracking-wider text-portal transition-colors px-2.5 py-1.5 border border-portal/30 hover:border-portal rounded-sm bg-portal/5 hover:bg-portal/15 cursor-pointer outline-none focus:ring-1 focus:ring-portal appearance-none max-w-[150px] sm:max-w-none text-ellipsis overflow-hidden whitespace-nowrap"
           >
-            <option value="default" className="bg-void text-signal">Custom Mapping: Default</option>
-            <option value="protanopia" className="bg-void text-signal">Protanopia (Red-Blind)</option>
-            <option value="deuteranopia" className="bg-void text-signal">Deuteranopia (Green-Blind)</option>
-            <option value="tritanopia" className="bg-void text-signal">Tritanopia (Blue-Blind)</option>
-            <option value="high_contrast_dark" className="bg-void text-signal">High Contrast Dark</option>
+            <option value="default" className="bg-void text-signal">Default Palette</option>
+            <option value="protanopia" className="bg-void text-signal">Protanopia</option>
+            <option value="deuteranopia" className="bg-void text-signal">Deuteranopia</option>
+            <option value="tritanopia" className="bg-void text-signal">Tritanopia</option>
+            <option value="high_contrast_dark" className="bg-void text-signal">High Contrast</option>
           </select>
           <button
             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-              localStorage.setItem("seihouse-system-legend-dismissed", "true");
+              localStorage.setItem("seihouse-system-legend-show", "false");
               setShowLegend(false);
             }}
-            className="text-[9px] uppercase font-mono tracking-wider text-portal hover:text-signal transition-colors px-2.5 py-1.5 border border-portal/30 hover:border-portal rounded-sm bg-portal/5 hover:bg-portal/15 cursor-pointer shadow-[0_0_10px_rgba(4,172,255,0.1)]"
+            className="text-[9px] uppercase font-mono tracking-wider text-portal hover:text-signal transition-colors px-2.5 py-1.5 border border-portal/30 hover:border-portal rounded-sm bg-portal/5 hover:bg-portal/15 cursor-pointer shadow-[0_0_10px_rgba(4,172,255,0.1)] font-medium shrink-0"
           >
             Dismiss
           </button>
         </div>
       </div>
       
-      <p className="text-neutral-400 text-xs font-serif italic mb-4 leading-relaxed">
+      <p className="text-neutral-400 text-[10px] sm:text-xs font-serif italic mb-4 leading-relaxed">
         The Heavenly System speaks through colors. The resonance of each hue carries deep narrative significance. Learn to feel the thread of your fate.
       </p>
       
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
+      <div className="grid grid-cols-1 min-[480px]:grid-cols-2 sm:grid-cols-3 gap-2 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
         {SYSTEM_COLORS_LEGEND.map((m) => (
           <div
             key={m.type}
