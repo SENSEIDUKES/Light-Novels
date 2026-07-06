@@ -36,7 +36,6 @@ export function ReaderHeader({
     <div
       data-cue-type="narrative.chapter.enter"
       data-cue-id={`chapter-enter-${selectedChapter.number}`}
-      data-cue-once="true"
       data-cue-value={
         selectedChapter.cuePayload
           ? JSON.stringify(selectedChapter.cuePayload)

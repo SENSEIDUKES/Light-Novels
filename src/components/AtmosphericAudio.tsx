@@ -18,6 +18,8 @@ type FXType = 'footsteps' | 'footsteps_snow' | 'footsteps_wood' | 'footsteps_sto
 
 export function AtmosphericAudio() {
   const currentScreen = useAppStore(state => state.currentScreen);
+  const immersionMaster = useAppStore(state => state.immersion.master);
+  const sceneMusicEnabled = useAppStore(state => state.immersion.sceneMusic);
   const [isMuted, setIsMuted] = useState(() => {
     return localStorage.getItem('seihouse-audio-muted') === 'true';
   });
@@ -39,13 +41,14 @@ export function AtmosphericAudio() {
   const sceneMixRef = useRef<SceneMixEngine | null>(null);
   const scoreEngineRef = useRef(new SceneScoreEngine());
   const bgmIntensityRef = useRef<number>(1.0);
+  const lastChapterCueIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!sceneMixRef.current) {
       const mix = createSceneMixEngine({ loop: true });
       // Apply the saved volume/mute state before anything can play, so the
       // first crossfade never bursts in at the engine's default level.
-      const isActuallyMuted = isMuted || currentScreen !== 'reader';
+      const isActuallyMuted = isMuted || currentScreen !== 'reader' || !immersionMaster || !sceneMusicEnabled;
       mix.setMuted(isActuallyMuted);
       mix.setLevel(isActuallyMuted ? 0 : bgmLevelFor(volume, bgmIntensityRef.current));
       sceneMixRef.current = mix;
@@ -60,7 +63,12 @@ export function AtmosphericAudio() {
   const syncBgmVolumes = () => {
     const mix = sceneMixRef.current;
     if (!mix) return;
-    const isActuallyMuted = isMuted || currentScreen !== 'reader';
+    // Scene Harmonics (immersion.sceneMusic) is the user's on/off switch
+    // for the score tracks; when it's off the BGM decks stay silent.
+    // Read the toggles from the store so calls from long-lived event
+    // listeners never act on stale closure values.
+    const { master, sceneMusic } = useAppStore.getState().immersion;
+    const isActuallyMuted = isMuted || currentScreen !== 'reader' || !master || !sceneMusic;
     mix.setMuted(isActuallyMuted);
     mix.setLevel(isActuallyMuted ? 0 : bgmLevelFor(volume, bgmIntensityRef.current));
   };
@@ -78,7 +86,7 @@ export function AtmosphericAudio() {
       detail: { isMuted, atmosphere, volume }
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMuted, atmosphere, volume, currentScreen]);
+  }, [isMuted, atmosphere, volume, currentScreen, immersionMaster, sceneMusicEnabled]);
 
   // Handle incoming control events from UI
   useEffect(() => {
@@ -593,7 +601,8 @@ export function AtmosphericAudio() {
                triggerChime(ctx);
              }
 
-             if (meta.music) {
+             const { master, sceneMusic } = useAppStore.getState().immersion;
+             if (meta.music && master && sceneMusic) {
                const newTrack = scoreEngineRef.current.evaluateSceneContext(
                  meta.music,
                  meta.environment || [],
@@ -630,21 +639,31 @@ export function AtmosphericAudio() {
              }
           }
         } else if (cue.type === 'narrative.chapter.enter') {
+          // The header re-fires this cue whenever the observer re-attaches
+          // (e.g. while blocks stream in during generation). Only treat it
+          // as a chapter change the first time we see this cue id, so an
+          // escalated score isn't reset mid-chapter.
+          if (cue.id && cue.id === lastChapterCueIdRef.current) return;
+          lastChapterCueIdRef.current = cue.id || null;
+
           scoreEngineRef.current.resetScene();
           const meta = cue.value;
-          if (meta) {
-            // Raise the escalation baseline for the whole chapter so a
-            // high-stakes chapter can score war/fighting music even on
-            // blocks that don't restate the danger value.
-            scoreEngineRef.current.setChapterContext({
-              danger: meta.danger,
-              tension: meta.tension,
-              intensity: meta.intensity,
-            });
 
-            // Start a calm bed immediately — adventure/ambient carry the
-            // chapter until a block earns an escalation.
-            const chapterTags: string[] = [meta.environment, meta.theme].flat().filter(Boolean);
+          // Raise the escalation baseline for the whole chapter so a
+          // high-stakes chapter can score war/fighting music even on
+          // blocks that don't restate the danger value.
+          scoreEngineRef.current.setChapterContext({
+            danger: meta?.danger,
+            tension: meta?.tension,
+            intensity: meta?.intensity,
+          });
+
+          // Start a calm bed immediately — adventure/ambient carry the
+          // chapter until a block earns an escalation. This runs even for
+          // chapters without a cue payload so there is always a bed.
+          const { master, sceneMusic } = useAppStore.getState().immersion;
+          if (master && sceneMusic) {
+            const chapterTags: string[] = [meta?.environment, meta?.theme].flat().filter(Boolean);
             const bedTrack = scoreEngineRef.current.resolveChapterDefault(chapterTags);
             if (bedTrack && bedTrack.url && sceneMixRef.current) {
               sceneMixRef.current.crossfadeTo({
@@ -654,6 +673,9 @@ export function AtmosphericAudio() {
                 audioFile: bedTrack.url,
               });
             }
+          }
+
+          if (meta) {
 
             if (typeof meta.intensity === 'number') {
               bgmIntensityRef.current = Math.max(0.2, Math.min(1.0, meta.intensity));
