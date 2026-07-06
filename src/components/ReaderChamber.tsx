@@ -982,29 +982,39 @@ export default function ReaderChamber({
 
       <ReaderControls
         selectedChapter={selectedChapter}
-        selectedChapterNum={selectedChapterNum}
-        maxChapterNum={maxChapterNum}
-        navigatePrev={navigatePrev}
-        navigateNext={navigateNext}
-        onSwitchTab={onSwitchTab}
-        isPlayingText={isPlayingText}
-        isPausedText={isPausedText}
-        speechRate={speechRate}
-        setSpeechRate={setSpeechRate}
-        handleTogglePlayback={handleTogglePlayback}
-        readerMode={readerMode}
-        availableVoices={availableVoices}
-        selectedVoiceURI={selectedVoiceURI}
-        setSelectedVoiceURI={setSelectedVoiceURI}
-        selectedDialogueVoiceURI={selectedDialogueVoiceURI}
-        setSelectedDialogueVoiceURI={setSelectedDialogueVoiceURI}
-        selectedSideVoiceURI={selectedSideVoiceURI}
-        setSelectedSideVoiceURI={setSelectedSideVoiceURI}
-        immersion={immersion}
-        setImmersion={setImmersion}
-        handleExportText={handleExportText}
-        handleAlterFate={handleAlterFate}
-        setIsAlterFateOpen={setIsAlterFateOpen}
+        navigation={{
+          selectedChapterNum,
+          maxChapterNum,
+          navigatePrev,
+          navigateNext,
+          onSwitchTab,
+        }}
+        playback={{
+          isPlayingText,
+          isPausedText,
+          handleTogglePlayback,
+          readerMode,
+        }}
+        audio={{
+          speechRate,
+          setSpeechRate,
+          availableVoices,
+          selectedVoiceURI,
+          setSelectedVoiceURI,
+          selectedDialogueVoiceURI,
+          setSelectedDialogueVoiceURI,
+          selectedSideVoiceURI,
+          setSelectedSideVoiceURI,
+        }}
+        immersion={{
+          immersion,
+          setImmersion,
+        }}
+        actions={{
+          handleAlterFate,
+          setIsAlterFateOpen,
+          handleExportText,
+        }}
       />
 
       {/* THE CHRONICLE ANCHORS (BOOKMARKS DRAW PANEL) */}
