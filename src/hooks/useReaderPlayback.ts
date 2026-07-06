@@ -4,6 +4,7 @@ import { useAppStore } from "../store/useAppStore";
 import { dispatchNarration, dispatchNarrativeCue } from "../lib/narrativeCues";
 import { useReadingDrift } from "./useReadingDrift";
 import { storyStorage } from "../lib/storage";
+import { buildSpeechChunks, pickDefaultSideVoice, SpeechChunk } from "../lib/voice/webSpeechCast";
 
 export const extractSFXCues = (text: string) => {
   const sfxList: string[] = [];
@@ -58,6 +59,7 @@ export function useReaderPlayback({
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>("");
   const [selectedDialogueVoiceURI, setSelectedDialogueVoiceURI] = useState<string>("");
+  const [selectedSideVoiceURI, setSelectedSideVoiceURI] = useState<string>("");
   const [showVoiceDetail, setShowVoiceDetail] = useState<boolean>(false);
 
   const [localIsAutoScrollPausedByUser, localSetIsAutoScrollPausedByUser] = useState(false);
@@ -169,6 +171,15 @@ export function useReaderPlayback({
               voices[0];
             return dialogueVoice?.voiceURI || "";
           });
+
+          setSelectedSideVoiceURI((current) => {
+            if (current && voices.some((v) => v.voiceURI === current)) {
+              return current;
+            }
+            const narratorURI = voices.find((v) => v.name.toLowerCase().includes("daniel"))?.voiceURI || "";
+            const dialogueURI = voices.find((v) => v.name.toLowerCase().includes("rishi"))?.voiceURI || "";
+            return pickDefaultSideVoice(voices, narratorURI, dialogueURI)?.voiceURI || "";
+          });
         }
       };
 
@@ -184,8 +195,8 @@ export function useReaderPlayback({
     selectedChapterRef.current = selectedChapter;
   }, [selectedChapter]);
 
-  const chunksRef = useRef<{ text: string; isDialogue: boolean; paragraphIndex?: number }[]>([]);
-  const [activeChunks, setActiveChunks] = useState<{ text: string; isDialogue: boolean; paragraphIndex?: number }[]>([]);
+  const chunksRef = useRef<SpeechChunk[]>([]);
+  const [activeChunks, setActiveChunks] = useState<SpeechChunk[]>([]);
   const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
   const [currentNarratedBlockIndex, setCurrentNarratedBlockIndex] = useState(-1);
 
@@ -193,6 +204,7 @@ export function useReaderPlayback({
   const speechPitchRef = useRef(speechPitch);
   const selectedVoiceURIRef = useRef(selectedVoiceURI);
   const selectedDialogueVoiceURIRef = useRef(selectedDialogueVoiceURI);
+  const selectedSideVoiceURIRef = useRef(selectedSideVoiceURI);
   const speechVolumeRef = useRef(speechVolume);
   const availableVoicesRef = useRef(availableVoices);
   const currentChunkIndexRef = useRef(currentChunkIndex);
@@ -206,6 +218,7 @@ export function useReaderPlayback({
   useEffect(() => { speechPitchRef.current = speechPitch; }, [speechPitch]);
   useEffect(() => { selectedVoiceURIRef.current = selectedVoiceURI; }, [selectedVoiceURI]);
   useEffect(() => { selectedDialogueVoiceURIRef.current = selectedDialogueVoiceURI; }, [selectedDialogueVoiceURI]);
+  useEffect(() => { selectedSideVoiceURIRef.current = selectedSideVoiceURI; }, [selectedSideVoiceURI]);
   useEffect(() => { speechVolumeRef.current = speechVolume; }, [speechVolume]);
   useEffect(() => { availableVoicesRef.current = availableVoices; }, [availableVoices]);
   useEffect(() => { currentChunkIndexRef.current = currentChunkIndex; }, [currentChunkIndex]);
@@ -376,9 +389,15 @@ export function useReaderPlayback({
     const utterance = new SpeechSynthesisUtterance(chunkData.text);
     currentUtteranceRef.current = utterance;
 
-    const voiceURI = chunkData.isDialogue
-      ? selectedDialogueVoiceURIRef.current
-      : selectedVoiceURIRef.current;
+    // Three-voice cast: narrator for prose, MC voice for the protagonist,
+    // side voice for everyone else. An unset side voice falls back to the
+    // dialogue voice, which is exactly the old two-voice behavior.
+    const voiceURI =
+      chunkData.slot === 'side'
+        ? (selectedSideVoiceURIRef.current || selectedDialogueVoiceURIRef.current)
+        : chunkData.slot === 'mc' || chunkData.isDialogue
+          ? selectedDialogueVoiceURIRef.current
+          : selectedVoiceURIRef.current;
 
     const voice = voiceURI
       ? availableVoicesRef.current.find((v) => v.voiceURI === voiceURI)
@@ -438,47 +457,40 @@ export function useReaderPlayback({
 
     if (!selectedChapter) return;
 
-    let paragraphs: string[] = [];
+    // Blocks carry speaker metadata (speakerName/speakerRole from the LLM)
+    // so dialogue can be attributed to the MC or a side character. Plain
+    // translations and legacy content have no metadata and keep the old
+    // two-voice behavior.
+    let paragraphs: { text: string; metadata?: any }[] = [];
     if (activeTranslationContent) {
-      paragraphs = activeTranslationContent.split("\n\n");
+      paragraphs = activeTranslationContent.split("\n\n").map((text) => ({ text }));
     } else if (selectedChapter.blocks && selectedChapter.blocks.length > 0) {
-      paragraphs = selectedChapter.blocks.map((b: any) => b.text);
+      paragraphs = selectedChapter.blocks.map((b: any) => ({ text: b.text, metadata: b.metadata }));
     } else if (selectedChapter.generatedContent) {
-      paragraphs = selectedChapter.generatedContent.split("\n\n");
+      paragraphs = selectedChapter.generatedContent.split("\n\n").map((text) => ({ text }));
     }
 
     if (paragraphs.length === 0) return;
 
-    const newChunks: { text: string; isDialogue: boolean; paragraphIndex?: number }[] = [];
-    newChunks.push({
-      text: `Chapter ${selectedChapter.number}. ${selectedChapter.title}.`,
-      isDialogue: false,
-      paragraphIndex: -1,
-    });
-
-    paragraphs.forEach((paragraph, index) => {
-      if (!paragraph.trim()) return;
-      const proseCleaned = extractSFXCues(paragraph).cleanText;
+    const cleanedParagraphs = paragraphs.map((p) => {
+      const proseCleaned = extractSFXCues(p.text).cleanText;
       const cleanText = proseCleaned
         .replace(/\[System Alert:[^\]]+\]/gi, "")
         .replace(/\[System Breakthrough:[^\]]+\]/gi, "")
         .replace(/\[System Notification:[^\]]+\]/gi, "")
         .replace(/\[Aura[^\]]+\]/gi, "");
-
-      if (!cleanText.trim()) return;
-
-      const rawParts = cleanText.split(/(["“「][^"”」]+["”」])/g);
-      rawParts.forEach((part) => {
-        if (!part.trim()) return;
-        const isDialogue = /^["“「]/.test(part);
-        const subChunks = part.match(/[^.!?\n]+[.!?\n]*/g) || [part];
-        subChunks.forEach((sub) => {
-          if (sub.trim()) {
-            newChunks.push({ text: sub.trim(), isDialogue, paragraphIndex: index });
-          }
-        });
-      });
+      return { text: cleanText, metadata: p.metadata };
     });
+
+    const newChunks: SpeechChunk[] = [
+      {
+        text: `Chapter ${selectedChapter.number}. ${selectedChapter.title}.`,
+        isDialogue: false,
+        slot: 'narrator',
+        paragraphIndex: -1,
+      },
+      ...buildSpeechChunks(cleanedParagraphs),
+    ];
 
     if (newChunks.length > 0) {
       chunksRef.current = newChunks;
@@ -552,7 +564,7 @@ export function useReaderPlayback({
       speakChunk(currentChunkIndexRef.current);
     }, 450);
     return () => clearTimeout(timer);
-  }, [speechRate, speechPitch, selectedVoiceURI, selectedDialogueVoiceURI, speechVolume, isPlayingText, isPausedText, speakChunk, isMuted]);
+  }, [speechRate, speechPitch, selectedVoiceURI, selectedDialogueVoiceURI, selectedSideVoiceURI, speechVolume, isPlayingText, isPausedText, speakChunk, isMuted]);
 
   return {
     isPlayingText,
@@ -563,6 +575,7 @@ export function useReaderPlayback({
     availableVoices,
     selectedVoiceURI, setSelectedVoiceURI,
     selectedDialogueVoiceURI, setSelectedDialogueVoiceURI,
+    selectedSideVoiceURI, setSelectedSideVoiceURI,
     showVoiceDetail, setShowVoiceDetail,
     currentNarratedBlockIndex,
     activeChunks,
