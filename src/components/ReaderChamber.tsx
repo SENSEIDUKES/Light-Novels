@@ -438,6 +438,9 @@ export default function ReaderChamber({
     const handleCue = (e: any) => {
       const cue = e.detail;
       if (cue.type === 'narrative.metadata.signature') {
+        // Metadata cues now also flow for scene music alone; the shake is
+        // a visual effect and stays tied to the Holographic Visions toggle.
+        if (!useAppStore.getState().immersion.imagePopups) return;
         const meta = cue.metadata || cue.value;
         if (meta) {
           const isIntense = 

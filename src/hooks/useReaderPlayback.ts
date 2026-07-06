@@ -274,7 +274,7 @@ export function useReaderPlayback({
             });
           });
         }
-        if (immersion.imagePopups && block.metadata) {
+        if ((immersion.imagePopups || immersion.sceneMusic) && block.metadata) {
           dispatchNarrativeCue({
              id: block.id || `para-${selectedChapterRef.current?.number}-${blockIndex}`,
              type: "narrative.metadata.signature",

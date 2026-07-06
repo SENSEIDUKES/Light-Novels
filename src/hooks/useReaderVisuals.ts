@@ -128,12 +128,16 @@ export function useReaderVisuals({
                 } catch {}
               }
 
+              // Metadata cues feed both the visual popups AND the scene
+              // music engine, so they must flow if either feature is on;
+              // each consumer applies its own toggle.
+              const metadataConsumersOff = !immersion.imagePopups && !immersion.sceneMusic;
               if (readerMode === "teleprompter") {
                 if (type.startsWith("narrative.fx")) return;
-                if (type.startsWith("narrative.metadata") && !immersion.imagePopups) return;
+                if (type.startsWith("narrative.metadata") && metadataConsumersOff) return;
               } else {
                 if (type.startsWith("narrative.fx") && !immersion.audioCues) return;
-                if (type.startsWith("narrative.metadata") && !immersion.imagePopups) return;
+                if (type.startsWith("narrative.metadata") && metadataConsumersOff) return;
               }
 
               dispatchNarrativeCue({
@@ -160,6 +164,7 @@ export function useReaderVisuals({
     readerMode,
     immersion.imagePopups,
     immersion.audioCues,
+    immersion.sceneMusic,
   ]);
 
   // Codex terms memo for semantic highlighting
