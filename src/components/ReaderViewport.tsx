@@ -168,8 +168,9 @@ export function ReaderViewport({
 
   const bookmarkMap = React.useMemo(() => {
     const map = new Map<number, Bookmark>();
+    if (!activeBookmarks) return map;
     activeBookmarks.forEach(b => {
-      if (b.chapterNumber === selectedChapter.number) {
+      if (b && b.chapterNumber === selectedChapter.number && !map.has(b.paragraphIndex)) {
         map.set(b.paragraphIndex, b);
       }
     });
