@@ -22,9 +22,12 @@ export function useCodexCharacterEditing({ memory, onUpdateMemory }: UseCodexCha
             faction: editingCharData.faction?.trim() || undefined,
             signatureQuote: editingCharData.signatureQuote?.trim() || undefined,
             status: editingCharData.status || char.status || 'unknown',
-            abilities: editingCharData.abilitiesList && editingCharData.abilitiesList.length > 0
-              ? editingCharData.abilitiesList
-              : undefined,
+            abilities: (() => {
+              const validAbilities = editingCharData.abilitiesList
+                ?.map(a => ({ ...a, name: a.name.trim() }))
+                .filter(a => a.name);
+              return validAbilities && validAbilities.length > 0 ? validAbilities : undefined;
+            })(),
           };
         }
         return char;
@@ -40,7 +43,7 @@ export function useCodexCharacterEditing({ memory, onUpdateMemory }: UseCodexCha
     const normalizedAbilities: Ability[] = (char.abilities || []).map((a, index) => {
       if (typeof a === 'string') {
         return {
-          id: `ability-${Date.now()}-${index}`,
+          id: "ability-" + Math.random().toString(36).substring(2, 9) + "-" + index,
           name: a,
           description: '',
         };
@@ -62,7 +65,7 @@ export function useCodexCharacterEditing({ memory, onUpdateMemory }: UseCodexCha
       ...prev,
       abilitiesList: [
         ...(prev.abilitiesList || []),
-        { id: `ability-${Date.now()}`, name: '', description: '' }
+        { id: "ability-" + Math.random().toString(36).substring(2, 9), name: '', description: '' }
       ]
     }));
   };

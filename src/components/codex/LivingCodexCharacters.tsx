@@ -660,12 +660,22 @@ export function LivingCodexCharacters({
                                         />
                                       </div>
                                       <div>
-                                        <label htmlFor={`ability-${ability.id}-limits`} className="text-[8px] text-neutral-500 uppercase">Cost / Limits</label>
+                                        <label htmlFor={`ability-${ability.id}-cost`} className="text-[8px] text-neutral-500 uppercase">Cost</label>
+                                        <input
+                                          id={`ability-${ability.id}-cost`}
+                                          type="text"
+                                          value={ability.cost || ''}
+                                          onChange={(e) => updateAbility(ability.id, { cost: e.target.value })}
+                                          className="bg-neutral-950 border border-neutral-850 p-1 w-full text-[10px] text-neutral-300"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label htmlFor={`ability-${ability.id}-limits`} className="text-[8px] text-neutral-500 uppercase">Limits</label>
                                         <input
                                           id={`ability-${ability.id}-limits`}
                                           type="text"
-                                          value={ability.cost || ability.limits || ''}
-                                          onChange={(e) => updateAbility(ability.id, { cost: e.target.value, limits: e.target.value })}
+                                          value={ability.limits || ''}
+                                          onChange={(e) => updateAbility(ability.id, { limits: e.target.value })}
                                           className="bg-neutral-950 border border-neutral-850 p-1 w-full text-[10px] text-neutral-300"
                                         />
                                       </div>
@@ -674,8 +684,11 @@ export function LivingCodexCharacters({
                                         <input
                                           id={`ability-${ability.id}-acq`}
                                           type="number"
-                                          value={ability.acquiredChapter || ''}
-                                          onChange={(e) => updateAbility(ability.id, { acquiredChapter: parseInt(e.target.value) || undefined })}
+                                          value={ability.acquiredChapter !== undefined ? ability.acquiredChapter : ''}
+                                          onChange={(e) => {
+                                            const val = parseInt(e.target.value, 10);
+                                            updateAbility(ability.id, { acquiredChapter: isNaN(val) ? undefined : val });
+                                          }}
                                           className="bg-neutral-950 border border-neutral-850 p-1 w-full text-[10px] text-neutral-300"
                                         />
                                       </div>
@@ -694,8 +707,11 @@ export function LivingCodexCharacters({
                                         <input
                                           id={`ability-${ability.id}-lastUsed`}
                                           type="number"
-                                          value={ability.lastUsedChapter || ''}
-                                          onChange={(e) => updateAbility(ability.id, { lastUsedChapter: parseInt(e.target.value) || undefined })}
+                                          value={ability.lastUsedChapter !== undefined ? ability.lastUsedChapter : ''}
+                                          onChange={(e) => {
+                                            const val = parseInt(e.target.value, 10);
+                                            updateAbility(ability.id, { lastUsedChapter: isNaN(val) ? undefined : val });
+                                          }}
                                           className="bg-neutral-950 border border-neutral-850 p-1 w-full text-[10px] text-neutral-300"
                                         />
                                       </div>
