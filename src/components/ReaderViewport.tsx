@@ -166,6 +166,15 @@ export function ReaderViewport({
     return map;
   }, [codexTerms]);
 
+  const bookmarkMap = React.useMemo(() => {
+    const map = new Map<number, Bookmark>();
+    activeBookmarks.forEach(b => {
+      if (b.chapterNumber === selectedChapter.number) {
+        map.set(b.paragraphIndex, b);
+      }
+    });
+    return map;
+  }, [activeBookmarks, selectedChapter.number]);
   React.useEffect(() => {
     if (!selectedChapter?.blocks || !activeStory) return;
     let hasChanges = false;
@@ -540,11 +549,7 @@ export function ReaderViewport({
                           );
                         }
 
-                        const existingBookmark = activeBookmarks.find(
-                          (b) =>
-                            b.chapterNumber === selectedChapter.number &&
-                            b.paragraphIndex === index,
-                        );
+                        const existingBookmark = bookmarkMap.get(index);
                         const isEditingThisBookmark =
                           editingBookmarkParagraphIndex === index;
 
@@ -693,11 +698,7 @@ export function ReaderViewport({
                             );
                           }
 
-                          const existingBookmark = activeBookmarks.find(
-                            (b) =>
-                              b.chapterNumber === selectedChapter.number &&
-                              b.paragraphIndex === index,
-                          );
+                          const existingBookmark = bookmarkMap.get(index);
                           const isEditingThis =
                             editingBookmarkParagraphIndex === index;
 
