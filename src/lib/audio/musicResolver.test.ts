@@ -120,6 +120,11 @@ describe('SceneScoreEngine', () => {
     expect(strong!.id).toBe('ROMANCE_LOVERS');
   });
 
+  it('prefers the neutral default track when no scene tags match', () => {
+    const track = engine.evaluateSceneContext({ mood: 'ambient' });
+    expect(track!.id).toBe('AMBIENT_STARTER');
+  });
+
   it('prefers the tag-matching track among same-mood candidates', () => {
     const track = engine.evaluateSceneContext({ mood: 'ambient' }, ['night', 'camp']);
     expect(track!.id).toBe('AMBEINT_NIGHT');

@@ -635,10 +635,7 @@ export function AtmosphericAudio() {
 
             // Start a calm bed immediately — adventure/ambient carry the
             // chapter until a block earns an escalation.
-            const chapterTags: string[] = [
-              ...(Array.isArray(meta.environment) ? meta.environment : [meta.environment].filter(Boolean)),
-              ...(meta.theme ? [meta.theme] : []),
-            ];
+            const chapterTags: string[] = [meta.environment, meta.theme].flat().filter(Boolean);
             const bedTrack = scoreEngineRef.current.resolveChapterDefault(chapterTags);
             if (bedTrack && bedTrack.url && sceneMixRef.current) {
               sceneMixRef.current.crossfadeTo({

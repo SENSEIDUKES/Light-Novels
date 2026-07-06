@@ -221,6 +221,9 @@ export class SceneScoreEngine {
       }
       // Exact primary-mood match beats a track merely covering the mood.
       if (track.mood === requestedMood) score += 1;
+      // With no scene-tag overlap, prefer the neutral 'default' track over
+      // a situational sibling (e.g. AMBIENT_STARTER over AMBEINT_NIGHT).
+      if (track.tags.includes('default')) score += 0.5;
       // Keep the current track when nothing scores higher — avoids
       // crossfade churn between same-mood siblings.
       if (track.id === this.currentTrackId) score += 1;
