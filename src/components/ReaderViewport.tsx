@@ -155,10 +155,12 @@ export function ReaderViewport({
   const { updateStory } = useAppStore();
   const codexMap = React.useMemo(() => {
     const map = new Map<string, any>();
-    codexTerms.forEach(t => {
-      const termLower = t.term.toLowerCase();
-      if (!map.has(termLower)) {
-        map.set(termLower, t);
+    codexTerms?.forEach(t => {
+      if (typeof t?.term === 'string') {
+        const termLower = t.term.toLowerCase();
+        if (!map.has(termLower)) {
+          map.set(termLower, t);
+        }
       }
     });
     return map;
@@ -400,13 +402,16 @@ export function ReaderViewport({
                         );
                         if (!cleanText) return null;
 
+                        let revealTerm: any = undefined;
                         const revealEntity = block.metadata?.entities?.find(ent => {
                           if (ent.mention !== 'reveal') return false;
                           const matched = codexMap.get(ent.name.toLowerCase());
-                          return matched && matched.entry;
+                          if (matched && matched.entry) {
+                            revealTerm = matched;
+                            return true;
+                          }
+                          return false;
                         });
-
-                        const revealTerm = revealEntity ? codexMap.get(revealEntity.name.toLowerCase()) : undefined;
 
                         const revealImageUrl = revealTerm && 'imageUrl' in revealTerm.entry ? (revealTerm.entry as any).imageUrl : undefined;
 
