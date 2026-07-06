@@ -23,7 +23,7 @@ export function ReaderControls({
         <div className="flex sm:hidden items-center justify-between w-full">
            {/* Left: Settings & Codex */}
            <div className="flex items-center gap-2">
-              <ImmersionSettings audio={audio} immersion={immersion} actions={actions} />
+              <ImmersionSettings audio={audio} immersion={immersion} actions={actions} isMobile />
               <button
                 onClick={() => onSwitchTab && onSwitchTab("codex")}
                 className="p-2 border border-neutral-800 rounded-full bg-void text-neutral-400 hover:text-portal transition-colors focus:outline-none"

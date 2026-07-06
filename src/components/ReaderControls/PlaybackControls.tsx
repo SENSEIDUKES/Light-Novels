@@ -65,8 +65,7 @@ export function PlaybackControls({ selectedChapter, playback, isDesktop = false 
       </div>
 
       {/* Central audio touch Core key */}
-      <button
-         tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleTogglePlayback}
+      <button onClick={handleTogglePlayback}
         disabled={!hasContent}
         className={`absolute rounded-full flex items-center justify-center transition-all z-10 focus:outline-none ${isDesktop ? 'h-10 w-10' : 'h-8 w-8'} ${
           !hasContent

@@ -17,8 +17,7 @@ export function ChapterNavigation({ navigation, actions, isDesktop = false }: Pr
       <div className="flex items-center justify-end gap-4 w-full sm:w-auto mt-4 sm:mt-0">
         {/* Quick Access Lore Action Links */}
         <div className="flex items-center space-x-2 sm:space-x-4 bg-void border border-neutral-900 rounded-full px-2 py-1">
-          <button
-             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={navigatePrev}
+          <button onClick={navigatePrev}
             disabled={selectedChapterNum <= 1}
             className="px-2 sm:px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-portal disabled:opacity-25 disabled:pointer-events-none transition-colors text-[9px] sm:text-[10px] font-sc uppercase tracking-wider font-semibold focus:outline-none"
           >
@@ -27,16 +26,14 @@ export function ChapterNavigation({ navigation, actions, isDesktop = false }: Pr
             <span className="sm:hidden">Prev</span>
           </button>
           <div className="w-[1px] h-4 bg-neutral-800"></div>
-          <button
-             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => onSwitchTab && onSwitchTab("codex")}
+          <button onClick={() => onSwitchTab && onSwitchTab("codex")}
             className="px-2 sm:px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-portal transition-colors text-[9px] sm:text-[10px] font-sc uppercase tracking-wider focus:outline-none"
           >
             <ListMusic size={14} />
             <span className="hidden sm:inline">Codex</span>
           </button>
           <div className="w-[1px] h-4 bg-neutral-800"></div>
-          <button
-             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={navigateNext}
+          <button onClick={navigateNext}
             disabled={selectedChapterNum === maxChapterNum}
             className="px-2 sm:px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-human disabled:opacity-25 disabled:pointer-events-none transition-colors text-[9px] sm:text-[10px] font-sc uppercase tracking-wider font-semibold focus:outline-none"
           >
@@ -47,8 +44,7 @@ export function ChapterNavigation({ navigation, actions, isDesktop = false }: Pr
         </div>
 
         {handleAlterFate && (
-          <button
-             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setIsAlterFateOpen(true)}
+          <button onClick={() => setIsAlterFateOpen(true)}
             className="px-4 py-2 border border-portal text-portal font-sc font-bold uppercase tracking-wider text-[10px] rounded-full hover:bg-portal hover:text-void transition-colors flex items-center gap-2 shadow-[0_0_10px_rgba(4,172,255,0.15)] shrink-0 focus:outline-none"
           >
             <Zap size={14} />

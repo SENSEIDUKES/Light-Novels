@@ -6,9 +6,10 @@ interface Props {
   audio: AudioSettings;
   immersion: ImmersionPreferences;
   actions: FateActions;
+  isMobile?: boolean;
 }
 
-export function ImmersionSettings({ audio, immersion: { immersion, setImmersion }, actions: { handleExportText } }: Props) {
+export function ImmersionSettings({ audio, immersion: { immersion, setImmersion }, actions: { handleExportText }, isMobile = false }: Props) {
   const [showImmersionPopover, setShowImmersionPopover] = useState<boolean>(false);
   const [showVoiceDetail, setShowVoiceDetail] = useState<boolean>(false);
 
@@ -37,8 +38,7 @@ export function ImmersionSettings({ audio, immersion: { immersion, setImmersion 
               Master consciousness coupling
             </span>
           </div>
-          <button
-            tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setImmersion({ master: !immersion.master })}
+          <button onClick={() => setImmersion({ master: !immersion.master })}
             className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
               immersion.master ? "bg-portal/80 shadow-[0_0_8px_rgba(4,172,255,0.4)]" : "bg-neutral-850"
             }`}
@@ -64,8 +64,7 @@ export function ImmersionSettings({ audio, immersion: { immersion, setImmersion 
                 Pages follow reading playhead
               </span>
             </div>
-            <button
-              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => immersion.master && setImmersion({ autoScroll: !immersion.autoScroll })}
+            <button onClick={() => immersion.master && setImmersion({ autoScroll: !immersion.autoScroll })}
               disabled={!immersion.master}
               className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
                 immersion.autoScroll ? "bg-portal/60" : "bg-neutral-850"
@@ -89,8 +88,7 @@ export function ImmersionSettings({ audio, immersion: { immersion, setImmersion 
                 Adaptive localized SFX cues
               </span>
             </div>
-            <button
-              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => immersion.master && setImmersion({ audioCues: !immersion.audioCues })}
+            <button onClick={() => immersion.master && setImmersion({ audioCues: !immersion.audioCues })}
               disabled={!immersion.master}
               className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
                 immersion.audioCues ? "bg-portal/60" : "bg-neutral-850"
@@ -114,8 +112,7 @@ export function ImmersionSettings({ audio, immersion: { immersion, setImmersion 
                 Automatic scenic image pop-ups
               </span>
             </div>
-            <button
-              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => immersion.master && setImmersion({ imagePopups: !immersion.imagePopups })}
+            <button onClick={() => immersion.master && setImmersion({ imagePopups: !immersion.imagePopups })}
               disabled={!immersion.master}
               className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
                 immersion.imagePopups ? "bg-portal/60" : "bg-neutral-850"
@@ -139,8 +136,7 @@ export function ImmersionSettings({ audio, immersion: { immersion, setImmersion 
                 Atmospheric musical tapestries
               </span>
             </div>
-            <button
-              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => immersion.master && setImmersion({ sceneMusic: !immersion.sceneMusic })}
+            <button onClick={() => immersion.master && setImmersion({ sceneMusic: !immersion.sceneMusic })}
               disabled={!immersion.master}
               className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
                 immersion.sceneMusic ? "bg-portal/60" : "bg-neutral-850"
@@ -158,8 +154,7 @@ export function ImmersionSettings({ audio, immersion: { immersion, setImmersion 
 
         {/* Collapsible Voice Settings */}
         <div className="border-t border-neutral-900 pt-2 mt-1">
-          <button
-            tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowVoiceDetail(!showVoiceDetail)}
+          <button onClick={() => setShowVoiceDetail(!showVoiceDetail)}
             className="flex items-center justify-between w-full text-[9px] uppercase font-sc text-neutral-400 hover:text-signal transition-colors py-1 focus:outline-none"
           >
             <span>Voice Matrix Signature</span>
@@ -273,7 +268,7 @@ export function ImmersionSettings({ audio, immersion: { immersion, setImmersion 
       >
         <Settings size={16} />
       </button>
-      {showImmersionPopover && renderSettingsPopover(false)}
+      {showImmersionPopover && renderSettingsPopover(isMobile)}
     </div>
   );
 }
