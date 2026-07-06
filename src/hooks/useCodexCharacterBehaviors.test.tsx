@@ -94,7 +94,10 @@ describe('codex character behavior hooks', () => {
         powerLevel: ' Golden Core ',
         faction: ' Wandering Peak ',
         signatureQuote: ' Cut through fate. ',
-        abilitiesInput: 'Sky Step,  Moon Slash ',
+        abilitiesList: [
+          { id: 'ability-1', name: 'Sky Step', description: '' },
+          { id: 'ability-2', name: 'Moon Slash', description: '' },
+        ],
         status: 'ascended',
       });
     });
@@ -108,7 +111,10 @@ describe('codex character behavior hooks', () => {
         powerLevel: 'Golden Core',
         faction: 'Wandering Peak',
         signatureQuote: 'Cut through fate.',
-        abilities: ['Sky Step', 'Moon Slash'],
+        abilities: [
+          expect.objectContaining({ name: 'Sky Step' }),
+          expect.objectContaining({ name: 'Moon Slash' }),
+        ],
         status: 'ascended',
       })],
     }));
