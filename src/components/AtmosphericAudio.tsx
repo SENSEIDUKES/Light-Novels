@@ -585,7 +585,11 @@ export function AtmosphericAudio() {
              }
 
              if (meta.music) {
-               const newTrack = scoreEngineRef.current.evaluateSceneContext(meta.music, meta.environment || []);
+               const newTrack = scoreEngineRef.current.evaluateSceneContext(
+                 meta.music,
+                 meta.environment || [],
+                 { danger: meta.danger, tension: meta.tension, intensity: meta.intensity }
+               );
                if (newTrack && newTrack.url && sceneMixRef.current) {
                  // The engine no-ops on the already-active track, parks the
                  // incoming deck past leading silence, and runs an
@@ -620,6 +624,31 @@ export function AtmosphericAudio() {
           scoreEngineRef.current.resetScene();
           const meta = cue.value;
           if (meta) {
+            // Raise the escalation baseline for the whole chapter so a
+            // high-stakes chapter can score war/fighting music even on
+            // blocks that don't restate the danger value.
+            scoreEngineRef.current.setChapterContext({
+              danger: meta.danger,
+              tension: meta.tension,
+              intensity: meta.intensity,
+            });
+
+            // Start a calm bed immediately — adventure/ambient carry the
+            // chapter until a block earns an escalation.
+            const chapterTags: string[] = [
+              ...(Array.isArray(meta.environment) ? meta.environment : [meta.environment].filter(Boolean)),
+              ...(meta.theme ? [meta.theme] : []),
+            ];
+            const bedTrack = scoreEngineRef.current.resolveChapterDefault(chapterTags);
+            if (bedTrack && bedTrack.url && sceneMixRef.current) {
+              sceneMixRef.current.crossfadeTo({
+                id: bedTrack.id,
+                title: bedTrack.id,
+                artist: 'SEIHouse',
+                audioFile: bedTrack.url,
+              });
+            }
+
             if (typeof meta.intensity === 'number') {
               bgmIntensityRef.current = Math.max(0.2, Math.min(1.0, meta.intensity));
               syncBgmVolumes();
