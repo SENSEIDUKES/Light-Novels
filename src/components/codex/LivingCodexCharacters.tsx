@@ -74,6 +74,9 @@ export function LivingCodexCharacters({
     setEditingCharData,
     handleSaveCharEdit,
     beginCharEdit,
+    addAbility,
+    updateAbility,
+    removeAbility,
   } = useCodexCharacterEditing({ memory, onUpdateMemory });
 
   return (
@@ -558,52 +561,189 @@ export function LivingCodexCharacters({
                       </div>
 
                       {isEditing ? (
-                        <div className="bg-black/95 absolute inset-0 p-4 rounded-lg flex flex-col justify-between z-10 text-xs text-neutral-300">
-                          <div className="space-y-2">
+                        <div className="bg-black/95 absolute inset-0 p-4 rounded-lg flex flex-col z-10 text-xs text-neutral-300 overflow-y-auto">
+                          <div className="space-y-4 flex-1">
                             <h5 className="font-sc font-bold uppercase text-portal">Refine {char.name}'s Soul Aura</h5>
-                            <div>
-                              <label className="text-[9px] text-neutral-500 uppercase block mb-0.5" htmlFor="a11y-control-sq4dgia">Cultivation Realm</label>
-                              <input 
-                                type="text"
-                                value={editingCharData.powerLevel}
-                                onChange={(e) => setEditingCharData({ ...editingCharData, powerLevel: e.target.value })}
-                                className="bg-neutral-900 border border-neutral-850 p-1 w-full text-xs text-signal" id="a11y-control-sq4dgia"
-                              />
+                            
+                            {/* Basic Info */}
+                            <div className="space-y-2">
+                              <div>
+                                <label className="text-[9px] text-neutral-500 uppercase block mb-0.5" htmlFor={`power-${char.id}`}>Cultivation Realm</label>
+                                <input 
+                                  type="text"
+                                  value={editingCharData.powerLevel || ''}
+                                  onChange={(e) => setEditingCharData({ ...editingCharData, powerLevel: e.target.value })}
+                                  className="bg-neutral-900 border border-neutral-850 p-1 w-full text-xs text-signal" id={`power-${char.id}`}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[9px] text-neutral-500 uppercase block mb-0.5" htmlFor={`faction-${char.id}`}>Sect Affiliation</label>
+                                <input 
+                                  type="text"
+                                  value={editingCharData.faction || ''}
+                                  onChange={(e) => setEditingCharData({ ...editingCharData, faction: e.target.value })}
+                                  className="bg-neutral-900 border border-neutral-850 p-1 w-full text-xs text-signal" id={`faction-${char.id}`}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[9px] text-neutral-500 uppercase block mb-0.5" htmlFor={`quote-${char.id}`}>Signature Quote</label>
+                                <textarea
+                                  value={editingCharData.signatureQuote || ''}
+                                  onChange={(e) => setEditingCharData({ ...editingCharData, signatureQuote: e.target.value })}
+                                  className="bg-neutral-900 border border-neutral-850 p-1 w-full text-xs text-signal min-h-[40px] resize-none" id={`quote-${char.id}`}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[9px] text-neutral-500 uppercase block mb-0.5" htmlFor={`status-${char.id}`}>Current Status</label>
+                                <select 
+                                  value={editingCharData.status || char.status}
+                                  onChange={(e) => setEditingCharData({ ...editingCharData, status: e.target.value as Character['status'] })}
+                                  className="bg-neutral-900 border border-neutral-850 p-1 w-full text-xs text-signal" id={`status-${char.id}`}
+                                >
+                                  <option value="alive">Alive</option>
+                                  <option value="deceased">Deceased</option>
+                                  <option value="unknown">Unknown</option>
+                                  <option value="ascended">Ascended</option>
+                                </select>
+                              </div>
                             </div>
-                            <div>
-                              <label className="text-[9px] text-neutral-500 uppercase block mb-0.5" htmlFor="a11y-control-9xtd382">Sect Affiliation</label>
-                              <input 
-                                type="text"
-                                value={editingCharData.faction}
-                                onChange={(e) => setEditingCharData({ ...editingCharData, faction: e.target.value })}
-                                className="bg-neutral-900 border border-neutral-850 p-1 w-full text-xs text-signal" id="a11y-control-9xtd382"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-[9px] text-neutral-500 uppercase block mb-0.5" htmlFor="a11y-control-j2vj8if">Signature Quote</label>
-                              <textarea
-                                value={editingCharData.signatureQuote}
-                                onChange={(e) => setEditingCharData({ ...editingCharData, signatureQuote: e.target.value })}
-                                className="bg-neutral-900 border border-neutral-850 p-1 w-full text-xs text-signal min-h-[40px] resize-none" id="a11y-control-j2vj8if"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-[9px] text-neutral-500 uppercase block mb-0.5" htmlFor="a11y-control-74tm719">Current Status</label>
-                              <select 
-                                value={editingCharData.status}
-                                onChange={(e) => setEditingCharData({ ...editingCharData, status: e.target.value as Character['status'] })}
-                                className="bg-neutral-900 border border-neutral-850 p-1 w-full text-xs text-signal" id="a11y-control-74tm719"
-                              >
-                                <option value="alive">Alive</option>
-                                <option value="deceased">Deceased</option>
-                                <option value="unknown">Unknown</option>
-                                <option value="ascended">Ascended</option>
-                              </select>
+
+                            {/* Ability Ledger */}
+                            <div className="pt-4 border-t border-neutral-900">
+                              <div className="flex justify-between items-center mb-2">
+                                <h6 className="font-sc font-bold uppercase text-portal text-[10px]">Ability Ledger</h6>
+                                <button
+                                  type="button"
+                                  onClick={addAbility}
+                                  className="text-[9px] flex items-center space-x-1 text-neutral-400 hover:text-portal transition-colors font-sc uppercase"
+                                >
+                                  <Plus size={10} />
+                                  <span>Add</span>
+                                </button>
+                              </div>
+                              
+                              <div className="space-y-3">
+                                {editingCharData.abilitiesList?.map((ability) => (
+                                  <div key={ability.id} className="bg-neutral-900/50 p-2 rounded border border-neutral-800 space-y-2">
+                                    <div className="flex justify-between items-center">
+                                      <input
+                                        type="text"
+                                        placeholder="Ability Name"
+                                        value={ability.name}
+                                        onChange={(e) => updateAbility(ability.id, { name: e.target.value })}
+                                        className="bg-transparent border-b border-neutral-700 p-0.5 text-xs text-signal focus:border-portal outline-none w-2/3 font-sc"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => removeAbility(ability.id)}
+                                        className="text-human/60 hover:text-human p-1"
+                                      >
+                                        <Trash2 size={10} />
+                                      </button>
+                                    </div>
+                                    <textarea
+                                      placeholder="Description"
+                                      value={ability.description}
+                                      onChange={(e) => updateAbility(ability.id, { description: e.target.value })}
+                                      className="bg-neutral-950 border border-neutral-850 p-1 w-full text-[10px] text-neutral-300 min-h-[40px] resize-none"
+                                    />
+                                    
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div>
+                                        <label htmlFor={`ability-${ability.id}-source`} className="text-[8px] text-neutral-500 uppercase">Source</label>
+                                        <input
+                                          id={`ability-${ability.id}-source`}
+                                          type="text"
+                                          value={ability.source || ''}
+                                          onChange={(e) => updateAbility(ability.id, { source: e.target.value })}
+                                          className="bg-neutral-950 border border-neutral-850 p-1 w-full text-[10px] text-neutral-300"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label htmlFor={`ability-${ability.id}-cost`} className="text-[8px] text-neutral-500 uppercase">Cost</label>
+                                        <input
+                                          id={`ability-${ability.id}-cost`}
+                                          type="text"
+                                          value={ability.cost || ''}
+                                          onChange={(e) => updateAbility(ability.id, { cost: e.target.value })}
+                                          className="bg-neutral-950 border border-neutral-850 p-1 w-full text-[10px] text-neutral-300"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label htmlFor={`ability-${ability.id}-limits`} className="text-[8px] text-neutral-500 uppercase">Limits</label>
+                                        <input
+                                          id={`ability-${ability.id}-limits`}
+                                          type="text"
+                                          value={ability.limits || ''}
+                                          onChange={(e) => updateAbility(ability.id, { limits: e.target.value })}
+                                          className="bg-neutral-950 border border-neutral-850 p-1 w-full text-[10px] text-neutral-300"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label htmlFor={`ability-${ability.id}-acq`} className="text-[8px] text-neutral-500 uppercase">Acq. Chapter</label>
+                                        <input
+                                          id={`ability-${ability.id}-acq`}
+                                          type="number"
+                                          value={ability.acquiredChapter !== undefined ? ability.acquiredChapter : ''}
+                                          onChange={(e) => {
+                                            const val = parseInt(e.target.value, 10);
+                                            updateAbility(ability.id, { acquiredChapter: isNaN(val) ? undefined : val });
+                                          }}
+                                          className="bg-neutral-950 border border-neutral-850 p-1 w-full text-[10px] text-neutral-300"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label htmlFor={`ability-${ability.id}-mastery`} className="text-[8px] text-neutral-500 uppercase">Mastery Level</label>
+                                        <input
+                                          id={`ability-${ability.id}-mastery`}
+                                          type="text"
+                                          value={ability.masteryLevel || ''}
+                                          onChange={(e) => updateAbility(ability.id, { masteryLevel: e.target.value })}
+                                          className="bg-neutral-950 border border-neutral-850 p-1 w-full text-[10px] text-neutral-300"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label htmlFor={`ability-${ability.id}-lastUsed`} className="text-[8px] text-neutral-500 uppercase">Last Used Ch.</label>
+                                        <input
+                                          id={`ability-${ability.id}-lastUsed`}
+                                          type="number"
+                                          value={ability.lastUsedChapter !== undefined ? ability.lastUsedChapter : ''}
+                                          onChange={(e) => {
+                                            const val = parseInt(e.target.value, 10);
+                                            updateAbility(ability.id, { lastUsedChapter: isNaN(val) ? undefined : val });
+                                          }}
+                                          className="bg-neutral-950 border border-neutral-850 p-1 w-full text-[10px] text-neutral-300"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label htmlFor={`ability-${ability.id}-canon`} className="text-[8px] text-neutral-500 uppercase">Canon Status</label>
+                                        <select
+                                          id={`ability-${ability.id}-canon`}
+                                          value={ability.canonStatus || 'confirmed'}
+                                          onChange={(e) => updateAbility(ability.id, { canonStatus: e.target.value as any })}
+                                          className="bg-neutral-950 border border-neutral-850 p-1 w-full text-[10px] text-neutral-300"
+                                        >
+                                          <option value="confirmed">Confirmed</option>
+                                          <option value="rumored">Rumored</option>
+                                          <option value="forbidden">Forbidden</option>
+                                          <option value="lost">Lost</option>
+                                        </select>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                                {(!editingCharData.abilitiesList || editingCharData.abilitiesList.length === 0) && (
+                                  <div className="text-center text-[10px] text-neutral-500 italic py-2">
+                                    No abilities recorded. Add one above.
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
-                          <div className="flex justify-end space-x-2 pt-2">
-                            <button  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setEditingCharId(null)} className="text-neutral-500">Abort</button>
-                            <button onClick={() => handleSaveCharEdit()} className="bg-portal text-void px-2 py-0.5 rounded font-bold">Save</button>
+                          
+                          <div className="flex justify-end space-x-2 pt-4 mt-auto border-t border-neutral-900 sticky bottom-0 bg-black/95">
+                            <button  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setEditingCharId(null)} className="text-neutral-500 hover:text-neutral-300">Abort</button>
+                            <button onClick={() => handleSaveCharEdit()} className="bg-portal text-void px-3 py-1 rounded font-bold font-sc uppercase tracking-wider text-[10px] hover:bg-portal-300 transition-colors shadow-lg shadow-portal/20">Save</button>
                           </div>
                         </div>
                       ) : (

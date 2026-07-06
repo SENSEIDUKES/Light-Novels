@@ -193,6 +193,7 @@ export interface Ability extends BaseCodexEntry {
   limits?: string;
   masteryLevel?: string;
   lastUsedChapter?: number;
+  canonStatus?: 'confirmed' | 'rumored' | 'forbidden' | 'lost';
 }
 
 export interface BaseCodexEntry {
