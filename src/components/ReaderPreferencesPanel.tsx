@@ -338,6 +338,7 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
             <select
               value={bgmTrackId}
               disabled={isMuted}
+              aria-label="Scene score track"
               onChange={(e) => handleBgmTrackChange(e.target.value)}
               className="bg-transparent text-[10px] text-neutral-300 font-mono focus:outline-none focus:text-signal cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed max-w-[160px]"
             >
@@ -368,6 +369,7 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
               step="0.01"
               value={bgmVolume}
               disabled={isMuted}
+              aria-label="Music volume"
               onChange={(e) => handleBgmVolumeChange(parseFloat(e.target.value))}
               className="w-16 hover:cursor-grab disabled:opacity-40 disabled:cursor-not-allowed accent-portal text-portal"
             />

@@ -39,7 +39,10 @@ export function AtmosphericAudio() {
     return Number.isFinite(parsed) ? Math.max(0, Math.min(parsed, BGM_MAX_LEVEL)) : BGM_DEFAULT_LEVEL;
   });
   const [bgmTrackId, setBgmTrackId] = useState(() => {
-    return localStorage.getItem('seihouse-bgm-track') || 'auto';
+    const saved = localStorage.getItem('seihouse-bgm-track') || 'auto';
+    // A stale id (e.g. a track later removed from the library) falls back
+    // to auto so the narrative cues aren't gated off by a dead pin.
+    return saved === 'auto' || TRACK_LIBRARY.some(t => t.id === saved) ? saved : 'auto';
   });
 
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -71,6 +74,21 @@ export function AtmosphericAudio() {
       mix.setMuted(isActuallyMuted);
       mix.setLevel(isActuallyMuted ? 0 : bgmLevelFor(bgmVolumeRef.current, bgmIntensityRef.current));
       sceneMixRef.current = mix;
+
+      // Restore a persisted pin after reload: the cue paths are gated off
+      // while a track is pinned, so without this the scene stays silent
+      // until the user touches the score picker again.
+      if (bgmTrackIdRef.current !== 'auto') {
+        const savedTrack = TRACK_LIBRARY.find(t => t.id === bgmTrackIdRef.current);
+        if (savedTrack && savedTrack.url) {
+          mix.crossfadeTo({
+            id: savedTrack.id,
+            title: savedTrack.id,
+            artist: 'SEIHouse',
+            audioFile: savedTrack.url,
+          });
+        }
+      }
     }
     return () => {
       sceneMixRef.current?.dispose();
