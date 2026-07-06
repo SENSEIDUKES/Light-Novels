@@ -89,34 +89,36 @@ describe('RAG', () => {
       vi.spyOn(storyStorage, 'getChapterContent').mockResolvedValue(null);
     });
 
+    const createMockStory = (arcs: any[]): StoryWorld => ({
+      id: 'test-story',
+      title: 'Test',
+      genre: 'test',
+      mcName: 'test',
+      customPremise: 'test',
+      createdAt: '',
+      updatedAt: '',
+      currentChapterNumber: 1,
+      memory: { unresolvedPlotThreads: [] } as any,
+      arcs: arcs
+    });
+
     it('enforces budget, ensures no overlap, and retrieves above-threshold older chapters', async () => {
-      const mockStory: StoryWorld = {
-        id: 'test-story',
-        title: 'Test',
-        genre: 'test',
-        mcName: 'test',
-        customPremise: 'test',
-        createdAt: '',
-        updatedAt: '',
-        currentChapterNumber: 1,
-        memory: { unresolvedPlotThreads: [] } as any,
-        arcs: [
-          {
-            id: 'arc1',
-            title: 'Arc 1',
-            summary: 'Arc 1 summary',
-            chapters: Array.from({ length: 30 }, (_, i) => ({
-              number: i + 1,
-              title: `Chapter ${i+1}`,
-              summary: `Summary of chapter ${i+1}`,
-              premise: '',
-              status: 'read' as any,
-              hasContent: true,
-              embedding: [i % 2 === 0 ? 1 : 0, i % 2 === 0 ? 0 : 1]
-            }))
-          } as any
-        ]
-      };
+      const mockStory = createMockStory([
+        {
+          id: 'arc1',
+          title: 'Arc 1',
+          summary: 'Arc 1 summary',
+          chapters: Array.from({ length: 30 }, (_, i) => ({
+            number: i + 1,
+            title: `Chapter ${i + 1}`,
+            summary: `Summary of chapter ${i + 1}`,
+            premise: '',
+            status: 'read' as any,
+            hasContent: true,
+            embedding: [i % 2 === 0 ? 1 : 0, i % 2 === 0 ? 0 : 1]
+          }))
+        } as any
+      ]);
 
       (global.fetch as any).mockResolvedValue({
         ok: true,
@@ -142,24 +144,19 @@ describe('RAG', () => {
     });
 
     it('handles different content types and budget edge cases', async () => {
-      const mockStory: StoryWorld = {
-        id: 'test-story',
-        title: 'Test',
-        memory: { unresolvedPlotThreads: [] } as any,
-        arcs: [
-          {
-            id: 'arc1',
-            title: 'Arc 1',
-            summary: 'Arc 1 summary',
-            episodicSummaries: ['Episodic summary 1', 'Episodic summary 2'],
-            chapters: [
-              { number: 1, summary: 'Summary 1', hasContent: true, embedding: [1, 0] },
-              { number: 2, summary: 'Summary 2', hasContent: true, embedding: [0, 1] },
-              { number: 3, summary: 'Summary 3', hasContent: true, embedding: [1, 0] }
-            ]
-          } as any
-        ]
-      };
+      const mockStory = createMockStory([
+        {
+          id: 'arc1',
+          title: 'Arc 1',
+          summary: 'Arc 1 summary',
+          episodicSummaries: ['Episodic summary 1', 'Episodic summary 2'],
+          chapters: [
+            { number: 1, summary: 'Summary 1', hasContent: true, embedding: [1, 0] },
+            { number: 2, summary: 'Summary 2', hasContent: true, embedding: [0, 1] },
+            { number: 3, summary: 'Summary 3', hasContent: true, embedding: [1, 0] }
+          ]
+        } as any
+      ]);
 
       (global.fetch as any).mockResolvedValue({
         ok: true,
@@ -186,21 +183,16 @@ describe('RAG', () => {
     });
 
     it('clears recovered blocks if only header fits', async () => {
-      const mockStory: StoryWorld = {
-        id: 'test-story',
-        title: 'Test',
-        memory: { unresolvedPlotThreads: [] } as any,
-        arcs: [
-          {
-            id: 'arc1',
-            title: 'Arc 1',
-            chapters: [
-              { number: 1, summary: 'Summary 1', hasContent: false, embedding: [1, 0] },
-              { number: 2, summary: 'Summary 2', hasContent: false, embedding: [0, 1] }
-            ]
-          } as any
-        ]
-      };
+      const mockStory = createMockStory([
+        {
+          id: 'arc1',
+          title: 'Arc 1',
+          chapters: [
+            { number: 1, summary: 'Summary 1', hasContent: false, embedding: [1, 0] },
+            { number: 2, summary: 'Summary 2', hasContent: false, embedding: [0, 1] }
+          ]
+        } as any
+      ]);
 
       (global.fetch as any).mockResolvedValue({
         ok: true,
@@ -215,20 +207,15 @@ describe('RAG', () => {
     });
 
     it('handles episodic summary in chapter content', async () => {
-      const mockStory: StoryWorld = {
-        id: 'test-story',
-        title: 'Test',
-        memory: { unresolvedPlotThreads: [] } as any,
-        arcs: [
-          {
-            id: 'arc1',
-            title: 'Arc 1',
-            chapters: [
-              { number: 1, summary: 'Summary 1', hasContent: true, embedding: [0, 1] }
-            ]
-          } as any
-        ]
-      };
+      const mockStory = createMockStory([
+        {
+          id: 'arc1',
+          title: 'Arc 1',
+          chapters: [
+            { number: 1, summary: 'Summary 1', hasContent: true, embedding: [0, 1] }
+          ]
+        } as any
+      ]);
 
       vi.spyOn(storyStorage, 'getChapterContent').mockResolvedValue({
         episodicSummary: 'Detailed episodic summary'
@@ -240,19 +227,15 @@ describe('RAG', () => {
     });
 
     it('prunes recent chapters when they do not fit in full', async () => {
-      const mockStory: StoryWorld = {
-        id: 'test-story',
-        title: 'Test',
-        memory: { unresolvedPlotThreads: [] } as any,
-        arcs: [
-          {
-            id: 'arc1',
-            chapters: [
-              { number: 1, summary: 'Short summary', hasContent: true }
-            ]
-          } as any
-        ]
-      };
+      const mockStory = createMockStory([
+        {
+          id: 'arc1',
+          title: 'Arc 1',
+          chapters: [
+            { number: 1, summary: 'Short summary', hasContent: true }
+          ]
+        } as any
+      ]);
 
       vi.spyOn(storyStorage, 'getChapterContent').mockResolvedValue({
         generatedContent: 'Very long content that will definitely exceed the small character budget set in this test.'
@@ -263,6 +246,33 @@ describe('RAG', () => {
       const combined = contextBlocks.join('\n');
       expect(combined).toContain('Pruned Summary: Short summary');
       expect(combined).not.toContain('Very long content');
+    });
+
+    it('handles generatedContent and missing initial summary', async () => {
+      const mockStory = createMockStory([
+        {
+          id: 'arc1',
+          title: 'Arc 1',
+          chapters: [{ number: 1, summary: '', hasContent: true }]
+        } as any,
+        {
+          id: 'arc2',
+          title: 'Arc 2',
+          chapters: [{ number: 10, summary: 'Future', hasContent: false }]
+        } as any
+      ]);
+
+      vi.spyOn(storyStorage, 'getChapterContent').mockResolvedValue({
+        summary: 'Recovered Summary',
+        generatedContent: 'Newly generated content'
+      } as any);
+
+      const contextBlocks = await retrieveRelevantContext('Premise', 5, mockStory, {}, 3, 10000, 1);
+      const combined = contextBlocks.join('\n');
+
+      expect(combined).toContain('Newly generated content');
+      expect(combined).toContain('Chapter 1:');
+      expect(combined).not.toContain('arc2');
     });
   });
 });
