@@ -120,7 +120,45 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
       guard++;
     }
 
-    return { tree, flatNodes, maxChapter, activePathIds, rootTitle: root.title };
+    // Resolve a branch color key per node from available data (no schema fields required).
+    const forkNodes = flatNodes.filter(n => !!n.story.parentStoryId);
+    const branchKeyMap = new Map<string, BranchKey>();
+    flatNodes.forEach(n => {
+      if (!n.story.parentStoryId) {
+        branchKeyMap.set(n.story.id, 'blue');
+      } else {
+        const idx = forkNodes.findIndex(fn => fn.story.id === n.story.id);
+        branchKeyMap.set(n.story.id, FORK_ORDER[idx % FORK_ORDER.length]);
+      }
+    });
+
+    // Flattened chapter list for the picker — memoized here so typing in the
+    // search box (query state) does not re-flatten every node/arc/chapter.
+    const flatChapters = flatNodes.flatMap(node => {
+      const chapters = node.story.arcs.flatMap(a => a.chapters);
+      const total = chapters.length;
+      const start = (node.forkChNum || 0) + 1;
+      const branchKey = branchKeyMap.get(node.story.id) || 'blue';
+      const isMain = activePathIds.has(node.story.id);
+      const isCurrentStory = node.story.id === activeStoryId;
+      const rows = [];
+      for (let c = start; c <= total; c++) {
+        const ch = chapters[c - 1];
+        rows.push({
+          key: `${node.story.id}-${c}`,
+          storyId: node.story.id,
+          storyTitle: node.story.title,
+          chapterNumber: ch?.number ?? c,
+          chapterTitle: ch?.title || `Chapter ${c}`,
+          branchKey,
+          isMain,
+          isCurrentStory
+        });
+      }
+      return rows;
+    });
+
+    return { tree, flatNodes, maxChapter, activePathIds, rootTitle: root.title, branchKeyMap, forkNodes, flatChapters };
   }, [activeStoryId, stories]);
 
   // Center the scroll view on the active story column when the modal opens.
@@ -142,7 +180,7 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
 
   if (!isOpen || !familyData) return null;
 
-  const { flatNodes, maxChapter, activePathIds, rootTitle } = familyData;
+  const { flatNodes, maxChapter, activePathIds, rootTitle, branchKeyMap, forkNodes, flatChapters } = familyData;
 
   const rowHeight = 36;
   const colWidth = 240; // wide enough to show titles side by side
@@ -154,13 +192,7 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
 
   const getStoryChapterCount = (s: StoryWorld) => s.arcs.reduce((sum, a) => sum + a.chapters.length, 0);
 
-  // Resolve a branch color key for a node from available data (no schema fields required).
-  const forkNodes = flatNodes.filter(n => !!n.story.parentStoryId);
-  const branchKeyOf = (node: TreeStory): BranchKey => {
-    if (!node.story.parentStoryId) return 'blue';
-    const idx = forkNodes.findIndex(n => n.story.id === node.story.id);
-    return FORK_ORDER[idx % FORK_ORDER.length];
-  };
+  const branchKeyOf = (node: TreeStory): BranchKey => branchKeyMap.get(node.story.id) || 'blue';
 
   const forkCount = forkNodes.length;
   const activeChapters = flatNodes.find(n => n.story.id === activeStoryId);
@@ -208,31 +240,6 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
     });
   };
 
-  // Flattened, filterable chapter list for the picker.
-  const flatChapters = flatNodes.flatMap(node => {
-    const chapters = node.story.arcs.flatMap(a => a.chapters);
-    const total = chapters.length;
-    const start = (node.forkChNum || 0) + 1;
-    const branchKey = branchKeyOf(node);
-    const isMain = activePathIds.has(node.story.id);
-    const isCurrentStory = node.story.id === activeStoryId;
-    const rows = [];
-    for (let c = start; c <= total; c++) {
-      const ch = chapters[c - 1];
-      rows.push({
-        key: `${node.story.id}-${c}`,
-        storyId: node.story.id,
-        storyTitle: node.story.title,
-        chapterNumber: ch?.number ?? c,
-        chapterTitle: ch?.title || `Chapter ${c}`,
-        branchKey,
-        isMain,
-        isCurrentStory
-      });
-    }
-    return rows;
-  });
-
   const normalizedQuery = query.trim().toLowerCase();
   const filteredChapters = flatChapters.filter(row => {
     if (filter === 'main' && !row.isMain) return false;
@@ -246,10 +253,12 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
     );
   });
 
+  // Labels mirror BRANCH_STYLES exactly; the active path is conveyed by glow/emphasis, not a color.
   const legend: { key: BranchKey; label: string }[] = [
     { key: 'blue', label: 'Main Timeline' },
-    { key: 'gold', label: 'Active Path' },
     { key: 'purple', label: 'Fate Fork' },
+    { key: 'red', label: 'Chaotic Branch' },
+    { key: 'gold', label: 'Diverged Path' },
     { key: 'gray', label: 'Unexplored' }
   ];
 
@@ -339,7 +348,7 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
             </div>
 
             {/* GRAPH CANVAS */}
-            <div className="relative flex-1 min-h-0 mt-3">
+            <div className="relative flex-1 min-h-0 mt-3 fate-scroll-mask">
               {/* Mobile swipe hint */}
               <div className="sm:hidden absolute top-1 left-1/2 -translate-x-1/2 z-20 text-[8.5px] font-sc uppercase tracking-[0.25em] text-neutral-600 pointer-events-none">
                 Swipe to explore branches
