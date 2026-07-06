@@ -435,7 +435,7 @@ export function ReaderViewport({
                                   <img 
                                     src={activeStory.assignedRevealBackdrops?.[revealTerm.entry.id] || getFallbackBackdrop(revealTerm.entry.id)} 
                                     alt="Backdrop" 
-                                    className="absolute inset-0 w-full h-full object-cover opacity-[0.25] pointer-events-none transition-transform duration-1000 group-hover/reveal:scale-105 mix-blend-screen"
+                                    className="absolute inset-0 w-full h-full object-contain opacity-[0.25] pointer-events-none transition-transform duration-1000 group-hover/reveal:scale-105 mix-blend-screen"
                                   />
                                   <div className="absolute inset-0 bg-gradient-to-t from-void via-void/40 to-transparent pointer-events-none" />
                                 </>
@@ -449,7 +449,7 @@ export function ReaderViewport({
                                       alt={revealTerm.entry.name}
                                       loading="lazy"
                                       referrerPolicy="no-referrer"
-                                      className="w-full h-full object-cover transition-transform duration-500 group-hover/reveal:scale-105"
+                                      className="w-full h-full object-contain transition-transform duration-500 group-hover/reveal:scale-105"
                                     />
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
                                   </div>

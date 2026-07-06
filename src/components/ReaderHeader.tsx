@@ -41,9 +41,9 @@ export function ReaderHeader({
           ? JSON.stringify(selectedChapter.cuePayload)
           : undefined
       }
-      className={`narrative-trigger sticky top-[0px] z-20 backdrop-blur-md px-4 py-2 sm:py-3 flex items-center justify-between border-b transition-colors duration-500 ${getHeaderThemeClasses()}`}
+      className={`narrative-trigger sticky top-[0px] z-20 backdrop-blur-md px-2 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-1 border-b transition-colors duration-500 ${getHeaderThemeClasses()}`}
     >
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <span className="font-sc font-semibold text-[10px] text-jade-accent tracking-[0.2em] uppercase flex items-center gap-1.5 line-clamp-1">
           <span>
             {arcTitle} • Chapter {selectedChapter.number}
@@ -63,7 +63,7 @@ export function ReaderHeader({
           {selectedChapter.title}
         </h2>
       </div>
-      <div className="flex space-x-2 items-center shrink-0">
+      <div className="flex space-x-1 sm:space-x-2 items-center shrink-0">
         <AudioWidget />
         <button
            tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => onToggleRead(selectedChapter.number)}
