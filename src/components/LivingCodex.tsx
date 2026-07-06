@@ -42,6 +42,25 @@ interface LivingCodexProps {
 
 // 1. Static high-fidelity Chinese cultivation vocabulary (Glossary defaults)
 
+// Premium segmented-control styling for Codex navigation tabs.
+// Each page carries its own accent aura when active.
+const CODEX_TAB_ACCENTS = {
+  neutral: 'codex-panel text-signal border-white/15 shadow-[0_0_14px_rgba(250,250,250,0.08)]',
+  blue: 'codex-panel-blue text-signal shadow-[0_0_16px_rgba(4,172,255,0.25)]',
+  gold: 'codex-panel-gold text-amber-100 shadow-[0_0_16px_rgba(212,175,55,0.25)]',
+  orange: 'codex-panel text-signal border-orange-500/40 shadow-[0_0_14px_rgba(249,115,22,0.18)]',
+  green: 'codex-panel text-signal border-green-500/40 shadow-[0_0_14px_rgba(34,197,94,0.18)]',
+  purple: 'codex-panel text-signal border-purple-500/40 shadow-[0_0_14px_rgba(168,85,247,0.18)]'
+} as const;
+
+const codexTabClass = (isActive: boolean, accent: keyof typeof CODEX_TAB_ACCENTS) => {
+  const base = 'flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded-lg text-[10px] md:text-[11px] tracking-wider transition-all duration-300 font-sc uppercase flex-shrink-0 border';
+  if (!isActive) {
+    return `${base} border-transparent text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/60 hover:border-white/5`;
+  }
+  return `${base} ${CODEX_TAB_ACCENTS[accent]}`;
+};
+
 
 export default function LivingCodex({ 
   memory: rawMemory = {} as StoryMemory, 
@@ -158,7 +177,7 @@ export default function LivingCodex({
     previews,
     setPreviews,
     generatingId }}>
-      <div className="bg-black border border-neutral-900 rounded-lg p-4 sm:p-6 shadow-2xl flex flex-col md:flex-row gap-6 relative min-h-[690px] overflow-hidden" id="living-codex-container">
+      <div className="codex-premium-shell rounded-2xl p-4 sm:p-6 flex flex-col md:flex-row gap-6 relative min-h-[690px] overflow-hidden" id="living-codex-container">
       <DestinyChoicePanel 
         isOpen={!!activePreview}
         imageUrls={activePreview?.urls || []}
@@ -171,7 +190,8 @@ export default function LivingCodex({
       />
       
       {/* Dynamic Portal aura line */}
-      <div className="absolute top-0 inset-x-0 h-[3px] bg-gradient-to-r from-portal via-human to-portal"></div>
+      <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-portal to-transparent opacity-80"></div>
+      <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-portal/10 to-transparent pointer-events-none"></div>
 
       {codexNotification && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 bg-neutral-900 border border-portal text-portal px-4 py-2 rounded shadow-2xl font-sc text-xs animate-fadeIn">
@@ -180,13 +200,24 @@ export default function LivingCodex({
       )}
 
       {/* SIDEBAR NAVIGATION PAGES */}
-      <div className="w-full md:w-60 flex-shrink-0 flex flex-col border-b md:border-b-0 md:border-r border-neutral-900 pb-2 md:pb-0 md:pr-4" id="codex-side-nav">
-        <div className="mb-2 md:mb-4">
-          <span className="text-[9px] text-portal uppercase font-bold tracking-[0.2em] font-sc block">Divine Registry</span>
-          <h2 className="font-display font-medium text-lg md:text-xl text-signal tracking-wider mt-0.5 flex items-center space-x-2">
-            <span>The Living Codex</span>
+      <div className="w-full md:w-60 flex-shrink-0 flex flex-col border-b md:border-b-0 md:border-r border-portal/10 pb-2 md:pb-0 md:pr-4" id="codex-side-nav">
+        <div className="mb-3 md:mb-4 relative codex-panel-blue rounded-xl p-3.5 md:p-4 overflow-hidden">
+          {/* Decorative corner accents */}
+          <div className="absolute top-1.5 left-1.5 w-3 h-3 border-t border-l border-portal/40 rounded-tl pointer-events-none"></div>
+          <div className="absolute top-1.5 right-1.5 w-3 h-3 border-t border-r border-portal/40 rounded-tr pointer-events-none"></div>
+          <div className="absolute bottom-1.5 left-1.5 w-3 h-3 border-b border-l border-portal/40 rounded-bl pointer-events-none"></div>
+          <div className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b border-r border-portal/40 rounded-br pointer-events-none"></div>
+          {/* Faint monolith glow */}
+          <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-portal/15 blur-2xl pointer-events-none"></div>
+
+          <span className="text-[9px] text-amber-400/90 uppercase font-bold tracking-[0.3em] font-sc flex items-center gap-1.5">
+            <Compass size={10} className="text-amber-400/80" />
+            <span>Divine Registry</span>
+          </span>
+          <h2 className="font-display font-medium text-xl md:text-2xl text-signal tracking-wide mt-1 codex-glow-blue">
+            The Living Codex
           </h2>
-          <p className="text-[10px] text-neutral-500 font-sans tracking-tight mt-1 leading-relaxed hidden md:block">
+          <p className="text-[10px] text-neutral-500 font-sans tracking-tight mt-1.5 leading-relaxed hidden md:block">
             Distilling structural power-charts, fate karma, spatial domains, and relational trees.
           </p>
         </div>
@@ -196,11 +227,7 @@ export default function LivingCodex({
           {/* Portraits Link */}
           <button
              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => { vibrate('softTap'); setActivePage('portraits'); }}
-            className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
-              activePage === 'portraits' 
-                ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
-                : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
-            }`}
+            className={codexTabClass(activePage === 'portraits', 'neutral')}
           >
             <Users size={14} className={activePage === 'portraits' ? 'text-human' : ''} />
             <span>Portraits</span>
@@ -213,11 +240,7 @@ export default function LivingCodex({
               setActivePage('karma');
               setSelectedNodeChar(null);
             }}
-            className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
-              activePage === 'karma' 
-                ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
-                : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
-            }`}
+            className={codexTabClass(activePage === 'karma', 'blue')}
           >
             <Network size={14} className={activePage === 'karma' ? 'text-portal' : ''} />
             <span>Karma</span>
@@ -226,11 +249,7 @@ export default function LivingCodex({
           {/* Power Rankings Link */}
           <button
              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => { vibrate('softTap'); setActivePage('power'); }}
-            className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
-              activePage === 'power' 
-                ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
-                : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
-            }`}
+            className={codexTabClass(activePage === 'power', 'gold')}
           >
             <Zap size={14} className={activePage === 'power' ? 'text-yellow-500' : ''} />
             <span>Power Rankings</span>
@@ -239,11 +258,7 @@ export default function LivingCodex({
           {/* Artifacts Gallery Link */}
           <button
              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => { vibrate('softTap'); setActivePage('artifacts'); }}
-            className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
-              activePage === 'artifacts' 
-                ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
-                : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
-            }`}
+            className={codexTabClass(activePage === 'artifacts', 'orange')}
           >
             <Sword size={14} className={activePage === 'artifacts' ? 'text-orange-500' : ''} />
             <span>Artifacts</span>
@@ -252,11 +267,7 @@ export default function LivingCodex({
           {/* Fate Panel Link */}
           <button
              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => { vibrate('softTap'); setActivePage('fate'); }}
-            className={`flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
-              activePage === 'fate' 
-                ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
-                : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
-            }`}
+            className={codexTabClass(activePage === 'fate', 'green')}
           >
             <Compass size={14} className={activePage === 'fate' ? 'text-green-400' : ''} />
             <span>Fate</span>
@@ -265,11 +276,7 @@ export default function LivingCodex({
           {/* Lore Link */}
           <button
              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => { vibrate('softTap'); setActivePage('lore'); }}
-            className={`flex items-center space-x-1.5 md:space-x-3 px-3 py-1.5 md:py-2.5 rounded text-[10px] md:text-[11px] tracking-wider transition-all font-sc uppercase flex-shrink-0 ${
-              activePage === 'lore' 
-                ? 'bg-neutral-950 text-signal border border-neutral-850 shadow shadow-portal/10' 
-                : 'text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/40'
-            }`}
+            className={codexTabClass(activePage === 'lore', 'purple')}
           >
             <BookMarked size={12} className={activePage === 'lore' ? 'text-purple-400' : ''} />
             <span>Lore</span>

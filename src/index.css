@@ -367,4 +367,89 @@ html, body {
 .highlight-item-great { color: var(--color-item-great); font-weight: 500; transition: color 0.3s ease; }
 .highlight-item-legendary { color: var(--color-item-legendary); font-weight: 500; transition: color 0.3s ease; text-shadow: 0 0 8px rgba(251, 191, 36, 0.4); }
 
+/* ==========================================================================
+   LIVING CODEX PREMIUM SHELL & PANEL UTILITIES
+   ========================================================================== */
+
+/* Outer Codex shell: deep midnight gradient with a faint cosmic blue aura */
+.codex-premium-shell {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(4, 172, 255, 0.10), transparent 60%),
+    radial-gradient(ellipse 60% 45% at 85% 110%, rgba(4, 172, 255, 0.05), transparent 65%),
+    linear-gradient(180deg, #05080f 0%, #010204 45%, #000000 100%);
+  border: 1px solid rgba(4, 172, 255, 0.16);
+  box-shadow:
+    0 0 40px rgba(4, 172, 255, 0.06),
+    0 24px 60px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(4, 172, 255, 0.10);
+}
+
+/* Standard premium panel — layered midnight card with luminous hairline border */
+.codex-panel {
+  background:
+    radial-gradient(ellipse 90% 60% at 50% 0%, rgba(255, 255, 255, 0.025), transparent 70%),
+    linear-gradient(180deg, rgba(10, 14, 22, 0.9), rgba(2, 3, 6, 0.95));
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+
+/* Portal-blue variant, used for Codex / Karma / MC states */
+.codex-panel-blue {
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 0%, rgba(4, 172, 255, 0.10), transparent 70%),
+    linear-gradient(180deg, rgba(4, 20, 38, 0.85), rgba(1, 4, 10, 0.95));
+  border: 1px solid rgba(4, 172, 255, 0.35);
+  box-shadow:
+    0 0 24px rgba(4, 172, 255, 0.12),
+    inset 0 1px 0 rgba(4, 172, 255, 0.20),
+    inset 0 0 40px rgba(4, 172, 255, 0.04);
+}
+
+/* Gold/amber variant, used for Power rankings and important rank states */
+.codex-panel-gold {
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 0%, rgba(212, 175, 55, 0.09), transparent 70%),
+    linear-gradient(180deg, rgba(28, 20, 4, 0.8), rgba(6, 4, 1, 0.95));
+  border: 1px solid rgba(212, 175, 55, 0.30);
+  box-shadow:
+    0 0 20px rgba(212, 175, 55, 0.08),
+    inset 0 1px 0 rgba(212, 175, 55, 0.18),
+    inset 0 0 36px rgba(212, 175, 55, 0.03);
+}
+
+/* Text glow accents */
+.codex-glow-blue {
+  text-shadow: 0 0 10px rgba(4, 172, 255, 0.55), 0 0 24px rgba(4, 172, 255, 0.25);
+}
+.codex-glow-gold {
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.5), 0 0 24px rgba(251, 191, 36, 0.2);
+}
+
+/* Faint constellation grid / starfield backdrop for map panels */
+.codex-grid-bg {
+  background-image:
+    radial-gradient(circle at 18% 28%, rgba(4, 172, 255, 0.5) 1px, transparent 1.5px),
+    radial-gradient(circle at 76% 16%, rgba(250, 250, 250, 0.35) 1px, transparent 1.5px),
+    radial-gradient(circle at 62% 78%, rgba(212, 175, 55, 0.4) 1px, transparent 1.5px),
+    radial-gradient(circle at 34% 88%, rgba(250, 250, 250, 0.25) 1px, transparent 1.5px),
+    radial-gradient(circle at 88% 62%, rgba(4, 172, 255, 0.3) 1px, transparent 1.5px),
+    linear-gradient(rgba(4, 172, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(4, 172, 255, 0.035) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 48px 48px, 48px 48px;
+}
+
+/* Luminous progress bar shimmer sweep */
+.codex-progress-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.codex-progress-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: shimmer 2.6s infinite;
+}
+
 
