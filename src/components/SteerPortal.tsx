@@ -195,8 +195,9 @@ export default function SteerPortal({
           <div className="flex items-center justify-between">
             <span className="block text-xs uppercase tracking-widest font-sc text-neutral-300 font-semibold flex items-center space-x-2">
               <Compass size={14} className="text-portal animate-spin-slow" />
-              <span>Divine Paths of Ascension (Suggested Directions)</span>
+              <span>Divine Paths of Ascension</span>
             </span>
+            <p className="text-[9px] text-neutral-500 font-sans normal-case mt-0.5 leading-snug">AI-suggested story directions for the next 10 chapters. Pick one to load it into the prompt below.</p>
             {!isLoading && (
               <button
                 type="button"
@@ -303,13 +304,14 @@ export default function SteerPortal({
         {/* Custom Steering Inputs / Prompt Box */}
         <div className="space-y-2 pt-2">
           <label htmlFor="custom-steer-input" className="block text-xs uppercase tracking-widest font-sc text-neutral-300 font-semibold flex items-center justify-between">
-            <span>Editable Destiny Script (Prompt Box)</span>
+            <span>Editable Destiny Script</span>
             {selectedCardId && (
               <span className="text-[9px] text-[#04ACFF] normal-case font-mono bg-portal/5 px-2 py-0.5 border border-portal/15 rounded animate-pulse">
                 Destiny trace loaded - Edit freely below
               </span>
             )}
           </label>
+          <p className="text-[9px] text-neutral-500 font-sans normal-case mt-0.5 mb-1 leading-snug">Your instruction prompt — write or edit what you want to happen next. This is sent to the AI.</p>
           <textarea
             id="custom-steer-input"
             rows={4}

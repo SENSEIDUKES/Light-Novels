@@ -35,7 +35,7 @@ export function ImmersionSettings({ audio, immersion: { immersion, setImmersion 
               Immersion Engine
             </span>
             <span className="text-[9px] text-neutral-500 font-sans">
-              Master consciousness coupling
+              Master on/off for all immersion effects below.
             </span>
           </div>
           <button onClick={() => setImmersion({ master: !immersion.master })}
@@ -85,7 +85,7 @@ export function ImmersionSettings({ audio, immersion: { immersion, setImmersion 
                 Aetheric Sound Effects
               </span>
               <span className="text-[8px] text-neutral-500">
-                Adaptive localized SFX cues
+                Plays sound effects triggered by story events.
               </span>
             </div>
             <button onClick={() => immersion.master && setImmersion({ audioCues: !immersion.audioCues })}
@@ -133,7 +133,7 @@ export function ImmersionSettings({ audio, immersion: { immersion, setImmersion 
                 Scene Harmonics
               </span>
               <span className="text-[8px] text-neutral-500">
-                Atmospheric musical tapestries
+                Background music that matches the scene mood.
               </span>
             </div>
             <button onClick={() => immersion.master && setImmersion({ sceneMusic: !immersion.sceneMusic })}
@@ -157,7 +157,10 @@ export function ImmersionSettings({ audio, immersion: { immersion, setImmersion 
           <button onClick={() => setShowVoiceDetail(!showVoiceDetail)}
             className="flex items-center justify-between w-full text-[9px] uppercase font-sc text-neutral-400 hover:text-signal transition-colors py-1 focus:outline-none"
           >
-            <span>Voice Matrix Signature</span>
+            <div className="text-left">
+              <span className="block">Voice Matrix Signature</span>
+              <span className="text-[8px] text-neutral-500 font-sans normal-case font-normal">Set narrator and character voices for text-to-speech.</span>
+            </div>
             <span className="text-[8px] font-mono">{showVoiceDetail ? "▲" : "▼"}</span>
           </button>
 

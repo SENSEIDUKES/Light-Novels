@@ -23,9 +23,12 @@ export function AetherialSystemLegend({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-portal/20 pb-2 mb-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-portal text-sm animate-pulse">✦</span>
-          <h4 className="font-display font-medium text-xs sm:text-sm text-signal tracking-widest uppercase">
-            Aetherial System Codes
-          </h4>
+          <div>
+            <h4 className="font-display font-medium text-xs sm:text-sm text-signal tracking-widest uppercase">
+              Aetherial System Codes
+            </h4>
+            <p className="text-[9px] text-neutral-500 font-sans normal-case leading-snug mt-0.5">Color guide for story system notifications and events.</p>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select
