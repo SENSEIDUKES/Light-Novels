@@ -55,6 +55,9 @@ export function AtmosphericAudio() {
   const bgmVolumeRef = useRef(bgmVolume);
   const bgmTrackIdRef = useRef(bgmTrackId);
   const lastChapterCueIdRef = useRef<string | null>(null);
+  // Current chapter's environment/theme tags, kept so switching the score
+  // back to 'auto' can restore the chapter-appropriate bed.
+  const chapterTagsRef = useRef<string[]>([]);
 
   useEffect(() => { bgmVolumeRef.current = bgmVolume; }, [bgmVolume]);
   useEffect(() => { bgmTrackIdRef.current = bgmTrackId; }, [bgmTrackId]);
@@ -144,8 +147,9 @@ export function AtmosphericAudio() {
           if (sceneMixRef.current) {
             if (requestedId === 'auto') {
               // Hand control back to the narrative: restart the calm bed
-              // so the next cue can take over from a known state.
-              const bedTrack = scoreEngineRef.current.resolveChapterDefault();
+              // (matched to the current chapter's tags) so the next cue can
+              // take over from a known state.
+              const bedTrack = scoreEngineRef.current.resolveChapterDefault(chapterTagsRef.current);
               if (bedTrack && bedTrack.url) {
                 sceneMixRef.current.crossfadeTo({
                   id: bedTrack.id,
@@ -717,10 +721,11 @@ export function AtmosphericAudio() {
           // Start a calm bed immediately — adventure/ambient carry the
           // chapter until a block earns an escalation. This runs even for
           // chapters without a cue payload so there is always a bed.
+          chapterTagsRef.current = [meta?.environment, meta?.theme].flat().filter(Boolean);
+
           const { master, sceneMusic } = useAppStore.getState().immersion;
           if (master && sceneMusic && bgmTrackIdRef.current === 'auto') {
-            const chapterTags: string[] = [meta?.environment, meta?.theme].flat().filter(Boolean);
-            const bedTrack = scoreEngineRef.current.resolveChapterDefault(chapterTags);
+            const bedTrack = scoreEngineRef.current.resolveChapterDefault(chapterTagsRef.current);
             if (bedTrack && bedTrack.url && sceneMixRef.current) {
               sceneMixRef.current.crossfadeTo({
                 id: bedTrack.id,
