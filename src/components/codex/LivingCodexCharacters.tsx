@@ -650,8 +650,9 @@ export function LivingCodexCharacters({
                                     
                                     <div className="grid grid-cols-2 gap-2">
                                       <div>
-                                        <label className="text-[8px] text-neutral-500 uppercase">Source</label>
+                                        <label htmlFor={`ability-${ability.id}-source`} className="text-[8px] text-neutral-500 uppercase">Source</label>
                                         <input
+                                          id={`ability-${ability.id}-source`}
                                           type="text"
                                           value={ability.source || ''}
                                           onChange={(e) => updateAbility(ability.id, { source: e.target.value })}
@@ -659,8 +660,9 @@ export function LivingCodexCharacters({
                                         />
                                       </div>
                                       <div>
-                                        <label className="text-[8px] text-neutral-500 uppercase">Cost / Limits</label>
+                                        <label htmlFor={`ability-${ability.id}-limits`} className="text-[8px] text-neutral-500 uppercase">Cost / Limits</label>
                                         <input
+                                          id={`ability-${ability.id}-limits`}
                                           type="text"
                                           value={ability.cost || ability.limits || ''}
                                           onChange={(e) => updateAbility(ability.id, { cost: e.target.value, limits: e.target.value })}
@@ -668,8 +670,9 @@ export function LivingCodexCharacters({
                                         />
                                       </div>
                                       <div>
-                                        <label className="text-[8px] text-neutral-500 uppercase">Acq. Chapter</label>
+                                        <label htmlFor={`ability-${ability.id}-acq`} className="text-[8px] text-neutral-500 uppercase">Acq. Chapter</label>
                                         <input
+                                          id={`ability-${ability.id}-acq`}
                                           type="number"
                                           value={ability.acquiredChapter || ''}
                                           onChange={(e) => updateAbility(ability.id, { acquiredChapter: parseInt(e.target.value) || undefined })}
@@ -677,8 +680,9 @@ export function LivingCodexCharacters({
                                         />
                                       </div>
                                       <div>
-                                        <label className="text-[8px] text-neutral-500 uppercase">Mastery Level</label>
+                                        <label htmlFor={`ability-${ability.id}-mastery`} className="text-[8px] text-neutral-500 uppercase">Mastery Level</label>
                                         <input
+                                          id={`ability-${ability.id}-mastery`}
                                           type="text"
                                           value={ability.masteryLevel || ''}
                                           onChange={(e) => updateAbility(ability.id, { masteryLevel: e.target.value })}
@@ -686,8 +690,9 @@ export function LivingCodexCharacters({
                                         />
                                       </div>
                                       <div>
-                                        <label className="text-[8px] text-neutral-500 uppercase">Last Used Ch.</label>
+                                        <label htmlFor={`ability-${ability.id}-lastUsed`} className="text-[8px] text-neutral-500 uppercase">Last Used Ch.</label>
                                         <input
+                                          id={`ability-${ability.id}-lastUsed`}
                                           type="number"
                                           value={ability.lastUsedChapter || ''}
                                           onChange={(e) => updateAbility(ability.id, { lastUsedChapter: parseInt(e.target.value) || undefined })}
@@ -695,8 +700,9 @@ export function LivingCodexCharacters({
                                         />
                                       </div>
                                       <div>
-                                        <label className="text-[8px] text-neutral-500 uppercase">Canon Status</label>
+                                        <label htmlFor={`ability-${ability.id}-canon`} className="text-[8px] text-neutral-500 uppercase">Canon Status</label>
                                         <select
+                                          id={`ability-${ability.id}-canon`}
                                           value={ability.canonStatus || 'confirmed'}
                                           onChange={(e) => updateAbility(ability.id, { canonStatus: e.target.value as any })}
                                           className="bg-neutral-950 border border-neutral-850 p-1 w-full text-[10px] text-neutral-300"
