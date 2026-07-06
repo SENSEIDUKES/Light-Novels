@@ -4,6 +4,15 @@ import { SceneScoreEngine } from '../lib/audio/musicResolver';
 import { useAppStore } from '../store/useAppStore';
 import { vibrate } from '../lib/vibration';
 
+// Scene-score BGM sits under the narration: with the master slider at its
+// 0.5 default the tracks play at 25%, and they never exceed the 40% cap no
+// matter how high the slider goes. Narrative intensity can only duck below.
+const BGM_MAX_LEVEL = 0.4;
+const BGM_VOLUME_SCALE = 0.5;
+
+const bgmLevelFor = (volume: number, intensity: number) =>
+  Math.min(volume * BGM_VOLUME_SCALE, BGM_MAX_LEVEL) * intensity;
+
 type AtmosphereType = 'none' | 'wind' | 'rain' | 'ocean' | 'crowd' | 'combat';
 type FXType = 'footsteps' | 'footsteps_snow' | 'footsteps_wood' | 'footsteps_stone' | 'system_alert' | 'combat_hit';
 
@@ -38,7 +47,7 @@ export function AtmosphericAudio() {
       // first crossfade never bursts in at the engine's default level.
       const isActuallyMuted = isMuted || currentScreen !== 'reader';
       mix.setMuted(isActuallyMuted);
-      mix.setLevel(isActuallyMuted ? 0 : (volume * 0.5 * bgmIntensityRef.current));
+      mix.setLevel(isActuallyMuted ? 0 : bgmLevelFor(volume, bgmIntensityRef.current));
       sceneMixRef.current = mix;
     }
     return () => {
@@ -53,7 +62,7 @@ export function AtmosphericAudio() {
     if (!mix) return;
     const isActuallyMuted = isMuted || currentScreen !== 'reader';
     mix.setMuted(isActuallyMuted);
-    mix.setLevel(isActuallyMuted ? 0 : (volume * 0.5 * bgmIntensityRef.current));
+    mix.setLevel(isActuallyMuted ? 0 : bgmLevelFor(volume, bgmIntensityRef.current));
   };
 
   // Sync state changes with localStorage and dispatch state event to UI
