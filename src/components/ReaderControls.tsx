@@ -24,7 +24,9 @@ interface ReaderControlsProps {
   setSelectedVoiceURI: (uri: string) => void;
   selectedDialogueVoiceURI: string;
   setSelectedDialogueVoiceURI: (uri: string) => void;
-  
+  selectedSideVoiceURI: string;
+  setSelectedSideVoiceURI: (uri: string) => void;
+
   // Immersion Settings
   immersion: any;
   setImmersion: (settings: any) => void;
@@ -51,6 +53,8 @@ export function ReaderControls({
   setSelectedVoiceURI,
   selectedDialogueVoiceURI,
   setSelectedDialogueVoiceURI,
+  selectedSideVoiceURI,
+  setSelectedSideVoiceURI,
   immersion,
   setImmersion,
   handleExportText,
@@ -236,12 +240,30 @@ export function ReaderControls({
               
               <div>
                 <label className="block text-[8px] text-neutral-500 mb-1" htmlFor={`dialogue-voice-${isMobile ? 'mobile' : 'desktop'}`}>
-                  Dialogue Voice
+                  Protagonist Voice
                 </label>
                 <select
                   id={`dialogue-voice-${isMobile ? 'mobile' : 'desktop'}`}
                   value={selectedDialogueVoiceURI}
                   onChange={(e) => setSelectedDialogueVoiceURI(e.target.value)}
+                  className="w-full bg-void border border-neutral-850 rounded text-[10px] p-1 focus:border-portal focus:outline-none"
+                >
+                  {availableVoices.map((v) => (
+                    <option key={v.voiceURI} value={v.voiceURI}>
+                      {v.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[8px] text-neutral-500 mb-1" htmlFor={`side-voice-${isMobile ? 'mobile' : 'desktop'}`}>
+                  Side Character Voice
+                </label>
+                <select
+                  id={`side-voice-${isMobile ? 'mobile' : 'desktop'}`}
+                  value={selectedSideVoiceURI}
+                  onChange={(e) => setSelectedSideVoiceURI(e.target.value)}
                   className="w-full bg-void border border-neutral-850 rounded text-[10px] p-1 focus:border-portal focus:outline-none"
                 >
                   {availableVoices.map((v) => (

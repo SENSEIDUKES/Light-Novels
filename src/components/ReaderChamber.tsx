@@ -171,6 +171,7 @@ export default function ReaderChamber({
     availableVoices,
     selectedVoiceURI,
     selectedDialogueVoiceURI,
+    selectedSideVoiceURI,
     activeChunks,
     currentChunkIndex,
     setSpeechRate,
@@ -178,6 +179,7 @@ export default function ReaderChamber({
     setSpeechVolume,
     setSelectedVoiceURI,
     setSelectedDialogueVoiceURI,
+    setSelectedSideVoiceURI,
     handleTogglePlayback,
     handleStopSpeaking,
     playAutoScroll,
@@ -993,6 +995,8 @@ export default function ReaderChamber({
         setSelectedVoiceURI={setSelectedVoiceURI}
         selectedDialogueVoiceURI={selectedDialogueVoiceURI}
         setSelectedDialogueVoiceURI={setSelectedDialogueVoiceURI}
+        selectedSideVoiceURI={selectedSideVoiceURI}
+        setSelectedSideVoiceURI={setSelectedSideVoiceURI}
         immersion={immersion}
         setImmersion={setImmersion}
         handleExportText={handleExportText}
