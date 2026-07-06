@@ -1,17 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { createSceneMixEngine, type SceneMixEngine } from '@seihouse/audio-player';
-import { SceneScoreEngine } from '../lib/audio/musicResolver';
+import { SceneScoreEngine, TRACK_LIBRARY } from '../lib/audio/musicResolver';
 import { useAppStore } from '../store/useAppStore';
 import { vibrate } from '../lib/vibration';
 
-// Scene-score BGM sits under the narration: with the master slider at its
-// 0.5 default the tracks play at 25%, and they never exceed the 40% cap no
-// matter how high the slider goes. Narrative intensity can only duck below.
-const BGM_MAX_LEVEL = 0.4;
-const BGM_VOLUME_SCALE = 0.5;
+// Scene-score BGM sits under the narration: it has its own volume control
+// (default 25%) hard-capped at 40%, independent of the synth master slider.
+// Narrative intensity can only duck the level below the user's setting.
+export const BGM_MAX_LEVEL = 0.4;
+export const BGM_DEFAULT_LEVEL = 0.25;
 
-const bgmLevelFor = (volume: number, intensity: number) =>
-  Math.min(volume * BGM_VOLUME_SCALE, BGM_MAX_LEVEL) * intensity;
+const bgmLevelFor = (bgmVolume: number, intensity: number) =>
+  Math.max(0, Math.min(bgmVolume, BGM_MAX_LEVEL)) * intensity;
 
 type AtmosphereType = 'none' | 'wind' | 'rain' | 'ocean' | 'crowd' | 'combat';
 type FXType = 'footsteps' | 'footsteps_snow' | 'footsteps_wood' | 'footsteps_stone' | 'system_alert' | 'combat_hit';
@@ -31,6 +31,20 @@ export function AtmosphericAudio() {
     return saved ? parseFloat(saved) : 0.5;
   });
 
+  // Scene-score controls: dedicated music volume (0..BGM_MAX_LEVEL) and an
+  // optional pinned track. 'auto' means the narrative cues pick the score.
+  const [bgmVolume, setBgmVolume] = useState(() => {
+    const saved = localStorage.getItem('seihouse-bgm-volume');
+    const parsed = saved ? parseFloat(saved) : NaN;
+    return Number.isFinite(parsed) ? Math.max(0, Math.min(parsed, BGM_MAX_LEVEL)) : BGM_DEFAULT_LEVEL;
+  });
+  const [bgmTrackId, setBgmTrackId] = useState(() => {
+    const saved = localStorage.getItem('seihouse-bgm-track') || 'auto';
+    // A stale id (e.g. a track later removed from the library) falls back
+    // to auto so the narrative cues aren't gated off by a dead pin.
+    return saved === 'auto' || TRACK_LIBRARY.some(t => t.id === saved) ? saved : 'auto';
+  });
+
   const audioCtxRef = useRef<AudioContext | null>(null);
   const activeSourcesRef = useRef<AudioScheduledSourceNode[]>([]);
   const activeIntervalsRef = useRef<NodeJS.Timeout[]>([]);
@@ -41,7 +55,15 @@ export function AtmosphericAudio() {
   const sceneMixRef = useRef<SceneMixEngine | null>(null);
   const scoreEngineRef = useRef(new SceneScoreEngine());
   const bgmIntensityRef = useRef<number>(1.0);
+  const bgmVolumeRef = useRef(bgmVolume);
+  const bgmTrackIdRef = useRef(bgmTrackId);
   const lastChapterCueIdRef = useRef<string | null>(null);
+  // Current chapter's environment/theme tags, kept so switching the score
+  // back to 'auto' can restore the chapter-appropriate bed.
+  const chapterTagsRef = useRef<string[]>([]);
+
+  useEffect(() => { bgmVolumeRef.current = bgmVolume; }, [bgmVolume]);
+  useEffect(() => { bgmTrackIdRef.current = bgmTrackId; }, [bgmTrackId]);
 
   useEffect(() => {
     if (!sceneMixRef.current) {
@@ -50,8 +72,23 @@ export function AtmosphericAudio() {
       // first crossfade never bursts in at the engine's default level.
       const isActuallyMuted = isMuted || currentScreen !== 'reader' || !immersionMaster || !sceneMusicEnabled;
       mix.setMuted(isActuallyMuted);
-      mix.setLevel(isActuallyMuted ? 0 : bgmLevelFor(volume, bgmIntensityRef.current));
+      mix.setLevel(isActuallyMuted ? 0 : bgmLevelFor(bgmVolumeRef.current, bgmIntensityRef.current));
       sceneMixRef.current = mix;
+
+      // Restore a persisted pin after reload: the cue paths are gated off
+      // while a track is pinned, so without this the scene stays silent
+      // until the user touches the score picker again.
+      if (bgmTrackIdRef.current !== 'auto') {
+        const savedTrack = TRACK_LIBRARY.find(t => t.id === bgmTrackIdRef.current);
+        if (savedTrack && savedTrack.url) {
+          mix.crossfadeTo({
+            id: savedTrack.id,
+            title: savedTrack.id,
+            artist: 'SEIHouse',
+            audioFile: savedTrack.url,
+          });
+        }
+      }
     }
     return () => {
       sceneMixRef.current?.dispose();
@@ -70,7 +107,7 @@ export function AtmosphericAudio() {
     const { master, sceneMusic } = useAppStore.getState().immersion;
     const isActuallyMuted = isMuted || currentScreen !== 'reader' || !master || !sceneMusic;
     mix.setMuted(isActuallyMuted);
-    mix.setLevel(isActuallyMuted ? 0 : bgmLevelFor(volume, bgmIntensityRef.current));
+    mix.setLevel(isActuallyMuted ? 0 : bgmLevelFor(bgmVolumeRef.current, bgmIntensityRef.current));
   };
 
   // Sync state changes with localStorage and dispatch state event to UI
@@ -78,15 +115,17 @@ export function AtmosphericAudio() {
     localStorage.setItem('seihouse-audio-muted', String(isMuted));
     localStorage.setItem('seihouse-audio-atmosphere', atmosphere);
     localStorage.setItem('seihouse-audio-volume', String(volume));
+    localStorage.setItem('seihouse-bgm-volume', String(bgmVolume));
+    localStorage.setItem('seihouse-bgm-track', bgmTrackId);
 
     syncBgmVolumes();
 
     // Dispatch the state update event to other listening components (like ReaderChamber preferences tab)
     window.dispatchEvent(new CustomEvent('seihouse-audio-state', {
-      detail: { isMuted, atmosphere, volume }
+      detail: { isMuted, atmosphere, volume, bgmVolume, bgmTrackId }
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMuted, atmosphere, volume, currentScreen, immersionMaster, sceneMusicEnabled]);
+  }, [isMuted, atmosphere, volume, bgmVolume, bgmTrackId, currentScreen, immersionMaster, sceneMusicEnabled]);
 
   // Handle incoming control events from UI
   useEffect(() => {
@@ -111,6 +150,44 @@ export function AtmosphericAudio() {
         }
         if (typeof customEvent.detail.volume === 'number') {
           setVolume(customEvent.detail.volume);
+        }
+        if (typeof customEvent.detail.bgmVolume === 'number') {
+          const clamped = Math.max(0, Math.min(customEvent.detail.bgmVolume, BGM_MAX_LEVEL));
+          bgmVolumeRef.current = clamped;
+          setBgmVolume(clamped);
+        }
+        if (typeof customEvent.detail.bgmTrackId === 'string') {
+          const requestedId = customEvent.detail.bgmTrackId;
+          bgmTrackIdRef.current = requestedId;
+          setBgmTrackId(requestedId);
+          // This runs synchronously inside the user's click, which doubles
+          // as the gesture browsers require before audio may start.
+          if (sceneMixRef.current) {
+            if (requestedId === 'auto') {
+              // Hand control back to the narrative: restart the calm bed
+              // (matched to the current chapter's tags) so the next cue can
+              // take over from a known state.
+              const bedTrack = scoreEngineRef.current.resolveChapterDefault(chapterTagsRef.current);
+              if (bedTrack && bedTrack.url) {
+                sceneMixRef.current.crossfadeTo({
+                  id: bedTrack.id,
+                  title: bedTrack.id,
+                  artist: 'SEIHouse',
+                  audioFile: bedTrack.url,
+                });
+              }
+            } else {
+              const track = TRACK_LIBRARY.find(t => t.id === requestedId);
+              if (track && track.url) {
+                sceneMixRef.current.crossfadeTo({
+                  id: track.id,
+                  title: track.id,
+                  artist: 'SEIHouse',
+                  audioFile: track.url,
+                });
+              }
+            }
+          }
         }
       }
     };
@@ -602,7 +679,8 @@ export function AtmosphericAudio() {
              }
 
              const { master, sceneMusic } = useAppStore.getState().immersion;
-             if (meta.music && master && sceneMusic) {
+             // A manually pinned track always wins over narrative cues.
+             if (meta.music && master && sceneMusic && bgmTrackIdRef.current === 'auto') {
                const newTrack = scoreEngineRef.current.evaluateSceneContext(
                  meta.music,
                  meta.environment || [],
@@ -661,10 +739,11 @@ export function AtmosphericAudio() {
           // Start a calm bed immediately — adventure/ambient carry the
           // chapter until a block earns an escalation. This runs even for
           // chapters without a cue payload so there is always a bed.
+          chapterTagsRef.current = [meta?.environment, meta?.theme].flat().filter(Boolean);
+
           const { master, sceneMusic } = useAppStore.getState().immersion;
-          if (master && sceneMusic) {
-            const chapterTags: string[] = [meta?.environment, meta?.theme].flat().filter(Boolean);
-            const bedTrack = scoreEngineRef.current.resolveChapterDefault(chapterTags);
+          if (master && sceneMusic && bgmTrackIdRef.current === 'auto') {
+            const bedTrack = scoreEngineRef.current.resolveChapterDefault(chapterTagsRef.current);
             if (bedTrack && bedTrack.url && sceneMixRef.current) {
               sceneMixRef.current.crossfadeTo({
                 id: bedTrack.id,

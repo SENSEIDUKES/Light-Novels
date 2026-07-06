@@ -1,7 +1,20 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Check, Sliders, VolumeX, Volume2 } from 'lucide-react';
+import { Check, Sliders, VolumeX, Volume2, Music } from 'lucide-react';
 import { ReaderPreferences } from '../types';
+import { TRACK_LIBRARY } from '../lib/audio/musicResolver';
+import { BGM_MAX_LEVEL, BGM_DEFAULT_LEVEL } from './AtmosphericAudio';
+
+// Group the Celestial Library by its CDN folder (ADVENTURE, AMBIENT, ...)
+// for the score-picker optgroups.
+const SCORE_GROUPS = TRACK_LIBRARY.reduce<Record<string, typeof TRACK_LIBRARY>>((groups, track) => {
+  const folder = track.url.split('/AUDIO/')[1]?.split('/')[0] || 'OTHER';
+  (groups[folder] = groups[folder] || []).push(track);
+  return groups;
+}, {});
+
+const formatTrackName = (id: string) =>
+  id.toLowerCase().split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
 interface ReaderPreferencesPanelProps {
   currentPrefs: ReaderPreferences;
@@ -28,6 +41,38 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
   showLegend,
   onToggleLegend
 }) => {
+  // Scene-score controls talk to AtmosphericAudio over the audio event bus
+  // (same pattern as mute/atmosphere/volume) so no extra prop drilling.
+  const [bgmVolume, setBgmVolume] = useState(() => {
+    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('seihouse-bgm-volume') : null;
+    const parsed = saved ? parseFloat(saved) : NaN;
+    return Number.isFinite(parsed) ? Math.max(0, Math.min(parsed, BGM_MAX_LEVEL)) : BGM_DEFAULT_LEVEL;
+  });
+  const [bgmTrackId, setBgmTrackId] = useState(() => {
+    return (typeof localStorage !== 'undefined' && localStorage.getItem('seihouse-bgm-track')) || 'auto';
+  });
+
+  useEffect(() => {
+    const handleState = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail) return;
+      if (typeof detail.bgmVolume === 'number') setBgmVolume(detail.bgmVolume);
+      if (typeof detail.bgmTrackId === 'string') setBgmTrackId(detail.bgmTrackId);
+    };
+    window.addEventListener('seihouse-audio-state', handleState);
+    return () => window.removeEventListener('seihouse-audio-state', handleState);
+  }, []);
+
+  const handleBgmVolumeChange = (value: number) => {
+    setBgmVolume(value);
+    window.dispatchEvent(new CustomEvent('seihouse-audio-control', { detail: { bgmVolume: value } }));
+  };
+
+  const handleBgmTrackChange = (id: string) => {
+    setBgmTrackId(id);
+    window.dispatchEvent(new CustomEvent('seihouse-audio-control', { detail: { bgmTrackId: id } }));
+  };
+
   return (
     <motion.div
       initial={{ height: 0, opacity: 0 }}
@@ -266,6 +311,70 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
             />
             <span className="text-[9px] font-mono text-neutral-400 w-7 text-right">
               {isMuted ? "0%" : `${Math.round(volume * 100)}%`}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Scene Score (Celestial Library music) Controls */}
+      <div className="border-t border-neutral-900/60 mt-4 pt-4 max-w-2xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="text-center md:text-left">
+          <span className="text-[10px] font-sc text-portal uppercase tracking-wider font-bold flex items-center justify-center md:justify-start gap-1.5">
+            <Music size={11} className="text-portal" />
+            Scene Score
+          </span>
+          <p className="text-[9px] text-neutral-500 mt-0.5">
+            Celestial Library soundtrack. Auto follows the narrative; pick a
+            song to pin it for this session.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {/* Score track selection */}
+          <div className="flex items-center gap-1.5 bg-void border border-neutral-850 px-2 py-1 rounded">
+            <span className="text-[9px] font-mono text-neutral-500 uppercase">
+              Score:
+            </span>
+            <select
+              value={bgmTrackId}
+              disabled={isMuted}
+              aria-label="Scene score track"
+              onChange={(e) => handleBgmTrackChange(e.target.value)}
+              className="bg-transparent text-[10px] text-neutral-300 font-mono focus:outline-none focus:text-signal cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed max-w-[160px]"
+            >
+              <option value="auto" className="bg-void">
+                Auto (Scene-Based)
+              </option>
+              {Object.entries(SCORE_GROUPS).map(([group, tracks]) => (
+                <optgroup key={group} label={group.charAt(0) + group.slice(1).toLowerCase()}>
+                  {tracks.map((t) => (
+                    <option key={t.id} value={t.id} className="bg-void">
+                      {formatTrackName(t.id)}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+
+          {/* Music volume slider (capped at 40%, defaults to 25%) */}
+          <div className="flex items-center gap-2 bg-void border border-neutral-850 px-2 py-1 rounded">
+            <span className="text-[9px] font-mono text-neutral-500 uppercase">
+              Music:
+            </span>
+            <input
+              type="range"
+              min="0"
+              max={BGM_MAX_LEVEL}
+              step="0.01"
+              value={bgmVolume}
+              disabled={isMuted}
+              aria-label="Music volume"
+              onChange={(e) => handleBgmVolumeChange(parseFloat(e.target.value))}
+              className="w-16 hover:cursor-grab disabled:opacity-40 disabled:cursor-not-allowed accent-portal text-portal"
+            />
+            <span className="text-[9px] font-mono text-neutral-400 w-7 text-right">
+              {isMuted ? "0%" : `${Math.round(bgmVolume * 100)}%`}
             </span>
           </div>
         </div>
