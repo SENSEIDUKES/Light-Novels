@@ -190,7 +190,7 @@ export function LivingCodexRelations({
                         fill="#FAFAFA"
                         className="font-display text-[15px] font-bold tracking-wider pointer-events-none"
                       >
-                        {mcName.split(' ')[0]}
+                        {(mcName || '').split(' ')[0]}
                       </text>
                     </g>
 
@@ -244,7 +244,7 @@ export function LivingCodexRelations({
                             fill={isSelected ? "#FAFAFA" : "#d4d4d4"}
                             className="font-serif text-[10px] pointer-events-none tracking-tight"
                           >
-                            {char.name.split(' ')[0]}
+                            {(char.name || '').split(' ')[0]}
                           </text>
                         </g>
                       );

@@ -130,7 +130,7 @@ export function LivingCodexPower({
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <span className="text-[9px] px-2 py-0.5 border border-amber-500/40 bg-amber-500/10 text-amber-400 font-sc font-bold uppercase tracking-widest rounded">Node</span>
                                 <span className="text-amber-50 font-display text-base sm:text-lg tracking-wide truncate">{char.name}</span>
-                                <span className="text-[10px] text-neutral-500 font-serif italic truncate">({char.role.split(',')[0]})</span>
+                                <span className="text-[10px] text-neutral-500 font-serif italic truncate">({(char.role || '').split(',')[0]})</span>
                               </div>
                               <div className="text-right flex-shrink-0">
                                 <span className="block text-[8.5px] text-amber-500/70 font-sc uppercase tracking-[0.25em]">Rank Index</span>
@@ -199,6 +199,7 @@ export function LivingCodexPower({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {memory.abilities?.map((ability, idx) => {
+                  if (!ability) return null;
                   if (typeof ability === 'string') {
                     return (
                       <div key={idx} className="codex-panel p-4 rounded-2xl space-y-1">

@@ -42,6 +42,25 @@ interface LivingCodexProps {
 
 // 1. Static high-fidelity Chinese cultivation vocabulary (Glossary defaults)
 
+// Premium segmented-control styling for Codex navigation tabs.
+// Each page carries its own accent aura when active.
+const CODEX_TAB_ACCENTS = {
+  neutral: 'codex-panel text-signal border-white/15 shadow-[0_0_14px_rgba(250,250,250,0.08)]',
+  blue: 'codex-panel-blue text-signal shadow-[0_0_16px_rgba(4,172,255,0.25)]',
+  gold: 'codex-panel-gold text-amber-100 shadow-[0_0_16px_rgba(212,175,55,0.25)]',
+  orange: 'codex-panel text-signal border-orange-500/40 shadow-[0_0_14px_rgba(249,115,22,0.18)]',
+  green: 'codex-panel text-signal border-green-500/40 shadow-[0_0_14px_rgba(34,197,94,0.18)]',
+  purple: 'codex-panel text-signal border-purple-500/40 shadow-[0_0_14px_rgba(168,85,247,0.18)]'
+} as const;
+
+const codexTabClass = (isActive: boolean, accent: keyof typeof CODEX_TAB_ACCENTS) => {
+  const base = 'flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded-lg text-[10px] md:text-[11px] tracking-wider transition-all duration-300 font-sc uppercase flex-shrink-0 border';
+  if (!isActive) {
+    return `${base} border-transparent text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/60 hover:border-white/5`;
+  }
+  return `${base} ${CODEX_TAB_ACCENTS[accent]}`;
+};
+
 
 export default function LivingCodex({ 
   memory: rawMemory = {} as StoryMemory, 
@@ -142,24 +161,6 @@ export default function LivingCodex({
   const artifactsToRender = showDeepMemory ? allArtifacts : allArtifacts.filter(a => !a.relevanceState || a.relevanceState === 'active' || a.relevanceState === 'warm' || a.relevanceState === 'reactivated');
 
   const hasDormantState = dormantChars.length > 0 || dormantLocs.length > 0 || dormantFactions.length > 0 || dormantArtifacts.length > 0;
-
-  // Premium segmented-control styling for Codex navigation tabs.
-  // Each page carries its own accent aura when active.
-  const codexTabClass = (isActive: boolean, accent: 'neutral' | 'blue' | 'gold' | 'orange' | 'green' | 'purple') => {
-    const base = 'flex items-center space-x-2 md:space-x-3 px-4 py-2.5 md:px-3 md:py-2.5 rounded-lg text-[10px] md:text-[11px] tracking-wider transition-all duration-300 font-sc uppercase flex-shrink-0 border';
-    if (!isActive) {
-      return `${base} border-transparent text-neutral-500 hover:text-neutral-350 hover:bg-neutral-950/60 hover:border-white/5`;
-    }
-    const accents: Record<typeof accent, string> = {
-      neutral: 'codex-panel text-signal border-white/15 shadow-[0_0_14px_rgba(250,250,250,0.08)]',
-      blue: 'codex-panel-blue text-signal shadow-[0_0_16px_rgba(4,172,255,0.25)]',
-      gold: 'codex-panel-gold text-amber-100 shadow-[0_0_16px_rgba(212,175,55,0.25)]',
-      orange: 'codex-panel text-signal border-orange-500/40 shadow-[0_0_14px_rgba(249,115,22,0.18)]',
-      green: 'codex-panel text-signal border-green-500/40 shadow-[0_0_14px_rgba(34,197,94,0.18)]',
-      purple: 'codex-panel text-signal border-purple-500/40 shadow-[0_0_14px_rgba(168,85,247,0.18)]'
-    };
-    return `${base} ${accents[accent]}`;
-  };
 
   return (
     <CodexProvider value={{     memory,
