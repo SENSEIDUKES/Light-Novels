@@ -38,8 +38,9 @@ const mockStories: any[] = [
 
 describe('useStoryEngine', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     useAppStore.setState({
-      stories: mockStories,
+      stories: JSON.parse(JSON.stringify(mockStories)),
       activeStoryId: 'story1',
       saveStories: vi.fn()
     });
@@ -89,6 +90,8 @@ describe('useStoryEngine', () => {
   it('handleToggleRead toggles read to unread', async () => {
     const { result } = renderHook(() => useStoryEngine());
     const saveStoriesMock = useAppStore.getState().saveStories;
+    const { awardQi } = await import('../lib/qi');
+    (awardQi as any).mockClear();
 
     await act(async () => {
       await result.current.handleToggleRead(2);
@@ -97,5 +100,19 @@ describe('useStoryEngine', () => {
     expect(saveStoriesMock).toHaveBeenCalled();
     const updatedStories = (saveStoriesMock as any).mock.calls[0][0];
     expect(updatedStories[0].arcs[0].chapters[1].status).toBe('unread');
+    expect(awardQi).not.toHaveBeenCalled();
+  });
+
+  it('returns all required handlers', () => {
+    const { result } = renderHook(() => useStoryEngine());
+    expect(typeof result.current.handleGenerateChapter).toBe('function');
+    expect(typeof result.current.handleSteerArc).toBe('function');
+    expect(typeof result.current.handleAlterFate).toBe('function');
+    expect(typeof result.current.handleGenerateBlueprint).toBe('function');
+    expect(typeof result.current.handleStartStory).toBe('function');
+    expect(typeof result.current.handleGenerateCover).toBe('function');
+    expect(typeof result.current.handleApplyCover).toBe('function');
+    expect(typeof result.current.handleCheckConsistency).toBe('function');
+    expect(typeof result.current.handleSealChapter).toBe('function');
   });
 });

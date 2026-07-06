@@ -313,11 +313,11 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
                 exit={{ opacity: 0, scale: 0.95, y: 2 }}
                 transition={{ duration: 0.2 }}
                 onClick={() => handleAddGhostTag(ghostSuggestion)}
-                className="absolute bottom-2.5 right-2.5 max-w-[80%] sm:max-w-full truncate px-2.5 py-1 rounded bg-black/90 border border-portal/40 text-portal hover:text-signal hover:border-portal transition-all flex items-center gap-1.5 text-[10px] font-mono tracking-wider shadow-[0_0_12px_rgba(4,172,255,0.15)] hover:shadow-[0_0_18px_rgba(4,172,255,0.3)] cursor-pointer"
+                className="absolute bottom-2.5 right-2.5 max-w-[80%] sm:max-w-full min-w-0 px-2.5 py-1 rounded bg-black/90 border border-portal/40 text-portal hover:text-signal hover:border-portal transition-all flex items-center gap-1.5 text-[10px] font-mono tracking-wider shadow-[0_0_12px_rgba(4,172,255,0.15)] hover:shadow-[0_0_18px_rgba(4,172,255,0.3)] cursor-pointer"
                 title="Click or press Tab to weave this tag into your destiny"
               >
                 <Sparkles size={11} className="text-portal animate-pulse" />
-                <span>Tab: {ghostSuggestion}</span>
+                <span className="truncate">Tab: {ghostSuggestion}</span>
               </motion.button>
             )}
           </AnimatePresence>
