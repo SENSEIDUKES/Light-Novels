@@ -65,7 +65,10 @@ export function AtmosphericAudio() {
     if (!mix) return;
     // Scene Harmonics (immersion.sceneMusic) is the user's on/off switch
     // for the score tracks; when it's off the BGM decks stay silent.
-    const isActuallyMuted = isMuted || currentScreen !== 'reader' || !immersionMaster || !sceneMusicEnabled;
+    // Read the toggles from the store so calls from long-lived event
+    // listeners never act on stale closure values.
+    const { master, sceneMusic } = useAppStore.getState().immersion;
+    const isActuallyMuted = isMuted || currentScreen !== 'reader' || !master || !sceneMusic;
     mix.setMuted(isActuallyMuted);
     mix.setLevel(isActuallyMuted ? 0 : bgmLevelFor(volume, bgmIntensityRef.current));
   };
