@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Network, HelpCircle, ArrowLeftRight, Trash2, Download } from 'lucide-react';
+import { Network, HelpCircle, ArrowLeftRight, Trash2, Download, Scan, Info } from 'lucide-react';
 import { VirtualizedList } from '../VirtualizedList';
 import { Character, CharacterRelationship } from '../../types';
 import { useCodex } from './CodexContext';
@@ -70,62 +70,108 @@ export function LivingCodexRelations({
 {/* PAGE 2: Relationship Map (Karma Web Relationship Graph) */}
         
           <div className="space-y-6 animate-fadeIn" id="codex-relationships">
-            <div className="border-b border-neutral-900 pb-3">
-              <h3 className="font-sc text-sm text-signal font-bold uppercase tracking-widest">Karma</h3>
-              <p className="text-[10px] text-neutral-500 font-sans">Click on any Daoist node around {mcName}'s cosmic grid to inspect their physical alignment vectors.</p>
+            <div className="border-b border-portal/15 pb-3 flex items-end justify-between gap-4">
+              <div>
+                <h3 className="font-display text-lg text-signal tracking-wide codex-glow-blue flex items-center gap-2">
+                  <Network size={16} className="text-portal" />
+                  <span>Karma Web</span>
+                </h3>
+                <p className="text-[10px] text-neutral-500 font-sans mt-0.5">Click on any Daoist node around {mcName}'s cosmic grid to inspect their physical alignment vectors.</p>
+              </div>
+              <span className="hidden sm:flex items-center gap-1.5 text-[9px] font-sc uppercase tracking-widest text-portal/80 px-3 py-1.5 rounded-lg codex-panel border-portal/20 flex-shrink-0">
+                <Scan size={11} />
+                <span>Interactive Map</span>
+              </span>
             </div>
 
             {charsToRender.length === 0 ? (
-              <div className="text-center py-20 border border-neutral-900 rounded bg-neutral-950/20 text-xs text-neutral-500 italic">
-                No active secondary nodes present. Mapping remains locked to the Void.
+              <div className="codex-panel codex-grid-bg rounded-2xl text-center py-20 px-6">
+                <Network size={28} className="mx-auto text-portal/30 mb-3" />
+                <h4 className="font-sc text-xs text-neutral-400 uppercase tracking-[0.25em] font-semibold">Web Unwoven</h4>
+                <p className="text-xs text-neutral-500 italic font-serif mt-2 max-w-sm mx-auto">
+                  No active secondary nodes present. Mapping remains locked to the Void.
+                </p>
               </div>
             ) : (
               <div className="flex flex-col lg:flex-row gap-6">
                 
                 {/* Visual SVG Map block */}
-                <div className="flex-1 bg-neutral-950/50 border border-neutral-900 rounded-lg p-4 flex flex-col items-center justify-center min-h-[380px] relative overflow-hidden">
-                  <div className="absolute top-2 left-2 text-[9px] px-2 py-0.5 bg-black border border-neutral-900 rounded font-mono text-neutral-500 uppercase">
-                    Interactive Karma Interface
+                <div className="flex-1 codex-panel codex-grid-bg rounded-2xl p-4 sm:p-5 flex flex-col min-h-[440px] relative overflow-hidden">
+                  <div className="flex items-center justify-between mb-2 relative z-10">
+                    <span className="flex items-center gap-1.5 text-[10px] font-sc uppercase tracking-[0.25em] text-neutral-400 font-semibold">
+                      <span>Karma Web</span>
+                      <Info size={11} className="text-neutral-600" />
+                    </span>
+                    <span className="flex items-center gap-1.5 text-[9px] px-2.5 py-1 rounded-lg border border-white/10 bg-black/50 font-sc text-neutral-400 uppercase tracking-widest">
+                      <Scan size={10} className="text-portal/70" />
+                      <span>Fit View</span>
+                    </span>
                   </div>
 
                   {/* SVG Mapping nodes */}
-                  <svg className="w-full max-w-[420px] h-[340px]" viewBox="0 0 400 320">
+                  <div className="flex-1 flex items-center justify-center">
+                  <svg className="w-full max-w-[520px] h-[380px]" viewBox="0 0 440 380">
                     <defs>
-                      <filter id="glow-portal" x="-20%" y="-20%" width="140%" height="140%">
-                        <feGaussianBlur stdDeviation="3" result="blur" />
+                      <filter id="glow-portal" x="-40%" y="-40%" width="180%" height="180%">
+                        <feGaussianBlur stdDeviation="4" result="blur" />
                         <feComposite in="SourceGraphic" in2="blur" operator="over" />
                       </filter>
+                      <filter id="glow-edge" x="-30%" y="-30%" width="160%" height="160%">
+                        <feGaussianBlur stdDeviation="2" result="blur" />
+                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                      </filter>
+                      <radialGradient id="mc-core-gradient" cx="50%" cy="42%" r="65%">
+                        <stop offset="0%" stopColor="#062338" />
+                        <stop offset="100%" stopColor="#000000" />
+                      </radialGradient>
                     </defs>
+
+                    {/* Faint concentric constellation rings */}
+                    {[52, 88, 124, 160].map((ringRadius) => (
+                      <circle
+                        key={`ring-${ringRadius}`}
+                        cx="220"
+                        cy="190"
+                        r={ringRadius}
+                        fill="none"
+                        stroke="#04ACFF"
+                        strokeWidth="0.6"
+                        strokeDasharray="2 6"
+                        opacity="0.14"
+                      />
+                    ))}
 
                     {/* Draw connecting lines */}
                     {charsToRender.map((char, index) => {
                       const total = charsToRender.length;
                       const angle = (index * 2 * Math.PI) / total;
-                      const radius = 100;
-                      const cx = 200 + radius * Math.cos(angle);
-                      const cy = 160 + radius * Math.sin(angle);
+                      const radius = 124;
+                      const cx = 220 + radius * Math.cos(angle);
+                      const cy = 190 + radius * Math.sin(angle);
 
                       // Determine thread color based on attitude
                       const attitude = char.relationshipToMC?.toLowerCase() || '';
-                      let strokeColor = '#4a4a4a'; // Default neutral gray
+                      let strokeColor = '#6b7280'; // Default neutral gray
                       if (attitude.includes('enemy') || attitude.includes('host') || attitude.includes('hate') || attitude.includes('rival')) {
-                        strokeColor = '#8B0000'; // Human Core Blood Red
+                        strokeColor = '#ff3333'; // Human Core Blood Red
                       } else if (attitude.includes('ally') || attitude.includes('friend') || attitude.includes('loyal') || attitude.includes('fiance')) {
                         strokeColor = '#04ACFF'; // Portal Cyan
                       } else if (attitude.includes('mentor') || attitude.includes('master') || attitude.includes('teacher') || attitude.includes('elder')) {
                         strokeColor = '#eab308'; // Gold
                       }
 
+                      const isSelectedEdge = selectedNodeChar?.id === char.id;
                       return (
                         <g key={`line-${char.id}`}>
-                          <line 
-                            x1="200" 
-                            y1="160" 
-                            x2={cx} 
-                            y2={cy} 
-                            stroke={strokeColor} 
-                            strokeWidth={selectedNodeChar?.id === char.id ? "3.5" : "1.5"} 
-                            opacity={selectedNodeChar ? (selectedNodeChar.id === char.id ? "1" : "0.3") : "0.75"}
+                          <line
+                            x1="220"
+                            y1="190"
+                            x2={cx}
+                            y2={cy}
+                            stroke={strokeColor}
+                            strokeWidth={isSelectedEdge ? "3" : "1.5"}
+                            opacity={selectedNodeChar ? (isSelectedEdge ? "1" : "0.25") : "0.7"}
+                            filter="url(#glow-edge)"
                             className="transition-all duration-300"
                           />
                         </g>
@@ -133,15 +179,16 @@ export function LivingCodexRelations({
                     })}
 
                     {/* Render Center Node representing MC */}
-                    <g transform="translate(200, 160)" className="cursor-pointer">
-                      <circle cx="0" cy="0" r="26" fill="#000000" stroke="#04ACFF" strokeWidth="2.5" filter="url(#glow-portal)" />
-                      <circle cx="0" cy="0" r="22" fill="#000000" stroke="#8B0000" strokeWidth="1" />
-                      <text 
-                        x="0" 
-                        y="3" 
-                        textAnchor="middle" 
-                        fill="#FAFAFA" 
-                        className="font-sc text-[9px] font-bold tracking-widest pointer-events-none"
+                    <g transform="translate(220, 190)" className="cursor-pointer">
+                      <circle cx="0" cy="0" r="46" fill="none" stroke="#04ACFF" strokeWidth="0.75" strokeDasharray="1 5" opacity="0.5" />
+                      <circle cx="0" cy="0" r="38" fill="url(#mc-core-gradient)" stroke="#04ACFF" strokeWidth="2.5" filter="url(#glow-portal)" />
+                      <circle cx="0" cy="0" r="32" fill="none" stroke="#04ACFF" strokeWidth="0.75" opacity="0.4" />
+                      <text
+                        x="0"
+                        y="4"
+                        textAnchor="middle"
+                        fill="#FAFAFA"
+                        className="font-display text-[15px] font-bold tracking-wider pointer-events-none"
                       >
                         {mcName.split(' ')[0]}
                       </text>
@@ -151,39 +198,51 @@ export function LivingCodexRelations({
                     {charsToRender.map((char, index) => {
                       const total = charsToRender.length;
                       const angle = (index * 2 * Math.PI) / total;
-                      const radius = 100;
-                      const cx = 200 + radius * Math.cos(angle);
-                      const cy = 160 + radius * Math.sin(angle);
+                      const radius = 124;
+                      const cx = 220 + radius * Math.cos(angle);
+                      const cy = 190 + radius * Math.sin(angle);
 
                       const isSelected = selectedNodeChar?.id === char.id;
                       const attitude = char.relationshipToMC?.toLowerCase() || '';
-                      let strokeColor = '#525252';
+                      let strokeColor = '#6b7280';
                       if (attitude.includes('enemy') || attitude.includes('host') || attitude.includes('hate') || attitude.includes('rival')) {
-                        strokeColor = '#8B0000';
+                        strokeColor = '#ff3333';
                       } else if (attitude.includes('ally') || attitude.includes('friend') || attitude.includes('loyal') || attitude.includes('fiance')) {
                         strokeColor = '#04ACFF';
-                      } else if (attitude.includes('mentor') || attitude.includes('master')) {
+                      } else if (attitude.includes('mentor') || attitude.includes('master') || attitude.includes('teacher') || attitude.includes('elder')) {
                         strokeColor = '#eab308';
                       }
 
                       return (
-                        <g 
-                          key={`node-${char.id}`} 
+                        <g
+                          key={`node-${char.id}`}
                           transform={`translate(${cx}, ${cy})`}
                           className="cursor-pointer group"
                           onClick={() => setSelectedNodeChar(char)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedNodeChar(char); } }}
                         >
-                          {/* Inner pulsing layer */}
-                          <circle cx="0" cy="0" r={isSelected ? "17" : "13"} fill="#000000" stroke={strokeColor} strokeWidth={isSelected ? "3" : "1.5"} />
-                          {char.status === 'deceased' && (
-                            <line x1="-8" y1="-8" x2="8" y2="8" stroke="#8B0000" strokeWidth="2" opacity="0.8" />
+                          {isSelected && (
+                            <circle cx="0" cy="0" r="26" fill="none" stroke={strokeColor} strokeWidth="0.75" strokeDasharray="2 4" opacity="0.6" />
                           )}
-                          <text 
-                            x="0" 
-                            y="24" 
-                            textAnchor="middle" 
-                            fill={isSelected ? "#FAFAFA" : "#a3a3a3"} 
-                            className="font-sans text-[8px] pointer-events-none font-bold tracking-tight"
+                          <circle
+                            cx="0"
+                            cy="0"
+                            r={isSelected ? "21" : "17"}
+                            fill="#000000"
+                            stroke={strokeColor}
+                            strokeWidth={isSelected ? "2.5" : "1.5"}
+                            filter={isSelected ? "url(#glow-edge)" : undefined}
+                            className="transition-all duration-300"
+                          />
+                          <circle cx="0" cy="0" r={isSelected ? "16" : "12.5"} fill="none" stroke={strokeColor} strokeWidth="0.5" opacity="0.35" />
+                          {char.status === 'deceased' && (
+                            <line x1="-9" y1="-9" x2="9" y2="9" stroke="#ff3333" strokeWidth="2" opacity="0.8" />
+                          )}
+                          <text
+                            x="0"
+                            y="4"
+                            textAnchor="middle"
+                            fill={isSelected ? "#FAFAFA" : "#d4d4d4"}
+                            className="font-serif text-[10px] pointer-events-none tracking-tight"
                           >
                             {char.name.split(' ')[0]}
                           </text>
@@ -191,25 +250,42 @@ export function LivingCodexRelations({
                       );
                     })}
                   </svg>
+                  </div>
+
+                  {/* Alignment legend */}
+                  <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 pt-3 mt-auto relative z-10">
+                    {[
+                      { label: 'Allied', color: '#04ACFF' },
+                      { label: 'Hostile', color: '#ff3333' },
+                      { label: 'Mentor/Important', color: '#eab308' },
+                      { label: 'Neutral', color: '#6b7280' }
+                    ].map(({ label, color }) => (
+                      <span key={label} className="flex items-center gap-1.5 text-[9px] font-sc uppercase tracking-widest text-neutral-500 px-2.5 py-1 rounded-full border border-white/5 bg-black/40">
+                        <span className="w-2 h-2 rounded-full border" style={{ borderColor: color, boxShadow: `0 0 6px ${color}66` }}></span>
+                        <span>{label}</span>
+                      </span>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Inspect Card Profile Panel */}
-                <div className="w-full lg:w-72 bg-neutral-950/80 border border-neutral-900 rounded-lg p-4 flex flex-col justify-between">
+                <div className={`w-full lg:w-72 ${selectedNodeChar ? 'codex-panel-blue' : 'codex-panel'} rounded-2xl p-4 sm:p-5 flex flex-col justify-between transition-all duration-500`}>
                   {selectedNodeChar ? (
                     <div className="space-y-4 animate-fadeIn">
-                      <div className="border-b border-neutral-900 pb-2 flex items-center justify-between">
-                        <span className="text-[9px] text-portal font-mono uppercase font-bold tracking-widest">Active Resonance details</span>
-                        <button 
+                      <div className="border-b border-portal/20 pb-2.5 flex items-center justify-between">
+                        <span className="text-[9px] text-portal font-sc uppercase font-bold tracking-[0.25em] codex-glow-blue">Resonance Details</span>
+                        <button
                            tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setSelectedNodeChar(null)}
-                          className="text-[9px] text-neutral-600 hover:text-neutral-400 capitalize"
+                          className="text-[9px] text-neutral-500 hover:text-portal capitalize font-sc uppercase tracking-widest px-2 py-0.5 rounded border border-white/10 hover:border-portal/40 transition-colors"
                         >
                           Clear
                         </button>
                       </div>
 
                       {selectedNodeChar.imageUrl && (
-                        <div className="h-28 w-full rounded overflow-hidden border border-neutral-900 relative group/rel">
+                        <div className="h-32 w-full rounded-xl overflow-hidden border border-portal/20 shadow-[0_0_18px_rgba(4,172,255,0.12)] relative group/rel bg-black/60">
                           <img src={selectedNodeChar.imageUrl} alt={selectedNodeChar.name} className="w-full h-full object-contain object-top" referrerPolicy="no-referrer" />
+                          <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/70 to-transparent pointer-events-none"></div>
                           <button
                              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={(e) => {
                               e.stopPropagation();
@@ -223,44 +299,46 @@ export function LivingCodexRelations({
                           </button>
                         </div>
                       )}
-                      
+
                       <div>
-                        <h4 className="font-sc font-bold text-signal text-sm">{selectedNodeChar.name}</h4>
-                        <span className="text-[10px] text-neutral-500 font-sans block">{selectedNodeChar.role}</span>
+                        <h4 className="font-display font-bold text-signal text-lg tracking-wide">{selectedNodeChar.name}</h4>
+                        <span className="text-[10px] text-portal/70 font-sc uppercase tracking-widest block mt-0.5">{selectedNodeChar.role}</span>
                       </div>
 
-                      <div className="space-y-1.5 text-xs">
-                        <div className="flex items-center justify-between p-1 px-2 bg-void border border-neutral-900 rounded">
-                          <span className="text-neutral-600 text-[8.5px] uppercase tracking-wider font-mono">Bonds to MC:</span>
-                          <span className="text-human font-semibold text-[10px]">{selectedNodeChar.relationshipToMC}</span>
+                      <div className="space-y-2 text-xs">
+                        <div className="flex items-center justify-between px-3 py-2 bg-black/50 border border-white/5 rounded-lg">
+                          <span className="text-neutral-500 text-[8.5px] uppercase tracking-[0.2em] font-sc">Bonds to MC</span>
+                          <span className="text-human font-semibold text-[10px] font-sc uppercase tracking-wider">{selectedNodeChar.relationshipToMC}</span>
                         </div>
-                        <div className="flex items-center justify-between p-1 px-2 bg-void border border-neutral-900 rounded">
-                          <span className="text-neutral-600 text-[8.5px] uppercase tracking-wider font-mono">Status:</span>
-                          <span className="text-neutral-400 font-mono text-[9px] uppercase">{selectedNodeChar.status}</span>
+                        <div className="flex items-center justify-between px-3 py-2 bg-black/50 border border-white/5 rounded-lg">
+                          <span className="text-neutral-500 text-[8.5px] uppercase tracking-[0.2em] font-sc">Status</span>
+                          <span className="text-neutral-300 font-mono text-[9px] uppercase">{selectedNodeChar.status}</span>
                         </div>
                         {selectedNodeChar.powerLevel && (
-                          <div className="flex items-center justify-between p-1 px-2 bg-void border border-neutral-900 rounded">
-                            <span className="text-neutral-600 text-[8.5px] uppercase tracking-wider font-mono">Realm:</span>
-                            <span className="text-yellow-500 font-mono text-[9.5px]">{selectedNodeChar.powerLevel}</span>
+                          <div className="flex items-center justify-between px-3 py-2 bg-black/50 border border-amber-500/15 rounded-lg">
+                            <span className="text-neutral-500 text-[8.5px] uppercase tracking-[0.2em] font-sc">Realm</span>
+                            <span className="text-amber-400 font-mono text-[9.5px] codex-glow-gold">{selectedNodeChar.powerLevel}</span>
                           </div>
                         )}
                         {selectedNodeChar.faction && (
-                          <div className="flex items-center justify-between p-1 px-2 bg-void border border-neutral-900 rounded">
-                            <span className="text-neutral-600 text-[8.5px] uppercase tracking-wider font-mono">Sect Affiliation:</span>
-                            <span className="text-neutral-400 text-[9.5px] truncate max-w-[130px]">{selectedNodeChar.faction}</span>
+                          <div className="flex items-center justify-between px-3 py-2 bg-black/50 border border-white/5 rounded-lg">
+                            <span className="text-neutral-500 text-[8.5px] uppercase tracking-[0.2em] font-sc">Sect Affiliation</span>
+                            <span className="text-neutral-300 text-[9.5px] truncate max-w-[130px]">{selectedNodeChar.faction}</span>
                           </div>
                         )}
                       </div>
 
-                      <div className="text-[11px] text-neutral-400 leading-normal italic font-serif">
+                      <div className="text-[11px] text-neutral-400 leading-relaxed italic font-serif border-l-2 border-portal/30 pl-3">
                         "{selectedNodeChar.description}"
                       </div>
                     </div>
                   ) : (
                     <div className="h-full flex flex-col items-center justify-center text-center py-12">
-                      <HelpCircle size={28} className="text-neutral-800 mb-2 animate-pulse" />
-                      <h4 className="font-sc text-xs text-neutral-400 uppercase tracking-widest font-semibold">Sensor Idle</h4>
-                      <p className="text-[9.5px] text-neutral-600 font-sans mt-1 max-w-xs mx-auto leading-relaxed">
+                      <div className="w-14 h-14 rounded-full border border-portal/20 bg-portal/5 flex items-center justify-center mb-3 shadow-[0_0_18px_rgba(4,172,255,0.1)]">
+                        <HelpCircle size={24} className="text-portal/40 animate-pulse" />
+                      </div>
+                      <h4 className="font-sc text-xs text-neutral-400 uppercase tracking-[0.25em] font-semibold">Sensor Idle</h4>
+                      <p className="text-[9.5px] text-neutral-600 font-sans mt-1.5 max-w-xs mx-auto leading-relaxed">
                         Tap any spirit node in the cosmic geometry to inspect special causal relationship bindings.
                       </p>
                     </div>
@@ -271,7 +349,7 @@ export function LivingCodexRelations({
             )}
 
             {/* Custom Interactive Karma Bonds Panel */}
-              <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 pt-8 border-t border-neutral-900 bg-void/50 p-6 rounded-lg border border-neutral-900">
+              <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 codex-panel p-6 rounded-2xl">
                 
                 {/* Form to Create Custom Bond */}
                 <div className="md:col-span-1 space-y-4">
