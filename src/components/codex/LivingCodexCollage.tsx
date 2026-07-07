@@ -84,14 +84,29 @@ export function LivingCodexCollage({
 
   
   // Parse and assemble all scene/chapter memories and entity portraits
+  // Pre-compute lookup maps for efficient entity resolution, memoized on memory changes
+  const characterMap = useMemo(() => {
+    const m = new Map<string, NonNullable<typeof memory.characters>[number]>();
+    memory.characters?.forEach(c => m.set(c.id, c));
+    return m;
+  }, [memory.characters]);
+
+  const locationMap = useMemo(() => {
+    const m = new Map<string, NonNullable<typeof memory.locations>[number]>();
+    memory.locations?.forEach(l => m.set(l.id, l));
+    return m;
+  }, [memory.locations]);
+
+  const artifactMap = useMemo(() => {
+    const m = new Map<string, NonNullable<typeof memory.artifacts>[number]>();
+    memory.artifacts?.forEach(a => m.set(a.id, a));
+    return m;
+  }, [memory.artifacts]);
+
   const memories = useMemo(() => {
     const items: VisualMemory[] = [];
     const seenUrls = new Set<string>();
 
-    // Pre-compute lookup maps for efficient entity resolution
-    const characterMap = new Map(memory.characters?.map(c => [c.id, c]) || []);
-    const locationMap = new Map(memory.locations?.map(l => [l.id, l]) || []);
-    const artifactMap = new Map(memory.artifacts?.map(a => [a.id, a]) || []);
 
     // 1. Gather Scene Memories from Chapter Hero Images (Automatic or manual)
     if (activeStory.arcs) {
@@ -188,7 +203,7 @@ export function LivingCodexCollage({
       const chB = b.chapterNumber || 0;
       return chA - chB;
     });
-  }, [activeStory, memory]);
+  }, [activeStory, characterMap, locationMap, artifactMap]);
 
   // Filter memories
   const filteredMemories = useMemo(() => {
