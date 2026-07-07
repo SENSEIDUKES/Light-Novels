@@ -826,7 +826,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
   };
 
   const handleSave = async () => {
-    if (!currentUser || !profile) return;
+    if (!profile) return;
 
     const isLangChanged = formData.preferredLanguage !== profile.preferredLanguage || formData.defaultTranslationLanguage !== profile.defaultTranslationLanguage;
 
