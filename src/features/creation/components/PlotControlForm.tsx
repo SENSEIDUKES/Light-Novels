@@ -58,12 +58,13 @@ export const PlotControlForm = ({ intake, updateIntake, activeSection, setActive
         </div>
       </div>
       <div className="pt-4 mt-4 border-t border-neutral-900/60">
-        <span className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-0.5 flex items-center space-x-2">
+        <span className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2 flex items-center space-x-2">
           <ShieldAlert size={14} className="text-human" />
           <span>Fate Pressure (Difficulty)</span>
         </span>
-        <p className="text-[9px] text-neutral-500 font-sans normal-case mb-2 leading-snug">Control how harsh the story consequences are — how hard the world fights back against the MC.</p>
-        <p className="text-neutral-500 font-sans text-xs mb-3">Determines how actively the world tries to kill the main character or derail their goals. High pressure increases tragedy and betrayal risk.</p>
+        <p className="text-neutral-500 font-sans text-xs mb-3">
+          Control how harsh the story consequences are — how actively the world fights back against the MC, increasing tragedy and betrayal risk.
+        </p>
         <div className="flex flex-wrap gap-2">
           {(['Relaxed', 'Balanced', 'Hardcore', 'Dao Master'] as const).map(level => (
             <button

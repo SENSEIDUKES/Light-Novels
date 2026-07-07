@@ -85,7 +85,6 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
           <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">
             Aura Font
           </span>
-          <p className="text-[9px] text-neutral-500 font-sans normal-case leading-snug mb-1">Reading font style.</p>
           <div className="flex flex-col gap-1">
             {(["serif", "sans", "mono"] as const).map((f) => (
               <button
@@ -114,7 +113,6 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
           <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">
             Sizing Index
           </span>
-          <p className="text-[9px] text-neutral-500 font-sans normal-case leading-snug mb-1">Text size.</p>
           <div className="flex flex-col gap-1">
             {(["xs", "sm", "base", "lg", "xl"] as const).map((s) => (
               <button
@@ -187,7 +185,6 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
           <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">
             Ethereal Hue
           </span>
-          <p className="text-[9px] text-neutral-500 font-sans normal-case leading-snug mb-1">Background color theme.</p>
           <div className="flex flex-col gap-1">
             {(
               ["void", "crimson", "abyss", "sepia", "emerald"] as const
@@ -214,7 +211,6 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
           <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">
             Aura Highlights
           </span>
-          <p className="text-[9px] text-neutral-500 font-sans normal-case leading-snug mb-1">How Codex terms are highlighted in text.</p>
           <div className="flex flex-col gap-1">
             {(
               ["full", "underline", "tint"] as const

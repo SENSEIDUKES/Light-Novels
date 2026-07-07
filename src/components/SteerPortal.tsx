@@ -192,12 +192,14 @@ export default function SteerPortal({
         
         {/* Dynamic Direction Suggestions Section */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="block text-xs uppercase tracking-widest font-sc text-neutral-300 font-semibold flex items-center space-x-2">
-              <Compass size={14} className="text-portal animate-spin-slow" />
-              <span>Divine Paths of Ascension</span>
-            </span>
-            <p className="text-[9px] text-neutral-500 font-sans normal-case mt-0.5 leading-snug">AI-suggested story directions for the next 10 chapters. Pick one to load it into the prompt below.</p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <span className="block text-xs uppercase tracking-widest font-sc text-neutral-300 font-semibold flex items-center space-x-2">
+                <Compass size={14} className="text-portal animate-spin-slow" />
+                <span>Divine Paths of Ascension</span>
+              </span>
+              <p className="text-[9px] text-neutral-500 font-sans normal-case mt-1 leading-snug">AI-suggested story directions for the next 10 chapters. Pick one to load it into the prompt below.</p>
+            </div>
             {!isLoading && (
               <button
                 type="button"
