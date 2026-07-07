@@ -163,9 +163,9 @@ describe('SceneScoreEngine', () => {
 });
 
 describe('MOOD_PRIORITIES', () => {
-  it('defines priorities for all expected moods', () => {
-    const expectedMoods = ['boss-fight', 'fighting', 'adventure', 'ambient'];
-    for (const mood of expectedMoods) {
+  it('defines priorities for all moods in MOOD_FAMILIES', () => {
+    const moods = Object.keys(MOOD_FAMILIES);
+    for (const mood of moods) {
       expect(MOOD_PRIORITIES).toHaveProperty(mood);
       expect(typeof MOOD_PRIORITIES[mood]).toBe('number');
     }
