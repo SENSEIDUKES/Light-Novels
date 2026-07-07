@@ -1,6 +1,7 @@
 import { useAppStore } from '../store/useAppStore';
 import { GeneratedImage, StoryWorld } from '../types';
 import { storyApi } from '../services/api';
+import { generateId } from '../lib/id';
 
 export const useVisualAssets = () => {
   const store_stories = useAppStore(state => state.stories);
@@ -66,7 +67,7 @@ export const useVisualAssets = () => {
     if (!activeStory) return;
 
     const imageRecord: GeneratedImage = {
-      id: Math.random().toString(36).substring(2, 10),
+      id: generateId(8),
       entityId: activeStory.id,
       entityType: 'cover',
       imageUrl,

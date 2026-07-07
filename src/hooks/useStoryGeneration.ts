@@ -1,3 +1,4 @@
+import { generateId } from '../lib/id';
 import { useAppStore } from '../store/useAppStore';
 import { IntakeData, WorldBlueprint, Chapter, Story } from '../types';
 import { auth } from '../lib/firebase';
@@ -84,11 +85,11 @@ export const useStoryGeneration = () => {
           currentPowerStage: responseData.currentPowerStage || 'Novice stage',
           worldRules: responseData.worldRules || ['Survival of the fittest'],
           characters: responseData.characters?.map((c: any) => ({
-            id: `char-${Math.random().toString(36).substr(2, 9)}`,
+            id: `char-${generateId(9)}`,
             ...c
           })) || [],
           unresolvedPlotThreads: (responseData.unresolvedPlotThreads || []).map((t: any) => ({
-            id: `thread-${Math.random().toString(36).substr(2, 9)}`,
+            id: `thread-${generateId(9)}`,
             description: typeof t === 'string' ? t : t.description,
             status: 'active',
             originChapter: 1

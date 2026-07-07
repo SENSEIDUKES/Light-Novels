@@ -1,3 +1,4 @@
+import { generateId } from '../../lib/id';
 import React, { useState } from 'react';
 import { Network, HelpCircle, ArrowLeftRight, Trash2, Download, Scan, Info } from 'lucide-react';
 import { VirtualizedList } from '../VirtualizedList';
@@ -44,7 +45,7 @@ export function LivingCodexRelations({
     if (!sourceChar || !targetChar) return;
 
     const newRelationship: CharacterRelationship = {
-      id: `bond_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      id: `bond_${Date.now()}_${generateId(4)}`,
       sourceCharId: bondSourceId,
       sourceCharName: sourceChar.name,
       targetCharId: bondTargetId,

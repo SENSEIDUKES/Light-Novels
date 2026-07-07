@@ -7,6 +7,7 @@ import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
 import { getDaoRankData } from '../lib/qi';
 import { getApiHeaders } from '../hooks/storyEngineHelpers';
+import { generateId } from '../lib/id';
 
 interface UseUserProfileProps {
   currentUser: AppUser | null;
@@ -565,7 +566,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
          updatedActiveEffects = updatedActiveEffects.filter(e => e.effectDef.type !== newType);
 
          updatedActiveEffects.push({
-            id: `effect_${Date.now()}_${Math.random().toString(36).substring(2,9)}`,
+            id: `effect_${Date.now()}_${generateId(7)}`,
             appliedAt: new Date().toISOString(),
             expiresAt: new Date(Date.now() + (artifactToEquip.statusEffectDef.durationMs || 0)).toISOString(),
             effectDef: artifactToEquip.statusEffectDef,

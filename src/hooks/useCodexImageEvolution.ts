@@ -3,6 +3,7 @@ import { StoryMemory, StoryWorld, GeneratedImage, MultiModelRouting } from '../t
 import { secureStorage } from '../lib/encryption';
 import { checkAndConsumeImageQuota } from '../lib/quota';
 import { useAppStore } from '../store/useAppStore';
+import { generateId } from '../lib/id';
 
 export function useCodexImageEvolution(
   memory: StoryMemory,
@@ -126,7 +127,7 @@ export function useCodexImageEvolution(
     const selectedUrl = preview.urls[preview.selectedIndex];
 
     const newHistoryItem: GeneratedImage = {
-      id: Math.random().toString(36).substring(2, 10),
+      id: generateId(8),
       entityId: id,
       entityType: type,
       imageUrl: selectedUrl,

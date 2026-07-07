@@ -1,3 +1,4 @@
+import { generateId } from '../lib/id';
 import { useAppStore } from '../store/useAppStore';
 import { retrieveRelevantContext } from '../lib/rag';
 import { Chapter, StoryArc, StoryWorld } from '../types';
@@ -96,7 +97,7 @@ export const useArcSteering = () => {
 
         if (data.newCharacters && data.newCharacters.length > 0) {
           const verified = data.newCharacters.map((c: any) => ({
-            id: `char-${Math.random().toString(36).substr(2, 9)}`,
+            id: `char-${generateId(9)}`,
             ...c,
             status: c.status || 'alive'
           }));
@@ -105,7 +106,7 @@ export const useArcSteering = () => {
 
         if (data.newUnresolvedPlotThreads && data.newUnresolvedPlotThreads.length > 0) {
           const newThreads = data.newUnresolvedPlotThreads.map((t: string) => ({
-            id: `thread-${Math.random().toString(36).substr(2, 9)}`,
+            id: `thread-${generateId(9)}`,
             description: t,
             status: 'active',
             originChapter: nextChapters[0]?.number || activeStory.currentChapterNumber
@@ -271,7 +272,7 @@ export const useArcSteering = () => {
 
         if (data.newCharacters && data.newCharacters.length > 0) {
           const verified = data.newCharacters.map((c: any) => ({
-            id: `char-${Math.random().toString(36).substr(2, 9)}`,
+            id: `char-${generateId(9)}`,
             ...c,
             status: c.status || 'alive'
           }));
@@ -280,7 +281,7 @@ export const useArcSteering = () => {
 
         if (data.newUnresolvedPlotThreads && data.newUnresolvedPlotThreads.length > 0) {
           const newThreads = data.newUnresolvedPlotThreads.map((t: string) => ({
-            id: `thread-${Math.random().toString(36).substr(2, 9)}`,
+            id: `thread-${generateId(9)}`,
             description: t,
             status: 'active',
             originChapter: nextChapters[0]?.number || chapterNumber
