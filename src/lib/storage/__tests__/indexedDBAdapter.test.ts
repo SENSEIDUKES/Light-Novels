@@ -362,7 +362,7 @@ describe('IndexedDBStorageAdapter', () => {
     expect(retrievedChapter1).toBeNull();
 
     const retrievedChapter2 = await adapter.getChapterContent('story2', 1);
-    expect(retrievedChapter2).toBeDefined();
+    expect(retrievedChapter2).toEqual(chapterContent2);
   });
 
   it('should handle audio blobs', async () => {
