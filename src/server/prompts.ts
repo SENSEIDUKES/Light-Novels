@@ -301,9 +301,7 @@ Extract updates for the permanent story memory so we can track newly met charact
 
 IMPORTANT STATE PERSISTENCE: You MUST scan the Chapter Text for any System Alerts or Fate Events (e.g., bracketed text like "[Death Flag Detected: ...]", "[Fortuitous Encounter: ...]" OR JSON objects like {"system": {"title": "Death Flag Detected...", ...}}). If any such events or alerts occurred in the text, you MUST automatically inject their core message/threat into the "newUnresolvedPlotThreads" array so the system remembers to honor them in future chapters.
 
-Within the "cuePayload" object:
-1. List all notable codex entities referenced in the 'entities' array. Each entity must have the shape: { "name": string, "type": "character"|"artifact"|"location"|"beast"|"faction", "mention": "reveal"|"reference" }. Set mention to "reveal" ONLY for the first dramatic appearance of the entity in the story, otherwise use "reference".
-2. Emit a backing 'music' object: { "mood": "war"|"duel"|"serenity"|"romance"|"dread"|"mystery"|"triumph"|"tribulation"|"travel"|"tragedy"|"fighting"|"adventure"|"ambient"|"boss-fight"|"tension"|"sad"|"mystical"|"excitement"|"tired"|"horror", "region": "chinese"|"japanese"|"western" (optional), "intensity": number (optional, 0 to 1) }.
+SCOPE: Your job is memory + a single chapter-level emotional "cue" reading. Do NOT re-tag per-paragraph metadata such as entity reveals, scene music, or beast events — the author already emits those on the individual story blocks, and those per-block objects are the single source of truth. Only produce the chapter-level scalar cue values shown below.
 
 You must return a JSON object with the following fields:
 {
@@ -319,31 +317,7 @@ You must return a JSON object with the following fields:
     "mysticism": 0.9,
     "element": "void",
     "relationshipShift": 0,
-    "signature": "celestial_chime",
-    "entities": [
-      {
-        "name": "Full name of any notable codex entity referenced in this chapter",
-        "type": "character",
-        "mention": "reference"
-      }
-    ],
-    "music": {
-      "mood": "travel",
-      "region": "chinese",
-      "intensity": 0.5
-    },
-    "beastEvent": {
-      "type": "reveal",
-      "profile": {
-        "size": "giant",
-        "bodyType": "dragon",
-        "element": "lightning",
-        "movement": "flying",
-        "intelligence": "divine",
-        "threatTier": "mythic",
-        "signatureSound": "roar"
-      }
-    }
+    "signature": "celestial_chime"
   },
   "memoryUpdates": {
     "currentPowerStage": "Updated MC power level if they broke through, otherwise the same as before.",
