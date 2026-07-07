@@ -14,7 +14,9 @@
  * with callers throughout the codebase, but they should be treated strictly as client-side telemetry-derived local scramblers.
  */
 
-const getEntropyString = (): string => {
+const STORAGE_SALT_KEY = 'seihouse-secure-salt-v1';
+
+const getLegacyEntropyString = (): string => {
   if (typeof window === "undefined") return "seihouse-celestial-key";
   const userAgent = window.navigator?.userAgent || "";
   const platform = window.navigator?.platform || "";
@@ -22,8 +24,20 @@ const getEntropyString = (): string => {
   return `seihouse-obfuscated-salt-04acff:${userAgent}:${platform}:${language}`;
 };
 
-const getCryptoKey = async (): Promise<CryptoKey> => {
-  const entropy = getEntropyString();
+const getSecureEntropyString = (): string => {
+  if (typeof window === "undefined") return "seihouse-celestial-key";
+
+  let salt = localStorage.getItem(STORAGE_SALT_KEY);
+  if (!salt) {
+    salt = crypto.randomUUID();
+    localStorage.setItem(STORAGE_SALT_KEY, salt);
+  }
+
+  return `seihouse-secure-entropy-v1:${salt}`;
+};
+
+const getCryptoKey = async (useLegacy: boolean = false): Promise<CryptoKey> => {
+  const entropy = useLegacy ? getLegacyEntropyString() : getSecureEntropyString();
   const encoder = new TextEncoder();
   const keyMaterial = await crypto.subtle.digest("SHA-256", encoder.encode(entropy));
   return crypto.subtle.importKey(
@@ -37,7 +51,7 @@ const getCryptoKey = async (): Promise<CryptoKey> => {
 
 function legacyDecrypt(encryptedValue: string): string {
   try {
-    const rawEntropy = getEntropyString();
+    const rawEntropy = getLegacyEntropyString();
     let hash = 0;
     for (let i = 0; i < rawEntropy.length; i++) {
       const char = rawEntropy.charCodeAt(i);
@@ -109,14 +123,24 @@ export async function decryptKey(encryptedValue: string): Promise<string> {
     const ivBytes = Uint8Array.from(atob(parts[0]), c => c.charCodeAt(0));
     const cipherBytes = Uint8Array.from(atob(parts[1]), c => c.charCodeAt(0));
     
-    const key = await getCryptoKey();
-    const decrypted = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: ivBytes },
-      key,
-      cipherBytes
-    );
-    
-    return new TextDecoder().decode(decrypted);
+    let key = await getCryptoKey(false);
+    try {
+      const decrypted = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: ivBytes },
+        key,
+        cipherBytes
+      );
+      return new TextDecoder().decode(decrypted);
+    } catch (e) {
+      // Fallback to legacy key
+      key = await getCryptoKey(true);
+      const decrypted = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: ivBytes },
+        key,
+        cipherBytes
+      );
+      return new TextDecoder().decode(decrypted);
+    }
   } catch (error) {
     console.error("[Encryption Error] Failed to decrypt client-side credential:", error);
     return "";
