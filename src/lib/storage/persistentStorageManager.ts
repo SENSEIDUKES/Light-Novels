@@ -498,7 +498,7 @@ export class PersistentStorageManager implements StorageAdapter {
     }
   }
 
-  private async syncLocalStoryToCloud(
+  private async reconcileStory(
     localStory: StoryWorld,
     cloudStory?: StoryWorld,
   ): Promise<boolean> {
@@ -533,7 +533,11 @@ export class PersistentStorageManager implements StorageAdapter {
       );
       return ok;
     } else if (cloudTime > localTime) {
-      await this.localAdapter.saveStory(cloudStory);
+      try {
+        await this.localAdapter.saveStory(cloudStory);
+      } catch (err) {
+        console.error("Failed to save cloud story locally:", err);
+      }
     }
 
     return true;
@@ -545,7 +549,11 @@ export class PersistentStorageManager implements StorageAdapter {
   ): Promise<void> {
     for (const cloudStory of cloudStories) {
       if (!localMap.has(cloudStory.id)) {
-        await this.localAdapter.saveStory(cloudStory);
+        try {
+          await this.localAdapter.saveStory(cloudStory);
+        } catch (err) {
+          console.error("Failed to save downloaded cloud story locally:", err);
+        }
       }
     }
   }
@@ -565,7 +573,7 @@ export class PersistentStorageManager implements StorageAdapter {
       // Merge logic: newest updatedAt wins, but handle conflicts by copying
       for (const localStory of localStories) {
         const cloudStory = cloudMap.get(localStory.id);
-        const ok = await this.syncLocalStoryToCloud(localStory, cloudStory);
+        const ok = await this.reconcileStory(localStory, cloudStory);
         if (!ok) break; // budget tripped — stop pushing for now
       }
 
