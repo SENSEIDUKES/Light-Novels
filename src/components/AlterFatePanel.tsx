@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import FocusLock from 'react-focus-lock';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, GitBranch, ChevronDown, X } from 'lucide-react';
+import { Sparkles, GitBranch, ShieldAlert, ChevronDown, X } from 'lucide-react';
 import { useDialect } from '../lib/dialect';
 import { useAppStore } from '../store/useAppStore';
 
