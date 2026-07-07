@@ -90,4 +90,36 @@ describe('cleanAndParseJSON', () => {
   it('should handle empty input', () => {
     expect(() => cleanAndParseJSON('')).toThrow('Failed to parse JSON response');
   });
+
+  it('should handle case-insensitive markdown blocks (via fallback)', () => {
+    const input = '```JSON\n{"key": "value"}\n```';
+    expect(cleanAndParseJSON(input)).toEqual({ key: 'value' });
+    expect(console.warn).toHaveBeenCalledWith("Direct JSON parse failed, trying regex extraction");
+  });
+
+  it('should handle markdown blocks with excessive whitespace', () => {
+    const input = '   \n  ```json\n\n  {"key": "value"}  \n\n  ```  \n ';
+    expect(cleanAndParseJSON(input)).toEqual({ key: 'value' });
+  });
+
+  it('should handle incomplete <think> blocks by falling back to regex', () => {
+    const input = '<think>I am thinking but never finish {"key": "value"}';
+    expect(cleanAndParseJSON(input)).toEqual({ key: 'value' });
+    expect(console.warn).toHaveBeenCalledWith("Direct JSON parse failed, trying regex extraction");
+  });
+
+  it('should handle multiple <think> blocks correctly (non-greedy)', () => {
+    const input = '<think>thought 1</think> some text <think>thought 2</think> {"key": "value"}';
+    expect(cleanAndParseJSON(input)).toEqual({ key: 'value' });
+  });
+
+  it('should handle JSON containing unicode characters', () => {
+    const input = '{"greeting": "こんにちは", "emoji": "🚀"}';
+    expect(cleanAndParseJSON(input)).toEqual({ greeting: 'こんにちは', emoji: '🚀' });
+  });
+
+  it('should handle nested JSON objects correctly', () => {
+    const input = 'Result: {"outer": {"inner": 42}}';
+    expect(cleanAndParseJSON(input)).toEqual({ outer: { inner: 42 } });
+  });
 });
