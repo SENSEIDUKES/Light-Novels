@@ -114,8 +114,23 @@ export default function ReaderChamber({
   } = useReaderVisuals({
     selectedChapter,
     activeStory,
-    readerMode
-  });
+    readerMode });
+
+  const codexMap = useMemo(() => {
+    const map = new Map<string, any>();
+    codexTerms?.forEach(t => {
+      if (typeof t?.term === "string" && !map.has(t.term)) {
+        map.set(t.term, t);
+      }
+    });
+    return map;
+  }, [codexTerms]);
+  const highlightRegex = useMemo(() => {
+    if (!codexTerms || codexTerms.length === 0) return null;
+    const escapedTerms = codexTerms.map(t => t.term.replace(/[.*+?^${}()|[\\\]]/g, "\\$&"));
+    return new RegExp(`\\b(${escapedTerms.join("|")})\\b`, "g");
+  }, [codexTerms]);
+
 
   // --- Translation States ---
   const maxChapterNum = chapters.length > 0 ? Math.max(...chapters.map(c => c.number)) : 0;
@@ -510,7 +525,7 @@ export default function ReaderChamber({
     number | null
   >(null);
 
-  const renderHighlightedText = (text: string, paragraphIndex: number) => {
+  const renderHighlightedText = React.useCallback((text: string, paragraphIndex: number) => {
     const isPlaying = isPlayingText || isPausedText;
     let ttsHighlight = "";
     
@@ -521,7 +536,7 @@ export default function ReaderChamber({
       }
     }
 
-    if (codexTerms.length === 0) {
+    if (!highlightRegex || codexTerms.length === 0) {
       if (!ttsHighlight || !text.includes(ttsHighlight)) return <>{text}</>;
       const parts = text.split(ttsHighlight);
       return (
@@ -558,17 +573,14 @@ export default function ReaderChamber({
        );
     }
 
-    const escapedTerms = codexTerms.map(t => t.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    const pattern = new RegExp(`\\b(${escapedTerms.join('|')})\\b`, 'g');
-    const parts = text.split(pattern);
-    
+    const parts = text.split(highlightRegex);
     if (parts.length === 1) return <>{text}</>;
     
     return (
       <>
         {parts.map((part, i) => {
           if (i % 2 !== 0) {
-            const matchedEntry = codexTerms.find(t => t.term === part);
+            const matchedEntry = codexMap.get(part);
             if (matchedEntry) {
               return <CodexHovercard key={i} term={part} type={matchedEntry.type} entry={matchedEntry.entry}>{part}</CodexHovercard>;
             }
@@ -577,7 +589,8 @@ export default function ReaderChamber({
         })}
       </>
     );
-  };
+  }, [activeChunks, codexMap, codexTerms.length, currentChunkIndex, highlightRegex, isPausedText, isPlayingText]);
+
 
   // --- Swipe Navigation States ---
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
