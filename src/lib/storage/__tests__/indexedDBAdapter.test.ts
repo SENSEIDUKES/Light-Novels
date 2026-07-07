@@ -43,7 +43,7 @@ class MockIDBObjectStore {
 
   get(key: any) {
     const req = new MockIDBRequest();
-    const stringKey = Array.isArray(key) ? key.join(',') : key;
+    const stringKey = Array.isArray(key) ? JSON.stringify(key) : key;
     setTimeout(() => req.fireSuccess(this.data.get(stringKey)), 0);
     return req;
   }
@@ -52,7 +52,8 @@ class MockIDBObjectStore {
     const req = new MockIDBRequest();
     let key;
     if (Array.isArray(this.keyPath)) {
-       key = this.keyPath.map((k: string) => item[k]).join(',');
+       const keyArray = this.keyPath.map((k: string) => item[k]);
+       key = JSON.stringify(keyArray);
     } else {
        key = item[this.keyPath];
     }
@@ -65,7 +66,7 @@ class MockIDBObjectStore {
 
   delete(key: any) {
     const req = new MockIDBRequest();
-    const stringKey = Array.isArray(key) ? key.join(',') : key;
+    const stringKey = Array.isArray(key) ? JSON.stringify(key) : key;
     setTimeout(() => {
       this.data.delete(stringKey);
       req.fireSuccess(undefined);
@@ -122,14 +123,17 @@ class MockIDBTransaction {
   oncomplete: any = null;
   onerror: any = null;
   error: any = null;
+  private _completeCallback?: () => void;
 
-  constructor(storeNames: string | string[], mode: string, stores: Map<string, MockIDBObjectStore>) {
+  constructor(storeNames: string | string[], mode: string, stores: Map<string, MockIDBObjectStore>, completeCallback?: () => void) {
     this.storeNames = storeNames;
     this.mode = mode;
     this.stores = stores;
+    this._completeCallback = completeCallback;
 
     setTimeout(() => {
       if (this.oncomplete) this.oncomplete();
+      if (this._completeCallback) this._completeCallback();
     }, 10);
   }
 
@@ -154,8 +158,8 @@ class MockIDBDatabase {
     return store;
   }
 
-  transaction(storeNames: string | string[], mode: string) {
-    return new MockIDBTransaction(storeNames, mode, this.stores);
+  transaction(storeNames: string | string[], mode: string, completeCallback?: () => void) {
+    return new MockIDBTransaction(storeNames, mode, this.stores, completeCallback);
   }
 }
 
@@ -176,9 +180,13 @@ class MockIndexedDB {
 
       if (isUpgrade) {
         req.fireUpgradeNeeded(db);
+        // Fire success after upgrade transaction completes
+        setTimeout(() => {
+          req.fireSuccess(db);
+        }, 20);
+      } else {
+        req.fireSuccess(db);
       }
-
-      req.fireSuccess(db);
     }, 0);
 
     return req;
