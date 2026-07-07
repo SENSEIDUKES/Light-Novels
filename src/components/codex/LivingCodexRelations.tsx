@@ -25,12 +25,14 @@ export function LivingCodexRelations({
   const stories = useAppStore(state => state.stories);
   const t = useDialect();
 
-  // Pre-compute character lookup map for efficiency
+
+  // Pre-compute character lookup map for efficiency, memoized on characters list change
+  const { characters } = memory;
   const characterMap = useMemo(() => {
-    const m = new Map<string, (typeof memory.characters)[number]>();
-    memory.characters?.forEach(c => m.set(c.id, c));
+    const m = new Map<string, (typeof characters)[number]>();
+    characters?.forEach(c => m.set(c.id, c));
     return m;
-  }, [memory]);
+  }, [characters]);
 
   const [bondSourceId, setBondSourceId] = useState('');
   const [bondTargetId, setBondTargetId] = useState('');

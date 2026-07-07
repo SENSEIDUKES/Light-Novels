@@ -51,6 +51,90 @@ function playAuraChime() {
   }
 }
 
+
+interface CollageItemProps {
+  mem: VisualMemory;
+  downloadingIds: Set<string>;
+  handleDownload: (mem: VisualMemory, e?: React.MouseEvent) => void;
+  handleOpenLightbox: (mem: VisualMemory) => void;
+}
+
+const CollageItem = React.memo(({ mem, downloadingIds, handleDownload, handleOpenLightbox }: CollageItemProps) => {
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.9, y: 10 }}
+      animate={{
+        opacity: 1,
+        scale: 1,
+        y: 0,
+        rotate: mem.tiltAngle
+      }}
+      exit={{ opacity: 0, scale: 0.9, y: 10 }}
+      whileHover={{
+        scale: 1.05,
+        rotate: 0,
+        zIndex: 30,
+        boxShadow: '0 10px 30px rgba(4,172,255,0.25)'
+      }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      onClick={() => handleOpenLightbox(mem)}
+      className="cursor-pointer bg-neutral-950 border border-neutral-900/90 rounded-sm p-2.5 pb-5 hover:border-portal/40 transition-colors relative flex flex-col justify-between group shadow-lg"
+    >
+      {/* Silver Push Pin Indicator */}
+      <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-neutral-400 border border-neutral-600 shadow-md z-10 group-hover:bg-portal group-hover:border-portal/60 transition-colors" />
+
+      {/* Polaroid Photo Frame */}
+      <div className="aspect-square w-full rounded-sm overflow-hidden bg-neutral-900 border border-neutral-900/60 relative">
+        <img
+          src={mem.url}
+          alt={mem.title}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+          referrerPolicy="no-referrer"
+          loading="lazy"
+        />
+
+        {/* Subtle overlay download button mirroring 'Burn Story' button */}
+        <button
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
+          onClick={(e) => handleDownload(mem, e)}
+          aria-label={`Download portrait of ${mem.title}`}
+          className="absolute top-2 left-2 p-1.5 text-neutral-400 bg-black/60 border border-neutral-800 backdrop-blur-sm hover:text-portal hover:border-portal/40 rounded-xl opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all z-20 cursor-pointer"
+          title="Download Portrait"
+        >
+          {downloadingIds.has(mem.id) ? (
+            <Loader2 size={11} className="animate-spin text-portal" />
+          ) : (
+            <Download size={11} />
+          )}
+        </button>
+
+        {/* Subtle color category border overlay */}
+        <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${
+          mem.type === 'scene' ? 'bg-portal' : 'bg-human'
+        } opacity-60`} />
+      </div>
+
+      {/* Handwritten-Style Caption Section */}
+      <div className="mt-3.5 space-y-1 text-center">
+        <h4 className="font-display font-medium text-[11px] text-signal/90 leading-tight truncate px-1 italic">
+          {mem.title}
+        </h4>
+        <div className="flex items-center justify-center gap-1.5 text-[8px] font-sans text-neutral-500 uppercase tracking-widest">
+          <span>{mem.subtitle}</span>
+          {mem.dateStr && (
+            <>
+              <span className="w-1 h-1 rounded-full bg-neutral-800" />
+              <span>{mem.dateStr}</span>
+            </>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+});
+
 export function LivingCodexCollage({
   activeStory,
   memory,
@@ -91,24 +175,27 @@ export function LivingCodexCollage({
 
   
   // Parse and assemble all scene/chapter memories and entity portraits
-  // Pre-compute lookup maps for efficient entity resolution, memoized on memory changes
+
+  // Pre-compute lookup maps for efficient entity resolution, memoized on specific list changes
+  const { characters, locations, artifacts } = memory;
+
   const characterMap = useMemo(() => {
-    const m = new Map<string, NonNullable<typeof memory.characters>[number]>();
-    memory.characters?.forEach(c => m.set(c.id, c));
+    const m = new Map<string, NonNullable<typeof characters>[number]>();
+    characters?.forEach(c => m.set(c.id, c));
     return m;
-  }, [memory]);
+  }, [characters]);
 
   const locationMap = useMemo(() => {
-    const m = new Map<string, NonNullable<typeof memory.locations>[number]>();
-    memory.locations?.forEach(l => m.set(l.id, l));
+    const m = new Map<string, NonNullable<typeof locations>[number]>();
+    locations?.forEach(l => m.set(l.id, l));
     return m;
-  }, [memory]);
+  }, [locations]);
 
   const artifactMap = useMemo(() => {
-    const m = new Map<string, NonNullable<typeof memory.artifacts>[number]>();
-    memory.artifacts?.forEach(a => m.set(a.id, a));
+    const m = new Map<string, NonNullable<typeof artifacts>[number]>();
+    artifacts?.forEach(a => m.set(a.id, a));
     return m;
-  }, [memory]);
+  }, [artifacts]);
 
   const memories = useMemo(() => {
     const items: VisualMemory[] = [];
@@ -302,80 +389,15 @@ export function LivingCodexCollage({
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 py-4">
-          <AnimatePresence>
+          <AnimatePresence mode="popLayout">
             {filteredMemories.map((mem) => (
-              <motion.div
+              <CollageItem
                 key={mem.id}
-                layoutId={`polaroid-${mem.id}`}
-                initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                animate={{ 
-                  opacity: 1, 
-                  scale: 1, 
-                  y: 0,
-                  rotate: mem.tiltAngle
-                }}
-                exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                whileHover={{ 
-                  scale: 1.05, 
-                  rotate: 0, 
-                  zIndex: 30,
-                  boxShadow: '0 10px 30px rgba(4,172,255,0.25)'
-                }}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                onClick={() => handleOpenLightbox(mem)}
-                className="cursor-pointer bg-neutral-950 border border-neutral-900/90 rounded-sm p-2.5 pb-5 hover:border-portal/40 transition-colors relative flex flex-col justify-between group shadow-lg"
-              >
-                {/* Silver Push Pin Indicator */}
-                <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-neutral-400 border border-neutral-600 shadow-md z-10 group-hover:bg-portal group-hover:border-portal/60 transition-colors" />
-
-                {/* Polaroid Photo Frame */}
-                <div className="aspect-square w-full rounded-sm overflow-hidden bg-neutral-900 border border-neutral-900/60 relative">
-                  <img
-                    src={mem.url}
-                    alt={mem.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                    referrerPolicy="no-referrer"
-                    loading="lazy"
-                  />
-                  
-                  {/* Subtle overlay download button mirroring 'Burn Story' button */}
-                  <button
-                    tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
-                    onClick={(e) => handleDownload(mem, e)}
-                    aria-label={`Download portrait of ${mem.title}`}
-                    className="absolute top-2 left-2 p-1.5 text-neutral-400 bg-black/60 border border-neutral-800 backdrop-blur-sm hover:text-portal hover:border-portal/40 rounded-xl opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all z-20 cursor-pointer"
-                    title="Download Portrait"
-                  >
-                    {downloadingIds.has(mem.id) ? (
-                      <Loader2 size={11} className="animate-spin text-portal" />
-                    ) : (
-                      <Download size={11} />
-                    )}
-                  </button>
-
-                  {/* Subtle color category border overlay */}
-                  <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${
-                    mem.type === 'scene' ? 'bg-portal' : 'bg-human'
-                  } opacity-60`} />
-                </div>
-
-                {/* Handwritten-Style Caption Section */}
-                <div className="mt-3.5 space-y-1 text-center">
-                  <h4 className="font-display font-medium text-[11px] text-signal/90 leading-tight truncate px-1 italic">
-                    {mem.title}
-                  </h4>
-                  <div className="flex items-center justify-center gap-1.5 text-[8px] font-sans text-neutral-500 uppercase tracking-widest">
-                    <span>{mem.subtitle}</span>
-                    {mem.dateStr && (
-                      <>
-                        <span className="w-1 h-1 rounded-full bg-neutral-800" />
-                        <span>{mem.dateStr}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
+                mem={mem}
+                downloadingIds={downloadingIds}
+                handleDownload={handleDownload}
+                handleOpenLightbox={handleOpenLightbox}
+              />
             ))}
           </AnimatePresence>
         </div>
