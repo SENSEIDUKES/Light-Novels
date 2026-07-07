@@ -65,6 +65,12 @@ export function useVoicePreferences() {
       if (window.speechSynthesis.onvoiceschanged !== undefined) {
         window.speechSynthesis.onvoiceschanged = loadVoices;
       }
+
+      return () => {
+        if (window.speechSynthesis.onvoiceschanged === loadVoices) {
+          window.speechSynthesis.onvoiceschanged = undefined;
+        }
+      };
     }
   }, []);
 

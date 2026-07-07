@@ -33,8 +33,8 @@ export function useAudioSettings() {
         }
       }
     };
-    window.addEventListener("seihouse-audio-sync", handleEvents);
-    return () => window.removeEventListener("seihouse-audio-sync", handleEvents);
+    window.addEventListener("seihouse-audio-state", handleEvents);
+    return () => window.removeEventListener("seihouse-audio-state", handleEvents);
   }, []);
 
   const handleMuteToggle = (newMuted: boolean) => {
@@ -43,7 +43,7 @@ export function useAudioSettings() {
       localStorage.setItem("seihouse-audio-muted", String(newMuted));
     }
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent("seihouse-audio-sync", { detail: { isMuted: newMuted } }));
+      window.dispatchEvent(new CustomEvent("seihouse-audio-control", { detail: { isMuted: newMuted } }));
     }
   };
 
@@ -53,7 +53,7 @@ export function useAudioSettings() {
       localStorage.setItem("seihouse-audio-atmosphere", newAtmo);
     }
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent("seihouse-audio-sync", { detail: { atmosphere: newAtmo } }));
+      window.dispatchEvent(new CustomEvent("seihouse-audio-control", { detail: { atmosphere: newAtmo } }));
     }
   };
 
@@ -63,7 +63,7 @@ export function useAudioSettings() {
       localStorage.setItem("seihouse-audio-volume", String(newVol));
     }
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent("seihouse-audio-sync", { detail: { volume: newVol } }));
+      window.dispatchEvent(new CustomEvent("seihouse-audio-control", { detail: { volume: newVol } }));
     }
   };
 
