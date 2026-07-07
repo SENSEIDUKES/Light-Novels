@@ -10,6 +10,11 @@ interface UserProfileInventoryPanelProps {
 
 // Performance Optimization: Cache Intl.DateTimeFormat at module level to avoid costly recreation during render loops
 const dateFormatter = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+const safeFormatDate = (dateVal: any) => {
+  if (!dateVal) return 'Unknown';
+  const d = new Date(dateVal);
+  return isNaN(d.getTime()) ? 'Unknown' : dateFormatter.format(d);
+};
 
 export function UserProfileInventoryPanel({ profile, handleAttuneArtifact }: UserProfileInventoryPanelProps) {
   const [inspectArtifact, setInspectArtifact] = useState<any | null>(null);
@@ -290,7 +295,7 @@ export function UserProfileInventoryPanel({ profile, handleAttuneArtifact }: Use
                   </span>
                   <h3 className="font-display text-xl text-signal">{inspectArtifact.name}</h3>
                   <p className="text-[10px] text-neutral-500 font-mono">
-                    Acquired on {dateFormatter.format(new Date(inspectArtifact.unlockedAt))}
+                    Acquired on {safeFormatDate(inspectArtifact.unlockedAt)}
                   </p>
                   <p className="text-[10px] text-neutral-500 font-mono">
                     Status: {inspectArtifact.status === 'submitted' || inspectArtifact.status === 'auto_submitted' ? 'Submitted to Library' : 'In Pouch'}

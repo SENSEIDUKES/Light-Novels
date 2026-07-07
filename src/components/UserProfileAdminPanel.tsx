@@ -21,6 +21,11 @@ interface UserProfileAdminPanelProps {
 
 // Performance Optimization: Cache Intl.DateTimeFormat at module level to avoid costly recreation during render loops
 const dateFormatter = new Intl.DateTimeFormat();
+const safeFormatDate = (dateVal: any) => {
+  if (!dateVal) return 'Unknown';
+  const d = new Date(dateVal);
+  return isNaN(d.getTime()) ? 'Unknown' : dateFormatter.format(d);
+};
 
 export function UserProfileAdminPanel({
   profile,
@@ -160,7 +165,7 @@ export function UserProfileAdminPanel({
                     <div className="font-mono text-[10px] text-neutral-500 space-y-0.5">
                       <p>ID: {u.uid}</p>
                       <p>Username: @{u.username}</p>
-                      <p>Linked Date: {u.joinedDate ? dateFormatter.format(new Date(u.joinedDate)) : 'Unknown'}</p>
+                      <p>Linked Date: {safeFormatDate(u.joinedDate)}</p>
                       <p>Premium Rank: <span className="text-signal uppercase">{u.premiumTier || 'mortal'}</span></p>
                     </div>
                   </div>
@@ -239,7 +244,7 @@ export function UserProfileAdminPanel({
                     <p>Author ID: {s.userId}</p>
                     <p>Principal Cultivator: <span className="text-signal">{s.mcName}</span></p>
                     <p>Scroll Count: <span className="text-portal font-bold">{s.currentChapterNumber || 0} chapters</span></p>
-                    <p>Evolving Since: {s.createdAt ? dateFormatter.format(new Date(s.createdAt)) : 'Unknown'}</p>
+                    <p>Evolving Since: {safeFormatDate(s.createdAt)}</p>
                   </div>
                 </div>
 

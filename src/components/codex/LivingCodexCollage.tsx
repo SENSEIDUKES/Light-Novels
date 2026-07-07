@@ -212,6 +212,13 @@ export function LivingCodexCollage({
 
   // Performance Optimization: Cache Intl.DateTimeFormat instance to avoid O(N) instantiation overhead inside the useMemo loop and across re-renders.
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }), []);
+  const safeFormatDate = useMemo(() => {
+    return (dateVal: any) => {
+      if (!dateVal) return 'Unknown';
+      const d = new Date(dateVal);
+      return isNaN(d.getTime()) ? 'Unknown' : dateFormatter.format(d);
+    };
+  }, [dateFormatter]);
 
   const memories = useMemo(() => {
     const items: VisualMemory[] = [];
@@ -238,7 +245,7 @@ export function LivingCodexCollage({
               type: 'scene',
               chapterNumber: ch.number,
               promptUsed: `A cinematic scene memory. Summary: ${ch.summary}`,
-              dateStr: ch.sealedAt ? dateFormatter.format(new Date(ch.sealedAt)) : 'Ascended',
+              dateStr: ch.sealedAt ? safeFormatDate(ch.sealedAt) : 'Ascended',
               tiltAngle
             });
           }
@@ -301,7 +308,7 @@ export function LivingCodexCollage({
           type,
           chapterNumber: img.chapterNumber,
           promptUsed: img.promptUsed,
-          dateStr: img.createdAt ? dateFormatter.format(new Date(img.createdAt)) : undefined,
+          dateStr: img.createdAt ? safeFormatDate(img.createdAt) : undefined,
           tiltAngle
         });
       });

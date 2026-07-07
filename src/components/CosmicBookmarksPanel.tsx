@@ -20,6 +20,11 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
   hour: "2-digit",
   minute: "2-digit",
 });
+const safeFormatDate = (dateVal: any) => {
+  if (!dateVal) return 'Unknown';
+  const d = new Date(dateVal);
+  return isNaN(d.getTime()) ? 'Unknown' : dateFormatter.format(d);
+};
 
 export const CosmicBookmarksPanel: React.FC<CosmicBookmarksPanelProps> = ({
   showBookmarksPanel,
@@ -110,7 +115,7 @@ export const CosmicBookmarksPanel: React.FC<CosmicBookmarksPanelProps> = ({
                               : "Sacred Chapter"}
                           </span>
                           <span className="text-neutral-600 font-mono text-[9px]">
-                            {dateFormatter.format(new Date(bookmark.createdAt))}
+                            {safeFormatDate(bookmark.createdAt)}
                           </span>
                         </div>
 
