@@ -86,15 +86,25 @@ export const extractProseForContinuity = (rawBlocksStr: string): string => {
   return rawBlocksStr;
 };
 
-const collectDeadEntityNames = (memory: StoryMemory): string[] => {
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Whole-word, case-insensitive matchers for every Codex entity currently marked
+ * deceased/destroyed. Word boundaries are essential: a short name like "Lin" must NOT
+ * match "smiling" or "link", or the verifier would manufacture the very false positives
+ * it exists to prevent.
+ */
+const collectDeadEntityMatchers = (memory: StoryMemory): RegExp[] => {
   const names: string[] = [];
   for (const c of memory?.characters || []) {
-    if (c?.status === 'deceased' && c?.name) names.push(c.name.toLowerCase());
+    if (c?.status === 'deceased' && c?.name) names.push(c.name);
   }
   for (const f of memory?.factions || []) {
-    if (f?.status === 'Destroyed' && f?.name) names.push(f.name.toLowerCase());
+    if (f?.status === 'Destroyed' && f?.name) names.push(f.name);
   }
-  return names.filter((n) => n.trim().length > 1);
+  return names
+    .filter((n) => n.trim().length > 1)
+    .map((n) => new RegExp(`\\b${escapeRegExp(n.trim())}\\b`, 'i'));
 };
 
 /**
@@ -117,8 +127,8 @@ export const classifyContinuityWarnings = (
     return { severe, soft };
   }
 
-  const deadNames = collectDeadEntityNames(memory);
-  const proseLower = (prose || '').toLowerCase();
+  const deadMatchers = collectDeadEntityMatchers(memory);
+  const proseText = prose || '';
 
   for (const raw of rawWarnings) {
     const text = typeof raw === 'string' ? raw.trim() : String(raw || '').trim();
@@ -132,8 +142,9 @@ export const classifyContinuityWarnings = (
     if (MEDIA_NOISE.some((p) => lower.includes(p))) continue;
 
     // SEVERE — grounded in the Codex's own status fields, not the model's vibes.
-    const isVerifiedSevere = deadNames.some(
-      (name) => lower.includes(name) && proseLower.includes(name)
+    // Whole-word match required in BOTH the warning and the chapter prose.
+    const isVerifiedSevere = deadMatchers.some(
+      (re) => re.test(text) && re.test(proseText)
     );
 
     if (isVerifiedSevere) {
