@@ -356,3 +356,39 @@ export function truncateContextIfNeeded(
 
   return { memoryJsonStr: memoryStr, pastSummariesStr: summariesStr };
 }
+
+/**
+ * Validates if a provided host is a safe Ollama host.
+ * Only allows localhost, 127.0.0.1, or hosts matching the OLLAMA_HOST env var.
+ */
+export function isValidOllamaHost(host: string): boolean {
+  if (!host) return true; // Fallback to default is handled in the router
+
+  try {
+    const url = new URL(host);
+    const hostname = url.hostname.toLowerCase();
+
+    // Always allow localhost
+    if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") {
+      return true;
+    }
+
+    // Allow if it matches OLLAMA_HOST from env
+    if (process.env.OLLAMA_HOST) {
+      try {
+        const envUrl = new URL(process.env.OLLAMA_HOST);
+        if (hostname === envUrl.hostname.toLowerCase()) {
+          return true;
+        }
+      } catch {
+        // If OLLAMA_HOST is not a valid URL, just compare strings
+        if (host === process.env.OLLAMA_HOST) return true;
+      }
+    }
+
+    return false;
+  } catch {
+    // If it's not a valid URL, it's not a safe host string
+    return false;
+  }
+}
