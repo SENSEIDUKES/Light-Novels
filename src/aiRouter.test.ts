@@ -91,10 +91,9 @@ describe('cleanAndParseJSON', () => {
     expect(() => cleanAndParseJSON('')).toThrow('Failed to parse JSON response');
   });
 
-  it('should handle case-insensitive markdown blocks (via fallback)', () => {
+  it('should handle case-insensitive markdown blocks', () => {
     const input = '```JSON\n{"key": "value"}\n```';
     expect(cleanAndParseJSON(input)).toEqual({ key: 'value' });
-    expect(console.warn).toHaveBeenCalledWith("Direct JSON parse failed, trying regex extraction");
   });
 
   it('should handle markdown blocks with excessive whitespace', () => {
