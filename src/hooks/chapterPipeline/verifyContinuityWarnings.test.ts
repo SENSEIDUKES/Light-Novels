@@ -64,6 +64,56 @@ describe('classifyContinuityWarnings', () => {
     expect(soft).toEqual([warning]);
   });
 
+  it('does NOT surface when a short dead name only appears as a substring of other words', () => {
+    const memory = memoryWith({
+      characters: [
+        { id: 'c1', name: 'Lin', status: 'deceased', role: '', description: '', relationshipToMC: '' } as any,
+      ],
+    });
+    // "Lin" is a substring of "link" and "smiling" but is not a standalone word here.
+    const warning = 'The timeline seems to have a broken link.';
+    const prose = 'He was smiling as the sun set.';
+    const { severe, soft } = classifyContinuityWarnings([warning], prose, memory);
+    expect(severe).toEqual([]);
+    expect(soft).toEqual([warning]);
+  });
+
+  it('still surfaces a short dead name when it appears as a whole word', () => {
+    const memory = memoryWith({
+      characters: [
+        { id: 'c1', name: 'Lin', status: 'deceased', role: '', description: '', relationshipToMC: '' } as any,
+      ],
+    });
+    const warning = 'Lin is marked deceased but draws her blade in this scene.';
+    const prose = 'Lin stepped forward, blade drawn.';
+    const { severe } = classifyContinuityWarnings([warning], prose, memory);
+    expect(severe).toEqual([warning]);
+  });
+
+  it('surfaces a deceased entity with an accented (non-ASCII) name', () => {
+    const memory = memoryWith({
+      characters: [
+        { id: 'c1', name: 'René', status: 'deceased', role: '', description: '', relationshipToMC: '' } as any,
+      ],
+    });
+    const warning = 'René is recorded as deceased yet draws steel in this scene.';
+    const prose = 'René raised his sword against the dawn.';
+    const { severe } = classifyContinuityWarnings([warning], prose, memory);
+    expect(severe).toEqual([warning]);
+  });
+
+  it('surfaces a deceased entity with a CJK name (ASCII \\b would miss this)', () => {
+    const memory = memoryWith({
+      characters: [
+        { id: 'c1', name: '林越', status: 'deceased', role: '', description: '', relationshipToMC: '' } as any,
+      ],
+    });
+    const warning = '林越 is marked deceased but speaks in the present scene.';
+    const prose = '林越 走进大殿。';
+    const { severe } = classifyContinuityWarnings([warning], prose, memory);
+    expect(severe).toEqual([warning]);
+  });
+
   it('early chapters with no deceased entities can never produce a severe fault', () => {
     const warning = 'Something about the plot feels off with Lin Yue.';
     const { severe, soft } = classifyContinuityWarnings([warning], 'Lin Yue smiled.', emptyMemory);
