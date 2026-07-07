@@ -212,11 +212,16 @@ export function LivingCodexCollage({
 
   // Performance Optimization: Cache Intl.DateTimeFormat instance to avoid O(N) instantiation overhead inside the useMemo loop and across re-renders.
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }), []);
-  const safeFormatDate = (dateVal: any) => {
-    if (!dateVal) return 'Unknown';
-    const d = new Date(dateVal);
-    return isNaN(d.getTime()) ? 'Unknown' : dateFormatter.format(d);
-  };
+  const safeFormatDate = React.useCallback((dateVal: any) => {
+    if (!dateVal) return "Unknown";
+    try {
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return "Unknown";
+      return d.toLocaleDateString();
+    } catch (e) {
+      return "Unknown";
+    }
+  }, []);
 
   const memories = useMemo(() => {
     const items: VisualMemory[] = [];
@@ -318,7 +323,7 @@ export function LivingCodexCollage({
       const chB = b.chapterNumber || 0;
       return chA - chB;
     });
-  }, [activeStory, characterMap, locationMap, artifactMap]);
+  }, [activeStory, characterMap, locationMap, artifactMap, safeFormatDate]);
 
   // Filter memories
   const filteredMemories = useMemo(() => {

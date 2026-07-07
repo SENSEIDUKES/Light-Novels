@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BookOpen, Sparkles, Wand2, Cloud, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { IntakeData } from '../../../types';
+import { FormInput, FormTextarea } from './form-fields';
 import { FormSection, FormSectionId } from './FormSection';
 import { GENRE_PRESETS, PREMISE_SUGGESTIONS, TAG_PRESETS, CATEGORIZED_TAGS } from '../constants';
 import { getApiHeaders } from '../../../hooks/storyEngineHelpers';
@@ -221,14 +222,20 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
   return (
     <FormSection id="core" title="1. Core Seed" icon={<BookOpen size={18} />} activeSection={activeSection} setActiveSection={setActiveSection}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2" htmlFor="a11y-control-v2xlbs8">Optional Novel Title</label>
-          <input type="text" value={intake.novelTitle || ''} onChange={(e) => updateIntake('novelTitle', e.target.value)} placeholder="Will be generated if empty" className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded px-4 py-2 text-sm" id="a11y-control-v2xlbs8" />
-        </div>
-        <div>
-          <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2" htmlFor="a11y-control-7b2mqtu">Main Character Name</label>
-          <input type="text" value={intake.mcName || ''} onChange={(e) => updateIntake('mcName', e.target.value)} placeholder="e.g., Lin Fan" className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded px-4 py-2 text-sm" id="a11y-control-7b2mqtu" />
-        </div>
+        <FormInput
+          id="a11y-control-v2xlbs8"
+          label="Optional Novel Title"
+          value={intake.novelTitle || ''}
+          onChange={(value) => updateIntake('novelTitle', value)}
+          placeholder="Will be generated if empty"
+        />
+        <FormInput
+          id="a11y-control-7b2mqtu"
+          label="Main Character Name"
+          value={intake.mcName || ''}
+          onChange={(value) => updateIntake('mcName', value)}
+          placeholder="e.g., Lin Fan"
+        />
       </div>
       
       <div>
@@ -276,35 +283,40 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
       </div>
 
       <div className="pt-2 border-t border-neutral-900/60">
-        <div className="flex justify-between items-end mb-2">
-          <label htmlFor="core-premise-input" className="block font-sc text-xs text-neutral-400 uppercase tracking-widest">Core Premise / Secret Catalyst *</label>
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-mono text-neutral-500">{(intake.corePremise || '').length} / 3000</span>
+        <FormTextarea
+          id="core-premise-input"
+          label="Core Premise / Secret Catalyst *"
+          maxLength={3000}
+          value={intake.corePremise || ''}
+          onChange={(value) => updateIntake('corePremise', value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab' && ghostSuggestion) {
+              e.preventDefault();
+              handleAddGhostTag(ghostSuggestion);
+            }
+          }}
+          rows={3}
+          required
+          placeholder="The main hook or cheat..."
+          className="w-full relative"
+          rightElement={
             <div className="flex gap-1">
               {PREMISE_SUGGESTIONS.map((_, idx) => (
-                <button key={idx} type="button"  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => updateIntake('corePremise', PREMISE_SUGGESTIONS[idx])} className="bg-neutral-900 hover:bg-neutral-800 text-[10px] text-neutral-400 px-1.5 py-0.5 rounded font-mono">#{idx + 1}</button>
+                <button
+                  key={idx}
+                  type="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
+                  onClick={() => updateIntake('corePremise', PREMISE_SUGGESTIONS[idx])}
+                  className="bg-neutral-900 hover:bg-neutral-800 text-[10px] text-neutral-400 px-1.5 py-0.5 rounded font-mono"
+                >
+                  #{idx + 1}
+                </button>
               ))}
             </div>
-          </div>
-        </div>
-        <div className="relative">
-          <textarea 
-            id="core-premise-input" 
-            required 
-            maxLength={3000}
-            value={intake.corePremise || ''} 
-            onChange={(e) => updateIntake('corePremise', e.target.value)} 
-            onKeyDown={(e) => {
-              if (e.key === 'Tab' && ghostSuggestion) {
-                e.preventDefault();
-                handleAddGhostTag(ghostSuggestion);
-              }
-            }}
-            rows={3} 
-            placeholder="The main hook or cheat..." 
-            className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm resize-none pr-40" 
-          />
-          <AnimatePresence>
+          }
+        />
+        <AnimatePresence>
             {ghostSuggestion && (
               <motion.button
                 type="button"
@@ -321,7 +333,6 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
               </motion.button>
             )}
           </AnimatePresence>
-        </div>
       </div>
 
       <div className="pt-2 border-t border-neutral-900/60 mt-4">
@@ -547,22 +558,18 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
         <textarea id="desired-plot-direction-input" maxLength={1500} value={intake.desiredPlotDirection || ''} onChange={(e) => updateIntake('desiredPlotDirection', e.target.value)} rows={2} placeholder="e.g. Revenge focused, slow sect building, kingdom conquering..." className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm resize-none" />
       </div>
 
-      <div>
-        <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2" htmlFor="estimated-arcs-input">Estimated Arcs (Story Length)</label>
-        <p className="text-neutral-500 font-sans text-xs mb-3 leading-relaxed">
-          How long should this story run? (Highschool Drama ~3-4, Epic Fantasy ~10-20+). Leave blank for the system to guess based on premise.
-        </p>
-        <input 
-          id="estimated-arcs-input"
-          type="number" 
-          value={intake.estimatedArcs || ''} 
-          onChange={(e) => updateIntake('estimatedArcs', e.target.value ? parseInt(e.target.value) : undefined)} 
-          placeholder="e.g. 5" 
-          min="1"
-          max="100"
-          className="w-full sm:w-1/3 bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm" 
-        />
-      </div>
+      <FormInput
+        id="estimated-arcs-input"
+        type="number"
+        label="Estimated Arcs (Story Length)"
+        description="How long should this story run? (Highschool Drama ~3-4, Epic Fantasy ~10-20+). Leave blank for the system to guess based on premise."
+        value={intake.estimatedArcs || ''}
+        onChange={(value) => updateIntake('estimatedArcs', value ? parseInt(value) : undefined)}
+        placeholder="e.g. 5"
+        min="1"
+        max="100"
+        className="w-full sm:w-1/3"
+      />
 
       <div>
         <div className="flex justify-between items-end mb-2">
