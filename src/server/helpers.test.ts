@@ -116,16 +116,20 @@ describe('Server Helpers', () => {
     it('allows localhost', () => {
       expect(isValidOllamaHost('http://localhost:11434')).toBe(true);
       expect(isValidOllamaHost('http://127.0.0.1:11434')).toBe(true);
+      expect(isValidOllamaHost('http://[::1]:11434')).toBe(true);
     });
 
-    it('blocks malicious hosts', () => {
+    it('blocks malicious hosts and port bypasses', () => {
       expect(isValidOllamaHost('http://malicious.com')).toBe(false);
       expect(isValidOllamaHost('http://169.254.169.254/metadata')).toBe(false);
+      expect(isValidOllamaHost('http://localhost:6379')).toBe(false); // Block Redis/other ports
     });
 
-    it('allows OLLAMA_HOST from env', () => {
+    it('allows OLLAMA_HOST from env and blocks bypasses', () => {
       process.env.OLLAMA_HOST = 'http://my-ollama:11434';
       expect(isValidOllamaHost('http://my-ollama:11434')).toBe(true);
+      expect(isValidOllamaHost('http://my-ollama:22')).toBe(false); // Block port bypass
+      expect(isValidOllamaHost('http://localhost:11434')).toBe(false); // Block localhost bypass when remote is set
       delete process.env.OLLAMA_HOST;
     });
   });

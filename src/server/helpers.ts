@@ -367,26 +367,34 @@ export function isValidOllamaHost(host: string): boolean {
   try {
     const url = new URL(host);
     const hostname = url.hostname.toLowerCase();
+    const port = url.port || (url.protocol === "https:" ? "443" : "80");
 
-    // Always allow localhost
-    if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") {
-      return true;
-    }
+    const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
 
-    // Allow if it matches OLLAMA_HOST from env
+    // If OLLAMA_HOST is defined in the environment, enforce matching both hostname and port.
+    // This prevents port-scanning SSRF on the whitelisted host and blocks localhost bypasses.
     if (process.env.OLLAMA_HOST) {
       try {
         const envUrl = new URL(process.env.OLLAMA_HOST);
-        if (hostname === envUrl.hostname.toLowerCase()) {
-          return true;
+        const envHostname = envUrl.hostname.toLowerCase();
+        const envPort = envUrl.port || (envUrl.protocol === "https:" ? "443" : "80");
+
+        const isEnvLocalhost = envHostname === "localhost" || envHostname === "127.0.0.1" || envHostname === "[::1]";
+
+        // If the environment host is localhost, allow other localhost representations on the same port
+        if (isEnvLocalhost && isLocalhost) {
+          return port === envPort;
         }
+
+        return hostname === envHostname && port === envPort;
       } catch {
-        // If OLLAMA_HOST is not a valid URL, just compare strings
-        if (host === process.env.OLLAMA_HOST) return true;
+        // If OLLAMA_HOST is not a valid URL, fallback to exact string comparison
+        return host === process.env.OLLAMA_HOST;
       }
     }
 
-    return false;
+    // If OLLAMA_HOST is not set, only allow localhost on the default Ollama port (11434)
+    return isLocalhost && port === "11434";
   } catch {
     // If it's not a valid URL, it's not a safe host string
     return false;
