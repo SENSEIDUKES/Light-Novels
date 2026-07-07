@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { isValidOllamaHost } from "./server/helpers";
 import { RouteConfig, MultiModelRouting } from "./types";
 
 // Lazy-loaded Gemini clients
@@ -267,6 +268,9 @@ export async function* routeTextGenerationStream(
     }
   } else if (provider === "ollama") {
     const host = customKeys?.ollamaHost || process.env.OLLAMA_HOST || "http://localhost:11434";
+    if (customKeys?.ollamaHost && !isValidOllamaHost(customKeys.ollamaHost)) {
+      throw new Error("Invalid Ollama host provided via custom keys.");
+    }
     try {
       const response = await fetch(`${host}/api/generate`, {
         method: "POST",
@@ -493,6 +497,9 @@ export async function routeTextGeneration(
     // OLLAMA (LOCAL) ROUTE
     // -------------------------------------------------------------
     const host = customKeys?.ollamaHost || process.env.OLLAMA_HOST || "http://localhost:11434";
+    if (customKeys?.ollamaHost && !isValidOllamaHost(customKeys.ollamaHost)) {
+      throw new Error("Invalid Ollama host provided via custom keys.");
+    }
     try {
       const response = await fetch(`${host}/api/generate`, {
         method: "POST",
@@ -710,6 +717,9 @@ export async function routeImageGeneration(
     // It will "forge" or "synthesize" a gorgeous Local Prompt, and use Unsplash
     // as a visual medium while providing instructions on local SD integrations.
     const h = customKeys?.ollamaHost || process.env.OLLAMA_HOST || "http://localhost:11434";
+    if (customKeys?.ollamaHost && !isValidOllamaHost(customKeys.ollamaHost)) {
+      throw new Error("Invalid Ollama host provided via custom keys.");
+    }
     return {
       imageUrls: getFallbackImages(1),
       note: `Local Ollama (${model}) generated prompt: "${rawPrompt}". Standard Ollama is text-only; we synthesized a beautiful representation of your query.`,

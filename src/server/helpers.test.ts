@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { rankRelevantEntities, filterRelevantEntities } from './helpers';
+import { rankRelevantEntities, filterRelevantEntities, isValidOllamaHost } from './helpers';
 
 describe('Server Helpers', () => {
   describe('rankRelevantEntities', () => {
@@ -109,6 +109,24 @@ describe('Server Helpers', () => {
       expect(cleaned.memoryUpdates.newMCAbilities[0].name).toBe('Fireball');
       expect(Array.isArray(cleaned.memoryUpdates.mcAbilityUpdates)).toBe(true);
       expect(cleaned.memoryUpdates.mcAbilityUpdates[0].name).toBe('Fireball');
+    });
+  });
+
+  describe('isValidOllamaHost', () => {
+    it('allows localhost', () => {
+      expect(isValidOllamaHost('http://localhost:11434')).toBe(true);
+      expect(isValidOllamaHost('http://127.0.0.1:11434')).toBe(true);
+    });
+
+    it('blocks malicious hosts', () => {
+      expect(isValidOllamaHost('http://malicious.com')).toBe(false);
+      expect(isValidOllamaHost('http://169.254.169.254/metadata')).toBe(false);
+    });
+
+    it('allows OLLAMA_HOST from env', () => {
+      process.env.OLLAMA_HOST = 'http://my-ollama:11434';
+      expect(isValidOllamaHost('http://my-ollama:11434')).toBe(true);
+      delete process.env.OLLAMA_HOST;
     });
   });
 });

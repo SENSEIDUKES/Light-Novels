@@ -20,7 +20,7 @@ import {
   generateAudioSchema
 } from "../schemas";
 import { routeTextGeneration, routeImageGeneration, routeTextGenerationStream, ROUTER_PRESETS } from "../../aiRouter";
-import { ensureString, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChapterResponse, filterRelevantEntities, rankRelevantEntities, truncateContextIfNeeded } from "../helpers";
+import { ensureString, isValidOllamaHost, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChapterResponse, filterRelevantEntities, rankRelevantEntities, truncateContextIfNeeded } from "../helpers";
 import { PROMPTS } from "../prompts";
 export const systemRouter = express.Router();
 systemRouter.get("/__health", (req, res) => {
@@ -89,6 +89,9 @@ systemRouter.post("/api/models", validateBody(modelsSchema), async (req, res) =>
     }
     
     if (provider === "ollama") {
+      if (host && !isValidOllamaHost(host)) {
+        throw new Error("Invalid Ollama host provided. Only local connections are permitted.");
+      }
       const ollamaHost = host || process.env.OLLAMA_HOST || "http://localhost:11434";
       const resp = await fetch(`${ollamaHost}/api/tags`);
       if (!resp.ok) {
