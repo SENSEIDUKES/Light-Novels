@@ -69,7 +69,7 @@ export function LivingCodexRelations({
   };
   return (
     <>
-{/* PAGE 2: Relationship Map (Karma Web Relationship Graph) */}
+{/* PAGE 2: Relationship Map (Affinity Graph) */}
         
           <div className="space-y-6 animate-fadeIn" id="codex-relationships">
             <div className="border-b border-portal/15 pb-3 flex items-end justify-between gap-4">
@@ -350,7 +350,7 @@ export function LivingCodexRelations({
               </div>
             )}
 
-            {/* Custom Interactive Karma Bonds Panel */}
+            {/* Custom Interactive Relationship Bonds Panel */}
               <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 codex-panel p-6 rounded-2xl">
                 
                 {/* Form to Create Custom Bond */}
