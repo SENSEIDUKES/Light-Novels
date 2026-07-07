@@ -23,12 +23,15 @@ export function useAtmosphericAudio() {
   const immersionMaster = useAppStore(state => state.immersion.master);
   const sceneMusicEnabled = useAppStore(state => state.immersion.sceneMusic);
   const [isMuted, setIsMuted] = useState(() => {
+    if (typeof localStorage === 'undefined') return false;
     return localStorage.getItem('seihouse-audio-muted') === 'true';
   });
   const [atmosphere, setAtmosphere] = useState<AtmosphereType>(() => {
+    if (typeof localStorage === 'undefined') return 'none';
     return (localStorage.getItem('seihouse-audio-atmosphere') as AtmosphereType) || 'none';
   });
   const [volume, setVolume] = useState(() => {
+    if (typeof localStorage === 'undefined') return 0.5;
     const saved = localStorage.getItem('seihouse-audio-volume');
     return saved ? parseFloat(saved) : 0.5;
   });
@@ -36,11 +39,13 @@ export function useAtmosphericAudio() {
   // Scene-score controls: dedicated music volume (0..BGM_MAX_LEVEL) and an
   // optional pinned track. 'auto' means the narrative cues pick the score.
   const [bgmVolume, setBgmVolume] = useState(() => {
+    if (typeof localStorage === 'undefined') return BGM_DEFAULT_LEVEL;
     const saved = localStorage.getItem('seihouse-bgm-volume');
     const parsed = saved ? parseFloat(saved) : NaN;
     return Number.isFinite(parsed) ? Math.max(0, Math.min(parsed, BGM_MAX_LEVEL)) : BGM_DEFAULT_LEVEL;
   });
   const [bgmTrackId, setBgmTrackId] = useState(() => {
+    if (typeof localStorage === 'undefined') return 'auto';
     const saved = localStorage.getItem('seihouse-bgm-track') || 'auto';
     // A stale id (e.g. a track later removed from the library) falls back
     // to auto so the narrative cues aren't gated off by a dead pin.
@@ -366,11 +371,11 @@ export function useAtmosphericAudio() {
     lfo.start();
 
     const masterGain = ctx.createGain();
-    masterGain.gain.value = volume * 0.2;
+    masterGain.gain.value = 0.2;
 
     source.connect(filter);
     filter.connect(masterGain);
-    masterGain.connect(ctx.destination);
+    masterGain.connect(getDestination(ctx));
 
     source.start();
     registerSource(source);
@@ -388,11 +393,11 @@ export function useAtmosphericAudio() {
     filter.frequency.value = 300;
 
     const masterGain = ctx.createGain();
-    masterGain.gain.value = volume * 0.2;
+    masterGain.gain.value = 0.2;
 
     source.connect(filter);
     filter.connect(masterGain);
-    masterGain.connect(ctx.destination);
+    masterGain.connect(getDestination(ctx));
 
     source.start();
     registerSource(source);
@@ -805,7 +810,7 @@ export function useAtmosphericAudio() {
     window.addEventListener('narrative-cue', handleCue);
     return () => window.removeEventListener('narrative-cue', handleCue);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMuted, volume, currentScreen]); // Observe changes to Mute preference directly
+  }, [isMuted, currentScreen]); // Observe changes to Mute preference directly
 
   // Headless rendering to prevent blocking menu options
 
