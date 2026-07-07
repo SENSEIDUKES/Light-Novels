@@ -1,3 +1,4 @@
+import { generateId } from '../lib/id';
 import React, { useRef, useState, useEffect, useMemo } from "react";
 import {
   ShieldAlert,
@@ -735,7 +736,7 @@ export default function ReaderChamber({
       updated = [
         ...activeBookmarks,
         {
-          id: Math.random().toString(36).substring(2, 9),
+          id: generateId(7),
           chapterNumber: selectedChapter.number,
           paragraphIndex: paraIdx,
           paragraphExcerpt: excerpt.substring(0, 150),

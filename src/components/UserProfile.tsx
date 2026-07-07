@@ -1,3 +1,4 @@
+import { generateId } from '../lib/id';
 import React, { useState, useEffect } from 'react';
 import { UserProfile as UserProfileType, Story, AppUser } from '../types';
 import { db, auth, LOCAL_ONLY_MODE, setLocalOnlyMode } from '../lib/firebase';
@@ -552,7 +553,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
          updatedActiveEffects = updatedActiveEffects.filter(e => e.effectDef.type !== newType);
 
          updatedActiveEffects.push({
-            id: `effect_${Date.now()}_${Math.random().toString(36).substring(2,9)}`,
+            id: `effect_${Date.now()}_${generateId(7)}`,
             appliedAt: new Date().toISOString(),
             expiresAt: new Date(Date.now() + (artifactToEquip.statusEffectDef.durationMs || 0)).toISOString(),
             effectDef: artifactToEquip.statusEffectDef,
