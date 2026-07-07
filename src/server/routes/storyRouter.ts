@@ -481,46 +481,7 @@ storyRouter.post("/api/extract-chapter-metadata", validateBody(extractMetadataSc
             mysticism: { type: "NUMBER" },
             element: { type: "STRING" },
             relationshipShift: { type: "NUMBER" },
-            signature: { type: "STRING" },
-            entities: {
-              type: "ARRAY",
-              items: {
-                type: "OBJECT",
-                properties: {
-                  name: { type: "STRING" },
-                  type: { type: "STRING" },
-                  mention: { type: "STRING" }
-                }
-              }
-            },
-            system: {
-              type: "OBJECT",
-              properties: {
-                kind: { type: "STRING" },
-                title: { type: "STRING" },
-                rarity: { type: "STRING" },
-                rows: {
-                  type: "ARRAY",
-                  items: {
-                    type: "OBJECT",
-                    properties: {
-                      label: { type: "STRING" },
-                      value: { type: "STRING" }
-                    }
-                  }
-                }
-              }
-            },
-            music: {
-              type: "OBJECT",
-              properties: {
-                mood: { type: "STRING" },
-                region: { type: "STRING" },
-                intensity: { type: "NUMBER" },
-                customUrl: { type: "STRING" },
-                trackId: { type: "STRING" }
-              }
-            }
+            signature: { type: "STRING" }
           }
         },
         memoryUpdates: {

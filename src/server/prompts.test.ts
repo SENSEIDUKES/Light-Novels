@@ -59,4 +59,18 @@ describe('Prompts', () => {
     expect(PROMPTS.extractMetadata.system).toBeDefined();
     expect(typeof PROMPTS.extractMetadata.userPrompt).toBe('function');
   });
+
+  it('extractMetadata (tagger) owns memory + chapter cue, not per-block metadata', () => {
+    const prompt = PROMPTS.extractMetadata.userPrompt(4, 'A Title', 'Some chapter prose.');
+    // Still owns memory + chapter-level cue scalars + summary.
+    expect(prompt).toContain('memoryUpdates');
+    expect(prompt).toContain('cuePayload');
+    expect(prompt).toContain('summary');
+    // No longer re-derives per-block metadata the author already emits (unconsumed dupes).
+    expect(prompt).not.toContain("'entities' array");
+    expect(prompt).not.toContain("backing 'music' object");
+    expect(prompt).not.toContain('beastEvent');
+    // Ownership is stated explicitly.
+    expect(prompt).toContain('single source of truth');
+  });
 });
