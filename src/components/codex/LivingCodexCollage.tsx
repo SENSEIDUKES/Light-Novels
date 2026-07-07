@@ -24,12 +24,24 @@ export interface VisualMemory {
   tiltAngle: number;
 }
 
+const dateFormatter = new Intl.DateTimeFormat(undefined, {
+  month: 'short',
+  day: 'numeric'
+});
+
 // Gentle synthetic chime using AudioContext for premium sensory experience
+let sharedAudioContext: AudioContext | null = null;
 function playAuraChime() {
   try {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
+    if (!sharedAudioContext) {
+      sharedAudioContext = new AudioContextClass();
+    }
+    const ctx = sharedAudioContext;
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     
@@ -80,6 +92,9 @@ const CollageItem = React.memo(({ mem, isDownloading, handleDownload, handleOpen
       }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       onClick={() => handleOpenLightbox(mem)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleOpenLightbox(mem); } }}
       className="cursor-pointer bg-neutral-950 border border-neutral-900/90 rounded-sm p-2.5 pb-5 hover:border-portal/40 transition-colors relative flex flex-col justify-between group shadow-lg"
     >
       {/* Silver Push Pin Indicator */}
@@ -97,6 +112,7 @@ const CollageItem = React.memo(({ mem, isDownloading, handleDownload, handleOpen
 
         {/* Subtle overlay download button mirroring 'Burn Story' button */}
         <button
+          type="button"
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
           onClick={(e) => handleDownload(mem, e)}
@@ -146,11 +162,7 @@ export function LivingCodexCollage({
   const [selectedMemory, setSelectedMemory] = useState<VisualMemory | null>(null);
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
 
-  // Memoize date formatter for efficient rendering
-  const dateFormatter = useMemo(() => new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric'
-  }), []);
+  // Date formatter is now a module-level constant for efficiency
 
   const handleDownload = useCallback(async (mem: VisualMemory, e?: React.MouseEvent) => {
     if (e) {
@@ -298,7 +310,7 @@ export function LivingCodexCollage({
       const chB = b.chapterNumber || 0;
       return chA - chB;
     });
-  }, [activeStory, characterMap, locationMap, artifactMap, dateFormatter]);
+  }, [activeStory, characterMap, locationMap, artifactMap]);
 
   // Filter memories
   const filteredMemories = useMemo(() => {
@@ -395,7 +407,7 @@ export function LivingCodexCollage({
               <CollageItem
                 key={mem.id}
                 mem={mem}
-                downloadingIds={downloadingIds}
+                isDownloading={downloadingIds.has(mem.id)}
                 handleDownload={handleDownload}
                 handleOpenLightbox={handleOpenLightbox}
               />
@@ -416,6 +428,7 @@ export function LivingCodexCollage({
           >
             {/* Modal Body Container */}
             <motion.div
+              layoutId={`polaroid-${selectedMemory.id}`}
               initial={{ scale: 0.95, y: 15, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.95, y: 15, opacity: 0 }}
