@@ -24,13 +24,45 @@ const getLegacyEntropyString = (): string => {
   return `seihouse-obfuscated-salt-04acff:${userAgent}:${platform}:${language}`;
 };
 
+let memorySalt: string | null = null;
+
 const getSecureEntropyString = (): string => {
   if (typeof window === "undefined") return "seihouse-celestial-key";
 
-  let salt = localStorage.getItem(STORAGE_SALT_KEY);
+  let salt: string | null = null;
+  try {
+    salt = localStorage.getItem(STORAGE_SALT_KEY);
+  } catch (e) {
+    console.warn("[Encryption] localStorage is not accessible, using in-memory fallback:", e);
+  }
+
   if (!salt) {
-    salt = crypto.randomUUID();
-    localStorage.setItem(STORAGE_SALT_KEY, salt);
+    salt = memorySalt;
+  }
+
+  if (!salt) {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      salt = crypto.randomUUID();
+    } else if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+      const buf = new Uint8Array(16);
+      crypto.getRandomValues(buf);
+      buf[6] = (buf[6] & 0x0f) | 0x40;
+      buf[8] = (buf[8] & 0x3f) | 0x80;
+      const hex = Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join('');
+      salt = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    } else {
+      salt = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      });
+    }
+
+    try {
+      localStorage.setItem(STORAGE_SALT_KEY, salt);
+    } catch (e) {
+      memorySalt = salt;
+    }
   }
 
   return `seihouse-secure-entropy-v1:${salt}`;
@@ -166,14 +198,60 @@ export const secureStorage = {
   
   async getItem(key: string): Promise<string> {
     if (typeof window === "undefined") return "";
-    const raw = localStorage.getItem(key);
+    let raw: string | null = null;
+    try {
+      raw = localStorage.getItem(key);
+    } catch (e) {
+      console.warn('Failed to read from localStorage in secureStorage:', e);
+    }
     if (!raw) return "";
-    return decryptKey(raw);
+
+    const decrypted = await decryptKey(raw);
+    if (decrypted) {
+      let needsMigration = false;
+      if (!raw.startsWith("enc::")) {
+        needsMigration = true;
+      } else {
+        const parts = raw.substring(5).split(':');
+        if (parts.length === 1) {
+          needsMigration = true;
+        } else {
+          try {
+            const ivBytes = Uint8Array.from(atob(parts[0]), c => c.charCodeAt(0));
+            const cipherBytes = Uint8Array.from(atob(parts[1]), c => c.charCodeAt(0));
+            const secureKey = await getCryptoKey(false);
+            await crypto.subtle.decrypt(
+              { name: "AES-GCM", iv: ivBytes },
+              secureKey,
+              cipherBytes
+            );
+          } catch (e) {
+            needsMigration = true;
+          }
+        }
+      }
+
+      if (needsMigration) {
+        try {
+          const reEncrypted = await encryptKey(decrypted);
+          if (reEncrypted) {
+            localStorage.setItem(key, reEncrypted);
+          }
+        } catch (e) {
+          console.warn("Failed to migrate key to secure format:", e);
+        }
+      }
+    }
+    return decrypted;
   },
   
   removeItem(key: string): void {
     if (typeof window !== "undefined") {
-      localStorage.removeItem(key);
+      try {
+        localStorage.removeItem(key);
+      } catch (e) {
+        console.warn('Failed to remove from localStorage in secureStorage:', e);
+      }
     }
   }
 };
