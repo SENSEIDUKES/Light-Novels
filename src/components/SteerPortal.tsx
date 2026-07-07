@@ -83,7 +83,6 @@ export default function SteerPortal({
   activeStory, 
   routingConfig 
 }: SteerPortalProps) {
-  const setRoutingConfig = useAppStore(state => state.setRoutingConfig);
   const t = useDialect();
   const activeAgentId = useAppStore(state => state.activeAgentId);
   const [selectedPreset, setSelectedPreset] = useState('continue');

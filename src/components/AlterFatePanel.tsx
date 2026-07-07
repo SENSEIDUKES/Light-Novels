@@ -3,7 +3,6 @@ import FocusLock from 'react-focus-lock';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, GitBranch, ShieldAlert, ChevronDown, X } from 'lucide-react';
 import { useDialect } from '../lib/dialect';
-import { useAppStore } from '../store/useAppStore';
 
 interface AlterFatePanelProps {
   isOpen: boolean;
@@ -36,7 +35,6 @@ const FORK_TEMPLATES = [
 export const AlterFatePanel: React.FC<AlterFatePanelProps> = ({ isOpen, onClose, onConfirmFork, chapterNumber }) => {
   const [selectedTemplate, setSelectedTemplate] = useState(FORK_TEMPLATES[0].id);
   const [customPrompt, setCustomPrompt] = useState('');
-  const setRoutingConfig = useAppStore(state => state.setRoutingConfig);
   const t = useDialect();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);

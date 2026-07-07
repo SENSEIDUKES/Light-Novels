@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useAppStore } from '../store/useAppStore';
 
 export type Dialect = 'xianxia' | 'litrpg' | 'modern_romance' | 'dark_fantasy' | 'military' | 'plain';
@@ -106,5 +107,5 @@ export function useDialect(overrideGenrePath?: string) {
   
   const genrePath = overrideGenrePath || story?.genre || story?.intake?.genrePath;
   
-  return (key: string) => getDialectLabel(key, genrePath);
+  return useCallback((key: string) => getDialectLabel(key, genrePath), [genrePath]);
 }
