@@ -102,7 +102,7 @@ export function getDialectLabel(key: string, genrePath?: string): string {
 
 export function useDialect(overrideGenrePath?: string) {
   const activeStoryId = useAppStore(state => state.activeStoryId);
-  const stories = useAppStore(state => state.stories);
+  const stories = useAppStore(state => state.stories || []);
   const story = stories.find(s => s.id === activeStoryId);
   
   const genrePath = overrideGenrePath || story?.genre || story?.intake?.genrePath;
