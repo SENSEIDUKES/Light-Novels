@@ -1,0 +1,1 @@
+## 2024-05-24 - [Intl.DateTimeFormat Optimization]\n**Learning:** Re-instantiating date formatters inside loops or component render methods is a hidden performance bottleneck.\n**Action:** Use a memoized or module-level `Intl.DateTimeFormat` instance instead of repeated `toLocaleDateString()` calls.

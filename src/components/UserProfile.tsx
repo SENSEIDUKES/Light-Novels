@@ -17,6 +17,9 @@ interface UserProfileProps {
   onNavigateHome: () => void;
 }
 
+// Performance Optimization: Cache Intl.DateTimeFormat at module level to avoid costly recreation during render loops
+const dateFormatter = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+
 export default function UserProfile({ currentUser, stories, onLogout, onNavigateHome }: UserProfileProps) {
   const {
     syncStatus,
@@ -671,7 +674,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                     <div className="p-2 bg-neutral-900 rounded-lg"><Calendar size={14} className="text-neutral-400" /></div>
                     <span className="text-[11px] uppercase font-bold tracking-widest text-neutral-400 font-sc">Ascent Commenced</span>
                   </div>
-                  <div className="text-[11px] text-neutral-300 font-sans tracking-wide">{new Date(profile?.joinedDate || Date.now()).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                  <div className="text-[11px] text-neutral-300 font-sans tracking-wide">{dateFormatter.format(new Date(profile?.joinedDate || Date.now()))}</div>
                 </div>
                 
                 <div className="bg-[#030303] border border-neutral-900 rounded-xl p-4 flex items-center justify-between">

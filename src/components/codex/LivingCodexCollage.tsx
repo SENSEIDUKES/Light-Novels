@@ -210,6 +210,9 @@ export function LivingCodexCollage({
     return m;
   }, [artifacts]);
 
+  // Performance Optimization: Cache Intl.DateTimeFormat instance to avoid O(N) instantiation overhead inside the useMemo loop and across re-renders.
+  const dateFormatter = useMemo(() => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }), []);
+
   const memories = useMemo(() => {
     const items: VisualMemory[] = [];
     const seenUrls = new Set<string>();

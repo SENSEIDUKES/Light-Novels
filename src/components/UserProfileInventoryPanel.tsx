@@ -8,6 +8,9 @@ interface UserProfileInventoryPanelProps {
   handleAttuneArtifact: (artifactId: string) => Promise<void>;
 }
 
+// Performance Optimization: Cache Intl.DateTimeFormat at module level to avoid costly recreation during render loops
+const dateFormatter = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+
 export function UserProfileInventoryPanel({ profile, handleAttuneArtifact }: UserProfileInventoryPanelProps) {
   const [inspectArtifact, setInspectArtifact] = useState<any | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -287,7 +290,7 @@ export function UserProfileInventoryPanel({ profile, handleAttuneArtifact }: Use
                   </span>
                   <h3 className="font-display text-xl text-signal">{inspectArtifact.name}</h3>
                   <p className="text-[10px] text-neutral-500 font-mono">
-                    Acquired on {new Date(inspectArtifact.unlockedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                    Acquired on {dateFormatter.format(new Date(inspectArtifact.unlockedAt))}
                   </p>
                   <p className="text-[10px] text-neutral-500 font-mono">
                     Status: {inspectArtifact.status === 'submitted' || inspectArtifact.status === 'auto_submitted' ? 'Submitted to Library' : 'In Pouch'}
