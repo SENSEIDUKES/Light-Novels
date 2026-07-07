@@ -64,7 +64,7 @@ describe('resolveEntity', () => {
 
   it('handles entities without names', () => {
     const badEntities = [
-      { id: '1' } as any,
+      { id: '1' },
       { id: '2', name: 'Lin Fan' }
     ];
     const result = resolveEntity('Lin Fan', badEntities, 'test');
