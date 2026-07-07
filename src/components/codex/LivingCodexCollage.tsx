@@ -92,7 +92,7 @@ export function LivingCodexCollage({
   }, [memory.characters]);
 
   const locationMap = useMemo(() => {
-    const m = new Map();
+    const m = new Map<string, NonNullable<typeof memory.locations>[number]>();
     memory.locations?.forEach(l => m.set(l.id, l));
     return m;
   }, [memory.locations]);
