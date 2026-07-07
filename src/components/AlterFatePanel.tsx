@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import FocusLock from 'react-focus-lock';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, GitBranch, ShieldAlert, ChevronDown, X } from 'lucide-react';
+import { useDialect } from '../lib/dialect';
 
 interface AlterFatePanelProps {
   isOpen: boolean;
@@ -34,6 +35,7 @@ const FORK_TEMPLATES = [
 export const AlterFatePanel: React.FC<AlterFatePanelProps> = ({ isOpen, onClose, onConfirmFork, chapterNumber }) => {
   const [selectedTemplate, setSelectedTemplate] = useState(FORK_TEMPLATES[0].id);
   const [customPrompt, setCustomPrompt] = useState('');
+  const t = useDialect();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -79,7 +81,7 @@ export const AlterFatePanel: React.FC<AlterFatePanelProps> = ({ isOpen, onClose,
             <div>
               <h2 className="text-xl font-display font-medium text-signal tracking-wide flex items-center gap-2">
                 <GitBranch className="text-portal" size={20} />
-                Alter Fate (Timeline Fork)
+                {t('alter_fate')}
               </h2>
               <p className="text-xs text-neutral-400 mt-1 font-sans">
                 Branch reality from <strong className="text-portal">Chapter {chapterNumber}</strong>. The Karma, Codex, and all future chapters will respect this divergence.
@@ -139,7 +141,7 @@ export const AlterFatePanel: React.FC<AlterFatePanelProps> = ({ isOpen, onClose,
 
             <div className="space-y-2">
               <label className="text-[10px] uppercase font-sc tracking-widest text-neutral-400 font-bold" htmlFor="custom-prompt">
-                Divine Command
+                {t('divine_command')}
               </label>
               <p className="text-[9px] text-neutral-500 font-sans normal-case mt-0.5 leading-snug">Your instruction for what changes after this branch point.</p>
               <textarea

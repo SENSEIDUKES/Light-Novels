@@ -2,6 +2,7 @@ import React from 'react';
 import { Target, ShieldAlert } from 'lucide-react';
 import { IntakeData } from '../../../types';
 import { FormSection, FormSectionId } from './FormSection';
+import { getDialectLabel } from '../../../lib/dialect';
 
 interface PlotControlFormProps {
   intake: IntakeData;
@@ -20,7 +21,7 @@ export const PlotControlForm = ({ intake, updateIntake, activeSection, setActive
     <FormSection id="plot" title="5. Plot & Trope Control" icon={<Target size={18} />} activeSection={activeSection} setActiveSection={setActiveSection}>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
          <div>
-          <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-0.5" htmlFor="a11y-control-dsrko5x">Face-Slapping</label>
+          <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-0.5" htmlFor="a11y-control-dsrko5x">{getDialectLabel('face_slapping', intake.genrePath)}</label>
           <p className="text-[9px] text-neutral-500 font-sans normal-case mb-1 leading-snug">How often arrogant rivals get publicly humbled.</p>
           <select value={intake.faceSlappingLevel || ''} onChange={e => updateIntake('faceSlappingLevel', e.target.value)} className="w-full bg-void border border-neutral-800 text-signal text-sm rounded px-2 py-1.5 focus:outline-none" id="a11y-control-dsrko5x">
             <option value="">AI Default</option><option value="High">High</option><option value="Moderate">Moderate</option><option value="Low">Low</option>
@@ -60,7 +61,7 @@ export const PlotControlForm = ({ intake, updateIntake, activeSection, setActive
       <div className="pt-4 mt-4 border-t border-neutral-900/60">
         <span className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2 flex items-center space-x-2">
           <ShieldAlert size={14} className="text-human" />
-          <span>Fate Pressure (Difficulty)</span>
+          <span>{getDialectLabel('fate_pressure', intake.genrePath)}</span>
         </span>
         <p className="text-neutral-500 font-sans text-xs mb-3">
           Control how harsh the story consequences are — how actively the world fights back against the MC, increasing tragedy and betrayal risk.
