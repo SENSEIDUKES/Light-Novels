@@ -2,13 +2,13 @@
 
 An immersive, premium AI-powered webnovel, light novel reader, and active translation engine inspired by **WebNovel**, **Wuxiaworld**, **Qidian rankings**, and dark fantasy cultivation fiction. Driven by a meaning-first, deep-synthesis generative model pipeline, **SEIHOUSE** serves as a modern time capsule for artistic expressions and creative narrative realms.
 
-It empowers readers to dynamically manifest new celestial worlds, forge illustrated visual cards, program sequential destiny directions, and read dynamically generated scrolls synchronized with real-time sound cues and vocal synthesize chants.
+It empowers readers to dynamically manifest new celestial worlds, forge illustrated visual cards, program sequential destiny directions, and read dynamically generated scrolls synchronized with real-time sound cues, vocal synthesize chants, and immersive progression systems.
 
 ---
 
 ## 🌌 Brand Philosophy, Color Palette & Identity
 
-**MISSION**: *"SEIHouse exists to make a better time capsule and translator of artistic expression. A meaning-first creator infrastructure company for music."*
+**MISSION**: *"SEIHouse exists to make a better time capsule and translator of artistic expression. A meaning-first creator infrastructure company for music and narrative fiction."*
 
 *   🖤 **Foundation / Void & Depth** (`#000000`): The absolute canvas. Represents the infinite ink background from which narrative possibilities, ancient scripts, and cosmos are born.
 *   ⬜ **Signal / Clarity** (`#FAFAFA`): Pristine transmission. Standardizes long-form comfort on parchment-feel content cards with ultimate legibility and high contrast.
@@ -27,19 +27,11 @@ To balance narrative voice with modern user interface ergonomics, SEIHOUSE utili
 
 SEIHOUSE operates on a fully integrated state loops structure. Rather than generating stateless, drifting story text, it coordinates world memory, active vector similarity indices, and character status updates.
 
-- **The Alchemical Blueprinting Engine; Creates cohesive world states before writing words** | *Example: Setting up a dark fantasy realm with specific factions and main character backstories before starting chapter 1.* | **Dev: Architectures a `WorldBlueprint` state containing structured schemas (power levels, relationships) guiding the LLM prior to text generation.**
-
-- **Causal Retrieval-Augmented Generation (RAG) & Memory Loops; Prevents AI forgetfulness by constantly retrieving past summaries** | *Example: The AI remembers an enemy from chapter 2 when they reappear in chapter 15.* | **Dev: Uses `text-embedding-004` to project chapter summaries into vector representations, retrieving matched context via similarity search for state-aware prompts.**
-
-- **State-Synchronized Akasha Ledger; Tracks your characters, ranks, and world rules dynamically** | *Example: Checking the character's cultivation rank or reviewing who is alive or dead in a faction.* | **Dev: A React state-store parsing live JSON `memoryUpdates` emitted during block generations, mutating the `LivingCodex.tsx` matrix (Daoists, Laws, Karma) in real-time.**
-
-- **Destiny Steering & Model Provider Router; Lets users pick the next story arc direction or swap AI models** | *Example: After 10 chapters, electing to send the main character on a dark revenge path instead of a tournament arc.* | **Dev: Halts the stream at boundaries to inject predictive prompts. Exposes `routingConfig` for seamless API switching across Gemini, OpenRouter, or Ollama.**
-
-- **Multi-System Illustrated Cover & Entity Forgery; Generates character art that adheres to universe styles** | *Example: Forging a visual portrait of a newly introduced beast or updating the main character's look after a timeline skip.* | **Dev: Wraps user prompts with a stable background style injected into the image generation tool to ensure consistent visual aesthetics.**
-
-- **Fate Survival Challenges & Dao Pillar Idle Cultivation; Gamified engagement and offline progression** | *Example: Testing your cultivation knowledge in a 'Fate Survival' text minigame or returning after 24 hours to collect condensed Dao XP.* | **Dev: Implements a standalone `FateSurvivalChallenge` routing module with choice-trees, alongside an idle `lastSessionEnd` offline timer tracking progression.**
-
-- **Cosmic Relics & Destiny Scars; Persistent account-wide status effects and visual artifacts** | *Example: Earning a 'Mythic' artifact after surviving a deadly arc, permanently boosting your profile's Qi multiplier.* | **Dev: Integrates `CosmicArtifact` and `ActiveStatusEffect` schemas attached to the `UserProfile`, mapping milestone achievements to cross-story buffs and aesthetics.**
+- **The Alchemical Blueprinting Engine**: Creates cohesive world states before writing words. Architectures a `WorldBlueprint` state containing structured schemas (power levels, relationships) guiding the LLM prior to text generation.
+- **Causal Retrieval-Augmented Generation (RAG) & Memory Loops**: Prevents AI forgetfulness by constantly retrieving past summaries. Uses `text-embedding-004` to project chapter summaries into vector representations, retrieving matched context via similarity search for state-aware prompts.
+- **State-Synchronized Akasha Ledger**: Tracks your characters, ranks, and world rules dynamically. A React state-store parsing live JSON `memoryUpdates` emitted during block generations, mutating the `LivingCodex.tsx` matrix (Daoists, Laws, Karma) in real-time.
+- **Destiny Steering & Model Provider Router**: Halts the stream at boundaries to inject predictive prompts. Exposes `routingConfig` for seamless API switching across Gemini, OpenRouter, or Ollama to let users pick the next story arc direction or swap AI models.
+- **Picture Manifestations (Entity Forgery)**: Generates highly consistent visual art for your world. The system wraps user prompts with stable background styles and seeds into image generation tools to forge 'Manifested' character portraits, mythical beast visualizations, and sect locations, ensuring visual aesthetics adhere perfectly to your custom universe.
 
 ---
 
@@ -47,13 +39,44 @@ SEIHOUSE operates on a fully integrated state loops structure. Rather than gener
 
 The primary interaction mode is styled as an ancient scriptures chamber:
 
-- **Narrative Ambient Audio; Plays environmental sounds synced with the text** | *Example: Hearing rain and thunder as a character walks into a storm.* | **Dev: Parses metadata blocks (`block.metadata.music` or `audioSignature`) via the `musicResolver` and synchronizes Web Audio hook playbacks based on scroll position.**
+- **Narrative Ambient Audio**: Plays environmental sounds synced with the text via `audioSignature` triggers.
+- **Immersive Game-Like System Prompts & Alerts**: Displays LitRPG-style in-text holographic notifications natively injected from the LLM. It renders animated Framer Motion components over the raw text for stat screens, level-ups, or sudden destiny shifts.
+- **Semantic Entity Color Highlighting**: An adaptive color system that parses codex terms and dynamically highlights words in the reading viewport based on entity type (e.g., green for allies, deep red for enemies, violet for lovers, gold for legendary items) using targeted CSS classes.
+- **Triple-Cast Chant Vocalizer (Web API TTS) & Active Text Highlighting**: A dynamic three-voice Web Speech TTS casting system. The narrator reads the prose, a dedicated MC voice speaks the protagonist's dialogue, and a distinct side-character voice covers all other interactions (rivals, love interests, masters). It parses paragraph speaker metadata in real-time to split text blocks into distinct character chunks. Additionally, the reader features active **TTS Highlighting** that syncs and highlights the exact sentence or phrase currently being narrated.
+- **Bilingual Translation Gateway**: A highly robust, multi-layer translation pipeline. It primarily leverages a DeepL API proxy alongside custom context-aware terminology glossaries to enforce strict, accurate translations of niche world-building or cultivation terms. It also features an automatic fallback to an LLM-based translation agent (e.g., Gemini) ensuring uninterrupted multilingual reading across all deployed languages.
 
-- **Real-Time SFX Cues & System Alerts; Displays in-text system holographic notifications** | *Example: A glowing 'Level Up' LitRPG pane rendering with turquoise animations as you reach an important paragraph.* | **Dev: Injects structured JSON `system` objects natively from the LLM directly into NDJSON chunks, rendering animated `SystemBlock` React framer-motion components over the raw text.**
+---
 
-- **Chant Vocalizer (TTS); Reads the story aloud** | *Example: Listening to a narrative session on the go with speed controls.* | **Dev: Integrates TTS synthesis via Web Speech API or Kokoro Voice Registry pipelines layered on the app HUD.**
+## ⚔️ Immersive Progression & Economy (The Dao Ranks)
 
-- **Bilingual Translation Gateway; Translates chapters while remembering customized world terms** | *Example: Reading complex Chinese cultivation concepts perfectly translated into German.* | **Dev: Leverages a DeepL API proxy alongside a Gemini-fallback pipeline with custom terminology glossary mapping arrays.**
+SEIHOUSE features a deep meta-progression system that turns reading into an RPG-like experience.
+
+- **The Dao Ranks**: Users ascend through 9 distinct ranks, from *Mortal Reader* to *Dao Master*, simply by reading chapters, generating worlds, and maintaining reading streaks.
+- **Aura Visualizer**: As users rank up, they unlock profile aesthetics, ranging from the 'Sect Entrance Aura' to the 'Transcendental Master Matrix' (animated gradient CSS text styling).
+- **Multi-Dimensional Qi Economy**: 
+  - **Dao XP / Heavenly Qi**: Standard progression gained through positive interaction.
+  - **Demonic Qi**: Generated passively if the user falls under specific cursed or demonic status effects (e.g., 'Demonic Corruption' or 'Curse of the Cursed Tome').
+  - **Sect Qi**: Experience aligned with multiplayer and faction contributions.
+
+---
+
+## 🔮 Active Loot Drop System (Cosmic Artifacts)
+
+Reading directly yields tangible, persistent account-wide rewards. 
+The internal `dropEngine` parses dynamic events embedded within the AI's generated chapter text to spawn loot:
+
+- **Karmic Tokens**: Looted when the AI generates a significant character encounter.
+- **Beast Cores**: Forged when a mythical beast is defeated or tamed in the story text.
+- **Fatebreaker Talismans & Calamity Shards**: Rewarded when the reader uses Destiny Steering to avert doom or when they plunge their character into cursed timelines.
+
+---
+
+## 🛡️ Cloud Persistence, Sects, & Security
+
+- **Sect Alignments**: Fully functional `SectsScreen` allows users to join multiplayer factions, pooling their Sect Qi and competing on leaderboards.
+- **Real-Time Firebase Synchronization**: User profiles, codex states, and story artifacts are synchronized to the cloud. Background jobs handle `SyncConflictModal` resolutions when switching devices.
+- **Telemetry-Derived Encryption (BYOK)**: A local-first client obfuscation mechanism derives a client-side AES-GCM key by hashing local device telemetry. It provides "Bring-Your-Own-Key" shoulder-surfing protection for API keys directly in the browser's `secureStorage`.
+- **Firestore Invariants & Testing**: Strict security rules guarantee that StoryWorlds cannot exist without a matched, authenticated `userId`, validated through an internal `firestore.rules.test.ts` runner to prevent unauthorized state mutations.
 
 ---
 
@@ -94,5 +117,4 @@ DEEPL_AUTH_KEY=
 
 *“Carve your own destiny. Defy the heavens. Master the infinite scroll.”* — **SEIHOUSE**
 
-*Last updated: 06/22/26*
-
+*Began on: 06/22/2026* | *Last updated: 07/06/2026*
