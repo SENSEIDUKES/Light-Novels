@@ -11,7 +11,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
       include: ['src/**/*.ts', 'src/**/*.tsx'],
-      exclude: ['src/main.tsx', 'src/vite-env.d.ts', 'src/server.ts', 'src/aiRouter.ts', '**/*.test.ts', '**/*.test.tsx', 'eslint.config.js', 'vitest.config.ts', 'playwright.config.ts'],
+      exclude: ['src/main.tsx', 'src/vite-env.d.ts', 'src/server.ts', '**/*.test.ts', '**/*.test.tsx', 'eslint.config.js', 'vitest.config.ts', 'playwright.config.ts'],
       // Actual project coverage as of 2026-07 is ~36% lines / ~31% functions /
       // ~23% branches / ~34% statements (server routes and the Firebase
       // storage adapter are largely untested). The thresholds were set to 50%

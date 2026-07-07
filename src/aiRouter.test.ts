@@ -43,6 +43,7 @@ describe('cleanAndParseJSON', () => {
   it('should extract JSON using regex if direct parse fails', () => {
     const input = 'Here is the result: {"key": "value"} hope it helps!';
     expect(cleanAndParseJSON(input)).toEqual({ key: 'value' });
+    expect(console.warn).toHaveBeenCalledWith("Direct JSON parse failed, trying regex extraction");
   });
 
   it('should extract JSON array using regex', () => {
@@ -64,6 +65,21 @@ describe('cleanAndParseJSON', () => {
     // This tests the nested catch block where model puts markdown INSIDE the JSON
     const hallucinated = '{"foo": ```json {"bar": 1} ```}';
     expect(cleanAndParseJSON(hallucinated)).toEqual({ foo: { bar: 1 } });
+  });
+
+  it('should throw error when regex match is still invalid even after inner cleaning', () => {
+    const input = 'Malformed: {"key": value_without_quotes}';
+    expect(() => cleanAndParseJSON(input)).toThrow('Failed to parse JSON response');
+  });
+
+  it('should handle cases where only an array match is found via regex', () => {
+    const input = 'Only array here [4, 5, 6] and no objects';
+    expect(cleanAndParseJSON(input)).toEqual([4, 5, 6]);
+  });
+
+  it('should handle cases where only an object match is found via regex', () => {
+    const input = 'Only object here {"x": 10} and no arrays';
+    expect(cleanAndParseJSON(input)).toEqual({ x: 10 });
   });
 
   it('should throw error for invalid JSON that cannot be recovered', () => {
