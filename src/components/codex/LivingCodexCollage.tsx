@@ -86,7 +86,7 @@ export function LivingCodexCollage({
   // Parse and assemble all scene/chapter memories and entity portraits
   // Pre-compute lookup maps for efficient entity resolution, memoized on memory changes
   const characterMap = useMemo(() => {
-    const m = new Map();
+    const m = new Map<string, NonNullable<typeof memory.characters>[number]>();
     memory.characters?.forEach(c => m.set(c.id, c));
     return m;
   }, [memory.characters]);
