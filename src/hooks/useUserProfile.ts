@@ -282,8 +282,13 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
         setIsLoading(false);
       }
     } else {
-      const localProfileStr = localStorage.getItem('seihouse-local-user-profile');
-      const localProfile = localProfileStr ? JSON.parse(localProfileStr) : null;
+      let localProfile = null;
+      try {
+        const localProfileStr = localStorage.getItem('seihouse-local-user-profile');
+        localProfile = localProfileStr ? JSON.parse(localProfileStr) : null;
+      } catch (e) {
+        console.warn("Failed to parse local profile:", e);
+      }
       const updatedLocalProfile = {
         ...(localProfile || {}),
         avatarUrl: finalUrl,
@@ -426,9 +431,6 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
         }
 
         setProfile(data);
-        if (!isEditing) {
-          setFormData(data);
-        }
       } else {
         // Create initial profile if it doesn't exist
         const defaultProfile: UserProfileType = {
@@ -460,15 +462,31 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
     });
 
     return () => unsubscribe();
-  }, [currentUser, isEditing]);
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!isEditing && profile) {
+      setFormData(profile);
+    }
+  }, [profile, isEditing]);
 
   useEffect(() => {
     if (!currentUser) {
-      const localInvStr = localStorage.getItem('seihouse-local-cosmic-inventory');
-      const localInventory = localInvStr ? JSON.parse(localInvStr) : [];
+      let localInventory = [];
+      try {
+        const localInvStr = localStorage.getItem('seihouse-local-cosmic-inventory');
+        localInventory = localInvStr ? JSON.parse(localInvStr) : [];
+      } catch (e) {
+        console.warn("Failed to parse local inventory:", e);
+      }
 
-      const localProfileStr = localStorage.getItem('seihouse-local-user-profile');
-      const localProfile = localProfileStr ? JSON.parse(localProfileStr) : null;
+      let localProfile = null;
+      try {
+        const localProfileStr = localStorage.getItem('seihouse-local-user-profile');
+        localProfile = localProfileStr ? JSON.parse(localProfileStr) : null;
+      } catch (e) {
+        console.warn("Failed to parse local profile:", e);
+      }
 
       const guestProfile: UserProfileType = {
         uid: 'anonymous',
@@ -522,7 +540,6 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
       };
 
       setProfile(guestProfile);
-      setFormData(guestProfile);
       setIsLoading(false);
     }
   }, [currentUser]);
@@ -567,11 +584,21 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
         console.error("Failed to save attunement to Firestore:", e);
       }
     } else {
-      const localProfileStr = localStorage.getItem('seihouse-local-user-profile');
-      const localProfile = localProfileStr ? JSON.parse(localProfileStr) : null;
+      let localProfile = null;
+      try {
+        const localProfileStr = localStorage.getItem('seihouse-local-user-profile');
+        localProfile = localProfileStr ? JSON.parse(localProfileStr) : null;
+      } catch (e) {
+        console.warn("Failed to parse local profile:", e);
+      }
 
-      const localInvStr = localStorage.getItem('seihouse-local-cosmic-inventory');
-      const localInventory = localInvStr ? JSON.parse(localInvStr) : [];
+      let localInventory = [];
+      try {
+        const localInvStr = localStorage.getItem('seihouse-local-cosmic-inventory');
+        localInventory = localInvStr ? JSON.parse(localInvStr) : [];
+      } catch (e) {
+        console.warn("Failed to parse local inventory:", e);
+      }
 
       const updatedLocalProfile = {
         ...profile,
@@ -592,7 +619,6 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
         localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedLocalProfile));
       } catch(e) {}
       setProfile(updatedLocalProfile);
-      setFormData(updatedLocalProfile);
       useAppStore.setState({ userProfile: updatedLocalProfile });
     }
   };
@@ -746,8 +772,13 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
 
     if (!currentUser) {
       // Local Guest Save
-      const localProfileStr = localStorage.getItem('seihouse-local-user-profile');
-      const localProfile = localProfileStr ? JSON.parse(localProfileStr) : {};
+      let localProfile = {};
+      try {
+        const localProfileStr = localStorage.getItem('seihouse-local-user-profile');
+        localProfile = localProfileStr ? JSON.parse(localProfileStr) : {};
+      } catch (e) {
+        console.warn("Failed to parse local profile:", e);
+      }
       const updatedLocalProfile = {
         ...localProfile,
         preferredLanguage: preferredLang,
@@ -757,9 +788,8 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
       try {
         localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedLocalProfile));
       } catch(e) {}
-      setProfile(updatedLocalProfile);
-      setFormData(updatedLocalProfile);
-      useAppStore.setState({ userProfile: updatedLocalProfile });
+      setProfile(updatedLocalProfile as UserProfileType);
+      useAppStore.setState({ userProfile: updatedLocalProfile as UserProfileType });
       return;
     }
 
@@ -826,7 +856,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
   };
 
   const handleSave = async () => {
-    if (!profile) return;
+    if (!currentUser || !profile) return;
 
     const isLangChanged = formData.preferredLanguage !== profile.preferredLanguage || formData.defaultTranslationLanguage !== profile.defaultTranslationLanguage;
 
