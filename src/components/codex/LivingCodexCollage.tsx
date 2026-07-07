@@ -63,6 +63,7 @@ const CollageItem = React.memo(({ mem, isDownloading, handleDownload, handleOpen
   return (
     <motion.div
       layout
+      layoutId={`polaroid-${mem.id}`}
       initial={{ opacity: 0, scale: 0.9, y: 10 }}
       animate={{
         opacity: 1,
