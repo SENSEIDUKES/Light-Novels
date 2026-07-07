@@ -3,7 +3,7 @@ import {
   SceneScoreEngine,
   TRACK_LIBRARY,
   MOOD_FAMILIES,
-  isEscalationAllowed,
+  isEscalationAllowed, MOOD_PRIORITIES,
 } from './musicResolver';
 
 describe('TRACK_LIBRARY', () => {
@@ -158,6 +158,28 @@ describe('SceneScoreEngine', () => {
       const track = engine.evaluateSceneContext({ mood: 'serenity' });
       expect(track).not.toBeNull();
       expect(track!.moods).toContain('serenity');
+    });
+  });
+});
+
+describe('MOOD_PRIORITIES', () => {
+  it('defines priorities for all expected moods', () => {
+    const expectedMoods = ['boss-fight', 'fighting', 'adventure', 'ambient'];
+    for (const mood of expectedMoods) {
+      expect(MOOD_PRIORITIES).toHaveProperty(mood);
+      expect(typeof MOOD_PRIORITIES[mood]).toBe('number');
+    }
+  });
+
+  it('maintains the correct relative hierarchy', () => {
+    expect(MOOD_PRIORITIES['boss-fight']).toBeGreaterThan(MOOD_PRIORITIES['fighting']);
+    expect(MOOD_PRIORITIES['fighting']).toBeGreaterThan(MOOD_PRIORITIES['adventure']);
+    expect(MOOD_PRIORITIES['adventure']).toBeGreaterThan(MOOD_PRIORITIES['ambient']);
+  });
+
+  it('contains only positive values', () => {
+    Object.values(MOOD_PRIORITIES).forEach(value => {
+      expect(value).toBeGreaterThan(0);
     });
   });
 });
