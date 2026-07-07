@@ -98,7 +98,7 @@ export function LivingCodexCollage({
   }, [memory.locations]);
 
   const artifactMap = useMemo(() => {
-    const m = new Map();
+    const m = new Map<string, NonNullable<typeof memory.artifacts>[number]>();
     memory.artifacts?.forEach(a => m.set(a.id, a));
     return m;
   }, [memory.artifacts]);
