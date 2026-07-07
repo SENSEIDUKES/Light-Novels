@@ -139,8 +139,9 @@ export const AlterFatePanel: React.FC<AlterFatePanelProps> = ({ isOpen, onClose,
 
             <div className="space-y-2">
               <label className="text-[10px] uppercase font-sc tracking-widest text-neutral-400 font-bold" htmlFor="custom-prompt">
-                Divine Command (Prompt)
+                Divine Command
               </label>
+              <p className="text-[9px] text-neutral-500 font-sans normal-case mt-0.5 leading-snug">Your instruction for what changes after this branch point.</p>
               <textarea
                 id="custom-prompt"
                 value={customPrompt}

@@ -76,7 +76,7 @@ export function LivingCodexRelations({
                   <Network size={16} className="text-portal" />
                   <span>Karma Web</span>
                 </h3>
-                <p className="text-[10px] text-neutral-500 font-sans mt-0.5">Click on any Daoist node around {mcName}'s cosmic grid to inspect their physical alignment vectors.</p>
+                <p className="text-[10px] text-neutral-500 font-sans mt-0.5">See how characters relate — love, hate, rivalry, loyalty, fear, and trust. Click a character node to inspect their connections.</p>
               </div>
               <span className="hidden sm:flex items-center gap-1.5 text-[9px] font-sc uppercase tracking-widest text-portal/80 px-3 py-1.5 rounded-lg codex-panel border-portal/20 flex-shrink-0">
                 <Scan size={11} />
@@ -359,7 +359,7 @@ export function LivingCodexRelations({
                       <span>Engrave Karma Bond Link</span>
                     </h4>
                     <p className="text-[10px] text-neutral-500 font-sans mt-1">
-                      Forge a manual fate thread linking two sovereign souls together in the persistent cosmic matrix.
+                      Manually add a relationship between two characters.
                     </p>
                   </div>
 
