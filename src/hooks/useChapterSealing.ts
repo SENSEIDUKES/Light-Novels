@@ -3,6 +3,7 @@ import { StoryWorld } from '../types';
 import { awardQi } from '../lib/qi';
 import { unlockCosmicArtifact } from '../lib/artifacts';
 import { storyApi } from '../services/api';
+import { generateId, generateUUID } from '../lib/id';
 
 export const useChapterSealing = () => {
   const store_stories = useAppStore(state => state.stories);
@@ -51,7 +52,7 @@ export const useChapterSealing = () => {
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
       } catch {
-        return Math.random().toString(36).substring(2, 15);
+        return generateId(13);
       }
     };
 
@@ -59,8 +60,8 @@ export const useChapterSealing = () => {
       const newChapters = await Promise.all(arc.chapters.map(async (ch) => {
         if (ch.number === chapterNumber) {
           const contentHash = await generateContentHash(ch.generatedContent || '');
-          const versionId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
-          const branchAnchor = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
+          const versionId = generateUUID();
+          const branchAnchor = generateUUID();
           
           return { 
             ...ch, 

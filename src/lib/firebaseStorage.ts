@@ -33,7 +33,6 @@ export class FirebaseStorageAdapter implements StorageAdapter {
       return stories;
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, this.collectionName);
-      return []; // Dead code due to throw, but keeps TS happy
     }
   }
 
@@ -53,7 +52,6 @@ export class FirebaseStorageAdapter implements StorageAdapter {
       return null;
     } catch (error) {
        handleFirestoreError(error, OperationType.GET, `${this.collectionName}/${id}`);
-       return null;
     }
   }
 
@@ -103,7 +101,6 @@ export class FirebaseStorageAdapter implements StorageAdapter {
       return null;
     } catch (error) {
        handleFirestoreError(error, OperationType.GET, `${this.collectionName}/${storyId}/chapters/${chapterNumber}`);
-       return null;
     }
   }
 
@@ -132,7 +129,6 @@ export class FirebaseStorageAdapter implements StorageAdapter {
       return terms;
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'lore_glossary');
-      return [];
     }
   }
 
