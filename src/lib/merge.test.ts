@@ -2,6 +2,15 @@ import { describe, it, expect } from 'vitest';
 import { mergeStories } from './merge';
 import { StoryWorld, Chapter } from '../types';
 
+const defaultMemory = {
+  powerSystem: 'Magic',
+  currentPowerStage: 'Beginner',
+  worldRules: [],
+  characters: [],
+  unresolvedPlotThreads: [],
+  resolvedPlotThreads: [],
+};
+
 const createMockStory = (overrides: Partial<StoryWorld> = {}): StoryWorld => ({
   id: 'test-id',
   title: 'Test Story',
@@ -10,14 +19,7 @@ const createMockStory = (overrides: Partial<StoryWorld> = {}): StoryWorld => ({
   customPremise: 'A test story',
   createdAt: '2023-01-01T00:00:00Z',
   updatedAt: '2023-01-01T00:00:00Z',
-  memory: {
-    powerSystem: 'Magic',
-    currentPowerStage: 'Beginner',
-    worldRules: [],
-    characters: [],
-    unresolvedPlotThreads: [],
-    resolvedPlotThreads: [],
-  },
+  memory: { ...defaultMemory },
   arcs: [],
   currentChapterNumber: 1,
   ...overrides
@@ -45,14 +47,14 @@ describe('mergeStories', () => {
     const local = createMockStory({
       updatedAt: '2023-01-02T00:00:00Z',
       memory: {
-        ...createMockStory().memory,
+        ...defaultMemory,
         characters: [{ id: 'char-1', name: 'Char 1 New' } as any]
       }
     });
     const cloud = createMockStory({
       updatedAt: '2023-01-01T00:00:00Z',
       memory: {
-        ...createMockStory().memory,
+        ...defaultMemory,
         characters: [
           { id: 'char-2', name: 'Char 2' } as any,
           { id: 'char-1', name: 'Char 1 Old' } as any
@@ -69,13 +71,13 @@ describe('mergeStories', () => {
   it('merges plot threads correctly (strings and objects)', () => {
     const local = createMockStory({
       memory: {
-        ...createMockStory().memory,
+        ...defaultMemory,
         unresolvedPlotThreads: ['Thread 1', { id: 't2', description: 'Thread 2' } as any]
       }
     });
     const cloud = createMockStory({
       memory: {
-        ...createMockStory().memory,
+        ...defaultMemory,
         unresolvedPlotThreads: ['Thread 1', 'Thread 3']
       }
     });
