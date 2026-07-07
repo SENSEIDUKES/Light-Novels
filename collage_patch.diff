@@ -1,0 +1,124 @@
+<<<<<<< SEARCH
+import React, { useState, useMemo } from 'react';
+import { Camera, Eye, MapPin, Sparkles, BookOpen, Clock, Calendar, ArrowRight, User, Download, Loader2 } from 'lucide-react';
+=======
+import React, { useState, useMemo, useCallback } from 'react';
+import { Camera, Eye, MapPin, Sparkles, BookOpen, Clock, Calendar, ArrowRight, User, Download, Loader2 } from 'lucide-react';
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+  const [filter, setFilter] = useState<'all' | 'scenes' | 'entities'>('all');
+  const [selectedMemory, setSelectedMemory] = useState<VisualMemory | null>(null);
+  const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
+  const handleDownload = async (mem: VisualMemory, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    setDownloadingIds(prev => {
+      const next = new Set(prev);
+      next.add(mem.id);
+      return next;
+    });
+
+    try {
+      const cleanName = mem.title.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      await utilHandleDownload(mem.url, `${cleanName}_portrait.jpg`);
+    } finally {
+      setDownloadingIds(prev => {
+        const next = new Set(prev);
+        next.delete(mem.id);
+        return next;
+      });
+    }
+  };
+=======
+  const [filter, setFilter] = useState<'all' | 'scenes' | 'entities'>('all');
+  const [selectedMemory, setSelectedMemory] = useState<VisualMemory | null>(null);
+  const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
+
+  // Memoize date formatter for efficient rendering
+  const dateFormatter = useMemo(() => new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric'
+  }), []);
+
+  const handleDownload = useCallback(async (mem: VisualMemory, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    setDownloadingIds(prev => {
+      const next = new Set(prev);
+      next.add(mem.id);
+      return next;
+    });
+
+    try {
+      const cleanName = mem.title.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      await utilHandleDownload(mem.url, `${cleanName}_portrait.jpg`);
+    } finally {
+      setDownloadingIds(prev => {
+        const next = new Set(prev);
+        next.delete(mem.id);
+        return next;
+      });
+    }
+  }, []);
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+              chapterNumber: ch.number,
+              promptUsed: `A cinematic scene memory. Summary: ${ch.summary}`,
+              dateStr: ch.sealedAt ? new Date(ch.sealedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Ascended',
+              tiltAngle
+            });
+=======
+              chapterNumber: ch.number,
+              promptUsed: `A cinematic scene memory. Summary: ${ch.summary}`,
+              dateStr: ch.sealedAt ? dateFormatter.format(new Date(ch.sealedAt)) : 'Ascended',
+              tiltAngle
+            });
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+          type,
+          chapterNumber: img.chapterNumber,
+          promptUsed: img.promptUsed,
+          dateStr: img.createdAt ? new Date(img.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : undefined,
+          tiltAngle
+        });
+=======
+          type,
+          chapterNumber: img.chapterNumber,
+          promptUsed: img.promptUsed,
+          dateStr: img.createdAt ? dateFormatter.format(new Date(img.createdAt)) : undefined,
+          tiltAngle
+        });
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+  const handleOpenLightbox = (memoryItem: VisualMemory) => {
+    playAuraChime();
+    setSelectedMemory(memoryItem);
+  };
+
+  const handleRevisitScene = (chapterNum: number) => {
+    if (onJumpToChapter) {
+      onJumpToChapter(chapterNum);
+    }
+    if (onSwitchTab) {
+      onSwitchTab('reader');
+    }
+    setSelectedMemory(null);
+  };
+=======
+  const handleOpenLightbox = useCallback((memoryItem: VisualMemory) => {
+    playAuraChime();
+    setSelectedMemory(memoryItem);
+  }, []);
+
+  const handleRevisitScene = useCallback((chapterNum: number) => {
+    if (onJumpToChapter) {
+      onJumpToChapter(chapterNum);
+    }
+    if (onSwitchTab) {
+      onSwitchTab('reader');
+    }
+    setSelectedMemory(null);
+  }, [onJumpToChapter, onSwitchTab]);
+>>>>>>> REPLACE

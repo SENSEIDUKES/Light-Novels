@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Network, HelpCircle, ArrowLeftRight, Trash2, Download, Scan, Info } from 'lucide-react';
 import { VirtualizedList } from '../VirtualizedList';
 import { Character, CharacterRelationship } from '../../types';
@@ -25,6 +25,13 @@ export function LivingCodexRelations({
   const stories = useAppStore(state => state.stories);
   const t = useDialect();
 
+  // Pre-compute character lookup map for efficiency
+  const characterMap = useMemo(() => {
+    const m = new Map<string, (typeof memory.characters)[number]>();
+    memory.characters?.forEach(c => m.set(c.id, c));
+    return m;
+  }, [memory]);
+
   const [bondSourceId, setBondSourceId] = useState('');
   const [bondTargetId, setBondTargetId] = useState('');
   const [bondAffinity, setBondAffinity] = useState<number>(0);
@@ -39,8 +46,8 @@ export function LivingCodexRelations({
       pushNotification("A cultivator cannot bond with their own split soul.");
       return;
     }
-    const sourceChar = memory.characters.find(c => c.id === bondSourceId);
-    const targetChar = memory.characters.find(c => c.id === bondTargetId);
+    const sourceChar = characterMap.get(bondSourceId);
+    const targetChar = characterMap.get(bondTargetId);
     if (!sourceChar || !targetChar) return;
 
     const newRelationship: CharacterRelationship = {

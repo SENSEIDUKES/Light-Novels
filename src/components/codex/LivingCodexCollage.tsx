@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Camera, Eye, MapPin, Sparkles, BookOpen, Clock, Calendar, ArrowRight, User, Download, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { StoryWorld, StoryMemory, Chapter, GeneratedImage } from '../../types';
@@ -60,7 +60,14 @@ export function LivingCodexCollage({
   const [filter, setFilter] = useState<'all' | 'scenes' | 'entities'>('all');
   const [selectedMemory, setSelectedMemory] = useState<VisualMemory | null>(null);
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
-  const handleDownload = async (mem: VisualMemory, e?: React.MouseEvent) => {
+
+  // Memoize date formatter for efficient rendering
+  const dateFormatter = useMemo(() => new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric'
+  }), []);
+
+  const handleDownload = useCallback(async (mem: VisualMemory, e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
     }
@@ -80,7 +87,7 @@ export function LivingCodexCollage({
         return next;
       });
     }
-  };
+  }, []);
 
   
   // Parse and assemble all scene/chapter memories and entity portraits
@@ -89,19 +96,19 @@ export function LivingCodexCollage({
     const m = new Map<string, NonNullable<typeof memory.characters>[number]>();
     memory.characters?.forEach(c => m.set(c.id, c));
     return m;
-  }, [memory.characters]);
+  }, [memory]);
 
   const locationMap = useMemo(() => {
     const m = new Map<string, NonNullable<typeof memory.locations>[number]>();
     memory.locations?.forEach(l => m.set(l.id, l));
     return m;
-  }, [memory.locations]);
+  }, [memory]);
 
   const artifactMap = useMemo(() => {
     const m = new Map<string, NonNullable<typeof memory.artifacts>[number]>();
     memory.artifacts?.forEach(a => m.set(a.id, a));
     return m;
-  }, [memory.artifacts]);
+  }, [memory]);
 
   const memories = useMemo(() => {
     const items: VisualMemory[] = [];
@@ -128,7 +135,7 @@ export function LivingCodexCollage({
               type: 'scene',
               chapterNumber: ch.number,
               promptUsed: `A cinematic scene memory. Summary: ${ch.summary}`,
-              dateStr: ch.sealedAt ? new Date(ch.sealedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Ascended',
+              dateStr: ch.sealedAt ? dateFormatter.format(new Date(ch.sealedAt)) : 'Ascended',
               tiltAngle
             });
           }
@@ -191,7 +198,7 @@ export function LivingCodexCollage({
           type,
           chapterNumber: img.chapterNumber,
           promptUsed: img.promptUsed,
-          dateStr: img.createdAt ? new Date(img.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : undefined,
+          dateStr: img.createdAt ? dateFormatter.format(new Date(img.createdAt)) : undefined,
           tiltAngle
         });
       });
@@ -203,7 +210,7 @@ export function LivingCodexCollage({
       const chB = b.chapterNumber || 0;
       return chA - chB;
     });
-  }, [activeStory, characterMap, locationMap, artifactMap]);
+  }, [activeStory, characterMap, locationMap, artifactMap, dateFormatter]);
 
   // Filter memories
   const filteredMemories = useMemo(() => {
@@ -216,12 +223,12 @@ export function LivingCodexCollage({
     return memories;
   }, [memories, filter]);
 
-  const handleOpenLightbox = (memoryItem: VisualMemory) => {
+  const handleOpenLightbox = useCallback((memoryItem: VisualMemory) => {
     playAuraChime();
     setSelectedMemory(memoryItem);
-  };
+  }, []);
 
-  const handleRevisitScene = (chapterNum: number) => {
+  const handleRevisitScene = useCallback((chapterNum: number) => {
     if (onJumpToChapter) {
       onJumpToChapter(chapterNum);
     }
@@ -229,7 +236,7 @@ export function LivingCodexCollage({
       onSwitchTab('reader');
     }
     setSelectedMemory(null);
-  };
+  }, [onJumpToChapter, onSwitchTab]);
 
   return (
     <div className="space-y-6 animate-fadeIn" id="codex-collage-panel">
