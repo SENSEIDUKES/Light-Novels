@@ -4,31 +4,66 @@ export const generateUUID = (): string => {
   }
 
   // Fallback for environments without randomUUID
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (typeof crypto !== 'undefined' && crypto.getRandomValues)
-      ? crypto.getRandomValues(new Uint8Array(1))[0] & 15
-      : (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+  const useCrypto = typeof crypto !== 'undefined' && crypto.getRandomValues;
+  const rnd = new Uint8Array(16);
+  if (useCrypto) {
+    crypto.getRandomValues(rnd);
+  } else {
+    for (let i = 0; i < 16; i++) {
+      rnd[i] = (Math.random() * 256) | 0;
+    }
+  }
+
+  // Set version (4) and variant (8, 9, a, or b)
+  rnd[6] = (rnd[6] & 0x0f) | 0x40;
+  rnd[8] = (rnd[8] & 0x3f) | 0x80;
+
+  // Convert to hex string
+  let uuid = '';
+  for (let i = 0; i < 16; i++) {
+    if (i === 4 || i === 6 || i === 8 || i === 10) {
+      uuid += '-';
+    }
+    uuid += rnd[i].toString(16).padStart(2, '0');
+  }
+  return uuid;
 };
 
 export const generateId = (length: number = 10): string => {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  const array = new Uint8Array(length);
+  const useCrypto = typeof crypto !== 'undefined' && crypto.getRandomValues;
 
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    crypto.getRandomValues(array);
+  let result = '';
+  const bufferSize = Math.ceil(length * 1.2);
+  const buffer = new Uint8Array(bufferSize);
+
+  if (useCrypto) {
+    crypto.getRandomValues(buffer);
   } else {
-    // Last resort fallback
-    for (let i = 0; i < length; i++) {
-      array[i] = Math.floor(Math.random() * 256);
+    for (let i = 0; i < bufferSize; i++) {
+      buffer[i] = Math.floor(Math.random() * 256);
     }
   }
 
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += chars[array[i] % chars.length];
+  let offset = 0;
+  while (result.length < length) {
+    if (offset >= buffer.length) {
+      if (useCrypto) {
+        crypto.getRandomValues(buffer);
+      } else {
+        for (let i = 0; i < bufferSize; i++) {
+          buffer[i] = Math.floor(Math.random() * 256);
+        }
+      }
+      offset = 0;
+    }
+
+    const byte = buffer[offset++];
+    // Max value for 36 chars is 252 (36 * 7)
+    if (byte < 252) {
+      result += chars[byte % chars.length];
+    }
   }
+
   return result;
 };
