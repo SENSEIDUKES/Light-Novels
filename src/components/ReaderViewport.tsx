@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Loader2, Plus, Trash2, Bookmark as BookmarkIcon, Lock, ArrowLeft, ArrowRight, Sparkles, Zap, Play, ShieldAlert } from 'lucide-react';
+import { Loader2, Plus, Trash2, Bookmark as BookmarkIcon, Lock, ArrowLeft, ArrowRight, Sparkles, Zap, Play, ShieldAlert, Info } from 'lucide-react';
 import { Chapter, StoryWorld, Bookmark } from '../types';
 import { extractSFXCues } from '../hooks/useReaderPlayback';
 import { SystemBlock } from './SystemBlock';
@@ -270,7 +270,7 @@ export function ReaderViewport({
                         Timeline Divergence Note
                       </h4>
                       <p className="text-xs text-rose-400/80 font-sans mb-3 leading-relaxed">
-                        This chapter is fully readable. The Continuity Guard just wants you to know it couldn't fully reconcile one hard contradiction with your Codex — usually the sign of a dramatic fate shift. Regenerate or update the Codex only if you want it smoothed over.
+                        This chapter is fully readable. The Continuity Guard confirmed a hard contradiction against a Codex entity your lore marks as gone — usually the sign of a dramatic fate shift (someone the Codex records as dead or a place it records as destroyed is active again). Regenerate or update the Codex only if you want it smoothed over.
                       </p>
                       <ul className="space-y-1.5 mb-4">
                         {(selectedChapter.continuityWarnings || []).map((warning, idx) => (
@@ -311,6 +311,30 @@ export function ReaderViewport({
                           </button>
                         </div>
                       )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!selectedChapter.hasContinuityFaults && (selectedChapter.continuitySoftNotes || []).length > 0 && (
+                <div className="mb-6 p-4 border border-slate-500/20 bg-slate-800/20 rounded-lg">
+                  <div className="flex items-start gap-2.5">
+                    <Info className="text-slate-400/70 shrink-0 mt-0.5" size={16} />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-[11px] font-display font-medium text-slate-300/80 uppercase tracking-wider mb-1">
+                        Continuity Note
+                      </h4>
+                      <p className="text-[11px] text-slate-400/70 font-sans mb-2 leading-relaxed">
+                        Just for your awareness — nothing is broken and nothing needs fixing. The Guard noticed a few soft details worth a glance.
+                      </p>
+                      <ul className="space-y-1">
+                        {(selectedChapter.continuitySoftNotes || []).map((note, idx) => (
+                          <li key={idx} className="text-[11px] text-slate-400/80 font-sans flex items-start gap-1.5">
+                            <span className="text-slate-500 font-mono select-none">•</span>
+                            <span>{note}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   </div>
                 </div>

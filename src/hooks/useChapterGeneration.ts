@@ -121,6 +121,7 @@ export const useChapterGeneration = () => {
       }
       data.hasContinuityFaults = continuityResult.hasContinuityFaults;
       data.continuityWarnings = continuityResult.continuityWarnings;
+      data.continuitySoftNotes = continuityResult.continuitySoftNotes;
 
       data = await extractChapterMetadata(
         targetChapter,

@@ -1,15 +1,24 @@
 import { Story } from '../../types';
+import {
+  classifyContinuityWarnings,
+  extractProseForContinuity,
+} from './verifyContinuityWarnings';
 
 export type ContinuityPhase = 'checking' | 'repairing';
 
 /**
  * Runs the Continuity Guard entirely BEHIND the generation veil, before the chapter is
- * ever revealed to the reader. The flow is: check -> (silent repair) -> re-check.
+ * ever revealed to the reader.
  *
- * By design this is SILENT: transient over-flags are quietly repaired away and never shown.
- * The only thing that can ever surface to the reader (`hasContinuityFaults`) is a SEVERE
- * warning that survives a full repair pass — i.e. a genuine, most-extreme physical
- * impossibility. Everything else is logged to the console and the chapter is revealed as-is.
+ * The guard LLM only PROPOSES warnings — it is unreliable and over-flags. The real gate
+ * is deterministic (see verifyContinuityWarnings): a proposed warning can only become a
+ * reader-facing `hasContinuityFaults` (the alarming red box) if it references a Codex
+ * entity that is literally marked deceased/destroyed AND that entity appears in this
+ * chapter's prose. Everything plausible-but-unproven is downgraded to a quiet soft note;
+ * obvious noise (self-negating essays, embedded image/codex data) is dropped entirely.
+ *
+ * The expensive repair pass is only attempted for VERIFIED severe faults, so early
+ * chapters — where nobody has died yet — never trigger it.
  *
  * @param onProgress optional hook so the veil can show "Verifying continuity..." /
  *   "Reconciling the timeline..." while this runs.
@@ -22,34 +31,42 @@ export const runContinuityPass = async (
   onProgress?: (phase: ContinuityPhase) => void
 ) => {
   let hasContinuityFaults = false;
-  let continuityWarnings: any[] = [];
+  let continuityWarnings: string[] = [];
+  let continuitySoftNotes: string[] = [];
   let currentRawBlocksStr = finalRawBlocksStr;
 
-  try {
-    onProgress?.('checking');
-    const consistencyResponse = await fetch('/api/check-consistency', {
+  const checkConsistency = async (rawBlocksStr: string) => {
+    // Only the reader-facing prose is sent to the guard — world-card/image/codex
+    // metadata is stripped so it can never be mistaken for lore drift.
+    const prose = extractProseForContinuity(rawBlocksStr);
+    const response = await fetch('/api/check-consistency', {
       method: 'POST',
       headers: apiHeaders,
       body: JSON.stringify({
-        chapterText: currentRawBlocksStr,
+        chapterText: prose,
         memory: activeStory.memory,
-        routingConfig
-      })
+        routingConfig,
+      }),
     });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return classifyContinuityWarnings(data.warnings || [], prose, activeStory.memory);
+  };
 
-    if (consistencyResponse.ok) {
-      const consistencyData = await consistencyResponse.json();
-      let warnings = consistencyData.warnings || [];
-      const silentLogs = consistencyData.silentLogs || [];
-      
-      if (silentLogs.length > 0) {
-        console.log("Continuity Guard found minor issues (silently logged):", silentLogs);
-      }
+  try {
+    onProgress?.('checking');
+    let classified = await checkConsistency(currentRawBlocksStr);
 
-      if (warnings.length > 0) {
-        console.log("Continuity Guard detected SEVERE issues during generation:", warnings);
+    if (classified) {
+      continuitySoftNotes = classified.soft;
 
-        console.log("Attempting Continuity Repair...");
+      if (classified.severe.length > 0) {
+        console.log(
+          'Continuity Guard detected VERIFIED severe faults during generation:',
+          classified.severe
+        );
+
+        console.log('Attempting Continuity Repair...');
         onProgress?.('repairing');
         const repairResponse = await fetch('/api/repair-chapter-stream', {
           method: 'POST',
@@ -57,25 +74,25 @@ export const runContinuityPass = async (
           body: JSON.stringify({
             chapterText: currentRawBlocksStr,
             memory: activeStory.memory,
-            warnings,
-            routingConfig
-          })
+            warnings: classified.severe,
+            routingConfig,
+          }),
         });
 
         if (repairResponse.ok && repairResponse.body) {
           const reader = repairResponse.body.getReader();
-          const decoder = new TextDecoder("utf-8");
-          let repairRaw = "";
-          let buffer = "";
+          const decoder = new TextDecoder('utf-8');
+          let repairRaw = '';
+          let buffer = '';
 
-          while(true) {
+          while (true) {
             const { value, done } = await reader.read();
             if (done) break;
             buffer += decoder.decode(value, { stream: true });
-            
+
             const lines = buffer.split('\n');
-            buffer = lines.pop() || "";
-            
+            buffer = lines.pop() || '';
+
             for (const line of lines) {
               if (line.startsWith('data: ') && line !== 'data: [DONE]') {
                 try {
@@ -83,50 +100,38 @@ export const runContinuityPass = async (
                   if (parsed.chunk) {
                     repairRaw += parsed.chunk;
                   }
-                } catch(e) {}
+                } catch (e) {}
               }
             }
           }
-          
+
           if (repairRaw.length > 150) {
-             currentRawBlocksStr = repairRaw;
-             
-             const recheckResponse = await fetch('/api/check-consistency', {
-               method: 'POST',
-               headers: apiHeaders,
-               body: JSON.stringify({
-                 chapterText: currentRawBlocksStr,
-                 memory: activeStory.memory,
-                 routingConfig
-               })
-             });
-             
-             if (recheckResponse.ok) {
-                const recheckData = await recheckResponse.json();
-                warnings = recheckData.warnings || [];
-                const recheckSilentLogs = recheckData.silentLogs || [];
-                if (recheckSilentLogs.length > 0) {
-                  console.log("Continuity Guard found minor issues after repair (silently logged):", recheckSilentLogs);
-                }
-             } else {
-                warnings = [];
-             }
+            currentRawBlocksStr = repairRaw;
+
+            const recheck = await checkConsistency(currentRawBlocksStr);
+            classified = recheck || { severe: [], soft: [] };
+            continuitySoftNotes = classified.soft;
           }
         }
-        
-        if (warnings.length > 0) {
-          console.log("Continuity Guard found issues even after repair:", warnings);
+
+        if (classified.severe.length > 0) {
+          console.log(
+            'Continuity Guard found verified severe faults even after repair:',
+            classified.severe
+          );
           hasContinuityFaults = true;
-          continuityWarnings = warnings;
-        } else {
-          hasContinuityFaults = false;
-          continuityWarnings = [];
+          continuityWarnings = classified.severe;
         }
       }
     }
   } catch (err) {
-    console.error("Continuity pass failed", err);
+    console.error('Continuity pass failed', err);
   }
 
-  return { hasContinuityFaults, continuityWarnings, finalRawBlocksStr: currentRawBlocksStr };
+  return {
+    hasContinuityFaults,
+    continuityWarnings,
+    continuitySoftNotes,
+    finalRawBlocksStr: currentRawBlocksStr,
+  };
 };

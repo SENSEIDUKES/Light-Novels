@@ -195,13 +195,19 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
   });
 
   it('handles continuity guard auto-repair flow', async () => {
+    // A VERIFIED severe fault (a Codex-deceased entity active in the prose) is the only
+    // thing that may trigger the expensive repair pass.
+    mockStore.stories[0].memory.characters = [
+      { id: 'char-1', name: 'Elder Zhao', status: 'deceased', role: 'Elder', description: '', relationshipToMC: '' }
+    ];
+
     const { result } = renderHook(() => useChapterGeneration());
-    
+
     const mockReader = { read: vi.fn() };
     const encoder = new TextEncoder();
-    
+
     const chunks = [
-      `data: {"chunk": "{\\"text\\": \\"${'A'.repeat(160)}\\"}\\n"}\n`,
+      `data: {"chunk": "{\\"text\\": \\"Elder Zhao strode into the hall. ${'A'.repeat(160)}\\"}\\n"}\n`,
       'data: [DONE]\n'
     ];
     
@@ -230,8 +236,8 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
       if (url.includes('check-consistency')) {
         consistencyCallCount++;
         if (consistencyCallCount === 1) {
-          // First check: return a warning to trigger repair
-          return Promise.resolve({ ok: true, json: () => Promise.resolve({ warnings: ['Broken plot hole'] }) });
+          // First check: return a VERIFIED severe warning (deceased entity active) to trigger repair
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({ warnings: ['Elder Zhao is marked deceased but speaks and fights in the present scene.'] }) });
         } else {
           // Second check (after repair): no warnings, repair successful
           return Promise.resolve({ ok: true, json: () => Promise.resolve({ warnings: [] }) });
