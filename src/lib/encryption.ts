@@ -14,7 +14,9 @@
  * with callers throughout the codebase, but they should be treated strictly as client-side telemetry-derived local scramblers.
  */
 
-const getEntropyString = (): string => {
+const STORAGE_SALT_KEY = 'seihouse-secure-salt-v1';
+
+const getLegacyEntropyString = (): string => {
   if (typeof window === "undefined") return "seihouse-celestial-key";
   const userAgent = window.navigator?.userAgent || "";
   const platform = window.navigator?.platform || "";
@@ -22,8 +24,52 @@ const getEntropyString = (): string => {
   return `seihouse-obfuscated-salt-04acff:${userAgent}:${platform}:${language}`;
 };
 
-const getCryptoKey = async (): Promise<CryptoKey> => {
-  const entropy = getEntropyString();
+let memorySalt: string | null = null;
+
+const getSecureEntropyString = (): string => {
+  if (typeof window === "undefined") return "seihouse-celestial-key";
+
+  let salt: string | null = null;
+  try {
+    salt = localStorage.getItem(STORAGE_SALT_KEY);
+  } catch (e) {
+    console.warn("[Encryption] localStorage is not accessible, using in-memory fallback:", e);
+  }
+
+  if (!salt) {
+    salt = memorySalt;
+  }
+
+  if (!salt) {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      salt = crypto.randomUUID();
+    } else if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+      const buf = new Uint8Array(16);
+      crypto.getRandomValues(buf);
+      buf[6] = (buf[6] & 0x0f) | 0x40;
+      buf[8] = (buf[8] & 0x3f) | 0x80;
+      const hex = Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join('');
+      salt = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    } else {
+      salt = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      });
+    }
+
+    try {
+      localStorage.setItem(STORAGE_SALT_KEY, salt);
+    } catch (e) {
+      memorySalt = salt;
+    }
+  }
+
+  return `seihouse-secure-entropy-v1:${salt}`;
+};
+
+const getCryptoKey = async (useLegacy: boolean = false): Promise<CryptoKey> => {
+  const entropy = useLegacy ? getLegacyEntropyString() : getSecureEntropyString();
   const encoder = new TextEncoder();
   const keyMaterial = await crypto.subtle.digest("SHA-256", encoder.encode(entropy));
   return crypto.subtle.importKey(
@@ -37,7 +83,7 @@ const getCryptoKey = async (): Promise<CryptoKey> => {
 
 function legacyDecrypt(encryptedValue: string): string {
   try {
-    const rawEntropy = getEntropyString();
+    const rawEntropy = getLegacyEntropyString();
     let hash = 0;
     for (let i = 0; i < rawEntropy.length; i++) {
       const char = rawEntropy.charCodeAt(i);
@@ -109,14 +155,24 @@ export async function decryptKey(encryptedValue: string): Promise<string> {
     const ivBytes = Uint8Array.from(atob(parts[0]), c => c.charCodeAt(0));
     const cipherBytes = Uint8Array.from(atob(parts[1]), c => c.charCodeAt(0));
     
-    const key = await getCryptoKey();
-    const decrypted = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: ivBytes },
-      key,
-      cipherBytes
-    );
-    
-    return new TextDecoder().decode(decrypted);
+    let key = await getCryptoKey(false);
+    try {
+      const decrypted = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: ivBytes },
+        key,
+        cipherBytes
+      );
+      return new TextDecoder().decode(decrypted);
+    } catch (e) {
+      // Fallback to legacy key
+      key = await getCryptoKey(true);
+      const decrypted = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: ivBytes },
+        key,
+        cipherBytes
+      );
+      return new TextDecoder().decode(decrypted);
+    }
   } catch (error) {
     console.error("[Encryption Error] Failed to decrypt client-side credential:", error);
     return "";
@@ -142,14 +198,60 @@ export const secureStorage = {
   
   async getItem(key: string): Promise<string> {
     if (typeof window === "undefined") return "";
-    const raw = localStorage.getItem(key);
+    let raw: string | null = null;
+    try {
+      raw = localStorage.getItem(key);
+    } catch (e) {
+      console.warn('Failed to read from localStorage in secureStorage:', e);
+    }
     if (!raw) return "";
-    return decryptKey(raw);
+
+    const decrypted = await decryptKey(raw);
+    if (decrypted) {
+      let needsMigration = false;
+      if (!raw.startsWith("enc::")) {
+        needsMigration = true;
+      } else {
+        const parts = raw.substring(5).split(':');
+        if (parts.length === 1) {
+          needsMigration = true;
+        } else {
+          try {
+            const ivBytes = Uint8Array.from(atob(parts[0]), c => c.charCodeAt(0));
+            const cipherBytes = Uint8Array.from(atob(parts[1]), c => c.charCodeAt(0));
+            const secureKey = await getCryptoKey(false);
+            await crypto.subtle.decrypt(
+              { name: "AES-GCM", iv: ivBytes },
+              secureKey,
+              cipherBytes
+            );
+          } catch (e) {
+            needsMigration = true;
+          }
+        }
+      }
+
+      if (needsMigration) {
+        try {
+          const reEncrypted = await encryptKey(decrypted);
+          if (reEncrypted) {
+            localStorage.setItem(key, reEncrypted);
+          }
+        } catch (e) {
+          console.warn("Failed to migrate key to secure format:", e);
+        }
+      }
+    }
+    return decrypted;
   },
   
   removeItem(key: string): void {
     if (typeof window !== "undefined") {
-      localStorage.removeItem(key);
+      try {
+        localStorage.removeItem(key);
+      } catch (e) {
+        console.warn('Failed to remove from localStorage in secureStorage:', e);
+      }
     }
   }
 };
