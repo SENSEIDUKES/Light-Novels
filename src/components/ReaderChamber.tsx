@@ -127,7 +127,9 @@ export default function ReaderChamber({
   }, [codexTerms]);
   const highlightRegex = useMemo(() => {
     if (!codexTerms || codexTerms.length === 0) return null;
-    const escapedTerms = codexTerms.map(t => t.term.replace(/[.*+?^${}()|[\\\]]/g, "\\$&"));
+    const validTerms = codexTerms.filter(t => typeof t?.term === "string" && t.term.trim() !== "");
+    if (validTerms.length === 0) return null;
+    const escapedTerms = validTerms.map(t => t.term.replace(/[.*+?^${}()|[\\\ ]]/g, "\\$&"));
     return new RegExp(`\\b(${escapedTerms.join("|")})\\b`, "g");
   }, [codexTerms]);
 
