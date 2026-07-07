@@ -82,7 +82,7 @@ export const ReaderScreen: React.FC<{
   const recapCheckedForStoryId = React.useRef<string | null>(null);
 
   // Reading time tracking state
-  const [localStatsDelta, setLocalStatsDelta] = useState<{
+  const localStatsDeltaRef = React.useRef<{
     total: number;
     arc: Record<number, number>;
   }>({ total: 0, arc: {} });
