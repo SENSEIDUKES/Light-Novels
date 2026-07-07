@@ -1,4 +1,5 @@
 import React from 'react';
+import { FormFieldHeader } from './FormFieldHeader';
 
 interface FormInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
   id: string;
@@ -17,25 +18,26 @@ export const FormInput: React.FC<FormInputProps> = ({
   description,
   rightElement,
   className = '',
+  'aria-describedby': ariaDescribedBy,
   ...props
 }) => {
+  const descriptionId = description ? `${id}-description` : undefined;
+  const describedBy = [ariaDescribedBy, descriptionId].filter(Boolean).join(' ') || undefined;
+
   return (
     <div className={className}>
-      <div className="flex justify-between items-end mb-2">
-        <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest" htmlFor={id}>
-          {label}
-        </label>
-        {rightElement}
-      </div>
-      {description && (
-        <p className="text-neutral-500 font-sans text-xs mb-3 leading-relaxed">
-          {description}
-        </p>
-      )}
+      <FormFieldHeader
+        id={id}
+        label={label}
+        description={description}
+        descriptionId={descriptionId}
+        rightElement={rightElement}
+      />
       <input
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        aria-describedby={describedBy}
         className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded px-4 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         {...props}
       />
