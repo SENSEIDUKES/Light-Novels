@@ -21,6 +21,16 @@ export const SYSTEM_COLORS_LEGEND: SystemColorMeaning[] = [
     cssVar: '--color-entity-unknown'
   },
   {
+    type: 'other',
+    name: 'Other System Context | Miscellaneous (Gray)',
+    colorName: 'Gray',
+    playerMeaning: 'Miscellaneous system information',
+    textColor: 'text-gray-400',
+    borderColor: 'border-gray-500/30',
+    bgColor: 'bg-gray-500/5',
+    cssVar: '--color-entity-unknown'
+  },
+  {
     type: 'codex_update',
     name: 'New Info | Main Character (Blue)',
     colorName: 'Blue',
@@ -81,6 +91,36 @@ export const SYSTEM_COLORS_LEGEND: SystemColorMeaning[] = [
     cssVar: '--color-entity-enemy'
   },
   {
+    type: 'combat_artifact',
+    name: 'Combat Artifact | Special Encounter (Red-Gold)',
+    colorName: 'Red-Gold',
+    playerMeaning: 'Powerful artifact found or used during combat',
+    textColor: 'text-red-400 font-semibold',
+    borderColor: 'border-amber-500/60',
+    bgColor: 'bg-red-950/30',
+    cssVar: '--color-item-legendary'
+  },
+  {
+    type: 'combat_breakthrough',
+    name: 'Combat Breakthrough | Mid-fight Evolution (Gold-Red)',
+    colorName: 'Gold-Red',
+    playerMeaning: 'Breakthrough achieved under combat pressure',
+    textColor: 'text-amber-400 font-bold',
+    borderColor: 'border-red-500/60',
+    bgColor: 'bg-amber-950/30',
+    cssVar: '--color-entity-mentor'
+  },
+  {
+    type: 'heavenly_tribulation',
+    name: 'Heavenly Tribulation | Divine Trial (Purple-Gold)',
+    colorName: 'Purple-Gold',
+    playerMeaning: 'A moment of supreme destiny or danger',
+    textColor: 'text-purple-400 font-bold italic',
+    borderColor: 'border-amber-400/70',
+    bgColor: 'bg-purple-950/40',
+    cssVar: '--color-location-regular'
+  },
+  {
     type: 'corruption',
     name: 'Permanent Curse | Tragedy (Dark Rose)',
     colorName: 'Dark Rose',
@@ -133,44 +173,50 @@ export const SYSTEM_COLORS_LEGEND: SystemColorMeaning[] = [
 ];
 
 export function getSystemInferredType(context?: string): string {
-  if (!context) return 'neutral';
-  const lowerText = context.toLowerCase();
+  if (!context) return "other";
+
+  const lowerContext = context.toLowerCase();
   
-  if (lowerText.includes('system error') || lowerText.includes('unstable') || lowerText.includes('glitch') || lowerText.includes('malfunction') || lowerText.includes('iron fate warning')) {
-    return 'system_error';
+  // Check combinations/multi-matches first
+  if (lowerContext.includes("combat") && lowerContext.includes("artifact")) return "combat_artifact";
+  if (lowerContext.includes("combat") && lowerContext.includes("breakthrough")) return "combat_breakthrough";
+  if (lowerContext.includes("tribulation") && lowerContext.includes("breakthrough")) return "heavenly_tribulation";
+
+  if (lowerContext.includes("system error") || lowerContext.includes("unstable") || lowerContext.includes("glitch") || lowerContext.includes("malfunction") || lowerContext.includes("iron fate warning")) {
+    return "system_error";
   }
-  if (lowerText.includes('karma backlash') || lowerText.includes('choice_consequence') || lowerText.includes('remembers') || lowerText.includes('consequence') || lowerText.includes('decision')) {
-    return 'choice_consequence';
+  if (lowerContext.includes("karma backlash") || lowerContext.includes("choice_consequence") || lowerContext.includes("remembers") || lowerContext.includes("consequence") || lowerContext.includes("decision")) {
+    return "choice_consequence";
   }
-  if (lowerText.includes('danger') || lowerText.includes('critical') || lowerText.includes('death threat') || lowerText.includes('hostile') || lowerText.includes('enemy')) {
-    return 'critical_danger';
+  if (lowerContext.includes("danger") || lowerContext.includes("critical") || lowerContext.includes("death threat") || lowerContext.includes("hostile") || lowerContext.includes("enemy")) {
+    return "critical_danger";
   }
-  if (lowerText.includes('death flag') || lowerText.includes('death') || lowerText.includes('corruption') || lowerText.includes('permanent') || lowerText.includes('curse') || lowerText.includes('tragedy')) {
-    return 'corruption';
+  if (lowerContext.includes("death flag") || lowerContext.includes("death") || lowerContext.includes("corruption") || lowerContext.includes("permanent") || lowerContext.includes("curse") || lowerContext.includes("tragedy")) {
+    return "corruption";
   }
-  if (lowerText.includes('breakthrough') || lowerText.includes('evolution') || lowerText.includes('level up') || lowerText.includes('level-up') || lowerText.includes('ascension') || lowerText.includes('legendary') || lowerText.includes('awakening')) {
-    return 'breakthrough';
+  if (lowerContext.includes("breakthrough") || lowerContext.includes("evolution") || lowerContext.includes("level up") || lowerContext.includes("level-up") || lowerContext.includes("ascension") || lowerContext.includes("legendary") || lowerContext.includes("awakening")) {
+    return "breakthrough";
   }
-  if (lowerText.includes('loot') || lowerText.includes('qi gain') || lowerText.includes('achievement') || lowerText.includes('reward') || lowerText.includes('gain')) {
-    return 'reward';
+  if (lowerContext.includes("loot") || lowerContext.includes("qi gain") || lowerContext.includes("achievement") || lowerContext.includes("reward") || lowerContext.includes("gain")) {
+    return "reward";
   }
-  if (lowerText.includes('romance') || lowerText.includes('bond') || lowerText.includes('affection') || lowerText.includes('karmic affinity') || lowerText.includes('relationship')) {
-    return 'romance';
+  if (lowerContext.includes("romance") || lowerContext.includes("bond") || lowerContext.includes("affection") || lowerContext.includes("karmic affinity") || lowerContext.includes("relationship")) {
+    return "romance";
   }
-  if (lowerText.includes('warning') || lowerText.includes('risk') || lowerText.includes('instability') || lowerText.includes('pressure')) {
-    return 'warning';
+  if (lowerContext.includes("warning") || lowerContext.includes("risk") || lowerContext.includes("instability") || lowerContext.includes("pressure")) {
+    return "warning";
   }
-  if (lowerText.includes('fate lock') || lowerText.includes('fate event') || lowerText.includes('mystery') || lowerText.includes('fate') || lowerText.includes('unknown') || lowerText.includes('prophecy') || lowerText.includes('truth')) {
-    return 'mystery';
+  if (lowerContext.includes("fate lock") || lowerContext.includes("fate event") || lowerContext.includes("mystery") || lowerContext.includes("fate") || lowerContext.includes("unknown") || lowerContext.includes("prophecy") || lowerContext.includes("truth")) {
+    return "mystery";
   }
-  if (lowerText.includes('friendly') || lowerText.includes('update') || lowerText.includes('quest') || lowerText.includes('info') || lowerText.includes('codex') || lowerText.includes('scan') || lowerText.includes('record')) {
-    return 'codex_update';
+  if (lowerContext.includes("friendly") || lowerContext.includes("update") || lowerContext.includes("quest") || lowerContext.includes("info") || lowerContext.includes("codex") || lowerContext.includes("scan") || lowerContext.includes("record")) {
+    return "codex_update";
   }
-  if (lowerText.includes('progress') || lowerText.includes('stable') || lowerText.includes('growth') || lowerText.includes('training')) {
-    return 'progression';
+  if (lowerContext.includes("progress") || lowerContext.includes("stable") || lowerContext.includes("growth") || lowerContext.includes("training")) {
+    return "progression";
   }
   
-  return 'neutral';
+  return "other";
 }
 
 export function getSystemColorMeaning(promptType?: string, context?: string): SystemColorMeaning {
