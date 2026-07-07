@@ -5,6 +5,8 @@ import { dispatchNarration, dispatchNarrativeCue } from "../lib/narrativeCues";
 import { useReadingDrift } from "./useReadingDrift";
 import { storyStorage } from "../lib/storage";
 import { buildSpeechChunks, pickDefaultSideVoice, SpeechChunk } from "../lib/voice/webSpeechCast";
+import { useAudioSettings } from "./audio/useAudioSettings";
+import { useVoicePreferences } from "./audio/useVoicePreferences";
 
 export const extractSFXCues = (text: string) => {
   const sfxList: string[] = [];
@@ -53,14 +55,33 @@ export function useReaderPlayback({
 
   const [isPlayingText, setIsPlayingText] = useState(false);
   const [isPausedText, setIsPausedText] = useState(false);
-  const [speechRate, setSpeechRate] = useState<number>(1.0);
-  const [speechPitch, setSpeechPitch] = useState<number>(1.0);
-  const [speechVolume, setSpeechVolume] = useState<number>(0.9);
-  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>("");
-  const [selectedDialogueVoiceURI, setSelectedDialogueVoiceURI] = useState<string>("");
-  const [selectedSideVoiceURI, setSelectedSideVoiceURI] = useState<string>("");
-  const [showVoiceDetail, setShowVoiceDetail] = useState<boolean>(false);
+
+  const {
+    isMuted,
+    handleMuteToggle,
+    atmosphere,
+    handleAtmosphereChange,
+    volume,
+    handleVolumeChange,
+  } = useAudioSettings();
+
+  const {
+    speechRate,
+    setSpeechRate,
+    speechPitch,
+    setSpeechPitch,
+    speechVolume,
+    setSpeechVolume,
+    availableVoices,
+    selectedVoiceURI,
+    setSelectedVoiceURI,
+    selectedDialogueVoiceURI,
+    setSelectedDialogueVoiceURI,
+    selectedSideVoiceURI,
+    setSelectedSideVoiceURI,
+    showVoiceDetail,
+    setShowVoiceDetail,
+  } = useVoicePreferences();
 
   const [localIsAutoScrollPausedByUser, localSetIsAutoScrollPausedByUser] = useState(false);
 
@@ -74,127 +95,6 @@ export function useReaderPlayback({
   const playAutoScroll = useCallback(() => {}, []);
   const pauseAutoScroll = useCallback(() => {}, []);
   const isAutoScrolling = false;
-
-  const [isMuted, setIsMuted] = useState(() => {
-    if (typeof localStorage === 'undefined') return false;
-    return localStorage.getItem("seihouse-audio-muted") === "true";
-  });
-  const [atmosphere, setAtmosphere] = useState(() => {
-    if (typeof localStorage === 'undefined') return "none";
-    return localStorage.getItem("seihouse-audio-atmosphere") || "none";
-  });
-  const [volume, setVolume] = useState(() => {
-    if (typeof localStorage === 'undefined') return 0.5;
-    const saved = localStorage.getItem("seihouse-audio-volume");
-    return saved ? parseFloat(saved) : 0.5;
-  });
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const handleEvents = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      if (customEvent.detail) {
-        if (typeof customEvent.detail.isMuted === "boolean") {
-          setIsMuted(customEvent.detail.isMuted);
-        }
-        if (customEvent.detail.atmosphere) {
-          setAtmosphere(customEvent.detail.atmosphere);
-        }
-        if (typeof customEvent.detail.volume === "number") {
-          setVolume(customEvent.detail.volume);
-        }
-      }
-    };
-    window.addEventListener("seihouse-audio-state", handleEvents);
-    return () => window.removeEventListener("seihouse-audio-state", handleEvents);
-  }, []);
-
-  const handleMuteToggle = (mutedVal: boolean) => {
-    setIsMuted(mutedVal);
-    localStorage.setItem("seihouse-audio-muted", String(mutedVal));
-    window.dispatchEvent(
-      new CustomEvent("seihouse-audio-control", {
-        detail: { isMuted: mutedVal },
-      }),
-    );
-  };
-
-  const handleAtmosphereChange = (atmosVal: string) => {
-    setAtmosphere(atmosVal);
-    localStorage.setItem("seihouse-audio-atmosphere", atmosVal);
-    window.dispatchEvent(
-      new CustomEvent("seihouse-audio-control", {
-        detail: { atmosphere: atmosVal },
-      }),
-    );
-  };
-
-  const handleVolumeChange = (volVal: number) => {
-    setVolume(volVal);
-    localStorage.setItem("seihouse-audio-volume", String(volVal));
-    window.dispatchEvent(
-      new CustomEvent("seihouse-audio-control", {
-        detail: { volume: volVal },
-      }),
-    );
-  };
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      const loadVoices = () => {
-        const voices = window.speechSynthesis.getVoices();
-        setAvailableVoices(voices);
-
-        if (voices.length > 0) {
-          // Resolve the default narrator/dialogue picks once so the side
-          // voice can avoid whatever they actually resolve to — on
-          // platforms without "daniel"/"rishi" the fallback chains land on
-          // other voices, and the side voice must not collide with those.
-          const narratorDefault =
-            voices.find((v) => v.name.toLowerCase().includes("daniel")) ||
-            voices.find((v) => v.lang.includes("en-US") && v.name.toLowerCase().includes("google")) ||
-            voices.find((v) => v.lang.includes("en-US")) ||
-            voices.find((v) => v.lang.includes("en")) ||
-            voices.find((v) => v.lang.includes("zh")) ||
-            voices[0];
-          const dialogueDefault =
-            voices.find((v) => v.name.toLowerCase().includes("rishi")) ||
-            voices.find((v) => v.voiceURI !== narratorDefault?.voiceURI && v.lang.includes("en")) ||
-            voices[0];
-
-          setSelectedVoiceURI((current) => {
-            if (current && voices.some((v) => v.voiceURI === current)) {
-              return current;
-            }
-            return narratorDefault?.voiceURI || "";
-          });
-
-          setSelectedDialogueVoiceURI((current) => {
-            if (current && voices.some((v) => v.voiceURI === current)) {
-              return current;
-            }
-            return dialogueDefault?.voiceURI || "";
-          });
-
-          setSelectedSideVoiceURI((current) => {
-            if (current && voices.some((v) => v.voiceURI === current)) {
-              return current;
-            }
-            return pickDefaultSideVoice(
-              voices,
-              narratorDefault?.voiceURI || "",
-              dialogueDefault?.voiceURI || ""
-            )?.voiceURI || "";
-          });
-        }
-      };
-
-      loadVoices();
-      if (window.speechSynthesis.onvoiceschanged !== undefined) {
-        window.speechSynthesis.onvoiceschanged = loadVoices;
-      }
-    }
-  }, []);
 
   const selectedChapterRef = useRef(selectedChapter);
   useEffect(() => {
