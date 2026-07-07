@@ -90,6 +90,30 @@ describe('classifyContinuityWarnings', () => {
     expect(severe).toEqual([warning]);
   });
 
+  it('surfaces a deceased entity with an accented (non-ASCII) name', () => {
+    const memory = memoryWith({
+      characters: [
+        { id: 'c1', name: 'René', status: 'deceased', role: '', description: '', relationshipToMC: '' } as any,
+      ],
+    });
+    const warning = 'René is recorded as deceased yet draws steel in this scene.';
+    const prose = 'René raised his sword against the dawn.';
+    const { severe } = classifyContinuityWarnings([warning], prose, memory);
+    expect(severe).toEqual([warning]);
+  });
+
+  it('surfaces a deceased entity with a CJK name (ASCII \\b would miss this)', () => {
+    const memory = memoryWith({
+      characters: [
+        { id: 'c1', name: '林越', status: 'deceased', role: '', description: '', relationshipToMC: '' } as any,
+      ],
+    });
+    const warning = '林越 is marked deceased but speaks in the present scene.';
+    const prose = '林越 走进大殿。';
+    const { severe } = classifyContinuityWarnings([warning], prose, memory);
+    expect(severe).toEqual([warning]);
+  });
+
   it('early chapters with no deceased entities can never produce a severe fault', () => {
     const warning = 'Something about the plot feels off with Lin Yue.';
     const { severe, soft } = classifyContinuityWarnings([warning], 'Lin Yue smiled.', emptyMemory);

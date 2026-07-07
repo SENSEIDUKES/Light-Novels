@@ -88,9 +88,15 @@ export const extractProseForContinuity = (rawBlocksStr: string): string => {
 
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+// Unicode-aware "word" characters. JavaScript's \b is ASCII-only, so it never matches a
+// boundary around accented ("René"), Cyrillic, or CJK ("林越") names — silently
+// downgrading genuine severe faults for non-English stories. These lookarounds recreate
+// a whole-word boundary using Unicode letter/number/mark classes under the `u` flag.
+const WORD_CHAR = '[\\p{L}\\p{N}\\p{M}_]';
+
 /**
  * Whole-word, case-insensitive matchers for every Codex entity currently marked
- * deceased/destroyed. Word boundaries are essential: a short name like "Lin" must NOT
+ * deceased/destroyed. The boundary is essential: a short name like "Lin" must NOT
  * match "smiling" or "link", or the verifier would manufacture the very false positives
  * it exists to prevent.
  */
@@ -104,7 +110,10 @@ const collectDeadEntityMatchers = (memory: StoryMemory): RegExp[] => {
   }
   return names
     .filter((n) => n.trim().length > 1)
-    .map((n) => new RegExp(`\\b${escapeRegExp(n.trim())}\\b`, 'i'));
+    .map(
+      (n) =>
+        new RegExp(`(?<!${WORD_CHAR})${escapeRegExp(n.trim())}(?!${WORD_CHAR})`, 'ui')
+    );
 };
 
 /**
