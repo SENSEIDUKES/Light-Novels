@@ -12,6 +12,30 @@ import { storyStorage } from "../lib/storage";
 import { LOCAL_ONLY_MODE, auth } from "../lib/firebase";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 
+const timeFormatter = new Intl.DateTimeFormat(undefined, {
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+const ClockDisplay: React.FC = React.memo(() => {
+  const [clockTime, setClockTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setClockTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div
+      className="flex items-center space-x-1"
+      title="Current Local Time"
+    >
+      <span className="text-jade-accent">Time:</span>
+      <span>{timeFormatter.format(clockTime)}</span>
+    </div>
+  );
+});
+
 export const ReaderScreen: React.FC<{
   handleSteerArc: (direction: string, customPrompt: string) => Promise<void>;
   handleAlterFate: (
@@ -58,18 +82,12 @@ export const ReaderScreen: React.FC<{
   const recapCheckedForStoryId = React.useRef<string | null>(null);
 
   // Reading time tracking state
-  const [clockTime, setClockTime] = useState(new Date());
-  const [localStatsDelta, setLocalStatsDelta] = useState<{
+  const localStatsDeltaRef = React.useRef<{
     total: number;
     arc: Record<number, number>;
   }>({ total: 0, arc: {} });
   const readingTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   const lastActiveTimeRef = React.useRef<number>(Date.now());
-
-  useEffect(() => {
-    const timer = setInterval(() => setClockTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   // Determine current arc index
   const currentArcIndex =
@@ -360,18 +378,7 @@ export const ReaderScreen: React.FC<{
             </div>
             <div className="flex-shrink-0 flex items-center space-x-2">
               <div className="hidden md:flex items-center space-x-2 px-3 py-1 bg-black/40 border border-neutral-800 rounded text-neutral-400 font-mono text-[10px]">
-                <div
-                  className="flex items-center space-x-1"
-                  title="Current Local Time"
-                >
-                  <span className="text-jade-accent">Time:</span>
-                  <span>
-                    {clockTime.toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                </div>
+                <ClockDisplay />
                 <span className="text-neutral-700">|</span>
                 <div
                   className="flex items-center space-x-1"
