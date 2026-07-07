@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Bookmark, StoryWorld, Chapter } from '../types';
 import { useAppStore } from '../store/useAppStore';
+import { generateId } from '../lib/id';
 
 interface UseCosmicBookmarkingProps {
   activeStory: StoryWorld;
@@ -47,7 +48,7 @@ export function useCosmicBookmarking({
       updated = [
         ...activeBookmarks,
         {
-          id: Math.random().toString(36).substring(2, 9),
+          id: generateId(7),
           chapterNumber: selectedChapter.number,
           paragraphIndex: paraIdx,
           paragraphExcerpt: excerpt.substring(0, 150),

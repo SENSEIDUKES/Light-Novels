@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { secureStorage } from '../lib/encryption';
 import { checkAndConsumeImageQuota } from '../lib/quota';
+import { generateId } from '../lib/id';
 
 export function useImageManifest() {
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
@@ -55,7 +56,7 @@ export function useImageManifest() {
         const id = entry.id;
         const currentChapterNumber = activeStory.currentChapterNumber || 1;
         const newHistoryItem = {
-          id: Math.random().toString(36).substring(2, 10),
+          id: generateId(8),
           entityId: id,
           entityType: type as any,
           imageUrl: selectedUrl,
@@ -168,7 +169,7 @@ export function useImageManifest() {
 
       if (activeStory) {
         const newHistoryItem = {
-          id: Math.random().toString(36).substring(2, 10),
+          id: generateId(8),
           entityId: `chapter-hero-${chapterNumber}`,
           entityType: 'chapterHero' as const,
           imageUrl: selectedUrl,

@@ -1,3 +1,4 @@
+import { generateId } from '../../lib/id';
 import { Story, StoryMemory } from '../../types';
 import { runMemoryLinter } from '../storyEngineHelpers';
 import { resolveEntity } from '../../lib/entityResolver';
@@ -20,7 +21,7 @@ export const applyMemoryPatch = (
 
   if (memoryUpdates.newCharacters && memoryUpdates.newCharacters.length > 0) {
     const added = memoryUpdates.newCharacters.map((c: any) => ({
-      id: `char-${Math.random().toString(36).substr(2, 9)}`,
+      id: `char-${generateId(9)}`,
       name: c.name,
       role: c.role || 'Neutral figure',
       description: c.description || '',
@@ -171,7 +172,7 @@ export const applyMemoryPatch = (
     const newThreadObjs = memoryUpdates.newUnresolvedPlotThreads
       .filter((t: string) => !currentThreads.some(ct => (typeof ct === 'string' ? ct : ct.description) === t))
       .map((t: string) => ({
-        id: `thread-${Math.random().toString(36).substr(2, 9)}`,
+        id: `thread-${generateId(9)}`,
         description: t,
         status: 'active',
         originChapter: chapterNumber
@@ -212,7 +213,7 @@ export const applyMemoryPatch = (
   if (memoryUpdates.newFactions && memoryUpdates.newFactions.length > 0) {
     const currentFactions = nextMemory.factions || [];
     const added = memoryUpdates.newFactions.map((f: any) => ({
-      id: `fct-${Math.random().toString(36).substr(2, 9)}`,
+      id: `fct-${generateId(9)}`,
       name: f.name,
       description: f.description || '',
       alignment: f.alignment || 'Neutral',
@@ -232,7 +233,7 @@ export const applyMemoryPatch = (
   if (memoryUpdates.newLocations && memoryUpdates.newLocations.length > 0) {
     const currentLocations = nextMemory.locations || [];
     const added = memoryUpdates.newLocations.map((l: any) => ({
-      id: `loc-${Math.random().toString(36).substr(2, 9)}`,
+      id: `loc-${generateId(9)}`,
       name: l.name,
       description: l.description || '',
       realm: l.realm || '',
@@ -251,7 +252,7 @@ export const applyMemoryPatch = (
   if (memoryUpdates.newArtifacts && memoryUpdates.newArtifacts.length > 0) {
     const currentArtifacts = nextMemory.artifacts || [];
     const added = memoryUpdates.newArtifacts.map((a: any) => ({
-      id: `art-${Math.random().toString(36).substr(2, 9)}`,
+      id: `art-${generateId(9)}`,
       name: a.name,
       description: a.description || '',
       tier: a.tier || 'Mortal',
@@ -272,7 +273,7 @@ export const applyMemoryPatch = (
     const added = memoryUpdates.newMCAbilities.map((ab: any) => {
       if (typeof ab === 'string') {
         return {
-          id: `abil-${Math.random().toString(36).substr(2, 9)}`,
+          id: `abil-${generateId(9)}`,
           name: ab,
           description: '',
           acquiredChapter: chapterNumber,
@@ -281,7 +282,7 @@ export const applyMemoryPatch = (
         };
       }
       return {
-        id: `abil-${Math.random().toString(36).substr(2, 9)}`,
+        id: `abil-${generateId(9)}`,
         name: ab.name || 'Unknown Ability',
         description: ab.description || '',
         source: ab.source || '',
@@ -359,7 +360,7 @@ export const applyMemoryPatch = (
         };
       } else {
         updatedRelationships.push({
-           id: `rel-${Math.random().toString(36).substr(2, 9)}`,
+           id: `rel-${generateId(9)}`,
            sourceCharId: sourceResolution.resolvedEntityId || 'unknown',
            sourceCharName: relUpdate.sourceName,
            targetCharId: targetResolution.resolvedEntityId || 'unknown',

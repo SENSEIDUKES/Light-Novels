@@ -1,3 +1,4 @@
+import { generateId } from '../lib/id';
 import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, ShieldAlert, ArrowRight, Zap, 
@@ -142,7 +143,7 @@ export default function SteerPortal({
       const data = await response.json();
       if (data.directions && Array.isArray(data.directions)) {
         const mapped = data.directions.map((d: any, index: number) => ({
-          id: `dir-${index}-${Math.random().toString(36).substr(2, 5)}`,
+          id: `dir-${index}-${generateId(5)}`,
           title: d.title || 'Untitled Stream',
           directionType: d.directionType || 'continue',
           description: d.description || 'Proceed toward steady spiritual advancement.'

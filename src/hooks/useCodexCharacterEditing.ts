@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Character, StoryMemory, Ability } from '../types';
+import { generateId } from '../lib/id';
 
 interface UseCodexCharacterEditingOptions {
   memory: StoryMemory;
@@ -43,7 +44,7 @@ export function useCodexCharacterEditing({ memory, onUpdateMemory }: UseCodexCha
     const normalizedAbilities: Ability[] = (char.abilities || []).map((a, index) => {
       if (typeof a === 'string') {
         return {
-          id: "ability-" + Math.random().toString(36).substring(2, 9) + "-" + index,
+          id: "ability-" + generateId(7) + "-" + index,
           name: a,
           description: '',
         };
@@ -65,7 +66,7 @@ export function useCodexCharacterEditing({ memory, onUpdateMemory }: UseCodexCha
       ...prev,
       abilitiesList: [
         ...(prev.abilitiesList || []),
-        { id: "ability-" + Math.random().toString(36).substring(2, 9), name: '', description: '' }
+        { id: "ability-" + generateId(7), name: '', description: '' }
       ]
     }));
   };
