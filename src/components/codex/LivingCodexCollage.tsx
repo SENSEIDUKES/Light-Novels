@@ -54,12 +54,12 @@ function playAuraChime() {
 
 interface CollageItemProps {
   mem: VisualMemory;
-  downloadingIds: Set<string>;
+  isDownloading: boolean;
   handleDownload: (mem: VisualMemory, e?: React.MouseEvent) => void;
   handleOpenLightbox: (mem: VisualMemory) => void;
 }
 
-const CollageItem = React.memo(({ mem, downloadingIds, handleDownload, handleOpenLightbox }: CollageItemProps) => {
+const CollageItem = React.memo(({ mem, isDownloading, handleDownload, handleOpenLightbox }: CollageItemProps) => {
   return (
     <motion.div
       layout
