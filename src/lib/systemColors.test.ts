@@ -12,6 +12,8 @@ describe('systemColors', () => {
       expect(getSystemInferredType('combat artifact found')).toBe('combat_artifact');
       expect(getSystemInferredType('combat breakthrough achieved')).toBe('combat_breakthrough');
       expect(getSystemInferredType('heavenly tribulation breakthrough')).toBe('heavenly_tribulation');
+      expect(getSystemInferredType('heavenly tribulation')).toBe('heavenly_tribulation');
+      expect(getSystemInferredType('divine trial')).toBe('heavenly_tribulation');
     });
 
     it('identifies system_error', () => {
@@ -97,6 +99,7 @@ describe('systemColors', () => {
 
     it('handles new multi-match types correctly', () => {
       expect(getSystemColorMeaning(undefined, 'combat artifact').type).toBe('combat_artifact');
+      expect(getSystemColorMeaning(undefined, 'heavenly tribulation').type).toBe('heavenly_tribulation');
     });
   });
 

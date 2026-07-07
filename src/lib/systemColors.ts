@@ -180,7 +180,7 @@ export function getSystemInferredType(context?: string): string {
   // Check combinations/multi-matches first
   if (lowerContext.includes("combat") && lowerContext.includes("artifact")) return "combat_artifact";
   if (lowerContext.includes("combat") && lowerContext.includes("breakthrough")) return "combat_breakthrough";
-  if (lowerContext.includes("tribulation") && lowerContext.includes("breakthrough")) return "heavenly_tribulation";
+  if (lowerContext.includes("tribulation") || lowerContext.includes("divine trial")) return "heavenly_tribulation";
 
   if (lowerContext.includes("system error") || lowerContext.includes("unstable") || lowerContext.includes("glitch") || lowerContext.includes("malfunction") || lowerContext.includes("iron fate warning")) {
     return "system_error";
