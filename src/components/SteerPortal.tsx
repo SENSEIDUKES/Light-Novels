@@ -5,6 +5,8 @@ import {
   RefreshCw, AlertCircle, Compass
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { getAuraTextStyle } from '../lib/qi';
+import { useDialect } from '../lib/dialect';
 import { secureStorage } from '../lib/encryption';
 import { retrieveRelevantContext } from '../lib/rag';
 import { useAppStore } from '../store/useAppStore';
@@ -81,6 +83,8 @@ export default function SteerPortal({
   activeStory, 
   routingConfig 
 }: SteerPortalProps) {
+  const setRoutingConfig = useAppStore(state => state.setRoutingConfig);
+  const t = useDialect();
   const activeAgentId = useAppStore(state => state.activeAgentId);
   const [selectedPreset, setSelectedPreset] = useState('continue');
   const [customDirections, setCustomDirections] = useState('');
@@ -181,7 +185,7 @@ export default function SteerPortal({
       <div className="text-center mb-8 border-b border-neutral-950 pb-6">
         <span className="font-sc text-portal font-semibold tracking-[0.2em] text-xs block mb-1 uppercase">Shatter Boundary</span>
         <h2 className="font-display font-medium text-signal text-3xl sm:text-4xl tracking-tight mb-2">
-          The Great Steering Chamber
+          {t('steer_chamber')}
         </h2>
         <p className="text-neutral-400 font-sans text-xs max-w-xl mx-auto leading-relaxed">
           The currents of destiny pause at this breakpoint. Assert your cosmic will as the sovereign architect to dictate where this story should ascend for the next 10 chapters.
@@ -196,7 +200,7 @@ export default function SteerPortal({
             <div>
               <span className="block text-xs uppercase tracking-widest font-sc text-neutral-300 font-semibold flex items-center space-x-2">
                 <Compass size={14} className="text-portal animate-spin-slow" />
-                <span>Divine Paths of Ascension</span>
+                <span>{t('suggested_paths')}</span>
               </span>
               <p className="text-[9px] text-neutral-500 font-sans normal-case mt-1 leading-snug">AI-suggested story directions for the next 10 chapters. Pick one to load it into the prompt below.</p>
             </div>
@@ -306,7 +310,7 @@ export default function SteerPortal({
         {/* Custom Steering Inputs / Prompt Box */}
         <div className="space-y-2 pt-2">
           <label htmlFor="custom-steer-input" className="block text-xs uppercase tracking-widest font-sc text-neutral-300 font-semibold flex items-center justify-between">
-            <span>Editable Destiny Script</span>
+            <span>{t('prompt_box')}</span>
             {selectedCardId && (
               <span className="text-[9px] text-[#04ACFF] normal-case font-mono bg-portal/5 px-2 py-0.5 border border-portal/15 rounded animate-pulse">
                 Destiny trace loaded - Edit freely below

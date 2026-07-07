@@ -4,6 +4,7 @@ import { VirtualizedList } from '../VirtualizedList';
 import { Character, CharacterRelationship } from '../../types';
 import { useCodex } from './CodexContext';
 import { useAppStore } from '../../store/useAppStore';
+import { useDialect } from '../../lib/dialect';
 import { handleDownload } from '../../utils/downloadUtils';
 
 
@@ -22,6 +23,7 @@ export function LivingCodexRelations({
 }: LivingCodexRelationsProps) {
   const { memory, activeStory, mcName, pushNotification, onUpdateStory } = useCodex();
   const stories = useAppStore(state => state.stories);
+  const t = useDialect();
 
   const [bondSourceId, setBondSourceId] = useState('');
   const [bondTargetId, setBondTargetId] = useState('');
@@ -74,9 +76,9 @@ export function LivingCodexRelations({
               <div>
                 <h3 className="font-display text-lg text-signal tracking-wide codex-glow-blue flex items-center gap-2">
                   <Network size={16} className="text-portal" />
-                  <span>Karma Web</span>
+                  <span>{t('relationship_map')}</span>
                 </h3>
-                <p className="text-[10px] text-neutral-500 font-sans mt-0.5">See how characters relate — love, hate, rivalry, loyalty, fear, and trust. Click a character node to inspect their connections.</p>
+                <p className="text-[10px] text-neutral-500 font-sans mt-0.5">See how characters relate — love, hate, rivalry, loyalty, fear, and trust. Click a {t('daoist_node')} to inspect their connections.</p>
               </div>
               <span className="hidden sm:flex items-center gap-1.5 text-[9px] font-sc uppercase tracking-widest text-portal/80 px-3 py-1.5 rounded-lg codex-panel border-portal/20 flex-shrink-0">
                 <Scan size={11} />
@@ -339,7 +341,7 @@ export function LivingCodexRelations({
                       </div>
                       <h4 className="font-sc text-xs text-neutral-400 uppercase tracking-[0.25em] font-semibold">Sensor Idle</h4>
                       <p className="text-[9.5px] text-neutral-600 font-sans mt-1.5 max-w-xs mx-auto leading-relaxed">
-                        Tap any spirit node in the cosmic geometry to inspect special causal relationship bindings.
+                        Tap any {t('daoist_node')} in the {t('cosmic_grid')} to inspect special causal relationship bindings.
                       </p>
                     </div>
                   )}
@@ -356,7 +358,7 @@ export function LivingCodexRelations({
                   <div>
                     <h4 className="font-sc font-bold text-portal text-xs uppercase tracking-widest flex items-center space-x-1.5">
                       <ArrowLeftRight size={14} />
-                      <span>Engrave Karma Bond Link</span>
+                      <span>{t('relationship_bond')}</span>
                     </h4>
                     <p className="text-[10px] text-neutral-500 font-sans mt-1">
                       Manually add a relationship between two characters.
