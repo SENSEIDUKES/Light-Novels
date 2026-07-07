@@ -13,6 +13,19 @@ interface CosmicBookmarksPanelProps {
   handleJumpToBookmark: (bookmark: Bookmark) => void;
 }
 
+// Performance Optimization: Cache Intl.DateTimeFormat at module level to avoid costly recreation during render loops
+const dateFormatter = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+const safeFormatDate = (dateVal: any) => {
+  if (!dateVal) return 'Unknown';
+  const d = new Date(dateVal);
+  return isNaN(d.getTime()) ? 'Unknown' : dateFormatter.format(d);
+};
+
 export const CosmicBookmarksPanel: React.FC<CosmicBookmarksPanelProps> = ({
   showBookmarksPanel,
   setShowBookmarksPanel,
@@ -102,15 +115,7 @@ export const CosmicBookmarksPanel: React.FC<CosmicBookmarksPanelProps> = ({
                               : "Sacred Chapter"}
                           </span>
                           <span className="text-neutral-600 font-mono text-[9px]">
-                            {new Date(bookmark.createdAt).toLocaleDateString(
-                              undefined,
-                              {
-                                month: "short",
-                                day: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              },
-                            )}
+                            {safeFormatDate(bookmark.createdAt)}
                           </span>
                         </div>
 
