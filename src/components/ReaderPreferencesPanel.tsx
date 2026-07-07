@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { Check, Sliders, VolumeX, Volume2, Music } from 'lucide-react';
 import { ReaderPreferences } from '../types';
 import { TRACK_LIBRARY } from '../lib/audio/musicResolver';
-import { BGM_MAX_LEVEL, BGM_DEFAULT_LEVEL } from './AtmosphericAudio';
+import { BGM_MAX_LEVEL, BGM_DEFAULT_LEVEL } from "../hooks/audio/useAtmosphericAudio";
 
 // Group the Celestial Library by its CDN folder (ADVENTURE, AMBIENT, ...)
 // for the score-picker optgroups.
