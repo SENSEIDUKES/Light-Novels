@@ -103,7 +103,7 @@ const CollageItem = React.memo(({ mem, isDownloading, handleDownload, handleOpen
           className="absolute top-2 left-2 p-1.5 text-neutral-400 bg-black/60 border border-neutral-800 backdrop-blur-sm hover:text-portal hover:border-portal/40 rounded-xl opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all z-20 cursor-pointer"
           title="Download Portrait"
         >
-          {downloadingIds.has(mem.id) ? (
+          {isDownloading ? (
             <Loader2 size={11} className="animate-spin text-portal" />
           ) : (
             <Download size={11} />
