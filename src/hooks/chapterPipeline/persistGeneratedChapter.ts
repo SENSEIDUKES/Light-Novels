@@ -39,7 +39,8 @@ export const persistGeneratedChapter = async (
             cuePayload: data.cuePayload,
             status: 'read' as const,
             hasContinuityFaults: data.hasContinuityFaults || false,
-            continuityWarnings: data.continuityWarnings || []
+            continuityWarnings: data.continuityWarnings || [],
+            continuitySoftNotes: data.continuitySoftNotes || []
           };
         })
       };

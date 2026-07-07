@@ -503,6 +503,7 @@ export interface Chapter {
   _isNewContent?: boolean;
   hasContinuityFaults?: boolean;
   continuityWarnings?: string[];
+  continuitySoftNotes?: string[];
 }
 
 export interface StoryArc {
