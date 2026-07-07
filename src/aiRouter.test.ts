@@ -1,7 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { cleanAndParseJSON } from './aiRouter';
 
 describe('cleanAndParseJSON', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('should parse a simple JSON object', () => {
     const input = '{"key": "value"}';
     expect(cleanAndParseJSON(input)).toEqual({ key: 'value' });
@@ -42,12 +50,14 @@ describe('cleanAndParseJSON', () => {
     expect(cleanAndParseJSON(input)).toEqual([1, 2, 3]);
   });
 
-  it('should prefer the first JSON match (object vs array)', () => {
+  it('should prefer the first JSON match when array comes first', () => {
     const input = 'Array: [1, 2] followed by Object: {"a": 1}';
     expect(cleanAndParseJSON(input)).toEqual([1, 2]);
+  });
 
-    const input2 = 'Object: {"a": 1} followed by Array: [1, 2]';
-    expect(cleanAndParseJSON(input2)).toEqual({ a: 1 });
+  it('should prefer the first JSON match when object comes first', () => {
+    const input = 'Object: {"a": 1} followed by Array: [1, 2]';
+    expect(cleanAndParseJSON(input)).toEqual({ a: 1 });
   });
 
   it('should handle hallucinated inner markdown', () => {
