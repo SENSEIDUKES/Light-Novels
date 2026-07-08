@@ -618,7 +618,9 @@ export function useReaderPlayback({
     selectedChapter?.blocks,
     isPlayingText,
     isGenerating,
-    streamingChapter,
+    // Only the streaming chapter's number matters here — depending on the whole
+    // object would re-run (and reschedule the timer) on every stream tick.
+    streamingChapter?.number,
   ]);
 
   useEffect(() => {
