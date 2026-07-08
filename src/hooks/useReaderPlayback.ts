@@ -50,6 +50,10 @@ export function useReaderPlayback({
   const readerMode = useAppStore((state) => state.readerMode);
   const setReaderMode = useAppStore((state) => state.setReaderMode);
   const immersion = useAppStore((state) => state.immersion);
+  const autoPlayNarration = useAppStore((state) => state.autoPlayNarration);
+  const setAutoPlayNarration = useAppStore((state) => state.setAutoPlayNarration);
+  const isGenerating = useAppStore((state) => state.isGenerating);
+  const streamingChapter = useAppStore((state) => state.streamingChapter);
 
   const [isPlayingText, setIsPlayingText] = useState(false);
   const [isPausedText, setIsPausedText] = useState(false);
@@ -345,18 +349,35 @@ export function useReaderPlayback({
       return;
     }
 
-    // .split(/\s+/) on an empty string returns [''] (length 1), so we trim and
-    // filter to get an accurate word count.  The || 0 keeps the type happy.
-    const wordCount = chunkData.text.trim().split(/\s+/).filter(Boolean).length || 0;
-    const estimatedDurationMs =
-      (wordCount / (speechRateRef.current * TTS_WORDS_PER_SECOND_AT_RATE_1)) * 1000;
+    // Estimate a chunk's spoken duration from its word count at the current rate.
+    const chunkDurationMs = (i: number) => {
+      const c = chunksRef.current[i];
+      // .split(/\s+/) on an empty string returns [''] (length 1), so we trim and
+      // filter to get an accurate word count.  The || 0 keeps the type happy.
+      const wc = c?.text?.trim().split(/\s+/).filter(Boolean).length || 0;
+      return (wc / (speechRateRef.current * TTS_WORDS_PER_SECOND_AT_RATE_1)) * 1000;
+    };
+
+    const estimatedDurationMs = chunkDurationMs(index);
     const currentPara = chunkData.paragraphIndex ?? -1;
 
     fireBlockSideEffects(currentPara, estimatedDurationMs);
 
-    // Strategy B: target the NEXT paragraph so intra-paragraph chunks keep
-    // the scroll moving continuously without stalling or jumping.
-    updateTTSVelocity(currentPara + 1, estimatedDurationMs);
+    // Strategy B, paced to the paragraph — not the chunk. We aim the scroll at
+    // the NEXT paragraph, but spread the motion over the *remaining* spoken
+    // time of the CURRENT paragraph (this chunk + the rest of its chunks).
+    // Using a single chunk's duration made the first chunk of a multi-chunk
+    // paragraph rush the scroll ahead and then stall; pacing over the whole
+    // paragraph keeps the highlighted passage aligned with the narration.
+    let remainingParaMs = 0;
+    for (
+      let j = index;
+      j < chunksRef.current.length && (chunksRef.current[j].paragraphIndex ?? -1) === currentPara;
+      j++
+    ) {
+      remainingParaMs += chunkDurationMs(j);
+    }
+    updateTTSVelocity(currentPara + 1, remainingParaMs || estimatedDurationMs);
 
     const utterance = new SpeechSynthesisUtterance(chunkData.text);
     currentUtteranceRef.current = utterance;
@@ -498,6 +519,10 @@ export function useReaderPlayback({
       return;
     }
 
+    // Pressing play enters listening mode: subsequent chapters the user
+    // manifests / navigates to auto-continue narration until they stop.
+    setAutoPlayNarration(true);
+
     const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
     const isBrowserSupported = typeof window !== "undefined" && "speechSynthesis" in window;
     const hasGeneratedAudio = !!(selectedChapter?.audioManifest?.clips && selectedChapter.audioManifest.clips.length > 0);
@@ -519,6 +544,8 @@ export function useReaderPlayback({
   };
 
   const handleStopSpeaking = () => {
+    // An explicit stop leaves listening mode — do not auto-continue.
+    setAutoPlayNarration(false);
     stopAllPlayback();
     setReaderMode('teleprompter');
   };
@@ -529,6 +556,72 @@ export function useReaderPlayback({
     // calls dispatchNarration('end') which is the canonical signal; velocity is
     // nulled out directly in stopAllPlayback above.
   }, [selectedChapter?.number]);
+
+  // Keep live refs to the latest toggle handler and autoplay flag so the
+  // auto-continue effect can invoke / re-check them without listing them as
+  // dependencies (which would re-run the effect — and reschedule its timeout —
+  // on every render).
+  const handleTogglePlaybackRef = useRef<() => void>(() => {});
+  const autoPlayNarrationRef = useRef(autoPlayNarration);
+  useEffect(() => {
+    handleTogglePlaybackRef.current = handleTogglePlayback;
+    autoPlayNarrationRef.current = autoPlayNarration;
+  });
+
+  // --- Auto-continue (listening-mode skeleton) -----------------------------
+  // When listening mode is on and a fully-ready chapter becomes selected — the
+  // user manifested the next chapter, or navigated to an existing one — start
+  // narration automatically instead of requiring another press of play.
+  const autoStartedChapterRef = useRef<number | null>(null);
+  useEffect(() => {
+    const chNum = selectedChapter?.number;
+    if (chNum == null) return;
+    if (!autoPlayNarration) return;
+    if (isPlayingText) return;                        // already narrating
+    if (isGenerating) return;                         // wait for generation to finish
+    if (streamingChapter?.number === chNum) return;   // still streaming this chapter
+
+    const hasContent = !!(
+      selectedChapter?.generatedContent ||
+      (selectedChapter?.blocks && selectedChapter.blocks.length > 0)
+    );
+    if (!hasContent) return;
+    if (autoStartedChapterRef.current === chNum) return; // only once per chapter
+
+    autoStartedChapterRef.current = chNum;
+    let fired = false;
+    // Defer so the chapter-change stopAllPlayback settles and the paragraphs
+    // are in the DOM before narration (and its scroll pacing) begins.
+    const timer = setTimeout(() => {
+      fired = true;
+      const stillSpeaking =
+        typeof window !== "undefined" && !!window.speechSynthesis?.speaking;
+      if (
+        selectedChapterRef.current?.number === chNum &&
+        autoPlayNarrationRef.current &&
+        !stillSpeaking &&
+        !activeAudioRef.current
+      ) {
+        handleTogglePlaybackRef.current();
+      }
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+      // If we never fired (deps changed first), allow a later re-schedule.
+      if (!fired) autoStartedChapterRef.current = null;
+    };
+  }, [
+    autoPlayNarration,
+    selectedChapter?.number,
+    selectedChapter?.generatedContent,
+    selectedChapter?.blocks,
+    isPlayingText,
+    isGenerating,
+    // Only the streaming chapter's number matters here — depending on the whole
+    // object would re-run (and reschedule the timer) on every stream tick.
+    streamingChapter?.number,
+  ]);
 
   useEffect(() => {
     if (!isPlayingText || isPausedText) return;
