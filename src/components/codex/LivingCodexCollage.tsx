@@ -212,11 +212,11 @@ export function LivingCodexCollage({
 
   // Performance Optimization: Cache Intl.DateTimeFormat instance to avoid O(N) instantiation overhead inside the useMemo loop and across re-renders.
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }), []);
-  const safeFormatDate = (dateVal: any) => {
+  const safeFormatDate = useCallback((dateVal: any) => {
     if (!dateVal) return 'Unknown';
     const d = new Date(dateVal);
     return isNaN(d.getTime()) ? 'Unknown' : dateFormatter.format(d);
-  };
+  }, [dateFormatter]);
 
   const memories = useMemo(() => {
     const items: VisualMemory[] = [];
