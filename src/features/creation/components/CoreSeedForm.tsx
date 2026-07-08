@@ -7,6 +7,7 @@ import { GENRE_PRESETS, PREMISE_SUGGESTIONS, TAG_PRESETS, CATEGORIZED_TAGS } fro
 import { getApiHeaders } from '../../../hooks/storyEngineHelpers';
 import { useAppStore } from '../../../store/useAppStore';
 import { FateSurvivalExplanation } from '../../../components/FateSurvivalExplanation';
+import { FormInput, FormTextarea } from './form-fields';
 
 interface CoreSeedFormProps {
   intake: IntakeData;
@@ -221,14 +222,20 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
   return (
     <FormSection id="core" title="1. Core Seed" icon={<BookOpen size={18} />} activeSection={activeSection} setActiveSection={setActiveSection}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2" htmlFor="a11y-control-v2xlbs8">Optional Novel Title</label>
-          <input type="text" value={intake.novelTitle || ''} onChange={(e) => updateIntake('novelTitle', e.target.value)} placeholder="Will be generated if empty" className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded px-4 py-2 text-sm" id="a11y-control-v2xlbs8" />
-        </div>
-        <div>
-          <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2" htmlFor="a11y-control-7b2mqtu">Main Character Name</label>
-          <input type="text" value={intake.mcName || ''} onChange={(e) => updateIntake('mcName', e.target.value)} placeholder="e.g., Lin Fan" className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded px-4 py-2 text-sm" id="a11y-control-7b2mqtu" />
-        </div>
+        <FormInput
+          id="a11y-control-v2xlbs8"
+          label="Optional Novel Title"
+          value={intake.novelTitle || ''}
+          onChange={(val) => updateIntake('novelTitle', val)}
+          placeholder="Will be generated if empty"
+        />
+        <FormInput
+          id="a11y-control-7b2mqtu"
+          label="Main Character Name"
+          value={intake.mcName || ''}
+          onChange={(val) => updateIntake('mcName', val)}
+          placeholder="e.g., Lin Fan"
+        />
       </div>
       
       <div>
@@ -539,44 +546,44 @@ export const CoreSeedForm = ({ intake, updateIntake, activeSection, setActiveSec
         </div>
       </div>
 
-      <div>
-        <div className="flex justify-between items-end mb-2">
-          <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest" htmlFor="desired-plot-direction-input">Desired General Plot Direction (Optional)</label>
-          <span className="text-[10px] font-mono text-neutral-500">{(intake.desiredPlotDirection || '').length} / 1500</span>
-        </div>
-        <textarea id="desired-plot-direction-input" maxLength={1500} value={intake.desiredPlotDirection || ''} onChange={(e) => updateIntake('desiredPlotDirection', e.target.value)} rows={2} placeholder="e.g. Revenge focused, slow sect building, kingdom conquering..." className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm resize-none" />
-      </div>
+      <FormTextarea
+        id="desired-plot-direction-input"
+        label="Desired General Plot Direction (Optional)"
+        maxLength={1500}
+        value={intake.desiredPlotDirection || ''}
+        onChange={(val) => updateIntake('desiredPlotDirection', val)}
+        rows={2}
+        placeholder="e.g. Revenge focused, slow sect building, kingdom conquering..."
+      />
 
-      <div>
-        <label className="block font-sc text-xs text-neutral-400 uppercase tracking-widest mb-2" htmlFor="estimated-arcs-input">Estimated Arcs (Story Length)</label>
-        <p className="text-neutral-500 font-sans text-xs mb-3 leading-relaxed">
-          How long should this story run? (Highschool Drama ~3-4, Epic Fantasy ~10-20+). Leave blank for the system to guess based on premise.
-        </p>
-        <input 
-          id="estimated-arcs-input"
-          type="number" 
-          value={intake.estimatedArcs || ''} 
-          onChange={(e) => updateIntake('estimatedArcs', e.target.value ? parseInt(e.target.value) : undefined)} 
-          placeholder="e.g. 5" 
-          min="1"
-          max="100"
-          className="w-full sm:w-1/3 bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm" 
-        />
-      </div>
+      <FormInput
+        id="estimated-arcs-input"
+        type="number"
+        label="Estimated Arcs (Story Length)"
+        helpText="How long should this story run? (Highschool Drama ~3-4, Epic Fantasy ~10-20+). Leave blank for the system to guess based on premise."
+        value={intake.estimatedArcs || ''}
+        onChange={(val) => updateIntake('estimatedArcs', val ? parseInt(val) : undefined)}
+        placeholder="e.g. 5"
+        min="1"
+        max="100"
+        className="sm:w-1/3"
+      />
 
-      <div>
-        <div className="flex justify-between items-end mb-2">
-          <label className="block flex gap-2 items-center font-sc text-xs text-neutral-400 uppercase tracking-widest" htmlFor="destined-ending-input">
+      <FormTextarea
+        id="destined-ending-input"
+        label={
+          <>
             Destined Ending (Optional)
             <span className="text-[9px] font-mono lowercase bg-portal/10 text-portal px-1.5 py-0.5 rounded border border-portal/20">NEW</span>
-          </label>
-          <span className="text-[10px] font-mono text-neutral-500">{(intake.destinedEnding || '').length} / 1500</span>
-        </div>
-        <p className="text-neutral-500 font-sans text-xs mb-3 leading-relaxed">
-          The intended final destination of this story or arc. If left blank, the system will recommend a fitting destined ending (e.g., Kingdom Collapse, Final Ascension, or Fated Separation) based on your genre and premise. You can alter this outcome later!
-        </p>
-        <textarea id="destined-ending-input" maxLength={1500} value={intake.destinedEnding || ''} onChange={(e) => updateIntake('destinedEnding', e.target.value)} rows={2} placeholder="e.g. The kingdom falls, the MC ascends to godhood, or the lovers are separated..." className="w-full bg-neutral-950/80 border border-neutral-800 text-signal font-sans placeholder-neutral-600 focus:outline-none focus:border-portal rounded p-3 text-sm resize-none" />
-      </div>
+          </>
+        }
+        maxLength={1500}
+        helpText="The intended final destination of this story or arc. If left blank, the system will recommend a fitting destined ending (e.g., Kingdom Collapse, Final Ascension, or Fated Separation) based on your genre and premise. You can alter this outcome later!"
+        value={intake.destinedEnding || ''}
+        onChange={(val) => updateIntake('destinedEnding', val)}
+        rows={2}
+        placeholder="e.g. The kingdom falls, the MC ascends to godhood, or the lovers are separated..."
+      />
     </FormSection>
   );
 };
