@@ -390,7 +390,7 @@ export function useReaderPlayback({
     };
 
     synth.speak(utterance);
-  }, [fireBlockSideEffects]);
+  }, [fireBlockSideEffects, updateTTSVelocity]);
 
   useEffect(() => {
     speakChunkRef.current = speakChunk;

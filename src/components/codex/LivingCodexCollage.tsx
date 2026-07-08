@@ -318,7 +318,7 @@ export function LivingCodexCollage({
       const chB = b.chapterNumber || 0;
       return chA - chB;
     });
-  }, [activeStory, characterMap, locationMap, artifactMap]);
+  }, [activeStory, characterMap, locationMap, artifactMap, safeFormatDate]);
 
   // Filter memories
   const filteredMemories = useMemo(() => {

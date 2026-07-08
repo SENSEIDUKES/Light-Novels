@@ -78,7 +78,7 @@ export function useCinematicScroll(
   // deps change (containerRef, ttsVelocityRef), not on every render.  All hot
   // refs (isActiveRef, scrollSpeedRef, prefersReducedMotionRef, isYieldingRef)
   // are read at call time via refs so they don't need to be in the dep array.
-  const animate = useCallback((time: number) => {
+  const animate = useCallback(function step(time: number) {
     if (isYieldingRef.current || !isActiveRef.current || prefersReducedMotionRef.current) {
       lastTimeRef.current = undefined;
       return;
@@ -112,7 +112,7 @@ export function useCinematicScroll(
     }
 
     lastTimeRef.current = time;
-    requestRef.current = requestAnimationFrame(animate);
+    requestRef.current = requestAnimationFrame(step);
   }, [containerRef, ttsVelocityRef]); // scrollSpeedRef read via ref — no dep needed
 
   // --- Start / stop lifecycle ----------------------------------------------
