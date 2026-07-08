@@ -210,11 +210,14 @@ export default function ReaderChamber({
   });
 
   // Drive the single cinematic scroll engine.
-  // isActive covers both TTS playback AND teleprompter free-scroll so that
-  // the engine runs in both modes.  onYieldChange syncs the pause overlay.
-  useCinematicScroll(
+  // Auto-scroll is OFF by default: it runs only while text-to-speech is
+  // actively playing (the play button). When narration is stopped or paused,
+  // the engine is idle and the reader scrolls manually. onYieldChange syncs
+  // the pause overlay.
+  const isAutoScrollActive = isPlayingText && !isPausedText;
+  const { resume: resumeAutoScroll } = useCinematicScroll(
     readerRef,
-    (isPlayingText && !isPausedText) || (readerMode === "teleprompter" && !isAutoScrollPausedByUser),
+    isAutoScrollActive,
     ttsVelocityRef,
     setIsAutoScrollPausedByUser,
   );
@@ -1063,9 +1066,10 @@ export default function ReaderChamber({
         />
       )}
 
-      {/* Small Resume Affordance for Teleprompter Mode */}
+      {/* Small Resume Affordance — shown when narration is playing but the
+          user scrolled away, so auto-scroll has yielded. */}
       <AnimatePresence>
-        {readerMode === "teleprompter" && isAutoScrollPausedByUser && (
+        {isAutoScrollActive && isAutoScrollPausedByUser && (
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1078,12 +1082,12 @@ export default function ReaderChamber({
             </span>
             <button
                tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-                setIsAutoScrollPausedByUser(false);
-                // In teleprompter mode there is no voice to resume — just
-                // un-pausing auto-scroll is sufficient.
-                if (readerMode !== "teleprompter") {
-                  handleTogglePlayback();
-                }
+                // Narration is already playing; the user just scrolled away.
+                // resume() clears the yield debounce and restarts the engine
+                // immediately (and flips isAutoScrollPausedByUser off via its
+                // onYieldChange), so the click resumes scrolling right away
+                // instead of waiting out the 2000ms debounce.
+                resumeAutoScroll();
               }}
               className="bg-portal hover:bg-[#00c0ff] text-void text-xs font-sans font-medium px-4 py-1.5 rounded-full transition-colors flex items-center gap-1.5 cursor-pointer shadow-[0_0_10px_rgba(4,172,255,0.4)]"
             >
