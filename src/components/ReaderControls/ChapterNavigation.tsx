@@ -19,6 +19,7 @@ export function ChapterNavigation({ navigation, actions, isDesktop = false }: Pr
         <div className="flex items-center space-x-2 sm:space-x-4 bg-void border border-neutral-900 rounded-full px-2 py-1">
           <button onClick={navigatePrev}
             disabled={selectedChapterNum <= 1}
+            aria-label="Previous Chapter"
             className="px-2 sm:px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-portal disabled:opacity-25 disabled:pointer-events-none transition-colors text-[9px] sm:text-[10px] font-sc uppercase tracking-wider font-semibold focus:outline-none"
           >
             <ArrowLeft size={14} />
@@ -27,6 +28,7 @@ export function ChapterNavigation({ navigation, actions, isDesktop = false }: Pr
           </button>
           <div className="w-[1px] h-4 bg-neutral-800"></div>
           <button onClick={() => onSwitchTab && onSwitchTab("codex")}
+            aria-label="Open Codex"
             className="px-2 sm:px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-portal transition-colors text-[9px] sm:text-[10px] font-sc uppercase tracking-wider focus:outline-none"
           >
             <ListMusic size={14} />
@@ -35,6 +37,7 @@ export function ChapterNavigation({ navigation, actions, isDesktop = false }: Pr
           <div className="w-[1px] h-4 bg-neutral-800"></div>
           <button onClick={navigateNext}
             disabled={selectedChapterNum === maxChapterNum}
+            aria-label="Next Chapter"
             className="px-2 sm:px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-human disabled:opacity-25 disabled:pointer-events-none transition-colors text-[9px] sm:text-[10px] font-sc uppercase tracking-wider font-semibold focus:outline-none"
           >
             <span className="hidden sm:inline">Next Chapter</span>
@@ -69,9 +72,9 @@ export function ChapterNavigation({ navigation, actions, isDesktop = false }: Pr
         </button>
       )}
       <div className="flex items-center bg-void border border-neutral-800 rounded-full shrink-0">
-         <button onClick={navigatePrev} disabled={selectedChapterNum <= 1} className="p-2 text-neutral-400 disabled:opacity-20 hover:text-signal rounded-l-full focus:outline-none"> <ArrowLeft size={16}/> </button>
+         <button onClick={navigatePrev} disabled={selectedChapterNum <= 1} aria-label="Previous Chapter" className="p-2 text-neutral-400 disabled:opacity-20 hover:text-signal rounded-l-full focus:outline-none"> <ArrowLeft size={16}/> </button>
          <span className="text-[10px] font-mono text-neutral-400 select-none px-0.5">{selectedChapterNum}/{maxChapterNum}</span>
-         <button onClick={navigateNext} disabled={selectedChapterNum === maxChapterNum} className="p-2 text-neutral-400 disabled:opacity-20 hover:text-signal rounded-r-full focus:outline-none"> <ArrowRight size={16}/> </button>
+         <button onClick={navigateNext} disabled={selectedChapterNum === maxChapterNum} aria-label="Next Chapter" className="p-2 text-neutral-400 disabled:opacity-20 hover:text-signal rounded-r-full focus:outline-none"> <ArrowRight size={16}/> </button>
       </div>
     </div>
   );
