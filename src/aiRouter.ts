@@ -169,7 +169,8 @@ export async function* routeTextGenerationStream(
     };
   }
 
-  let { provider, model, temperature, maxOutputTokens } = activeConfig;
+  const { provider, temperature, maxOutputTokens } = activeConfig;
+  let { model } = activeConfig;
   model = resolveRouteModel(route, provider, model);
   if (process.env.NODE_ENV !== "production") {
     console.log(`[aiRouter] Streaming task '${routeKey}' via Route '${route}' -> Provider: '${provider}', Model: '${model}'`);
@@ -369,7 +370,8 @@ export async function routeTextGeneration(
     };
   }
 
-  let { provider, model, temperature, maxOutputTokens } = activeConfig;
+  const { provider, temperature, maxOutputTokens } = activeConfig;
+  let { model } = activeConfig;
   model = resolveRouteModel(route, provider, model);
   if (process.env.NODE_ENV !== "production") {
     console.log(`[aiRouter] Routing task '${routeKey}' via Route '${route}' -> Provider: '${provider}', Model: '${model}'`);
@@ -579,7 +581,8 @@ export async function routeImageGeneration(
     };
   }
 
-  let { provider, model } = activeConfig;
+  const { provider } = activeConfig;
+  let { model } = activeConfig;
   model = resolveRouteModel("imageGenerator", provider, model);
   if (process.env.NODE_ENV !== "production") {
     console.log(`[aiRouter] Routing Image task -> Provider: '${provider}', Model: '${model}'`);

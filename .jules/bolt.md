@@ -7,3 +7,6 @@
 ## 2026-07-08 - [AkashaRecord Refactoring]
 **Learning:** Monolithic components like `AkashaRecord.tsx` with complex internal conditional rendering logic can be cleanly refactored into smaller, dedicated panel components (e.g., `RealmPanel`, `CharactersPanel`).
 **Action:** Extract specific tab functionality into separate child components to improve code readability, maintainability, and ease of future updates, while keeping high-level shared logic (like delete confirmations) in the parent container.
+## 2026-07-08 - [LivingCodexCharacters Refactoring]
+**Learning:** Monolithic components like `LivingCodexCharacters` can be effectively refactored into modular components.
+**Action:** Extracted `CharacterCard`, `CharacterEditCard`, `LocationCard`, `CharacterProfile`, and `LocationProfile` to cleanly encapsulate logic.
