@@ -23,11 +23,15 @@
 export function resolveScrollTarget(
   container: HTMLElement | null,
 ): HTMLElement | null {
-  if (container && container.scrollHeight - container.clientHeight > 1) {
+  // No container → no target. Callers already guard on the container existing;
+  // returning the document scroller here would be a surprising fallback.
+  if (!container) return null;
+
+  if (container.scrollHeight - container.clientHeight > 1) {
     return container;
   }
   if (typeof document !== 'undefined') {
     return (document.scrollingElement as HTMLElement | null) || document.documentElement;
   }
-  return container;
+  return null;
 }
