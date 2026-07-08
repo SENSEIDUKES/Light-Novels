@@ -27,6 +27,13 @@ export interface UISlice {
   streamingChapter: StreamingChapter | null;
   isAutoScrolling: boolean;
   scrollSpeed: number;
+  /**
+   * Listening-mode intent. When true, a newly-manifested / newly-selected
+   * chapter auto-starts narration so the user doesn't re-press play each time.
+   * Deliberately NOT persisted — it resets on reload so a cold page load never
+   * tries to autoplay audio without a fresh user gesture.
+   */
+  autoPlayNarration: boolean;
 
   setCurrentScreen: (screen: 'home' | 'detail' | 'reader' | 'codex' | 'creator' | 'profile' | 'pricing' | 'challenge' | 'sects') => void;
   setSelectedChapterNum: (num: number) => void;
@@ -42,6 +49,7 @@ export interface UISlice {
   setStreamingChapter: (data: StreamingChapter | null) => void;
   setIsAutoScrolling: (isAutoScrolling: boolean) => void;
   setScrollSpeed: (speed: number) => void;
+  setAutoPlayNarration: (autoPlay: boolean) => void;
 }
 
 export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => ({
@@ -73,6 +81,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => (
 
   isAutoScrolling: false,
   scrollSpeed: 30, // Default 30px per second
+  autoPlayNarration: false,
 
   setCurrentScreen: (screen) => set({ currentScreen: screen }),
   setSelectedChapterNum: (num) => set({ selectedChapterNum: num }),
@@ -90,4 +99,5 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => (
   setStreamingChapter: (data) => set({ streamingChapter: data }),
   setIsAutoScrolling: (isAutoScrolling) => set({ isAutoScrolling }),
   setScrollSpeed: (scrollSpeed) => set({ scrollSpeed }),
+  setAutoPlayNarration: (autoPlayNarration) => set({ autoPlayNarration }),
 });
