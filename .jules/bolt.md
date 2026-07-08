@@ -1,4 +1,3 @@
-- Refactored `LivingCodexCharacters` into smaller components for readability and maintainability.
-- Extracted character and location card rendering logic into `CharacterCard`, `CharacterEditCard`, and `LocationCard`.
-- Extracted list view rendering logic into `CharacterProfile` and `LocationProfile`.
-- Verified changes with linting and unit tests.
+## 2024-07-08 - Ticking Clocks in React
+**Learning:** Ticking clocks in parent components using `setInterval` cause cascading re-renders of the whole tree.
+**Action:** Extract ticking clocks into separate isolated child components to prevent re-rendering the heavy parent component.
