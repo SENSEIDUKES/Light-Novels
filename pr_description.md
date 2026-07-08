@@ -1,3 +1,0 @@
-🎯 **What:** Adds unit tests for the \`IndexedDBStorageAdapter\` class, addressing the testing gap for the client-side local database logic.
-📊 **Coverage:** Covered all critical adapter operations including \`init()\`, \`getStories()\`, \`getStory()\`, \`saveStory()\`, \`deleteStory()\`, \`clearAll()\`, \`getChapterContent()\`, \`saveChapterContent()\`, and \`saveAudioBlob()\` / \`getAudioBlob()\` via a robust mocked IndexedDB implementation compatible with Vitest's JSDOM environment.
-✨ **Result:** Improved test coverage for persistent storage components, making local database operations resilient against regressions.
