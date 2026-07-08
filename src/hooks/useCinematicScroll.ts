@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useAppStore } from '../store/useAppStore';
+import { resolveScrollTarget } from '../lib/scrollTarget';
 
 /**
  * useCinematicScroll
@@ -101,11 +102,18 @@ export function useCinematicScroll(
 
       if (scrollAccumulator.current >= 1) {
         const pixelsToScroll = Math.floor(scrollAccumulator.current);
-        const maxScroll =
-          containerRef.current.scrollHeight - containerRef.current.clientHeight;
 
-        if (containerRef.current.scrollTop < maxScroll) {
-          containerRef.current.scrollTop += pixelsToScroll;
+        // The viewport div is styled to scroll, but the layout lets it grow
+        // instead of overflow — so the real scroll target is usually the
+        // document. Resolve it every frame so we drive whatever actually
+        // scrolls (and pick up the container once a fixed-height/fullscreen
+        // layout makes it overflow).
+        const target = resolveScrollTarget(containerRef.current);
+        if (target) {
+          const maxScroll = target.scrollHeight - target.clientHeight;
+          if (target.scrollTop < maxScroll) {
+            target.scrollTop += pixelsToScroll;
+          }
         }
         scrollAccumulator.current -= pixelsToScroll;
       }
