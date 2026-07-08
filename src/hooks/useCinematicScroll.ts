@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useAppStore } from '../store/useAppStore';
+import { resolveScrollTarget } from '../lib/scrollTarget';
 
 /**
  * useCinematicScroll
@@ -42,6 +43,12 @@ export function useCinematicScroll(
   const scrollAccumulator = useRef<number>(0);
   const isYieldingRef     = useRef<boolean>(false);
   const yieldTimeoutRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // Cache of the resolved scroll target. Resolving reads scrollHeight/
+  // clientHeight, so we throttle it (the target is very stable) to keep the
+  // per-frame hot path free of layout reads.
+  const scrollTargetRef   = useRef<HTMLElement | null>(null);
+  const targetResolvedAt  = useRef<number>(0);
 
   // Keep isActive readable from inside the rAF callback without stale closure
   const isActiveRef = useRef(isActive);
@@ -101,11 +108,23 @@ export function useCinematicScroll(
 
       if (scrollAccumulator.current >= 1) {
         const pixelsToScroll = Math.floor(scrollAccumulator.current);
-        const maxScroll =
-          containerRef.current.scrollHeight - containerRef.current.clientHeight;
 
-        if (containerRef.current.scrollTop < maxScroll) {
-          containerRef.current.scrollTop += pixelsToScroll;
+        // The viewport div is styled to scroll, but the layout lets it grow
+        // instead of overflow — so the real scroll target is usually the
+        // document. Resolve it (throttled: the target is stable and resolving
+        // reads layout) so we drive whatever actually scrolls, picking up the
+        // container once a fixed-height/fullscreen layout makes it overflow.
+        let target = scrollTargetRef.current;
+        if (target == null || time - targetResolvedAt.current > 1000) {
+          target = resolveScrollTarget(containerRef.current);
+          scrollTargetRef.current = target;
+          targetResolvedAt.current = time;
+        }
+        if (target) {
+          const maxScroll = target.scrollHeight - target.clientHeight;
+          if (target.scrollTop < maxScroll) {
+            target.scrollTop += pixelsToScroll;
+          }
         }
         scrollAccumulator.current -= pixelsToScroll;
       }

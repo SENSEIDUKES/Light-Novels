@@ -6,6 +6,7 @@ import { storyStorage } from "../lib/storage";
 import { buildSpeechChunks, SpeechChunk, TTS_WORDS_PER_SECOND_AT_RATE_1 } from "../lib/voice/webSpeechCast";
 import { useAudioSettings } from "./audio/useAudioSettings";
 import { useVoicePreferences } from "./audio/useVoicePreferences";
+import { resolveScrollTarget } from "../lib/scrollTarget";
 
 export const extractSFXCues = (text: string) => {
   const sfxList: string[] = [];
@@ -109,8 +110,15 @@ export function useReaderPlayback({
       if (!containerRef.current) return;
       const container = containerRef.current;
 
+      // Resolve whatever element actually scrolls. The viewport div is styled
+      // to scroll but the layout usually lets it grow instead of overflow, so
+      // the real scroll target is the document (window scroll). Measure against
+      // that same element so the velocity matches what useCinematicScroll drives.
+      const target = resolveScrollTarget(container);
+      if (!target) return;
+
       // Focus line sits ~⅓ down the viewport
-      const focusLineOffset = container.clientHeight / 3;
+      const focusLineOffset = target.clientHeight / 3;
 
       const blockEl = container.querySelector(
         `[data-block-index="${targetBlockIndex}"]`,
@@ -121,17 +129,14 @@ export function useReaderPlayback({
         return;
       }
 
-      // getBoundingClientRect gives viewport-relative coords.  We correct for
-      // the container's own viewport position and current scrollTop to get the
-      // block's offset within the scrollable content — robust regardless of
-      // whether the container is position:static or position:relative.
-      const containerRect = container.getBoundingClientRect();
+      // getBoundingClientRect gives viewport-relative coords. The distance the
+      // target must scroll to bring the block to the focus line is measured
+      // directly in viewport space — no scrollTop math needed, which keeps it
+      // correct whether the container itself scrolls or the document does.
       const blockRect = blockEl.getBoundingClientRect();
-      const offsetTop = blockRect.top - containerRect.top + container.scrollTop;
-
-      const targetScrollTop = Math.max(0, offsetTop - focusLineOffset);
-      const currentScrollTop = container.scrollTop;
-      const distance = targetScrollTop - currentScrollTop;
+      const referenceTop =
+        target === container ? container.getBoundingClientRect().top : 0;
+      const distance = blockRect.top - referenceTop - focusLineOffset;
       const durationSec = durationMs / 1000;
 
       if (durationSec <= 0) return;
