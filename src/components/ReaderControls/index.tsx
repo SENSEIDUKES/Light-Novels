@@ -26,6 +26,7 @@ export function ReaderControls({
               <ImmersionSettings audio={audio} immersion={immersion} actions={actions} isMobile />
               <button
                 onClick={() => onSwitchTab && onSwitchTab("codex")}
+                aria-label="Open Codex"
                 className="p-2 border border-neutral-800 rounded-full bg-void text-neutral-400 hover:text-portal transition-colors focus:outline-none"
                 title="Codex"
               >

@@ -39,6 +39,7 @@ export function ImmersionSettings({ audio, immersion: { immersion, setImmersion 
             </span>
           </div>
           <button onClick={() => setImmersion({ master: !immersion.master })}
+            aria-label="Toggle Master Immersion"
             className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
               immersion.master ? "bg-portal/80 shadow-[0_0_8px_rgba(4,172,255,0.4)]" : "bg-neutral-850"
             }`}
@@ -66,6 +67,7 @@ export function ImmersionSettings({ audio, immersion: { immersion, setImmersion 
             </div>
             <button onClick={() => immersion.master && setImmersion({ autoScroll: !immersion.autoScroll })}
               disabled={!immersion.master}
+              aria-label="Toggle Auto Scroll"
               className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
                 immersion.autoScroll ? "bg-portal/60" : "bg-neutral-850"
               }`}
@@ -90,6 +92,7 @@ export function ImmersionSettings({ audio, immersion: { immersion, setImmersion 
             </div>
             <button onClick={() => immersion.master && setImmersion({ audioCues: !immersion.audioCues })}
               disabled={!immersion.master}
+              aria-label="Toggle Audio Cues"
               className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
                 immersion.audioCues ? "bg-portal/60" : "bg-neutral-850"
               }`}
@@ -114,6 +117,7 @@ export function ImmersionSettings({ audio, immersion: { immersion, setImmersion 
             </div>
             <button onClick={() => immersion.master && setImmersion({ imagePopups: !immersion.imagePopups })}
               disabled={!immersion.master}
+              aria-label="Toggle Image Popups"
               className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
                 immersion.imagePopups ? "bg-portal/60" : "bg-neutral-850"
               }`}
@@ -138,6 +142,7 @@ export function ImmersionSettings({ audio, immersion: { immersion, setImmersion 
             </div>
             <button onClick={() => immersion.master && setImmersion({ sceneMusic: !immersion.sceneMusic })}
               disabled={!immersion.master}
+              aria-label="Toggle Scene Music"
               className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
                 immersion.sceneMusic ? "bg-portal/60" : "bg-neutral-850"
               }`}
@@ -155,6 +160,7 @@ export function ImmersionSettings({ audio, immersion: { immersion, setImmersion 
         {/* Collapsible Voice Settings */}
         <div className="border-t border-neutral-900 pt-2 mt-1">
           <button onClick={() => setShowVoiceDetail(!showVoiceDetail)}
+            aria-label="Toggle Voice Details"
             className="flex items-center justify-between w-full text-[9px] uppercase font-sc text-neutral-400 hover:text-signal transition-colors py-1 focus:outline-none"
           >
             <div className="text-left">
@@ -267,6 +273,7 @@ export function ImmersionSettings({ audio, immersion: { immersion, setImmersion 
     <div className="relative">
       <button
         onClick={() => setShowImmersionPopover(!showImmersionPopover)}
+        aria-label="Immersion Settings"
         className={`p-2 border rounded-full transition-colors focus:outline-none ${showImmersionPopover ? "bg-neutral-800 border-neutral-700 text-signal" : "bg-void border-neutral-800 hover:text-signal hover:bg-neutral-900 text-neutral-400"}`}
       >
         <Settings size={16} />
