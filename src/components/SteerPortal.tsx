@@ -1,4 +1,5 @@
 import { generateId } from '../lib/id';
+import { slimMemoryForRequest } from '../lib/slimMemoryForRequest';
 import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, ShieldAlert, ArrowRight, Zap, 
@@ -127,7 +128,7 @@ export default function SteerPortal({
           mcName: activeStory.mcName,
           genre: activeStory.genre,
           customPremise: activeStory.customPremise,
-          memory: activeStory.memory,
+          memory: slimMemoryForRequest(activeStory.memory),
           pastSummaries,
           currentArcCount: activeStory.arcs.length,
           estimatedArcs: activeStory.blueprint?.estimatedArcs,

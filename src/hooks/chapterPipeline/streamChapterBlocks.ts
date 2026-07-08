@@ -1,5 +1,6 @@
 import { Story, Chapter } from '../../types';
 import { extractJsonBlocks } from '../storyEngineHelpers';
+import { slimMemoryForRequest } from '../../lib/slimMemoryForRequest';
 
 export const streamChapterBlocks = async (
   activeStory: Story,
@@ -17,7 +18,9 @@ export const streamChapterBlocks = async (
       mcName: activeStory.mcName,
       genre: activeStory.genre,
       customPremise: activeStory.customPremise,
-      memory: activeStory.memory,
+      // Strip base64 media / embeddings so the body stays under the hosting edge's
+      // ~4.5 MB request cap — the prompt is text-only. (Fixes HTTP 413 on generation.)
+      memory: slimMemoryForRequest(activeStory.memory),
       pastSummaries,
       hardcoreFateMode: activeStory.hardcoreFateMode,
       fatePressure: activeStory.fatePressure,
