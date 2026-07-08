@@ -1,6 +1,13 @@
 import { retrieveRelevantContext } from '../../lib/rag';
 import { Story, Chapter } from '../../types';
 
+
+const progressionSignalPattern = /\b(breakthrough|level|rank|reward|skill|ability|power)\b/i;
+const progressionSummaryPattern = /\b(breakthrough|advanced|new ability|treasure|reward|cultivation gain|realm|rank|level-up)\b/i;
+const worldBreatherSignalPattern = /\b(market|village|festival|custom|rumor|aftermath|recovery|relationship|conversation|daily life|sect routine|travel|food|politics|explore)\b/i;
+
+const powerRushDirective = "NARRATIVE PULSE MANDATE: Recent chapters have accelerated progression too quickly. Avoid new realm/rank/level breakthroughs. Avoid major new treasures, cheats, system rewards, or combat abilities. Focus instead on lived-in world texture, consequences, relationships, faction reactions, customs, marketplace rumors, recovery, or minor side characters. End with a soft hook instead of a major power reward.";
+
 export const buildChapterContext = async (
   activeStory: Story,
   targetChapter: Chapter,
@@ -43,6 +50,33 @@ export const buildChapterContext = async (
       pacingDirective = "PACING SUGGESTION: Tension has been high recently. Consider naturally transitioning into a lower-stakes scenario soon, allowing characters to process recent events, sort loot, or cultivate quietly before the next major conflict.";
     } else if (normalizedFatigue <= 3.5) {
       pacingDirective = "PACING SUGGESTION: The story has been peaceful for a while. To prevent stagnation, it is time to introduce a new inciting incident, unexpected danger, or rising tension to keep the reader engaged.";
+    }
+
+    let progressionSignals = 0;
+    let worldBreatherSignals = 0;
+
+    recentChapters.forEach(c => {
+      if ((c.cuePayload?.powerShift ?? 0) > 0) {
+        progressionSignals += 1;
+      }
+
+      if (progressionSignalPattern.test(c.statsChangeMessage || '')) {
+        progressionSignals += 1;
+      }
+
+      const summaryPremiseText = `${c.summary || ''} ${c.premise || ''}`;
+      if (progressionSummaryPattern.test(summaryPremiseText)) {
+        progressionSignals += 1;
+      }
+      if (worldBreatherSignalPattern.test(summaryPremiseText)) {
+        worldBreatherSignals += 1;
+      }
+    });
+
+    if (progressionSignals >= 3 && worldBreatherSignals <= 1) {
+      pacingDirective = pacingDirective
+        ? `${pacingDirective} ${powerRushDirective}`
+        : powerRushDirective;
     }
   }
   
