@@ -36,6 +36,25 @@ export function getAIClient(customApiKey?: string) {
   return defaultAIClient;
 }
 
+const OPENROUTER_PRESET_MODELS = {
+  storyMaker: {
+    "@preset/light-novel-story": "deepseek/deepseek-v4-flash", // 
+  },
+  imageGenerator: {
+    "@preset/library-pictures": "black-forest-labs/flux.2-klein-4b", //
+  },
+} as const;
+
+function resolveRouteModel(
+  route: "storyMaker" | "imageGenerator",
+  provider: string,
+  model?: string
+) {
+  if (!model) return model;
+  if (provider !== "openrouter") return model;
+  return OPENROUTER_PRESET_MODELS[route]?.[model as keyof typeof OPENROUTER_PRESET_MODELS[typeof route]] || model;
+}
+
 // Router default presets
 export const ROUTER_PRESETS = {
   storyMaker: {
@@ -149,7 +168,8 @@ export async function* routeTextGenerationStream(
     };
   }
 
-  const { provider, model, temperature, maxOutputTokens } = activeConfig;
+  let { provider, model, temperature, maxOutputTokens } = activeConfig;
+  model = resolveRouteModel(route, provider, model);
   if (process.env.NODE_ENV !== "production") {
     console.log(`[aiRouter] Streaming task '${routeKey}' via Route '${route}' -> Provider: '${provider}', Model: '${model}'`);
   }
@@ -348,7 +368,8 @@ export async function routeTextGeneration(
     };
   }
 
-  const { provider, model, temperature, maxOutputTokens } = activeConfig;
+  let { provider, model, temperature, maxOutputTokens } = activeConfig;
+  model = resolveRouteModel(route, provider, model);
   if (process.env.NODE_ENV !== "production") {
     console.log(`[aiRouter] Routing task '${routeKey}' via Route '${route}' -> Provider: '${provider}', Model: '${model}'`);
   }
@@ -557,7 +578,8 @@ export async function routeImageGeneration(
     };
   }
 
-  const { provider, model } = activeConfig;
+  let { provider, model } = activeConfig;
+  model = resolveRouteModel("imageGenerator", provider, model);
   if (process.env.NODE_ENV !== "production") {
     console.log(`[aiRouter] Routing Image task -> Provider: '${provider}', Model: '${model}'`);
   }
