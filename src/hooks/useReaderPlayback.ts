@@ -121,13 +121,13 @@ export function useReaderPlayback({
         return;
       }
 
-      // Walk offsetParent chain to get the block's top relative to the container
-      let offsetTop = 0;
-      let el: HTMLElement | null = blockEl;
-      while (el && el !== container) {
-        offsetTop += el.offsetTop;
-        el = el.offsetParent as HTMLElement | null;
-      }
+      // getBoundingClientRect gives viewport-relative coords.  We correct for
+      // the container's own viewport position and current scrollTop to get the
+      // block's offset within the scrollable content — robust regardless of
+      // whether the container is position:static or position:relative.
+      const containerRect = container.getBoundingClientRect();
+      const blockRect = blockEl.getBoundingClientRect();
+      const offsetTop = blockRect.top - containerRect.top + container.scrollTop;
 
       const targetScrollTop = Math.max(0, offsetTop - focusLineOffset);
       const currentScrollTop = container.scrollTop;
@@ -275,7 +275,9 @@ export function useReaderPlayback({
         let durationMs = (audio.duration * 1000) / audio.playbackRate;
         if (!isFinite(durationMs) || durationMs <= 0) {
           const blockText = selectedChapter?.blocks?.[blockIndex]?.text || "";
-          const wordCount = blockText.split(/\s+/).length || 10;
+          // .split(/\s+/) on an empty string returns [''] (length 1); trimming
+          // and filtering avoids that off-by-one and correctly uses the fallback.
+          const wordCount = blockText.trim().split(/\s+/).filter(Boolean).length || 10;
           durationMs =
             (wordCount / (speechRateRef.current * TTS_WORDS_PER_SECOND_AT_RATE_1)) * 1000 || 4000;
         }
@@ -338,7 +340,9 @@ export function useReaderPlayback({
       return;
     }
 
-    const wordCount = chunkData.text.split(/\s+/).length || 0;
+    // .split(/\s+/) on an empty string returns [''] (length 1), so we trim and
+    // filter to get an accurate word count.  The || 0 keeps the type happy.
+    const wordCount = chunkData.text.trim().split(/\s+/).filter(Boolean).length || 0;
     const estimatedDurationMs =
       (wordCount / (speechRateRef.current * TTS_WORDS_PER_SECOND_AT_RATE_1)) * 1000;
     const currentPara = chunkData.paragraphIndex ?? -1;

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useAppStore } from '../store/useAppStore';
 
 /**
@@ -32,6 +32,7 @@ export function useCinematicScroll(
   containerRef: React.RefObject<HTMLElement | null>,
   isActive: boolean,
   ttsVelocityRef?: React.MutableRefObject<number | null>,
+  onYieldChange?: (yielded: boolean) => void,
 ) {
   const scrollSpeed = useAppStore((state) => state.scrollSpeed);
 
@@ -72,57 +73,65 @@ export function useCinematicScroll(
     return () => mq.removeEventListener('change', onChange);
   }, []);
 
-  // --- rAF loop ------------------------------------------------------------
-  // We use a plain ref (not useCallback/useEffect dependency) so the function
-  // always reads the latest refs without needing to be recreated.
-  const animateRef = useRef<(time: number) => void>(() => {});
+  // --- rAF loop (useCallback so the closure is stable & dependency-aware) --
+  // Using useCallback means the animate function is recreated only when its
+  // deps change (containerRef, ttsVelocityRef), not on every render.  All hot
+  // refs (isActiveRef, scrollSpeedRef, prefersReducedMotionRef, isYieldingRef)
+  // are read at call time via refs so they don't need to be in the dep array.
+  const animate = useCallback((time: number) => {
+    if (isYieldingRef.current || !isActiveRef.current || prefersReducedMotionRef.current) {
+      lastTimeRef.current = undefined;
+      return;
+    }
 
-  useEffect(() => {
-    animateRef.current = (time: number) => {
-      // Stop if: user yielded, scroll disabled, or reduced-motion preference
-      if (isYieldingRef.current || !isActiveRef.current || prefersReducedMotionRef.current) {
-        lastTimeRef.current = undefined;
-        return;
-      }
+    if (lastTimeRef.current != null && containerRef.current) {
+      const deltaTime = time - lastTimeRef.current;
 
-      if (lastTimeRef.current != null && containerRef.current) {
-        const deltaTime = time - lastTimeRef.current;
+      // Pick velocity source: TTS-paced overrides constant free-scroll
+      const velocity =
+        ttsVelocityRef != null && ttsVelocityRef.current != null
+          ? ttsVelocityRef.current
+          : scrollSpeedRef.current;
 
-        // Pick velocity source: TTS-paced overrides constant free-scroll
-        const velocity =
-          ttsVelocityRef != null && ttsVelocityRef.current != null
-            ? ttsVelocityRef.current
-            : scrollSpeedRef.current;
+      // v = d/t → d = v * t  (scrollSpeed is px/sec, deltaTime is ms)
+      const scrollAmount = (velocity * deltaTime) / 1000;
 
-        // v = d/t → d = v * t  (scrollSpeed is px/sec, deltaTime is ms)
-        const scrollAmount = (velocity * deltaTime) / 1000;
+      // Sub-pixel accumulator — avoids integer-rounding stutter
+      scrollAccumulator.current += scrollAmount;
 
-        // Sub-pixel accumulator — avoids integer-rounding stutter
-        scrollAccumulator.current += scrollAmount;
+      if (scrollAccumulator.current >= 1) {
+        const pixelsToScroll = Math.floor(scrollAccumulator.current);
+        const maxScroll =
+          containerRef.current.scrollHeight - containerRef.current.clientHeight;
 
-        if (scrollAccumulator.current >= 1) {
-          const pixelsToScroll = Math.floor(scrollAccumulator.current);
-          const maxScroll =
-            containerRef.current.scrollHeight - containerRef.current.clientHeight;
-
-          if (containerRef.current.scrollTop < maxScroll) {
-            containerRef.current.scrollTop += pixelsToScroll;
-          }
-          scrollAccumulator.current -= pixelsToScroll;
+        if (containerRef.current.scrollTop < maxScroll) {
+          containerRef.current.scrollTop += pixelsToScroll;
         }
+        scrollAccumulator.current -= pixelsToScroll;
       }
+    }
 
-      lastTimeRef.current = time;
-      requestRef.current = requestAnimationFrame(animateRef.current);
-    };
-  });
+    lastTimeRef.current = time;
+    requestRef.current = requestAnimationFrame(animate);
+  }, [containerRef, ttsVelocityRef]); // scrollSpeedRef read via ref — no dep needed
 
   // --- Start / stop lifecycle ----------------------------------------------
+  // When isActive becomes true we also clear any in-flight yield state so that
+  // "Resume Reading" works immediately even if the 2000ms debounce is still
+  // running (fixes the immediate-resume bug from the code review).
   useEffect(() => {
-    if (isActive && !isYieldingRef.current && !prefersReducedMotionRef.current) {
-      lastTimeRef.current = undefined;
-      scrollAccumulator.current = 0;
-      requestRef.current = requestAnimationFrame(animateRef.current);
+    if (isActive) {
+      isYieldingRef.current = false;
+      onYieldChange?.(false);
+      if (yieldTimeoutRef.current !== undefined) {
+        clearTimeout(yieldTimeoutRef.current);
+        yieldTimeoutRef.current = undefined;
+      }
+      if (!prefersReducedMotionRef.current) {
+        lastTimeRef.current = undefined;
+        scrollAccumulator.current = 0;
+        requestRef.current = requestAnimationFrame(animate);
+      }
     }
     return () => {
       if (requestRef.current !== undefined) {
@@ -130,7 +139,7 @@ export function useCinematicScroll(
         requestRef.current = undefined;
       }
     };
-  }, [isActive]);
+  }, [isActive, animate, onYieldChange]);
 
   // --- User yield: pause on interaction, resume after 2000 ms -------------
   useEffect(() => {
@@ -150,7 +159,11 @@ export function useCinematicScroll(
         }
       }
 
-      isYieldingRef.current = true;
+      // Only fire onYieldChange once per yield session (not on every wheel tick)
+      if (!isYieldingRef.current) {
+        isYieldingRef.current = true;
+        onYieldChange?.(true);
+      }
 
       if (requestRef.current !== undefined) {
         cancelAnimationFrame(requestRef.current);
@@ -165,10 +178,11 @@ export function useCinematicScroll(
       // Resume auto-scroll 2000ms after the last user interaction
       yieldTimeoutRef.current = setTimeout(() => {
         isYieldingRef.current = false;
+        onYieldChange?.(false);
         if (isActiveRef.current && !prefersReducedMotionRef.current) {
           lastTimeRef.current = undefined;
           scrollAccumulator.current = 0;
-          requestRef.current = requestAnimationFrame(animateRef.current);
+          requestRef.current = requestAnimationFrame(animate);
         }
       }, 2000);
     };
@@ -187,6 +201,6 @@ export function useCinematicScroll(
         clearTimeout(yieldTimeoutRef.current);
       }
     };
-  }, [containerRef]);
+  }, [containerRef, onYieldChange, animate]);
 }
 
