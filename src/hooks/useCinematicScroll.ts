@@ -245,5 +245,31 @@ export function useCinematicScroll(
       }
     };
   }, [containerRef, onYieldChange, animate]);
+
+  // --- Imperative resume ---------------------------------------------------
+  // Cancels the pending 2000ms debounce and restarts the loop right away.
+  // `isActive` is driven by playback state (not the yield flag), so a "Resume
+  // Reading" click can't rely on an isActive change to re-run the start effect;
+  // this gives the UI a direct way to resume without waiting out the debounce.
+  const resume = useCallback(() => {
+    if (yieldTimeoutRef.current !== undefined) {
+      clearTimeout(yieldTimeoutRef.current);
+      yieldTimeoutRef.current = undefined;
+    }
+    isYieldingRef.current = false;
+    onYieldChange?.(false);
+    if (
+      isActiveRef.current &&
+      !prefersReducedMotionRef.current &&
+      requestRef.current === undefined
+    ) {
+      lastTimeRef.current = undefined;
+      currentVelocity.current = 0;   // ramp up smoothly
+      scrollPosRef.current = null;    // user may have scrolled — re-sync
+      requestRef.current = requestAnimationFrame(animate);
+    }
+  }, [animate, onYieldChange]);
+
+  return { resume };
 }
 

@@ -215,7 +215,7 @@ export default function ReaderChamber({
   // the engine is idle and the reader scrolls manually. onYieldChange syncs
   // the pause overlay.
   const isAutoScrollActive = isPlayingText && !isPausedText;
-  useCinematicScroll(
+  const { resume: resumeAutoScroll } = useCinematicScroll(
     readerRef,
     isAutoScrollActive,
     ttsVelocityRef,
@@ -1083,8 +1083,11 @@ export default function ReaderChamber({
             <button
                tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                 // Narration is already playing; the user just scrolled away.
-                // Un-pausing auto-scroll lets the engine resume following it.
-                setIsAutoScrollPausedByUser(false);
+                // resume() clears the yield debounce and restarts the engine
+                // immediately (and flips isAutoScrollPausedByUser off via its
+                // onYieldChange), so the click resumes scrolling right away
+                // instead of waiting out the 2000ms debounce.
+                resumeAutoScroll();
               }}
               className="bg-portal hover:bg-[#00c0ff] text-void text-xs font-sans font-medium px-4 py-1.5 rounded-full transition-colors flex items-center gap-1.5 cursor-pointer shadow-[0_0_10px_rgba(4,172,255,0.4)]"
             >

@@ -102,6 +102,44 @@ describe('useCinematicScroll — smooth motion', () => {
     expect(laterStep).toBeGreaterThan(firstStep);
   });
 
+  it('resume() restarts the loop immediately after a user yield (no 2s wait)', () => {
+    const container = makeMockContainer();
+    const containerRef = { current: container } as React.RefObject<HTMLDivElement>;
+    const ttsVelocityRef = { current: null } as React.MutableRefObject<number | null>;
+    const onYield = vi.fn();
+
+    const { result } = renderHook(() =>
+      useCinematicScroll(containerRef, true, ttsVelocityRef, onYield),
+    );
+
+    // Establish motion.
+    frame(0);
+    frame(100);
+    const beforeYield = container.scrollTop;
+    expect(beforeYield).toBeGreaterThan(0);
+
+    // User scrolls → engine yields (cancels its rAF; there is no live frameCb).
+    act(() => {
+      container.dispatchEvent(new Event('wheel'));
+    });
+    expect(onYield).toHaveBeenLastCalledWith(true);
+    frameCb = null;
+
+    // Click "Resume Reading" → imperative resume re-registers a frame callback
+    // and reports the un-yield, without waiting for the 2000ms debounce.
+    act(() => {
+      result.current.resume();
+    });
+    expect(onYield).toHaveBeenLastCalledWith(false);
+    expect(frameCb).not.toBeNull();
+
+    // And the newly-restarted loop advances again.
+    const resumeBase = container.scrollTop;
+    frame(200);
+    frame(300);
+    expect(container.scrollTop).toBeGreaterThan(resumeBase);
+  });
+
   it('never scrolls past the bottom of the content', () => {
     const container = makeMockContainer(600, 500); // only 100px of scroll range
     const containerRef = { current: container } as React.RefObject<HTMLDivElement>;
