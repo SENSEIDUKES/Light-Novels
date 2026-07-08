@@ -5,7 +5,7 @@ const progressionSignalPattern = /\b(breakthroughs?|levels?|ranks?|rewards?|skil
 const progressionSummaryPattern = /\b(breakthroughs?|advanced|new abilit(y|ies)|treasures?|rewards?|cultivation gains?|realms?|ranks?|level-ups?)\b/i;
 const worldBreatherSignalPattern = /\b(markets?|villages?|festivals?|customs?|rumors?|aftermaths?|recover(y|ies)|relationships?|conversations?|daily life|sect routines?|travels?|foods?|politics|explor(e|es|ing|ed))\b/i;
 
-const powerRushDirective = "NARRATIVE PULSE MANDATE: Recent chapters have accelerated progression too quickly. Avoid new realm/rank/level breakthroughs. Avoid major new treasures, cheats, system rewards, or combat abilities. Focus instead on lived-in world texture, consequences, relationships, faction reactions, customs, marketplace rumors, recovery, or minor side characters. End with a soft hook instead of a major power reward.";
+const powerRushDirective = "NARRATIVE PULSE MANDATE: Recent chapters have accelerated progression too quickly. Do not force new realm/rank/level breakthroughs unless the current chapter premise explicitly requires one. Avoid major new treasures, cheats, system rewards, or combat abilities. Focus instead on lived-in world texture, consequences, relationships, faction reactions, customs, marketplace rumors, recovery, or minor side characters. End with a soft narrative hook, unresolved emotion, rumor, clue, or social consequence instead of a major power reward.";
 
 export const buildChapterContext = async (
   activeStory: Story,
