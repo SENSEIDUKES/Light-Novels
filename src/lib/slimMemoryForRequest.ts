@@ -27,14 +27,23 @@ const HEAVY_KEYS = new Set([
   'thumbnail',
 ]);
 
+// Matches genuine data URIs ("data:<mime>/<subtype>[;...][,...]") without tripping on
+// ordinary prose that merely begins with "data:".
+const DATA_URI = /^data:[\w+.-]+\/[\w+.-]+[,;]/;
+
+// Only descend into plain objects — a Date/Map/Set/RegExp must be passed through
+// untouched rather than rebuilt into an empty object.
+const isPlainObject = (val: any): boolean =>
+  Object.prototype.toString.call(val) === '[object Object]';
+
 const strip = (value: any): any => {
   if (Array.isArray(value)) return value.map(strip);
-  if (value && typeof value === 'object') {
+  if (isPlainObject(value)) {
     const out: Record<string, any> = {};
     for (const [key, v] of Object.entries(value)) {
       if (HEAVY_KEYS.has(key)) continue;
       // Drop base64 data-URIs stored under any key (belt-and-suspenders).
-      if (typeof v === 'string' && v.startsWith('data:')) continue;
+      if (typeof v === 'string' && DATA_URI.test(v)) continue;
       out[key] = strip(v);
     }
     return out;

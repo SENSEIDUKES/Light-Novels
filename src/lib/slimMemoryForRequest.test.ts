@@ -71,4 +71,27 @@ describe('slimMemoryForRequest', () => {
     expect(slimMemoryForRequest(null as any)).toEqual({});
     expect(slimMemoryForRequest(undefined as any)).toEqual({});
   });
+
+  it('keeps narrative text that merely starts with "data:" (no false positive)', () => {
+    const mem = {
+      worldRules: ['data: the ancient records were sealed away'],
+      characters: [
+        { id: 'c1', name: 'Scribe', description: 'data: keeper of forbidden archives', status: 'alive' },
+      ],
+    } as unknown as StoryMemory;
+    const slim = slimMemoryForRequest(mem);
+    expect((slim.worldRules as any)[0]).toBe('data: the ancient records were sealed away');
+    expect(slim.characters[0].description).toBe('data: keeper of forbidden archives');
+  });
+
+  it('still strips genuine data: URIs under arbitrary keys', () => {
+    const mem = {
+      characters: [
+        { id: 'c1', name: 'X', status: 'alive', portrait: 'data:image/jpeg;base64,/9j/' + 'Z'.repeat(2000) },
+      ],
+    } as unknown as StoryMemory;
+    const serialized = JSON.stringify(slimMemoryForRequest(mem));
+    expect(serialized).not.toContain('data:image');
+    expect(serialized).toContain('"name":"X"');
+  });
 });
