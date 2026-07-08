@@ -1,10 +1,9 @@
 import { retrieveRelevantContext } from '../../lib/rag';
 import { Story, Chapter } from '../../types';
 
-
-const progressionSignalPattern = /\b(breakthrough|level|rank|reward|skill|ability|power)\b/i;
-const progressionSummaryPattern = /\b(breakthrough|advanced|new ability|treasure|reward|cultivation gain|realm|rank|level-up)\b/i;
-const worldBreatherSignalPattern = /\b(market|village|festival|custom|rumor|aftermath|recovery|relationship|conversation|daily life|sect routine|travel|food|politics|explore)\b/i;
+const progressionSignalPattern = /\b(breakthroughs?|levels?|ranks?|rewards?|skills?|abilit(y|ies)|powers?)\b/i;
+const progressionSummaryPattern = /\b(breakthroughs?|advanced|new abilit(y|ies)|treasures?|rewards?|cultivation gains?|realms?|ranks?|level-ups?)\b/i;
+const worldBreatherSignalPattern = /\b(markets?|villages?|festivals?|customs?|rumors?|aftermaths?|recover(y|ies)|relationships?|conversations?|daily life|sect routines?|travels?|foods?|politics|explor(e|es|ing|ed))\b/i;
 
 const powerRushDirective = "NARRATIVE PULSE MANDATE: Recent chapters have accelerated progression too quickly. Avoid new realm/rank/level breakthroughs. Avoid major new treasures, cheats, system rewards, or combat abilities. Focus instead on lived-in world texture, consequences, relationships, faction reactions, customs, marketplace rumors, recovery, or minor side characters. End with a soft hook instead of a major power reward.";
 
@@ -56,18 +55,25 @@ export const buildChapterContext = async (
     let worldBreatherSignals = 0;
 
     recentChapters.forEach(c => {
+      let hasProgression = false;
+
       if ((c.cuePayload?.powerShift ?? 0) > 0) {
-        progressionSignals += 1;
+        hasProgression = true;
       }
 
       if (progressionSignalPattern.test(c.statsChangeMessage || '')) {
-        progressionSignals += 1;
+        hasProgression = true;
       }
 
       const summaryPremiseText = `${c.summary || ''} ${c.premise || ''}`;
       if (progressionSummaryPattern.test(summaryPremiseText)) {
+        hasProgression = true;
+      }
+
+      if (hasProgression) {
         progressionSignals += 1;
       }
+
       if (worldBreatherSignalPattern.test(summaryPremiseText)) {
         worldBreatherSignals += 1;
       }
