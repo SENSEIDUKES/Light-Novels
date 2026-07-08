@@ -1,4 +1,5 @@
 import { generateId } from '../lib/id';
+import { slimMemoryForRequest } from '../lib/slimMemoryForRequest';
 import { useAppStore } from '../store/useAppStore';
 import { retrieveRelevantContext } from '../lib/rag';
 import { Chapter, StoryArc, StoryWorld } from '../types';
@@ -66,7 +67,7 @@ export const useArcSteering = () => {
           mcName: activeStory.mcName,
           genre: activeStory.genre,
           customPremise: activeStory.customPremise,
-          memory: activeStory.memory,
+          memory: slimMemoryForRequest(activeStory.memory),
           pastSummaries,
           currentArcCount: totalPreviousChapters,
           steerDirection: direction,
@@ -241,7 +242,7 @@ export const useArcSteering = () => {
           mcName: newStory.mcName,
           genre: newStory.genre,
           customPremise: newStory.customPremise,
-          memory: newStory.memory,
+          memory: slimMemoryForRequest(newStory.memory),
           pastSummaries,
           currentArcCount: totalPreviousChapters,
           steerDirection: direction,

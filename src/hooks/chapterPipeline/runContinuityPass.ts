@@ -3,6 +3,7 @@ import {
   classifyContinuityWarnings,
   extractProseForContinuity,
 } from './verifyContinuityWarnings';
+import { slimMemoryForRequest } from '../../lib/slimMemoryForRequest';
 
 export type ContinuityPhase = 'checking' | 'repairing';
 
@@ -35,6 +36,10 @@ export const runContinuityPass = async (
   let continuitySoftNotes: string[] = [];
   let currentRawBlocksStr = finalRawBlocksStr;
 
+  // Strip base64 media / embeddings so these requests also stay under the hosting
+  // edge's ~4.5 MB body cap (the guard only reads text/status fields).
+  const slimMemory = slimMemoryForRequest(activeStory.memory);
+
   const checkConsistency = async (rawBlocksStr: string) => {
     // Only the reader-facing prose is sent to the guard — world-card/image/codex
     // metadata is stripped so it can never be mistaken for lore drift.
@@ -44,7 +49,7 @@ export const runContinuityPass = async (
       headers: apiHeaders,
       body: JSON.stringify({
         chapterText: prose,
-        memory: activeStory.memory,
+        memory: slimMemory,
         routingConfig,
       }),
     });
@@ -73,7 +78,7 @@ export const runContinuityPass = async (
           headers: apiHeaders,
           body: JSON.stringify({
             chapterText: currentRawBlocksStr,
-            memory: activeStory.memory,
+            memory: slimMemory,
             warnings: classified.severe,
             routingConfig,
           }),
