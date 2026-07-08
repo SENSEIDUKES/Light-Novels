@@ -38,10 +38,10 @@ export function getAIClient(customApiKey?: string) {
 
 const OPENROUTER_PRESET_MODELS = {
   storyMaker: {
-    "@preset/light-novel-story": "deepseek/deepseek-v4-flash", // 
+    "@preset/light-novel-story": "deepseek/deepseek-v4-flash",
   },
   imageGenerator: {
-    "@preset/library-pictures": "black-forest-labs/flux.2-klein-4b", //
+    "@preset/library-pictures": "black-forest-labs/flux.2-klein-4b",
   },
 } as const;
 
@@ -52,7 +52,8 @@ function resolveRouteModel(
 ) {
   if (!model) return model;
   if (provider !== "openrouter") return model;
-  return OPENROUTER_PRESET_MODELS[route]?.[model as keyof typeof OPENROUTER_PRESET_MODELS[typeof route]] || model;
+  const presets = OPENROUTER_PRESET_MODELS[route] as Record<string, string>;
+  return presets[model] || model;
 }
 
 // Router default presets
@@ -584,7 +585,7 @@ export async function routeImageGeneration(
     console.log(`[aiRouter] Routing Image task -> Provider: '${provider}', Model: '${model}'`);
   }
 
-  const styleEnhancer = model === "@preset/library-pictures"
+  const styleEnhancer = activeConfig.model === "@preset/library-pictures"
     ? "highly-detailed fantasy illustration, premium light novel art style, vibrant and crisp book illustration, cinematic lighting, masterpiece"
     : type === "location"
     ? "mystical landscape, fantasy environment concept art, high-energy light novel scenery, dramatic lighting, celestial aura, beautiful composition, vibrant colors"
@@ -684,7 +685,7 @@ export async function routeImageGeneration(
       };
     }
   } else if (provider === "openrouter") {
-    const imageModel = model === "@preset/library-pictures" ? "stabilityai/stable-diffusion-xl" : model || "black-forest-labs/flux.2-klein-4b";
+    const imageModel = activeConfig.model === "@preset/library-pictures" ? "stabilityai/stable-diffusion-xl" : model || "black-forest-labs/flux.2-klein-4b";
 
     try {
       const apiKey = customKeys?.openrouterApiKey || process.env.OPENROUTER_API_KEY;
