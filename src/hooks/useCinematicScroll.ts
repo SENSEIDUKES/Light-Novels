@@ -3,6 +3,16 @@ import { useAppStore } from '../store/useAppStore';
 import { resolveScrollTarget } from '../lib/scrollTarget';
 
 /**
+ * Time constant (ms) for easing the scroll velocity toward its target. Larger =
+ * gentler, laggier; smaller = snappier, more abrupt. ~220ms glides through TTS
+ * chunk-boundary velocity changes without visibly trailing the narration.
+ */
+const VELOCITY_EASE_MS = 220;
+
+/** Cap the per-frame time step so a backgrounded tab can't produce one huge jump. */
+const MAX_FRAME_MS = 50;
+
+/**
  * useCinematicScroll
  *
  * The ONE and only auto-scroll engine for the SEIHOUSE reader.
@@ -40,7 +50,13 @@ export function useCinematicScroll(
   // --- Refs that persist across renders without causing re-renders ----------
   const requestRef        = useRef<number | undefined>(undefined);
   const lastTimeRef       = useRef<number | undefined>(undefined);
-  const scrollAccumulator = useRef<number>(0);
+  // Actual float scroll position we drive; written back to the target each
+  // frame. null = "re-sync from the element on the next frame" (used on start,
+  // resume, or when the resolved target changes).
+  const scrollPosRef      = useRef<number | null>(null);
+  // Eased velocity (px/sec). We glide this toward the target velocity so abrupt
+  // changes — a new TTS chunk, or the very first frame — don't jerk the page.
+  const currentVelocity   = useRef<number>(0);
   const isYieldingRef     = useRef<boolean>(false);
   const yieldTimeoutRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -92,41 +108,47 @@ export function useCinematicScroll(
     }
 
     if (lastTimeRef.current != null && containerRef.current) {
-      const deltaTime = time - lastTimeRef.current;
+      const deltaTime = Math.min(time - lastTimeRef.current, MAX_FRAME_MS);
 
-      // Pick velocity source: TTS-paced overrides constant free-scroll
-      const velocity =
-        ttsVelocityRef != null && ttsVelocityRef.current != null
-          ? ttsVelocityRef.current
-          : scrollSpeedRef.current;
-
-      // v = d/t → d = v * t  (scrollSpeed is px/sec, deltaTime is ms)
-      const scrollAmount = (velocity * deltaTime) / 1000;
-
-      // Sub-pixel accumulator — avoids integer-rounding stutter
-      scrollAccumulator.current += scrollAmount;
-
-      if (scrollAccumulator.current >= 1) {
-        const pixelsToScroll = Math.floor(scrollAccumulator.current);
-
-        // The viewport div is styled to scroll, but the layout lets it grow
-        // instead of overflow — so the real scroll target is usually the
-        // document. Resolve it (throttled: the target is stable and resolving
-        // reads layout) so we drive whatever actually scrolls, picking up the
-        // container once a fixed-height/fullscreen layout makes it overflow.
-        let target = scrollTargetRef.current;
-        if (target == null || time - targetResolvedAt.current > 1000) {
-          target = resolveScrollTarget(containerRef.current);
-          scrollTargetRef.current = target;
-          targetResolvedAt.current = time;
+      // The viewport div is styled to scroll, but the layout lets it grow
+      // instead of overflow — so the real scroll target is usually the
+      // document. Resolve it (throttled: the target is stable and resolving
+      // reads layout) so we drive whatever actually scrolls, picking up the
+      // container once a fixed-height/fullscreen layout makes it overflow.
+      let target = scrollTargetRef.current;
+      if (target == null || time - targetResolvedAt.current > 1000) {
+        const resolved = resolveScrollTarget(containerRef.current);
+        if (resolved !== target) {
+          target = resolved;
+          scrollTargetRef.current = resolved;
+          // New element → re-sync our float position to its real offset.
+          scrollPosRef.current = resolved ? resolved.scrollTop : null;
         }
-        if (target) {
-          const maxScroll = target.scrollHeight - target.clientHeight;
-          if (target.scrollTop < maxScroll) {
-            target.scrollTop += pixelsToScroll;
-          }
-        }
-        scrollAccumulator.current -= pixelsToScroll;
+        targetResolvedAt.current = time;
+      }
+
+      if (target) {
+        // Target velocity: TTS-paced overrides constant free-scroll.
+        const targetVelocity =
+          ttsVelocityRef != null && ttsVelocityRef.current != null
+            ? ttsVelocityRef.current
+            : scrollSpeedRef.current;
+
+        // Ease the actual velocity toward the target (frame-rate independent).
+        const smoothing = 1 - Math.exp(-deltaTime / VELOCITY_EASE_MS);
+        currentVelocity.current += (targetVelocity - currentVelocity.current) * smoothing;
+
+        // Drive a float position and write it back each frame. Fractional
+        // scrollTop lets the browser step by device pixels (especially on
+        // HiDPI screens) instead of jumping whole CSS pixels — the integer
+        // flooring is what made low-speed scrolling look stuttery/choppy.
+        if (scrollPosRef.current == null) scrollPosRef.current = target.scrollTop;
+        const maxScroll = Math.max(0, target.scrollHeight - target.clientHeight);
+        scrollPosRef.current = Math.min(
+          scrollPosRef.current + (currentVelocity.current * deltaTime) / 1000,
+          maxScroll,
+        );
+        target.scrollTop = scrollPosRef.current;
       }
     }
 
@@ -148,7 +170,8 @@ export function useCinematicScroll(
       }
       if (!prefersReducedMotionRef.current) {
         lastTimeRef.current = undefined;
-        scrollAccumulator.current = 0;
+        currentVelocity.current = 0;     // ramp up smoothly from rest
+        scrollPosRef.current = null;      // re-sync to the live scroll offset
         requestRef.current = requestAnimationFrame(animate);
       }
     }
@@ -200,7 +223,8 @@ export function useCinematicScroll(
         onYieldChange?.(false);
         if (isActiveRef.current && !prefersReducedMotionRef.current) {
           lastTimeRef.current = undefined;
-          scrollAccumulator.current = 0;
+          currentVelocity.current = 0;    // ramp up smoothly after a yield
+          scrollPosRef.current = null;     // user may have scrolled — re-sync
           requestRef.current = requestAnimationFrame(animate);
         }
       }, 2000);
