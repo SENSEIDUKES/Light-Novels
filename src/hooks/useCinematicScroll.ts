@@ -4,125 +4,203 @@ import { useAppStore } from '../store/useAppStore';
 /**
  * useCinematicScroll
  *
- * Flawless, cinematic "requestAnimationFrame" engine for infinite auto-scrolling.
- * Reads global scroll state and physically increments scrollTop using a sub-pixel
- * accumulator for maximum frame-by-frame smoothness.
+ * The ONE and only auto-scroll engine for the SEIHOUSE reader.
+ *
+ * Two modes — selected automatically:
+ *
+ * 1. **TTS-paced** (when `ttsVelocityRef` is provided and non-null):
+ *    Velocity is computed externally by `useReaderPlayback` from narration
+ *    `block` events.  The formula is:
+ *      velocity = (DOM top of next block − current scrollTop at focus line)
+ *               ÷ (durationMs / 1000)
+ *    The constant `scrollSpeed` store value is ignored while voice is playing.
+ *
+ * 2. **Constant free-scroll** (when `ttsVelocityRef` is null/undefined):
+ *    Reads `scrollSpeed` from the global store (px/sec).  Used for the
+ *    teleprompter / "free" auto-scroll mode when no voice is active.
+ *
+ * UX invariants:
+ * - Sub-pixel accumulator for smooth, stutter-free motion every frame.
+ * - User wheel / touchstart / touchmove / keyboard (arrow keys, Space,
+ *   PageUp/Down, Home/End) instantly yields control; resumes after 2000 ms
+ *   of inactivity.
+ * - Stops at the bottom of content.
+ * - Respects `prefers-reduced-motion`: the loop exits immediately and does
+ *   not scroll at all when the user has requested reduced motion.
  */
-export function useCinematicScroll(containerRef: React.RefObject<HTMLElement>, isActive: boolean) {
-  const isAutoScrolling = isActive;
-  const scrollSpeed = useAppStore(state => state.scrollSpeed);
+export function useCinematicScroll(
+  containerRef: React.RefObject<HTMLElement | null>,
+  isActive: boolean,
+  ttsVelocityRef?: React.MutableRefObject<number | null>,
+  onYieldChange?: (yielded: boolean) => void,
+) {
+  const scrollSpeed = useAppStore((state) => state.scrollSpeed);
 
-  const requestRef = useRef<number | undefined>(undefined);
-  const lastTimeRef = useRef<number | undefined>(undefined);
-  const scrollAccumulatorRef = useRef<number>(0);
-  const isYieldingRef = useRef<boolean>(false);
-  const yieldTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  // --- Refs that persist across renders without causing re-renders ----------
+  const requestRef        = useRef<number | undefined>(undefined);
+  const lastTimeRef       = useRef<number | undefined>(undefined);
+  const scrollAccumulator = useRef<number>(0);
+  const isYieldingRef     = useRef<boolean>(false);
+  const yieldTimeoutRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  // Keep isActive readable from inside the rAF callback without stale closure
   const isActiveRef = useRef(isActive);
+  useEffect(() => { isActiveRef.current = isActive; }, [isActive]);
+
+  // Keep scrollSpeed readable without stale closure
+  const scrollSpeedRef = useRef(scrollSpeed);
+  useEffect(() => { scrollSpeedRef.current = scrollSpeed; }, [scrollSpeed]);
+
+  // Reduced-motion: read once on mount, then track changes via media query
+  const prefersReducedMotionRef = useRef(
+    typeof window !== 'undefined' && window.matchMedia
+      ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      : false,
+  );
   useEffect(() => {
-    isActiveRef.current = isActive;
-  }, [isActive]);
-
-  const animateRef = useRef<(time: number) => void>(() => {});
-
-  useEffect(() => {
-    animateRef.current = (time: number) => {
-      // If user is actively yielding, or auto-scroll is disabled, stop animating
-      if (isYieldingRef.current || !isAutoScrolling) {
-        lastTimeRef.current = undefined;
-        return;
-      }
-
-      if (lastTimeRef.current != null && containerRef.current) {
-        const deltaTime = time - lastTimeRef.current;
-        
-        // Calculate how many pixels we should scroll based on time elapsed
-        // v = d/t => d = v * t
-        // scrollSpeed is pixels per second, so we divide by 1000 for milliseconds
-        const scrollAmount = (scrollSpeed * deltaTime) / 1000;
-        
-        // Accumulate fractional sub-pixels to avoid integer-rounding stutter
-        scrollAccumulatorRef.current += scrollAmount;
-
-        // When our accumulator hits at least 1 pixel, physically scroll the container
-        if (scrollAccumulatorRef.current >= 1) {
-          const pixelsToScroll = Math.floor(scrollAccumulatorRef.current);
-          
-          // Prevent scrolling past the maximum bottom
-          const maxScroll = containerRef.current.scrollHeight - containerRef.current.clientHeight;
-          if (containerRef.current.scrollTop < maxScroll) {
-              containerRef.current.scrollTop += pixelsToScroll;
-          }
-          
-          // Subtract only the whole pixels we applied, keeping the decimal fraction
-          scrollAccumulatorRef.current -= pixelsToScroll;
-        }
-      }
-      
-      lastTimeRef.current = time;
-      requestRef.current = requestAnimationFrame(animateRef.current);
-    };
-  }, [isAutoScrolling, scrollSpeed, containerRef]);
-
-  // Main lifecycle for the rAF loop
-  useEffect(() => {
-    if (isAutoScrolling && !isYieldingRef.current) {
-      lastTimeRef.current = undefined;
-      requestRef.current = requestAnimationFrame(animateRef.current);
-    }
-    
-    return () => {
-      if (requestRef.current) {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onChange = (e: MediaQueryListEvent) => {
+      prefersReducedMotionRef.current = e.matches;
+      // Immediately stop if user enables reduced motion while scrolling
+      if (e.matches && requestRef.current !== undefined) {
         cancelAnimationFrame(requestRef.current);
+        requestRef.current = undefined;
+        lastTimeRef.current = undefined;
       }
     };
-  }, [isAutoScrolling]);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
-  // User Yield Logic: instantly pause the rAF loop upon user interaction,
-  // and set a 2000ms debounce before resuming.
+  // --- rAF loop (useCallback so the closure is stable & dependency-aware) --
+  // Using useCallback means the animate function is recreated only when its
+  // deps change (containerRef, ttsVelocityRef), not on every render.  All hot
+  // refs (isActiveRef, scrollSpeedRef, prefersReducedMotionRef, isYieldingRef)
+  // are read at call time via refs so they don't need to be in the dep array.
+  const animate = useCallback(function step(time: number) {
+    if (isYieldingRef.current || !isActiveRef.current || prefersReducedMotionRef.current) {
+      lastTimeRef.current = undefined;
+      return;
+    }
+
+    if (lastTimeRef.current != null && containerRef.current) {
+      const deltaTime = time - lastTimeRef.current;
+
+      // Pick velocity source: TTS-paced overrides constant free-scroll
+      const velocity =
+        ttsVelocityRef != null && ttsVelocityRef.current != null
+          ? ttsVelocityRef.current
+          : scrollSpeedRef.current;
+
+      // v = d/t → d = v * t  (scrollSpeed is px/sec, deltaTime is ms)
+      const scrollAmount = (velocity * deltaTime) / 1000;
+
+      // Sub-pixel accumulator — avoids integer-rounding stutter
+      scrollAccumulator.current += scrollAmount;
+
+      if (scrollAccumulator.current >= 1) {
+        const pixelsToScroll = Math.floor(scrollAccumulator.current);
+        const maxScroll =
+          containerRef.current.scrollHeight - containerRef.current.clientHeight;
+
+        if (containerRef.current.scrollTop < maxScroll) {
+          containerRef.current.scrollTop += pixelsToScroll;
+        }
+        scrollAccumulator.current -= pixelsToScroll;
+      }
+    }
+
+    lastTimeRef.current = time;
+    requestRef.current = requestAnimationFrame(step);
+  }, [containerRef, ttsVelocityRef]); // scrollSpeedRef read via ref — no dep needed
+
+  // --- Start / stop lifecycle ----------------------------------------------
+  // When isActive becomes true we also clear any in-flight yield state so that
+  // "Resume Reading" works immediately even if the 2000ms debounce is still
+  // running (fixes the immediate-resume bug from the code review).
+  useEffect(() => {
+    if (isActive) {
+      isYieldingRef.current = false;
+      onYieldChange?.(false);
+      if (yieldTimeoutRef.current !== undefined) {
+        clearTimeout(yieldTimeoutRef.current);
+        yieldTimeoutRef.current = undefined;
+      }
+      if (!prefersReducedMotionRef.current) {
+        lastTimeRef.current = undefined;
+        scrollAccumulator.current = 0;
+        requestRef.current = requestAnimationFrame(animate);
+      }
+    }
+    return () => {
+      if (requestRef.current !== undefined) {
+        cancelAnimationFrame(requestRef.current);
+        requestRef.current = undefined;
+      }
+    };
+  }, [isActive, animate, onYieldChange]);
+
+  // --- User yield: pause on interaction, resume after 2000 ms -------------
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    const handleUserInteraction = () => {
+    const handleUserInteraction = (e: Event) => {
       if (!isActiveRef.current) return;
 
-      isYieldingRef.current = true;
-      
-      // Stop the current animation frame immediately to yield to user
-      if (requestRef.current) {
-        cancelAnimationFrame(requestRef.current);
-        lastTimeRef.current = undefined; 
+      // For keyboard events, only yield on scroll-related keys
+      if (e.type === 'keydown') {
+        const key = (e as KeyboardEvent).key;
+        if (
+          !['ArrowUp', 'ArrowDown', ' ', 'PageUp', 'PageDown', 'Home', 'End'].includes(key)
+        ) {
+          return;
+        }
       }
 
-      if (yieldTimeoutRef.current) {
+      // Only fire onYieldChange once per yield session (not on every wheel tick)
+      if (!isYieldingRef.current) {
+        isYieldingRef.current = true;
+        onYieldChange?.(true);
+      }
+
+      if (requestRef.current !== undefined) {
+        cancelAnimationFrame(requestRef.current);
+        requestRef.current = undefined;
+        lastTimeRef.current = undefined;
+      }
+
+      if (yieldTimeoutRef.current !== undefined) {
         clearTimeout(yieldTimeoutRef.current);
       }
 
-      // Resume engine after 2000ms of no interactions
+      // Resume auto-scroll 2000ms after the last user interaction
       yieldTimeoutRef.current = setTimeout(() => {
         isYieldingRef.current = false;
-        
-        // If the global state still wants us to scroll, restart the loop
-        if (isActiveRef.current) {
+        onYieldChange?.(false);
+        if (isActiveRef.current && !prefersReducedMotionRef.current) {
           lastTimeRef.current = undefined;
-          requestRef.current = requestAnimationFrame(animateRef.current);
+          scrollAccumulator.current = 0;
+          requestRef.current = requestAnimationFrame(animate);
         }
       }, 2000);
     };
 
-    // Add passive listeners for smooth scrolling interactions
-    container.addEventListener('wheel', handleUserInteraction, { passive: true });
+    container.addEventListener('wheel',      handleUserInteraction, { passive: true });
     container.addEventListener('touchstart', handleUserInteraction, { passive: true });
-    container.addEventListener('touchmove', handleUserInteraction, { passive: true });
+    container.addEventListener('touchmove',  handleUserInteraction, { passive: true });
+    container.addEventListener('keydown',    handleUserInteraction as EventListener);
 
     return () => {
-      container.removeEventListener('wheel', handleUserInteraction);
+      container.removeEventListener('wheel',      handleUserInteraction);
       container.removeEventListener('touchstart', handleUserInteraction);
-      container.removeEventListener('touchmove', handleUserInteraction);
-      if (yieldTimeoutRef.current) {
+      container.removeEventListener('touchmove',  handleUserInteraction);
+      container.removeEventListener('keydown',    handleUserInteraction as EventListener);
+      if (yieldTimeoutRef.current !== undefined) {
         clearTimeout(yieldTimeoutRef.current);
       }
     };
-  }, [containerRef]);
+  }, [containerRef, onYieldChange, animate]);
 }
+

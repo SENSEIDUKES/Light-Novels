@@ -182,7 +182,7 @@ export default function ReaderChamber({
   const {
     isPlayingText,
     isPausedText,
-    isAutoScrolling,
+    ttsVelocityRef,
     speechRate,
     speechPitch,
     speechVolume,
@@ -200,19 +200,24 @@ export default function ReaderChamber({
     setSelectedSideVoiceURI,
     handleTogglePlayback,
     handleStopSpeaking,
-    playAutoScroll,
-    pauseAutoScroll,
     currentNarratedBlockIndex
   } = useReaderPlayback({
     selectedChapter,
     activeTranslationContent,
     containerRef: readerRef,
-    innerRef: driftInnerRef,
     isAutoScrollPausedByUser,
     setIsAutoScrollPausedByUser
   });
 
-  useCinematicScroll(readerRef, isPlayingText && !isPausedText);
+  // Drive the single cinematic scroll engine.
+  // isActive covers both TTS playback AND teleprompter free-scroll so that
+  // the engine runs in both modes.  onYieldChange syncs the pause overlay.
+  useCinematicScroll(
+    readerRef,
+    (isPlayingText && !isPausedText) || (readerMode === "teleprompter" && !isAutoScrollPausedByUser),
+    ttsVelocityRef,
+    setIsAutoScrollPausedByUser,
+  );
 
   // --- Scroll position tracking ---
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -656,7 +661,9 @@ export default function ReaderChamber({
           `para-${pendingScrollToParagraph}`,
         );
         if (element) {
-          pauseAutoScroll();
+          // Programmatic scrollIntoView does NOT fire wheel/touchstart events,
+          // so we must explicitly pause auto-scroll.
+          setIsAutoScrollPausedByUser(true);
           element.scrollIntoView({ behavior: "smooth", block: "center" });
           element.classList.add(
             "bg-portal/10",
@@ -684,7 +691,6 @@ export default function ReaderChamber({
     selectedChapterNum,
     selectedChapter.generatedContent,
     selectedChapter.blocks,
-    pauseAutoScroll
   ]);
 
   const handleSealClick = async () => {
@@ -822,7 +828,8 @@ export default function ReaderChamber({
   const navigatePrev = () => {
     if (selectedChapterNum > 1) {
       setSelectedChapterNum(selectedChapterNum - 1);
-      pauseAutoScroll();
+      // Programmatic scroll — does not fire wheel events, so explicitly pause.
+      setIsAutoScrollPausedByUser(true);
       readerRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   };
@@ -833,7 +840,8 @@ export default function ReaderChamber({
     );
     if (nextChapter) {
       setSelectedChapterNum(selectedChapterNum + 1);
-      pauseAutoScroll();
+      // Programmatic scroll — does not fire wheel events, so explicitly pause.
+      setIsAutoScrollPausedByUser(true);
       readerRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   };
@@ -1071,7 +1079,11 @@ export default function ReaderChamber({
             <button
                tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                 setIsAutoScrollPausedByUser(false);
-                playAutoScroll();
+                // In teleprompter mode there is no voice to resume — just
+                // un-pausing auto-scroll is sufficient.
+                if (readerMode !== "teleprompter") {
+                  handleTogglePlayback();
+                }
               }}
               className="bg-portal hover:bg-[#00c0ff] text-void text-xs font-sans font-medium px-4 py-1.5 rounded-full transition-colors flex items-center gap-1.5 cursor-pointer shadow-[0_0_10px_rgba(4,172,255,0.4)]"
             >

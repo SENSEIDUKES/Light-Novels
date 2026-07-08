@@ -21,7 +21,6 @@ describe('useReaderPlayback', () => {
       selectedChapter: {} as any,
       activeTranslationContent: null,
       containerRef: { current: null },
-      innerRef: { current: null }
     }));
 
     expect(result.current.isPlayingText).toBe(false);
