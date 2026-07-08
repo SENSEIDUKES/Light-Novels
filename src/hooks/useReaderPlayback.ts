@@ -2,9 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Chapter, VoiceClip } from "../types";
 import { useAppStore } from "../store/useAppStore";
 import { dispatchNarration, dispatchNarrativeCue } from "../lib/narrativeCues";
-import { useReadingDrift } from "./useReadingDrift";
 import { storyStorage } from "../lib/storage";
-import { buildSpeechChunks, pickDefaultSideVoice, SpeechChunk } from "../lib/voice/webSpeechCast";
+import { buildSpeechChunks, SpeechChunk, TTS_WORDS_PER_SECOND_AT_RATE_1 } from "../lib/voice/webSpeechCast";
 import { useAudioSettings } from "./audio/useAudioSettings";
 import { useVoicePreferences } from "./audio/useVoicePreferences";
 
@@ -38,14 +37,12 @@ export function useReaderPlayback({
   selectedChapter,
   activeTranslationContent,
   containerRef,
-  innerRef,
   isAutoScrollPausedByUser: externalIsAutoScrollPausedByUser,
   setIsAutoScrollPausedByUser: externalSetIsAutoScrollPausedByUser,
 }: {
   selectedChapter: Chapter;
   activeTranslationContent: string | null;
   containerRef: React.RefObject<HTMLDivElement | null>;
-  innerRef: React.RefObject<HTMLDivElement | null>;
   isAutoScrollPausedByUser?: boolean;
   setIsAutoScrollPausedByUser?: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
@@ -92,9 +89,58 @@ export function useReaderPlayback({
     actualSetIsAutoScrollPausedByUser(false);
   }, [readerMode, selectedChapter?.number, actualSetIsAutoScrollPausedByUser]);
 
-  const playAutoScroll = useCallback(() => {}, []);
-  const pauseAutoScroll = useCallback(() => {}, []);
-  const isAutoScrolling = false;
+  /**
+   * TTS-paced velocity for useCinematicScroll.
+   * null  → free-scroll / stopped (constant scrollSpeed used instead)
+   * number → pixels/sec derived from next-paragraph distance ÷ spoken duration
+   */
+  const ttsVelocityRef = useRef<number | null>(null);
+
+  /**
+   * Strategy B: target the NEXT block's position on each chunk event.
+   *
+   * When multiple sentence chunks belong to the same paragraph they all fire
+   * with the same paragraphIndex.  By always aiming at (blockIndex + 1) the
+   * remaining distance shrinks naturally as the speaker progresses through the
+   * paragraph — no stall-then-jump between intra-paragraph chunks.
+   */
+  const updateTTSVelocity = useCallback(
+    (targetBlockIndex: number, durationMs: number) => {
+      if (!containerRef.current) return;
+      const container = containerRef.current;
+
+      // Focus line sits ~⅓ down the viewport
+      const focusLineOffset = container.clientHeight / 3;
+
+      const blockEl = container.querySelector(
+        `[data-block-index="${targetBlockIndex}"]`,
+      ) as HTMLElement | null;
+
+      if (!blockEl) {
+        // No DOM element yet — velocity stays unchanged (previous value holds)
+        return;
+      }
+
+      // Walk offsetParent chain to get the block's top relative to the container
+      let offsetTop = 0;
+      let el: HTMLElement | null = blockEl;
+      while (el && el !== container) {
+        offsetTop += el.offsetTop;
+        el = el.offsetParent as HTMLElement | null;
+      }
+
+      const targetScrollTop = Math.max(0, offsetTop - focusLineOffset);
+      const currentScrollTop = container.scrollTop;
+      const distance = targetScrollTop - currentScrollTop;
+      const durationSec = durationMs / 1000;
+
+      if (durationSec <= 0) return;
+
+      // Clamp: never scroll backward, cap at 800 px/sec to avoid blurring fast
+      ttsVelocityRef.current = Math.max(0, Math.min(distance / durationSec, 800));
+    },
+    [containerRef],
+  );
 
   const selectedChapterRef = useRef(selectedChapter);
   useEffect(() => {
@@ -143,6 +189,7 @@ export function useReaderPlayback({
       activeAudioRef.current.pause();
       activeAudioRef.current = null;
     }
+    ttsVelocityRef.current = null;  // stop TTS-paced scroll immediately
     setIsPlayingText(false);
     setIsPausedText(false);
     setCurrentChunkIndex(0);
@@ -224,13 +271,17 @@ export function useReaderPlayback({
 
     audio.onloadedmetadata = () => {
       if (blockIndex !== -1) {
+        // Prefer real audio duration; fall back to word-count estimate
         let durationMs = (audio.duration * 1000) / audio.playbackRate;
-        if (!isFinite(durationMs)) {
+        if (!isFinite(durationMs) || durationMs <= 0) {
           const blockText = selectedChapter?.blocks?.[blockIndex]?.text || "";
           const wordCount = blockText.split(/\s+/).length || 10;
-          durationMs = (wordCount / (speechRateRef.current * 2.7)) * 1000 || 4000;
+          durationMs =
+            (wordCount / (speechRateRef.current * TTS_WORDS_PER_SECOND_AT_RATE_1)) * 1000 || 4000;
         }
         fireBlockSideEffects(blockIndex, durationMs);
+        // Drive scroll toward the NEXT clip's paragraph (Strategy B)
+        updateTTSVelocity(blockIndex + 1, durationMs);
       }
     };
 
@@ -263,6 +314,7 @@ export function useReaderPlayback({
     const synth = window.speechSynthesis;
 
     if (index >= chunksRef.current.length) {
+      ttsVelocityRef.current = null;  // narration finished — stop TTS-paced scroll
       dispatchNarration({ status: 'end' });
       setIsPlayingText(false);
       setIsPausedText(false);
@@ -287,10 +339,15 @@ export function useReaderPlayback({
     }
 
     const wordCount = chunkData.text.split(/\s+/).length || 0;
-    const estimatedDurationMs = (wordCount / (speechRateRef.current * 2.7)) * 1000;
+    const estimatedDurationMs =
+      (wordCount / (speechRateRef.current * TTS_WORDS_PER_SECOND_AT_RATE_1)) * 1000;
     const currentPara = chunkData.paragraphIndex ?? -1;
-    
+
     fireBlockSideEffects(currentPara, estimatedDurationMs);
+
+    // Strategy B: target the NEXT paragraph so intra-paragraph chunks keep
+    // the scroll moving continuously without stalling or jumping.
+    updateTTSVelocity(currentPara + 1, estimatedDurationMs);
 
     const utterance = new SpeechSynthesisUtterance(chunkData.text);
     currentUtteranceRef.current = utterance;
@@ -322,6 +379,7 @@ export function useReaderPlayback({
     utterance.onerror = (e) => {
       console.warn("Aetherial speech synthesis chunk interrupted/errored:", e);
       if (e.error !== "interrupted" && e.error !== "canceled") {
+        ttsVelocityRef.current = null;
         setIsPlayingText(false);
         setIsPausedText(false);
       }
@@ -349,6 +407,7 @@ export function useReaderPlayback({
           currentUtteranceRef.current.onerror = null;
         }
         synth.cancel();
+        ttsVelocityRef.current = null;  // stop TTS-paced scroll on pause
         setIsPausedText(true);
         dispatchNarration({ status: 'pause' });
       }
@@ -416,6 +475,7 @@ export function useReaderPlayback({
         const audio = activeAudioRef.current;
         if (!audio.paused) {
           audio.pause();
+          ttsVelocityRef.current = null;  // stop TTS-paced scroll while audio is paused
           setIsPausedText(true);
           dispatchNarration({ status: 'pause' });
         } else {
@@ -456,8 +516,10 @@ export function useReaderPlayback({
 
   useEffect(() => {
     stopAllPlayback();
-    pauseAutoScroll();
-  }, [selectedChapter?.number, pauseAutoScroll]);
+    // ttsVelocityRef is already cleared inside stopAllPlayback → stopAllPlayback
+    // calls dispatchNarration('end') which is the canonical signal; velocity is
+    // nulled out directly in stopAllPlayback above.
+  }, [selectedChapter?.number]);
 
   useEffect(() => {
     if (!isPlayingText || isPausedText) return;
@@ -491,10 +553,9 @@ export function useReaderPlayback({
     volume, handleVolumeChange,
     handleTogglePlayback,
     handleStopSpeaking,
-    isAutoScrolling,
+    /** Ref carrying TTS-paced px/sec velocity for useCinematicScroll. null = use free-scroll speed. */
+    ttsVelocityRef,
     isAutoScrollPausedByUser: actualIsAutoScrollPausedByUser,
     setIsAutoScrollPausedByUser: actualSetIsAutoScrollPausedByUser,
-    playAutoScroll,
-    pauseAutoScroll,
   };
 }

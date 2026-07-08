@@ -1,5 +1,16 @@
 import { StoryBlockMetadata } from '../../types';
 
+/**
+ * Average words-per-second for the browser's default English TTS voice at
+ * speechRate = 1.0.  The formula used elsewhere is:
+ *   estimatedDurationMs = (wordCount / (speechRate * TTS_WORDS_PER_SECOND_AT_RATE_1)) * 1000
+ *
+ * At rate 1.0 this gives ~162 WPM, which matches Chrome's default "Google US
+ * English" voice measured empirically.  If your default voice runs
+ * significantly faster or slower, adjust this constant accordingly.
+ */
+export const TTS_WORDS_PER_SECOND_AT_RATE_1 = 2.7;
+
 // Web Speech (browser TTS) three-voice cast: the narrator reads prose, the
 // MC voice reads the protagonist's dialogue, and the side voice covers
 // everyone else the MC talks to — love interests, rivals, opponents.

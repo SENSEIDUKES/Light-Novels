@@ -182,7 +182,7 @@ export default function ReaderChamber({
   const {
     isPlayingText,
     isPausedText,
-    isAutoScrolling,
+    ttsVelocityRef,
     speechRate,
     speechPitch,
     speechVolume,
@@ -200,19 +200,19 @@ export default function ReaderChamber({
     setSelectedSideVoiceURI,
     handleTogglePlayback,
     handleStopSpeaking,
-    playAutoScroll,
-    pauseAutoScroll,
     currentNarratedBlockIndex
   } = useReaderPlayback({
     selectedChapter,
     activeTranslationContent,
     containerRef: readerRef,
-    innerRef: driftInnerRef,
     isAutoScrollPausedByUser,
     setIsAutoScrollPausedByUser
   });
 
-  useCinematicScroll(readerRef, isPlayingText && !isPausedText);
+  // Drive the single cinematic scroll engine from TTS narration pace.
+  // When ttsVelocityRef is non-null (voice is playing), velocity comes from
+  // block events; when null (no voice), falls back to constant scrollSpeed.
+  useCinematicScroll(readerRef, isPlayingText && !isPausedText, ttsVelocityRef);
 
   // --- Scroll position tracking ---
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -656,7 +656,9 @@ export default function ReaderChamber({
           `para-${pendingScrollToParagraph}`,
         );
         if (element) {
-          pauseAutoScroll();
+          // Scroll-to-paragraph: useCinematicScroll's user-yield debounce
+          // handles the pause automatically when the browser scrolls the element
+          // into view (the scrollIntoView call triggers a scroll event).
           element.scrollIntoView({ behavior: "smooth", block: "center" });
           element.classList.add(
             "bg-portal/10",
@@ -684,7 +686,6 @@ export default function ReaderChamber({
     selectedChapterNum,
     selectedChapter.generatedContent,
     selectedChapter.blocks,
-    pauseAutoScroll
   ]);
 
   const handleSealClick = async () => {
@@ -822,7 +823,6 @@ export default function ReaderChamber({
   const navigatePrev = () => {
     if (selectedChapterNum > 1) {
       setSelectedChapterNum(selectedChapterNum - 1);
-      pauseAutoScroll();
       readerRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   };
@@ -833,7 +833,6 @@ export default function ReaderChamber({
     );
     if (nextChapter) {
       setSelectedChapterNum(selectedChapterNum + 1);
-      pauseAutoScroll();
       readerRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   };
@@ -1071,7 +1070,7 @@ export default function ReaderChamber({
             <button
                tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                 setIsAutoScrollPausedByUser(false);
-                playAutoScroll();
+                handleTogglePlayback();
               }}
               className="bg-portal hover:bg-[#00c0ff] text-void text-xs font-sans font-medium px-4 py-1.5 rounded-full transition-colors flex items-center gap-1.5 cursor-pointer shadow-[0_0_10px_rgba(4,172,255,0.4)]"
             >
