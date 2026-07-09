@@ -34,7 +34,7 @@ mediaRouter.post("/api/generate-card-image", validateBody(generateCardImageSchem
     // Provide backwards compatible property and new array
     return res.json({ ...result, imageUrl: result.imageUrls?.[0] });
   } catch (error: any) {
-    logger.error({ error: error }, "Error generating card image:");
+    logger.error({ err: error }, "Error generating card image");
     return res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
@@ -118,7 +118,7 @@ GENERAL CONSTRAINTS:
 
         refinedPrompt = response.text || "";
       } catch (geminiError: any) {
-        logger.warn({ error: geminiError }, "Gemini vision analysis failed, falling back to description-based prompt:");
+        logger.warn({ err: geminiError }, "Gemini vision analysis failed, falling back to description-based prompt");
       }
     }
 
@@ -135,7 +135,7 @@ GENERAL CONSTRAINTS:
       note: "No personal data, images, or files are stored on our servers. This transformation occurs dynamically in real-time."
     });
   } catch (error: any) {
-    logger.error({ error: error }, "Error generating cultivator portrait:");
+    logger.error({ err: error }, "Error generating cultivator portrait");
     return res.status(500).json({ error: error.message || "Celestial alignment interrupted." });
   }
 });
@@ -178,7 +178,7 @@ mediaRouter.post("/api/generate-audio", validateBody(generateAudioSchema), async
           logger.warn(`[TTS] OpenRouter TTS generation failed (status ${response.status}): ${errText}`);
         }
       } catch (orErr) {
-        logger.error({ error: orErr }, "[TTS] OpenRouter TTS generation threw an error:");
+        logger.error({ err: orErr }, "[TTS] OpenRouter TTS generation threw an error");
       }
     }
 
@@ -208,7 +208,7 @@ mediaRouter.post("/api/generate-audio", validateBody(generateAudioSchema), async
           logger.warn(`[TTS] DeepInfra TTS generation failed: ${errText}`);
         }
       } catch (diErr) {
-        logger.error({ error: diErr }, "[TTS] DeepInfra TTS generation threw an error:");
+        logger.error({ err: diErr }, "[TTS] DeepInfra TTS generation threw an error");
       }
     }
 
@@ -253,7 +253,7 @@ mediaRouter.post("/api/generate-audio", validateBody(generateAudioSchema), async
           logger.warn(`[TTS] Space ylacombe/kokoro-82m returned status: ${hfResponse.status}`);
         }
       } catch (hfErr) {
-        logger.error({ error: hfErr }, "[TTS] ylacombe/kokoro-82m Space fallback failed:");
+        logger.error({ err: hfErr }, "[TTS] ylacombe/kokoro-82m Space fallback failed");
       }
     }
 
@@ -296,7 +296,7 @@ mediaRouter.post("/api/generate-audio", validateBody(generateAudioSchema), async
           }
         }
       } catch (hfErr2) {
-        logger.error({ error: hfErr2 }, "[TTS] gokaygokay-kokoro-82m Space fallback failed:");
+        logger.error({ err: hfErr2 }, "[TTS] gokaygokay-kokoro-82m Space fallback failed");
       }
     }
 
@@ -306,7 +306,7 @@ mediaRouter.post("/api/generate-audio", validateBody(generateAudioSchema), async
 
     return res.json({ base64Audio });
   } catch (error: any) {
-    logger.error({ error: error }, "Error generating audio:");
+    logger.error({ err: error }, "Error generating audio");
     return res.status(500).json({ error: error.message || "Failed to generate audio" });
   }
 });
