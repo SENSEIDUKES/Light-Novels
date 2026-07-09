@@ -30,7 +30,8 @@ export const LawsPanel: React.FC<LawsPanelProps> = ({ memory, onUpdateMemory, se
           Immutable World Precepts ({memory.worldRules.length})
         </span>
         <button
-           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowAddLaw(!showAddLaw)}
+          type="button"
+          onClick={() => setShowAddLaw(!showAddLaw)}
           className="text-xs text-portal hover:text-signal transition-colors flex items-center space-x-1"
         >
           <UserPlus size={12} />
@@ -51,14 +52,14 @@ export const LawsPanel: React.FC<LawsPanelProps> = ({ memory, onUpdateMemory, se
           <div className="flex justify-end space-x-2 pt-1 text-xs">
             <button
               type="button"
-               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowAddLaw(false)}
+              onClick={() => setShowAddLaw(false)}
               className="text-neutral-500 hover:text-neutral-300"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="bg-human text-signal px-3 py-1 rounded hover:bg-opacity-80 transition-all font-semibold"
+              className="bg-human text-signal px-3 py-1 rounded hover:bg-human/80 transition-all font-semibold"
             >
               Assert Precept
             </button>
@@ -77,6 +78,7 @@ export const LawsPanel: React.FC<LawsPanelProps> = ({ memory, onUpdateMemory, se
                 <p className="font-serif italic">{typeof rule === 'object' ? JSON.stringify(rule) : String(rule)}</p>
               </div>
               <button
+                type="button"
                 onClick={() => setDeletePrompt({ id: idx, type: 'law' })}
                 className="opacity-0 group-hover:opacity-100 text-neutral-600 hover:text-red-500 transition-all"
                 title="Erase Precept"

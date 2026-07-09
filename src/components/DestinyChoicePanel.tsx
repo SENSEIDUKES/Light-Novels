@@ -85,6 +85,7 @@ export const DestinyChoicePanel: React.FC<DestinyChoicePanelProps> = ({
                     }}
                     className="absolute top-2 left-2 z-20 bg-black/85 hover:bg-portal hover:text-void border border-neutral-900 hover:border-portal text-neutral-300 p-1.5 rounded-md transition-all duration-200 shadow-md backdrop-blur opacity-80 hover:opacity-100 flex items-center justify-center"
                     title="Download Form Draft"
+                    aria-label="Download Form Draft"
                   >
                     <Download size={11} />
                   </button>

@@ -5,14 +5,11 @@ export const generateUUID = (): string => {
 
   // Fallback for environments without randomUUID
   const useCrypto = typeof crypto !== 'undefined' && crypto.getRandomValues;
-  const rnd = new Uint8Array(16);
-  if (useCrypto) {
-    crypto.getRandomValues(rnd);
-  } else {
-    for (let i = 0; i < 16; i++) {
-      rnd[i] = (Math.random() * 256) | 0;
-    }
+  if (!useCrypto) {
+    throw new Error('Secure random number generation is not available.');
   }
+  const rnd = new Uint8Array(16);
+  crypto.getRandomValues(rnd);
 
   // Set version (4) and variant (8, 9, a, or b)
   rnd[6] = (rnd[6] & 0x0f) | 0x40;
@@ -32,29 +29,20 @@ export const generateUUID = (): string => {
 export const generateId = (length: number = 10): string => {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
   const useCrypto = typeof crypto !== 'undefined' && crypto.getRandomValues;
+  if (!useCrypto) {
+    throw new Error('Secure random number generation is not available.');
+  }
 
   let result = '';
   const bufferSize = Math.ceil(length * 1.2);
   const buffer = new Uint8Array(bufferSize);
 
-  if (useCrypto) {
-    crypto.getRandomValues(buffer);
-  } else {
-    for (let i = 0; i < bufferSize; i++) {
-      buffer[i] = Math.floor(Math.random() * 256);
-    }
-  }
+  crypto.getRandomValues(buffer);
 
   let offset = 0;
   while (result.length < length) {
     if (offset >= buffer.length) {
-      if (useCrypto) {
-        crypto.getRandomValues(buffer);
-      } else {
-        for (let i = 0; i < bufferSize; i++) {
-          buffer[i] = Math.floor(Math.random() * 256);
-        }
-      }
+      crypto.getRandomValues(buffer);
       offset = 0;
     }
 

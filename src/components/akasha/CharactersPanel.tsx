@@ -41,9 +41,9 @@ export const CharactersPanel: React.FC<CharactersPanelProps> = ({ memory, onUpda
     setShowAddChar(false);
   };
 
-  const handleToggleCharStatus = (charName: string) => {
+  const handleToggleCharStatus = (charId: string) => {
     const chars = memory.characters.map(c => {
-      if (c.name === charName) {
+      if (c.id === charId) {
         const nextStatus: Character['status'] = c.status === 'alive' ? 'deceased' : 'alive';
         return { ...c, status: nextStatus };
       }
@@ -59,7 +59,8 @@ export const CharactersPanel: React.FC<CharactersPanelProps> = ({ memory, onUpda
           Encountered Living Spirits ({memory.characters.length})
         </span>
         <button
-           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowAddChar(!showAddChar)}
+          type="button"
+          onClick={() => setShowAddChar(!showAddChar)}
           className="text-xs text-portal hover:text-signal transition-colors flex items-center space-x-1"
         >
           <UserPlus size={12} />
@@ -104,14 +105,14 @@ export const CharactersPanel: React.FC<CharactersPanelProps> = ({ memory, onUpda
           <div className="flex justify-between items-center pt-1">
             <button
               type="button"
-               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setShowAddChar(false)}
+              onClick={() => setShowAddChar(false)}
               className="text-neutral-500 hover:text-neutral-300"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="bg-human text-signal px-3 py-1 rounded hover:bg-opacity-80 transition-all font-semibold"
+              className="bg-human text-signal px-3 py-1 rounded hover:bg-human/80 transition-all font-semibold"
             >
               Record Spirit
             </button>
@@ -151,8 +152,9 @@ export const CharactersPanel: React.FC<CharactersPanelProps> = ({ memory, onUpda
                 </div>
                 <div className="flex items-center space-x-1 flex-shrink-0">
                   <button
+                    type="button"
                     title={char.status === 'alive' ? "Click to set Deceased" : "Click to set Alive"}
-                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleToggleCharStatus(char.name)}
+                    onClick={() => handleToggleCharStatus(char.id)}
                     className={`text-[9px] px-1 py-0.5 rounded ${
                       char.status === 'alive' ? 'bg-green-950/40 text-green-400 border border-green-900' : 'bg-red-950/40 text-red-500 border border-red-950'
                     }`}
@@ -160,6 +162,7 @@ export const CharactersPanel: React.FC<CharactersPanelProps> = ({ memory, onUpda
                     {char.status.toUpperCase()}
                   </button>
                   <button
+                    type="button"
                     onClick={() => setDeletePrompt({ id: char.id, type: 'character', name: char.name })}
                     className="text-neutral-600 hover:text-red-500 p-0.5 transition-colors"
                     title="Purge Spirit"

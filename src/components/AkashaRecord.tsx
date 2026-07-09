@@ -38,6 +38,8 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
     onUpdateMemory({ ...memory, resolvedPlotThreads: resolved });
   };
 
+  const isTabHidden = (tab: typeof activeTab) => activeTab !== tab;
+
   return (
     <div className="bg-neutral-950 border border-neutral-900 rounded-lg p-5 flex flex-col h-full shadow-lg relative overflow-hidden" id="akasha-record-matrix">
       {/* Visual top bar of Portal aura */}
@@ -56,7 +58,8 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
       {/* Navigation tabs */}
       <div className="grid grid-cols-4 gap-1 p-1 bg-neutral-900/60 rounded mb-4" id="akasha-tab-row">
         <button
-           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setActiveTab('status')}
+          type="button"
+          onClick={() => setActiveTab('status')}
           className={`py-1.5 text-center text-xs rounded transition-all font-sc uppercase tracking-wider ${
             activeTab === 'status' ? 'bg-void text-portal font-semibold shadow-sm' : 'text-neutral-500 hover:text-neutral-300'
           }`}
@@ -64,6 +67,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
           Realm
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab('characters')}
           className={`py-1.5 text-center text-xs rounded transition-all font-sc uppercase tracking-wider ${
             activeTab === 'characters' ? 'bg-void text-portal font-semibold shadow-sm' : 'text-neutral-500 hover:text-neutral-300'
@@ -72,6 +76,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
           Daoists
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab('laws')}
           className={`py-1.5 text-center text-xs rounded transition-all font-sc uppercase tracking-wider ${
             activeTab === 'laws' ? 'bg-void text-portal font-semibold shadow-sm' : 'text-neutral-500 hover:text-neutral-300'
@@ -80,6 +85,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
           Laws
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab('threads')}
           className={`py-1.5 text-center text-xs rounded transition-all font-sc uppercase tracking-wider ${
             activeTab === 'threads' ? 'bg-void text-portal font-semibold shadow-sm' : 'text-neutral-300 hover:text-neutral-300'
@@ -91,10 +97,18 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
 
       {/* Tab Panels */}
       <div className="flex-1 overflow-y-auto max-h-[460px] pr-1 space-y-4 font-sans tab-container">
-        {activeTab === 'status' && <RealmPanel memory={memory} />}
-        {activeTab === 'characters' && <CharactersPanel memory={memory} onUpdateMemory={onUpdateMemory} setDeletePrompt={setDeletePrompt} />}
-        {activeTab === 'laws' && <LawsPanel memory={memory} onUpdateMemory={onUpdateMemory} setDeletePrompt={setDeletePrompt} />}
-        {activeTab === 'threads' && <ThreadsPanel memory={memory} onUpdateMemory={onUpdateMemory} setDeletePrompt={setDeletePrompt} />}
+        <div hidden={isTabHidden('status')}>
+          <RealmPanel memory={memory} />
+        </div>
+        <div hidden={isTabHidden('characters')}>
+          <CharactersPanel memory={memory} onUpdateMemory={onUpdateMemory} setDeletePrompt={setDeletePrompt} />
+        </div>
+        <div hidden={isTabHidden('laws')}>
+          <LawsPanel memory={memory} onUpdateMemory={onUpdateMemory} setDeletePrompt={setDeletePrompt} />
+        </div>
+        <div hidden={isTabHidden('threads')}>
+          <ThreadsPanel memory={memory} onUpdateMemory={onUpdateMemory} setDeletePrompt={setDeletePrompt} />
+        </div>
       </div>
       
       <AnimatePresence>
@@ -123,7 +137,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                   Type <span className="text-red-400 font-bold">DELETE</span> to confirm{' '}
                   <button
                     type="button"
-                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setDeleteInput('DELETE')}
+                    onClick={() => setDeleteInput('DELETE')}
                     className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-sc font-bold border border-portal/30 bg-portal/10 text-portal hover:bg-portal hover:text-black rounded transition-all duration-300 cursor-pointer"
                     title="Auto-fill delete text"
                   >
@@ -141,7 +155,8 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
 
               <div className="flex justify-end space-x-3">
                 <button
-                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
+                  type="button"
+                  onClick={() => {
                     setDeletePrompt(null);
                     setDeleteInput('');
                   }}
@@ -150,6 +165,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                   Cancel
                 </button>
                 <button
+                  type="button"
                   disabled={deleteInput !== 'DELETE'}
                   onClick={() => {
                     if (deleteInput === 'DELETE') {

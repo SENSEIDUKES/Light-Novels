@@ -1,6 +1,12 @@
 import { retrieveRelevantContext } from '../../lib/rag';
 import { Story, Chapter } from '../../types';
 
+const progressionSignalPattern = /\b(breakthroughs?|levels?|ranks?|rewards?|skills?|abilit(y|ies)|powers?)\b/i;
+const progressionSummaryPattern = /\b(breakthroughs?|advanced|new abilit(y|ies)|treasures?|rewards?|cultivation gains?|realms?|ranks?|level-ups?)\b/i;
+const worldBreatherSignalPattern = /\b(markets?|villages?|festivals?|customs?|rumors?|aftermaths?|recover(y|ies)|relationships?|conversations?|daily life|sect routines?|travels?|foods?|politics|explor(e|es|ing|ed))\b/i;
+
+const powerRushDirective = "NARRATIVE PULSE MANDATE: Recent chapters have accelerated progression too quickly. Do not force new realm/rank/level breakthroughs unless the current chapter premise explicitly requires one. Avoid major new treasures, cheats, system rewards, or combat abilities. Focus instead on lived-in world texture, consequences, relationships, faction reactions, customs, marketplace rumors, recovery, or minor side characters. End with a soft narrative hook, unresolved emotion, rumor, clue, or social consequence instead of a major power reward.";
+
 export const buildChapterContext = async (
   activeStory: Story,
   targetChapter: Chapter,
@@ -43,6 +49,40 @@ export const buildChapterContext = async (
       pacingDirective = "PACING SUGGESTION: Tension has been high recently. Consider naturally transitioning into a lower-stakes scenario soon, allowing characters to process recent events, sort loot, or cultivate quietly before the next major conflict.";
     } else if (normalizedFatigue <= 3.5) {
       pacingDirective = "PACING SUGGESTION: The story has been peaceful for a while. To prevent stagnation, it is time to introduce a new inciting incident, unexpected danger, or rising tension to keep the reader engaged.";
+    }
+
+    let progressionSignals = 0;
+    let worldBreatherSignals = 0;
+
+    recentChapters.forEach(c => {
+      let hasProgression = false;
+
+      if ((c.cuePayload?.powerShift ?? 0) > 0) {
+        hasProgression = true;
+      }
+
+      if (progressionSignalPattern.test(c.statsChangeMessage || '')) {
+        hasProgression = true;
+      }
+
+      const summaryPremiseText = `${c.summary || ''} ${c.premise || ''}`;
+      if (progressionSummaryPattern.test(summaryPremiseText)) {
+        hasProgression = true;
+      }
+
+      if (hasProgression) {
+        progressionSignals += 1;
+      }
+
+      if (worldBreatherSignalPattern.test(summaryPremiseText)) {
+        worldBreatherSignals += 1;
+      }
+    });
+
+    if (progressionSignals >= 3 && worldBreatherSignals <= 1) {
+      pacingDirective = pacingDirective
+        ? `${pacingDirective} ${powerRushDirective}`
+        : powerRushDirective;
     }
   }
   
