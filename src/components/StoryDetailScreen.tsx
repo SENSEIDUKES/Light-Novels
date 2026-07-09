@@ -146,38 +146,38 @@ export const StoryDetailScreen: React.FC<{
 
     setOfflineProgress({ current: 0, total: itemsToFetch.length });
 
-
-    await Promise.all(
-      itemsToFetch.map(async (item) => {
-        if (item.type === "chapter") {
-          await storyStorage.getChapterContent(
-            item.storyId!,
-            item.chapterNumber!,
-          );
-        } else if (item.type === "audio" && item.url) {
+    try {
+      await Promise.all(
+        itemsToFetch.map(async (item) => {
           try {
-            const cached = await storyStorage.getAudioBlob(item.url);
-            if (!cached) {
-              const res = await fetch(item.url);
-              if (res.ok) {
-                const blob = await res.blob();
-                await storyStorage.saveAudioBlob(item.url, blob);
+            if (item.type === "chapter") {
+              await storyStorage.getChapterContent(
+                item.storyId!,
+                item.chapterNumber!,
+              );
+            } else if (item.type === "audio" && item.url) {
+              const cached = await storyStorage.getAudioBlob(item.url);
+              if (!cached) {
+                const res = await fetch(item.url);
+                if (res.ok) {
+                  const blob = await res.blob();
+                  await storyStorage.saveAudioBlob(item.url, blob);
+                }
               }
             }
           } catch (e) {
-            console.error("Failed to download audio for offline", e);
+            console.error(`Failed to download ${item.type} for offline`, e);
+          } finally {
+            setOfflineProgress((prev) => ({
+              current: prev.current + 1,
+              total: itemsToFetch.length,
+            }));
           }
-        }
-
-        // Use a functional state update to avoid race conditions and stale state with concurrent updates
-        setOfflineProgress((prev) => ({
-          current: prev.current + 1,
-          total: itemsToFetch.length
-        }));
-      })
-    );
-
-    setIsDownloadingOffline(false);
+        }),
+      );
+    } finally {
+      setIsDownloadingOffline(false);
+    }
   };
 
   if (currentScreen !== "detail") return null;
