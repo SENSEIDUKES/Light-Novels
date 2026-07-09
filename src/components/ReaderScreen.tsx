@@ -192,55 +192,75 @@ export const ReaderScreen: React.FC<{
     1000;
 
   // Word count calculations
-  const chaptersWithLoadedContent = activeStory
-    ? activeStory.arcs
-        .flatMap((a) => a.chapters)
-        .map((ch) => {
-          if (streamingChapter && ch.number === streamingChapter.number) {
-            return {
-              ...ch,
-              generatedContent: streamingChapter.content,
-              blocks: streamingChapter.blocks,
-            };
-          }
-          if (localChapterCache[ch.number]) {
-            const cached = localChapterCache[ch.number];
-            return {
-              ...ch,
-              generatedContent: cached.generatedContent,
-              blocks: cached.blocks,
-            };
-          }
-          return ch;
-        })
-    : [];
+  const chaptersWithLoadedContent = React.useMemo(() => {
+    return activeStory
+      ? activeStory.arcs
+          .flatMap((a) => a.chapters)
+          .map((ch) => {
+            if (streamingChapter && ch.number === streamingChapter.number) {
+              return {
+                ...ch,
+                generatedContent: streamingChapter.content,
+                blocks: streamingChapter.blocks,
+              };
+            }
+            if (localChapterCache[ch.number]) {
+              const cached = localChapterCache[ch.number];
+              return {
+                ...ch,
+                generatedContent: cached.generatedContent,
+                blocks: cached.blocks,
+              };
+            }
+            return ch;
+          })
+      : [];
+  }, [activeStory, streamingChapter, localChapterCache]);
 
-  const countWords = (text?: string): number => {
+  const countWords = React.useCallback((text?: string): number => {
     if (!text) return 0;
-    const cleanText = text.trim();
-    if (!cleanText) return 0;
-    return cleanText.split(/\s+/).filter(Boolean).length;
-  };
+    let count = 0;
+    let inWord = false;
+    for (let i = 0; i < text.length; i++) {
+      // Fast single-pass scan avoiding string allocations and regex overhead
+      const code = text.charCodeAt(i);
+      // Space (32), Tab (9), Newline (10), Carriage Return (13)
+      if (code !== 32 && code !== 9 && code !== 10 && code !== 13) {
+        if (!inWord) {
+          inWord = true;
+          count++;
+        }
+      } else {
+        inWord = false;
+      }
+    }
+    return count;
+  }, []);
 
-  const getChapterWordCount = (ch: any): number => {
+  const getChapterWordCount = React.useCallback((ch: any): number => {
     if (ch.blocks && ch.blocks.length > 0) {
       return ch.blocks.reduce((sum: number, b: any) => sum + countWords(b.text), 0);
     }
     return countWords(ch.generatedContent);
-  };
+  }, [countWords]);
 
-  const totalStoryWords = chaptersWithLoadedContent.reduce((sum, ch) => {
-    const count = getChapterWordCount(ch);
-    if (count > 0) return sum + count;
-    // Estimate 2,200 words for generated chapters that aren't loaded in memory
-    if (ch.hasContent || ch.status === "read") return sum + 2200;
-    return sum;
-  }, 0);
+  const totalStoryWords = React.useMemo(() => {
+    return chaptersWithLoadedContent.reduce((sum, ch) => {
+      const count = getChapterWordCount(ch);
+      if (count > 0) return sum + count;
+      // Estimate 2,200 words for generated chapters that aren't loaded in memory
+      if (ch.hasContent || ch.status === "read") return sum + 2200;
+      return sum;
+    }, 0);
+  }, [chaptersWithLoadedContent, getChapterWordCount]);
 
-  const activeChapter = chaptersWithLoadedContent.find(
+  const activeChapter = React.useMemo(() => chaptersWithLoadedContent.find(
     (ch) => ch.number === selectedChapterNum
-  );
-  const activeChapterWords = activeChapter ? getChapterWordCount(activeChapter) : 0;
+  ), [chaptersWithLoadedContent, selectedChapterNum]);
+
+  const activeChapterWords = React.useMemo(() => {
+    return activeChapter ? getChapterWordCount(activeChapter) : 0;
+  }, [activeChapter, getChapterWordCount]);
 
   // Listen to custom DOM event to toggle glossary sidelobe via global hotkey
   useEffect(() => {
