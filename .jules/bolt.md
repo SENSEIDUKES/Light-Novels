@@ -27,3 +27,8 @@
 - Added line coverage for `getSystemInferredType` and `getSystemPromptColor` in `src/lib/systemColors.test.ts`.
 - Implemented `it.each` in Vitest to parameterize test inputs and cover multiple branch (`||`) mapping rules without writing repetitive tests.
 - Re-established missing test coverage for `getSystemPromptColor` shadow outcomes.
+
+## 2025-03-09 - [Performance] Fast Word Counting in ReaderScreen
+
+**Learning:** For continuous word counting over large story text blocks, the `cleanText.split(/\s+/).filter(Boolean).length` approach creates severe memory allocation spikes and regex execution overhead, particularly since `ReaderScreen` renders often.
+**Action:** Always replace regex-based or array-allocation string splitting with single-pass character scanning loops using `charCodeAt` when performance is critical. Ensure calculations over nested data structures like chapters and story arcs are memoized with `React.useMemo` to avoid redundant O(N) recalculations on component renders.
