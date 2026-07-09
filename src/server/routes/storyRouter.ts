@@ -52,7 +52,7 @@ storyRouter.post("/api/generate-blueprint", validateBody(generateBlueprintSchema
       sourceText: buildIntakeGlossarySourceText(intake),
       usageMode: 'generation'
     });
-    const glossaryRules = formatGlossaryForPrompt(glossaryEntries);
+    const glossaryRules = formatGlossaryForPrompt(glossaryEntries, 10);
     const systemPrompt = PROMPTS.blueprint.system + (glossaryRules ? `\n${glossaryRules}` : "");
 
     const data = await routeTextGeneration(
@@ -90,7 +90,7 @@ storyRouter.post("/api/generate-initial-arc", validateBody(generateInitialArcSch
       ].filter(Boolean).join(" "),
       usageMode: 'generation'
     });
-    const glossaryRules = formatGlossaryForPrompt(glossaryEntries);
+    const glossaryRules = formatGlossaryForPrompt(glossaryEntries, 10);
     const systemPrompt = PROMPTS.initialArc.system + (glossaryRules ? `\n${glossaryRules}` : "");
 
     const data = await routeTextGeneration(
@@ -192,7 +192,7 @@ storyRouter.post("/api/generate-chapter-stream", validateBody(chapterGenerationS
       sourceText: [currentChapter.title, currentChapter.premise, customPremise, memory.powerSystem, memory.currentPowerStage, memory.worldRules, lastSummary].join(" "),
       usageMode: 'generation'
     });
-    const glossaryRules = formatGlossaryForPrompt(glossaryEntries);
+    const glossaryRules = formatGlossaryForPrompt(glossaryEntries, 8);
 
     let finalUserPrompt = userPrompt;
     if (glossaryRules) {
@@ -399,7 +399,7 @@ storyRouter.post("/api/generate-chapter", validateBody(chapterGenerationSchema),
       sourceText: [currentChapter.title, currentChapter.premise, customPremise, memory.powerSystem, memory.currentPowerStage, memory.worldRules, lastSummary].join(" "),
       usageMode: 'generation'
     });
-    const glossaryRules = formatGlossaryForPrompt(glossaryEntries);
+    const glossaryRules = formatGlossaryForPrompt(glossaryEntries, 8);
 
     let finalUserPrompt = userPrompt;
     if (glossaryRules) {

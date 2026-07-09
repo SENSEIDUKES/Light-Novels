@@ -3,7 +3,7 @@ import type { GlossaryResult, GenerationResult } from './types';
 const isGenerationResult = (entry: GlossaryResult): entry is GenerationResult =>
   entry.mode === 'generation';
 
-export function formatGlossaryForPrompt(entries: GlossaryResult[], maxTerms: number = 15): string {
+export function formatGlossaryForPrompt(entries: GlossaryResult[], maxTerms: number = 8): string {
   if (!entries || entries.length === 0) {
     return '';
   }
@@ -20,10 +20,11 @@ export function formatGlossaryForPrompt(entries: GlossaryResult[], maxTerms: num
 
   return `
 =========================================
-CANON GLOSSARY RULES
+REFERENCE GLOSSARY GUIDANCE
 =========================================
-Adhere STRICTLY to the following established terminology, lore, and definitions:
-Use these rules when relevant. Do not force every listed term into the chapter.
+Use these notes only when the term or concept naturally appears in the scene.
+Do not introduce, mention, or force any listed term just because it appears here.
+Do not add new systems, ranks, powers, factions, or mechanics from this glossary unless the chapter context already calls for them.
 ${lines.join('\n')}
 =========================================
 `;
