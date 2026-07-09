@@ -160,18 +160,27 @@ export function useCinematicScroll(
   // When isActive becomes true we also clear any in-flight yield state so that
   // "Resume Reading" works immediately even if the 2000ms debounce is still
   // running (fixes the immediate-resume bug from the code review).
+  const prevIsActiveRef = useRef(false);
   useEffect(() => {
+    const justBecameActive = isActive && !prevIsActiveRef.current;
+    prevIsActiveRef.current = isActive;
+
     if (isActive) {
-      isYieldingRef.current = false;
-      onYieldChange?.(false);
-      if (yieldTimeoutRef.current !== undefined) {
-        clearTimeout(yieldTimeoutRef.current);
-        yieldTimeoutRef.current = undefined;
+      if (justBecameActive) {
+        isYieldingRef.current = false;
+        onYieldChange?.(false);
+        if (yieldTimeoutRef.current !== undefined) {
+          clearTimeout(yieldTimeoutRef.current);
+          yieldTimeoutRef.current = undefined;
+        }
       }
-      if (!prefersReducedMotionRef.current) {
-        lastTimeRef.current = undefined;
-        currentVelocity.current = 0;     // ramp up smoothly from rest
-        scrollPosRef.current = null;      // re-sync to the live scroll offset
+
+      if (!isYieldingRef.current && !prefersReducedMotionRef.current) {
+        if (justBecameActive) {
+          lastTimeRef.current = undefined;
+          currentVelocity.current = 0;     // ramp up smoothly from rest
+          scrollPosRef.current = null;      // re-sync to the live scroll offset
+        }
         requestRef.current = requestAnimationFrame(animate);
       }
     }
