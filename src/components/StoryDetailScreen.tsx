@@ -146,30 +146,36 @@ export const StoryDetailScreen: React.FC<{
 
     setOfflineProgress({ current: 0, total: itemsToFetch.length });
 
-    let current = 0;
-    for (const item of itemsToFetch) {
-      if (item.type === "chapter") {
-        await storyStorage.getChapterContent(
-          item.storyId!,
-          item.chapterNumber!,
-        );
-      } else if (item.type === "audio" && item.url) {
-        try {
-          const cached = await storyStorage.getAudioBlob(item.url);
-          if (!cached) {
-            const res = await fetch(item.url);
-            if (res.ok) {
-              const blob = await res.blob();
-              await storyStorage.saveAudioBlob(item.url, blob);
+
+    await Promise.all(
+      itemsToFetch.map(async (item) => {
+        if (item.type === "chapter") {
+          await storyStorage.getChapterContent(
+            item.storyId!,
+            item.chapterNumber!,
+          );
+        } else if (item.type === "audio" && item.url) {
+          try {
+            const cached = await storyStorage.getAudioBlob(item.url);
+            if (!cached) {
+              const res = await fetch(item.url);
+              if (res.ok) {
+                const blob = await res.blob();
+                await storyStorage.saveAudioBlob(item.url, blob);
+              }
             }
+          } catch (e) {
+            console.error("Failed to download audio for offline", e);
           }
-        } catch (e) {
-          console.error("Failed to download audio for offline", e);
         }
-      }
-      current++;
-      setOfflineProgress({ current, total: itemsToFetch.length });
-    }
+
+        // Use a functional state update to avoid race conditions and stale state with concurrent updates
+        setOfflineProgress((prev) => ({
+          current: prev.current + 1,
+          total: itemsToFetch.length
+        }));
+      })
+    );
 
     setIsDownloadingOffline(false);
   };
