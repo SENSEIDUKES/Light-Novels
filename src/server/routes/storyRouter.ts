@@ -21,6 +21,7 @@ import {
 } from "../schemas";
 import { routeTextGeneration, routeImageGeneration, routeTextGenerationStream, ROUTER_PRESETS } from "../../aiRouter";
 import { ensureString, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChapterResponse, filterRelevantEntities, rankRelevantEntities, truncateContextIfNeeded } from "../helpers";
+import { retrieveGlossaryEntries, formatGlossaryForPrompt } from "../../lib/glossary";
 import { PROMPTS } from "../prompts";
 export const storyRouter = express.Router();
 storyRouter.post("/api/generate-blueprint", validateBody(generateBlueprintSchema), async (req, res) => {
@@ -31,9 +32,17 @@ storyRouter.post("/api/generate-blueprint", validateBody(generateBlueprintSchema
       return res.status(400).json({ error: "Missing required fields: intake" });
     }
 
+    const glossaryEntries = retrieveGlossaryEntries({
+      genreTags: intake.genre ? [intake.genre as any] : [],
+      sourceText: [intake.corePremise, intake.customPremise, intake.desiredPowerSystem].join(" "),
+      usageMode: 'generation'
+    });
+    const glossaryRules = formatGlossaryForPrompt(glossaryEntries);
+    const systemPrompt = PROMPTS.blueprint.system + (glossaryRules ? `\n${glossaryRules}` : "");
+
     const data = await routeTextGeneration(
       "storyMaker",
-      PROMPTS.blueprint.system,
+      systemPrompt,
       PROMPTS.blueprint.userPrompt(JSON.stringify(intake, null, 2)),
       "generate-blueprint",
       routingConfig,
@@ -55,9 +64,17 @@ storyRouter.post("/api/generate-initial-arc", validateBody(generateInitialArcSch
 
     const count = Math.min(parseInt(chapterCount) || 10, 10);
 
+    const glossaryEntries = retrieveGlossaryEntries({
+      genreTags: intake.genre ? [intake.genre as any] : [],
+      sourceText: [intake.corePremise, blueprint.powerSystemOutline?.description, intake.customPremise].join(" "),
+      usageMode: 'generation'
+    });
+    const glossaryRules = formatGlossaryForPrompt(glossaryEntries);
+    const systemPrompt = PROMPTS.initialArc.system + (glossaryRules ? `\n${glossaryRules}` : "");
+
     const data = await routeTextGeneration(
       "storyMaker",
-      PROMPTS.initialArc.system,
+      systemPrompt,
       PROMPTS.initialArc.userPrompt(
         JSON.stringify(blueprint, null, 2),
         JSON.stringify(blueprint.powerSystemOutline),
@@ -149,7 +166,18 @@ storyRouter.post("/api/generate-chapter-stream", validateBody(chapterGenerationS
       storyTags
     );
 
+    const glossaryEntries = retrieveGlossaryEntries({
+      genreTags: genre ? [genre as any] : [],
+      sourceText: [currentChapter.title, currentChapter.premise, customPremise, memory.powerSystem, memory.currentPowerStage, memory.worldRules, lastSummary].join(" "),
+      usageMode: 'generation'
+    });
+    const glossaryRules = formatGlossaryForPrompt(glossaryEntries);
+
     let finalUserPrompt = userPrompt;
+    if (glossaryRules) {
+      finalUserPrompt = glossaryRules + "\n\n" + finalUserPrompt;
+    }
+    
     if (pacingDirective) {
       finalUserPrompt += `
       
@@ -345,7 +373,18 @@ storyRouter.post("/api/generate-chapter", validateBody(chapterGenerationSchema),
       storyTags
     );
 
+    const glossaryEntries = retrieveGlossaryEntries({
+      genreTags: genre ? [genre as any] : [],
+      sourceText: [currentChapter.title, currentChapter.premise, customPremise, memory.powerSystem, memory.currentPowerStage, memory.worldRules, lastSummary].join(" "),
+      usageMode: 'generation'
+    });
+    const glossaryRules = formatGlossaryForPrompt(glossaryEntries);
+
     let finalUserPrompt = userPrompt;
+    if (glossaryRules) {
+      finalUserPrompt = glossaryRules + "\n\n" + finalUserPrompt;
+    }
+
     if (pacingDirective) {
       finalUserPrompt += `
       

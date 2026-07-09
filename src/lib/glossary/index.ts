@@ -14,6 +14,9 @@
 // ── Retrieval function ────────────────────────────────────────────────────────
 export { retrieveGlossaryEntries, RETRIEVAL_SCORES } from './retrieve';
 
+// ── Formatter ─────────────────────────────────────────────────────────────────
+export { formatGlossaryForPrompt } from './formatter';
+
 // ── Registry helpers (for advanced use cases e.g. autocomplete) ───────────────
 export {
   getAllEntries,
