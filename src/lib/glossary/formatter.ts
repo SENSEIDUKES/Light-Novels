@@ -29,6 +29,7 @@ export function formatGlossaryForPrompt(entries: GlossaryResult[], maxTerms: num
 CANON GLOSSARY RULES
 =========================================
 Adhere STRICTLY to the following established terminology, lore, and definitions:
+Use these rules when relevant. Do not force every listed term into the chapter.
 ${lines.join('\n')}
 =========================================
 `;

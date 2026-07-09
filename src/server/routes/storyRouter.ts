@@ -24,6 +24,21 @@ import { ensureString, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChap
 import { retrieveGlossaryEntries, formatGlossaryForPrompt } from "../../lib/glossary";
 import { PROMPTS } from "../prompts";
 export const storyRouter = express.Router();
+
+const buildIntakeGlossarySourceText = (intake: any) =>
+  [
+    intake.genrePath,
+    intake.corePremise,
+    intake.desiredPlotDirection,
+    intake.startingPowerConcept,
+    intake.powerFlavor,
+    intake.powerPace,
+    intake.knownRanks,
+    intake.uniquePath,
+    intake.mustIncludeElements,
+    intake.thingsToAvoid,
+    intake.storyTags?.join(" "),
+  ].filter(Boolean).join(" ");
 storyRouter.post("/api/generate-blueprint", validateBody(generateBlueprintSchema), async (req, res) => {
   try {
     const { intake, routingConfig } = req.body;
@@ -33,8 +48,8 @@ storyRouter.post("/api/generate-blueprint", validateBody(generateBlueprintSchema
     }
 
     const glossaryEntries = retrieveGlossaryEntries({
-      genreTags: intake.genre ? [intake.genre as any] : [],
-      sourceText: [intake.corePremise, intake.customPremise, intake.desiredPowerSystem].join(" "),
+      genreTags: intake.genrePath ? [intake.genrePath as any] : [],
+      sourceText: buildIntakeGlossarySourceText(intake),
       usageMode: 'generation'
     });
     const glossaryRules = formatGlossaryForPrompt(glossaryEntries);
@@ -65,8 +80,14 @@ storyRouter.post("/api/generate-initial-arc", validateBody(generateInitialArcSch
     const count = Math.min(parseInt(chapterCount) || 10, 10);
 
     const glossaryEntries = retrieveGlossaryEntries({
-      genreTags: intake.genre ? [intake.genre as any] : [],
-      sourceText: [intake.corePremise, blueprint.powerSystemOutline?.description, intake.customPremise].join(" "),
+      genreTags: intake.genrePath ? [intake.genrePath as any] : [],
+      sourceText: [
+        buildIntakeGlossarySourceText(intake),
+        blueprint.powerSystemOutline,
+        blueprint.tropeRules,
+        blueprint.styleBible,
+        blueprint.firstArcPromise,
+      ].filter(Boolean).join(" "),
       usageMode: 'generation'
     });
     const glossaryRules = formatGlossaryForPrompt(glossaryEntries);
