@@ -9,16 +9,18 @@ interface Props {
   isDesktop?: boolean;
 }
 
+const BASE_DISC_CLASSES = "absolute inset-0 rounded-full border border-neutral-850 bg-[#000000] transition-transform duration-[4000ms] ease-linear overflow-hidden";
+
 export function PlaybackControls({ selectedChapter, playback, isDesktop = false }: Props) {
   const { isPlayingText, isPausedText, handleTogglePlayback } = playback;
 
   const hasContent = selectedChapter.generatedContent || (selectedChapter.blocks && selectedChapter.blocks.length > 0);
 
-  const desktopClasses = `absolute inset-0 rounded-full border border-neutral-850 bg-[#000000] shadow-[0_0_20px_rgba(4,172,255,0.1)] transition-transform duration-[4000ms] ease-linear overflow-hidden ${
+  const desktopClasses = `${BASE_DISC_CLASSES} shadow-[0_0_20px_rgba(4,172,255,0.1)] ${
     isPlayingText && !isPausedText ? "animate-spin" : "group-hover/disc:rotate-12"
   }`;
 
-  const mobileClasses = `absolute inset-0 rounded-full border border-neutral-850 bg-[#000000] shadow-[0_0_20px_rgba(4,172,255,0.12)] transition-transform duration-[4000ms] ease-linear overflow-hidden ${
+  const mobileClasses = `${BASE_DISC_CLASSES} shadow-[0_0_20px_rgba(4,172,255,0.12)] ${
     isPlayingText && !isPausedText ? "animate-spin" : "group-hover/disc:rotate-12"
   }`;
 
