@@ -5,7 +5,7 @@ import { useAppStore } from "../store/useAppStore";
 import SteerPortal from "./SteerPortal";
 import ReaderChamber from "./ReaderChamber";
 import { GlossarySidePanel } from "./GlossarySidePanel";
-import { Story, StreamingChapter } from "../types";
+import { Chapter, ChapterContent, Story, StoryBlock, StreamingChapter } from "../types";
 import { awardQi } from "../lib/qi";
 import { RecapScreen } from "./RecapScreen";
 import { storyStorage } from "../lib/storage";
@@ -16,6 +16,9 @@ const clockFormatter = new Intl.DateTimeFormat(undefined, {
   hour: "2-digit",
   minute: "2-digit",
 });
+
+const blockWordCountCache = new WeakMap<StoryBlock[], number>();
+const generatedContentWordCountCache = new Map<string, number>();
 
 /**
  * Isolated component for rendering the ticking clock
@@ -38,6 +41,41 @@ function ReaderClock() {
       <span>{clockFormatter.format(clockTime)}</span>
     </div>
   );
+}
+
+function buildReaderChapters(
+  activeStory: Story | undefined,
+  streamingChapter: StreamingChapter | null,
+  localChapterCache: Record<number, ChapterContent>,
+): Chapter[] {
+  if (!activeStory) return [];
+
+  return activeStory.arcs
+    .flatMap((a) => a.chapters)
+    .map((ch) => {
+      if (streamingChapter && ch.number === streamingChapter.number) {
+        return {
+          ...ch,
+          generatedContent: streamingChapter.content,
+          blocks: streamingChapter.blocks,
+          status: "read" as const,
+        };
+      }
+
+      const cached = localChapterCache[ch.number];
+      if (cached) {
+        return {
+          ...ch,
+          generatedContent: cached.generatedContent,
+          blocks: cached.blocks,
+          summary: cached.summary || ch.summary,
+          statsChangeMessage: cached.statsChangeMessage || ch.statsChangeMessage,
+          cuePayload: cached.cuePayload || ch.cuePayload,
+        };
+      }
+
+      return ch;
+    });
 }
 
 export const ReaderScreen: React.FC<{
@@ -80,7 +118,7 @@ export const ReaderScreen: React.FC<{
   const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
   const [showRecap, setShowRecap] = useState(false);
   const [localChapterCache, setLocalChapterCache] = useState<
-    Record<number, any>
+    Record<number, ChapterContent>
   >({});
   const pendingFetches = React.useRef<Set<number>>(new Set());
   const recapCheckedForStoryId = React.useRef<string | null>(null);
@@ -193,28 +231,7 @@ export const ReaderScreen: React.FC<{
 
   // Word count calculations
   const chaptersWithLoadedContent = React.useMemo(() => {
-    return activeStory
-      ? activeStory.arcs
-          .flatMap((a) => a.chapters)
-          .map((ch) => {
-            if (streamingChapter && ch.number === streamingChapter.number) {
-              return {
-                ...ch,
-                generatedContent: streamingChapter.content,
-                blocks: streamingChapter.blocks,
-              };
-            }
-            if (localChapterCache[ch.number]) {
-              const cached = localChapterCache[ch.number];
-              return {
-                ...ch,
-                generatedContent: cached.generatedContent,
-                blocks: cached.blocks,
-              };
-            }
-            return ch;
-          })
-      : [];
+    return buildReaderChapters(activeStory, streamingChapter, localChapterCache);
   }, [activeStory, streamingChapter, localChapterCache]);
 
   const countWords = React.useCallback((text?: string): number => {
@@ -224,8 +241,8 @@ export const ReaderScreen: React.FC<{
     for (let i = 0; i < text.length; i++) {
       // Fast single-pass scan avoiding string allocations and regex overhead
       const code = text.charCodeAt(i);
-      // Space (32), Tab (9), Newline (10), Carriage Return (13)
-      if (code !== 32 && code !== 9 && code !== 10 && code !== 13) {
+      // ASCII whitespace/control, NBSP, and CJK ideographic space.
+      if (code > 32 && code !== 160 && code !== 12288) {
         if (!inWord) {
           inWord = true;
           count++;
@@ -237,11 +254,29 @@ export const ReaderScreen: React.FC<{
     return count;
   }, []);
 
-  const getChapterWordCount = React.useCallback((ch: any): number => {
+  const getChapterWordCount = React.useCallback((ch: Chapter): number => {
     if (ch.blocks && ch.blocks.length > 0) {
-      return ch.blocks.reduce((sum: number, b: any) => sum + countWords(b.text), 0);
+      const cached = blockWordCountCache.get(ch.blocks);
+      if (cached !== undefined) return cached;
+
+      const count = ch.blocks.reduce(
+        (sum: number, block) => sum + countWords(block.text),
+        0,
+      );
+      blockWordCountCache.set(ch.blocks, count);
+      return count;
     }
-    return countWords(ch.generatedContent);
+
+    if (ch.generatedContent) {
+      const cached = generatedContentWordCountCache.get(ch.generatedContent);
+      if (cached !== undefined) return cached;
+
+      const count = countWords(ch.generatedContent);
+      generatedContentWordCountCache.set(ch.generatedContent, count);
+      return count;
+    }
+
+    return 0;
   }, [countWords]);
 
   const totalStoryWords = React.useMemo(() => {
@@ -514,31 +549,7 @@ export const ReaderScreen: React.FC<{
       ) : (
         <div className="mx-auto">
           <ReaderChamber
-            chapters={activeStory.arcs
-              .flatMap((a) => a.chapters)
-              .map((ch) => {
-                if (streamingChapter && ch.number === streamingChapter.number) {
-                  return {
-                    ...ch,
-                    generatedContent: streamingChapter.content,
-                    blocks: streamingChapter.blocks,
-                    status: "read" as const,
-                  };
-                }
-                if (localChapterCache[ch.number]) {
-                  const cached = localChapterCache[ch.number];
-                  return {
-                    ...ch,
-                    generatedContent: cached.generatedContent,
-                    blocks: cached.blocks,
-                    summary: cached.summary || ch.summary,
-                    statsChangeMessage:
-                      cached.statsChangeMessage || ch.statsChangeMessage,
-                    cuePayload: cached.cuePayload || ch.cuePayload,
-                  };
-                }
-                return ch;
-              })}
+            chapters={chaptersWithLoadedContent}
             arcTitle={
               activeStory.arcs.find((a) =>
                 a.chapters.some((c) => c.number === selectedChapterNum),
