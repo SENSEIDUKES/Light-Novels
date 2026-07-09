@@ -59,6 +59,8 @@ export function useCinematicScroll(
   const currentVelocity   = useRef<number>(0);
   const isYieldingRef     = useRef<boolean>(false);
   const yieldTimeoutRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const onYieldChangeRef  = useRef(onYieldChange);
+  onYieldChangeRef.current = onYieldChange;
 
   // Cache of the resolved scroll target. Resolving reads scrollHeight/
   // clientHeight, so we throttle it (the target is very stable) to keep the
@@ -160,18 +162,27 @@ export function useCinematicScroll(
   // When isActive becomes true we also clear any in-flight yield state so that
   // "Resume Reading" works immediately even if the 2000ms debounce is still
   // running (fixes the immediate-resume bug from the code review).
+  const prevIsActiveRef = useRef(false);
   useEffect(() => {
+    const justBecameActive = isActive && !prevIsActiveRef.current;
+    prevIsActiveRef.current = isActive;
+
     if (isActive) {
-      isYieldingRef.current = false;
-      onYieldChange?.(false);
-      if (yieldTimeoutRef.current !== undefined) {
-        clearTimeout(yieldTimeoutRef.current);
-        yieldTimeoutRef.current = undefined;
+      if (justBecameActive) {
+        isYieldingRef.current = false;
+        onYieldChangeRef.current?.(false);
+        if (yieldTimeoutRef.current !== undefined) {
+          clearTimeout(yieldTimeoutRef.current);
+          yieldTimeoutRef.current = undefined;
+        }
       }
-      if (!prefersReducedMotionRef.current) {
-        lastTimeRef.current = undefined;
-        currentVelocity.current = 0;     // ramp up smoothly from rest
-        scrollPosRef.current = null;      // re-sync to the live scroll offset
+
+      if (!isYieldingRef.current && !prefersReducedMotionRef.current) {
+        if (justBecameActive) {
+          lastTimeRef.current = undefined;
+          currentVelocity.current = 0;     // ramp up smoothly from rest
+          scrollPosRef.current = null;      // re-sync to the live scroll offset
+        }
         requestRef.current = requestAnimationFrame(animate);
       }
     }
@@ -181,7 +192,7 @@ export function useCinematicScroll(
         requestRef.current = undefined;
       }
     };
-  }, [isActive, animate, onYieldChange]);
+  }, [isActive, animate]);
 
   // --- User yield: pause on interaction, resume after 2000 ms -------------
   useEffect(() => {
@@ -204,7 +215,7 @@ export function useCinematicScroll(
       // Only fire onYieldChange once per yield session (not on every wheel tick)
       if (!isYieldingRef.current) {
         isYieldingRef.current = true;
-        onYieldChange?.(true);
+        onYieldChangeRef.current?.(true);
       }
 
       if (requestRef.current !== undefined) {
@@ -220,7 +231,7 @@ export function useCinematicScroll(
       // Resume auto-scroll 2000ms after the last user interaction
       yieldTimeoutRef.current = setTimeout(() => {
         isYieldingRef.current = false;
-        onYieldChange?.(false);
+        onYieldChangeRef.current?.(false);
         if (isActiveRef.current && !prefersReducedMotionRef.current) {
           lastTimeRef.current = undefined;
           currentVelocity.current = 0;    // ramp up smoothly after a yield
@@ -244,7 +255,7 @@ export function useCinematicScroll(
         clearTimeout(yieldTimeoutRef.current);
       }
     };
-  }, [containerRef, onYieldChange, animate]);
+  }, [containerRef, animate]);
 
   // --- Imperative resume ---------------------------------------------------
   // Cancels the pending 2000ms debounce and restarts the loop right away.
@@ -257,7 +268,7 @@ export function useCinematicScroll(
       yieldTimeoutRef.current = undefined;
     }
     isYieldingRef.current = false;
-    onYieldChange?.(false);
+    onYieldChangeRef.current?.(false);
     if (
       isActiveRef.current &&
       !prefersReducedMotionRef.current &&
@@ -268,7 +279,7 @@ export function useCinematicScroll(
       scrollPosRef.current = null;    // user may have scrolled — re-sync
       requestRef.current = requestAnimationFrame(animate);
     }
-  }, [animate, onYieldChange]);
+  }, [animate]);
 
   return { resume };
 }
