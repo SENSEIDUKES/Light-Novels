@@ -12,6 +12,11 @@ import { storyStorage } from "../lib/storage";
 import { LOCAL_ONLY_MODE, auth } from "../lib/firebase";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 
+const clockFormatter = new Intl.DateTimeFormat(undefined, {
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
 /**
  * Isolated component for rendering the ticking clock
  * This prevents the large ReaderScreen component from re-rendering every second.
@@ -24,19 +29,13 @@ function ReaderClock() {
     return () => clearInterval(timer);
   }, []);
 
-  // Performance Optimization: Use Intl.DateTimeFormat instead of toLocaleTimeString in render loop
-  const formatter = React.useMemo(() => new Intl.DateTimeFormat(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  }), []);
-
   return (
     <div
       className="flex items-center space-x-1"
       title="Current Local Time"
     >
       <span className="text-jade-accent">Time:</span>
-      <span>{formatter.format(clockTime)}</span>
+      <span>{clockFormatter.format(clockTime)}</span>
     </div>
   );
 }
