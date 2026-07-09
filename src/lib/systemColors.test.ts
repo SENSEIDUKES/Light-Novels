@@ -8,66 +8,128 @@ describe('systemColors', () => {
       expect(getSystemInferredType('')).toBe('other');
     });
 
-    it('identifies multi-match types first', () => {
-      expect(getSystemInferredType('combat artifact found')).toBe('combat_artifact');
-      expect(getSystemInferredType('combat breakthrough achieved')).toBe('combat_breakthrough');
-      expect(getSystemInferredType('heavenly tribulation breakthrough')).toBe('heavenly_tribulation');
-      expect(getSystemInferredType('heavenly tribulation')).toBe('heavenly_tribulation');
-      expect(getSystemInferredType('divine trial')).toBe('heavenly_tribulation');
+    it.each([
+      ['combat artifact found', 'combat_artifact'],
+      ['combat breakthrough achieved', 'combat_breakthrough'],
+      ['heavenly tribulation breakthrough', 'heavenly_tribulation'],
+      ['divine trial', 'heavenly_tribulation']
+    ])('identifies %s as %s', (input, expected) => {
+      expect(getSystemInferredType(input)).toBe(expected);
     });
 
-    it('identifies system_error', () => {
-      expect(getSystemInferredType('system error detected')).toBe('system_error');
-      expect(getSystemInferredType('unstable reality')).toBe('system_error');
+    it.each([
+      ['system error', 'system_error'],
+      ['unstable', 'system_error'],
+      ['glitch', 'system_error'],
+      ['malfunction', 'system_error'],
+      ['iron fate warning', 'system_error']
+    ])('identifies %s as %s', (input, expected) => {
+      expect(getSystemInferredType(input)).toBe(expected);
     });
 
-    it('identifies choice_consequence', () => {
-      expect(getSystemInferredType('karma backlash incoming')).toBe('choice_consequence');
-      expect(getSystemInferredType('the world remembers your choice')).toBe('choice_consequence');
+    it.each([
+      ['karma backlash', 'choice_consequence'],
+      ['choice_consequence', 'choice_consequence'],
+      ['remembers', 'choice_consequence'],
+      ['consequence', 'choice_consequence'],
+      ['decision', 'choice_consequence']
+    ])('identifies %s as %s', (input, expected) => {
+      expect(getSystemInferredType(input)).toBe(expected);
     });
 
-    it('identifies critical_danger', () => {
-      expect(getSystemInferredType('critical danger')).toBe('critical_danger');
-      expect(getSystemInferredType('enemy spotted')).toBe('critical_danger');
+    it.each([
+      ['danger', 'critical_danger'],
+      ['critical', 'critical_danger'],
+      ['death threat', 'critical_danger'],
+      ['hostile', 'critical_danger'],
+      ['enemy', 'critical_danger']
+    ])('identifies %s as %s', (input, expected) => {
+      expect(getSystemInferredType(input)).toBe(expected);
     });
 
-    it('identifies corruption', () => {
-      expect(getSystemInferredType('death flag triggered')).toBe('corruption');
-      expect(getSystemInferredType('permanent curse')).toBe('corruption');
+    it.each([
+      ['death flag', 'corruption'],
+      ['death', 'corruption'],
+      ['corruption', 'corruption'],
+      ['permanent', 'corruption'],
+      ['curse', 'corruption'],
+      ['tragedy', 'corruption']
+    ])('identifies %s as %s', (input, expected) => {
+      expect(getSystemInferredType(input)).toBe(expected);
     });
 
-    it('identifies breakthrough', () => {
-      expect(getSystemInferredType('breakthrough achieved')).toBe('breakthrough');
-      expect(getSystemInferredType('legendary level up')).toBe('breakthrough');
+    it.each([
+      ['breakthrough', 'breakthrough'],
+      ['evolution', 'breakthrough'],
+      ['level up', 'breakthrough'],
+      ['level-up', 'breakthrough'],
+      ['ascension', 'breakthrough'],
+      ['legendary', 'breakthrough'],
+      ['awakening', 'breakthrough']
+    ])('identifies %s as %s', (input, expected) => {
+      expect(getSystemInferredType(input)).toBe(expected);
     });
 
-    it('identifies reward', () => {
-      expect(getSystemInferredType('loot obtained')).toBe('reward');
-      expect(getSystemInferredType('qi gain incremented')).toBe('reward');
+    it.each([
+      ['loot', 'reward'],
+      ['qi gain', 'reward'],
+      ['achievement', 'reward'],
+      ['reward', 'reward'],
+      ['gain', 'reward']
+    ])('identifies %s as %s', (input, expected) => {
+      expect(getSystemInferredType(input)).toBe(expected);
     });
 
-    it('identifies romance', () => {
-      expect(getSystemInferredType('romance blooming')).toBe('romance');
-      expect(getSystemInferredType('karmic affinity strengthened')).toBe('romance');
+    it.each([
+      ['romance', 'romance'],
+      ['bond', 'romance'],
+      ['affection', 'romance'],
+      ['karmic affinity', 'romance'],
+      ['relationship', 'romance']
+    ])('identifies %s as %s', (input, expected) => {
+      expect(getSystemInferredType(input)).toBe(expected);
     });
 
-    it('identifies warning', () => {
-      expect(getSystemInferredType('warning: pressure rising')).toBe('warning');
+    it.each([
+      ['warning', 'warning'],
+      ['risk', 'warning'],
+      ['instability', 'warning'],
+      ['pressure', 'warning']
+    ])('identifies %s as %s', (input, expected) => {
+      expect(getSystemInferredType(input)).toBe(expected);
     });
 
-    it('identifies mystery', () => {
-      expect(getSystemInferredType('fate lock active')).toBe('mystery');
-      expect(getSystemInferredType('unknown truth')).toBe('mystery');
+    it.each([
+      ['fate lock', 'mystery'],
+      ['fate event', 'mystery'],
+      ['mystery', 'mystery'],
+      ['fate', 'mystery'],
+      ['unknown', 'mystery'],
+      ['prophecy', 'mystery'],
+      ['truth', 'mystery']
+    ])('identifies %s as %s', (input, expected) => {
+      expect(getSystemInferredType(input)).toBe(expected);
     });
 
-    it('identifies codex_update', () => {
-      expect(getSystemInferredType('codex record updated')).toBe('codex_update');
-      expect(getSystemInferredType('friendly scan')).toBe('codex_update');
+    it.each([
+      ['friendly', 'codex_update'],
+      ['update', 'codex_update'],
+      ['quest', 'codex_update'],
+      ['info', 'codex_update'],
+      ['codex', 'codex_update'],
+      ['scan', 'codex_update'],
+      ['record', 'codex_update']
+    ])('identifies %s as %s', (input, expected) => {
+      expect(getSystemInferredType(input)).toBe(expected);
     });
 
-    it('identifies progression', () => {
-      expect(getSystemInferredType('training progress')).toBe('progression');
-      expect(getSystemInferredType('stable growth')).toBe('progression');
+    it.each([
+      ['progress', 'progression'],
+      ['stable', 'progression'],
+      ['growth', 'progression'],
+      ['training', 'progression']
+    ])('identifies %s as %s', (input, expected) => {
+      expect(getSystemInferredType(input)).toBe(expected);
     });
 
     it('returns other for unknown context', () => {
@@ -104,20 +166,25 @@ describe('systemColors', () => {
   });
 
   describe('getSystemPromptColor', () => {
-    it('returns a string with colors and shadows', () => {
-      const color = getSystemPromptColor('breakthrough');
-      expect(color).toContain('text-amber-400');
-      expect(color).toContain('shadow-[');
+    it.each([
+      ['codex_update', 'rgba(59,130,246,0.15)'], // blue
+      ['progression', 'rgba(34,197,94,0.15)'], // green
+      ['breakthrough', 'rgba(251,191,36,0.15)'], // amber
+      ['warning', 'rgba(249,115,22,0.15)'], // orange
+      ['critical_danger', 'rgba(239,68,68,0.15)'], // red
+      ['system_error', 'rgba(239,68,68,0.25)'], // red glitch (special case in source file)
+      ['corruption', 'rgba(159,18,57,0.25)'], // rose (special case in source file)
+      ['mystery', 'rgba(168,85,247,0.15)'], // purple
+      ['romance', 'rgba(236,72,153,0.15)'], // pink
+      ['other', 'rgba(107,114,128,0.15)'] // default gray
+    ])('maps %s to correct shadow color %s', (type, expectedColor) => {
+      const color = getSystemPromptColor(type);
+      expect(color).toContain(expectedColor);
     });
 
     it('adds special effects for system_error', () => {
       const color = getSystemPromptColor('system_error');
       expect(color).toContain('animate-pulse');
-    });
-
-    it('adds special shadows for corruption', () => {
-      const color = getSystemPromptColor('corruption');
-      expect(color).toContain('rgba(159,18,57,0.25)');
     });
 
     it('handles new multi-match types in prompt color', () => {
