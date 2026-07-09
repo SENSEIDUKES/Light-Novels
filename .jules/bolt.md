@@ -1,3 +1,7 @@
+## 2026-07-08 - Ticking Clocks in React
+
+**Learning:** Ticking clocks in parent components using `setInterval` cause cascading re-renders of the whole tree.
+**Action:** Extract ticking clocks into separate isolated child components to prevent re-rendering the heavy parent component.
 ## 2024-05-24 - [Intl.DateTimeFormat Optimization]
 **Learning:** Re-instantiating date formatters inside loops or component render methods is a hidden performance bottleneck.
 **Action:** Use a memoized or module-level `Intl.DateTimeFormat` instance instead of repeated `toLocaleDateString()` calls.
