@@ -180,39 +180,39 @@ export function getSystemInferredType(context?: string): string {
   // Check combinations/multi-matches first
   if (lowerContext.includes("combat") && lowerContext.includes("artifact")) return "combat_artifact";
   if (lowerContext.includes("combat") && lowerContext.includes("breakthrough")) return "combat_breakthrough";
-  if (lowerContext.includes("tribulation") || lowerContext.includes("divine trial")) return "heavenly_tribulation";
+  if (["tribulation", "divine trial"].some(t => lowerContext.includes(t))) return "heavenly_tribulation";
 
-  if (lowerContext.includes("system error") || lowerContext.includes("unstable") || lowerContext.includes("glitch") || lowerContext.includes("malfunction") || lowerContext.includes("iron fate warning")) {
+  if (["system error", "unstable", "glitch", "malfunction", "iron fate warning"].some(t => lowerContext.includes(t))) {
     return "system_error";
   }
-  if (lowerContext.includes("karma backlash") || lowerContext.includes("choice_consequence") || lowerContext.includes("remembers") || lowerContext.includes("consequence") || lowerContext.includes("decision")) {
+  if (["karma backlash", "choice_consequence", "remembers", "consequence", "decision"].some(t => lowerContext.includes(t))) {
     return "choice_consequence";
   }
-  if (lowerContext.includes("danger") || lowerContext.includes("critical") || lowerContext.includes("death threat") || lowerContext.includes("hostile") || lowerContext.includes("enemy")) {
+  if (["danger", "critical", "death threat", "hostile", "enemy"].some(t => lowerContext.includes(t))) {
     return "critical_danger";
   }
-  if (lowerContext.includes("death flag") || lowerContext.includes("death") || lowerContext.includes("corruption") || lowerContext.includes("permanent") || lowerContext.includes("curse") || lowerContext.includes("tragedy")) {
+  if (["death flag", "death", "corruption", "permanent", "curse", "tragedy"].some(t => lowerContext.includes(t))) {
     return "corruption";
   }
-  if (lowerContext.includes("breakthrough") || lowerContext.includes("evolution") || lowerContext.includes("level up") || lowerContext.includes("level-up") || lowerContext.includes("ascension") || lowerContext.includes("legendary") || lowerContext.includes("awakening")) {
+  if (["breakthrough", "evolution", "level up", "level-up", "ascension", "legendary", "awakening"].some(t => lowerContext.includes(t))) {
     return "breakthrough";
   }
-  if (lowerContext.includes("loot") || lowerContext.includes("qi gain") || lowerContext.includes("achievement") || lowerContext.includes("reward") || lowerContext.includes("gain")) {
+  if (["loot", "qi gain", "achievement", "reward", "gain"].some(t => lowerContext.includes(t))) {
     return "reward";
   }
-  if (lowerContext.includes("romance") || lowerContext.includes("bond") || lowerContext.includes("affection") || lowerContext.includes("karmic affinity") || lowerContext.includes("relationship")) {
+  if (["romance", "bond", "affection", "karmic affinity", "relationship"].some(t => lowerContext.includes(t))) {
     return "romance";
   }
-  if (lowerContext.includes("warning") || lowerContext.includes("risk") || lowerContext.includes("instability") || lowerContext.includes("pressure")) {
+  if (["warning", "risk", "instability", "pressure"].some(t => lowerContext.includes(t))) {
     return "warning";
   }
-  if (lowerContext.includes("fate lock") || lowerContext.includes("fate event") || lowerContext.includes("mystery") || lowerContext.includes("fate") || lowerContext.includes("unknown") || lowerContext.includes("prophecy") || lowerContext.includes("truth")) {
+  if (["fate lock", "fate event", "mystery", "fate", "unknown", "prophecy", "truth"].some(t => lowerContext.includes(t))) {
     return "mystery";
   }
-  if (lowerContext.includes("friendly") || lowerContext.includes("update") || lowerContext.includes("quest") || lowerContext.includes("info") || lowerContext.includes("codex") || lowerContext.includes("scan") || lowerContext.includes("record")) {
+  if (["friendly", "update", "quest", "info", "codex", "scan", "record"].some(t => lowerContext.includes(t))) {
     return "codex_update";
   }
-  if (lowerContext.includes("progress") || lowerContext.includes("stable") || lowerContext.includes("growth") || lowerContext.includes("training")) {
+  if (["progress", "stable", "growth", "training"].some(t => lowerContext.includes(t))) {
     return "progression";
   }
   
