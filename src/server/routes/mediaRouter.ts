@@ -1,3 +1,4 @@
+import { logger } from "../logger";
 import express from "express";
 import {
   validateBody,
@@ -33,7 +34,7 @@ mediaRouter.post("/api/generate-card-image", validateBody(generateCardImageSchem
     // Provide backwards compatible property and new array
     return res.json({ ...result, imageUrl: result.imageUrls?.[0] });
   } catch (error: any) {
-    console.error("Error generating card image:", error);
+    logger.error({ err: error }, "Error generating card image");
     return res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
@@ -117,7 +118,7 @@ GENERAL CONSTRAINTS:
 
         refinedPrompt = response.text || "";
       } catch (geminiError: any) {
-        console.warn("Gemini vision analysis failed, falling back to description-based prompt:", geminiError);
+        logger.warn({ err: geminiError }, "Gemini vision analysis failed, falling back to description-based prompt");
       }
     }
 
@@ -134,7 +135,7 @@ GENERAL CONSTRAINTS:
       note: "No personal data, images, or files are stored on our servers. This transformation occurs dynamically in real-time."
     });
   } catch (error: any) {
-    console.error("Error generating cultivator portrait:", error);
+    logger.error({ err: error }, "Error generating cultivator portrait");
     return res.status(500).json({ error: error.message || "Celestial alignment interrupted." });
   }
 });
@@ -153,7 +154,7 @@ mediaRouter.post("/api/generate-audio", validateBody(generateAudioSchema), async
 
     // 1. Try OpenRouter (if user provides OpenRouter Key)
     if (openrouterKey && openrouterKey !== "MY_OPENROUTER_API_KEY" && openrouterKey.trim() !== "") {
-      console.log(`[TTS] Requesting OpenRouter for voice '${speakerVoice}' using Kokoro...`);
+      logger.info(`[TTS] Requesting OpenRouter for voice '${speakerVoice}' using Kokoro...`);
       try {
         const response = await fetch("https://openrouter.ai/api/v1/audio/speech", {
           method: "POST",
@@ -171,19 +172,19 @@ mediaRouter.post("/api/generate-audio", validateBody(generateAudioSchema), async
         if (response.ok) {
           const arrayBuffer = await response.arrayBuffer();
           base64Audio = Buffer.from(arrayBuffer).toString("base64");
-          console.log("[TTS] OpenRouter TTS generation succeeded!");
+          logger.info("[TTS] OpenRouter TTS generation succeeded!");
         } else {
           const errText = await response.text();
-          console.warn(`[TTS] OpenRouter TTS generation failed (status ${response.status}): ${errText}`);
+          logger.warn(`[TTS] OpenRouter TTS generation failed (status ${response.status}): ${errText}`);
         }
       } catch (orErr) {
-        console.error("[TTS] OpenRouter TTS generation threw an error:", orErr);
+        logger.error({ err: orErr }, "[TTS] OpenRouter TTS generation threw an error");
       }
     }
 
     // 2. Try DeepInfra (if user provides DeepInfra Key)
     if (!base64Audio && deepinfraKey && deepinfraKey !== "MY_DEEPINFRA_API_KEY" && deepinfraKey.trim() !== "") {
-      console.log(`[TTS] Requesting DeepInfra for voice '${speakerVoice}'...`);
+      logger.info(`[TTS] Requesting DeepInfra for voice '${speakerVoice}'...`);
       try {
         const response = await fetch("https://api.deepinfra.com/v1/audio/speech", {
           method: "POST",
@@ -201,19 +202,19 @@ mediaRouter.post("/api/generate-audio", validateBody(generateAudioSchema), async
         if (response.ok) {
           const arrayBuffer = await response.arrayBuffer();
           base64Audio = Buffer.from(arrayBuffer).toString("base64");
-          console.log("[TTS] DeepInfra TTS generation succeeded!");
+          logger.info("[TTS] DeepInfra TTS generation succeeded!");
         } else {
           const errText = await response.text();
-          console.warn(`[TTS] DeepInfra TTS generation failed: ${errText}`);
+          logger.warn(`[TTS] DeepInfra TTS generation failed: ${errText}`);
         }
       } catch (diErr) {
-        console.error("[TTS] DeepInfra TTS generation threw an error:", diErr);
+        logger.error({ err: diErr }, "[TTS] DeepInfra TTS generation threw an error");
       }
     }
 
     // Fallback 1: ylacombe/kokoro-82m Gradio Space
     if (!base64Audio) {
-      console.log(`[TTS] Falling back to public Hugging Face Space (ylacombe/kokoro-82m) for voice '${speakerVoice}'...`);
+      logger.info(`[TTS] Falling back to public Hugging Face Space (ylacombe/kokoro-82m) for voice '${speakerVoice}'...`);
       try {
         const lang = speakerVoice.startsWith("es_") ? "es" : "en";
         const hfResponse = await fetch("https://ylacombe-kokoro-82m.hf.space/api/predict", {
@@ -249,16 +250,16 @@ mediaRouter.post("/api/generate-audio", validateBody(generateAudioSchema), async
             }
           }
         } else {
-          console.warn(`[TTS] Space ylacombe/kokoro-82m returned status: ${hfResponse.status}`);
+          logger.warn(`[TTS] Space ylacombe/kokoro-82m returned status: ${hfResponse.status}`);
         }
       } catch (hfErr) {
-        console.error("[TTS] ylacombe/kokoro-82m Space fallback failed:", hfErr);
+        logger.error({ err: hfErr }, "[TTS] ylacombe/kokoro-82m Space fallback failed");
       }
     }
 
     // Fallback 2: gokaygokay/Kokoro-82M Gradio Space
     if (!base64Audio) {
-      console.log(`[TTS] Falling back to secondary Hugging Face Space (gokaygokay-kokoro-82m)...`);
+      logger.info(`[TTS] Falling back to secondary Hugging Face Space (gokaygokay-kokoro-82m)...`);
       try {
         const lang = speakerVoice.startsWith("es_") ? "es" : "en";
         const hfResponse = await fetch("https://gokaygokay-kokoro-82m.hf.space/api/predict", {
@@ -295,7 +296,7 @@ mediaRouter.post("/api/generate-audio", validateBody(generateAudioSchema), async
           }
         }
       } catch (hfErr2) {
-        console.error("[TTS] gokaygokay-kokoro-82m Space fallback failed:", hfErr2);
+        logger.error({ err: hfErr2 }, "[TTS] gokaygokay-kokoro-82m Space fallback failed");
       }
     }
 
@@ -305,7 +306,7 @@ mediaRouter.post("/api/generate-audio", validateBody(generateAudioSchema), async
 
     return res.json({ base64Audio });
   } catch (error: any) {
-    console.error("Error generating audio:", error);
+    logger.error({ err: error }, "Error generating audio");
     return res.status(500).json({ error: error.message || "Failed to generate audio" });
   }
 });
