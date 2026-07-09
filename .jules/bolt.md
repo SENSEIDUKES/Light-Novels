@@ -23,6 +23,7 @@
 **Action:** Extracted `CharacterCard`, `CharacterEditCard`, `LocationCard`, `CharacterProfile`, and `LocationProfile` to cleanly encapsulate logic.
 
 ## Testing Improvements
-- Added 100% test coverage for `getSystemInferredType` and `getSystemPromptColor` in `src/lib/systemColors.test.ts`.
-- Implemented `it.each` in Vitest to effectively parameterize test inputs, leading to complete coverage of multiple branches (`||`) mapping rules without writing repetitive tests.
+
+- Added line coverage for `getSystemInferredType` and `getSystemPromptColor` in `src/lib/systemColors.test.ts`.
+- Implemented `it.each` in Vitest to parameterize test inputs and cover multiple branch (`||`) mapping rules without writing repetitive tests.
 - Re-established missing test coverage for `getSystemPromptColor` shadow outcomes.

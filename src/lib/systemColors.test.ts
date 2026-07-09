@@ -172,6 +172,7 @@ describe('systemColors', () => {
       ['breakthrough', 'rgba(251,191,36,0.15)'], // amber
       ['warning', 'rgba(249,115,22,0.15)'], // orange
       ['critical_danger', 'rgba(239,68,68,0.15)'], // red
+      ['system_error', 'rgba(239,68,68,0.25)'], // red glitch (special case in source file)
       ['corruption', 'rgba(159,18,57,0.25)'], // rose (special case in source file)
       ['mystery', 'rgba(168,85,247,0.15)'], // purple
       ['romance', 'rgba(236,72,153,0.15)'], // pink
@@ -184,11 +185,6 @@ describe('systemColors', () => {
     it('adds special effects for system_error', () => {
       const color = getSystemPromptColor('system_error');
       expect(color).toContain('animate-pulse');
-    });
-
-    it('adds special shadows for corruption', () => {
-      const color = getSystemPromptColor('corruption');
-      expect(color).toContain('rgba(159,18,57,0.25)');
     });
 
     it('handles new multi-match types in prompt color', () => {
