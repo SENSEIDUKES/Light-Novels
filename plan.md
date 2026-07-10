@@ -2,7 +2,7 @@
 
 1. **Identify Performance Bottleneck**: The file `src/components/codex/LivingCodexDashboards.tsx` uses multiple `.filter(n => ...)` methods along with `.length` and `.reduce` internally (by iterating on arrays) inside a render loop to calculate Causal Web Metrics (Active Karma Contracts, Karmic Debts, Celestial Boons, Destinies & Enmities). This iterates over the `activeStory.karmaNodes` array multiple times, which is inefficient and creates O(N) operations inside a functional component that may be re-rendered often.
 
-2. **Implement Optimization**: Replace the multiple `.filter` iterations with a single `for` loop pass over `activeStory.karmaNodes`. We'll initialize variables for the counts and array, and iterate exactly once. This preserves O(N) asymptotic complexity while reducing six traversals of `activeStory.karmaNodes` to one and eliminating intermediate filter-array allocations.
+2. **Implement Optimization**: Replace the multiple .filter iterations with a single pass over activeStory.karmaNodes wrapped in a useMemo hook. We'll initialize variables for the counts and array, and iterate exactly once. This preserves O(N) asymptotic complexity, reduces six traversals of activeStory.karmaNodes to one, eliminates intermediate filter-array allocations, and prevents recalculation on hover-induced re-renders.
     - `src/components/codex/LivingCodexDashboards.tsx`: Lines 386-392
 
     ```javascript
