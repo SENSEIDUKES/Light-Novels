@@ -131,6 +131,10 @@ GENRE-SENSITIVE WRITING DIRECTIVES:
 - Classic Xianxia/Wuxia: Treat high-energy tropes (face-slapping of arrogant bullies, grand descriptions of celestial arrays, internal alchemy processes, power stats, or spiritual qi tempests) as an optional style palette to apply ONLY when the genre, story tags, or active scene calls for it.
 - Cozy / Slice-of-Life / Mystery / Urban / Romance: If the style is cozy/slice-of-life/mystery/urban/romance, suppress combat and cultivation-tempest conventions unless the scene premise explicitly demands them. Keep the tone grounded, focusing on interpersonal bonds, atmospheric details, or daily progression instead.
 
+NARRATIVE SURFACE HYGIENE:
+Story tags, trope labels, style notes, app/director instructions, casual user shorthand, Fate Pressure, Fate Survival, death flags, hidden timers, fate locks, doom deadlines, fate scars, destiny shifts, and timeline changes are control signals only. They may influence character behavior, scene structure, pacing, stakes, consequences, emotional direction, and structured system blocks, but must not appear verbatim in normal narration or dialogue unless natural in-world language for this story.
+Translate control language into story action: show the emotional behavior rather than naming "enemies to lovers" tension; render "mid" as a character being unimpressed by stale orthodoxy or hollow tradition unless the story has an explicit modern/comedic voice. Do not narrate Fate mechanics such as "this action shifted destiny," "the timeline locked," or a hidden timer unless the story explicitly has an in-world System/LitRPG interface. If a Fate event needs visible UI treatment, put a structured "system" object on its own NDJSON block; never put bracketed Fate alerts inside paragraph or dialogue text. In non-System/LitRPG stories, prefer natural prose, consequences, omens, pressure, and character choices.
+
 CRITICAL ANTI-DRIFT MANDATE (COHERENCE PROTOCOL):
 1. STABILITY OF THE VOID: You should strive to maintain facts established in the current story memory (MC power stage, living/dead characters, world rules, unresolved threads, or acquired abilities) or previous summaries. The current story memory and past summaries are your primary reference guide.
 2. CONTINUITY LOCK: Acknowledge the immediate climax, physical position, or conversation from the LAST paragraph of the previous chapter summary in PAST SUMMARY CONTEXT. Avoid unexplained timeskips, spatial transitions, or sudden narrative jumps unless stylistically appropriate.
@@ -167,6 +171,10 @@ Your writing must be highly descriptive, immersive, and emotionally impactful, u
 GENRE-SENSITIVE WRITING DIRECTIVES:
 - Classic Xianxia/Wuxia: Treat high-energy tropes (face-slapping of arrogant bullies, grand descriptions of celestial arrays, internal alchemy processes, power stats, or spiritual qi tempests) as an optional style palette to apply ONLY when the genre, story tags, or active scene calls for it.
 - Cozy / Slice-of-Life / Mystery / Urban / Romance: If the style is cozy/slice-of-life/mystery/urban/romance, suppress combat and cultivation-tempest conventions unless the scene premise explicitly demands them. Keep the tone grounded, focusing on interpersonal bonds, atmospheric details, or daily progression instead.
+
+NARRATIVE SURFACE HYGIENE:
+Story tags, trope labels, style notes, app/director instructions, casual user shorthand, Fate Pressure, Fate Survival, death flags, hidden timers, fate locks, doom deadlines, fate scars, destiny shifts, and timeline changes are control signals only. They may influence character behavior, scene structure, pacing, stakes, consequences, emotional direction, and structured system blocks, but must not appear verbatim in normal narration or dialogue unless natural in-world language for this story.
+Translate control language into story action: show the emotional behavior rather than naming "enemies to lovers" tension; render "mid" as a character being unimpressed by stale orthodoxy or hollow tradition unless the story has an explicit modern/comedic voice. Do not narrate Fate mechanics such as "this action shifted destiny," "the timeline locked," or a hidden timer unless the story explicitly has an in-world System/LitRPG interface. If a Fate event needs visible UI treatment, put a structured "system" object on its own NDJSON block; never put bracketed Fate alerts inside paragraph or dialogue text. In non-System/LitRPG stories, prefer natural prose, consequences, omens, pressure, and character choices.
 
 CRITICAL ANTI-DRIFT MANDATE (COHERENCE PROTOCOL):
 1. STABILITY OF THE VOID: You should strive to maintain facts established in the current story memory (MC power stage, living/dead characters, world rules, unresolved threads, or acquired abilities) or previous summaries. The current story memory and past summaries are your primary reference guide.
@@ -235,7 +243,7 @@ CHAPTER LENGTH & EXPANSION DIRECTIVES:
 - Avoid rambling or overly repetitive internal monologues. Instead, natively reach the word count through dynamic dialogue, deeply immersive sensory descriptions, engaging combat choreography, detailed cultivation revelations, and world-building that advances the plot.
 
 Write a fully fleshed-out chapter following the length directives. Split it into multiple beautiful paragraphs with plenty of dialogue, combat choreography or cultivation breakthroughs where descriptive details make it feel real. 
-${withCue ? 'For "System" or "LitRPG" styles, you MUST use the structured "system" json object on the NDJSON blocks for system panels instead of plain text brackets.' : 'If the novel is a "System" or "LitRPG" style, include a beautiful neon/cybernetic Cultivation System panel in the story text (formatted cleanly using mono-spaced block grids or brackets like: [System Alert: Qi +100!]).'}
+${withCue ? 'For "System" or "LitRPG" styles, use a structured "system" object on its own NDJSON block for a visible system panel; never use plain-text brackets in narration or dialogue.' : 'For "System" or "LitRPG" styles, keep system events in natural prose in this legacy JSON response. Never include bracketed alerts or control labels in chapterText.'}
 
 ${withCue ? `Also allow narrative cue payloads to carry normalized story metadata. Do not directly convert this data into complex Web Audio synthesis yet. Keep the structured payloads clean so SAP can later interpret them as part of a proper meaning-to-score audio system. DO NOT generate summary or memory updates, only generate the chapter text blocks.` : `Also, analyze the events of this chapter and provide list updates/modifications to the permanent story memory so we can track newly met characters, dead characters, relationship updates, unresolved issues, or potential MC advancement.`}
 
@@ -569,6 +577,7 @@ If no issues are found in a category, return an empty array for that category. D
 
   repairChapter: {
     system: `You are an elite fantasy web-novel editor and ghostwriter. Your task is to fix a chapter that has continuity errors, contradictions, or power scaling issues, as identified by the Continuity Guard.
+Some warnings may instead identify reader-surface control language. Remove that leaked wording from narration or dialogue while preserving the intended scene, stakes, and emotional direction. Never expose control labels, bracketed Fate alerts, or editor instructions in reader-facing prose.
 Your output must strictly be NDJSON (Newline Delimited JSON) blocks, just like the original chapter generation format. Start it with ---CHAPTER_BLOCKS--- on a new line.`,
     userPrompt: (chapterText: string, memoryJson: string, warnings: string[]) => `The following chapter text has been flagged for continuity errors against the story's Codex memory.
 
@@ -581,7 +590,7 @@ ${memoryJson}
 ORIGINAL CHAPTER TEXT BLOCKS:
 ${chapterText}
 
-Rewrite the ENTIRE chapter to fix ALL the continuity warnings. Maintain the exact same style, formatting, pacing, and length. Do not introduce new continuity errors.
+Rewrite the ENTIRE chapter to fix ALL the warnings. Maintain the exact same style, formatting, pacing, and length. Do not introduce new continuity errors or reader-surface control language.
 Output strictly the full set of corrected NDJSON blocks for the entire chapter starting with ---CHAPTER_BLOCKS---.`
   },
 

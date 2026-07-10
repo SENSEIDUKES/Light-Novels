@@ -2,6 +2,7 @@ import { Story } from '../../types';
 import {
   classifyContinuityWarnings,
   extractProseForContinuity,
+  findSurfaceProseLeaks,
 } from './verifyContinuityWarnings';
 import { slimMemoryForRequest } from '../../lib/slimMemoryForRequest';
 
@@ -18,8 +19,9 @@ export type ContinuityPhase = 'checking' | 'repairing';
  * chapter's prose. Everything plausible-but-unproven is downgraded to a quiet soft note;
  * obvious noise (self-negating essays, embedded image/codex data) is dropped entirely.
  *
- * The expensive repair pass is only attempted for VERIFIED severe faults, so early
- * chapters — where nobody has died yet — never trigger it.
+ * The repair pass is attempted for VERIFIED severe faults and deterministic
+ * reader-surface leaks. Surface leaks remain behind the veil and can never create a
+ * reader-facing continuity fault.
  *
  * @param onProgress optional hook so the veil can show "Verifying continuity..." /
  *   "Reconciling the timeline..." while this runs.
@@ -44,34 +46,52 @@ export const runContinuityPass = async (
     // Only the reader-facing prose is sent to the guard — world-card/image/codex
     // metadata is stripped so it can never be mistaken for lore drift.
     const prose = extractProseForContinuity(rawBlocksStr);
-    const response = await fetch('/api/check-consistency', {
-      method: 'POST',
-      headers: apiHeaders,
-      body: JSON.stringify({
-        chapterText: prose,
-        memory: slimMemory,
-        routingConfig,
-      }),
-    });
-    if (!response.ok) return null;
-    const data = await response.json();
-    return classifyContinuityWarnings(data.warnings || [], prose, activeStory.memory);
+    const surfaceLeaks = findSurfaceProseLeaks(prose);
+    try {
+      const response = await fetch('/api/check-consistency', {
+        method: 'POST',
+        headers: apiHeaders,
+        body: JSON.stringify({
+          chapterText: prose,
+          memory: slimMemory,
+          routingConfig,
+        }),
+      });
+      if (!response.ok) {
+        return { classified: { severe: [], soft: [] }, surfaceLeaks };
+      }
+      const data = await response.json();
+      return {
+        classified: classifyContinuityWarnings(data.warnings || [], prose, activeStory.memory),
+        surfaceLeaks,
+      };
+    } catch {
+      // The deterministic surface scan still gets a chance to repair prose if the
+      // advisory continuity model is unavailable.
+      return { classified: { severe: [], soft: [] }, surfaceLeaks };
+    }
   };
 
   try {
     onProgress?.('checking');
-    let classified = await checkConsistency(currentRawBlocksStr);
+    let consistency = await checkConsistency(currentRawBlocksStr);
 
-    if (classified) {
+    if (consistency) {
+      let { classified, surfaceLeaks } = consistency;
       continuitySoftNotes = classified.soft;
 
-      if (classified.severe.length > 0) {
+      if (classified.severe.length > 0 || surfaceLeaks.length > 0) {
+        const repairWarnings = [
+          ...classified.severe,
+          ...surfaceLeaks.map((phrase) => `Surface hygiene: replace leaked control phrase "${phrase}" with natural in-world prose.`),
+        ];
+
         console.log(
-          'Continuity Guard detected VERIFIED severe faults during generation:',
-          classified.severe
+          'Continuity pass detected repairable prose issues during generation:',
+          repairWarnings
         );
 
-        console.log('Attempting Continuity Repair...');
+        console.log('Attempting silent chapter repair...');
         onProgress?.('repairing');
         const repairResponse = await fetch('/api/repair-chapter-stream', {
           method: 'POST',
@@ -79,7 +99,7 @@ export const runContinuityPass = async (
           body: JSON.stringify({
             chapterText: currentRawBlocksStr,
             memory: slimMemory,
-            warnings: classified.severe,
+            warnings: repairWarnings,
             routingConfig,
           }),
         });
@@ -113,8 +133,9 @@ export const runContinuityPass = async (
           if (repairRaw.length > 150) {
             currentRawBlocksStr = repairRaw;
 
-            const recheck = await checkConsistency(currentRawBlocksStr);
-            classified = recheck || { severe: [], soft: [] };
+            consistency = await checkConsistency(currentRawBlocksStr);
+            classified = consistency?.classified || { severe: [], soft: [] };
+            surfaceLeaks = consistency?.surfaceLeaks || [];
             continuitySoftNotes = classified.soft;
           }
         }
@@ -126,6 +147,10 @@ export const runContinuityPass = async (
           );
           hasContinuityFaults = true;
           continuityWarnings = classified.severe;
+        }
+
+        if (surfaceLeaks.length > 0) {
+          console.warn('Chapter repair left surface-hygiene leaks; they remain hidden from reader-facing continuity warnings.', surfaceLeaks);
         }
       }
     }

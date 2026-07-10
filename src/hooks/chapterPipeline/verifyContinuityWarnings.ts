@@ -53,6 +53,40 @@ const MEDIA_NOISE = [
   'media data',
 ];
 
+// Control language is useful as prompt/UI metadata, but it should not reach ordinary
+// reader-facing narration or dialogue. Keep this deliberately phrase-based: mythic
+// words such as "fate", "destiny", and "karma" remain valid cultivation prose.
+const SURFACE_PROSE_DENYLIST = [
+  'enemies to lovers',
+  'slow burn',
+  'face-slapping',
+  'power fantasy',
+  'relationship development',
+  'romance tension',
+  'arc goal',
+  'scene intent',
+  'pacing directive',
+  'story tag',
+  'trope',
+  'mid',
+  'fate pressure',
+  'fate survival',
+  'hardcore fate',
+  'dao master',
+  'death flag detected',
+  'betrayal check',
+  'fate lock',
+  'hidden timer',
+  'doom deadline',
+  'fate deadline',
+  'fate scar',
+  'timeline scar',
+  'destiny shift',
+  'fate event',
+  'this action shifted destiny',
+  'permanently alter the timeline',
+];
+
 // A single genuine "the dead are walking" flag is one short sentence. Anything much
 // longer is the model rambling an analysis, not reporting a hard contradiction.
 const MAX_WARNING_LENGTH = 400;
@@ -93,6 +127,14 @@ const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\
 // downgrading genuine severe faults for non-English stories. These lookarounds recreate
 // a whole-word boundary using Unicode letter/number/mark classes under the `u` flag.
 const WORD_CHAR = '[\\p{L}\\p{N}\\p{M}_]';
+
+/** Finds literal control-language leaks in prose without inspecting block metadata. */
+export const findSurfaceProseLeaks = (prose: string): string[] => {
+  const proseText = prose || '';
+  return SURFACE_PROSE_DENYLIST.filter((phrase) =>
+    new RegExp(`(?<!${WORD_CHAR})${escapeRegExp(phrase)}(?!${WORD_CHAR})`, 'ui').test(proseText)
+  );
+};
 
 /**
  * Whole-word, case-insensitive matchers for every Codex entity currently marked
