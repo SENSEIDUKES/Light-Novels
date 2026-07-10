@@ -194,7 +194,9 @@ function App() {
       unsubSync();
       if (unsubProfile) unsubProfile();
     };
-  }, [store_initStorage, store_migrateOrDiscardDemoStories, store_setCurrentUser, store_setStories, store_setSyncStatus, store_setUserProfile]);
+    // Note: These Zustand store actions are guaranteed stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Dynamically fetch missing content for active chapter
   useEffect(() => {
