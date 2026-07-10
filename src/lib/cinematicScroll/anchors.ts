@@ -117,8 +117,11 @@ export function locateAnchorElement(
   anchor: Pick<ReadingAnchor, 'blockId' | 'paragraphIndex'>,
 ): HTMLElement | null {
   if (anchor.blockId) {
+    // CSS.escape is unavailable in some DOM shims; escape quotes/backslashes
+    // manually so arbitrary block IDs stay a valid attribute selector.
+    const escaped = anchor.blockId.replace(/[\\"]/g, '\\$&');
     const byId = container.querySelector<HTMLElement>(
-      `[data-block-id="${CSS.escape(anchor.blockId)}"]`,
+      `[data-block-id="${escaped}"]`,
     );
     if (byId) return byId;
   }

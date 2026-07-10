@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Critical Paths', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     // Wait for the initialization veil to disappear
     await expect(page.locator('text=Initializing Celestial Matrices...')).toBeHidden({ timeout: 15000 });
   });

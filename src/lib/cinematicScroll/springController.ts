@@ -53,11 +53,11 @@ export function stepSpring(
   config: SpringConfig = DEFAULT_SPRING_CONFIG,
 ): SpringState {
   const dt = clamp(finiteOr(deltaSeconds, 0), 0, config.maxDeltaSeconds);
-  if (dt === 0) return { ...state };
 
-  const position = finiteOr(state.position, target);
+  const safeTarget = finiteOr(target, finiteOr(state.position, 0));
+  const position = finiteOr(state.position, safeTarget);
   const velocity = finiteOr(state.velocity, 0);
-  const safeTarget = finiteOr(target, position);
+  if (dt === 0) return { position, velocity };
 
   // Critically damped: acceleration = ω²·error − 2ω·velocity
   const rawAccel =

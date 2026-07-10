@@ -116,6 +116,7 @@ export function useReadingPosition({
     restoredChapterRef.current = selectedChapterNum;
 
     let cancelled = false;
+    let completed = false;
     const surface = surfaceRef.current;
 
     const applyAnchor = (anchor: ReadingAnchor): boolean => {
@@ -138,10 +139,14 @@ export function useReadingPosition({
 
     const restore = async () => {
       // Fonts change line wrapping, which changes block heights — wait for
-      // them before measuring.
+      // them before measuring, but never block restoration on a hung font
+      // request: the corrective pass absorbs late font swaps.
       if (typeof document !== 'undefined' && document.fonts?.ready) {
         try {
-          await document.fonts.ready;
+          await Promise.race([
+            document.fonts.ready,
+            new Promise((resolve) => setTimeout(resolve, 800)),
+          ]);
         } catch {
           /* restoration proceeds with current metrics */
         }
@@ -150,13 +155,25 @@ export function useReadingPosition({
 
       const anchor = activeStory.readingAnchor;
       if (anchor && anchor.chapterNumber === selectedChapterNum) {
-        if (applyAnchor(anchor)) {
-          // One corrective pass after the next stable rendering opportunity
-          // (images/late layout may have shifted geometry).
-          requestAnimationFrame(() => {
-            if (!cancelled) applyAnchor(anchor);
-          });
-        }
+        // The chapter content may still be animating in (AnimatePresence
+        // replaces the old chapter before mounting the new one), so retry on
+        // a bounded number of frames — no open-ended polling.
+        let attempts = 0;
+        const tryApply = () => {
+          if (cancelled) return;
+          if (applyAnchor(anchor)) {
+            completed = true;
+            // One corrective pass after the next stable rendering opportunity
+            // (the chapter entrance animation and late layout shift geometry).
+            setTimeout(() => {
+              if (!cancelled) applyAnchor(anchor);
+            }, 650);
+            return;
+          }
+          attempts += 1;
+          if (attempts < 90) requestAnimationFrame(tryApply);
+        };
+        tryApply();
         return;
       }
 
@@ -164,6 +181,7 @@ export function useReadingPosition({
       // nearest paragraph, and re-save it as a semantic anchor.
       const legacyPixels = activeStory.lastReadScrollPosition;
       if (legacyPixels != null && legacyPixels > 0 && !anchor) {
+        completed = true;
         suppressSaveUntilRef.current = performance.now() + SAVE_DEBOUNCE_MS;
         surface.setPosition(legacyPixels);
         requestAnimationFrame(() => {
@@ -171,12 +189,17 @@ export function useReadingPosition({
           const migrated = buildAnchor();
           if (migrated) persistAnchor(migrated);
         });
+      } else {
+        completed = true; // nothing to restore for this chapter
       }
     };
 
     restore();
     return () => {
       cancelled = true;
+      // A dep change interrupted an unfinished restoration (e.g. content was
+      // still animating in) — allow the re-run to try again.
+      if (!completed) restoredChapterRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
