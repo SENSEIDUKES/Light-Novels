@@ -234,6 +234,9 @@ ${memoryJson}
 PAST SUMMARY CONTEXT (What happened in previous chapters to prevent plot holes):
 ${pastSummariesJson}
 
+IMMEDIATE CONTINUATION RULE:
+Continue from the latest concrete action, conversation, and physical position. Do not restart by broadly re-establishing the novel's setting, central hardship, protagonist, or core premise. Do not replay introductions, discoveries, or conversations that already occurred. Preserve recurring atmosphere when it naturally fits the immediate scene, but do not use it as a default chapter reset.
+
 CHAPTER LENGTH & EXPANSION DIRECTIVES:
 - Default Target Length: 2,500 words.
 - Absolute Minimum: 2,000 words.

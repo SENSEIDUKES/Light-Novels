@@ -1,5 +1,6 @@
 import { Chapter, StoryWorld, ChapterContent } from '../types';
 import { storyStorage } from './storage';
+import { isUsableSummary } from './summaryIntegrity';
 
 export function cosineSimilarity(vecA: number[], vecB: number[]): number {
   if (vecA.length !== vecB.length) return 0;
@@ -92,7 +93,9 @@ export async function retrieveRelevantContext(
     if (queryEmbedding) {
       const candidates: { chapterNumber: number; summary: string; score: number }[] = [];
       for (const ch of oldCandidateChapters) {
-        if (ch.embedding) {
+        // Skip chapters whose stored summary is empty or a known placeholder —
+        // they carry no narrative memory worth recovering.
+        if (ch.embedding && isUsableSummary(ch.summary)) {
           const score = cosineSimilarity(queryEmbedding, ch.embedding);
           if (score > 0.70) {
             candidates.push({ chapterNumber: ch.chapterNumber, summary: ch.summary, score });
@@ -127,7 +130,7 @@ export async function retrieveRelevantContext(
       try {
         const content = await ch.contentPromise;
         if (content) {
-          if (!ch.summary && content.summary) ch.summary = content.summary;
+          if (!isUsableSummary(ch.summary) && isUsableSummary(content.summary)) ch.summary = content.summary;
           
           if (content.archivedBlocks && content.archivedBlocks.length > 0) {
              chText = `Chapter ${ch.chapterNumber} (ARCHIVED BLOCKS):\n` + content.archivedBlocks.map(b => b.text).join('\n');
@@ -143,7 +146,7 @@ export async function retrieveRelevantContext(
     }
 
     if (!chText) {
-      chText = `Chapter ${ch.chapterNumber} Summary: ${ch.summary || "No past summary"}`;
+      chText = `Chapter ${ch.chapterNumber} Summary: ${isUsableSummary(ch.summary) ? ch.summary : "No past summary"}`;
     }
 
     recentContextBlocks.unshift(chText);
@@ -181,7 +184,7 @@ export async function retrieveRelevantContext(
       recentTotalChars += block.length;
     } else {
       // Approach token limit: prune to episodic summary or standard summary
-      const shortText = `Chapter ${recentCandidateChapters[i].chapterNumber} Pruned Summary: ${recentCandidateChapters[i].summary || "Archived"}`;
+      const shortText = `Chapter ${recentCandidateChapters[i].chapterNumber} Pruned Summary: ${isUsableSummary(recentCandidateChapters[i].summary) ? recentCandidateChapters[i].summary : "Archived"}`;
       if (recentTotalChars + shortText.length <= maxContextChars) {
         finalRecentBlocks.unshift(shortText);
         recentTotalChars += shortText.length;
