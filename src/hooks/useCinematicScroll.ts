@@ -46,6 +46,8 @@ interface NarrationSegment {
   toPosition: number;
   startedAt: number;
   durationMs: number;
+  /** Progress already completed when this segment measurement was emitted. */
+  initialProgress: number;
   /** Cached bounds so the frame loop never reads scrollHeight. */
   maxPosition: number;
 }
@@ -101,6 +103,7 @@ export function useCinematicScroll(
   const rafRef = useRef<number | undefined>(undefined);
   const lastTimeRef = useRef<number | undefined>(undefined);
   const lastWrittenRef = useRef<number | null>(null);
+  const pausedAtRef = useRef<number | null>(null);
   const onStateChangeRef = useRef(onStateChange);
   onStateChangeRef.current = onStateChange;
 
@@ -129,10 +132,13 @@ export function useCinematicScroll(
       const segment = segmentRef.current;
       if (segment && lastTimeRef.current !== undefined) {
         const deltaSeconds = (time - lastTimeRef.current) / 1000;
-        const progress =
+        const elapsedFraction =
           segment.durationMs > 0
             ? Math.min(Math.max((time - segment.startedAt) / segment.durationMs, 0), 1)
             : 1;
+        const progress =
+          segment.initialProgress +
+          (1 - segment.initialProgress) * elapsedFraction;
         const timelineTarget = lerp(segment.fromPosition, segment.toPosition, progress);
 
         const spring = springRef.current;
@@ -169,7 +175,12 @@ export function useCinematicScroll(
    * never per frame.
    */
   const measureSegment = useCallback(
-    (blockIndex: number, durationMs: number, startedAt: number): NarrationSegment | null => {
+    (
+      blockIndex: number,
+      durationMs: number,
+      startedAt: number,
+      initialProgress = 0,
+    ): NarrationSegment | null => {
       const container = contentRef.current;
       if (!container) return null;
       const active = container.querySelector<HTMLElement>(
@@ -198,6 +209,7 @@ export function useCinematicScroll(
         toPosition: Math.min(Math.max(toPosition, 0), maxPosition),
         startedAt,
         durationMs,
+        initialProgress: Math.min(Math.max(initialProgress, 0), 1),
         maxPosition,
       };
     },
@@ -212,6 +224,7 @@ export function useCinematicScroll(
       segment.blockIndex,
       segment.durationMs,
       segment.startedAt,
+      segment.initialProgress,
     );
     if (remeasured) segmentRef.current = remeasured;
     // Reset the spring at the live position so a geometry change can't fling.
@@ -238,7 +251,12 @@ export function useCinematicScroll(
         springRef.current = { position: getSurface().getPosition(), velocity: 0 };
         if (segmentRef.current) {
           const s = segmentRef.current;
-          const remeasured = measureSegment(s.blockIndex, s.durationMs, s.startedAt);
+          const remeasured = measureSegment(
+            s.blockIndex,
+            s.durationMs,
+            s.startedAt,
+            s.initialProgress,
+          );
           if (remeasured) segmentRef.current = remeasured;
         }
         startLoop();
@@ -260,7 +278,12 @@ export function useCinematicScroll(
   const resume = useCallback(() => {
     const segment = segmentRef.current;
     if (segment) {
-      const remeasured = measureSegment(segment.blockIndex, segment.durationMs, segment.startedAt);
+      const remeasured = measureSegment(
+        segment.blockIndex,
+        segment.durationMs,
+        segment.startedAt,
+        segment.initialProgress,
+      );
       if (remeasured) {
         segmentRef.current = remeasured;
         const currentPos = getSurface().getPosition();
@@ -296,21 +319,44 @@ export function useCinematicScroll(
       if (!detail) return;
       switch (detail.status) {
         case 'start':
+          pausedAtRef.current = null;
           dispatch({ type: 'NARRATION_STARTED' });
           break;
         case 'pause':
+          pausedAtRef.current = performance.now();
           dispatch({ type: 'NARRATION_PAUSED' });
           break;
-        case 'resume':
+        case 'resume': {
+          const pausedAt = pausedAtRef.current;
+          if (pausedAt != null && segmentRef.current) {
+            // Narration time must not advance while prerecorded audio is
+            // paused. Shift the segment clock forward by the pause duration.
+            segmentRef.current.startedAt += performance.now() - pausedAt;
+          }
+          pausedAtRef.current = null;
           dispatch({ type: 'NARRATION_RESUMED' });
           break;
+        }
         case 'end':
+          pausedAtRef.current = null;
           dispatch({ type: 'NARRATION_ENDED' });
           break;
         case 'block': {
           if (detail.blockIndex == null || detail.blockIndex < 0) break;
-          const durationMs = detail.durationMs ?? 0;
-          const segment = measureSegment(detail.blockIndex, durationMs, performance.now());
+          const normalized = detail.progress;
+          const totalDuration =
+            normalized?.actualDurationMs ??
+            normalized?.estimatedDurationMs ??
+            detail.durationMs ??
+            0;
+          const elapsedMs = normalized?.elapsedMs ?? 0;
+          const remainingMs = Math.max(totalDuration - elapsedMs, 0);
+          const segment = measureSegment(
+            detail.blockIndex,
+            remainingMs,
+            performance.now(),
+            normalized?.progress ?? 0,
+          );
           if (segment) {
             segmentRef.current = segment;
             if (stateRef.current === 'following') startLoop();

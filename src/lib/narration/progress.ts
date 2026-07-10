@@ -10,8 +10,7 @@
  */
 
 import { anchorKey } from '../cinematicScroll/anchors';
-import { TTS_WORDS_PER_SECOND_AT_RATE_1 } from '../voice/webSpeechCast';
-import { countWords } from '../../utils/textUtils';
+import { estimateChunkDurationMs } from '../voice/webSpeechCast';
 
 export interface NarrationProgress {
   chapterNumber: number;
@@ -59,7 +58,6 @@ export function makeNarrationProgress(args: {
 
 /** Estimated spoken duration of `text` at the given speech rate. */
 export function estimateSpokenDurationMs(text: string, speechRate: number): number {
-  const words = countWords(text) || 0;
   const rate = speechRate > 0 ? speechRate : 1;
-  return (words / (rate * TTS_WORDS_PER_SECOND_AT_RATE_1)) * 1000;
+  return estimateChunkDurationMs(text) / rate;
 }

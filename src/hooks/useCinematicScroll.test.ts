@@ -104,6 +104,7 @@ describe('useCinematicScroll', () => {
 
   afterEach(() => {
     container.remove();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -173,6 +174,53 @@ describe('useCinematicScroll', () => {
     expect(document.documentElement.scrollTop).toBe(frozen);
     act(() => { dispatchNarration({ status: 'resume' }); });
     expect(result.current.state).toBe('following');
+  });
+
+  it('does not count prerecorded-audio pause time as narration progress', () => {
+    let clock = 1000;
+    vi.spyOn(performance, 'now').mockImplementation(() => clock);
+    setup();
+    startNarration(4000);
+    act(() => { pumpFrames(30, 16, 1000); });
+
+    clock = 1480;
+    act(() => { dispatchNarration({ status: 'pause' }); });
+    const pausedPosition = document.documentElement.scrollTop;
+
+    // Wait longer than the remaining clip duration. A wall-clock timeline
+    // would now jump to the next paragraph as soon as audio resumes.
+    clock = 10_480;
+    act(() => { dispatchNarration({ status: 'resume' }); });
+    act(() => { pumpFrames(60, 16, 10_480); });
+
+    expect(document.documentElement.scrollTop).toBeGreaterThan(pausedPosition);
+    expect(document.documentElement.scrollTop).toBeLessThan(350);
+  });
+
+  it('starts a segment from normalized paragraph progress', () => {
+    setup();
+    act(() => {
+      dispatchNarration({ status: 'start' });
+      dispatchNarration({
+        status: 'block',
+        blockIndex: 0,
+        durationMs: 1000,
+        progress: {
+          chapterNumber: 1,
+          blockKey: '1:0',
+          nextBlockKey: '1:1',
+          chunkIndex: 1,
+          chunkCount: 2,
+          elapsedMs: 3000,
+          estimatedDurationMs: 4000,
+          progress: 0.75,
+        },
+      });
+      pumpFrames(60, 16);
+    });
+    // At 75% paragraph progress the timeline begins most of the way from the
+    // active block toward the next, instead of restarting at the active block.
+    expect(document.documentElement.scrollTop).toBeGreaterThan(250);
   });
 
   it('narration end returns to idle and stops movement', () => {

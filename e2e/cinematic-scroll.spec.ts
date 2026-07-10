@@ -46,6 +46,31 @@ const narrate = (page: Page, detail: Record<string, unknown>) =>
     window.dispatchEvent(new CustomEvent('seihouse-narration', { detail: d }));
   }, detail);
 
+async function placeParagraphAtFocusLine(page: Page, paragraphIndex: number) {
+  await page.locator(`[data-paragraph-index="${paragraphIndex}"]`).first().evaluate((element) => {
+    const viewport = window.visualViewport;
+    const focusLine = viewport
+      ? viewport.offsetTop + viewport.height * 0.33
+      : document.documentElement.clientHeight * 0.33;
+    const top = (element as HTMLElement).getBoundingClientRect().top;
+    window.scrollBy(0, top - focusLine);
+  });
+}
+
+async function expectParagraphAtFocusLine(page: Page, paragraphIndex: number) {
+  const metrics = await page.locator(`[data-paragraph-index="${paragraphIndex}"]`).first().evaluate((element) => {
+    const viewport = window.visualViewport;
+    const focusLine = viewport
+      ? viewport.offsetTop + viewport.height * 0.33
+      : document.documentElement.clientHeight * 0.33;
+    return {
+      top: (element as HTMLElement).getBoundingClientRect().top,
+      focusLine,
+    };
+  });
+  expect(Math.abs(metrics.top - metrics.focusLine)).toBeLessThanOrEqual(40);
+}
+
 /** Start fake narration on paragraph `blockIndex` with a spoken duration. */
 async function startFakeNarration(page: Page, blockIndex = 2, durationMs = 3000) {
   await narrate(page, { status: 'start' });
@@ -104,7 +129,9 @@ test.describe('Cinematic narration-following scroll', () => {
     await page.mouse.wheel(0, -200); // scroll back up → yield, target stays below
     await expect(page.locator('text=Auto-scroll paused')).toBeVisible();
     const stopped = await getScrollTop(page);
-    await page.locator('button', { hasText: 'Resume Reading' }).click();
+    await page.getByRole('button', { name: 'Resume Reading', exact: true }).click({
+      noWaitAfter: true,
+    });
     await page.waitForTimeout(1200);
     expect(await getScrollTop(page)).toBeGreaterThan(stopped);
   });
@@ -154,7 +181,7 @@ test.describe('Cinematic narration-following scroll', () => {
   test('reload restores the same semantic paragraph', async ({ page }) => {
     await openReader(page);
     // Scroll a specific paragraph to the focus line manually.
-    await page.locator('[data-paragraph-index="15"]').first().scrollIntoViewIfNeeded();
+    await placeParagraphAtFocusLine(page, 15);
     // Wait past the debounced semantic save.
     await page.waitForTimeout(2600);
 
@@ -162,32 +189,18 @@ test.describe('Cinematic narration-following scroll', () => {
     await expect(page.locator('[data-paragraph-index="15"]').first()).toBeVisible({ timeout: 15000 });
     // Give the anchored restoration (fonts + corrective pass) a moment.
     await page.waitForTimeout(1000);
-    const rect = await page
-      .locator('[data-paragraph-index="15"]')
-      .first()
-      .boundingBox();
-    const viewport = page.viewportSize()!;
-    expect(rect).not.toBeNull();
-    // The saved paragraph is on screen near the reading area after reload.
-    expect(rect!.y + rect!.height).toBeGreaterThan(0);
-    expect(rect!.y).toBeLessThan(viewport.height);
+    await expectParagraphAtFocusLine(page, 15);
   });
 
   test('restoration survives a major viewport-width change', async ({ page }) => {
     await openReader(page);
-    await page.locator('[data-paragraph-index="20"]').first().scrollIntoViewIfNeeded();
+    await placeParagraphAtFocusLine(page, 20);
     await page.waitForTimeout(2600); // debounced semantic save
 
     await page.setViewportSize({ width: 480, height: 800 });
     await openReader(page);
     await expect(page.locator('[data-paragraph-index="20"]').first()).toBeVisible({ timeout: 15000 });
     await page.waitForTimeout(1000);
-    const rect = await page
-      .locator('[data-paragraph-index="20"]')
-      .first()
-      .boundingBox();
-    expect(rect).not.toBeNull();
-    expect(rect!.y + rect!.height).toBeGreaterThan(0);
-    expect(rect!.y).toBeLessThan(800);
+    await expectParagraphAtFocusLine(page, 20);
   });
 });

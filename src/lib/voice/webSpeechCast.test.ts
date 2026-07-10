@@ -5,6 +5,8 @@ import {
   pickDefaultSideVoice,
   boundChunkText,
   MAX_CHUNK_CHARACTERS,
+  MAX_ESTIMATED_CHUNK_MS,
+  estimateChunkDurationMs,
 } from './webSpeechCast';
 
 const makeVoice = (name: string, lang = 'en-US', voiceURI = name): SpeechSynthesisVoice =>
@@ -136,6 +138,21 @@ describe('bounded speech chunks', () => {
     expect(pieces.join('')).toBe(cjk);
     for (const piece of pieces) {
       expect(piece.length).toBeLessThanOrEqual(MAX_CHUNK_CHARACTERS);
+      expect(estimateChunkDurationMs(piece)).toBeLessThanOrEqual(
+        MAX_ESTIMATED_CHUNK_MS,
+      );
+    }
+  });
+
+  it('enforces the spoken-duration limit for CJK text without spaces', () => {
+    const cjk = '天地玄黃宇宙洪荒'.repeat(20);
+    const pieces = boundChunkText(cjk);
+    expect(pieces.length).toBeGreaterThan(1);
+    expect(pieces.join('')).toBe(cjk);
+    for (const piece of pieces) {
+      expect(estimateChunkDurationMs(piece)).toBeLessThanOrEqual(
+        MAX_ESTIMATED_CHUNK_MS,
+      );
     }
   });
 

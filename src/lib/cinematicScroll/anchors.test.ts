@@ -11,7 +11,7 @@ import {
 
 /** Build a container with paragraph blocks at known document positions. */
 function makeContainer(
-  blocks: Array<{ index: number; top: number; height: number; blockId?: string }>,
+  blocks: Array<{ index: number; top: number; height: number; blockId?: string; text?: string }>,
   scrollTop = 0,
 ): HTMLElement {
   const container = document.createElement('div');
@@ -20,6 +20,10 @@ function makeContainer(
     el.setAttribute('data-reader-anchor', anchorKey(1, b.index));
     el.setAttribute('data-paragraph-index', String(b.index));
     if (b.blockId) el.setAttribute('data-block-id', b.blockId);
+    if (b.text) {
+      el.textContent = b.text;
+      el.setAttribute('data-content-signature', contentSignature(b.text));
+    }
     // jsdom has no layout: stub client rects relative to the given scrollTop.
     el.getBoundingClientRect = () =>
       ({
@@ -48,6 +52,7 @@ describe('anchors', () => {
       'data-reader-anchor': '2:5',
       'data-paragraph-index': 5,
       'data-block-id': 'blk_9',
+      'data-content-signature': undefined,
     });
     expect(anchorAttributes(2, 5)['data-block-id']).toBeUndefined();
   });
@@ -118,6 +123,28 @@ describe('anchors', () => {
       ]);
       const el = locateAnchorElement(container, { blockId: 'gone', paragraphIndex: 1 });
       expect(el?.getAttribute('data-paragraph-index')).toBe('1');
+    });
+
+    it('uses the content signature when paragraph indexes shifted', () => {
+      const container = makeContainer([
+        { index: 0, top: 0, height: 100, text: 'New introductory prose' },
+        { index: 1, top: 100, height: 100, text: 'The saved paragraph' },
+      ]);
+      const el = locateAnchorElement(container, {
+        paragraphIndex: 0,
+        contentSignature: contentSignature('The saved paragraph'),
+      });
+      expect(el?.getAttribute('data-paragraph-index')).toBe('1');
+    });
+
+    it('refuses a stale index when its saved signature no longer exists', () => {
+      const container = makeContainer([
+        { index: 0, top: 0, height: 100, text: 'Completely different prose' },
+      ]);
+      expect(locateAnchorElement(container, {
+        paragraphIndex: 0,
+        contentSignature: contentSignature('Removed paragraph'),
+      })).toBeNull();
     });
   });
 

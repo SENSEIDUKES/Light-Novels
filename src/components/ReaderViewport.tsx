@@ -397,7 +397,7 @@ export function ReaderViewport({
                             <SystemBlock
                               key={index}
                               id={`para-${index}`}
-                              {...anchorAttributes(selectedChapter.number, index)}
+                              {...anchorAttributes(selectedChapter.number, index, undefined, cleanText)}
                               content={cleanText}
                             />
                           );
@@ -407,7 +407,7 @@ export function ReaderViewport({
                           <div
                             key={index}
                             id={`para-${index}`}
-                            {...anchorAttributes(selectedChapter.number, index)}
+                            {...anchorAttributes(selectedChapter.number, index, undefined, cleanText)}
                             className="group relative transition-all duration-300 border border-transparent rounded-lg p-2.5 -mx-2.5 mb-2"
                           >
                             <div className="flex items-start">
@@ -572,7 +572,7 @@ export function ReaderViewport({
                                     : undefined
                                 }
                                 data-cue-once="true"
-                                {...anchorAttributes(selectedChapter.number, index, block.id)}
+                                {...anchorAttributes(selectedChapter.number, index, block.id, cleanText)}
                                 className={`narrative-trigger ${block.metadata ? "metadata-block" : ""}`}
                               />
                             </React.Fragment>
@@ -588,7 +588,7 @@ export function ReaderViewport({
                             {revealCard}
                             <div
                               id={`para-${index}`}
-                              {...anchorAttributes(selectedChapter.number, index, block.id)}
+                              {...anchorAttributes(selectedChapter.number, index, block.id, cleanText)}
                             data-cue-type={
                               block.metadata
                                 ? "narrative.metadata.signature"
@@ -719,7 +719,7 @@ export function ReaderViewport({
                               <SystemBlock
                                 key={index}
                                 id={`para-${index}`}
-                                {...anchorAttributes(selectedChapter.number, index)}
+                                {...anchorAttributes(selectedChapter.number, index, undefined, cleanText)}
                                 content={cleanText}
                                 data-cue-type="narrative.metadata.signature"
                                 data-cue-id={`system-line-${selectedChapter.number}-${index}`}
@@ -736,7 +736,7 @@ export function ReaderViewport({
                             <div
                               key={index}
                               id={`para-${index}`}
-                              {...anchorAttributes(selectedChapter.number, index)}
+                              {...anchorAttributes(selectedChapter.number, index, undefined, cleanText)}
                               data-cue-type="narrative.paragraph.enter"
                               data-cue-id={`para-${selectedChapter.number}-${index}`}
                               data-cue-once="true"

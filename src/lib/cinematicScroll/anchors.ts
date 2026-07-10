@@ -33,11 +33,13 @@ export function anchorAttributes(
   chapterNumber: number,
   paragraphIndex: number,
   blockId?: string,
+  text?: string,
 ): Record<string, string | number | undefined> {
   return {
     'data-reader-anchor': anchorKey(chapterNumber, paragraphIndex),
     'data-paragraph-index': paragraphIndex,
     'data-block-id': blockId,
+    'data-content-signature': text ? contentSignature(text) : undefined,
   };
 }
 
@@ -53,6 +55,7 @@ export interface AnchorElementInfo {
   element: HTMLElement;
   paragraphIndex: number;
   blockId?: string;
+  contentSignature?: string;
 }
 
 /** All anchor elements inside a container, in document order. */
@@ -66,6 +69,8 @@ export function getAnchorElements(container: ParentNode): AnchorElementInfo[] {
       element,
       paragraphIndex: idx,
       blockId: element.getAttribute('data-block-id') || undefined,
+      contentSignature:
+        element.getAttribute('data-content-signature') || undefined,
     });
   });
   return infos;
@@ -114,7 +119,7 @@ export function findAnchorAtDocumentPosition(
 /** Locate a saved anchor's element: block ID first, paragraph index fallback. */
 export function locateAnchorElement(
   container: ParentNode,
-  anchor: Pick<ReadingAnchor, 'blockId' | 'paragraphIndex'>,
+  anchor: Pick<ReadingAnchor, 'blockId' | 'paragraphIndex' | 'contentSignature'>,
 ): HTMLElement | null {
   if (anchor.blockId) {
     // CSS.escape is unavailable in some DOM shims; escape quotes/backslashes
@@ -125,9 +130,24 @@ export function locateAnchorElement(
     );
     if (byId) return byId;
   }
-  return container.querySelector<HTMLElement>(
+  const byIndex = container.querySelector<HTMLElement>(
     `[data-paragraph-index="${anchor.paragraphIndex}"]`,
   );
+  if (!anchor.contentSignature) return byIndex;
+
+  const signatureOf = (element: HTMLElement | null) =>
+    element?.getAttribute('data-content-signature') ||
+    (element?.textContent ? contentSignature(element.textContent) : undefined);
+  if (signatureOf(byIndex) === anchor.contentSignature) return byIndex;
+
+  // Paragraph indexes can shift after content edits. When no stable block ID
+  // exists, use the saved signature to locate the same prose at its new index.
+  for (const info of getAnchorElements(container)) {
+    if (signatureOf(info.element) === anchor.contentSignature) {
+      return info.element;
+    }
+  }
+  return null;
 }
 
 /**

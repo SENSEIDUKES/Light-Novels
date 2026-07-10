@@ -27,30 +27,26 @@ const SAVE_DEBOUNCE_MS = 2000;
 export function useReadingPosition({
   contentRef,
   activeStory,
-  selectedChapter,
   selectedChapterNum,
   onUpdateStory,
   hasRenderableContent,
 }: {
   contentRef: React.RefObject<HTMLElement | null>;
   activeStory: StoryWorld;
-  selectedChapter: { blocks?: { id?: string; text: string }[]; generatedContent?: string } | undefined;
   selectedChapterNum: number;
   onUpdateStory: (updatedStory: StoryWorld) => void;
   hasRenderableContent: boolean;
 }) {
   const surfaceRef = useRef(createDocumentScrollSurface());
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const restoredChapterRef = useRef<number | null>(null);
+  const restoredChapterRef = useRef<string | null>(null);
   const suppressSaveUntilRef = useRef(0);
   const onUpdateStoryRef = useRef(onUpdateStory);
   const storyIdRef = useRef(activeStory.id);
-  const chapterRef = useRef(selectedChapter);
   const chapterNumRef = useRef(selectedChapterNum);
   useEffect(() => {
     onUpdateStoryRef.current = onUpdateStory;
     storyIdRef.current = activeStory.id;
-    chapterRef.current = selectedChapter;
     chapterNumRef.current = selectedChapterNum;
   });
 
@@ -62,22 +58,15 @@ export function useReadingPosition({
     const focusLine = getFocusLine();
     const found = findAnchorAtDocumentPosition(container, scrollTop + focusLine, scrollTop);
     if (!found) return null;
-    // Chapters store text either as structured blocks or as one
-    // generatedContent string split on blank lines — read whichever exists so
-    // the content signature works for both shapes.
-    let blockText =
-      chapterRef.current?.blocks?.[found.info.paragraphIndex]?.text ?? '';
-    if (!blockText && chapterRef.current?.generatedContent) {
-      blockText =
-        chapterRef.current.generatedContent.split('\n\n')[
-          found.info.paragraphIndex
-        ] ?? '';
-    }
     return {
       chapterNumber: chapterNumRef.current,
       blockId: found.info.blockId,
       paragraphIndex: found.info.paragraphIndex,
-      contentSignature: blockText ? contentSignature(blockText) : undefined,
+      contentSignature:
+        found.info.contentSignature ||
+        (found.info.element.textContent
+          ? contentSignature(found.info.element.textContent)
+          : undefined),
       intraBlockRatio: found.intraBlockRatio,
       savedAt: new Date().toISOString(),
     };
@@ -121,8 +110,9 @@ export function useReadingPosition({
   useEffect(() => {
     if (!hasRenderableContent) return;
     if (activeStory.lastReadChapter !== selectedChapterNum) return;
-    if (restoredChapterRef.current === selectedChapterNum) return;
-    restoredChapterRef.current = selectedChapterNum;
+    const restorationKey = `${activeStory.id}:${selectedChapterNum}`;
+    if (restoredChapterRef.current === restorationKey) return;
+    restoredChapterRef.current = restorationKey;
 
     let cancelled = false;
     let completed = false;
@@ -213,6 +203,7 @@ export function useReadingPosition({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     selectedChapterNum,
+    activeStory.id,
     hasRenderableContent,
     activeStory.lastReadChapter,
   ]);

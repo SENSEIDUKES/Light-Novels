@@ -70,11 +70,36 @@ export function pickDefaultSideVoice(
  */
 export const MAX_CHUNK_CHARACTERS = 180;
 export const MAX_ESTIMATED_CHUNK_MS = 8_000;
+/** Conservative cross-engine estimate for scripts that commonly omit spaces. */
+export const NON_SPACED_GRAPHEMES_PER_SECOND_AT_RATE_1 = 4;
+
+const NON_SPACED_SCRIPT = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Thai}]/u;
+
+function graphemes(text: string): string[] {
+  if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
+    const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+    return Array.from(segmenter.segment(text), ({ segment }) => segment);
+  }
+  return Array.from(text);
+}
 
 /** Estimated spoken duration (ms) of `text` at speechRate = 1. */
 export function estimateChunkDurationMs(text: string): number {
-  const words = text.split(/\s+/).filter(Boolean).length;
-  return (words / TTS_WORDS_PER_SECOND_AT_RATE_1) * 1000;
+  let nonSpacedCount = 0;
+  let spacedText = '';
+  for (const grapheme of graphemes(text)) {
+    if (NON_SPACED_SCRIPT.test(grapheme)) {
+      nonSpacedCount += 1;
+      spacedText += ' ';
+    } else {
+      spacedText += grapheme;
+    }
+  }
+  const words = spacedText.trim().split(/\s+/).filter(Boolean).length;
+  return (
+    words / TTS_WORDS_PER_SECOND_AT_RATE_1 +
+    nonSpacedCount / NON_SPACED_GRAPHEMES_PER_SECOND_AT_RATE_1
+  ) * 1000;
 }
 
 const exceedsLimits = (text: string): boolean =>
@@ -86,30 +111,16 @@ const exceedsLimits = (text: string): boolean =>
  * combining sequences are never broken. Used as the last-resort split for
  * non-space-delimited languages.
  */
-function splitGraphemeSafe(text: string, maxLength: number): string[] {
+function splitGraphemeSafe(text: string): string[] {
   const pieces: string[] = [];
-  if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
-    const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
-    let current = '';
-    for (const { segment } of segmenter.segment(text)) {
-      if (current.length + segment.length > maxLength && current) {
-        pieces.push(current);
-        current = '';
-      }
-      current += segment;
-    }
-    if (current) pieces.push(current);
-    return pieces;
-  }
-  // Fallback: split on code points (never inside a surrogate pair).
-  const codePoints = Array.from(text);
   let current = '';
-  for (const cp of codePoints) {
-    if (current.length + cp.length > maxLength && current) {
+  for (const grapheme of graphemes(text)) {
+    const candidate = current + grapheme;
+    if (current && exceedsLimits(candidate)) {
       pieces.push(current);
       current = '';
     }
-    current += cp;
+    current += grapheme;
   }
   if (current) pieces.push(current);
   return pieces;
@@ -155,7 +166,7 @@ export function boundChunkText(text: string): string[] {
       if (acc.trim()) {
         // A single overlong "word" (e.g. CJK run) may remain.
         if (exceedsLimits(acc.trim())) {
-          out.push(...splitGraphemeSafe(acc.trim(), MAX_CHUNK_CHARACTERS));
+          out.push(...splitGraphemeSafe(acc.trim()));
         } else {
           out.push(acc.trim());
         }
@@ -163,7 +174,7 @@ export function boundChunkText(text: string): string[] {
       return;
     }
     // 3. Grapheme-safe boundaries (non-space-delimited languages).
-    out.push(...splitGraphemeSafe(piece.trim(), MAX_CHUNK_CHARACTERS));
+    out.push(...splitGraphemeSafe(piece.trim()));
   };
 
   for (const clause of clauses) {

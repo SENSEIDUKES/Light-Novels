@@ -65,4 +65,8 @@ describe('estimateSpokenDurationMs', () => {
   it('returns 0 for empty text', () => {
     expect(estimateSpokenDurationMs('', 1)).toBe(0);
   });
+
+  it('estimates non-space-delimited CJK text by grapheme duration', () => {
+    expect(estimateSpokenDurationMs('天地玄黃宇宙洪荒', 1)).toBeGreaterThan(1000);
+  });
 });

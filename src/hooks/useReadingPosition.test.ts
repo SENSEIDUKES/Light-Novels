@@ -75,7 +75,6 @@ describe('useReadingPosition', () => {
       useReadingPosition({
         contentRef,
         activeStory: story,
-        selectedChapter: { blocks: [{ text: 'a' }, { id: 'blk_1', text: 'b' }, { text: 'c' }] },
         selectedChapterNum: 1,
         onUpdateStory,
         hasRenderableContent: true,

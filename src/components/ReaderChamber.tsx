@@ -220,7 +220,6 @@ export default function ReaderChamber({
   useReadingPosition({
     contentRef: readerRef,
     activeStory,
-    selectedChapter,
     selectedChapterNum,
     onUpdateStory,
     hasRenderableContent: !!(
@@ -1044,6 +1043,7 @@ export default function ReaderChamber({
               Auto-scroll paused
             </span>
             <button
+              type="button"
                tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                 // Narration is already playing; the user took manual control.
                 // resume() re-measures the narration target and returns the

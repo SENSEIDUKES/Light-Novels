@@ -3,10 +3,10 @@ import { Chapter, VoiceClip } from "../types";
 import { useAppStore } from "../store/useAppStore";
 import { dispatchNarration, dispatchNarrativeCue } from "../lib/narrativeCues";
 import { storyStorage } from "../lib/storage";
-import { buildSpeechChunks, SpeechChunk, TTS_WORDS_PER_SECOND_AT_RATE_1 } from "../lib/voice/webSpeechCast";
+import { buildSpeechChunks, estimateChunkDurationMs, SpeechChunk } from "../lib/voice/webSpeechCast";
+import { makeNarrationProgress, NarrationProgress } from "../lib/narration/progress";
 import { useAudioSettings } from "./audio/useAudioSettings";
 import { useVoicePreferences } from "./audio/useVoicePreferences";
-import { countWords } from "../utils/textUtils";
 
 export const extractSFXCues = (text: string) => {
   const sfxList: string[] = [];
@@ -136,9 +136,13 @@ export function useReaderPlayback({
     dispatchNarration({ status: 'end' });
   };
 
-  const fireBlockSideEffects = useCallback((blockIndex: number, durationMs: number) => {
+  const fireBlockSideEffects = useCallback((
+    blockIndex: number,
+    durationMs: number,
+    progress?: NarrationProgress,
+  ) => {
     setCurrentNarratedBlockIndex(blockIndex);
-    dispatchNarration({ status: 'block', blockIndex, durationMs });
+    dispatchNarration({ status: 'block', blockIndex, durationMs, progress });
 
     if (useAppStore.getState().readerMode === "sen" && blockIndex !== -1 && blockIndex > lastFiredParagraphIndexRef.current) {
       lastFiredParagraphIndexRef.current = blockIndex;
@@ -211,13 +215,26 @@ export function useReaderPlayback({
         let durationMs = (audio.duration * 1000) / audio.playbackRate;
         if (!isFinite(durationMs) || durationMs <= 0) {
           const blockText = selectedChapter?.blocks?.[blockIndex]?.text || "";
-          const words = countWords(blockText) || 10;
+          const rate = speechRateRef.current > 0 ? speechRateRef.current : 1;
           durationMs =
-            (words / (speechRateRef.current * TTS_WORDS_PER_SECOND_AT_RATE_1)) * 1000 || 4000;
+            estimateChunkDurationMs(blockText) / rate || 4000;
         }
         // Real audio: the block event carries the actual media duration, and
         // the cinematic scroll controller paces its timeline from it.
-        fireBlockSideEffects(blockIndex, durationMs);
+        const progress = makeNarrationProgress({
+          chapterNumber: selectedChapter.number,
+          blockIndex,
+          nextBlockIndex: blockIndex + 1,
+          chunkIndex: 0,
+          chunkCount: 1,
+          elapsedMs: 0,
+          estimatedDurationMs: durationMs,
+          actualDurationMs:
+            Number.isFinite(audio.duration) && audio.duration > 0
+              ? durationMs
+              : undefined,
+        });
+        fireBlockSideEffects(blockIndex, durationMs, progress);
       }
     };
 
@@ -273,11 +290,12 @@ export function useReaderPlayback({
       return;
     }
 
-    // Estimate a chunk's spoken duration from its word count at the current rate.
+    // Estimate a chunk's spoken duration using the same script-aware model
+    // that enforces chunk bounds, adjusted for the selected speech rate.
     const chunkDurationMs = (i: number) => {
       const c = chunksRef.current[i];
-      const wc = countWords(c?.text) || 0;
-      return (wc / (speechRateRef.current * TTS_WORDS_PER_SECOND_AT_RATE_1)) * 1000;
+      const rate = speechRateRef.current > 0 ? speechRateRef.current : 1;
+      return estimateChunkDurationMs(c?.text || '') / rate;
     };
 
     const estimatedDurationMs = chunkDurationMs(index);
@@ -288,15 +306,48 @@ export function useReaderPlayback({
     // scroll timeline lerps toward the next paragraph over that window, so
     // each intra-paragraph chunk boundary re-measures and self-corrects
     // instead of rushing ahead and stalling.
-    let remainingParaMs = 0;
+    let paragraphStart = index;
+    while (
+      paragraphStart > 0 &&
+      (chunksRef.current[paragraphStart - 1].paragraphIndex ?? -1) === currentPara
+    ) {
+      paragraphStart--;
+    }
+    let paragraphEnd = index;
+    while (
+      paragraphEnd + 1 < chunksRef.current.length &&
+      (chunksRef.current[paragraphEnd + 1].paragraphIndex ?? -1) === currentPara
+    ) {
+      paragraphEnd++;
+    }
+    let elapsedParaMs = 0;
+    for (let j = paragraphStart; j < index; j++) {
+      elapsedParaMs += chunkDurationMs(j);
+    }
+    let totalParaMs = elapsedParaMs;
     for (
       let j = index;
-      j < chunksRef.current.length && (chunksRef.current[j].paragraphIndex ?? -1) === currentPara;
+      j <= paragraphEnd;
       j++
     ) {
-      remainingParaMs += chunkDurationMs(j);
+      totalParaMs += chunkDurationMs(j);
     }
-    fireBlockSideEffects(currentPara, remainingParaMs || estimatedDurationMs);
+    const progress = currentPara >= 0
+      ? makeNarrationProgress({
+          chapterNumber: selectedChapterRef.current.number,
+          blockIndex: currentPara,
+          nextBlockIndex: currentPara + 1,
+          chunkIndex: index - paragraphStart,
+          chunkCount: paragraphEnd - paragraphStart + 1,
+          elapsedMs: elapsedParaMs,
+          estimatedDurationMs: totalParaMs || estimatedDurationMs,
+        })
+      : undefined;
+    fireBlockSideEffects(
+      currentPara,
+      Math.max(totalParaMs - elapsedParaMs, estimatedDurationMs),
+      progress,
+    );
 
     const utterance = new SpeechSynthesisUtterance(chunkData.text);
     currentUtteranceRef.current = utterance;
