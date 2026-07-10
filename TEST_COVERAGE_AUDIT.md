@@ -1,33 +1,35 @@
 # Test Coverage Audit & Action Plan
 
-## Current Coverage Snapshot
-- **Overall Coverage**: ~55% Lines, 55% Functions, 36% Branches
-- **Story Engine (`useStoryEngine.ts`)**: ~33% Lines (Critical Deficit)
-- **State Store (`useAppStore.ts`)**: ~61% Lines
-- **Storage Adapter (`storage.ts`)**: ~41% Lines
+## Current Coverage Snapshot (Updated)
+- **Overall Coverage**: ~43% Lines, 37% Functions, 28% Branches
+- **Story Engine Pipeline (`useStoryEngine.ts`, `useChapterGeneration.ts`)**: ~81-94% Lines (Massive Improvement)
+- **State Store (`useAppStore.ts`)**: 100% Lines
+- **Story Store (`useStoryStore.ts`)**: ~47% Lines (New Deficit Area)
+- **Storage Adapters (`indexedDBAdapter`, `persistentStorageManager`)**: ~44-92% Lines
 - **Story Exporter (`useStoryExporter.ts`)**: ~86% Lines
-- **Chapter Translator (`useChapterTranslation.ts`)**: ~75% Lines
+- **Chapter Translator (`useChapterTranslation.ts`)**: 100% Lines
 
-## Untested Critical Paths in Story Generation Flow
+## Progress on Critical Paths
 
-### 1. `useStoryEngine.ts` (Story Generation Engine)
-- [ ] **Stream Parsing & Hydration**: Test parsing logic for the streaming response (e.g., extracting title, premise, content, and memory blocks from raw text).
-- [ ] **Novelty Block Excision**: Verify that system tags (like `[Audio: ...]`, `[System Alert: ...]`) are properly extracted and stripped from the readable chapter content.
-- [ ] **State Updates Upon Completion**: Ensure that upon generation completion, memory, characters, stats, and chapter texts are properly committed to the store.
-- [ ] **Error Handling & Fallbacks**: Test behavior when the LLM stream is aborted, errors mid-generation, or returns malformed JSON/XML schema responses.
-- [ ] **Steering Actions**: Test `processSteerAction` and ensuring that custom user directions successfully alter the generation prompt state.
+### 1. `useStoryEngine.ts` & Chapter Pipeline
+- [x] **Stream Parsing & Hydration**: Tested heavily in `parseChapterStream.test.ts`.
+- [x] **Error Handling & Fallbacks**: Tested in `useChapterGeneration.test.ts` (handling malformed responses, network errors, stream dissipation).
+- [x] **Steering Actions**: Tested in `useArcSteering.test.ts`.
+- [ ] **Novelty Block Excision**: Basic extraction works, but specific system tags like `[Audio: ...]` excision need more robust edge-case testing.
+- [ ] **State Updates Upon Completion**: Partly covered, but deep integration tests verifying final store state commits still need expansion.
 
-### 2. `useAppStore.ts` (Global State)
-- [ ] **Memory Operations**: Test adding/editing memory items (Codex characters, factions, artifacts) independently.
-- [ ] **Complex Deletions**: Test logic for deleting an entire story and triggering cleanup of associated decoupled chapter content.
+### 2. State & Codex Operations (Specialized Hooks/Stores)
+- [ ] **Memory Operations (`useCodexEditing.ts`)**: Currently at ~70% coverage. Missing robust test suites for isolated character/faction edit commits.
+- [ ] **Complex Deletions (`useCodexDeletions.ts`)**: Only ~26% coverage. Needs tests for deleting entire stories and triggering cleanup of decoupled chapter content.
 
 ### 3. `storage.ts` (Persistence Layer)
-- [ ] **IndexedDB Fallbacks**: Test behavior when IndexedDB is unavailable (current emulator fallback issues).
-- [ ] **Chapter Decoupling**: Test that large chapter content is successfully decoupled into separate records during `saveStory` to prevent bloat.
-- [ ] **Data Migration**: Test schema migration logic and recovery methods for broken or legacy `StoryWorld` object shapes.
+- [x] **IndexedDB Fallbacks**: Tested in `storage.test.ts` (fallback to LocalStorage).
+- [x] **Chapter Decoupling**: Tested in `storage.test.ts` (split generated content out of main story).
+- [x] **Cloud Write Coalescing**: Tested in `storage.test.ts` (circuit breakers & quota limits).
+- [ ] **Data Migration**: `persistentStorageManager.ts` is only at ~44% coverage. Needs tests for schema migration logic and legacy `StoryWorld` recovery.
 
 ### 4. End-to-End Tests (Playwright)
-- [ ] **E2E Toolchain Initialization**: Ensure Playwright browser binaries are correctly installed (`npx playwright install`).
-- [ ] **App Bootstrapping**: Test that the app loads the global header and home screen without crashing.
-- [ ] **Generation Flow Walkthrough**: Automate clicking "New Story", entering a prompt, mocking the LLM API response, and asserting that a new chapter card appears.
-- [ ] **Codex View Assertion**: Automate clicking the Living Codex and verifying that memory elements render correctly based on a pre-loaded local storage state.
+- [x] **E2E Toolchain Initialization**: Playwright config and critical path tests exist.
+- [x] **App Bootstrapping**: Tested in `critical-paths.spec.ts`.
+- [ ] **Generation Flow Walkthrough**: Needs automation for clicking "New Story", entering a prompt, mocking the LLM API, and asserting chapter creation.
+- [ ] **Codex View Assertion**: Needs automation for clicking Living Codex and verifying memory elements render correctly based on local storage state.
