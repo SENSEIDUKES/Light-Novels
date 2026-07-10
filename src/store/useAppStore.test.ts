@@ -15,6 +15,7 @@ vi.mock('../lib/storage', () => ({
     deleteStory: vi.fn().mockResolvedValue(true),
     getChapterContent: vi.fn(),
     saveChapterContent: vi.fn(),
+    performSync: vi.fn(),
     startTransaction: vi.fn(),
     commitTransaction: vi.fn().mockResolvedValue(true),
     rollbackTransaction: vi.fn(),
@@ -210,6 +211,45 @@ describe('useAppStore', () => {
     
     await store.migrateOrDiscardDemoStories({ uid: 'user2' } as any);
     expect(storyStorage.deleteStory).toHaveBeenCalledWith('demo-matrix-discard');
+  });
+
+  it('resolves a cloud conflict and refreshes stories after syncing', async () => {
+    const localStory = { id: 'conflict', title: 'Local', arcs: [], memory: {} } as any;
+    const cloudStory = { id: 'conflict', title: 'Cloud', arcs: [], memory: {} } as any;
+    const refreshed = [{ ...cloudStory, title: 'Cloud refreshed' }] as any;
+    vi.mocked(storyStorage.getStories).mockResolvedValue(refreshed);
+    useAppStore.getState().setActiveConflict({
+      storyId: 'conflict',
+      localStory,
+      cloudStory,
+    });
+
+    await useAppStore.getState().resolveConflict('cloud');
+
+    expect(storyStorage.saveStory).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'conflict', title: 'Cloud', conflictResolvedAt: expect.any(String) }),
+    );
+    expect(storyStorage.performSync).toHaveBeenCalled();
+    expect(useAppStore.getState().stories).toEqual(refreshed);
+    expect(useAppStore.getState().activeConflict).toBeNull();
+  });
+
+  it('keeps a conflict available for retry when resolution persistence fails', async () => {
+    const conflict = {
+      storyId: 'conflict',
+      localStory: { id: 'conflict', title: 'Local', arcs: [], memory: {} } as any,
+      cloudStory: { id: 'conflict', title: 'Cloud', arcs: [], memory: {} } as any,
+    };
+    vi.mocked(storyStorage.saveStory).mockRejectedValueOnce(new Error('disk unavailable'));
+    useAppStore.getState().setActiveConflict(conflict);
+
+    await useAppStore.getState().resolveConflict('local');
+
+    expect(useAppStore.getState().activeConflict).toEqual(conflict);
+    expect(useAppStore.getState().appError).toBe(
+      'Failed to resolve sync conflict: disk unavailable',
+    );
+    expect(storyStorage.performSync).not.toHaveBeenCalled();
   });
 });
 
