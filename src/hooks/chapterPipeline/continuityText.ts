@@ -35,6 +35,11 @@ const SURFACE_PROSE_DENYLIST = [
   'permanently alter the timeline',
 ];
 
+const SURFACE_PROSE_MATCHERS = SURFACE_PROSE_DENYLIST.map((phrase) => ({
+  phrase,
+  matcher: createWholeWordMatcher(phrase),
+}));
+
 /**
  * Pull ONLY the prose the reader sees out of the raw NDJSON blocks. World-card /
  * image / system metadata (imageUrl, codexEntryId, entity ids like `char-5slteiy7f`)
@@ -60,7 +65,7 @@ export const extractProseForContinuity = (rawBlocksStr: string): string => {
 /** Finds literal control-language leaks in prose without inspecting block metadata. */
 export const findSurfaceProseLeaks = (prose: string): string[] => {
   const proseText = prose || '';
-  return SURFACE_PROSE_DENYLIST.filter((phrase) =>
-    createWholeWordMatcher(phrase).test(proseText)
-  );
+  return SURFACE_PROSE_MATCHERS
+    .filter(({ matcher }) => matcher.test(proseText))
+    .map(({ phrase }) => phrase);
 };
