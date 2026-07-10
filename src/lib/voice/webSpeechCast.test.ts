@@ -3,6 +3,10 @@ import {
   classifyDialogueSlot,
   buildSpeechChunks,
   pickDefaultSideVoice,
+  boundChunkText,
+  MAX_CHUNK_CHARACTERS,
+  MAX_ESTIMATED_CHUNK_MS,
+  estimateChunkDurationMs,
 } from './webSpeechCast';
 
 const makeVoice = (name: string, lang = 'en-US', voiceURI = name): SpeechSynthesisVoice =>
@@ -98,5 +102,103 @@ describe('pickDefaultSideVoice', () => {
   it('falls back to any available voice when the list is tiny', () => {
     const voices = [makeVoice('Daniel')];
     expect(pickDefaultSideVoice(voices, 'Daniel', 'Daniel')?.name).toBe('Daniel');
+  });
+});
+
+describe('bounded speech chunks', () => {
+  it('leaves short sentences untouched', () => {
+    expect(boundChunkText('A short sentence.')).toEqual(['A short sentence.']);
+  });
+
+  it('splits an overlong sentence at clause punctuation first', () => {
+    const clause = 'the heavens split apart with thunder and light';
+    const long = Array(6).fill(clause).join(', ') + '.';
+    const pieces = boundChunkText(long);
+    expect(pieces.length).toBeGreaterThan(1);
+    for (const piece of pieces) {
+      expect(piece.length).toBeLessThanOrEqual(MAX_CHUNK_CHARACTERS);
+    }
+    // No content is lost.
+    expect(pieces.join(' ').replace(/\s+/g, '')).toBe(long.replace(/\s+/g, ''));
+  });
+
+  it('falls back to whitespace splitting without clause punctuation', () => {
+    const long = Array(60).fill('word').join(' ');
+    const pieces = boundChunkText(long);
+    expect(pieces.length).toBeGreaterThan(1);
+    for (const piece of pieces) {
+      expect(piece.length).toBeLessThanOrEqual(MAX_CHUNK_CHARACTERS);
+    }
+  });
+
+  it('splits non-space-delimited text at grapheme-safe boundaries', () => {
+    const cjk = '天地玄黃宇宙洪荒'.repeat(40); // 320 chars, no spaces/punctuation
+    const pieces = boundChunkText(cjk);
+    expect(pieces.length).toBeGreaterThan(1);
+    expect(pieces.join('')).toBe(cjk);
+    for (const piece of pieces) {
+      expect(piece.length).toBeLessThanOrEqual(MAX_CHUNK_CHARACTERS);
+      expect(estimateChunkDurationMs(piece)).toBeLessThanOrEqual(
+        MAX_ESTIMATED_CHUNK_MS,
+      );
+    }
+  });
+
+  it('enforces the spoken-duration limit for CJK text without spaces', () => {
+    const cjk = '天地玄黃宇宙洪荒'.repeat(20);
+    const pieces = boundChunkText(cjk);
+    expect(pieces.length).toBeGreaterThan(1);
+    expect(pieces.join('')).toBe(cjk);
+    for (const piece of pieces) {
+      expect(estimateChunkDurationMs(piece)).toBeLessThanOrEqual(
+        MAX_ESTIMATED_CHUNK_MS,
+      );
+    }
+  });
+
+  it('keeps leading clause punctuation instead of discarding it', () => {
+    const long = '\u2014' + Array(60).fill('word').join(' ');
+    const pieces = boundChunkText(long);
+    expect(pieces.join(' ').replace(/\s+/g, '')).toBe(long.replace(/\s+/g, ''));
+    expect(pieces[0].startsWith('\u2014')).toBe(true);
+  });
+
+  it('never splits surrogate pairs or emoji clusters', () => {
+    const emoji = '🐉🔥👨‍👩‍👧‍👦✨'.repeat(40);
+    const pieces = boundChunkText(emoji);
+    expect(pieces.join('')).toBe(emoji);
+    for (const piece of pieces) {
+      // A broken surrogate pair would produce a lone surrogate code unit.
+      expect(/[\uD800-\uDBFF]$/.test(piece)).toBe(false);
+      expect(/^[\uDC00-\uDFFF]/.test(piece)).toBe(false);
+    }
+  });
+
+  it('buildSpeechChunks keeps every bounded chunk within limits and preserves paragraph identity', () => {
+    const longParagraph =
+      Array(20)
+        .fill('The sect elders whispered among themselves about the boy who refused to kneel')
+        .join(', and ') + '.';
+    const chunks = buildSpeechChunks([{ text: 'Intro.' }, { text: longParagraph }]);
+    expect(chunks.length).toBeGreaterThan(2);
+    for (const chunk of chunks) {
+      expect(chunk.text.length).toBeLessThanOrEqual(MAX_CHUNK_CHARACTERS);
+    }
+    expect(chunks[0].paragraphIndex).toBe(0);
+    for (const chunk of chunks.slice(1)) {
+      expect(chunk.paragraphIndex).toBe(1);
+    }
+  });
+
+  it('mixed dialogue and prose keeps slots after bounding', () => {
+    const longQuote = '"' + Array(50).fill('I will rise').join(', ') + '"';
+    const chunks = buildSpeechChunks([
+      { text: `${longQuote} he vowed.`, metadata: { speakerRole: 'protagonist' } },
+    ]);
+    const dialogue = chunks.filter((c) => c.isDialogue);
+    const prose = chunks.filter((c) => !c.isDialogue);
+    expect(dialogue.length).toBeGreaterThan(1);
+    expect(dialogue.every((c) => c.slot === 'mc')).toBe(true);
+    expect(prose.every((c) => c.slot === 'narrator')).toBe(true);
   });
 });

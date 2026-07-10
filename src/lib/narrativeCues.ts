@@ -33,6 +33,8 @@ export interface NarrationEventDetail {
   blockId?: string;
   blockIndex?: number;
   durationMs?: number;
+  /** Normalized progress for the current paragraph/clip when available. */
+  progress?: NarrationProgress;
 }
 
 export function dispatchNarration(detail: NarrationEventDetail) {
@@ -53,3 +55,4 @@ export function dispatchNarrativeCue(cue: NarrativeCue) {
   const event = new CustomEvent('narrative-cue', { detail: cue });
   window.dispatchEvent(event);
 }
+import type { NarrationProgress } from './narration/progress';

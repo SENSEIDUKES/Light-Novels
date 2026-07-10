@@ -695,7 +695,13 @@ export interface StoryWorld {
 
   // Reader experience tracking
   lastReadChapter?: number;
+  /**
+   * Legacy raw pixel offset. Read once for migration to `readingAnchor`,
+   * never written anymore.
+   */
   lastReadScrollPosition?: number;
+  /** Semantic reading position — survives layout, font, and viewport changes. */
+  readingAnchor?: import('./lib/cinematicScroll/anchors').ReadingAnchor;
   readingStats?: {
     totalReadingTimeMs?: number;
     arcReadingTimeMs?: Record<number, number>;

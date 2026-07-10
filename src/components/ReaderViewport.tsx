@@ -11,6 +11,7 @@ import { useAppStore } from '../store/useAppStore';
 import { ReaderFateAlerts } from './ReaderFateAlerts';
 import { AetherialSystemLegend } from './AetherialSystemLegend';
 import { ManifestHeroImage } from './ManifestHeroImage';
+import { anchorAttributes } from '../lib/cinematicScroll/anchors';
 
 const FALLBACK_BACKDROPS = [
   "https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/images/LIBRARY%20BACKDROPS/LIBRARY_THUNDER.PNG",
@@ -31,14 +32,12 @@ function getFallbackBackdrop(id: string) {
 
 interface ReaderViewportProps {
   readerRef: React.RefObject<HTMLDivElement | null>;
-  driftInnerRef: React.RefObject<HTMLDivElement | null>;
   isReaderFullscreen: boolean;
   handleTouchStart: (e: React.TouchEvent) => void;
   handleTouchMove: (e: React.TouchEvent) => void;
   handleTouchEnd: () => void;
   handleTextClick: (e: React.MouseEvent | React.TouchEvent) => void;
-  handleViewportScroll: (e: React.UIEvent<HTMLDivElement>) => void;
-  
+
   isTranslating: boolean;
   preferredLang: string;
   selectedChapter: Chapter;
@@ -98,13 +97,11 @@ interface ReaderViewportProps {
 
 export function ReaderViewport({
   readerRef,
-  driftInnerRef,
   isReaderFullscreen,
   handleTouchStart,
   handleTouchMove,
   handleTouchEnd,
   handleTextClick,
-  handleViewportScroll,
   isTranslating,
   preferredLang,
   selectedChapter,
@@ -225,16 +222,24 @@ export function ReaderViewport({
   }, [selectedChapter?.blocks, activeStory, codexMap, updateStory]);
 
   return (
+    // Vertical scrolling is owned by the document — this container only lays
+    // out padding; it must never become a scroll container of its own.
+    // Tapping the prose toggles fullscreen (a convenience, not the element's
+    // semantic role), so no button semantics or key interception here: text
+    // selection, links, keyboard scrolling, and screen-reader navigation all
+    // keep their native behavior. Fullscreen also has a real keyboard path
+    // (Alt+F) and a dedicated control, so the tap shortcut carries no
+    // accessibility obligation of its own.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       ref={readerRef as any}
-      className={`flex-1 overflow-y-auto px-4 sm:px-12 md:px-24 py-8 relative ${isReaderFullscreen ? "mb-4 no-scrollbar" : "mb-24 custom-scrollbar"}`}
+      className={`flex-1 px-4 sm:px-12 md:px-24 py-8 relative ${isReaderFullscreen ? "mb-4" : "mb-24"}`}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onClick={handleTextClick}
-      onScroll={handleViewportScroll} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); (handleTextClick)(e as any); } }}
     >
-      <div ref={driftInnerRef as any} style={{ willChange: 'transform' }} role="presentation">
+      <article>
       {isTranslating ? (
         <div className="flex flex-col items-center justify-center h-full py-32 space-y-4">
           <Loader2 className="animate-spin text-portal w-10 h-10" />
@@ -392,7 +397,7 @@ export function ReaderViewport({
                             <SystemBlock
                               key={index}
                               id={`para-${index}`}
-                              data-block-index={index}
+                              {...anchorAttributes(selectedChapter.number, index, undefined, cleanText)}
                               content={cleanText}
                             />
                           );
@@ -402,7 +407,7 @@ export function ReaderViewport({
                           <div
                             key={index}
                             id={`para-${index}`}
-                            data-block-index={index}
+                            {...anchorAttributes(selectedChapter.number, index, undefined, cleanText)}
                             className="group relative transition-all duration-300 border border-transparent rounded-lg p-2.5 -mx-2.5 mb-2"
                           >
                             <div className="flex items-start">
@@ -567,7 +572,7 @@ export function ReaderViewport({
                                     : undefined
                                 }
                                 data-cue-once="true"
-                                data-block-index={index}
+                                {...anchorAttributes(selectedChapter.number, index, block.id, cleanText)}
                                 className={`narrative-trigger ${block.metadata ? "metadata-block" : ""}`}
                               />
                             </React.Fragment>
@@ -583,7 +588,7 @@ export function ReaderViewport({
                             {revealCard}
                             <div
                               id={`para-${index}`}
-                              data-block-index={index}
+                              {...anchorAttributes(selectedChapter.number, index, block.id, cleanText)}
                             data-cue-type={
                               block.metadata
                                 ? "narrative.metadata.signature"
@@ -714,7 +719,7 @@ export function ReaderViewport({
                               <SystemBlock
                                 key={index}
                                 id={`para-${index}`}
-                                data-block-index={index}
+                                {...anchorAttributes(selectedChapter.number, index, undefined, cleanText)}
                                 content={cleanText}
                                 data-cue-type="narrative.metadata.signature"
                                 data-cue-id={`system-line-${selectedChapter.number}-${index}`}
@@ -731,7 +736,7 @@ export function ReaderViewport({
                             <div
                               key={index}
                               id={`para-${index}`}
-                              data-block-index={index}
+                              {...anchorAttributes(selectedChapter.number, index, undefined, cleanText)}
                               data-cue-type="narrative.paragraph.enter"
                               data-cue-id={`para-${selectedChapter.number}-${index}`}
                               data-cue-once="true"
@@ -1033,7 +1038,7 @@ export function ReaderViewport({
           </button>
         </div>
       )}
-      </div>
+      </article>
     </div>
   );
 }
