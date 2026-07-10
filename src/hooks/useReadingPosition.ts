@@ -62,8 +62,17 @@ export function useReadingPosition({
     const focusLine = getFocusLine();
     const found = findAnchorAtDocumentPosition(container, scrollTop + focusLine, scrollTop);
     if (!found) return null;
-    const blockText =
+    // Chapters store text either as structured blocks or as one
+    // generatedContent string split on blank lines — read whichever exists so
+    // the content signature works for both shapes.
+    let blockText =
       chapterRef.current?.blocks?.[found.info.paragraphIndex]?.text ?? '';
+    if (!blockText && chapterRef.current?.generatedContent) {
+      blockText =
+        chapterRef.current.generatedContent.split('\n\n')[
+          found.info.paragraphIndex
+        ] ?? '';
+    }
     return {
       chapterNumber: chapterNumRef.current,
       blockId: found.info.blockId,

@@ -125,8 +125,11 @@ export function boundChunkText(text: string): string[] {
   if (!trimmed) return [];
   if (!exceedsLimits(trimmed)) return [trimmed];
 
-  // 1. Clause punctuation (Western + CJK commas/semicolons/dashes).
-  const clauses = trimmed.match(/[^,;:、，；：—–]+[,;:、，；：—–]*/g) || [trimmed];
+  // 1. Clause punctuation (Western + CJK commas/semicolons/dashes). The
+  // second alternative matches leading punctuation runs so text that starts
+  // with a delimiter is not silently discarded.
+  const clauses =
+    trimmed.match(/[^,;:、，；：—–]+[,;:、，；：—–]*|[,;:、，；：—–]+/g) || [trimmed];
   const out: string[] = [];
   let buffer = '';
   const flush = () => {

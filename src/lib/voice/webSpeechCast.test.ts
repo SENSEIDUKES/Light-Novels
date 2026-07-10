@@ -139,6 +139,13 @@ describe('bounded speech chunks', () => {
     }
   });
 
+  it('keeps leading clause punctuation instead of discarding it', () => {
+    const long = '\u2014' + Array(60).fill('word').join(' ');
+    const pieces = boundChunkText(long);
+    expect(pieces.join(' ').replace(/\s+/g, '')).toBe(long.replace(/\s+/g, ''));
+    expect(pieces[0].startsWith('\u2014')).toBe(true);
+  });
+
   it('never splits surrogate pairs or emoji clusters', () => {
     const emoji = '🐉🔥👨‍👩‍👧‍👦✨'.repeat(40);
     const pieces = boundChunkText(emoji);

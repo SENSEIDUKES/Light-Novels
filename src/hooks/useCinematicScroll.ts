@@ -341,7 +341,14 @@ export function useCinematicScroll(
       const written = lastWrittenRef.current;
       if (written == null) return;
       const actual = getSurface().getPosition();
-      if (Math.abs(actual - written) > EXTERNAL_SCROLL_TOLERANCE_PX) intervene();
+      // Browser scroll events lag rAF writes, so at speed the event may carry
+      // a position several frames old. Scale the tolerance with the spring's
+      // velocity (~6 frames of lag at 60Hz) to avoid false-positive yields.
+      const tolerance = Math.max(
+        EXTERNAL_SCROLL_TOLERANCE_PX,
+        Math.abs(springRef.current.velocity) * 0.1,
+      );
+      if (Math.abs(actual - written) > tolerance) intervene();
     };
 
     window.addEventListener('wheel', onWheel, { passive: true });
