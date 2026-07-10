@@ -32,20 +32,18 @@ export function useCodexDeletions(
   };
 
   const handleDeleteCustomRelationship = (bondId: string) => {
-    const currentBonds = activeStory.relationships || [];
     const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
     onUpdateStory({
       ...currentActiveStory,
-      relationships: currentBonds.filter(b => b.id !== bondId)
+      relationships: (currentActiveStory.relationships || []).filter(b => b.id !== bondId)
     });
   };
 
   const handleDeleteFateNode = (fateId: string) => {
-    const currentNodes = activeStory.karmaNodes || [];
     const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
     onUpdateStory({
       ...currentActiveStory,
-      karmaNodes: currentNodes.filter(n => n.id !== fateId)
+      karmaNodes: (currentActiveStory.karmaNodes || []).filter(n => n.id !== fateId)
     });
   };
 

@@ -114,7 +114,13 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
       setStories(freshStories);
     } catch (err: any) {
       console.error("Failed to resolve sync conflict:", err);
-      set({ appError: "Failed to resolve sync conflict: " + err.message });
+      // Keep the conflict actionable when persistence fails. It is cleared before
+      // saving to prevent re-entrant conflict detection, but losing it here would
+      // leave the user with no way to retry or choose another resolution.
+      set({
+        activeConflict: conflict,
+        appError: "Failed to resolve sync conflict: " + err.message,
+      });
     }
   },
 
