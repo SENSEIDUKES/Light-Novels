@@ -2,7 +2,7 @@
  * Fast single-pass scan to count words in a string, avoiding array
  * allocations and regex execution overhead.
  */
-export const countWords = (text?: string): number => {
+export const countWords = (text?: string | null): number => {
   if (!text) return 0;
   let count = 0;
   let inWord = false;
