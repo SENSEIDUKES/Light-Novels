@@ -1,6 +1,7 @@
 import { isPlaceholderSummary } from '../../lib/summaryIntegrity';
 
-const buildChapterTextFallbackSummary = (chapterText: string) => {
+const buildChapterTextFallbackSummary = (chapterText: string | undefined | null) => {
+  if (!chapterText) return "";
   let fallbackSummary = chapterText.substring(0, 300).trim() + "...";
   if (fallbackSummary.includes('\n')) {
     fallbackSummary = fallbackSummary.split('\n')[0];

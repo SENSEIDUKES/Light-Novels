@@ -15,7 +15,7 @@ const CONTINUATION_ANCHOR_BLOCK_COUNT = 4;
 const extractFinalProseBlocks = (content: ChapterContent, count: number): string[] => {
   const sourceBlocks: StoryBlock[] =
     (content.blocks && content.blocks.length > 0 ? content.blocks : content.archivedBlocks) || [];
-  const proseBlocks = sourceBlocks.filter(b => b.type !== 'system' && b.text && b.text.trim());
+  const proseBlocks = sourceBlocks.filter(b => b.type !== 'system' && !b.system && !b.worldCard && b.text && b.text.trim());
   if (proseBlocks.length > 0) {
     return proseBlocks.slice(-count).map(b => b.text.trim());
   }
