@@ -571,10 +571,17 @@ export class PersistentStorageManager implements StorageAdapter {
       const localMap = new Map(localStories.map((s) => [s.id, s]));
 
       // Merge logic: newest updatedAt wins, but handle conflicts by copying
-      for (const localStory of localStories) {
-        const cloudStory = cloudMap.get(localStory.id);
-        const ok = await this.reconcileStory(localStory, cloudStory);
-        if (!ok) break; // budget tripped — stop pushing for now
+      const BATCH_SIZE = 10;
+      for (let i = 0; i < localStories.length; i += BATCH_SIZE) {
+        const batch = localStories.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(
+          batch.map((localStory) =>
+            this.reconcileStory(localStory, cloudMap.get(localStory.id)),
+          ),
+        );
+        if (results.some((ok) => !ok)) {
+          break; // budget tripped — stop pushing for now
+        }
       }
 
       // Download stories in cloud but not local
