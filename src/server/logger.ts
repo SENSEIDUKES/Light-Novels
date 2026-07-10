@@ -6,6 +6,7 @@ export const logger = pino({
     'req.headers["x-gemini-key"]',
     'req.headers["x-openrouter-key"]',
     'req.headers["x-deepinfra-key"]',
+    'req.headers["x-ollama-host"]',
     'req.headers.authorization'
   ],
   transport:
