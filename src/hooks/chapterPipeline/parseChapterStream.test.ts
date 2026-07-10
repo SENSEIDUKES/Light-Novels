@@ -15,6 +15,17 @@ describe('parseChapterStream', () => {
     expect(result.data.chapterText).toBe(`This is block 1. ${'a'.repeat(150)}\n\nThis is block 2.`);
   });
 
+  it('should start with an empty summary instead of a decorative placeholder', () => {
+    const streamContent = `
+---CHAPTER_BLOCKS---
+[
+  { "text": "This is block 1. ${'a'.repeat(150)}", "type": "narrative" }
+]
+    `;
+    const result = parseChapterStream(streamContent);
+    expect(result.data.summary).toBe('');
+  });
+
   it('should fallback to plain text if JSON extraction fails', () => {
     const streamContent = `
 ---CHAPTER_BLOCKS---

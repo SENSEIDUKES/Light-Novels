@@ -1,7 +1,7 @@
 import { extractJsonBlocks } from '../storyEngineHelpers';
 
 export const parseChapterStream = (accumulatedRaw: string) => {
-  const data: any = { chapterText: "", blocks: [], summary: "An ethereal mist obscures the historical records.", statsChangeMessage: "None", memoryUpdates: {} };
+  const data: any = { chapterText: "", blocks: [], summary: "", statsChangeMessage: "None", memoryUpdates: {} };
   
   const textHeader = "---CHAPTER_BLOCKS---";
   let rawBlocksStr = accumulatedRaw;

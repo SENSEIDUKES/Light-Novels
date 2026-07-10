@@ -2,6 +2,7 @@ import { Story, Chapter } from '../../types';
 import { generateEmbedding } from '../../lib/rag';
 import { storyStorage } from '../../lib/storage';
 import { applyMemoryPatch } from './applyMemoryPatch';
+import { isPlaceholderSummary } from '../../lib/summaryIntegrity';
 
 export const persistGeneratedChapter = async (
   activeStory: Story,
@@ -10,9 +11,13 @@ export const persistGeneratedChapter = async (
   data: any,
   apiHeaders: any
 ) => {
+  // Placeholder/error summaries must not become chapter memory: persist them
+  // as empty and skip embedding so they never surface through RAG.
+  const persistedSummary = isPlaceholderSummary(data.summary) ? '' : data.summary;
+
   let newChapterEmbedding;
-  if (data.summary) {
-    newChapterEmbedding = await generateEmbedding(data.summary, apiHeaders);
+  if (persistedSummary) {
+    newChapterEmbedding = await generateEmbedding(persistedSummary, apiHeaders);
   }
 
   const freshStories = await storyStorage.getStories();
@@ -33,7 +38,7 @@ export const persistGeneratedChapter = async (
             _isNewContent: true,
             generatedContent: data.chapterText,
             blocks: data.blocks,
-            summary: data.summary,
+            summary: persistedSummary,
             embedding: newChapterEmbedding,
             statsChangeMessage: data.statsChangeMessage !== 'None' ? data.statsChangeMessage : undefined,
             cuePayload: data.cuePayload,
