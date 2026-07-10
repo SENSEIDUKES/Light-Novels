@@ -77,6 +77,7 @@ export function PlaybackControls({ selectedChapter, playback, isDesktop = false 
               : `bg-[#04ACFF] text-[#000000] border border-[#fafafa]/15 shadow-[0_0_${isDesktop ? '15px' : '12px'}_rgba(4,172,255,0.${isDesktop ? '6' : '8'})] hover:scale-105`
         }`}
         title={isPlayingText && !isPausedText ? "Stop Audio Playback" : "Begin Rhythmic Recitation"}
+        aria-label={isPlayingText && !isPausedText ? "Stop Audio Playback" : "Begin Rhythmic Recitation"}
       >
         {isPlayingText && !isPausedText ? (
           <Pause size={isDesktop ? 15 : 12} fill="currentColor" className="text-[#FAFAFA]" />
