@@ -8,6 +8,7 @@ import { GlossarySidePanel } from "./GlossarySidePanel";
 import { Chapter, ChapterContent, Story, StoryBlock, StreamingChapter } from "../types";
 import { awardQi } from "../lib/qi";
 import { RecapScreen } from "./RecapScreen";
+import { countWords } from "../utils/textUtils";
 import { storyStorage } from "../lib/storage";
 import { LOCAL_ONLY_MODE, auth } from "../lib/firebase";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
@@ -234,26 +235,6 @@ export const ReaderScreen: React.FC<{
     return buildReaderChapters(activeStory, streamingChapter, localChapterCache);
   }, [activeStory, streamingChapter, localChapterCache]);
 
-  const countWords = React.useCallback((text?: string): number => {
-    if (!text) return 0;
-    let count = 0;
-    let inWord = false;
-    for (let i = 0; i < text.length; i++) {
-      // Fast single-pass scan avoiding string allocations and regex overhead
-      const code = text.charCodeAt(i);
-      // ASCII whitespace/control, NBSP, and CJK ideographic space.
-      if (code > 32 && code !== 160 && code !== 12288) {
-        if (!inWord) {
-          inWord = true;
-          count++;
-        }
-      } else {
-        inWord = false;
-      }
-    }
-    return count;
-  }, []);
-
   const getChapterWordCount = React.useCallback((ch: Chapter): number => {
     if (ch.blocks && ch.blocks.length > 0) {
       const cached = blockWordCountCache.get(ch.blocks);
@@ -277,7 +258,7 @@ export const ReaderScreen: React.FC<{
     }
 
     return 0;
-  }, [countWords]);
+  }, []);
 
   const totalStoryWords = React.useMemo(() => {
     return chaptersWithLoadedContent.reduce((sum, ch) => {

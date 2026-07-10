@@ -7,6 +7,7 @@ import { buildSpeechChunks, SpeechChunk, TTS_WORDS_PER_SECOND_AT_RATE_1 } from "
 import { useAudioSettings } from "./audio/useAudioSettings";
 import { useVoicePreferences } from "./audio/useVoicePreferences";
 import { resolveScrollTarget } from "../lib/scrollTarget";
+import { countWords } from "../utils/textUtils";
 
 export const extractSFXCues = (text: string) => {
   const sfxList: string[] = [];
@@ -284,11 +285,9 @@ export function useReaderPlayback({
         let durationMs = (audio.duration * 1000) / audio.playbackRate;
         if (!isFinite(durationMs) || durationMs <= 0) {
           const blockText = selectedChapter?.blocks?.[blockIndex]?.text || "";
-          // .split(/\s+/) on an empty string returns [''] (length 1); trimming
-          // and filtering avoids that off-by-one and correctly uses the fallback.
-          const wordCount = blockText.trim().split(/\s+/).filter(Boolean).length || 10;
+          const words = countWords(blockText) || 10;
           durationMs =
-            (wordCount / (speechRateRef.current * TTS_WORDS_PER_SECOND_AT_RATE_1)) * 1000 || 4000;
+            (words / (speechRateRef.current * TTS_WORDS_PER_SECOND_AT_RATE_1)) * 1000 || 4000;
         }
         fireBlockSideEffects(blockIndex, durationMs);
         // Drive scroll toward the NEXT clip's paragraph (Strategy B)
@@ -352,9 +351,7 @@ export function useReaderPlayback({
     // Estimate a chunk's spoken duration from its word count at the current rate.
     const chunkDurationMs = (i: number) => {
       const c = chunksRef.current[i];
-      // .split(/\s+/) on an empty string returns [''] (length 1), so we trim and
-      // filter to get an accurate word count.  The || 0 keeps the type happy.
-      const wc = c?.text?.trim().split(/\s+/).filter(Boolean).length || 0;
+      const wc = countWords(c?.text) || 0;
       return (wc / (speechRateRef.current * TTS_WORDS_PER_SECOND_AT_RATE_1)) * 1000;
     };
 
