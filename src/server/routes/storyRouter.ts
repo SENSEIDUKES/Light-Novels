@@ -220,7 +220,7 @@ The reader has set the story to RELAXED pressure.
 - Avoid introducing heavy setbacks, irreversible tragedies, severe material losses, or shock betrayals.
 - Let the Main Character solve problems with cleverness, charm, or typical effort without suffering crushing psychological or physical consequences.
 - Power gains and faction status increases should proceed without severe counter-attacks or lethal danger.
-- You MUST output a System Alert box (using the format "[Event Name: Description]" on its own line or the structured system object) for positive milestones or lucky events (e.g., "[Fortuitous Encounter: A hidden treasure resonates with your aura.]" or "[Karma Rewarded: Past kindness yields unexpected fruit.]").
+- Show positive milestones and lucky events through natural story action. Only if this is explicitly an in-world System/LitRPG story and visible UI is warranted, use a structured "system" object on its own NDJSON block; never put a bracketed alert in paragraph or dialogue text.
 =========================================`;
     } else if (activeFatePressure === 'Balanced') {
       finalUserPrompt += `
@@ -231,7 +231,7 @@ FATE PRESSURE: BALANCED
 The story is operating under BALANCED fate pressure.
 - Deliver standard webnovel stakes: normal progression setbacks, rival friction, and challenging but fully surmountable conflicts.
 - Ensure setbacks feel organic and serve to build tension before the next breakthrough or training arc.
-- You MUST output a System Alert box (using the format "[Event Name: Description]" on its own line or the structured system object) to highlight shifts in destiny or new moderate challenges (e.g., "[Destiny Shift: A new rival has noticed your ascent.]").
+- Show new pressure, rivals, and consequences through natural story action. Only if this is explicitly an in-world System/LitRPG story and visible UI is warranted, use a structured "system" object on its own NDJSON block; never put a bracketed alert in paragraph or dialogue text.
 =========================================`;
     } else if (activeFatePressure === 'Hardcore' || activeFatePressure === 'Dao Master') {
       finalUserPrompt += `
@@ -251,18 +251,18 @@ First, examine the previous chapters and current state of the world:
 - Codex Warnings: Are there many unresolved plot threats or active dangers?
 
 If any of these setups are present, you are ORDERED to introduce or advance a major, tense Hardcore Fate Event. Choose ONE of the following event types that fits best with the narrative flow and integrate it seamlessly. 
-You MUST output a System Alert box using the format "[Event Name: Description]" on its own line when the event triggers.
+Death Flag, Betrayal Check, Fate Lock, Destiny Shift, Hidden Timer, and similar Fate labels are UI/control concepts, not normal prose. In a System/LitRPG story, a visible alert must be a structured "system" object on its own NDJSON block. Otherwise, use natural prose, consequences, omens, pressure, and character choices. Never write a bracketed Fate alert in paragraph or dialogue text.
 
-1. [DEATH FLAG DETECTED]: Place an important companion, mentor, or loved one at risk of death. Make their vulnerability clear. Example: \`[Death Flag Detected: Zhao Min has entered a doomed path. Without intervention, her survival odds are falling.]\`
-2. [BETRAYAL CHECK]: Introduce clues or actions indicating a trusted ally might be secretly plotting, compromised, or forced to turn against the MC. Example: \`[Fate Event: A karmic bond is fraying. Trust is a luxury.]\`
-3. [CALAMITY]: Force a sudden macro-level crisis: a plague, a massive crop failure, an approaching army, a demonic rift, or an ancient curse that threatens the setting. Example: \`[Critical Danger: The southern border and imperial capital are both under threat. You can reinforce only one before dawn.]\`
-4. [MORAL CHOICE]: Force a high-stakes compromise or forced tradeoff where saving one thing means losing another (e.g., "You can save the capital or the border cities, not both"). Example: \`[Karma Backlash: Your mercy toward the bandit chief has created a hidden enemy.]\`
-5. [KARMA BACKLASH]: Cause past selfish or risky choices to return with heavy, complex consequences. Example: \`[Karma Backlash: Your past debts have arrived to collect.]\`
-6. [RIVAL ASCENSION]: Show an enemy gaining massive power, authority, or finding their own legendary cheat because they were left unchecked. Example: \`[Fate Lock: The enemy's destiny has solidified. They can no longer be defeated easily.]\`
-7. [WORLD FRACTURE]: Introduce a major, irreversible change in the laws of nature, the sect structures, or the continent's geography. Example: \`[System Error: The laws of reality are unraveling.]\`
-8. [RESOURCE CRISIS]: Put the MC's organization or faction under absolute physical stress (no food, depleted spiritual qi vein, empty treasury, or ruined defenses).
-9. [HIDDEN TIMER]: Establish a visible countdown of danger (e.g., "The poison will reach her heart in three chapters," or "The High Sect arrives in two chapters"). Example: \`[Iron Fate Warning: 72 hours until absolute annihilation.]\`
-10. [FATE LOCK]: Seal a narrative branch, rendering a past choice or loss completely irreversible. Example: \`[Fate Lock: This choice will permanently alter the timeline.]\`
+1. Death risk: Place an important companion, mentor, or loved one at risk of death. Make their vulnerability clear through their vulnerability and the characters' response.
+2. Betrayal pressure: Introduce clues or actions indicating a trusted ally might be secretly plotting, compromised, or forced to turn against the MC.
+3. Calamity: Force a sudden macro-level crisis: a plague, a massive crop failure, an approaching army, a demonic rift, or an ancient curse that threatens the setting.
+4. Moral choice: Force a high-stakes compromise or forced tradeoff where saving one thing means losing another.
+5. Karma backlash: Cause past selfish or risky choices to return with heavy, complex consequences.
+6. Rival ascension: Show an enemy gaining massive power, authority, or finding their own legendary cheat because they were left unchecked.
+7. World fracture: Introduce a major, irreversible change in the laws of nature, sect structures, or the continent's geography.
+8. Resource crisis: Put the MC's organization or faction under absolute physical stress (no food, depleted spiritual qi vein, empty treasury, or ruined defenses).
+9. Deadline pressure: Establish a concrete approaching danger, such as poison reaching a heart or an invading sect approaching.
+10. Irreversible loss: Seal a narrative branch so a past choice or loss has permanent consequences.
  
 =========================================
 FATE EVENT FREQUENCY DIRECTIVE (1-3 PER ARC):
@@ -274,7 +274,7 @@ If a major event just occurred in the previous chapter, allow the characters tim
 
 =========================================
 TIMING & PLACEMENT DIRECTIVE FOR SYSTEM ALERTS:
-When triggering a Hardcore Fate Event, you MUST place the System Alert box/text block at the very end of the chapter, or when the narrative is at an active major turning point to serve as a dramatic cliffhanger. This prevents the alert from getting buried in the middle of a casual dialogue or descriptions. Build real narrative tension up to that point first, then drop the System Alert block as a heavy, climactic turning point or closing cliffhanger!
+When a System/LitRPG Fate event genuinely needs a visible UI treatment, place its standalone structured "system" NDJSON block at the end of the chapter or an active turning point. Never place a bracketed Fate alert in normal paragraph or dialogue text. In other stories, build the cliffhanger through narrative consequences instead.
 =========================================
 
 ${activeFatePressure === 'Dao Master' ? `
@@ -427,7 +427,7 @@ The reader has set the story to RELAXED pressure.
 - Avoid introducing heavy setbacks, irreversible tragedies, severe material losses, or shock betrayals.
 - Let the Main Character solve problems with cleverness, charm, or typical effort without suffering crushing psychological or physical consequences.
 - Power gains and faction status increases should proceed without severe counter-attacks or lethal danger.
-- You MUST output a System Alert box (using the format "[Event Name: Description]" on its own line or the structured system object) for positive milestones or lucky events (e.g., "[Fortuitous Encounter: A hidden treasure resonates with your aura.]" or "[Karma Rewarded: Past kindness yields unexpected fruit.]").
+- Show positive milestones and lucky events through natural story action. Only if this is explicitly an in-world System/LitRPG story and visible UI is warranted, use a structured "system" object on its own NDJSON block; never put a bracketed alert in paragraph or dialogue text.
 =========================================`;
     } else if (activeFatePressure === 'Balanced') {
       finalUserPrompt += `
@@ -438,7 +438,7 @@ FATE PRESSURE: BALANCED
 The story is operating under BALANCED fate pressure.
 - Deliver standard webnovel stakes: normal progression setbacks, rival friction, and challenging but fully surmountable conflicts.
 - Ensure setbacks feel organic and serve to build tension before the next breakthrough or training arc.
-- You MUST output a System Alert box (using the format "[Event Name: Description]" on its own line or the structured system object) to highlight shifts in destiny or new moderate challenges (e.g., "[Destiny Shift: A new rival has noticed your ascent.]").
+- Show new pressure, rivals, and consequences through natural story action. Only if this is explicitly an in-world System/LitRPG story and visible UI is warranted, use a structured "system" object on its own NDJSON block; never put a bracketed alert in paragraph or dialogue text.
 =========================================`;
     } else if (activeFatePressure === 'Hardcore' || activeFatePressure === 'Dao Master') {
       finalUserPrompt += `
@@ -458,18 +458,18 @@ First, examine the previous chapters and current state of the world:
 - Codex Warnings: Are there many unresolved plot threats or active dangers?
 
 If any of these setups are present, you are ORDERED to introduce or advance a major, tense Hardcore Fate Event. Choose ONE of the following event types that fits best with the narrative flow and integrate it seamlessly. 
-You MUST output a System Alert box using the format "[Event Name: Description]" on its own line when the event triggers.
+Death Flag, Betrayal Check, Fate Lock, Destiny Shift, Hidden Timer, and similar Fate labels are UI/control concepts, not normal prose. In a System/LitRPG story, a visible alert must be a structured "system" object on its own NDJSON block. Otherwise, use natural prose, consequences, omens, pressure, and character choices. Never write a bracketed Fate alert in paragraph or dialogue text.
 
-1. [DEATH FLAG DETECTED]: Place an important companion, mentor, or loved one at risk of death. Make their vulnerability clear. Example: \`[Death Flag Detected: Zhao Min has entered a doomed path. Without intervention, her survival odds are falling.]\`
-2. [BETRAYAL CHECK]: Introduce clues or actions indicating a trusted ally might be secretly plotting, compromised, or forced to turn against the MC. Example: \`[Fate Event: A karmic bond is fraying. Trust is a luxury.]\`
-3. [CALAMITY]: Force a sudden macro-level crisis: a plague, a massive crop failure, an approaching army, a demonic rift, or an ancient curse that threatens the setting. Example: \`[Critical Danger: The southern border and imperial capital are both under threat. You can reinforce only one before dawn.]\`
-4. [MORAL CHOICE]: Force a high-stakes compromise or forced tradeoff where saving one thing means losing another (e.g., "You can save the capital or the border cities, not both"). Example: \`[Karma Backlash: Your mercy toward the bandit chief has created a hidden enemy.]\`
-5. [KARMA BACKLASH]: Cause past selfish or risky choices to return with heavy, complex consequences. Example: \`[Karma Backlash: Your past debts have arrived to collect.]\`
-6. [RIVAL ASCENSION]: Show an enemy gaining massive power, authority, or finding their own legendary cheat because they were left unchecked. Example: \`[Fate Lock: The enemy's destiny has solidified. They can no longer be defeated easily.]\`
-7. [WORLD FRACTURE]: Introduce a major, irreversible change in the laws of nature, the sect structures, or the continent's geography. Example: \`[System Error: The laws of reality are unraveling.]\`
-8. [RESOURCE CRISIS]: Put the MC's organization or faction under absolute physical stress (no food, depleted spiritual qi vein, empty treasury, or ruined defenses).
-9. [HIDDEN TIMER]: Establish a visible countdown of danger (e.g., "The poison will reach her heart in three chapters," or "The High Sect arrives in two chapters"). Example: \`[Iron Fate Warning: 72 hours until absolute annihilation.]\`
-10. [FATE LOCK]: Seal a narrative branch, rendering a past choice or loss completely irreversible. Example: \`[Fate Lock: This choice will permanently alter the timeline.]\`
+1. Death risk: Place an important companion, mentor, or loved one at risk of death. Make their vulnerability clear through their vulnerability and the characters' response.
+2. Betrayal pressure: Introduce clues or actions indicating a trusted ally might be secretly plotting, compromised, or forced to turn against the MC.
+3. Calamity: Force a sudden macro-level crisis: a plague, a massive crop failure, an approaching army, a demonic rift, or an ancient curse that threatens the setting.
+4. Moral choice: Force a high-stakes compromise or forced tradeoff where saving one thing means losing another.
+5. Karma backlash: Cause past selfish or risky choices to return with heavy, complex consequences.
+6. Rival ascension: Show an enemy gaining massive power, authority, or finding their own legendary cheat because they were left unchecked.
+7. World fracture: Introduce a major, irreversible change in the laws of nature, sect structures, or the continent's geography.
+8. Resource crisis: Put the MC's organization or faction under absolute physical stress (no food, depleted spiritual qi vein, empty treasury, or ruined defenses).
+9. Deadline pressure: Establish a concrete approaching danger, such as poison reaching a heart or an invading sect approaching.
+10. Irreversible loss: Seal a narrative branch so a past choice or loss has permanent consequences.
  
 =========================================
 FATE EVENT FREQUENCY DIRECTIVE (1-3 PER ARC):
@@ -481,7 +481,7 @@ If a major event just occurred in the previous chapter, allow the characters tim
 
 =========================================
 TIMING & PLACEMENT DIRECTIVE FOR SYSTEM ALERTS:
-When triggering a Hardcore Fate Event, you MUST place the System Alert box/text block at the very end of the chapter, or when the narrative is at an active major turning point to serve as a dramatic cliffhanger. This prevents the alert from getting buried in the middle of a casual dialogue or descriptions. Build real narrative tension up to that point first, then drop the System Alert block as a heavy, climactic turning point or closing cliffhanger!
+When a System/LitRPG Fate event genuinely needs a visible UI treatment, place its standalone structured "system" NDJSON block at the end of the chapter or an active turning point. Never place a bracketed Fate alert in normal paragraph or dialogue text. In other stories, build the cliffhanger through narrative consequences instead.
 =========================================
 
 ${activeFatePressure === 'Dao Master' ? `

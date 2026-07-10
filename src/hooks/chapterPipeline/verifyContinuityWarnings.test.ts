@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   classifyContinuityWarnings,
   extractProseForContinuity,
+  findSurfaceProseLeaks,
 } from './verifyContinuityWarnings';
 import { StoryMemory } from '../../types';
 
@@ -160,5 +161,32 @@ describe('extractProseForContinuity', () => {
   it('falls back to raw text when no parseable blocks exist', () => {
     const raw = 'Just some plain prose with no JSON blocks.';
     expect(extractProseForContinuity(raw)).toBe(raw);
+  });
+});
+
+describe('findSurfaceProseLeaks', () => {
+  it('finds the mechanic-style denylist phrases case-insensitively', () => {
+    expect(findSurfaceProseLeaks('A Death Flag Detected after their slow burn became enemies to lovers.')).toEqual([
+      'enemies to lovers',
+      'slow burn',
+      'death flag detected',
+    ]);
+  });
+
+  it('does not mistake natural mythic language or larger words for control leaks', () => {
+    expect(findSurfaceProseLeaks('Fate and destiny weighed on her at midnight, but karma offered no answer.')).toEqual([]);
+  });
+
+  it('only scans block text, never system or metadata fields', () => {
+    const raw = JSON.stringify([
+      {
+        id: 'p1',
+        type: 'paragraph',
+        text: 'The bell tolled over the mountain.',
+        metadata: { directorNote: 'slow burn', storyTag: 'fate survival' },
+        system: { title: 'Death Flag Detected' },
+      },
+    ]);
+    expect(findSurfaceProseLeaks(extractProseForContinuity(raw))).toEqual([]);
   });
 });
