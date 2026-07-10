@@ -130,8 +130,7 @@ function App() {
       }
     }
     // We only want to run this once after initialization completes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isInitializing]);
+  }, [isInitializing, store_setDraftRecoverySession]);
 
   // Initialize Data Persistence
   useEffect(() => {
@@ -195,6 +194,7 @@ function App() {
       unsubSync();
       if (unsubProfile) unsubProfile();
     };
+    // Note: These Zustand store actions are guaranteed stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -232,8 +232,7 @@ function App() {
           });
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store_activeStoryId, store_selectedChapterNum]); // Removed store.stories
+  }, [store_activeStoryId, store_selectedChapterNum, store_updateChapter]); // Removed store.stories
 
   // --- IDLE CULTIVATION ---
   const [idleQiEarned, setIdleQiEarned] = useState<number | null>(null);
