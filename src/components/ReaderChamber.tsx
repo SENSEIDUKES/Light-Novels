@@ -27,6 +27,7 @@ import { ReaderHeader } from "./ReaderHeader";
 import { ReaderViewport } from "./ReaderViewport";
 import { ReaderControls } from "./ReaderControls";
 import { useCinematicScroll } from "../hooks/useCinematicScroll";
+import { useReadingPosition } from "../hooks/useReadingPosition";
 
 interface ReaderChamberProps {
   chapters: Chapter[];
@@ -98,7 +99,6 @@ export default function ReaderChamber({
   const [isCheckingConsistency, setIsCheckingConsistency] = useState(false);
   const [consistencyWarnings, setConsistencyWarnings] = useState<string[] | null>(null);
   const readerRef = useRef<HTMLDivElement>(null);
-  const driftInnerRef = useRef<HTMLDivElement>(null);
   const readerMode = useAppStore((state) => state.readerMode);
   const immersion = useAppStore((state) => state.immersion);
   const setReaderMode = useAppStore((state) => state.setReaderMode);
@@ -177,12 +177,9 @@ export default function ReaderChamber({
     string | null
   >(null);
 
-  const [isAutoScrollPausedByUser, setIsAutoScrollPausedByUser] = useState(false);
-
   const {
     isPlayingText,
     isPausedText,
-    ttsVelocityRef,
     speechRate,
     speechPitch,
     speechVolume,
@@ -204,66 +201,33 @@ export default function ReaderChamber({
   } = useReaderPlayback({
     selectedChapter,
     activeTranslationContent,
-    containerRef: readerRef,
-    isAutoScrollPausedByUser,
-    setIsAutoScrollPausedByUser
   });
 
-  // Drive the single cinematic scroll engine.
-  // Auto-scroll is OFF by default: it runs only while text-to-speech is
-  // actively playing (the play button). When narration is stopped or paused,
-  // the engine is idle and the reader scrolls manually. onYieldChange syncs
-  // the pause overlay.
-  const isAutoScrollActive = isPlayingText && !isPausedText;
-  const { resume: resumeAutoScroll } = useCinematicScroll(
-    readerRef,
-    isAutoScrollActive,
-    ttsVelocityRef,
-    setIsAutoScrollPausedByUser,
-  );
+  // The single cinematic scroll controller. It listens to narration events,
+  // runs the user-intent state machine, and drives the document scroll
+  // surface with a spring following the narration timeline. Manual input
+  // yields permanently; only the explicit Resume Reading action (resume)
+  // restores automated movement.
+  const {
+    state: cinematicScrollState,
+    resume: resumeAutoScroll,
+    intervene: interveneAutoScroll,
+  } = useCinematicScroll(readerRef);
 
-  // --- Scroll position tracking ---
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastSavedScrollRef = useRef<number>(0);
-  
-  const handleViewportScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const target = e.currentTarget;
-    const scrollTop = target.scrollTop;
-    
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
-    }
-    
-    scrollTimeoutRef.current = setTimeout(() => {
-      if (Math.abs(scrollTop - lastSavedScrollRef.current) > 100) {
-        lastSavedScrollRef.current = scrollTop;
-        const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
-        if (currentActiveStory) {
-          onUpdateStory({
-            ...currentActiveStory,
-            lastReadChapter: useAppStore.getState().selectedChapterNum || selectedChapterNum,
-            lastReadScrollPosition: scrollTop,
-            lastReadAt: new Date().toISOString()
-          });
-        }
-      }
-    }, 2000); // 2000ms debounce
-  };
-
-  // Restore scroll position on mount/chapter change
-  useEffect(() => {
-    if (readerRef.current && activeStory.lastReadChapter === selectedChapterNum) {
-      // Only restore if we have valid content to scroll on
-      if (selectedChapter.generatedContent || selectedChapter.blocks) {
-        // Small delay to ensure content is fully rendered before scrolling
-        setTimeout(() => {
-           if (readerRef.current && activeStory.lastReadScrollPosition) {
-             readerRef.current.scrollTop = activeStory.lastReadScrollPosition;
-           }
-        }, 100);
-      }
-    }
-  }, [selectedChapterNum, activeStory.lastReadChapter, selectedChapter.generatedContent, selectedChapter.blocks, activeStory.lastReadScrollPosition]);
+  // Semantic reading-position persistence: saves the paragraph nearest the
+  // focus line on debounced document scrolling and restores it after render
+  // (with a one-time migration of legacy raw pixel offsets).
+  useReadingPosition({
+    contentRef: readerRef,
+    activeStory,
+    selectedChapter,
+    selectedChapterNum,
+    onUpdateStory,
+    hasRenderableContent: !!(
+      selectedChapter.generatedContent ||
+      (selectedChapter.blocks && selectedChapter.blocks.length > 0)
+    ),
+  });
 
   // --- atmospheric audio (just reference, no actual addition needed here)
   const isReaderFullscreen = useAppStore((state) => state.isReaderFullscreen);
@@ -665,8 +629,8 @@ export default function ReaderChamber({
         );
         if (element) {
           // Programmatic scrollIntoView does NOT fire wheel/touchstart events,
-          // so we must explicitly pause auto-scroll.
-          setIsAutoScrollPausedByUser(true);
+          // so explicitly yield the cinematic scroll controller.
+          interveneAutoScroll();
           element.scrollIntoView({ behavior: "smooth", block: "center" });
           element.classList.add(
             "bg-portal/10",
@@ -694,6 +658,7 @@ export default function ReaderChamber({
     selectedChapterNum,
     selectedChapter.generatedContent,
     selectedChapter.blocks,
+    interveneAutoScroll,
   ]);
 
   const handleSealClick = async () => {
@@ -831,8 +796,8 @@ export default function ReaderChamber({
   const navigatePrev = () => {
     if (selectedChapterNum > 1) {
       setSelectedChapterNum(selectedChapterNum - 1);
-      // Programmatic scroll — does not fire wheel events, so explicitly pause.
-      setIsAutoScrollPausedByUser(true);
+      // Programmatic scroll — does not fire wheel events, so explicitly yield.
+      interveneAutoScroll();
       readerRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   };
@@ -843,8 +808,8 @@ export default function ReaderChamber({
     );
     if (nextChapter) {
       setSelectedChapterNum(selectedChapterNum + 1);
-      // Programmatic scroll — does not fire wheel events, so explicitly pause.
-      setIsAutoScrollPausedByUser(true);
+      // Programmatic scroll — does not fire wheel events, so explicitly yield.
+      interveneAutoScroll();
       readerRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   };
@@ -943,14 +908,12 @@ export default function ReaderChamber({
       {/* READING VIEWPORT */}
       <ReaderViewport
         readerRef={readerRef as any}
-        driftInnerRef={driftInnerRef as any}
         isReaderFullscreen={isReaderFullscreen}
         handleTouchStart={handleTouchStart}
         handleTouchMove={handleTouchMove}
         handleTouchEnd={handleTouchEnd}
         handleTextClick={handleTextClick}
-        handleViewportScroll={handleViewportScroll}
-        
+
         isTranslating={isTranslating}
         preferredLang={preferredLang}
         selectedChapter={selectedChapter}
@@ -1067,9 +1030,9 @@ export default function ReaderChamber({
       )}
 
       {/* Small Resume Affordance — shown when narration is playing but the
-          user scrolled away, so auto-scroll has yielded. */}
+          user took manual control, so automated movement has yielded. */}
       <AnimatePresence>
-        {isAutoScrollActive && isAutoScrollPausedByUser && (
+        {cinematicScrollState === 'yielded' && (
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1082,11 +1045,11 @@ export default function ReaderChamber({
             </span>
             <button
                tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-                // Narration is already playing; the user just scrolled away.
-                // resume() clears the yield debounce and restarts the engine
-                // immediately (and flips isAutoScrollPausedByUser off via its
-                // onYieldChange), so the click resumes scrolling right away
-                // instead of waiting out the 2000ms debounce.
+                // Narration is already playing; the user took manual control.
+                // resume() re-measures the narration target and returns the
+                // state machine to `following` — unless the reader scrolled
+                // ahead of narration, in which case it stays yielded rather
+                // than dragging them backward.
                 resumeAutoScroll();
               }}
               className="bg-portal hover:bg-[#00c0ff] text-void text-xs font-sans font-medium px-4 py-1.5 rounded-full transition-colors flex items-center gap-1.5 cursor-pointer shadow-[0_0_10px_rgba(4,172,255,0.4)]"

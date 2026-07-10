@@ -20,7 +20,6 @@ describe('useReaderPlayback', () => {
     const { result } = renderHook(() => useReaderPlayback({
       selectedChapter: {} as any,
       activeTranslationContent: null,
-      containerRef: { current: null },
     }));
 
     expect(result.current.isPlayingText).toBe(false);
@@ -43,7 +42,7 @@ describe('useReaderPlayback', () => {
         renderHook(() => useReaderPlayback({
           selectedChapter: { number: 3, generatedContent: 'Some chapter prose to narrate.' } as any,
           activeTranslationContent: null,
-          containerRef: { current: null },
+
         }));
 
         // The auto-start is deferred — nothing should happen before its timer.
@@ -67,7 +66,7 @@ describe('useReaderPlayback', () => {
         renderHook(() => useReaderPlayback({
           selectedChapter: { number: 4, generatedContent: 'Prose that should stay silent.' } as any,
           activeTranslationContent: null,
-          containerRef: { current: null },
+
         }));
 
         act(() => { vi.advanceTimersByTime(600); });
@@ -87,7 +86,7 @@ describe('useReaderPlayback', () => {
         renderHook(() => useReaderPlayback({
           selectedChapter: { number: 5, generatedContent: 'Partially streamed prose...' } as any,
           activeTranslationContent: null,
-          containerRef: { current: null },
+
         }));
 
         act(() => { vi.advanceTimersByTime(600); });

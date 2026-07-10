@@ -1,286 +1,392 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { resolveScrollTarget } from '../lib/scrollTarget';
+import {
+  createDocumentScrollSurface,
+  getFocusLine,
+  ScrollSurface,
+} from '../lib/cinematicScroll/scrollSurface';
+import {
+  CinematicScrollContext,
+  CinematicScrollEvent,
+  CinematicScrollState,
+  deriveState,
+  initialContext,
+  reduce,
+} from '../lib/cinematicScroll/stateMachine';
+import {
+  SpringState,
+  DEFAULT_SPRING_CONFIG,
+  stepSpring,
+  lerp,
+} from '../lib/cinematicScroll/springController';
+import { NarrationEventDetail } from '../lib/narrativeCues';
 
 /**
- * Time constant (ms) for easing the scroll velocity toward its target. Larger =
- * gentler, laggier; smaller = snappier, more abrupt. ~220ms glides through TTS
- * chunk-boundary velocity changes without visibly trailing the narration.
+ * A backward target further above the reader than this is never followed —
+ * automated narration motion is forward-only. Smaller negative corrections
+ * from geometry rounding are simply held in place.
  */
-const VELOCITY_EASE_MS = 220;
+const BACKWARD_TOLERANCE_PX = 96;
 
-/** Cap the per-frame time step so a backgrounded tab can't produce one huge jump. */
-const MAX_FRAME_MS = 50;
+/**
+ * If a document `scroll` event lands further than this from the position the
+ * controller just wrote, someone else (scrollbar drag, find-in-page, browser
+ * anchor) moved the page — treat it as user intervention.
+ */
+const EXTERNAL_SCROLL_TOLERANCE_PX = 12;
+
+const SCROLL_KEYS = ['ArrowUp', 'ArrowDown', ' ', 'PageUp', 'PageDown', 'Home', 'End'];
+
+/** Cached geometry for the narration segment currently being spoken. */
+interface NarrationSegment {
+  blockIndex: number;
+  /** Document position placing the active block on the focus line. */
+  fromPosition: number;
+  /** Same for the next block (or end of the active block when last). */
+  toPosition: number;
+  startedAt: number;
+  durationMs: number;
+  /** Cached bounds so the frame loop never reads scrollHeight. */
+  maxPosition: number;
+}
+
+const isTypingTarget = (target: EventTarget | null): boolean => {
+  const el = target as HTMLElement | null;
+  if (!el || !el.tagName) return false;
+  const tag = el.tagName.toLowerCase();
+  return (
+    tag === 'input' ||
+    tag === 'textarea' ||
+    tag === 'select' ||
+    tag === 'button' ||
+    el.isContentEditable
+  );
+};
 
 /**
  * useCinematicScroll
  *
- * The ONE and only auto-scroll engine for the SEIHOUSE reader.
+ * The single narration-following scroll controller for the SEIHOUSE reader.
  *
- * Two modes — selected automatically:
+ * Architecture:
+ *   narration events (seihouse-narration) → state machine → cached segment
+ *   geometry → narration-timeline target → critically damped spring →
+ *   document.scrollingElement.scrollTop
  *
- * 1. **TTS-paced** (when `ttsVelocityRef` is provided and non-null):
- *    Velocity is computed externally by `useReaderPlayback` from narration
- *    `block` events.  The formula is:
- *      velocity = (DOM top of next block − current scrollTop at focus line)
- *               ÷ (durationMs / 1000)
- *    The constant `scrollSpeed` store value is ignored while voice is playing.
- *
- * 2. **Constant free-scroll** (when `ttsVelocityRef` is null/undefined):
- *    Reads `scrollSpeed` from the global store (px/sec).  Used for the
- *    teleprompter / "free" auto-scroll mode when no voice is active.
- *
- * UX invariants:
- * - Sub-pixel accumulator for smooth, stutter-free motion every frame.
- * - User wheel / touchstart / touchmove / keyboard (arrow keys, Space,
- *   PageUp/Down, Home/End) instantly yields control; resumes after 2000 ms
- *   of inactivity.
- * - Stops at the bottom of content.
- * - Respects `prefers-reduced-motion`: the loop exits immediately and does
- *   not scroll at all when the user has requested reduced motion.
+ * Rules:
+ * - The document is the only scroll surface; writes are clamped to bounds.
+ * - Movement happens only in the `following` state (Auto Scroll preference
+ *   on, narration playing, no reduced motion, user has not intervened).
+ * - Any manual scroll input yields permanently; only the explicit `resume()`
+ *   action restores automated movement. There is no timed auto-resume.
+ * - The frame loop reads cached numbers, integrates the spring, and writes
+ *   scrollTop — it performs no DOM queries or geometry measurement.
  */
 export function useCinematicScroll(
-  containerRef: React.RefObject<HTMLElement | null>,
-  isActive: boolean,
-  ttsVelocityRef?: React.MutableRefObject<number | null>,
-  onYieldChange?: (yielded: boolean) => void,
+  contentRef: React.RefObject<HTMLElement | null>,
+  onStateChange?: (state: CinematicScrollState) => void,
 ) {
-  const scrollSpeed = useAppStore((state) => state.scrollSpeed);
+  const [state, setState] = useState<CinematicScrollState>('idle');
 
-  // --- Refs that persist across renders without causing re-renders ----------
-  const requestRef        = useRef<number | undefined>(undefined);
-  const lastTimeRef       = useRef<number | undefined>(undefined);
-  // Actual float scroll position we drive; written back to the target each
-  // frame. null = "re-sync from the element on the next frame" (used on start,
-  // resume, or when the resolved target changes).
-  const scrollPosRef      = useRef<number | null>(null);
-  // Eased velocity (px/sec). We glide this toward the target velocity so abrupt
-  // changes — a new TTS chunk, or the very first frame — don't jerk the page.
-  const currentVelocity   = useRef<number>(0);
-  const isYieldingRef     = useRef<boolean>(false);
-  const yieldTimeoutRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const onYieldChangeRef  = useRef(onYieldChange);
-  onYieldChangeRef.current = onYieldChange;
+  const surfaceRef = useRef<ScrollSurface | null>(null);
+  const getSurface = useCallback((): ScrollSurface => {
+    if (!surfaceRef.current) surfaceRef.current = createDocumentScrollSurface();
+    return surfaceRef.current;
+  }, []);
 
-  // Cache of the resolved scroll target. Resolving reads scrollHeight/
-  // clientHeight, so we throttle it (the target is very stable) to keep the
-  // per-frame hot path free of layout reads.
-  const scrollTargetRef   = useRef<HTMLElement | null>(null);
-  const targetResolvedAt  = useRef<number>(0);
+  const ctxRef = useRef<CinematicScrollContext>({ ...initialContext });
+  const stateRef = useRef<CinematicScrollState>('idle');
+  const segmentRef = useRef<NarrationSegment | null>(null);
+  const springRef = useRef<SpringState>({ position: 0, velocity: 0 });
+  const rafRef = useRef<number | undefined>(undefined);
+  const lastTimeRef = useRef<number | undefined>(undefined);
+  const lastWrittenRef = useRef<number | null>(null);
+  const onStateChangeRef = useRef(onStateChange);
+  onStateChangeRef.current = onStateChange;
 
-  // Keep isActive readable from inside the rAF callback without stale closure
-  const isActiveRef = useRef(isActive);
-  useEffect(() => { isActiveRef.current = isActive; }, [isActive]);
+  const immersionMaster = useAppStore((s) => s.immersion.master);
+  const immersionAutoScroll = useAppStore((s) => s.immersion.autoScroll);
 
-  // Keep scrollSpeed readable without stale closure
-  const scrollSpeedRef = useRef(scrollSpeed);
-  useEffect(() => { scrollSpeedRef.current = scrollSpeed; }, [scrollSpeed]);
+  const autoScrollEnabled = immersionMaster && immersionAutoScroll;
 
-  // Reduced-motion: read once on mount, then track changes via media query
-  const prefersReducedMotionRef = useRef(
-    typeof window !== 'undefined' && window.matchMedia
-      ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      : false,
+  // --- Frame loop -----------------------------------------------------------
+  const stopLoop = useCallback(() => {
+    if (rafRef.current !== undefined) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = undefined;
+    }
+    lastTimeRef.current = undefined;
+    lastWrittenRef.current = null;
+  }, []);
+
+  const frame = useCallback(
+    function step(time: number) {
+      if (stateRef.current !== 'following') {
+        rafRef.current = undefined;
+        lastTimeRef.current = undefined;
+        return;
+      }
+      const segment = segmentRef.current;
+      if (segment && lastTimeRef.current !== undefined) {
+        const deltaSeconds = (time - lastTimeRef.current) / 1000;
+        const progress =
+          segment.durationMs > 0
+            ? Math.min(Math.max((time - segment.startedAt) / segment.durationMs, 0), 1)
+            : 1;
+        const timelineTarget = lerp(segment.fromPosition, segment.toPosition, progress);
+
+        const spring = springRef.current;
+        // Forward-only: never chase a target above the current position.
+        // Large backward targets hold in place; small rounding negatives too.
+        const target = Math.min(
+          Math.max(timelineTarget, spring.position),
+          segment.maxPosition,
+        );
+
+        const next = stepSpring(spring, target, deltaSeconds, DEFAULT_SPRING_CONFIG);
+        // Clamp to cached document bounds — no scrollHeight reads per frame.
+        next.position = Math.min(Math.max(next.position, 0), segment.maxPosition);
+        springRef.current = next;
+        lastWrittenRef.current = next.position;
+        getSurface().getElement().scrollTop = next.position;
+      }
+      lastTimeRef.current = time;
+      rafRef.current = requestAnimationFrame(step);
+    },
+    [getSurface],
   );
+
+  const startLoop = useCallback(() => {
+    if (rafRef.current !== undefined) return;
+    lastTimeRef.current = undefined;
+    rafRef.current = requestAnimationFrame(frame);
+  }, [frame]);
+
+  // --- Geometry (only outside the frame loop) -------------------------------
+  /**
+   * Resolve document positions that put the active block (and the next one)
+   * on the focus line. Called at chunk boundaries and layout invalidations,
+   * never per frame.
+   */
+  const measureSegment = useCallback(
+    (blockIndex: number, durationMs: number, startedAt: number): NarrationSegment | null => {
+      const container = contentRef.current;
+      if (!container) return null;
+      const active = container.querySelector<HTMLElement>(
+        `[data-paragraph-index="${blockIndex}"]`,
+      );
+      if (!active) return null;
+
+      const surface = getSurface();
+      const scrollTop = surface.getPosition();
+      const maxPosition = surface.getMaxPosition();
+      const focusLine = getFocusLine();
+
+      const activeRect = active.getBoundingClientRect();
+      const fromPosition = activeRect.top + scrollTop - focusLine;
+
+      const next = container.querySelector<HTMLElement>(
+        `[data-paragraph-index="${blockIndex + 1}"]`,
+      );
+      const toPosition = next
+        ? next.getBoundingClientRect().top + scrollTop - focusLine
+        : fromPosition + activeRect.height;
+
+      return {
+        blockIndex,
+        fromPosition: Math.min(Math.max(fromPosition, 0), maxPosition),
+        toPosition: Math.min(Math.max(toPosition, 0), maxPosition),
+        startedAt,
+        durationMs,
+        maxPosition,
+      };
+    },
+    [contentRef, getSurface],
+  );
+
+  /** Re-measure the current segment after a layout-invalidating transition. */
+  const invalidateGeometry = useCallback(() => {
+    const segment = segmentRef.current;
+    if (!segment) return;
+    const remeasured = measureSegment(
+      segment.blockIndex,
+      segment.durationMs,
+      segment.startedAt,
+    );
+    if (remeasured) segmentRef.current = remeasured;
+    // Reset the spring at the live position so a geometry change can't fling.
+    springRef.current = { position: getSurface().getPosition(), velocity: 0 };
+    lastWrittenRef.current = null;
+  }, [measureSegment, getSurface]);
+
+  // --- State machine dispatch ------------------------------------------------
+  const dispatch = useCallback(
+    (event: CinematicScrollEvent) => {
+      const nextCtx = reduce(ctxRef.current, event);
+      if (nextCtx === ctxRef.current) return;
+      ctxRef.current = nextCtx;
+      const nextState = deriveState(nextCtx);
+      if (nextState === stateRef.current) return;
+      const prevState = stateRef.current;
+      stateRef.current = nextState;
+      setState(nextState);
+      onStateChangeRef.current?.(nextState);
+
+      if (nextState === 'following') {
+        // (Re)entering following: sync the spring to the live scroll offset
+        // and refresh segment geometry — the user may have moved the page.
+        springRef.current = { position: getSurface().getPosition(), velocity: 0 };
+        if (segmentRef.current) {
+          const s = segmentRef.current;
+          const remeasured = measureSegment(s.blockIndex, s.durationMs, s.startedAt);
+          if (remeasured) segmentRef.current = remeasured;
+        }
+        startLoop();
+      } else {
+        stopLoop();
+        if (nextState === 'idle') segmentRef.current = null;
+        if (prevState === 'following') springRef.current.velocity = 0;
+      }
+    },
+    [getSurface, measureSegment, startLoop, stopLoop],
+  );
+
+  const intervene = useCallback(() => dispatch({ type: 'USER_INTERVENED' }), [dispatch]);
+
+  /**
+   * Explicit "Resume Reading". If the user scrolled *ahead* of the narration
+   * target, stay yielded rather than dragging them backward.
+   */
+  const resume = useCallback(() => {
+    const segment = segmentRef.current;
+    if (segment) {
+      const remeasured = measureSegment(segment.blockIndex, segment.durationMs, segment.startedAt);
+      if (remeasured) {
+        segmentRef.current = remeasured;
+        const currentPos = getSurface().getPosition();
+        if (remeasured.toPosition < currentPos - BACKWARD_TOLERANCE_PX) {
+          return; // reader is ahead of narration — stay yielded
+        }
+      }
+    }
+    dispatch({ type: 'RESUME_REQUESTED' });
+  }, [dispatch, getSurface, measureSegment]);
+
+  // --- Auto Scroll preference ------------------------------------------------
+  useEffect(() => {
+    dispatch({ type: autoScrollEnabled ? 'AUTO_SCROLL_ENABLED' : 'AUTO_SCROLL_DISABLED' });
+  }, [autoScrollEnabled, dispatch]);
+
+  // --- Reduced motion ----------------------------------------------------------
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    dispatch({ type: mq.matches ? 'REDUCED_MOTION_ENABLED' : 'REDUCED_MOTION_DISABLED' });
     const onChange = (e: MediaQueryListEvent) => {
-      prefersReducedMotionRef.current = e.matches;
-      // Immediately stop if user enables reduced motion while scrolling
-      if (e.matches && requestRef.current !== undefined) {
-        cancelAnimationFrame(requestRef.current);
-        requestRef.current = undefined;
-        lastTimeRef.current = undefined;
-      }
+      dispatch({ type: e.matches ? 'REDUCED_MOTION_ENABLED' : 'REDUCED_MOTION_DISABLED' });
     };
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);
-  }, []);
+  }, [dispatch]);
 
-  // --- rAF loop (useCallback so the closure is stable & dependency-aware) --
-  // Using useCallback means the animate function is recreated only when its
-  // deps change (containerRef, ttsVelocityRef), not on every render.  All hot
-  // refs (isActiveRef, scrollSpeedRef, prefersReducedMotionRef, isYieldingRef)
-  // are read at call time via refs so they don't need to be in the dep array.
-  const animate = useCallback(function step(time: number) {
-    if (isYieldingRef.current || !isActiveRef.current || prefersReducedMotionRef.current) {
-      lastTimeRef.current = undefined;
-      return;
-    }
-
-    if (lastTimeRef.current != null && containerRef.current) {
-      const deltaTime = Math.min(time - lastTimeRef.current, MAX_FRAME_MS);
-
-      // The viewport div is styled to scroll, but the layout lets it grow
-      // instead of overflow — so the real scroll target is usually the
-      // document. Resolve it (throttled: the target is stable and resolving
-      // reads layout) so we drive whatever actually scrolls, picking up the
-      // container once a fixed-height/fullscreen layout makes it overflow.
-      let target = scrollTargetRef.current;
-      if (target == null || time - targetResolvedAt.current > 1000) {
-        const resolved = resolveScrollTarget(containerRef.current);
-        if (resolved !== target) {
-          target = resolved;
-          scrollTargetRef.current = resolved;
-          // New element → re-sync our float position to its real offset.
-          scrollPosRef.current = resolved ? resolved.scrollTop : null;
-        }
-        targetResolvedAt.current = time;
-      }
-
-      if (target) {
-        // Target velocity: TTS-paced overrides constant free-scroll.
-        const targetVelocity =
-          ttsVelocityRef != null && ttsVelocityRef.current != null
-            ? ttsVelocityRef.current
-            : scrollSpeedRef.current;
-
-        // Ease the actual velocity toward the target (frame-rate independent).
-        const smoothing = 1 - Math.exp(-deltaTime / VELOCITY_EASE_MS);
-        currentVelocity.current += (targetVelocity - currentVelocity.current) * smoothing;
-
-        // Drive a float position and write it back each frame. Fractional
-        // scrollTop lets the browser step by device pixels (especially on
-        // HiDPI screens) instead of jumping whole CSS pixels — the integer
-        // flooring is what made low-speed scrolling look stuttery/choppy.
-        if (scrollPosRef.current == null) scrollPosRef.current = target.scrollTop;
-        const maxScroll = Math.max(0, target.scrollHeight - target.clientHeight);
-        scrollPosRef.current = Math.min(
-          scrollPosRef.current + (currentVelocity.current * deltaTime) / 1000,
-          maxScroll,
-        );
-        target.scrollTop = scrollPosRef.current;
-      }
-    }
-
-    lastTimeRef.current = time;
-    requestRef.current = requestAnimationFrame(step);
-  }, [containerRef, ttsVelocityRef]); // scrollSpeedRef read via ref — no dep needed
-
-  // --- Start / stop lifecycle ----------------------------------------------
-  // When isActive becomes true we also clear any in-flight yield state so that
-  // "Resume Reading" works immediately even if the 2000ms debounce is still
-  // running (fixes the immediate-resume bug from the code review).
-  const prevIsActiveRef = useRef(false);
+  // --- Narration events --------------------------------------------------------
   useEffect(() => {
-    const justBecameActive = isActive && !prevIsActiveRef.current;
-    prevIsActiveRef.current = isActive;
-
-    if (isActive) {
-      if (justBecameActive) {
-        isYieldingRef.current = false;
-        onYieldChangeRef.current?.(false);
-        if (yieldTimeoutRef.current !== undefined) {
-          clearTimeout(yieldTimeoutRef.current);
-          yieldTimeoutRef.current = undefined;
+    const onNarration = (e: Event) => {
+      const detail = (e as CustomEvent<NarrationEventDetail>).detail;
+      if (!detail) return;
+      switch (detail.status) {
+        case 'start':
+          dispatch({ type: 'NARRATION_STARTED' });
+          break;
+        case 'pause':
+          dispatch({ type: 'NARRATION_PAUSED' });
+          break;
+        case 'resume':
+          dispatch({ type: 'NARRATION_RESUMED' });
+          break;
+        case 'end':
+          dispatch({ type: 'NARRATION_ENDED' });
+          break;
+        case 'block': {
+          if (detail.blockIndex == null || detail.blockIndex < 0) break;
+          const durationMs = detail.durationMs ?? 0;
+          const segment = measureSegment(detail.blockIndex, durationMs, performance.now());
+          if (segment) {
+            segmentRef.current = segment;
+            if (stateRef.current === 'following') startLoop();
+          }
+          break;
         }
       }
+    };
+    window.addEventListener('seihouse-narration', onNarration);
+    return () => window.removeEventListener('seihouse-narration', onNarration);
+  }, [dispatch, measureSegment, startLoop]);
 
-      if (!isYieldingRef.current && !prefersReducedMotionRef.current) {
-        if (justBecameActive) {
-          lastTimeRef.current = undefined;
-          currentVelocity.current = 0;     // ramp up smoothly from rest
-          scrollPosRef.current = null;      // re-sync to the live scroll offset
-        }
-        requestRef.current = requestAnimationFrame(animate);
-      }
+  // --- User intervention --------------------------------------------------------
+  useEffect(() => {
+    const onWheel = () => {
+      if (stateRef.current === 'following') intervene();
+    };
+    const onTouchMove = onWheel;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (stateRef.current !== 'following') return;
+      if (isTypingTarget(e.target)) return;
+      if (SCROLL_KEYS.includes(e.key)) intervene();
+    };
+    // Scroll events that don't match the controller's own writes mean the
+    // scrollbar, find-in-page, or a programmatic jump moved the page.
+    const onScroll = () => {
+      if (stateRef.current !== 'following') return;
+      const written = lastWrittenRef.current;
+      if (written == null) return;
+      const actual = getSurface().getPosition();
+      if (Math.abs(actual - written) > EXTERNAL_SCROLL_TOLERANCE_PX) intervene();
+    };
+
+    window.addEventListener('wheel', onWheel, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('keydown', onKeyDown);
+    const unsubscribe = getSurface().subscribe(onScroll);
+    return () => {
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('keydown', onKeyDown);
+      unsubscribe();
+    };
+  }, [getSurface, intervene]);
+
+  // --- Geometry-invalidating transitions -----------------------------------------
+  const isReaderFullscreen = useAppStore((s) => s.isReaderFullscreen);
+  useEffect(() => {
+    invalidateGeometry();
+  }, [isReaderFullscreen, invalidateGeometry]);
+
+  useEffect(() => {
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    const onResize = () => invalidateGeometry();
+    vv?.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    window.addEventListener('resize', onResize);
+    let cancelled = false;
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      document.fonts.ready.then(() => {
+        if (!cancelled) invalidateGeometry();
+      });
     }
     return () => {
-      if (requestRef.current !== undefined) {
-        cancelAnimationFrame(requestRef.current);
-        requestRef.current = undefined;
-      }
+      cancelled = true;
+      vv?.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+      window.removeEventListener('resize', onResize);
     };
-  }, [isActive, animate]);
+  }, [invalidateGeometry]);
 
-  // --- User yield: pause on interaction, resume after 2000 ms -------------
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+  // --- Unmount cleanup -------------------------------------------------------------
+  useEffect(() => stopLoop, [stopLoop]);
 
-    const handleUserInteraction = (e: Event) => {
-      if (!isActiveRef.current) return;
-
-      // For keyboard events, only yield on scroll-related keys
-      if (e.type === 'keydown') {
-        const key = (e as KeyboardEvent).key;
-        if (
-          !['ArrowUp', 'ArrowDown', ' ', 'PageUp', 'PageDown', 'Home', 'End'].includes(key)
-        ) {
-          return;
-        }
-      }
-
-      // Only fire onYieldChange once per yield session (not on every wheel tick)
-      if (!isYieldingRef.current) {
-        isYieldingRef.current = true;
-        onYieldChangeRef.current?.(true);
-      }
-
-      if (requestRef.current !== undefined) {
-        cancelAnimationFrame(requestRef.current);
-        requestRef.current = undefined;
-        lastTimeRef.current = undefined;
-      }
-
-      if (yieldTimeoutRef.current !== undefined) {
-        clearTimeout(yieldTimeoutRef.current);
-      }
-
-      // Resume auto-scroll 2000ms after the last user interaction
-      yieldTimeoutRef.current = setTimeout(() => {
-        isYieldingRef.current = false;
-        onYieldChangeRef.current?.(false);
-        if (isActiveRef.current && !prefersReducedMotionRef.current) {
-          lastTimeRef.current = undefined;
-          currentVelocity.current = 0;    // ramp up smoothly after a yield
-          scrollPosRef.current = null;     // user may have scrolled — re-sync
-          requestRef.current = requestAnimationFrame(animate);
-        }
-      }, 2000);
-    };
-
-    container.addEventListener('wheel',      handleUserInteraction, { passive: true });
-    container.addEventListener('touchstart', handleUserInteraction, { passive: true });
-    container.addEventListener('touchmove',  handleUserInteraction, { passive: true });
-    container.addEventListener('keydown',    handleUserInteraction as EventListener);
-
-    return () => {
-      container.removeEventListener('wheel',      handleUserInteraction);
-      container.removeEventListener('touchstart', handleUserInteraction);
-      container.removeEventListener('touchmove',  handleUserInteraction);
-      container.removeEventListener('keydown',    handleUserInteraction as EventListener);
-      if (yieldTimeoutRef.current !== undefined) {
-        clearTimeout(yieldTimeoutRef.current);
-      }
-    };
-  }, [containerRef, animate]);
-
-  // --- Imperative resume ---------------------------------------------------
-  // Cancels the pending 2000ms debounce and restarts the loop right away.
-  // `isActive` is driven by playback state (not the yield flag), so a "Resume
-  // Reading" click can't rely on an isActive change to re-run the start effect;
-  // this gives the UI a direct way to resume without waiting out the debounce.
-  const resume = useCallback(() => {
-    if (yieldTimeoutRef.current !== undefined) {
-      clearTimeout(yieldTimeoutRef.current);
-      yieldTimeoutRef.current = undefined;
-    }
-    isYieldingRef.current = false;
-    onYieldChangeRef.current?.(false);
-    if (
-      isActiveRef.current &&
-      !prefersReducedMotionRef.current &&
-      requestRef.current === undefined
-    ) {
-      lastTimeRef.current = undefined;
-      currentVelocity.current = 0;   // ramp up smoothly
-      scrollPosRef.current = null;    // user may have scrolled — re-sync
-      requestRef.current = requestAnimationFrame(animate);
-    }
-  }, [animate]);
-
-  return { resume };
+  return useMemo(
+    () => ({ state, resume, intervene }),
+    [state, resume, intervene],
+  );
 }
-
