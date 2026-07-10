@@ -130,8 +130,7 @@ function App() {
       }
     }
     // We only want to run this once after initialization completes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isInitializing]);
+  }, [isInitializing, store_setDraftRecoverySession]);
 
   // Initialize Data Persistence
   useEffect(() => {
@@ -195,8 +194,7 @@ function App() {
       unsubSync();
       if (unsubProfile) unsubProfile();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [store_initStorage, store_migrateOrDiscardDemoStories, store_setCurrentUser, store_setStories, store_setSyncStatus, store_setUserProfile]);
 
   // Dynamically fetch missing content for active chapter
   useEffect(() => {
@@ -232,8 +230,7 @@ function App() {
           });
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store_activeStoryId, store_selectedChapterNum]); // Removed store.stories
+  }, [store_activeStoryId, store_selectedChapterNum, store_updateChapter]); // Removed store.stories
 
   // --- IDLE CULTIVATION ---
   const [idleQiEarned, setIdleQiEarned] = useState<number | null>(null);
