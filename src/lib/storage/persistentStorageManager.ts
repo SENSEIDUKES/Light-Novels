@@ -781,15 +781,24 @@ export class PersistentStorageManager implements StorageAdapter {
         img.src = dataUrl;
       });
     };
+
+    const compressPromises: Promise<void>[] = [];
+
     if (story.imageUrl && isDataUrl(story.imageUrl)) {
-      story.imageUrl = await compress(story.imageUrl);
+      compressPromises.push(
+        compress(story.imageUrl).then((res) => {
+          story.imageUrl = res;
+        }),
+      );
     }
 
     if (story.imageHistory) {
       for (let i = 0; i < story.imageHistory.length; i++) {
         if (isDataUrl(story.imageHistory[i].imageUrl)) {
-          story.imageHistory[i].imageUrl = await compress(
-            story.imageHistory[i].imageUrl,
+          compressPromises.push(
+            compress(story.imageHistory[i].imageUrl).then((res) => {
+              story.imageHistory[i].imageUrl = res;
+            }),
           );
         }
       }
@@ -798,13 +807,20 @@ export class PersistentStorageManager implements StorageAdapter {
     if (story.memory) {
       if (story.memory.characters) {
         for (const c of story.memory.characters) {
-          if (c.imageUrl && isDataUrl(c.imageUrl))
-            c.imageUrl = await compress(c.imageUrl);
+          if (c.imageUrl && isDataUrl(c.imageUrl)) {
+            compressPromises.push(
+              compress(c.imageUrl).then((res) => {
+                c.imageUrl = res;
+              }),
+            );
+          }
           if (c.imageHistory) {
             for (let i = 0; i < c.imageHistory.length; i++) {
               if (isDataUrl(c.imageHistory[i].imageUrl)) {
-                c.imageHistory[i].imageUrl = await compress(
-                  c.imageHistory[i].imageUrl,
+                compressPromises.push(
+                  compress(c.imageHistory[i].imageUrl).then((res) => {
+                    c.imageHistory[i].imageUrl = res;
+                  }),
                 );
               }
             }
@@ -813,13 +829,20 @@ export class PersistentStorageManager implements StorageAdapter {
       }
       if (story.memory.locations) {
         for (const c of story.memory.locations) {
-          if (c.imageUrl && isDataUrl(c.imageUrl))
-            c.imageUrl = await compress(c.imageUrl);
+          if (c.imageUrl && isDataUrl(c.imageUrl)) {
+            compressPromises.push(
+              compress(c.imageUrl).then((res) => {
+                c.imageUrl = res;
+              }),
+            );
+          }
           if (c.imageHistory) {
             for (let i = 0; i < c.imageHistory.length; i++) {
               if (isDataUrl(c.imageHistory[i].imageUrl)) {
-                c.imageHistory[i].imageUrl = await compress(
-                  c.imageHistory[i].imageUrl,
+                compressPromises.push(
+                  compress(c.imageHistory[i].imageUrl).then((res) => {
+                    c.imageHistory[i].imageUrl = res;
+                  }),
                 );
               }
             }
@@ -828,13 +851,20 @@ export class PersistentStorageManager implements StorageAdapter {
       }
       if (story.memory.artifacts) {
         for (const c of story.memory.artifacts) {
-          if (c.imageUrl && isDataUrl(c.imageUrl))
-            c.imageUrl = await compress(c.imageUrl);
+          if (c.imageUrl && isDataUrl(c.imageUrl)) {
+            compressPromises.push(
+              compress(c.imageUrl).then((res) => {
+                c.imageUrl = res;
+              }),
+            );
+          }
           if (c.imageHistory) {
             for (let i = 0; i < c.imageHistory.length; i++) {
               if (isDataUrl(c.imageHistory[i].imageUrl)) {
-                c.imageHistory[i].imageUrl = await compress(
-                  c.imageHistory[i].imageUrl,
+                compressPromises.push(
+                  compress(c.imageHistory[i].imageUrl).then((res) => {
+                    c.imageHistory[i].imageUrl = res;
+                  }),
                 );
               }
             }
@@ -842,6 +872,8 @@ export class PersistentStorageManager implements StorageAdapter {
         }
       }
     }
+
+    await Promise.all(compressPromises);
 
     if (story.arcs) {
       story.arcs.forEach((arc) => {
