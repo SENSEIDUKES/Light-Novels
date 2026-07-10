@@ -29,6 +29,7 @@ import {
 } from "../schemas";
 import { routeTextGeneration, routeImageGeneration, routeTextGenerationStream, ROUTER_PRESETS } from "../../aiRouter";
 import { ensureString, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChapterResponse, filterRelevantEntities, rankRelevantEntities, truncateContextIfNeeded } from "../helpers";
+import { retrieveGlossaryEntries } from "../../lib/glossary";
 import { PROMPTS } from "../prompts";
 export const codexRouter = express.Router();
 codexRouter.post("/api/dao-insight", validateBody(daoInsightSchema), async (req, res) => {
@@ -291,25 +292,48 @@ codexRouter.post("/api/translate-chapter", validateBody(translateChapterSchema),
     let finalTranslatedText = "";
     let tempGlossaryInfo: deepl.GlossaryInfo | null = null;
 
+    const masterEntries = retrieveGlossaryEntries({
+      sourceText: englishText,
+      targetLocale: targetLang,
+      usageMode: 'translation',
+      maxResults: 50
+    });
+
+    const entriesObj: Record<string, string> = {};
+    let forbiddenRulesStr = "";
+
+    masterEntries.forEach(e => {
+      if (e.mode === 'translation') {
+        const target = e.translationStrategy === 'preserve' ? e.canonicalTerm : e.localizedTerm;
+        if (target) {
+          entriesObj[e.canonicalTerm] = target;
+        }
+        if (e.forbiddenRules && e.forbiddenRules.length > 0) {
+          forbiddenRulesStr += `\n- For "${e.canonicalTerm}": ${e.forbiddenRules.join(' ')}`;
+        }
+      }
+    });
+
+    if (glossaryTerms && Array.isArray(glossaryTerms)) {
+      glossaryTerms.forEach((term: any) => {
+        if (term.source_text && term.target_text) {
+          entriesObj[term.source_text] = term.target_text;
+        }
+      });
+    }
+    
+    const hasGlossary = Object.keys(entriesObj).length > 0;
+
     try {
       if (translator) {
         const deeplLangCode = langMapForDeepL[targetLang] || targetLang.toUpperCase();
         const translateOptions: deepl.TranslateTextOptions = {};
 
-        if (glossaryTerms && Array.isArray(glossaryTerms) && glossaryTerms.length > 0) {
+        if (hasGlossary) {
           try {
-            const entriesObj: Record<string, string> = {};
-            glossaryTerms.forEach((term: any) => {
-               if (term.source_text && term.target_text) {
-                 entriesObj[term.source_text] = term.target_text;
-               }
-            });
-            
-            if (Object.keys(entriesObj).length > 0) {
-              const entries = new deepl.GlossaryEntries({ entries: entriesObj });
-              tempGlossaryInfo = await translator.createGlossary(`Temp_${Date.now()}`, 'en', deeplLangCode as deepl.TargetLanguageCode, entries);
-              translateOptions.glossary = tempGlossaryInfo;
-            }
+            const entries = new deepl.GlossaryEntries({ entries: entriesObj });
+            tempGlossaryInfo = await translator.createGlossary(`Temp_${Date.now()}`, 'en', deeplLangCode as deepl.TargetLanguageCode, entries);
+            translateOptions.glossary = tempGlossaryInfo;
           } catch (glossaryError) {
             console.warn("Could not create DeepL glossary, proceeding without it.", glossaryError);
           }
@@ -333,9 +357,12 @@ codexRouter.post("/api/translate-chapter", validateBody(translateChapterSchema),
     if (!finalTranslatedText) {
       // Fallback to Gemini
       let geminiGlossaryString = "";
-      if (glossaryTerms && Array.isArray(glossaryTerms) && glossaryTerms.length > 0) {
-         const list = glossaryTerms.map((t: any) => `${t.source_text} -> ${t.target_text}`).join('\\n');
+      if (hasGlossary) {
+         const list = Object.keys(entriesObj).map(k => `${k} -> ${entriesObj[k]}`).join('\\n');
          geminiGlossaryString = `\n\nMust use these EXACT translations for specific terms (Glossary):\n${list}\n`;
+      }
+      if (forbiddenRulesStr) {
+         geminiGlossaryString += `\nForbidden Translation Rules:${forbiddenRulesStr}\n`;
       }
 
       const prompt = `Translate the following chapter text into the language with language code '${targetLang}'.

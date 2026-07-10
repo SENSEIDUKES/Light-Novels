@@ -21,8 +21,24 @@ import {
 } from "../schemas";
 import { routeTextGeneration, routeImageGeneration, routeTextGenerationStream, ROUTER_PRESETS } from "../../aiRouter";
 import { ensureString, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChapterResponse, filterRelevantEntities, rankRelevantEntities, truncateContextIfNeeded } from "../helpers";
+import { retrieveGlossaryEntries, formatGlossaryForPrompt } from "../../lib/glossary";
 import { PROMPTS } from "../prompts";
 export const storyRouter = express.Router();
+
+const buildIntakeGlossarySourceText = (intake: any) =>
+  [
+    intake.genrePath,
+    intake.corePremise,
+    intake.desiredPlotDirection,
+    intake.startingPowerConcept,
+    intake.powerFlavor,
+    intake.powerPace,
+    intake.knownRanks,
+    intake.uniquePath,
+    intake.mustIncludeElements,
+    intake.thingsToAvoid,
+    intake.storyTags?.join(" "),
+  ].filter(Boolean).join(" ");
 storyRouter.post("/api/generate-blueprint", validateBody(generateBlueprintSchema), async (req, res) => {
   try {
     const { intake, routingConfig } = req.body;
@@ -31,9 +47,17 @@ storyRouter.post("/api/generate-blueprint", validateBody(generateBlueprintSchema
       return res.status(400).json({ error: "Missing required fields: intake" });
     }
 
+    const glossaryEntries = retrieveGlossaryEntries({
+      genreTags: intake.genrePath ? [intake.genrePath as any] : [],
+      sourceText: buildIntakeGlossarySourceText(intake),
+      usageMode: 'generation'
+    });
+    const glossaryRules = formatGlossaryForPrompt(glossaryEntries, 10);
+    const systemPrompt = PROMPTS.blueprint.system + (glossaryRules ? `\n${glossaryRules}` : "");
+
     const data = await routeTextGeneration(
       "storyMaker",
-      PROMPTS.blueprint.system,
+      systemPrompt,
       PROMPTS.blueprint.userPrompt(JSON.stringify(intake, null, 2)),
       "generate-blueprint",
       routingConfig,
@@ -55,9 +79,23 @@ storyRouter.post("/api/generate-initial-arc", validateBody(generateInitialArcSch
 
     const count = Math.min(parseInt(chapterCount) || 10, 10);
 
+    const glossaryEntries = retrieveGlossaryEntries({
+      genreTags: intake.genrePath ? [intake.genrePath as any] : [],
+      sourceText: [
+        buildIntakeGlossarySourceText(intake),
+        blueprint.powerSystemOutline,
+        blueprint.tropeRules,
+        blueprint.styleBible,
+        blueprint.firstArcPromise,
+      ].filter(Boolean).join(" "),
+      usageMode: 'generation'
+    });
+    const glossaryRules = formatGlossaryForPrompt(glossaryEntries, 10);
+    const systemPrompt = PROMPTS.initialArc.system + (glossaryRules ? `\n${glossaryRules}` : "");
+
     const data = await routeTextGeneration(
       "storyMaker",
-      PROMPTS.initialArc.system,
+      systemPrompt,
       PROMPTS.initialArc.userPrompt(
         JSON.stringify(blueprint, null, 2),
         JSON.stringify(blueprint.powerSystemOutline),
@@ -149,7 +187,18 @@ storyRouter.post("/api/generate-chapter-stream", validateBody(chapterGenerationS
       storyTags
     );
 
+    const glossaryEntries = retrieveGlossaryEntries({
+      genreTags: genre ? [genre as any] : [],
+      sourceText: [currentChapter.title, currentChapter.premise, customPremise, memory.powerSystem, memory.currentPowerStage, memory.worldRules, lastSummary].join(" "),
+      usageMode: 'generation'
+    });
+    const glossaryRules = formatGlossaryForPrompt(glossaryEntries, 8);
+
     let finalUserPrompt = userPrompt;
+    if (glossaryRules) {
+      finalUserPrompt = glossaryRules + "\n\n" + finalUserPrompt;
+    }
+    
     if (pacingDirective) {
       finalUserPrompt += `
       
@@ -345,7 +394,18 @@ storyRouter.post("/api/generate-chapter", validateBody(chapterGenerationSchema),
       storyTags
     );
 
+    const glossaryEntries = retrieveGlossaryEntries({
+      genreTags: genre ? [genre as any] : [],
+      sourceText: [currentChapter.title, currentChapter.premise, customPremise, memory.powerSystem, memory.currentPowerStage, memory.worldRules, lastSummary].join(" "),
+      usageMode: 'generation'
+    });
+    const glossaryRules = formatGlossaryForPrompt(glossaryEntries, 8);
+
     let finalUserPrompt = userPrompt;
+    if (glossaryRules) {
+      finalUserPrompt = glossaryRules + "\n\n" + finalUserPrompt;
+    }
+
     if (pacingDirective) {
       finalUserPrompt += `
       
