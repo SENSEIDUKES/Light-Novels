@@ -1,5 +1,29 @@
-1. **Identify the Performance Bottleneck:** The `ReaderScreen` component calculates `totalStoryWords` and `chaptersWithLoadedContent` on every render. Because `ReaderScreen` is the main reading interface, it can re-render frequently (e.g., when the clock ticks if not isolated, or when scrolling updates reading progress/state, etc. Note: The clock tick was already isolated to `ReaderClock` but `ReaderScreen` can still render often). `activeStory.arcs.flatMap` and `reduce` operations with repeated word counting can be expensive, especially for long stories with many chapters.
-2. **Optimize `chaptersWithLoadedContent` and word counts:** Wrap the calculation of `chaptersWithLoadedContent`, `totalStoryWords`, and `activeChapterWords` in a `useMemo` hook. The dependencies should be `activeStory`, `streamingChapter`, `localChapterCache`, and `selectedChapterNum`.
-3. **Optimize `countWords`:** Use a single-pass `charCodeAt` character scan that avoids string allocations while treating ASCII whitespace/control characters, non-breaking spaces, and CJK ideographic spaces as separators.
-4. **Pre-commit Instructions:** Call `pre_commit_instructions` before submitting.
-5. **Submit:** Submit the changes with a descriptive commit message.
+1. **Identify Performance Bottleneck**: The file `src/components/codex/LivingCodexDashboards.tsx` uses multiple `.filter(n => ...)` methods along with `.length` and `.reduce` internally (by iterating on arrays) inside a render loop to calculate Causal Web Metrics (Active Karma Contracts, Karmic Debts, Celestial Boons, Destinies & Enmities). This iterates over the `activeStory.karmaNodes` array multiple times, which is inefficient and creates O(N) operations inside a functional component that may be re-rendered often.
+
+2. **Implement Optimization**: Replace the multiple `.filter` iterations with a single `for` loop pass over `activeStory.karmaNodes`. We'll initialize variables for the counts and array, and iterate exactly once. This changes the time complexity for this specific section from 6 * O(N) to 1 * O(N) with much less memory allocations for arrays created by `.filter()`.
+    - `src/components/codex/LivingCodexDashboards.tsx`: Lines 386-392
+    ```javascript
+    const activeNodes = [];
+    const resolvedNodes = [];
+    let debts = 0;
+    let boons = 0;
+    let enmities = 0;
+    let destinies = 0;
+
+    for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i];
+        if (n.status === 'active') activeNodes.push(n);
+        else if (n.status === 'resolved') resolvedNodes.push(n);
+
+        if (n.type === 'Debt') debts++;
+        else if (n.type === 'Boon') boons++;
+        else if (n.type === 'Enmity') enmities++;
+        else if (n.type === 'Destiny') destinies++;
+    }
+    ```
+
+3. **Measure Impact**: Add a comment indicating this optimization replaces 6x O(N) filter loops with a single O(N) pass, reducing array allocations and overhead.
+
+4. **Complete pre-commit steps**: Run linting, types check, and testing before committing.
+
+5. **Submit PR**: Commit using the title format `⚡ Bolt: [performance improvement]`.
