@@ -203,7 +203,8 @@ const SYSTEM_TYPE_ALIASES: Record<string, string> = {
 };
 
 export function normalizeSystemType(type?: string): string | undefined {
-  if (!type) return undefined;
+  // Parsed from LLM-generated JSON: promptType may arrive as a non-string.
+  if (typeof type !== 'string' || !type) return undefined;
   const key = type.trim().toLowerCase();
   return SYSTEM_TYPE_ALIASES[key] ?? key;
 }
@@ -265,7 +266,10 @@ export interface SystemContextSource {
 // Flattens the searchable text of a structured system event (title, row
 // labels/values, visible content) for semantic color inference.
 export function buildSystemContext(system?: SystemContextSource, content?: string): string {
-  const rowText = (system?.rows || [])
+  // Parsed from LLM-generated JSON: rows may arrive as a non-array.
+  const rawRows = system?.rows;
+  const rows = Array.isArray(rawRows) ? rawRows : [];
+  const rowText = rows
     .map(r => `${r?.label ?? ''} ${r?.value ?? ''}`.trim())
     .join(' ');
   return [system?.title, rowText, content].filter(Boolean).join(' ').trim();

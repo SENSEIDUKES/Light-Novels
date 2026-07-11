@@ -198,6 +198,12 @@ describe('systemColors', () => {
       expect(normalizeSystemType('')).toBeUndefined();
     });
 
+    it('returns undefined for hallucinated non-string types without crashing', () => {
+      expect(normalizeSystemType(42 as unknown as string)).toBeUndefined();
+      expect(normalizeSystemType({} as unknown as string)).toBeUndefined();
+      expect(normalizeSystemType(true as unknown as string)).toBeUndefined();
+    });
+
     it('maps known aliases and passes canonical types through', () => {
       expect(normalizeSystemType('quest_update')).toBe('codex_update');
       expect(normalizeSystemType('enemy_scan')).toBe('critical_danger');
@@ -228,6 +234,11 @@ describe('systemColors', () => {
     it('handles missing pieces gracefully', () => {
       expect(buildSystemContext()).toBe('');
       expect(buildSystemContext({ title: 'Only Title' })).toBe('Only Title');
+    });
+
+    it('tolerates hallucinated non-array rows without crashing', () => {
+      expect(buildSystemContext({ title: 'Notice', rows: 'none' as unknown as [] })).toBe('Notice');
+      expect(buildSystemContext({ title: 'Notice', rows: {} as unknown as [] })).toBe('Notice');
     });
   });
 

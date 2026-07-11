@@ -580,6 +580,16 @@ export function ReaderViewport({
                           );
                         }
 
+                        // Standalone worldCard block with no prose: render only the
+                        // card, not an empty paragraph container beneath it.
+                        if (!cleanText) {
+                          return revealCard ? (
+                            <React.Fragment key={block.id || `para-${index}`}>
+                              {revealCard}
+                            </React.Fragment>
+                          ) : null;
+                        }
+
                         const existingBookmark = bookmarkMap.get(index);
                         const isEditingThisBookmark =
                           editingBookmarkParagraphIndex === index;
