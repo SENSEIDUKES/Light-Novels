@@ -10,17 +10,19 @@ import { auth } from '../lib/firebase';
 
 import { INITIAL_DEMO_STORIES } from '../store/demoStories';
 
-function getStoryChapterStats(story: Story) {
+function getStoryChapterStats(story?: Story | null) {
   let totalChapters = 0;
   let readChapters = 0;
   let generated = 0;
 
-  const arcsLen = story.arcs.length;
+  const arcs = Array.isArray(story?.arcs) ? story.arcs : [];
+  const arcsLen = arcs.length;
   for (let i = 0; i < arcsLen; i++) {
-    const chapters = story.arcs[i].chapters;
+    const chapters = Array.isArray(arcs[i]?.chapters) ? arcs[i].chapters : [];
     const chaptersLen = chapters.length;
     for (let j = 0; j < chaptersLen; j++) {
       const chapter = chapters[j];
+      if (!chapter) continue;
       totalChapters++;
       if (chapter.status === 'read') readChapters++;
       if (chapter.hasContent || !!chapter.generatedContent) generated++;
