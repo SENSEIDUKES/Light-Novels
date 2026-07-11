@@ -579,6 +579,7 @@ export function useReaderPlayback({
     // are in the DOM before narration (and its scroll pacing) begins.
     const timer = setTimeout(() => {
       fired = true;
+      pendingAutoStartRef.current = null; // no longer pending — nothing to cancel
       const stillSpeaking =
         typeof window !== "undefined" && !!window.speechSynthesis?.speaking;
       if (
@@ -598,6 +599,10 @@ export function useReaderPlayback({
       // user pressed play manually inside the 500ms window). Wiping the
       // marker then would make the chapter re-loop when narration ends.
       if (!fired && !pending.cancelled) narrationStartedChapterRef.current = null;
+      // Drop the pending handle so later manual starts don't flip a stale,
+      // already-torn-down run. Unconditional write: this cleanup always runs
+      // before the next effect run installs its own pending object.
+      pendingAutoStartRef.current = null;
     };
   }, [
     autoPlayNarration,
