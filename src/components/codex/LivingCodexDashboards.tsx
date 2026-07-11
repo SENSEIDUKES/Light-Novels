@@ -383,21 +383,32 @@ export function LivingCodexDashboards({
 
             {(() => {
               const nodes = activeStory.karmaNodes || [];
-              const activeNodes = nodes.filter(n => n.status === 'active');
-              const resolvedNodes = nodes.filter(n => n.status === 'resolved');
 
-              const debts = nodes.filter(n => n.type === 'Debt').length;
-              const boons = nodes.filter(n => n.type === 'Boon').length;
-              const enmities = nodes.filter(n => n.type === 'Enmity').length;
-              const destinies = nodes.filter(n => n.type === 'Destiny').length;
+              let activeNodes = 0;
+              let resolvedNodes = 0;
+              let debts = 0;
+              let boons = 0;
+              let enmities = 0;
+              let destinies = 0;
+
+              // Optimize 6x O(N) array traversals into a single O(N) pass, avoiding intermediate array memory allocations
+              for (let i = 0; i < nodes.length; i++) {
+                const n = nodes[i];
+                if (n.status === 'active') activeNodes++;
+                if (n.status === 'resolved') resolvedNodes++;
+                if (n.type === 'Debt') debts++;
+                if (n.type === 'Boon') boons++;
+                if (n.type === 'Enmity') enmities++;
+                if (n.type === 'Destiny') destinies++;
+              }
 
               return (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   
                   <div className="p-4 bg-void/50 border border-neutral-900 rounded-lg flex flex-col justify-between">
                     <span className="text-[9px] font-mono uppercase text-neutral-500 tracking-wider">Active Karma Contracts</span>
-                    <span className="text-2xl font-bold font-sc text-portal mt-2">{activeNodes.length}</span>
-                    <span className="text-[9.5px] text-neutral-500 font-mono mt-1">{resolvedNodes.length} snaps resolved</span>
+                    <span className="text-2xl font-bold font-sc text-portal mt-2">{activeNodes}</span>
+                    <span className="text-[9.5px] text-neutral-500 font-mono mt-1">{resolvedNodes} snaps resolved</span>
                   </div>
 
                   <div className="p-4 bg-void/50 border border-neutral-900 rounded-lg flex flex-col justify-between">

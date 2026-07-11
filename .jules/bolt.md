@@ -1,2 +1,3 @@
-## Performance Optimizations
-- **storage/persistentStorageManager.ts**: Optimized sequential image dataURL compression inside `compressDataUrls`. Rather than `await compress()` sequentially on large arrays of images in histories/entities, we now build a `Promise.all` array of compress calls so they occur concurrently, bringing a substantial speedup when syncing/saving.
+## 2024-05-18 - [Optimizing Multiple Filters in Render Cycles]
+**Learning:** Found multiple `array.filter(condition).length` calls and `array.filter()` assignments over the same array within the render cycle of `LivingCodexDashboards.tsx`. This causes multiple O(N) passes and redundant memory allocations for the intermediate arrays.
+**Action:** Replaced these consecutive filters with a single O(N) `for` loop that accumulates all necessary state metrics simultaneously. This is a very effective micro-optimization for React components dealing with moderate-to-large datasets.
