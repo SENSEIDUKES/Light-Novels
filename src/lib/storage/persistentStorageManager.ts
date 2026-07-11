@@ -453,10 +453,21 @@ export class PersistentStorageManager implements StorageAdapter {
   ): boolean {
     const localTime = new Date(local.updatedAt).getTime();
     const cloudTime = new Date(cloud.updatedAt).getTime();
-    if (local.conflictResolvedAt) {
-      const resolvedTime = new Date(local.conflictResolvedAt).getTime();
-      if (resolvedTime >= cloudTime) {
-        return false; // Local has already resolved this conflict
+
+    // A conflict-resolution timestamp is the last point at which both copies
+    // were known to agree. A later change on only one side is normal syncing,
+    // not a new conflict. Only ask the user again when both copies changed
+    // independently after that shared baseline.
+    const resolutionTimes = [local.conflictResolvedAt, cloud.conflictResolvedAt]
+      .filter((value): value is string => Boolean(value))
+      .map((value) => new Date(value).getTime())
+      .filter(Number.isFinite);
+    if (resolutionTimes.length > 0) {
+      const resolvedTime = Math.max(...resolutionTimes);
+      const localChangedSinceResolution = localTime > resolvedTime;
+      const cloudChangedSinceResolution = cloudTime > resolvedTime;
+      if (!localChangedSinceResolution || !cloudChangedSinceResolution) {
+        return false;
       }
     }
 

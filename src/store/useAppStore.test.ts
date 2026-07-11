@@ -251,5 +251,24 @@ describe('useAppStore', () => {
     );
     expect(storyStorage.performSync).not.toHaveBeenCalled();
   });
+
+  it('does not reopen a resolved conflict when the library refresh fails', async () => {
+    const conflict = {
+      storyId: 'conflict',
+      localStory: { id: 'conflict', title: 'Local', arcs: [], memory: {} } as any,
+      cloudStory: { id: 'conflict', title: 'Cloud', arcs: [], memory: {} } as any,
+    };
+    vi.mocked(storyStorage.getStories).mockRejectedValueOnce(new Error('read unavailable'));
+    useAppStore.getState().setActiveConflict(conflict);
+
+    await useAppStore.getState().resolveConflict('cloud');
+
+    expect(storyStorage.saveStory).toHaveBeenCalled();
+    expect(storyStorage.performSync).toHaveBeenCalled();
+    expect(useAppStore.getState().activeConflict).toBeNull();
+    expect(useAppStore.getState().appError).toBe(
+      'Sync conflict resolved, but failed to refresh stories: read unavailable',
+    );
+  });
 });
 
