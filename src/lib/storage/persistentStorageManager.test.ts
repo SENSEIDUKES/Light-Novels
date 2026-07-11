@@ -101,4 +101,14 @@ describe('PersistentStorageManager migration', () => {
     expect(mocks.idb.saveChapterContent).not.toHaveBeenCalled();
     manager.dispose();
   });
+
+  it('fails explicitly when the active local adapter cannot clear all data', async () => {
+    const manager = new PersistentStorageManager();
+    (manager as any).localAdapter = { name: 'ReadOnlyAdapter' };
+
+    await expect(manager.clearAll()).rejects.toThrow(
+      'clearAll is not supported by the active local adapter: ReadOnlyAdapter',
+    );
+    manager.dispose();
+  });
 });
