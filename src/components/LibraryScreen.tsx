@@ -10,6 +10,28 @@ import { auth } from '../lib/firebase';
 
 import { INITIAL_DEMO_STORIES } from '../store/demoStories';
 
+function getStoryChapterStats(story?: Story | null) {
+  let totalChapters = 0;
+  let readChapters = 0;
+  let generated = 0;
+
+  const arcs = Array.isArray(story?.arcs) ? story.arcs : [];
+  const arcsLen = arcs.length;
+  for (let i = 0; i < arcsLen; i++) {
+    const chapters = Array.isArray(arcs[i]?.chapters) ? arcs[i].chapters : [];
+    const chaptersLen = chapters.length;
+    for (let j = 0; j < chaptersLen; j++) {
+      const chapter = chapters[j];
+      if (!chapter) continue;
+      totalChapters++;
+      if (chapter.status === 'read') readChapters++;
+      if (chapter.hasContent || !!chapter.generatedContent) generated++;
+    }
+  }
+
+  return { totalChapters, readChapters, generated };
+}
+
 const HERO_VIDEOS = [
   "https://video.seihouse.org/LIGHT%20NOVEL/LIGHT_NOVEL_INTRO.mp4",
   "https://video.seihouse.org/LIGHT%20NOVEL/LIGHT_NOVEL_INTRO2.mp4"
@@ -36,11 +58,12 @@ const PUBLISHED_WORLDS: any[] = INITIAL_DEMO_STORIES.map(story => {
     reads = 6250;
     createdAt = new Date(Date.now() - 12 * 3600 * 1000).toISOString(); // 12 hours ago
   }
+  const { totalChapters } = getStoryChapterStats(story);
   return {
     ...story,
     reads,
     createdAt,
-    chapterCount: story.arcs.reduce((sum, a) => sum + a.chapters.length, 0),
+    chapterCount: totalChapters,
     powerStage: story.memory.currentPowerStage,
   };
 });
@@ -315,8 +338,7 @@ export const LibraryScreen: React.FC = () => {
                 </div>
                 
                 {(() => {
-                  const totalChapters = mostRecentStory.arcs.reduce((sum, a) => sum + a.chapters.length, 0);
-                  const readChapters = mostRecentStory.arcs.reduce((sum, a) => sum + a.chapters.filter(c => c.status === 'read').length, 0);
+                  const { totalChapters, readChapters } = getStoryChapterStats(mostRecentStory);
                   const progressPercent = totalChapters > 0 ? Math.round((readChapters / totalChapters) * 100) : 0;
                   return (
                     <div className="space-y-1.5">
@@ -363,8 +385,7 @@ export const LibraryScreen: React.FC = () => {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6">
               {stories.map((story) => {
-                const totalChapters = story.arcs.reduce((sum, a) => sum + a.chapters.length, 0);
-                const generated = story.arcs.reduce((sum, a) => sum + a.chapters.filter(c => c.hasContent || !!c.generatedContent).length, 0);
+                const { totalChapters, readChapters, generated } = getStoryChapterStats(story);
                 
                 return (
                   <div
@@ -459,7 +480,6 @@ export const LibraryScreen: React.FC = () => {
                       </p>
                       
                       {(() => {
-                        const readChapters = story.arcs.reduce((sum, a) => sum + a.chapters.filter(c => c.status === 'read').length, 0);
                         const progressPercent = totalChapters > 0 ? Math.round((readChapters / totalChapters) * 100) : 0;
                         return (
                           <div className="pt-1">
