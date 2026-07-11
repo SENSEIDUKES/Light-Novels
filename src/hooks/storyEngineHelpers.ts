@@ -12,13 +12,30 @@ export const getApiHeaders = async () => {
   return apiHeaders;
 };
 
+// A chapter block is renderable when it carries prose text OR a structured
+// visual payload (system panel / world card) that the reader renders on its
+// own — models sometimes emit standalone system blocks with no prose text,
+// and those must not be silently dropped.
+const isRenderableBlock = (obj: any): boolean =>
+  !!obj && (
+    typeof obj.text === 'string' ||
+    typeof obj.content === 'string' ||
+    (obj.system && typeof obj.system === 'object') ||
+    (obj.worldCard && typeof obj.worldCard === 'object')
+  );
+
+const normalizeBlockText = (b: any) => ({
+  ...b,
+  text: typeof b.text === 'string' && b.text ? b.text : (typeof b.content === 'string' ? b.content : (b.text ?? '')),
+});
+
 export const extractJsonBlocks = (rawStr: string): any[] => {
   try {
     const arrayMatch = rawStr.match(/\[\s*\{[\s\S]*\}\s*\]/);
     if (arrayMatch) {
        const parsed = JSON.parse(arrayMatch[0]);
-       if (Array.isArray(parsed) && parsed.length > 0 && (typeof parsed[0].text === 'string' || typeof parsed[0].content === 'string')) {
-          return parsed.map(b => ({ ...b, text: b.text || b.content }));
+       if (Array.isArray(parsed) && parsed.length > 0 && isRenderableBlock(parsed[0])) {
+          return parsed.map(normalizeBlockText);
        }
     }
   } catch {}
@@ -30,8 +47,8 @@ export const extractJsonBlocks = (rawStr: string): any[] => {
     if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
       try {
         const obj = JSON.parse(trimmed);
-        if (obj && (typeof obj.text === 'string' || typeof obj.content === 'string')) {
-          blocks.push({ ...obj, text: obj.text || obj.content });
+        if (isRenderableBlock(obj)) {
+          blocks.push(normalizeBlockText(obj));
         }
       } catch {}
     }
@@ -73,8 +90,8 @@ export const extractJsonBlocks = (rawStr: string): any[] => {
           try {
             const fixStr = currentBlock.replace(/,\s*([\]}])/g, '$1');
             const obj = JSON.parse(fixStr);
-            if (obj && (typeof obj.text === 'string' || typeof obj.content === 'string')) {
-              braceBlocks.push({ ...obj, text: obj.text || obj.content });
+            if (isRenderableBlock(obj)) {
+              braceBlocks.push(normalizeBlockText(obj));
             }
           } catch {}
         }
