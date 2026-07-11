@@ -20,7 +20,7 @@ export function ChapterNavigation({ navigation, actions, isDesktop = false }: Pr
           <button onClick={navigatePrev}
             disabled={selectedChapterNum <= 1}
             aria-label="Previous Chapter"
-            className="px-2 sm:px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-portal disabled:opacity-25 disabled:pointer-events-none transition-colors text-[9px] sm:text-[10px] font-sc uppercase tracking-wider font-semibold focus:outline-none"
+            className="px-2 sm:px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-portal disabled:opacity-25 disabled:cursor-not-allowed transition-colors text-[9px] sm:text-[10px] font-sc uppercase tracking-wider font-semibold focus-visible:ring-2 focus-visible:ring-portal outline-none rounded-full"
           >
             <ArrowLeft size={14} />
             <span className="hidden sm:inline">Previous Chapter</span>
@@ -29,7 +29,7 @@ export function ChapterNavigation({ navigation, actions, isDesktop = false }: Pr
           <div className="w-[1px] h-4 bg-neutral-800"></div>
           <button onClick={() => onSwitchTab && onSwitchTab("codex")}
             aria-label="Open Codex"
-            className="px-2 sm:px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-portal transition-colors text-[9px] sm:text-[10px] font-sc uppercase tracking-wider focus:outline-none"
+            className="px-2 sm:px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-portal transition-colors text-[9px] sm:text-[10px] font-sc uppercase tracking-wider focus-visible:ring-2 focus-visible:ring-portal outline-none rounded-full"
           >
             <ListMusic size={14} />
             <span className="hidden sm:inline">Codex</span>
@@ -38,7 +38,7 @@ export function ChapterNavigation({ navigation, actions, isDesktop = false }: Pr
           <button onClick={navigateNext}
             disabled={selectedChapterNum === maxChapterNum}
             aria-label="Next Chapter"
-            className="px-2 sm:px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-human disabled:opacity-25 disabled:pointer-events-none transition-colors text-[9px] sm:text-[10px] font-sc uppercase tracking-wider font-semibold focus:outline-none"
+            className="px-2 sm:px-3 py-1.5 flex items-center space-x-1.5 text-neutral-400 hover:text-human disabled:opacity-25 disabled:cursor-not-allowed transition-colors text-[9px] sm:text-[10px] font-sc uppercase tracking-wider font-semibold focus-visible:ring-2 focus-visible:ring-portal outline-none rounded-full"
           >
             <span className="hidden sm:inline">Next Chapter</span>
             <span className="sm:hidden">Next</span>
@@ -48,7 +48,7 @@ export function ChapterNavigation({ navigation, actions, isDesktop = false }: Pr
 
         {handleAlterFate && (
           <button onClick={() => setIsAlterFateOpen(true)}
-            className="px-4 py-2 border border-portal text-portal font-sc font-bold uppercase tracking-wider text-[10px] rounded-full hover:bg-portal hover:text-void transition-colors flex items-center gap-2 shadow-[0_0_10px_rgba(4,172,255,0.15)] shrink-0 focus:outline-none"
+            className="px-4 py-2 border border-portal text-portal font-sc font-bold uppercase tracking-wider text-[10px] rounded-full hover:bg-portal hover:text-void transition-colors flex items-center gap-2 shadow-[0_0_10px_rgba(4,172,255,0.15)] shrink-0 focus-visible:ring-2 focus-visible:ring-portal outline-none"
           >
             <Zap size={14} />
             <span className="hidden sm:inline">Alter Fate (Branch)</span>
@@ -65,16 +65,16 @@ export function ChapterNavigation({ navigation, actions, isDesktop = false }: Pr
       {handleAlterFate && (
         <button
           onClick={() => setIsAlterFateOpen(true)}
-          className="p-2 border border-portal/60 text-portal font-sc font-bold rounded-full hover:bg-portal hover:text-void transition-colors shadow-[0_0_10px_rgba(4,172,255,0.15)] shrink-0 focus:outline-none"
+          className="p-2 border border-portal/60 text-portal font-sc font-bold rounded-full hover:bg-portal hover:text-void transition-colors shadow-[0_0_10px_rgba(4,172,255,0.15)] shrink-0 focus-visible:ring-2 focus-visible:ring-portal outline-none"
           title="Alter Fate (Branch)"
         >
           <Zap size={16} />
         </button>
       )}
       <div className="flex items-center bg-void border border-neutral-800 rounded-full shrink-0">
-         <button onClick={navigatePrev} disabled={selectedChapterNum <= 1} aria-label="Previous Chapter" className="p-2 text-neutral-400 disabled:opacity-20 hover:text-signal rounded-l-full focus:outline-none"> <ArrowLeft size={16}/> </button>
+         <button onClick={navigatePrev} disabled={selectedChapterNum <= 1} aria-label="Previous Chapter" className="p-2 text-neutral-400 disabled:opacity-20 disabled:cursor-not-allowed hover:text-signal rounded-l-full focus-visible:ring-2 focus-visible:ring-portal focus-visible:z-10 outline-none relative"> <ArrowLeft size={16}/> </button>
          <span className="text-[10px] font-mono text-neutral-400 select-none px-0.5">{selectedChapterNum}/{maxChapterNum}</span>
-         <button onClick={navigateNext} disabled={selectedChapterNum === maxChapterNum} aria-label="Next Chapter" className="p-2 text-neutral-400 disabled:opacity-20 hover:text-signal rounded-r-full focus:outline-none"> <ArrowRight size={16}/> </button>
+         <button onClick={navigateNext} disabled={selectedChapterNum === maxChapterNum} aria-label="Next Chapter" className="p-2 text-neutral-400 disabled:opacity-20 disabled:cursor-not-allowed hover:text-signal rounded-r-full focus-visible:ring-2 focus-visible:ring-portal focus-visible:z-10 outline-none relative"> <ArrowRight size={16}/> </button>
       </div>
     </div>
   );
