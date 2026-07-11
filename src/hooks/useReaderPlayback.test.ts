@@ -138,6 +138,66 @@ describe('useReaderPlayback', () => {
       }
     });
 
+    it('does NOT re-loop when play is pressed manually while an auto-start is pending', () => {
+      vi.useFakeTimers();
+      const spoken: any[] = [];
+      class FakeUtterance {
+        text: string;
+        onend: (() => void) | null = null;
+        onerror: ((e: any) => void) | null = null;
+        voice: any; rate = 1; pitch = 1; volume = 1;
+        constructor(text: string) { this.text = text; }
+      }
+      vi.stubGlobal('SpeechSynthesisUtterance', FakeUtterance as any);
+      vi.stubGlobal('speechSynthesis', {
+        cancel: vi.fn(),
+        speak: (u: any) => spoken.push(u),
+        speaking: false,
+        getVoices: () => [],
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        onvoiceschanged: undefined,
+      });
+      try {
+        useAppStore.setState({ readerMode: 'teleprompter', isGenerating: false, streamingChapter: null });
+        // Listening mode already on: the auto-continue effect schedules its
+        // deferred start for this chapter as soon as it renders.
+        useAppStore.getState().setAutoPlayNarration(true);
+
+        const { result, unmount } = renderHook(() => useReaderPlayback({
+          selectedChapter: { number: 8, title: 'Race', generatedContent: 'Prose for the race window.' } as any,
+          activeTranslationContent: null,
+        }));
+
+        // Inside the 500ms window, the user presses play manually. The pending
+        // auto-start's cleanup must NOT wipe the started-chapter marker.
+        act(() => { vi.advanceTimersByTime(100); });
+        act(() => { result.current.handleTogglePlayback(); });
+        expect(result.current.isPlayingText).toBe(true);
+
+        // Drive narration to completion.
+        for (let i = 0; i < 30 && result.current.isPlayingText; i++) {
+          const u = spoken.find((s) => !s.done);
+          if (u) { u.done = true; act(() => { u.onend?.(); }); }
+          act(() => { vi.advanceTimersByTime(100); });
+        }
+        expect(result.current.isPlayingText).toBe(false);
+
+        // The finished chapter must not auto-restart.
+        const startsBefore = (dispatchNarration as any).mock.calls
+          .filter((c: any[]) => c[0]?.status === 'start').length;
+        act(() => { vi.advanceTimersByTime(1000); });
+        const startsAfter = (dispatchNarration as any).mock.calls
+          .filter((c: any[]) => c[0]?.status === 'start').length;
+        expect(startsAfter).toBe(startsBefore);
+        expect(result.current.isPlayingText).toBe(false);
+        unmount();
+      } finally {
+        vi.useRealTimers();
+        vi.unstubAllGlobals();
+      }
+    });
+
     it('does NOT auto-start while the chapter is still generating', () => {
       vi.useFakeTimers();
       try {
