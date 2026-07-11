@@ -8,6 +8,7 @@ import { storyStorage } from '../lib/storage';
 import { getDaoRankData } from '../lib/qi';
 import { getApiHeaders } from '../hooks/storyEngineHelpers';
 import { generateId } from '../lib/id';
+import { generateCultivatorPortrait } from '../services/cultivatorPortrait';
 
 interface UseUserProfileProps {
   currentUser: AppUser | null;
@@ -162,10 +163,6 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
   };
 
   const handleGeneratePortrait = async () => {
-    if (!portraitUploadBase64) {
-      setPortraitError("You must project an image into the mirror first.");
-      return;
-    }
     setIsGeneratingPortrait(true);
     setPortraitError("");
     setGeneratedPortraitUrl("");
@@ -177,35 +174,22 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
 
     try {
       const apiHeaders = await getApiHeaders();
-      const response = await fetch("/api/generate-cultivator-portrait", {
-        method: "POST",
-        headers: { ...apiHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          image: portraitUploadBase64,
-          description: portraitDesc,
-          daoRank: profile?.dao_rank || "Mortal Reader",
-          daoXp: profile?.dao_xp || 0,
-          powerStage: currentPowerStage,
-          equippedArtifact: equippedArtifact ? {
-            name: equippedArtifact.name,
-            description: equippedArtifact.description,
-            rarity: equippedArtifact.rarity
-          } : null,
-          routingConfig: routingConfig
-        })
-      });
+      const imageUrl = await generateCultivatorPortrait({
+        image: portraitUploadBase64 || undefined,
+        description: portraitDesc,
+        daoRank: profile?.dao_rank || "Mortal Reader",
+        daoXp: profile?.dao_xp || 0,
+        powerStage: currentPowerStage,
+        equippedArtifact: equippedArtifact ? {
+          id: equippedArtifact.id,
+          name: equippedArtifact.name,
+          description: equippedArtifact.description,
+          rarity: equippedArtifact.rarity
+        } : null,
+        routingConfig,
+      }, apiHeaders);
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "Celestial mapping failed");
-      }
-
-      const data = await response.json();
-      if (data.imageUrl) {
-        setGeneratedPortraitUrl(data.imageUrl);
-      } else {
-        throw new Error("No image URL returned from celestial plane.");
-      }
+      setGeneratedPortraitUrl(imageUrl);
     } catch (err: any) {
       console.error(err);
       setPortraitError(err.message || "Celestial connection timed out. Please retry.");

@@ -335,7 +335,7 @@ export const generateCardImageSchema = z.object({
 });
 
 export const generateCultivatorPortraitSchema = z.object({
-  image: z.string(),
+  image: z.string().optional(),
   description: z.string().optional(),
   daoRank: z.string().optional(),
   daoXp: z.number().optional(),
