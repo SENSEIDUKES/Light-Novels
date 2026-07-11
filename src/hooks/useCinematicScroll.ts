@@ -22,13 +22,6 @@ import {
 import { NarrationEventDetail } from '../lib/narrativeCues';
 
 /**
- * A backward target further above the reader than this is never followed —
- * automated narration motion is forward-only. Smaller negative corrections
- * from geometry rounding are simply held in place.
- */
-const BACKWARD_TOLERANCE_PX = 96;
-
-/**
  * If a document `scroll` event lands further than this from the position the
  * controller just wrote, someone else (scrollbar drag, find-in-page, browser
  * anchor) moved the page — treat it as user intervention.
@@ -81,6 +74,10 @@ const isTypingTarget = (target: EventTarget | null): boolean => {
  *   on, narration playing, no reduced motion, user has not intervened).
  * - Any manual scroll input yields permanently; only the explicit `resume()`
  *   action restores automated movement. There is no timed auto-resume.
+ * - Automated following is forward-only, but an explicit `resume()` re-locks:
+ *   the spring is allowed to glide back (or forward) to the narration target
+ *   once, so the reader lands centered on the focus line instead of holding
+ *   whatever off-center position they yielded at.
  * - The frame loop reads cached numbers, integrates the spring, and writes
  *   scrollTop — it performs no DOM queries or geometry measurement.
  */
@@ -104,6 +101,13 @@ export function useCinematicScroll(
   const lastTimeRef = useRef<number | undefined>(undefined);
   const lastWrittenRef = useRef<number | null>(null);
   const pausedAtRef = useRef<number | null>(null);
+  /**
+   * Set by an explicit resume(): the next following session may move backward
+   * once to re-center the narrated block on the focus line. Cleared as soon as
+   * the spring reaches the timeline target (or the target moves ahead of it),
+   * after which the normal forward-only rule applies again.
+   */
+  const relockRef = useRef(false);
   const onStateChangeRef = useRef(onStateChange);
   onStateChangeRef.current = onStateChange;
 
@@ -143,11 +147,21 @@ export function useCinematicScroll(
 
         const spring = springRef.current;
         // Forward-only: never chase a target above the current position.
-        // Large backward targets hold in place; small rounding negatives too.
-        const target = Math.min(
-          Math.max(timelineTarget, spring.position),
-          segment.maxPosition,
-        );
+        // Exception — right after an explicit Resume Reading, glide back to
+        // the narration target so the reader re-locks on the focus line
+        // instead of holding an off-center position forever.
+        let target: number;
+        if (relockRef.current) {
+          target = Math.min(Math.max(timelineTarget, 0), segment.maxPosition);
+          if (target >= spring.position || Math.abs(target - spring.position) <= 1) {
+            relockRef.current = false;
+          }
+        } else {
+          target = Math.min(
+            Math.max(timelineTarget, spring.position),
+            segment.maxPosition,
+          );
+        }
 
         const next = stepSpring(spring, target, deltaSeconds, DEFAULT_SPRING_CONFIG);
         // Clamp to cached document bounds — no scrollHeight reads per frame.
@@ -262,6 +276,7 @@ export function useCinematicScroll(
         startLoop();
       } else {
         stopLoop();
+        relockRef.current = false;
         if (nextState === 'idle') segmentRef.current = null;
         if (prevState === 'following') springRef.current.velocity = 0;
       }
@@ -272,8 +287,11 @@ export function useCinematicScroll(
   const intervene = useCallback(() => dispatch({ type: 'USER_INTERVENED' }), [dispatch]);
 
   /**
-   * Explicit "Resume Reading". If the user scrolled *ahead* of the narration
-   * target, stay yielded rather than dragging them backward.
+   * Explicit "Resume Reading". Re-measures the narration target and re-locks
+   * onto it: the spring is permitted one backward glide so the narrated block
+   * returns to the focus line even when the reader scrolled ahead — an
+   * explicit resume is a request to go back to where narration is, not to
+   * follow from wherever the page happens to sit.
    */
   const resume = useCallback(() => {
     const segment = segmentRef.current;
@@ -284,16 +302,11 @@ export function useCinematicScroll(
         segment.startedAt,
         segment.initialProgress,
       );
-      if (remeasured) {
-        segmentRef.current = remeasured;
-        const currentPos = getSurface().getPosition();
-        if (remeasured.toPosition < currentPos - BACKWARD_TOLERANCE_PX) {
-          return; // reader is ahead of narration — stay yielded
-        }
-      }
+      if (remeasured) segmentRef.current = remeasured;
     }
+    relockRef.current = true;
     dispatch({ type: 'RESUME_REQUESTED' });
-  }, [dispatch, getSurface, measureSegment]);
+  }, [dispatch, measureSegment]);
 
   // --- Auto Scroll preference ------------------------------------------------
   useEffect(() => {
