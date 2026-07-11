@@ -448,11 +448,10 @@ function App() {
       {/* FOOTER */}
       <footer className="relative z-0 border-t border-neutral-950 bg-black/60 pt-10 pb-16 mt-20 text-[10px] text-neutral-600 font-sans">
         <div className="max-w-7xl mx-auto px-4 text-center space-y-4">
-          <p className="tracking-widest uppercase font-sc text-neutral-500 font-semibold">
-            SEIHouse: A Better Time Capsule and Translator of Artistic Expression
-          </p>
-          <p id="footer-production-mark" className="max-w-xl mx-auto tracking-[0.3em] font-sans text-neutral-400 hover:text-portal transition-all duration-500 font-semibold text-[11px] uppercase py-2 select-none">
-            ⓈSEN
+          <p id="footer-production-mark" className="max-w-xl mx-auto tracking-[0.3em] font-sans text-neutral-400 hover:text-portal transition-all duration-500 font-semibold text-[11px] uppercase py-2 select-none leading-relaxed">
+            Ⓢ SEN<br />
+            SEIHouse Expanded Novels<br />
+            An Experience by SEIHouse Productions LLC
           </p>
         </div>
       </footer>
