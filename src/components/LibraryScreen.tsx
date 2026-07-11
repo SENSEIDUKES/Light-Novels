@@ -55,11 +55,12 @@ const PUBLISHED_WORLDS: any[] = INITIAL_DEMO_STORIES.map(story => {
     reads = 6250;
     createdAt = new Date(Date.now() - 12 * 3600 * 1000).toISOString(); // 12 hours ago
   }
+  const { totalChapters } = getStoryChapterStats(story);
   return {
     ...story,
     reads,
     createdAt,
-    chapterCount: getStoryChapterStats(story).totalChapters,
+    chapterCount: totalChapters,
     powerStage: story.memory.currentPowerStage,
   };
 });

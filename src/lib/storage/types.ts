@@ -12,7 +12,7 @@ export interface StorageAdapter {
     getStory(id: string): Promise<StoryWorld | null>;
     saveStory(story: StoryWorld): Promise<void>;
     deleteStory(id: string): Promise<void>;
-    clearAll(): Promise<void>;
+    clearAll?(): Promise<void>;
     getChapterContent(storyId: string, chapterNumber: number): Promise<ChapterContent | null>;
     saveChapterContent(content: ChapterContent): Promise<void>;
     getAudioBlob?(url: string): Promise<Blob | null>;
