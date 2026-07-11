@@ -1063,9 +1063,12 @@ export class PersistentStorageManager implements StorageAdapter {
   }
 
   async clearAll(): Promise<void> {
-    if (this.localAdapter.clearAll) {
-      await this.localAdapter.clearAll();
+    if (!this.localAdapter.clearAll) {
+      throw new Error(
+        `clearAll is not supported by the active local adapter: ${this.localAdapter.name}`,
+      );
     }
+    await this.localAdapter.clearAll();
   }
 
   async getAudioBlob(url: string): Promise<Blob | null> {
