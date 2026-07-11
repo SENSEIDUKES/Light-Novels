@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { handleDownload } from './downloadUtils';
 
 describe('handleDownload', () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
 
   it('downloads a fetched blob and releases its object URL', async () => {
     const link = { href: '', download: '', target: '', click: vi.fn() } as any;

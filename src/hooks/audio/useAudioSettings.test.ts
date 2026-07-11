@@ -12,22 +12,27 @@ describe('useAudioSettings', () => {
     const controlEvents: any[] = [];
     const listener = (event: Event) => controlEvents.push((event as CustomEvent).detail);
     window.addEventListener('seihouse-audio-control', listener);
-    const { result, unmount } = renderHook(() => useAudioSettings());
+    let unmount: (() => void) | undefined;
+    try {
+      const rendered = renderHook(() => useAudioSettings());
+      unmount = rendered.unmount;
 
-    expect(result.current).toMatchObject({ isMuted: true, atmosphere: 'rain', volume: 0.35 });
+      expect(rendered.result.current).toMatchObject({ isMuted: true, atmosphere: 'rain', volume: 0.35 });
 
-    act(() => {
-      result.current.handleMuteToggle(false);
-      result.current.handleAtmosphereChange('forest');
-      result.current.handleVolumeChange(0.8);
-    });
+      act(() => {
+        rendered.result.current.handleMuteToggle(false);
+        rendered.result.current.handleAtmosphereChange('forest');
+        rendered.result.current.handleVolumeChange(0.8);
+      });
 
-    expect(localStorage.getItem('seihouse-audio-muted')).toBe('false');
-    expect(localStorage.getItem('seihouse-audio-atmosphere')).toBe('forest');
-    expect(localStorage.getItem('seihouse-audio-volume')).toBe('0.8');
-    expect(controlEvents).toEqual([{ isMuted: false }, { atmosphere: 'forest' }, { volume: 0.8 }]);
-    unmount();
-    window.removeEventListener('seihouse-audio-control', listener);
+      expect(localStorage.getItem('seihouse-audio-muted')).toBe('false');
+      expect(localStorage.getItem('seihouse-audio-atmosphere')).toBe('forest');
+      expect(localStorage.getItem('seihouse-audio-volume')).toBe('0.8');
+      expect(controlEvents).toEqual([{ isMuted: false }, { atmosphere: 'forest' }, { volume: 0.8 }]);
+    } finally {
+      unmount?.();
+      window.removeEventListener('seihouse-audio-control', listener);
+    }
   });
 
   it('reacts to state changes sent by the audio player', () => {

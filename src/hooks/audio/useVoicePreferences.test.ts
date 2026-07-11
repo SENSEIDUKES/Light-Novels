@@ -7,7 +7,7 @@ vi.mock('../../lib/voice/webSpeechCast', () => ({ pickDefaultSideVoice: vi.fn() 
 
 describe('useVoicePreferences', () => {
   afterEach(() => {
-    delete (window as any).speechSynthesis;
+    vi.unstubAllGlobals();
     vi.clearAllMocks();
   });
 
@@ -18,7 +18,7 @@ describe('useVoicePreferences', () => {
       { name: 'Maya', lang: 'en-GB', voiceURI: 'side' },
     ] as SpeechSynthesisVoice[];
     const speechSynthesis = { getVoices: vi.fn(() => voices), onvoiceschanged: null as any };
-    Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: speechSynthesis });
+    vi.stubGlobal('speechSynthesis', speechSynthesis);
     vi.mocked(pickDefaultSideVoice).mockReturnValue(voices[2]);
 
     const { result, unmount } = renderHook(() => useVoicePreferences());
@@ -36,7 +36,7 @@ describe('useVoicePreferences', () => {
 
   it('leaves defaults empty when the browser has no voices yet', () => {
     const speechSynthesis = { getVoices: vi.fn(() => []), onvoiceschanged: null as any };
-    Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: speechSynthesis });
+    vi.stubGlobal('speechSynthesis', speechSynthesis);
 
     const { result, unmount } = renderHook(() => useVoicePreferences());
 
