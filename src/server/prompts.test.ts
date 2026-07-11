@@ -13,7 +13,15 @@ describe('Prompts', () => {
     expect(PROMPTS.initialArc).toBeDefined();
     expect(PROMPTS.initialArc.system).toBeDefined();
     expect(typeof PROMPTS.initialArc.userPrompt).toBe('function');
-    expect(PROMPTS.initialArc.userPrompt('{}', 'power', [], 5)).toContain('{}');
+    expect(PROMPTS.initialArc.userPrompt('{}', [], 5)).toContain('{}');
+  });
+
+  it('renders a valid JSON example for the initial arc response', () => {
+    const prompt = PROMPTS.initialArc.userPrompt('{}', ['A thread with "quotes"'], 5);
+    const responseShape = prompt.match(/Return exactly one valid JSON object with this shape:\n([\s\S]*?)\n\nGenerate exactly/)?.[1];
+
+    expect(responseShape).toBeDefined();
+    expect(() => JSON.parse(responseShape!)).not.toThrow();
   });
 
   it('should have a chapter prompt and render styleBible if provided', () => {

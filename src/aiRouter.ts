@@ -6,6 +6,18 @@ import { RouteConfig, MultiModelRouting } from "./types";
 let defaultAIClient: GoogleGenAI | null = null;
 const DEFAULT_TEMPERATURE = process.env.AI_TEMPERATURE ? parseFloat(process.env.AI_TEMPERATURE) : 0.95;
 const DEFAULT_MAX_TOKENS = process.env.AI_MAX_TOKENS ? parseInt(process.env.AI_MAX_TOKENS, 10) : 8192;
+
+function resolveGenerationTemperature(provider: string, model: string | undefined, requestedTemperature: number | undefined) {
+  if (requestedTemperature !== undefined) return requestedTemperature;
+
+  // Gemini 3.x is tuned around its default temperature. Respect an explicit
+  // server override, but otherwise do not inherit the legacy 0.95 default.
+  if (!process.env.AI_TEMPERATURE && provider === "gemini" && /gemini-3/i.test(model || "")) {
+    return 1.0;
+  }
+
+  return DEFAULT_TEMPERATURE;
+}
 export function getAIClient(customApiKey?: string) {
   const apiKey = customApiKey || process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
@@ -103,14 +115,58 @@ export function cleanAndParseJSON(rawText: string) {
   }
   
   stripped = stripped.trim();
+
+  const extractBalancedJson = (text: string) => {
+    const start = text.search(/[\[{]/);
+    if (start === -1) return null;
+
+    const stack: string[] = [text[start] === "{" ? "}" : "]"];
+    let inString = false;
+    let escaped = false;
+
+    for (let index = start + 1; index < text.length; index++) {
+      const char = text[index];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (char === "\\") escaped = true;
+        else if (char === '"') inString = false;
+        continue;
+      }
+
+      if (char === '"') {
+        inString = true;
+      } else if (char === "{") {
+        stack.push("}");
+      } else if (char === "[") {
+        stack.push("]");
+      } else if (char === "}" || char === "]") {
+        if (stack[stack.length - 1] !== char) return null;
+        stack.pop();
+        if (stack.length === 0) return text.substring(start, index + 1);
+      }
+    }
+    return null;
+  };
   
   try {
     return JSON.parse(stripped);
   } catch (err: any) {
     console.warn("Direct JSON parse failed, trying regex extraction");
-    // 3. Fallback regex: extract content between first { and last }, or [ and ]
-    const objectMatch = cleaned.match(/\{[\s\S]*\}/);
-    const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
+    // 3. Recover the first complete JSON value. This handles valid JSON
+    // followed by a malformed tail (for example a repetition loop of `}`).
+    const balancedJson = extractBalancedJson(stripped);
+    if (balancedJson) {
+      try {
+        return JSON.parse(balancedJson);
+      } catch {
+        // Preserve the legacy fallback below for responses with malformed
+        // content inside an otherwise recognizable JSON wrapper.
+      }
+    }
+
+    // 4. Legacy fallback: extract content between first { and last }, or [ and ]
+    const objectMatch = stripped.match(/\{[\s\S]*\}/);
+    const arrayMatch = stripped.match(/\[[\s\S]*\]/);
     
     let matchToUse = objectMatch;
     if (arrayMatch && objectMatch) {
@@ -125,14 +181,16 @@ export function cleanAndParseJSON(rawText: string) {
       } catch (nestedErr) {
          // Attempt to strip inner markdown if the model hallucinated it inside
          const innerClean = matchToUse[0].replace(/```json/g, '').replace(/```/g, '').trim();
-         try {
-           return JSON.parse(innerClean);
-         } catch (e2) {
-           throw new Error("Failed to parse JSON response: " + cleaned);
-         }
+          try {
+            return JSON.parse(innerClean);
+          } catch (e2) {
+            console.warn("[aiRouter] Model response was not valid JSON", { length: rawText.length });
+            throw new Error("The model returned an invalid structured response. Please retry generation.");
+          }
+        }
       }
-    }
-    throw new Error("Failed to parse JSON response: " + cleaned);
+    console.warn("[aiRouter] Model response was not valid JSON", { length: rawText.length });
+    throw new Error("The model returned an invalid structured response. Please retry generation.");
   }
 }
 
@@ -172,6 +230,7 @@ export async function* routeTextGenerationStream(
   const { provider, temperature, maxOutputTokens } = activeConfig;
   let { model } = activeConfig;
   model = resolveRouteModel(route, provider, model);
+  const effectiveTemperature = resolveGenerationTemperature(provider, model, temperature);
   if (process.env.NODE_ENV !== "production") {
     console.log(`[aiRouter] Streaming task '${routeKey}' via Route '${route}' -> Provider: '${provider}', Model: '${model}'`);
   }
@@ -185,7 +244,7 @@ export async function* routeTextGenerationStream(
         contents: safePrompt,
         config: {
           systemInstruction: safeSystem,
-          temperature: temperature ?? DEFAULT_TEMPERATURE,
+          temperature: effectiveTemperature,
           responseMimeType: "text/plain",
           maxOutputTokens: maxOutputTokens ?? DEFAULT_MAX_TOKENS,
         }
@@ -233,7 +292,7 @@ export async function* routeTextGenerationStream(
           { role: "user", content: safePrompt }
         ],
         stream: true,
-        temperature: temperature ?? DEFAULT_TEMPERATURE,
+        temperature: effectiveTemperature,
         max_tokens: maxOutputTokens ?? DEFAULT_MAX_TOKENS
       };
 
@@ -304,7 +363,7 @@ export async function* routeTextGenerationStream(
           stream: true,
           options: { 
             num_predict: maxOutputTokens ?? DEFAULT_MAX_TOKENS,
-            temperature: temperature ?? DEFAULT_TEMPERATURE
+            temperature: effectiveTemperature
           }
         })
       });
@@ -373,6 +432,7 @@ export async function routeTextGeneration(
   const { provider, temperature, maxOutputTokens } = activeConfig;
   let { model } = activeConfig;
   model = resolveRouteModel(route, provider, model);
+  const effectiveTemperature = resolveGenerationTemperature(provider, model, temperature);
   if (process.env.NODE_ENV !== "production") {
     console.log(`[aiRouter] Routing task '${routeKey}' via Route '${route}' -> Provider: '${provider}', Model: '${model}'`);
   }
@@ -386,7 +446,7 @@ export async function routeTextGeneration(
     const config: any = {
       systemInstruction: safeSystem,
       responseMimeType: "application/json",
-      temperature: temperature ?? DEFAULT_TEMPERATURE,
+      temperature: effectiveTemperature,
       maxOutputTokens: maxOutputTokens ?? DEFAULT_MAX_TOKENS,
     };
     
@@ -482,7 +542,7 @@ export async function routeTextGeneration(
           { role: "user", content: safePrompt }
         ],
         response_format: { type: "json_object" },
-        temperature: temperature ?? DEFAULT_TEMPERATURE,
+        temperature: effectiveTemperature,
         max_tokens: maxOutputTokens ?? DEFAULT_MAX_TOKENS
       };
 
@@ -538,7 +598,7 @@ export async function routeTextGeneration(
           format: "json",
           options: { 
             num_predict: maxOutputTokens ?? DEFAULT_MAX_TOKENS,
-            temperature: temperature ?? DEFAULT_TEMPERATURE
+            temperature: effectiveTemperature
           }
         })
       });

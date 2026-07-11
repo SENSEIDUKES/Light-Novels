@@ -86,15 +86,15 @@ CONTENT AND AGE SAFETY PROTOCOLS:
 2. CHARACTER LOOKS & SAFETY: You may describe the physical appearance, attire, and general features of any character under the age of 16 in full detail, but you MUST NEVER sexualize them or use suggestive descriptions. Do not overly describe the beauty of minors under 16 in any evocative or suggestive manner.
 3. TEEN ROMANCE: Teen romance is fully supported and allowed ONLY as clean, YA-style emotional romance, pure-hearted crushes, or friendly emotional bonds.
 4. ADULT INTIMACY: Physical intimacy and highly suggestive themes require ALL involved characters to be clearly 18 years or older. Avoid graphic erotica or pornography under all circumstances. Keep intimacy of adult characters clean and focus on emotional narrative progression.`,
-    userPrompt: (blueprintJson: string, powerSystemOutline: string, unresolvedPlotThreads: string[], count: number) => `Create a brand new Chinese Light Novel inspired Story Arc (comprising exactly ${count} chapters) based on the following authenticated World Blueprint:
+    userPrompt: (blueprintJson: string, unresolvedPlotThreads: string[], count: number) => `Create a brand new Chinese Light Novel inspired Story Arc (comprising exactly ${count} chapters) based on the following authenticated World Blueprint:
 
 World Blueprint:
 ${blueprintJson}
 
-You must return a JSON object with the following fields:
+Return exactly one valid JSON object with this shape:
 {
   "title": "A grand, poetic Volume / Arc title (e.g. 'Volume 1: Awakening the Sky-Shattering Cauldron')",
-  "powerSystem": "A concise paragraph outlining the cultivation ranks/tiers in this universe, extracted from the outline: ${powerSystemOutline}",
+  "powerSystem": "A concise paragraph summarizing the cultivation ranks and tiers from the World Blueprint.",
   "currentPowerStage": "The lowest starting level for the MC, matching the blueprint.",
   "worldRules": [
     "At least 4 crucial rules of this savage cultivator world based on the blueprint"
@@ -110,17 +110,15 @@ You must return a JSON object with the following fields:
   ],
   "unresolvedPlotThreads": ${JSON.stringify(unresolvedPlotThreads)},
   "chapters": [
-    // Create exactly ${count} chapters. The indices must range from 1 to ${count}.
     {
       "number": 1,
       "title": "A dramatic title matching the blueprint's start",
       "premise": "A brief, exciting operational goal/premise for this chapter"
     }
-    // ... complete up to chapter ${count}
   ]
 }
 
-Ensure the story pacing is structured so that key breakthroughs happen periodically, and major climaxes occur near chapters 5 and 10! Use creative Chinese light novel tropes. Maintain the SEIHouse aesthetic where artistic cultivation and poetic/profound elements play a significant role. Do not add any text before or after the JSON.`
+Generate exactly ${count} chapters, numbered consecutively from 1 through ${count}. Ensure the story pacing is structured so that key breakthroughs happen periodically, and major climaxes occur near chapters 5 and 10. Use creative Chinese light novel tropes. Maintain the SEIHouse aesthetic where artistic cultivation and poetic/profound elements play a significant role. Do not add any text before or after the JSON.`
   },
 
   chapter: {

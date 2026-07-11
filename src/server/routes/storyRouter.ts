@@ -39,6 +39,45 @@ const buildIntakeGlossarySourceText = (intake: any) =>
     intake.thingsToAvoid,
     intake.storyTags?.join(" "),
   ].filter(Boolean).join(" ");
+
+const initialArcResponseSchema = {
+  type: "OBJECT",
+  properties: {
+    title: { type: "STRING" },
+    powerSystem: { type: "STRING" },
+    currentPowerStage: { type: "STRING" },
+    worldRules: { type: "ARRAY", items: { type: "STRING" } },
+    characters: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          name: { type: "STRING" },
+          role: { type: "STRING" },
+          description: { type: "STRING" },
+          relationshipToMC: { type: "STRING" },
+          status: { type: "STRING" }
+        },
+        required: ["name", "role", "description", "relationshipToMC", "status"]
+      }
+    },
+    unresolvedPlotThreads: { type: "ARRAY", items: { type: "STRING" } },
+    chapters: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          number: { type: "NUMBER" },
+          title: { type: "STRING" },
+          premise: { type: "STRING" }
+        },
+        required: ["number", "title", "premise"]
+      }
+    }
+  },
+  required: ["title", "powerSystem", "currentPowerStage", "worldRules", "characters", "unresolvedPlotThreads", "chapters"]
+};
+
 storyRouter.post("/api/generate-blueprint", validateBody(generateBlueprintSchema), async (req, res) => {
   try {
     const { intake, routingConfig } = req.body;
@@ -98,13 +137,13 @@ storyRouter.post("/api/generate-initial-arc", validateBody(generateInitialArcSch
       systemPrompt,
       PROMPTS.initialArc.userPrompt(
         JSON.stringify(blueprint, null, 2),
-        JSON.stringify(blueprint.powerSystemOutline),
         blueprint.unresolvedPlotThreads || [],
         count
       ),
       "generate-initial-arc",
       routingConfig,
-      getCustomKeys(req)
+      getCustomKeys(req),
+      initialArcResponseSchema
     );
     return res.json(cleanInitialArc(data));
   } catch (error: any) {

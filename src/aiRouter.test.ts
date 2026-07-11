@@ -69,7 +69,7 @@ describe('cleanAndParseJSON', () => {
 
   it('should throw error when regex match is still invalid even after inner cleaning', () => {
     const input = 'Malformed: {"key": value_without_quotes}';
-    expect(() => cleanAndParseJSON(input)).toThrow('Failed to parse JSON response');
+    expect(() => cleanAndParseJSON(input)).toThrow('The model returned an invalid structured response');
   });
 
   it('should handle cases where only an array match is found via regex', () => {
@@ -84,11 +84,11 @@ describe('cleanAndParseJSON', () => {
 
   it('should throw error for invalid JSON that cannot be recovered', () => {
     const input = 'this is not json at all';
-    expect(() => cleanAndParseJSON(input)).toThrow('Failed to parse JSON response');
+    expect(() => cleanAndParseJSON(input)).toThrow('The model returned an invalid structured response');
   });
 
   it('should handle empty input', () => {
-    expect(() => cleanAndParseJSON('')).toThrow('Failed to parse JSON response');
+    expect(() => cleanAndParseJSON('')).toThrow('The model returned an invalid structured response');
   });
 
   it('should handle case-insensitive markdown blocks', () => {
@@ -120,5 +120,24 @@ describe('cleanAndParseJSON', () => {
   it('should handle nested JSON objects correctly', () => {
     const input = 'Result: {"outer": {"inner": 42}}';
     expect(cleanAndParseJSON(input)).toEqual({ outer: { inner: 42 } });
+  });
+
+  it('recovers a valid JSON object followed by a repeated closing-brace tail', () => {
+    const validResponse = JSON.stringify({ title: 'Volume I', chapters: [{ number: 1 }] });
+    const repeatedBraces = '}\n'.repeat(3452);
+
+    expect(cleanAndParseJSON(validResponse + repeatedBraces)).toEqual({
+      title: 'Volume I',
+      chapters: [{ number: 1 }]
+    });
+  });
+
+  it('does not expose raw model output in unrecoverable parse errors', () => {
+    const rawModelOutput = '{"title": unquoted_value}';
+
+    expect(() => cleanAndParseJSON(rawModelOutput)).toThrow(
+      'The model returned an invalid structured response. Please retry generation.'
+    );
+    expect(() => cleanAndParseJSON(rawModelOutput)).not.toThrow(rawModelOutput);
   });
 });
