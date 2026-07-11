@@ -16,12 +16,9 @@ function getStoryChapterStats(story?: Story | null) {
   let generated = 0;
 
   const arcs = Array.isArray(story?.arcs) ? story.arcs : [];
-  const arcsLen = arcs.length;
-  for (let i = 0; i < arcsLen; i++) {
-    const chapters = Array.isArray(arcs[i]?.chapters) ? arcs[i].chapters : [];
-    const chaptersLen = chapters.length;
-    for (let j = 0; j < chaptersLen; j++) {
-      const chapter = chapters[j];
+  for (const arc of arcs) {
+    const chapters = Array.isArray(arc?.chapters) ? arc.chapters : [];
+    for (const chapter of chapters) {
       if (!chapter) continue;
       totalChapters++;
       if (chapter.status === 'read') readChapters++;
@@ -386,6 +383,7 @@ export const LibraryScreen: React.FC = () => {
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6">
               {stories.map((story) => {
                 const { totalChapters, readChapters, generated } = getStoryChapterStats(story);
+                const progressPercent = totalChapters > 0 ? Math.round((readChapters / totalChapters) * 100) : 0;
                 
                 return (
                   <div
@@ -478,21 +476,16 @@ export const LibraryScreen: React.FC = () => {
                       <p className="text-[10px] text-neutral-500 font-sans truncate mt-1">
                         MC: {story.mcName} • {story.memory.currentPowerStage}
                       </p>
-                      
-                      {(() => {
-                        const progressPercent = totalChapters > 0 ? Math.round((readChapters / totalChapters) * 100) : 0;
-                        return (
-                          <div className="pt-1">
-                            <div className="flex justify-between items-center text-[9px] uppercase font-mono tracking-widest text-neutral-500 mb-1">
-                              <span>Read {readChapters} / {totalChapters}</span>
-                              <span>{progressPercent}%</span>
-                            </div>
-                            <div className="w-full bg-void h-1 rounded-full overflow-hidden border border-neutral-800">
-                              <div className="bg-portal h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%` }}></div>
-                            </div>
-                          </div>
-                        );
-                      })()}
+
+                      <div className="pt-1">
+                        <div className="flex justify-between items-center text-[9px] uppercase font-mono tracking-widest text-neutral-500 mb-1">
+                          <span>Read {readChapters} / {totalChapters}</span>
+                          <span>{progressPercent}%</span>
+                        </div>
+                        <div className="w-full bg-void h-1 rounded-full overflow-hidden border border-neutral-800">
+                          <div className="bg-portal h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%` }}></div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );
