@@ -315,8 +315,18 @@ export const LibraryScreen: React.FC = () => {
                 </div>
                 
                 {(() => {
-                  const totalChapters = mostRecentStory.arcs.reduce((sum, a) => sum + a.chapters.length, 0);
-                  const readChapters = mostRecentStory.arcs.reduce((sum, a) => sum + a.chapters.filter(c => c.status === 'read').length, 0);
+                  let totalChapters = 0;
+                  let readChapters = 0;
+                  for (let i = 0; i < mostRecentStory.arcs.length; i++) {
+                    const arc = mostRecentStory.arcs[i];
+                    totalChapters += arc.chapters.length;
+                    for (let j = 0; j < arc.chapters.length; j++) {
+                      if (arc.chapters[j].status === 'read') {
+                        readChapters++;
+                      }
+                    }
+                  }
+
                   const progressPercent = totalChapters > 0 ? Math.round((readChapters / totalChapters) * 100) : 0;
                   return (
                     <div className="space-y-1.5">
@@ -363,8 +373,22 @@ export const LibraryScreen: React.FC = () => {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6">
               {stories.map((story) => {
-                const totalChapters = story.arcs.reduce((sum, a) => sum + a.chapters.length, 0);
-                const generated = story.arcs.reduce((sum, a) => sum + a.chapters.filter(c => c.hasContent || !!c.generatedContent).length, 0);
+                let totalChapters = 0;
+                let generated = 0;
+                let readChapters = 0;
+                for (let i = 0; i < story.arcs.length; i++) {
+                  const arc = story.arcs[i];
+                  totalChapters += arc.chapters.length;
+                  for (let j = 0; j < arc.chapters.length; j++) {
+                    const c = arc.chapters[j];
+                    if (c.hasContent || !!c.generatedContent) {
+                      generated++;
+                    }
+                    if (c.status === 'read') {
+                      readChapters++;
+                    }
+                  }
+                }
                 
                 return (
                   <div
@@ -459,7 +483,6 @@ export const LibraryScreen: React.FC = () => {
                       </p>
                       
                       {(() => {
-                        const readChapters = story.arcs.reduce((sum, a) => sum + a.chapters.filter(c => c.status === 'read').length, 0);
                         const progressPercent = totalChapters > 0 ? Math.round((readChapters / totalChapters) * 100) : 0;
                         return (
                           <div className="pt-1">
