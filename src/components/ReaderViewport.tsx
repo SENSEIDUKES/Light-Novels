@@ -419,6 +419,7 @@ export function ReaderViewport({
                                     aria-hidden="true"
                                     data-cue-type="narrative.fx.play"
                                     data-cue-id={`sfx-trans-${selectedChapter.number}-${index}-${i}`}
+                                    data-cue-block-index={index}
                                     data-cue-value={sfx}
                                     data-cue-once="true"
                                   />
@@ -624,6 +625,7 @@ export function ReaderViewport({
                                 aria-hidden="true"
                                 data-cue-type="narrative.fx.play"
                                 data-cue-id={`sfx-block-${selectedChapter.number}-${index}-${i}`}
+                                data-cue-block-index={index}
                                 data-cue-value={sfx}
                                 data-cue-once="true"
                               />
@@ -799,6 +801,7 @@ export function ReaderViewport({
                                       aria-hidden="true"
                                       data-cue-type="narrative.fx.play"
                                       data-cue-id={`sfx-text-${selectedChapter.number}-${index}-${i}`}
+                                      data-cue-block-index={index}
                                       data-cue-value={sfx}
                                       data-cue-once="true"
                                     />

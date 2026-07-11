@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { dispatchNarration, dispatchNarrativeCue } from './narrativeCues';
+import { cinematicEffectGovernor } from './effects/cinematicEffectGovernor';
 
 describe('narrativeCues', () => {
   beforeEach(() => {
@@ -28,9 +29,27 @@ describe('narrativeCues', () => {
     const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
     dispatchNarrativeCue({ id: 'test2', type: 'narrative.scene.set', once: true });
     expect(dispatchSpy).toHaveBeenCalledTimes(1);
-    
+
     // Should not dispatch again
     dispatchNarrativeCue({ id: 'test2', type: 'narrative.scene.set', once: true });
     expect(dispatchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('drives the cinematic effect governor narration signal from the narration lifecycle', () => {
+    dispatchNarration({ status: 'start' });
+    expect(cinematicEffectGovernor.isActive()).toBe(true);
+
+    dispatchNarration({ status: 'pause' });
+    expect(cinematicEffectGovernor.isActive()).toBe(false);
+
+    dispatchNarration({ status: 'resume' });
+    expect(cinematicEffectGovernor.isActive()).toBe(true);
+
+    // Block events carry progress, not lifecycle — they must not flip the signal.
+    dispatchNarration({ status: 'block', blockIndex: 3 });
+    expect(cinematicEffectGovernor.isActive()).toBe(true);
+
+    dispatchNarration({ status: 'end' });
+    expect(cinematicEffectGovernor.isActive()).toBe(false);
   });
 });

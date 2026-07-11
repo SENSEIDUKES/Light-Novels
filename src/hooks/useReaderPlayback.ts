@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Chapter, VoiceClip } from "../types";
 import { useAppStore } from "../store/useAppStore";
 import { dispatchNarration, dispatchNarrativeCue } from "../lib/narrativeCues";
+import { cinematicEffectGovernor } from "../lib/effects/cinematicEffectGovernor";
 import { storyStorage } from "../lib/storage";
 import { buildSpeechChunks, estimateChunkDurationMs, SpeechChunk } from "../lib/voice/webSpeechCast";
 import { makeNarrationProgress, NarrationProgress } from "../lib/narration/progress";
@@ -161,10 +162,18 @@ export function useReaderPlayback({
       
       if (block && immersion.master) {
         if (immersion.audioCues) {
+          const chapterNumber = selectedChapterRef.current?.number ?? 0;
+          const totalBlocks = selectedChapterRef.current?.blocks?.length ?? 0;
           const { sfxList } = extractSFXCues(block.text);
           sfxList.forEach((sfx, i) => {
+            const id = `sfx-block-${chapterNumber}-${blockIndex}-${i}`;
+            // The governor limits one-shot cues per chapter (count, zone
+            // spread, cooldown) and only grants them in cinematic modes.
+            if (!cinematicEffectGovernor.requestAudioCue({ id, chapterNumber, blockIndex, totalBlocks })) {
+              return;
+            }
             dispatchNarrativeCue({
-              id: `sfx-block-${selectedChapterRef.current?.number}-${blockIndex}-${i}`,
+              id,
               type: "narrative.fx.play",
               once: true,
               value: sfx,
