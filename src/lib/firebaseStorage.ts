@@ -184,10 +184,6 @@ export class FirebaseStorageAdapter implements StorageAdapter {
     }
   }
 
-  async clearAll(): Promise<void> {
-    // Risky, usually better not to implement bulk delete on client
-    throw new Error("clearAll not supported on Firebase adapter directly for safety");
-  }
 }
 
 export const firebaseStorage = new FirebaseStorageAdapter();
