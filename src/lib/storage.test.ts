@@ -174,6 +174,14 @@ describe('PersistentStorageManager', () => {
   });
 
   describe('Firestore sync conflicts', () => {
+    const makeStory = (id: string): StoryWorld => ({
+      id, title: 'T', genre: 'Fantasy', mcName: 'MC', customPremise: 'P',
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      currentChapterNumber: 1,
+      memory: { powerSystem: '', characters: [], currentPowerStage: '', worldRules: [], unresolvedPlotThreads: [], resolvedPlotThreads: [] },
+      arcs: [],
+    });
+
     it('should set an active conflict and skip sync when significant differences exist', async () => {
       const localAdapter = (manager as any).localAdapter;
       const cloudAdapter = (manager as any).cloudAdapter;
@@ -224,6 +232,62 @@ describe('PersistentStorageManager', () => {
       expect(conflict?.storyId).toBe('conflict_story');
       expect(conflict?.localStory.title).toBe('Local Version');
       expect(conflict?.cloudStory.title).toBe('Cloud Version');
+    });
+
+    it('downloads a cloud-only edit after a previous conflict resolution without reopening the modal', async () => {
+      const localAdapter = (manager as any).localAdapter;
+      const cloudAdapter = (manager as any).cloudAdapter;
+      const resolvedAt = new Date(Date.now() - 1000 * 60 * 10).toISOString();
+      const localStory = {
+        ...makeStory('resolved_story'),
+        title: 'Resolved title',
+        updatedAt: resolvedAt,
+        conflictResolvedAt: resolvedAt,
+      };
+      const cloudStory = {
+        ...localStory,
+        title: 'Edited on another device',
+        updatedAt: new Date().toISOString(),
+      };
+      await localAdapter.saveStory(localStory);
+      cloudAdapter.getStories = vi.fn().mockResolvedValue([cloudStory]);
+      (manager as any).isCloudAvailable = true;
+      const onConflict = vi.fn();
+      manager.onConflict(onConflict);
+
+      await manager.performSync();
+
+      expect(onConflict).not.toHaveBeenCalled();
+      await expect(localAdapter.getStory('resolved_story')).resolves.toEqual(cloudStory);
+    });
+
+    it('still reports a conflict when both copies changed after the previous resolution', async () => {
+      const localAdapter = (manager as any).localAdapter;
+      const cloudAdapter = (manager as any).cloudAdapter;
+      const resolvedAt = new Date(Date.now() - 1000 * 60 * 10).toISOString();
+      const localStory = {
+        ...makeStory('diverged_story'),
+        title: 'Edited locally',
+        updatedAt: new Date(Date.now() - 1000 * 60).toISOString(),
+        conflictResolvedAt: resolvedAt,
+      };
+      const cloudStory = {
+        ...localStory,
+        title: 'Edited in cloud',
+        updatedAt: new Date().toISOString(),
+      };
+      await localAdapter.saveStory(localStory);
+      cloudAdapter.getStories = vi.fn().mockResolvedValue([cloudStory]);
+      (manager as any).isCloudAvailable = true;
+      const onConflict = vi.fn();
+      manager.onConflict(onConflict);
+
+      await manager.performSync();
+
+      expect(onConflict).toHaveBeenCalledTimes(1);
+      expect(onConflict).toHaveBeenCalledWith(
+        expect.objectContaining({ storyId: 'diverged_story' }),
+      );
     });
   });
 });

@@ -89,19 +89,19 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
     const { storyId, localStory, cloudStory } = conflict;
     const { setStories } = get();
 
+    let resolvedStory: Story;
+
+    if (resolution === 'local') {
+      resolvedStory = { ...localStory, updatedAt: new Date().toISOString(), conflictResolvedAt: new Date().toISOString() };
+    } else if (resolution === 'cloud') {
+      resolvedStory = { ...cloudStory, updatedAt: new Date().toISOString(), conflictResolvedAt: new Date().toISOString() };
+    } else {
+      // Use smart merge helper
+      resolvedStory = mergeStories(localStory, cloudStory);
+      resolvedStory.conflictResolvedAt = new Date().toISOString();
+    }
+
     try {
-      let resolvedStory: Story;
-
-      if (resolution === 'local') {
-        resolvedStory = { ...localStory, updatedAt: new Date().toISOString(), conflictResolvedAt: new Date().toISOString() };
-      } else if (resolution === 'cloud') {
-        resolvedStory = { ...cloudStory, updatedAt: new Date().toISOString(), conflictResolvedAt: new Date().toISOString() };
-      } else {
-        // Use smart merge helper
-        resolvedStory = mergeStories(localStory, cloudStory);
-        resolvedStory.conflictResolvedAt = new Date().toISOString();
-      }
-
       // Clear the active conflict first to avoid re-triggering the check
       set({ activeConflict: null });
 
@@ -109,17 +109,25 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
       await storyStorage.saveStory(resolvedStory);
       await storyStorage.performSync();
 
-      // Update state
-      const freshStories = await storyStorage.getStories();
-      setStories(freshStories);
     } catch (err: any) {
       console.error("Failed to resolve sync conflict:", err);
-      // Keep the conflict actionable when persistence fails. It is cleared before
-      // saving to prevent re-entrant conflict detection, but losing it here would
-      // leave the user with no way to retry or choose another resolution.
+      // The selected version was not persisted, so keep the conflict actionable.
       set({
         activeConflict: conflict,
         appError: "Failed to resolve sync conflict: " + err.message,
+      });
+      return;
+    }
+
+    try {
+      // Refreshing the library is separate from persistence. If this read fails,
+      // the conflict is still resolved and must not be shown again.
+      const freshStories = await storyStorage.getStories();
+      setStories(freshStories);
+    } catch (err: any) {
+      console.error("Sync conflict resolved, but failed to refresh stories:", err);
+      set({
+        appError: "Sync conflict resolved, but failed to refresh stories: " + err.message,
       });
     }
   },
