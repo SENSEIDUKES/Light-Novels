@@ -102,6 +102,11 @@ export function useReaderPlayback({
   const activeAudioRef = useRef<HTMLAudioElement | null>(null);
   const activeClipsRef = useRef<any[]>([]);
   const activeClipIndexRef = useRef<number>(0);
+  // Chapter whose narration already started this visit — auto OR manual. The
+  // auto-continue effect must never (re)start a chapter recorded here, so a
+  // chapter that finishes narrating doesn't loop; listening mode instead waits
+  // for the next chapter to be manifested / selected.
+  const narrationStartedChapterRef = useRef<number | null>(null);
 
   useEffect(() => { speechRateRef.current = speechRate; }, [speechRate]);
   useEffect(() => { speechPitchRef.current = speechPitch; }, [speechPitch]);
@@ -491,6 +496,9 @@ export function useReaderPlayback({
     // Pressing play enters listening mode: subsequent chapters the user
     // manifests / navigates to auto-continue narration until they stop.
     setAutoPlayNarration(true);
+    // Record the manual start so the auto-continue effect doesn't treat the
+    // end of this chapter's narration as a cue to replay it from the top.
+    narrationStartedChapterRef.current = selectedChapter?.number ?? null;
 
     const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
     const isBrowserSupported = typeof window !== "undefined" && "speechSynthesis" in window;
@@ -540,7 +548,6 @@ export function useReaderPlayback({
   // When listening mode is on and a fully-ready chapter becomes selected — the
   // user manifested the next chapter, or navigated to an existing one — start
   // narration automatically instead of requiring another press of play.
-  const autoStartedChapterRef = useRef<number | null>(null);
   useEffect(() => {
     const chNum = selectedChapter?.number;
     if (chNum == null) return;
@@ -554,9 +561,11 @@ export function useReaderPlayback({
       (selectedChapter?.blocks && selectedChapter.blocks.length > 0)
     );
     if (!hasContent) return;
-    if (autoStartedChapterRef.current === chNum) return; // only once per chapter
+    // Only once per chapter — covers both "already auto-started" and "the user
+    // started this chapter manually and it just finished" (no re-loop).
+    if (narrationStartedChapterRef.current === chNum) return;
 
-    autoStartedChapterRef.current = chNum;
+    narrationStartedChapterRef.current = chNum;
     let fired = false;
     // Defer so the chapter-change stopAllPlayback settles and the paragraphs
     // are in the DOM before narration (and its scroll pacing) begins.
@@ -577,7 +586,7 @@ export function useReaderPlayback({
     return () => {
       clearTimeout(timer);
       // If we never fired (deps changed first), allow a later re-schedule.
-      if (!fired) autoStartedChapterRef.current = null;
+      if (!fired) narrationStartedChapterRef.current = null;
     };
   }, [
     autoPlayNarration,

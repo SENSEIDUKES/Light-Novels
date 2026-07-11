@@ -1046,10 +1046,10 @@ export default function ReaderChamber({
               type="button"
                tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                 // Narration is already playing; the user took manual control.
-                // resume() re-measures the narration target and returns the
-                // state machine to `following` — unless the reader scrolled
-                // ahead of narration, in which case it stays yielded rather
-                // than dragging them backward.
+                // resume() re-measures the narration target, returns the state
+                // machine to `following`, and re-locks: the scroll glides back
+                // to the narrated block on the focus line even if the reader
+                // scrolled ahead, so following resumes centered.
                 resumeAutoScroll();
               }}
               className="bg-portal hover:bg-[#00c0ff] text-void text-xs font-sans font-medium px-4 py-1.5 rounded-full transition-colors flex items-center gap-1.5 cursor-pointer shadow-[0_0_10px_rgba(4,172,255,0.4)]"

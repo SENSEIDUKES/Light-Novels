@@ -298,7 +298,7 @@ describe('useCinematicScroll', () => {
       expect(document.documentElement.scrollTop).toBeGreaterThan(before);
     });
 
-    it('resume() stays yielded when the reader scrolled ahead of narration', () => {
+    it('resume() re-locks by gliding back when the reader scrolled ahead of narration', () => {
       const { result } = setup();
       startNarration();
       act(() => { window.dispatchEvent(new Event('wheel')); });
@@ -308,10 +308,34 @@ describe('useCinematicScroll', () => {
         window.dispatchEvent(new Event('scroll'));
       });
       act(() => { result.current.resume(); });
-      expect(result.current.state).toBe('yielded');
-      const frozen = document.documentElement.scrollTop;
-      act(() => { pumpFrames(20); });
-      expect(document.documentElement.scrollTop).toBe(frozen);
+      // Resume always returns to following — the reader asked to lock back on.
+      expect(result.current.state).toBe('following');
+      act(() => { pumpFrames(30); });
+      // Movement is backward, toward the narration target, not held in place.
+      expect(document.documentElement.scrollTop).toBeLessThan(2000);
+      act(() => { pumpFrames(500); });
+      // Settles centered on the narration timeline target (block 0 → block 1,
+      // toPosition = 600 - focusLine = 435), still in `following`.
+      expect(result.current.state).toBe('following');
+      expect(document.documentElement.scrollTop).toBeGreaterThan(400);
+      expect(document.documentElement.scrollTop).toBeLessThanOrEqual(436);
+    });
+
+    it('after re-locking, the forward-only rule applies again', () => {
+      const { result } = setup();
+      startNarration(500);
+      act(() => { window.dispatchEvent(new Event('wheel')); });
+      act(() => {
+        document.documentElement.scrollTop = 2000;
+        window.dispatchEvent(new Event('scroll'));
+      });
+      act(() => { result.current.resume(); });
+      act(() => { pumpFrames(600); });
+      const settled = document.documentElement.scrollTop;
+      // Once settled on the target, further frames never drag backward.
+      act(() => { pumpFrames(100); });
+      expect(document.documentElement.scrollTop).toBeGreaterThanOrEqual(settled - 1);
+      expect(result.current.state).toBe('following');
     });
   });
 

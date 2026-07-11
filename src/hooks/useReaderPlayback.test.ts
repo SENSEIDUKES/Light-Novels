@@ -2,6 +2,7 @@ import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { useReaderPlayback, extractSFXCues } from './useReaderPlayback';
 import { useAppStore } from '../store/useAppStore';
+import { dispatchNarration } from '../lib/narrativeCues';
 
 vi.mock('../lib/narrativeCues', () => ({
   dispatchNarration: vi.fn(),
@@ -74,6 +75,66 @@ describe('useReaderPlayback', () => {
         expect(useAppStore.getState().readerMode).toBe('teleprompter');
       } finally {
         vi.useRealTimers();
+      }
+    });
+
+    it('does NOT re-loop a manually started chapter when its narration ends', () => {
+      vi.useFakeTimers();
+      // Minimal Web Speech stubs so handleTogglePlayback takes the TTS path.
+      const spoken: any[] = [];
+      class FakeUtterance {
+        text: string;
+        onend: (() => void) | null = null;
+        onerror: ((e: any) => void) | null = null;
+        voice: any; rate = 1; pitch = 1; volume = 1;
+        constructor(text: string) { this.text = text; }
+      }
+      vi.stubGlobal('SpeechSynthesisUtterance', FakeUtterance as any);
+      vi.stubGlobal('speechSynthesis', {
+        cancel: vi.fn(),
+        speak: (u: any) => spoken.push(u),
+        speaking: false,
+        getVoices: () => [],
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        onvoiceschanged: undefined,
+      });
+      try {
+        useAppStore.setState({ readerMode: 'teleprompter', isGenerating: false, streamingChapter: null });
+        useAppStore.getState().setAutoPlayNarration(false);
+
+        const { result, unmount } = renderHook(() => useReaderPlayback({
+          selectedChapter: { number: 6, title: 'Finale', generatedContent: 'One line of prose.' } as any,
+          activeTranslationContent: null,
+        }));
+
+        // User presses play — enters listening mode and starts narration.
+        act(() => { result.current.handleTogglePlayback(); });
+        expect(useAppStore.getState().autoPlayNarration).toBe(true);
+        expect(result.current.isPlayingText).toBe(true);
+
+        // Drive every queued utterance to completion.
+        for (let i = 0; i < 30 && result.current.isPlayingText; i++) {
+          const u = spoken.find((s) => !s.done);
+          if (u) { u.done = true; act(() => { u.onend?.(); }); }
+          act(() => { vi.advanceTimersByTime(100); });
+        }
+        expect(result.current.isPlayingText).toBe(false);
+
+        // Listening mode stays on for the NEXT chapter, but the finished
+        // chapter must not restart from the top.
+        const startsBefore = (dispatchNarration as any).mock.calls
+          .filter((c: any[]) => c[0]?.status === 'start').length;
+        act(() => { vi.advanceTimersByTime(1000); });
+        const startsAfter = (dispatchNarration as any).mock.calls
+          .filter((c: any[]) => c[0]?.status === 'start').length;
+        expect(useAppStore.getState().autoPlayNarration).toBe(true);
+        expect(startsAfter).toBe(startsBefore);
+        expect(result.current.isPlayingText).toBe(false);
+        unmount(); // before unstubbing — cleanup effects touch speechSynthesis
+      } finally {
+        vi.useRealTimers();
+        vi.unstubAllGlobals();
       }
     });
 
