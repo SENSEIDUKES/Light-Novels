@@ -435,11 +435,12 @@ export function ReaderViewport({
                       })
                   : selectedChapter.blocks
                     ? selectedChapter.blocks.map((block, index) => {
-                        if (!block.text.trim()) return null;
+                        const hasStructuredVisual = !!block.system || !!block.worldCard;
+                        if (!(block.text || '').trim() && !hasStructuredVisual) return null;
                         const { cleanText, sfxList } = extractSFXCues(
-                          block.text,
+                          block.text || '',
                         );
-                        if (!cleanText) return null;
+                        if (!cleanText && !hasStructuredVisual) return null;
 
                         let revealTerm: any = undefined;
                         const revealEntity = block.metadata?.entities?.find(ent => {

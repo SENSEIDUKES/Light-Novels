@@ -40,6 +40,35 @@ some random text
       const result = extractJsonBlocks("Just some random text without JSON");
       expect(result).toHaveLength(0);
     });
+
+    it('keeps standalone system blocks that carry no prose text', () => {
+      const raw = `
+{ "id": "c1-p1", "type": "paragraph", "text": "He bowed to the elder." }
+{ "id": "c1-p2", "type": "paragraph", "system": { "kind": "skill_acquired", "promptType": "progression", "title": "Technique Learned", "rows": [{ "label": "Technique", "value": "Azure Sky Sword Art" }] } }
+`;
+      const result = extractJsonBlocks(raw);
+      expect(result).toHaveLength(2);
+      expect(result[1].system.title).toBe('Technique Learned');
+      expect(result[1].text).toBe('');
+    });
+
+    it('keeps standalone worldCard blocks that carry no prose text', () => {
+      const raw = `{ "id": "c1-p3", "worldCard": { "entityType": "artifact", "entityName": "Moon Cauldron" } }`;
+      const result = extractJsonBlocks(raw);
+      expect(result).toHaveLength(1);
+      expect(result[0].worldCard.entityName).toBe('Moon Cauldron');
+      expect(result[0].text).toBe('');
+    });
+
+    it('preserves system metadata fields through parsing without dropping them', () => {
+      const raw = `{ "id": "c1-p4", "type": "paragraph", "text": "A chime rang out.", "system": { "kind": "level_up", "promptType": "breakthrough", "title": "Breakthrough Achieved", "rarity": "Mythic", "rows": [{ "label": "Realm", "value": "Core Formation" }] } }`;
+      const result = extractJsonBlocks(raw);
+      expect(result).toHaveLength(1);
+      expect(result[0].system.promptType).toBe('breakthrough');
+      expect(result[0].system.kind).toBe('level_up');
+      expect(result[0].system.rows).toHaveLength(1);
+      expect(result[0].system.rarity).toBe('Mythic');
+    });
   });
 
   describe('extractJsonMeta', () => {

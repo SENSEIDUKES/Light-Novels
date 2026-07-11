@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getSystemInferredType, getSystemColorMeaning, getSystemPromptColor } from './systemColors';
+import { getSystemInferredType, getSystemColorMeaning, getSystemPromptColor, normalizeSystemType, buildSystemContext } from './systemColors';
 
 describe('systemColors', () => {
   describe('getSystemInferredType', () => {
@@ -162,6 +162,101 @@ describe('systemColors', () => {
     it('handles new multi-match types correctly', () => {
       expect(getSystemColorMeaning(undefined, 'combat artifact').type).toBe('combat_artifact');
       expect(getSystemColorMeaning(undefined, 'heavenly tribulation').type).toBe('heavenly_tribulation');
+    });
+
+    it('treats legacy kind values as their intended categories when passed as types', () => {
+      expect(getSystemColorMeaning('level_up').type).toBe('breakthrough');
+      expect(getSystemColorMeaning('skill_acquired').type).toBe('progression');
+      expect(getSystemColorMeaning('technique_learned').type).toBe('progression');
+      expect(getSystemColorMeaning('ability_gained').type).toBe('progression');
+      expect(getSystemColorMeaning('death_flag').type).toBe('corruption');
+      expect(getSystemColorMeaning('tribulation').type).toBe('heavenly_tribulation');
+    });
+
+    it('normalizes types case-insensitively', () => {
+      expect(getSystemColorMeaning('Breakthrough').type).toBe('breakthrough');
+      expect(getSystemColorMeaning('FRIENDLY_SCAN').type).toBe('codex_update');
+    });
+
+    it('falls back to semantic inference when promptType is unrecognized but context is meaningful', () => {
+      expect(getSystemColorMeaning('spirit_awakening_notice', 'Awakening of the Azure Dragon Bloodline').type).toBe('breakthrough');
+      expect(getSystemColorMeaning('divine_echo', 'A hidden truth stirs beneath the archive').type).toBe('mystery');
+    });
+
+    it('keeps truly unknown events on the neutral gray style, never portal blue', () => {
+      const meaning = getSystemColorMeaning('totally_unknown_event', 'ordinary happenings of the day');
+      expect(['neutral', 'other']).toContain(meaning.type);
+      expect(meaning.textColor).toContain('gray');
+      const color = getSystemPromptColor('totally_unknown_event', 'ordinary happenings of the day');
+      expect(color).not.toContain('portal');
+    });
+  });
+
+  describe('normalizeSystemType', () => {
+    it('returns undefined for missing input', () => {
+      expect(normalizeSystemType()).toBeUndefined();
+      expect(normalizeSystemType('')).toBeUndefined();
+    });
+
+    it('maps known aliases and passes canonical types through', () => {
+      expect(normalizeSystemType('quest_update')).toBe('codex_update');
+      expect(normalizeSystemType('enemy_scan')).toBe('critical_danger');
+      expect(normalizeSystemType('karmic_bond')).toBe('romance');
+      expect(normalizeSystemType('fate_event')).toBe('mystery');
+      expect(normalizeSystemType('death_event')).toBe('corruption');
+      expect(normalizeSystemType('breakthrough')).toBe('breakthrough');
+    });
+  });
+
+  describe('buildSystemContext', () => {
+    it('combines title, row labels/values, and content', () => {
+      const context = buildSystemContext(
+        { title: 'Echo of the Library', rows: [{ label: 'Technique', value: 'Azure Sky Sword Art' }] },
+        'A new record shimmers.'
+      );
+      expect(context).toContain('Echo of the Library');
+      expect(context).toContain('Technique');
+      expect(context).toContain('Azure Sky Sword Art');
+      expect(context).toContain('A new record shimmers.');
+    });
+
+    it('lets row labels drive inference when the title is vague', () => {
+      const context = buildSystemContext({ title: 'Celestial Notice', rows: [{ label: 'Technique Learned', value: 'Moonlit Step' }] });
+      expect(getSystemColorMeaning(undefined, context).type).toBe('progression');
+    });
+
+    it('handles missing pieces gracefully', () => {
+      expect(buildSystemContext()).toBe('');
+      expect(buildSystemContext({ title: 'Only Title' })).toBe('Only Title');
+    });
+  });
+
+  describe('keyword precedence for broad terms', () => {
+    it('does not let generic "gain" override a bond meaning', () => {
+      expect(getSystemInferredType('soul bond gained')).toBe('romance');
+    });
+
+    it('keeps "qi gain" as a reward', () => {
+      expect(getSystemInferredType('qi gain')).toBe('reward');
+    });
+
+    it('maps artifact discoveries to reward, and combat artifacts to their combined type', () => {
+      expect(getSystemInferredType('ancient artifact unsealed')).toBe('reward');
+      expect(getSystemInferredType('combat artifact resonance')).toBe('combat_artifact');
+    });
+
+    it('maps technique and skill learning to progression', () => {
+      expect(getSystemInferredType('technique learned')).toBe('progression');
+      expect(getSystemInferredType('sword skill comprehension')).toBe('progression');
+    });
+
+    it('keeps death threats as danger and death flags as corruption', () => {
+      expect(getSystemInferredType('death threat looms')).toBe('critical_danger');
+      expect(getSystemInferredType('death flag raised')).toBe('corruption');
+    });
+
+    it('maps revelations to mystery', () => {
+      expect(getSystemInferredType('a revelation about the sect')).toBe('mystery');
     });
   });
 
