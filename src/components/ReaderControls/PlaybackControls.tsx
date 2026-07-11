@@ -15,6 +15,11 @@ export function PlaybackControls({ selectedChapter, playback, isDesktop = false 
   const { isPlayingText, isPausedText, handleTogglePlayback } = playback;
 
   const hasContent = selectedChapter.generatedContent || (selectedChapter.blocks && selectedChapter.blocks.length > 0);
+  const playbackLabel = !hasContent
+    ? "Awaiting chapter content..."
+    : isPlayingText && !isPausedText
+      ? "Stop Audio Playback"
+      : "Begin Rhythmic Recitation";
 
   const desktopClasses = `${BASE_DISC_CLASSES} shadow-[0_0_20px_rgba(4,172,255,0.1)] ${
     isPlayingText && !isPausedText ? "animate-spin" : "group-hover/disc:rotate-12"
@@ -67,7 +72,7 @@ export function PlaybackControls({ selectedChapter, playback, isDesktop = false 
       </div>
 
       {/* Central audio touch Core key */}
-      <button onClick={handleTogglePlayback}
+      <button type="button" onClick={handleTogglePlayback}
         disabled={!hasContent}
         className={`absolute rounded-full flex items-center justify-center transition-all z-10 focus-visible:ring-2 focus-visible:ring-portal focus-visible:ring-offset-2 focus-visible:ring-offset-[#000000] outline-none disabled:cursor-not-allowed ${isDesktop ? 'h-10 w-10' : 'h-8 w-8'} ${
           !hasContent
@@ -76,8 +81,8 @@ export function PlaybackControls({ selectedChapter, playback, isDesktop = false 
               ? `bg-[#8B0000] text-[#FAFAFA] border border-[#fafafa]/25 shadow-[0_0_${isDesktop ? '15px' : '12px'}_rgba(139,0,0,0.${isDesktop ? '6' : '8'})] hover:scale-105`
               : `bg-[#04ACFF] text-[#000000] border border-[#fafafa]/15 shadow-[0_0_${isDesktop ? '15px' : '12px'}_rgba(4,172,255,0.${isDesktop ? '6' : '8'})] hover:scale-105`
         }`}
-        title={!hasContent ? "Awaiting chapter content..." : isPlayingText && !isPausedText ? "Stop Audio Playback" : "Begin Rhythmic Recitation"}
-        aria-label={!hasContent ? "Awaiting chapter content..." : isPlayingText && !isPausedText ? "Stop Audio Playback" : "Begin Rhythmic Recitation"}
+        title={playbackLabel}
+        aria-label={playbackLabel}
       >
         {isPlayingText && !isPausedText ? (
           <Pause size={isDesktop ? 15 : 12} fill="currentColor" className="text-[#FAFAFA]" />
