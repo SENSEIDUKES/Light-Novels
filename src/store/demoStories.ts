@@ -585,7 +585,7 @@ export function getRandomDemoStory(): Story {
   const template = INITIAL_DEMO_STORIES[index];
   const randomizedId = `demo-matrix-random-${generateId(6)}`;
   return {
-    ...template,
+    ...structuredClone(template),
     id: randomizedId,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
