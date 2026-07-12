@@ -320,18 +320,28 @@ export function LivingCodexCollage({
     });
   }, [activeStory, characterMap, locationMap, artifactMap, safeFormatDate]);
 
-  // Filter memories and count types optimally in one O(N) pass
-  const { filteredMemories, scenesCount, entitiesCount } = useMemo(() => {
+  const { scenesCount, entitiesCount } = useMemo(() => {
     let sCount = 0;
     let eCount = 0;
-    const filtered = [];
 
-    for (let i = 0; i < memories.length; i++) {
-      const m = memories[i];
+    for (const m of memories) {
       const isScene = m.type === 'scene';
 
       if (isScene) sCount++;
       else eCount++;
+    }
+
+    return {
+      scenesCount: sCount,
+      entitiesCount: eCount
+    };
+  }, [memories]);
+
+  const filteredMemories = useMemo(() => {
+    const filtered: VisualMemory[] = [];
+
+    for (const m of memories) {
+      const isScene = m.type === 'scene';
 
       if (filter === 'scenes' && isScene) {
         filtered.push(m);
@@ -342,11 +352,7 @@ export function LivingCodexCollage({
       }
     }
 
-    return {
-      filteredMemories: filtered,
-      scenesCount: sCount,
-      entitiesCount: eCount
-    };
+    return filtered;
   }, [memories, filter]);
 
   const handleOpenLightbox = useCallback((memoryItem: VisualMemory) => {
