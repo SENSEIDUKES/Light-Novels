@@ -147,6 +147,25 @@ describe('useArcSteering - Steering action processing', () => {
     expect(setIsGeneratingSpy).not.toHaveBeenCalledWith(true);
   });
 
+  it('rejects Alter Fate during a batch run even when invoked without the reader UI', async () => {
+    mockStore.stories[0].chapterGenerationBatch = {
+      id: 'batch-1',
+      chapterNumbers: [1, 2, 3, 4, 5],
+      status: 'generating',
+      currentChapterNumber: 2,
+      completedChapterNumbers: [1],
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+    const { result } = renderHook(() => useArcSteering());
+
+    await act(async () => {
+      await result.current.handleAlterFate(2, 'New path', 'Prompt');
+    });
+
+    expect(setAppErrorSpy).toHaveBeenCalledWith('Fate may be altered after Chapter 5.');
+    expect(setIsGeneratingSpy).not.toHaveBeenCalledWith(true);
+  });
+
   it('handleAlterFate skips if no active story', async () => {
     mockStore.activeStoryId = null;
     const { result } = renderHook(() => useArcSteering());

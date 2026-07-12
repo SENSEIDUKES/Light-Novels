@@ -29,11 +29,13 @@ import { ReaderControls } from "./ReaderControls";
 import { useCinematicScroll } from "../hooks/useCinematicScroll";
 import { cinematicEffectGovernor } from "../lib/effects/cinematicEffectGovernor";
 import { useReadingPosition } from "../hooks/useReadingPosition";
+import { getFateLockMessage } from '../hooks/chapterPipeline/chapterBatch';
 
 interface ReaderChamberProps {
   chapters: Chapter[];
   currentPowerStage: string;
   onGenerateChapter: (chapterNumber: number) => Promise<void>;
+  onGenerateNextFiveChapters: (fromChapterNumber: number) => Promise<void>;
   isGenerating: boolean;
   selectedChapterNum: number;
   setSelectedChapterNum: (num: number) => void;
@@ -55,6 +57,7 @@ export default function ReaderChamber({
   chapters,
   currentPowerStage,
   onGenerateChapter,
+  onGenerateNextFiveChapters,
   isGenerating,
   selectedChapterNum,
   setSelectedChapterNum,
@@ -771,6 +774,18 @@ export default function ReaderChamber({
     onGenerateChapter(selectedChapter.number);
   };
 
+  const handleGenerateNextFive = () => {
+    if (isGenerating || useAppStore.getState().isGenerating) return;
+    const { currentUser } = useAppStore.getState();
+    if (!currentUser && !LOCAL_ONLY_MODE) {
+      alert("You must sync your spirit (sign in) to forge new chapters.");
+      return;
+    }
+    onGenerateNextFiveChapters(selectedChapter.number);
+  };
+
+  const fateLockMessage = getFateLockMessage(activeStory, selectedChapterNum);
+
   const handleExportText = () => {
     let textToExport = selectedChapter.generatedContent || "";
     if (!textToExport && selectedChapter.blocks) {
@@ -972,6 +987,7 @@ export default function ReaderChamber({
         
         isGenerating={isGenerating}
         handleGenerate={handleGenerate}
+        handleGenerateNextFive={handleGenerateNextFive}
         activeAgentId={activeAgentId}
         
         showFateCodex={showFateCodex}
@@ -1016,6 +1032,7 @@ export default function ReaderChamber({
           handleAlterFate,
           setIsAlterFateOpen,
           handleExportText,
+          fateLockMessage,
         }}
       />
 

@@ -514,6 +514,18 @@ export interface StoryArc {
   episodicSummaries?: string[];
 }
 
+export interface ChapterGenerationBatch {
+  id: string;
+  chapterNumbers: number[];
+  status: 'queued' | 'generating' | 'paused' | 'completed' | 'failed';
+  currentChapterNumber: number | null;
+  completedChapterNumbers: number[];
+  failedChapterNumber?: number;
+  error?: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
 export interface ReaderPreferences {
   fontSize: "xs" | "sm" | "base" | "lg" | "xl";
   fontFamily: "serif" | "sans" | "mono";
@@ -708,6 +720,8 @@ export interface StoryWorld {
   };
   lastReadAt?: string;
   conflictResolvedAt?: string;
+  /** Persisted lifecycle for a sequential five-chapter manifestation run. */
+  chapterGenerationBatch?: ChapterGenerationBatch;
 }
 
 export interface Bookmark {

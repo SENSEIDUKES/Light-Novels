@@ -80,6 +80,7 @@ interface ReaderViewportProps {
   
   isGenerating: boolean;
   handleGenerate: () => void;
+  handleGenerateNextFive: () => void;
   activeAgentId: string | null;
   
   showFateCodex: boolean;
@@ -141,6 +142,7 @@ export function ReaderViewport({
   isCheckingConsistency,
   isGenerating,
   handleGenerate,
+  handleGenerateNextFive,
   activeAgentId,
   showFateCodex,
   setShowFateCodex,
@@ -150,6 +152,14 @@ export function ReaderViewport({
   chapters,
 }: ReaderViewportProps) {
   const { updateStory } = useAppStore();
+  const isCompletedBatchEndpoint = activeStory.chapterGenerationBatch?.status === 'completed'
+    && activeStory.chapterGenerationBatch.chapterNumbers.at(-1) === selectedChapter.number;
+  const resumableBatch = activeStory.chapterGenerationBatch;
+  const isResumingAtSelectedChapter = Boolean(
+    resumableBatch
+    && (resumableBatch.status === 'paused' || resumableBatch.status === 'failed')
+    && resumableBatch.chapterNumbers.find(number => !resumableBatch.completedChapterNumbers.includes(number)) === selectedChapter.number,
+  );
   const codexMap = React.useMemo(() => {
     const map = new Map<string, any>();
     codexTerms?.forEach(t => {
@@ -975,6 +985,19 @@ export function ReaderViewport({
               <ArrowRight size={14} />
             </button>
           </div>
+          {isCompletedBatchEndpoint && (
+            <div className="pb-8 flex flex-col items-center gap-2">
+              <p className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider">Batch complete — choose the next fate.</p>
+              <button
+                type="button"
+                onClick={handleGenerateNextFive}
+                disabled={isGenerating}
+                className="px-6 py-3 rounded border border-human text-human hover:bg-human/10 disabled:opacity-50 font-sc font-bold uppercase tracking-widest text-xs transition-colors"
+              >
+                Manifest Next 5 Chapters
+              </button>
+            </div>
+          )}
         </>
       ) : isGenerating || selectedChapter.hasContent ? (
         <div className="max-w-2xl mx-auto py-12 animate-pulse space-y-6">
@@ -1049,6 +1072,14 @@ export function ReaderViewport({
                 </span>
               </>
             )}
+          </button>
+          <button
+            type="button"
+            onClick={handleGenerateNextFive}
+            disabled={isGenerating}
+            className="mt-3 w-full px-6 py-3 rounded border border-portal text-portal hover:bg-portal/10 disabled:opacity-50 font-sc font-bold uppercase tracking-widest text-xs transition-colors"
+          >
+            {isResumingAtSelectedChapter ? 'Resume 5-Chapter Batch' : 'Manifest Next 5 Chapters'}
           </button>
         </div>
       )}
