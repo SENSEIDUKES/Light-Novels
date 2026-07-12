@@ -1,4 +1,5 @@
 import { StoryBlockMetadata } from '../../types';
+import { countWords } from '../../utils/textUtils';
 
 /**
  * Average words-per-second for the browser's default English TTS voice at
@@ -95,7 +96,9 @@ export function estimateChunkDurationMs(text: string): number {
       spacedText += grapheme;
     }
   }
-  const words = spacedText.trim().split(/\s+/).filter(Boolean).length;
+  // ⚡ Bolt: Use efficient single-pass character scanning instead of regex array splitting
+  // This avoids intermediate array allocations and regex execution overhead in a hot path
+  const words = countWords(spacedText);
   return (
     words / TTS_WORDS_PER_SECOND_AT_RATE_1 +
     nonSpacedCount / NON_SPACED_GRAPHEMES_PER_SECOND_AT_RATE_1

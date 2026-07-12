@@ -8,3 +8,6 @@
 ## 2024-06-25 - [Optimizing `.filter(...).length` in Render Cycles]
 **Learning:** Found `.filter(...).length` calls embedded directly inside JSX templates (e.g. `memories.filter(m => m.type === 'scene').length`), which forces an O(N) array traversal on every single React render pass.
 **Action:** Consolidate these repeated filters into a single O(N) pass inside a `useMemo` block to calculate all necessary counts simultaneously, then bind the variables to JSX. This reduces redundant N-passes on component updates.
+## 2024-07-28 - [Optimizing Word Counting in Text Chunking]
+**Learning:** Found a regex array splitting operation (`spacedText.trim().split(/\s+/).filter(Boolean).length`) inside `estimateChunkDurationMs` in `src/lib/voice/webSpeechCast.ts`, which is a hot path during TTS text processing.
+**Action:** Replaced the operation with a fast single-pass string scan via `countWords` from `src/utils/textUtils.ts`. This avoids the unnecessary allocation of strings/booleans arrays and overhead from regex execution for counting spaces.
