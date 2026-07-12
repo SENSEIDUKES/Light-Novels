@@ -3,6 +3,7 @@ import { Chapter, VoiceClip } from "../types";
 import { useAppStore } from "../store/useAppStore";
 import { dispatchNarration, dispatchNarrativeCue } from "../lib/narrativeCues";
 import { cinematicEffectGovernor } from "../lib/effects/cinematicEffectGovernor";
+import { collectBlockAutoCues } from "../lib/audio/autoCuePolicy";
 import { storyStorage } from "../lib/storage";
 import { buildSpeechChunks, estimateChunkDurationMs, SpeechChunk } from "../lib/voice/webSpeechCast";
 import { makeNarrationProgress, NarrationProgress } from "../lib/narration/progress";
@@ -165,7 +166,12 @@ export function useReaderPlayback({
           const chapterNumber = selectedChapterRef.current?.number ?? 0;
           const totalBlocks = selectedChapterRef.current?.blocks?.length ?? 0;
           const { sfxList } = extractSFXCues(block.text);
-          sfxList.forEach((sfx, i) => {
+          // Only high-confidence, narratively important events (explicit
+          // high-impact [SFX] tags or structured system/beast data) may
+          // request automatic audio; footsteps and environment Foley are
+          // suppressed before the governor is even asked.
+          const autoCues = collectBlockAutoCues(sfxList, block);
+          autoCues.forEach((sfx, i) => {
             const id = `sfx-block-${chapterNumber}-${blockIndex}-${i}`;
             // The governor limits one-shot cues per chapter (count, zone
             // spread, cooldown) and only grants them in cinematic modes.

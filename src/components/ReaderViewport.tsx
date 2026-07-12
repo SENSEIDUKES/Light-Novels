@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Loader2, Plus, Trash2, Bookmark as BookmarkIcon, Lock, ArrowLeft, ArrowRight, Sparkles, Zap, Play, ShieldAlert, Info } from 'lucide-react';
 import { Chapter, StoryWorld, Bookmark } from '../types';
 import { extractSFXCues } from '../hooks/useReaderPlayback';
+import { collectBlockAutoCues } from '../lib/audio/autoCuePolicy';
 import { SystemBlock } from './SystemBlock';
 import { SYSTEM_COLORS_LEGEND } from '../lib/systemColors';
 import { CodexHovercard } from './CodexHovercard';
@@ -398,6 +399,7 @@ export function ReaderViewport({
                         if (!paragraph.trim()) return null;
                         const { cleanText, sfxList } =
                           extractSFXCues(paragraph);
+                        const autoCueList = collectBlockAutoCues(sfxList);
                         if (!cleanText) return null;
                         const isSystemLine =
                           cleanText.startsWith("[") &&
@@ -422,7 +424,7 @@ export function ReaderViewport({
                           >
                             <div className="flex items-start">
                               <div className="flex-1 min-w-0">
-                                {sfxList.map((sfx, i) => (
+                                {autoCueList.map((sfx, i) => (
                                   <span
                                     key={`sfx-${index}-${i}`}
                                     className="narrative-trigger hidden"
@@ -451,6 +453,10 @@ export function ReaderViewport({
                         const { cleanText, sfxList } = extractSFXCues(
                           block.text || '',
                         );
+                        // High-confidence [SFX] tags plus structured
+                        // system/beast events; footsteps and environment
+                        // Foley never render a trigger span at all.
+                        const autoCueList = collectBlockAutoCues(sfxList, block);
                         if (!cleanText && !hasStructuredVisual) return null;
 
                         let revealTerm: any = undefined;
@@ -628,7 +634,7 @@ export function ReaderViewport({
                             data-cue-once="true"
                             className={`relative group paragraph-block transition-colors duration-200 mb-6 ${existingBookmark ? "custom-bookmark-bg" : ""} ${block.metadata ? "narrative-trigger metadata-block" : ""}`}
                           >
-                            {sfxList.map((sfx, i) => (
+                            {autoCueList.map((sfx, i) => (
                               <span
                                 key={`sfx-${index}-${i}`}
                                 className="narrative-trigger hidden"
@@ -733,6 +739,7 @@ export function ReaderViewport({
                           if (!paragraph.trim()) return null;
                           const { cleanText, sfxList } =
                             extractSFXCues(paragraph);
+                          const autoCueList = collectBlockAutoCues(sfxList);
                           if (!cleanText) return null;
                           const isSystemLine =
                             cleanText.startsWith("[") &&
@@ -804,7 +811,7 @@ export function ReaderViewport({
 
                                 {/* Paragraph text */}
                                 <div className="flex-1 min-w-0">
-                                  {sfxList.map((sfx, i) => (
+                                  {autoCueList.map((sfx, i) => (
                                     <span
                                       key={`sfx-${index}-${i}`}
                                       className="narrative-trigger hidden"

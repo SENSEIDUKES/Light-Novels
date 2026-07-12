@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createSceneMixEngine, type SceneMixEngine } from '@seihouse/audio-player';
 import { SceneScoreEngine, TRACK_LIBRARY } from '../../lib/audio/musicResolver';
+import { normalizeAutoCue } from '../../lib/audio/autoCuePolicy';
 import { useAppStore } from '../../store/useAppStore';
 import { vibrate } from '../../lib/vibration';
 
@@ -14,7 +15,6 @@ const bgmLevelFor = (bgmVolume: number, intensity: number) =>
   Math.max(0, Math.min(bgmVolume, BGM_MAX_LEVEL)) * intensity;
 
 type AtmosphereType = 'none' | 'wind' | 'rain' | 'ocean' | 'crowd' | 'combat';
-type FXType = 'footsteps' | 'footsteps_snow' | 'footsteps_wood' | 'footsteps_stone' | 'system_alert' | 'combat_hit';
 
 
 export function useAtmosphericAudio() {
@@ -494,63 +494,6 @@ export function useAtmosphericAudio() {
     osc.stop(ctx.currentTime + 0.5);
   };
 
-  const triggerFootstep = (ctx: AudioContext, material: 'generic' | 'snow' | 'wood' | 'stone' = 'generic') => {
-    vibrate('footstep');
-    const bufferSize = ctx.sampleRate * 0.1;
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const output = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-        output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.05));
-    }
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-
-    const filter = ctx.createBiquadFilter();
-
-    if (material === 'snow') {
-        filter.type = 'highpass';
-        filter.frequency.value = 1500;
-        // Snow has a longer crunchy tail
-        for (let i = 0; i < bufferSize; i++) {
-            output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.08));
-        }
-    } else if (material === 'wood') {
-        filter.type = 'lowpass';
-        filter.frequency.value = 300;
-
-        // Add a low thud for wood
-        const osc = ctx.createOscillator();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(60, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.1);
-
-        const thudGain = ctx.createGain();
-        thudGain.gain.setValueAtTime(0.5, ctx.currentTime);
-        thudGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
-
-        osc.connect(thudGain);
-        thudGain.connect(getDestination(ctx));
-        osc.start();
-        osc.stop(ctx.currentTime + 0.1);
-    } else if (material === 'stone') {
-        filter.type = 'bandpass';
-        filter.frequency.value = 800;
-        filter.Q.value = 2; // slight ringing for stone
-    } else {
-        filter.type = 'lowpass';
-        filter.frequency.value = 400;
-    }
-
-    const gainNode = ctx.createGain();
-    gainNode.gain.value = material === 'snow' ? 0.3 : 0.6; // snow is a bit quieter
-
-    source.connect(filter);
-    filter.connect(gainNode);
-    gainNode.connect(getDestination(ctx));
-
-    source.start();
-  };
-
   const triggerCombatHit = (ctx: AudioContext) => {
     vibrate('combatHit');
     const osc = ctx.createOscillator();
@@ -669,22 +612,16 @@ export function useAtmosphericAudio() {
         if (isMuted || currentScreen !== 'reader') return;
 
         const cue = e.detail;
-        const ctx = initAudioCtx();
 
         if (cue.type === 'narrative.metadata.signature') {
+          // Metadata signatures feed the CONTINUOUS systems only — scene-score
+          // music, intensity ducking and the atmosphere bed. They are never a
+          // one-shot effect anymore: automatic one-shots go exclusively
+          // through narrative.fx.play, where the cinematic governor budgets
+          // them and the auto-cue policy keeps them high-confidence.
           const meta = cue.metadata || cue.value;
 
           if (meta) {
-             if (meta.powerShift && meta.powerShift > 0.6) {
-                triggerQiSurge(ctx);
-             } else if (meta.danger && meta.danger > 0.8 && meta.intensity && meta.intensity > 0.8) {
-                triggerMajorHit(ctx);
-             } else if (meta.tension && meta.tension > 0.8) {
-                triggerFateShift(ctx);
-             } else if (meta.playChime) {
-               triggerChime(ctx);
-             }
-
              const { master, sceneMusic } = useAppStore.getState().immersion;
              // A manually pinned track always wins over narrative cues.
              if (meta.music && master && sceneMusic && bgmTrackIdRef.current === 'auto') {
@@ -787,18 +724,25 @@ export function useAtmosphericAudio() {
             }
           }
         } else if (cue.type === 'narrative.fx.play') {
-            const fxType = cue.value as FXType;
-            if (fxType === 'footsteps') {
-                triggerFootstep(ctx, 'generic');
-            } else if (fxType === 'footsteps_snow') {
-                triggerFootstep(ctx, 'snow');
-            } else if (fxType === 'footsteps_wood') {
-                triggerFootstep(ctx, 'wood');
-            } else if (fxType === 'footsteps_stone') {
-                triggerFootstep(ctx, 'stone');
-            } else if (fxType === 'system_alert') {
+            // Final gate: even a cue that slipped past the dispatch sites is
+            // re-validated here. Footsteps / territory Foley / broad
+            // environment tags normalize to null and play nothing — suppress,
+            // never guess. The AudioContext is created only for a cue that
+            // will actually sound.
+            const fxType = normalizeAutoCue(typeof cue.value === 'string' ? cue.value : '');
+            if (!fxType) return;
+            const ctx = initAudioCtx();
+            if (fxType === 'system_alert') {
                 triggerSystemAlert(ctx);
-            } else if (fxType === 'combat_hit') {
+            } else if (fxType === 'breakthrough') {
+                triggerQiSurge(ctx);
+            } else if (fxType === 'artifact_activation') {
+                triggerChime(ctx);
+            } else if (fxType === 'beast_reveal') {
+                triggerMajorHit(ctx);
+            } else if (fxType === 'fate_shift') {
+                triggerFateShift(ctx);
+            } else if (fxType === 'major_impact') {
                 triggerCombatHit(ctx);
             }
         }

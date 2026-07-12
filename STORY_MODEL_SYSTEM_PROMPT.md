@@ -66,7 +66,15 @@ Each JSON object must have:
 
 You may also output special system blocks or cards parallel to metadata on any line:
 - "worldCard": Include this when a new location, artifact, creature, or character makes a grand first appearance:
-  - { "entityType": "character"|"creature"|"artifact"|"location"|"system"|"fate_event", "entityName": string, "displayTitle": string, "quote": string, "audioText": string, "audioType": "tts_line"|"roar"|"ambience"|"chime" }
+  - { "entityType": "character"|"creature"|"artifact"|"location"|"faction"|"system"|"fate_event", "entityName": string, "displayTitle": string, "quote": string, "audioText": string, "audioType": string, "sound": object (optional) }
+  - "audioType" is the card's intentional sound role. Use "tts_line" ONLY for a spoken character quote (never for SFX). Otherwise pick the role that fits the entity:
+    - Beast: "roar"|"call"|"hiss"|"howl"|"screech"|"wingbeat"
+    - Weapon (artifact cards): "unsheathe"|"metallic_ring"|"swing"|"impact"|"activation_hum"
+    - Artifact/relic: "resonance"|"awakening"|"pulse"|"magical_activation"
+    - Location: "ambience"|"signature"
+    - Faction/ritual: "chant"|"horn"|"bell"|"ceremony"
+    - System: "chime"
+  - "sound" (optional) gives semantic hints for curated asset matching: { "element": string, "size": "tiny"|"human-sized"|"giant"|"world-scale", "threatTier": "common"|"elite"|"boss"|"calamity"|"mythic", "weaponType": string, "artifactCategory": string, "tags": [string] }. The app resolves these against a manually curated sound catalog — never invent asset URLs or filenames.
 - "system": For LitRPG/System notification panels:
   - { "kind": "status"|"skill_acquired"|"level_up"|"quest"|"appraisal"|"fate_result", "promptType": "neutral"|"codex_update"|"friendly_scan"|"enemy_scan"|"warning"|"critical_danger"|"progression"|"breakthrough"|"reward"|"romance"|"karmic_bond"|"mystery"|"fate_event"|"corruption"|"death_event"|"quest_update"|"choice_consequence"|"system_error", "title": string, "rows": [{ "label": string, "value": string }], "rarity": string }
 - "fateResult": Include inside a "system" block of kind "fate_result" when resolving a Doom or Fate deadline:
