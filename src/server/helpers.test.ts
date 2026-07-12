@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { rankRelevantEntities, filterRelevantEntities, isValidOllamaHost, truncateContextIfNeeded } from './helpers';
+import { rankRelevantEntities, filterRelevantEntities, formatAbilityLedgerForPrompt, isValidOllamaHost, truncateContextIfNeeded } from './helpers';
 
 describe('Server Helpers', () => {
   describe('rankRelevantEntities', () => {
@@ -128,6 +128,39 @@ describe('Server Helpers', () => {
       const { memoryJsonStr } = truncateContextIfNeeded({ abilities }, [], 80000);
 
       expect(JSON.parse(memoryJsonStr).abilities).toEqual(abilities);
+    });
+  });
+
+  describe('formatAbilityLedgerForPrompt', () => {
+    it('bounds and sanitizes the ability ledger for chapter prompts', () => {
+      const abilities = Array.from({ length: 31 }, (_, index) => ({
+        id: `ability-${index}`,
+        name: `Ability ${index}`,
+        description: 'd'.repeat(1100),
+        limits: 'l'.repeat(600),
+        masteryLevel: 'm'.repeat(300),
+        provenance: { source: 'chapter-analysis', evidence: 'unused prompt metadata' }
+      }));
+
+      const formatted = formatAbilityLedgerForPrompt([
+        null,
+        ...abilities,
+        's'.repeat(1100)
+      ]) as Array<string | Record<string, unknown>>;
+
+      expect(formatted).toHaveLength(30);
+      expect((formatted[0] as Record<string, unknown>).name).toBe('Ability 2');
+      expect((formatted[0] as Record<string, unknown>).description).toHaveLength(1003);
+      expect((formatted[0] as Record<string, unknown>).limits).toHaveLength(503);
+      expect((formatted[0] as Record<string, unknown>).masteryLevel).toHaveLength(203);
+      expect(formatted[0]).not.toHaveProperty('id');
+      expect(formatted[0]).not.toHaveProperty('provenance');
+      expect(formatted.at(-1)).toHaveLength(1003);
+    });
+
+    it('returns an empty ledger for missing or malformed abilities', () => {
+      expect(formatAbilityLedgerForPrompt(undefined)).toEqual([]);
+      expect(formatAbilityLedgerForPrompt({ name: 'Not an array' })).toEqual([]);
     });
   });
 

@@ -20,7 +20,7 @@ import {
   generateAudioSchema
 } from "../schemas";
 import { routeTextGeneration, routeImageGeneration, routeTextGenerationStream, ROUTER_PRESETS } from "../../aiRouter";
-import { ensureString, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChapterResponse, filterRelevantEntities, rankRelevantEntities, truncateContextIfNeeded } from "../helpers";
+import { ensureString, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChapterResponse, filterRelevantEntities, formatAbilityLedgerForPrompt, rankRelevantEntities, truncateContextIfNeeded } from "../helpers";
 import { retrieveGlossaryEntries, formatGlossaryForPrompt } from "../../lib/glossary";
 import { PROMPTS } from "../prompts";
 export const storyRouter = express.Router();
@@ -201,7 +201,7 @@ storyRouter.post("/api/generate-chapter-stream", validateBody(chapterGenerationS
       powerSystem: safeStr(memory.powerSystem, 4000),
       currentPowerStage: safeStr(memory.currentPowerStage, 1000),
       worldRules: Array.isArray(memory.worldRules) ? memory.worldRules.slice(0, 20).map(r => safeStr(r, 1000)) : safeStr(memory.worldRules, 4000),
-      abilities: Array.isArray(memory.abilities) ? memory.abilities : [],
+      abilities: formatAbilityLedgerForPrompt(memory.abilities),
       unresolvedPlotThreads: formattedThreads,
       characters: rankRelevantEntities(memory.characters, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
       factions: rankRelevantEntities(memory.factions, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
@@ -409,7 +409,7 @@ storyRouter.post("/api/generate-chapter", validateBody(chapterGenerationSchema),
       powerSystem: safeStr(memory.powerSystem, 4000),
       currentPowerStage: safeStr(memory.currentPowerStage, 1000),
       worldRules: Array.isArray(memory.worldRules) ? memory.worldRules.slice(0, 20).map(r => safeStr(r, 1000)) : safeStr(memory.worldRules, 4000),
-      abilities: Array.isArray(memory.abilities) ? memory.abilities : [],
+      abilities: formatAbilityLedgerForPrompt(memory.abilities),
       unresolvedPlotThreads: formattedThreads,
       characters: rankRelevantEntities(memory.characters, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
       factions: rankRelevantEntities(memory.factions, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
