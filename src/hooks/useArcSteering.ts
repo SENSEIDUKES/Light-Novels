@@ -6,6 +6,7 @@ import { Chapter, StoryArc, StoryWorld } from '../types';
 import { storyStorage } from '../lib/storage';
 import { awardQi } from '../lib/qi';
 import { getApiHeaders } from './storyEngineHelpers';
+import { getFateLockMessage } from './chapterPipeline/chapterBatch';
 
 /**
  * Custom hook managing branching narratives and Arc-level destiny steering.
@@ -160,6 +161,16 @@ export const useArcSteering = () => {
    */
   const handleAlterFate = async (chapterNumber: number, direction: string, customPrompt: string) => {
     const currentStoreState = useAppStore.getState();
+    const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
+    if (!activeStory) {
+      currentStoreState.setIsGenerating(false);
+      return;
+    }
+    const fateLockMessage = getFateLockMessage(activeStory, chapterNumber);
+    if (fateLockMessage) {
+      currentStoreState.setAppError(fateLockMessage);
+      return;
+    }
     if (currentStoreState.isGenerating) {
       console.warn("Generation already in progress. Ignoring duplicate click.");
       return;
@@ -167,12 +178,6 @@ export const useArcSteering = () => {
     // Synchronously set generating state on the global store before any async/complex operations
     currentStoreState.setIsGenerating(true);
 
-    const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
-    if (!activeStory) {
-      currentStoreState.setIsGenerating(false);
-      return;
-    }
-    
     const clonedArcsRaw = await Promise.all(activeStory.arcs.map(async arc => {
       const slicedChapters = arc.chapters.filter(ch => ch.number <= chapterNumber);
       const hydratedChapters = await Promise.all(slicedChapters.map(async ch => {
@@ -208,6 +213,9 @@ export const useArcSteering = () => {
       title: `[Fate Fork] ${activeStory.title}`,
       arcs: clonedArcs,
       bookmarks: clonedBookmarks,
+      // A fork has its own future. It must not inherit a paused or failed
+      // generation queue from the parent timeline.
+      chapterGenerationBatch: undefined,
       updatedAt: new Date().toISOString()
     };
 

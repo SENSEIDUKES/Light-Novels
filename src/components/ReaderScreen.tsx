@@ -87,6 +87,7 @@ export const ReaderScreen: React.FC<{
     customPrompt: string,
   ) => Promise<void>;
   handleGenerateChapter: (chapterNumber: number) => Promise<void>;
+  handleGenerateNextFiveChapters: (fromChapterNumber: number) => Promise<void>;
   handleToggleRead: (ch: number) => void;
   handleUpdateStoryDirect: (story: Story) => void;
   setIsCodexSheetOpen: (open: boolean) => void;
@@ -96,6 +97,7 @@ export const ReaderScreen: React.FC<{
   handleSteerArc,
   handleAlterFate,
   handleGenerateChapter,
+  handleGenerateNextFiveChapters,
   handleToggleRead,
   handleUpdateStoryDirect,
   setIsCodexSheetOpen,
@@ -538,6 +540,7 @@ export const ReaderScreen: React.FC<{
             }
             currentPowerStage={activeStory.memory.currentPowerStage}
             onGenerateChapter={handleGenerateChapter}
+            onGenerateNextFiveChapters={handleGenerateNextFiveChapters}
             isGenerating={isGenerating}
             selectedChapterNum={selectedChapterNum}
             setSelectedChapterNum={setSelectedChapterNum}
