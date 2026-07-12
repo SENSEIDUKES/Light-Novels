@@ -1,4 +1,5 @@
 import { StoryBlock } from '../../types';
+import { isDevBuild } from '../env';
 
 /**
  * Policy for AUTOMATIC one-shot narrative audio (narrative.fx.play).
@@ -69,11 +70,7 @@ export function normalizeAutoCue(raw: string): HighConfidenceAutoCue | null {
     }
   }
   // Curation aid, dev builds only: one line per distinct suppressed tag.
-  if (
-    !warnedSuppressions.has(value) &&
-    typeof process !== 'undefined' &&
-    process.env.NODE_ENV === 'development'
-  ) {
+  if (!warnedSuppressions.has(value) && isDevBuild()) {
     warnedSuppressions.add(value);
     console.info(`[auto-cue] suppressed low-confidence sfx tag: "${value}"`);
   }

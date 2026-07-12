@@ -38,8 +38,11 @@ export async function playCardSound(
   }
 
   element.volume = Math.max(0, Math.min(1, options.volume ?? 1));
-  element.currentTime = 0;
   try {
+    // Inside the try: seeking can throw on some browsers before metadata
+    // loads, and that failure must evict the element just like a play()
+    // rejection does.
+    element.currentTime = 0;
     await element.play();
   } catch (err) {
     // A failed element (bad URL, decode error) must not poison the cache —

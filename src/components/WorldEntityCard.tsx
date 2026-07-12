@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { Play, Loader2, Volume2, VolumeX, User, Ghost, Swords, MapPin, Zap } from 'lucide-react';
 import { WorldCardEvent } from '../types';
@@ -37,6 +37,28 @@ export const WorldEntityCard: React.FC<WorldEntityCardProps> = React.memo(({ car
     [card, isSfxCard],
   );
   const soundUnavailable = isSfxCard && (!soundAsset || playbackFailed);
+
+  // Unmount cleanup: a card that leaves the DOM mid-playback (chapter change,
+  // navigation) must not leave its sound or quote running with no way to stop
+  // it. Refs keep the cleanup effect mount-once so play/stop transitions never
+  // re-run it, and the speechSynthesis cancel only fires while this card's own
+  // quote is the active speech — never against story narration.
+  const playbackStateRef = useRef({ isPlaying, isSfxCard, soundAsset });
+  useEffect(() => {
+    playbackStateRef.current = { isPlaying, isSfxCard, soundAsset };
+  }, [isPlaying, isSfxCard, soundAsset]);
+
+  useEffect(() => {
+    return () => {
+      const { isPlaying: playing, isSfxCard: sfx, soundAsset: asset } = playbackStateRef.current;
+      if (!playing) return;
+      if (sfx && asset) {
+        stopCardSound(asset.id);
+      } else if (!sfx && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   const addToast = (message: string, type?: string) => {
     const event = new CustomEvent('seihouse-toast', { detail: { message, type } });

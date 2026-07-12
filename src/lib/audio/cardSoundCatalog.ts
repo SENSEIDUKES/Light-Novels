@@ -1,4 +1,5 @@
 import { WorldCardEvent, WorldCardSoundRole } from '../../types';
+import { isDevBuild } from '../env';
 
 /**
  * Curated World Card sound catalog.
@@ -192,7 +193,7 @@ function reportUnresolved(card: WorldCardEvent, reason: 'unknown-role' | 'no-cat
   const key = `${card.entityType}:${card.audioType}:${card.entityName}`;
   if (!reportedUnresolved.has(key)) {
     reportedUnresolved.add(key);
-    if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
+    if (isDevBuild()) {
       console.info(`[card-sound] no curated asset for ${key} (${reason})`);
     }
   }

@@ -208,6 +208,18 @@ describe('WorldEntityCard', () => {
     window.removeEventListener('seihouse-toast', onToast);
   });
 
+  it('stops SFX playback when the card unmounts mid-play', async () => {
+    const { getByText, unmount } = render(<WorldEntityCard card={beastCard} />);
+    fireEvent.click(getByText('Tap to Listen'));
+    await waitFor(() => expect(getByText('Resonating...')).toBeDefined());
+    const element = MockAudio.instances[0];
+
+    unmount();
+    expect(element.pause).toHaveBeenCalled();
+    // Card SFX cleanup never reaches into speech synthesis.
+    expect(speechSynthesisMock.cancel).not.toHaveBeenCalled();
+  });
+
   it('uses speech synthesis (not the SFX catalog) for character quote cards', async () => {
     speechSynthesisMock.speak.mockImplementation((utterance: MockUtterance) => {
       utterance.onstart?.();
