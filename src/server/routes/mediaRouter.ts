@@ -46,18 +46,14 @@ mediaRouter.post("/api/test-image-gen", async (req, res) => {
     res.status(500).json({error: err.message});
   }
 });
-mediaRouter.post("/api/generate-cultivator-portrait", validateBody(generateCultivatorPortraitSchema), async (req, res) => {
+export const generateCultivatorPortrait = async (req: express.Request, res: express.Response) => {
   const { image, description, daoRank, daoXp, powerStage, equippedArtifact, routingConfig } = req.body;
   try {
-    if (!image) {
-      return res.status(400).json({ error: "Missing image parameter for portrait generation" });
-    }
-
     const customKeys = getCustomKeys(req);
     const apiKey = customKeys?.geminiApiKey || process.env.GEMINI_API_KEY;
     let refinedPrompt = "";
 
-    if (apiKey && apiKey !== "MY_GEMINI_API_KEY" && apiKey.trim() !== "") {
+    if (image && apiKey && apiKey !== "MY_GEMINI_API_KEY" && apiKey.trim() !== "") {
       try {
         let base64Data = image;
         let mimeType = "image/jpeg";
@@ -138,7 +134,8 @@ GENERAL CONSTRAINTS:
     logger.error({ err: error }, "Error generating cultivator portrait");
     return res.status(500).json({ error: error.message || "Celestial alignment interrupted." });
   }
-});
+};
+mediaRouter.post("/api/generate-cultivator-portrait", validateBody(generateCultivatorPortraitSchema), generateCultivatorPortrait);
 mediaRouter.post("/api/generate-audio", validateBody(generateAudioSchema), async (req, res) => {
   try {
     const { text, speakerVoice } = req.body;
