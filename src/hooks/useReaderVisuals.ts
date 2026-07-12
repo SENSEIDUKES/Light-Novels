@@ -4,6 +4,7 @@ import { useImageManifest } from './useImageManifest';
 import { Chapter, StoryWorld } from '../types';
 import { dispatchNarrativeCue, NarrativeCueEventType } from '../lib/narrativeCues';
 import { cinematicEffectGovernor } from '../lib/effects/cinematicEffectGovernor';
+import { isHighConfidenceAutoCue } from '../lib/audio/autoCuePolicy';
 
 export function useReaderVisuals({
   selectedChapter,
@@ -143,6 +144,12 @@ export function useReaderVisuals({
               // count / zone-spread / cooldown budget.
               if (type.startsWith("narrative.fx")) {
                 if (!immersion.audioCues) return;
+                // Only high-confidence canonical cues may spend governor
+                // budget; anything else (stale spans, legacy footsteps
+                // values) is suppressed before the request.
+                if (typeof parsedValue !== "string" || !isHighConfidenceAutoCue(parsedValue)) {
+                  return;
+                }
                 const blockIndexRaw = entry.target.getAttribute("data-cue-block-index");
                 const blockIndex = blockIndexRaw != null ? parseInt(blockIndexRaw, 10) : NaN;
                 const granted = cinematicEffectGovernor.requestAudioCue({
