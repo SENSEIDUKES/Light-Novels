@@ -136,4 +136,16 @@ describe('batch Fate lock', () => {
     expect(getFateLockMessage(completedStory, 4)).toBe('Fate may be altered after Chapter 5.');
     expect(getFateLockMessage(completedStory, 5)).toBeNull();
   });
+
+  it('permits a safe branch from persisted chapters after a paused or failed batch', () => {
+    const stoppedStory = makeStory(makeBatch({
+      status: 'failed',
+      completedChapterNumbers: [1, 2],
+      failedChapterNumber: 3,
+      error: 'Model unavailable',
+    }));
+
+    expect(getFateLockMessage(stoppedStory, 2)).toBeNull();
+    expect(getFateLockMessage(stoppedStory, 3)).toBe('Fate may be altered after Chapter 5.');
+  });
 });

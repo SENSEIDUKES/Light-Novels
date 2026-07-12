@@ -213,6 +213,9 @@ export const useArcSteering = () => {
       title: `[Fate Fork] ${activeStory.title}`,
       arcs: clonedArcs,
       bookmarks: clonedBookmarks,
+      // A fork has its own future. It must not inherit a paused or failed
+      // generation queue from the parent timeline.
+      chapterGenerationBatch: undefined,
       updatedAt: new Date().toISOString()
     };
 

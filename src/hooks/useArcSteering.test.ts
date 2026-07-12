@@ -176,6 +176,16 @@ describe('useArcSteering - Steering action processing', () => {
   });
 
   it('handleAlterFate forks story and steers successfully', async () => {
+    mockStore.stories[0].chapterGenerationBatch = {
+      id: 'parent-batch',
+      chapterNumbers: [1, 2, 3, 4, 5],
+      status: 'failed',
+      currentChapterNumber: 2,
+      completedChapterNumbers: [1],
+      failedChapterNumber: 2,
+      error: 'Model unavailable',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
     const { result } = renderHook(() => useArcSteering());
 
     (global.fetch as any).mockResolvedValue({
@@ -201,6 +211,7 @@ describe('useArcSteering - Steering action processing', () => {
     expect(forkedStories.length).toBe(2);
     expect(forkedStories[0].title).toBe('[Fate Fork] Original Title');
     expect(forkedStories[0].arcs[0].chapters[0]._isNewContent).toBe(true);
+    expect(forkedStories[0].chapterGenerationBatch).toBeUndefined();
     
     // Second save: adding the new arc
     const steeredStories = saveStoriesSpy.mock.calls[1][0];
