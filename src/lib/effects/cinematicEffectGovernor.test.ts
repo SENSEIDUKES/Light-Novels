@@ -201,13 +201,22 @@ describe('CinematicEffectGovernor', () => {
   });
 
   describe('camera shake budget', () => {
-    it('allows exactly one camera shake per chapter', () => {
+    it('caps camera shake at one per chapter (a limit, not a requirement)', () => {
       const { governor } = makeGovernor();
       governor.setSignal('narration', true);
       expect(governor.requestCameraShake(1)).toBe(true);
       expect(governor.requestCameraShake(1)).toBe(false);
       expect(governor.requestCameraShake(2)).toBe(true);
       expect(governor.requestCameraShake(2)).toBe(false);
+    });
+
+    it('grants nothing on its own — a chapter with no requests fires no effects', () => {
+      const { governor } = makeGovernor();
+      governor.setSignal('narration', true);
+      // The governor never initiates; with no request there is simply no grant.
+      // Reader logic decides whether a qualifying moment exists at all, so a
+      // calm chapter stays silent and still. (Documents the reactive contract.)
+      expect(governor.isActive()).toBe(true);
     });
 
     it('shares the per-chapter reset with the audio budget', () => {

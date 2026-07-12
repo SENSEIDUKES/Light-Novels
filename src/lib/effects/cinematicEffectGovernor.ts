@@ -17,6 +17,14 @@
  *   AUDIO_CUE_COOLDOWN_MS, deduplicated by cue id. At most
  *   MAX_CAMERA_SHAKES_PER_CHAPTER camera shakes per chapter.
  *
+ * These budgets are CEILINGS, not quotas. The governor is purely reactive: it
+ * only ever responds to a request the reader logic already decided to make
+ * (an SFX cue present in a block, an intensity threshold crossed). It never
+ * manufactures an effect, so a chapter with no qualifying moment plays no
+ * cues and no shake. A camera shake in particular should stay rare — the
+ * limit of one caps the intense moments that do occur, it does not require
+ * one to occur.
+ *
  * Deliberately OUT of scope (they have their own toggles and pacing):
  * atmosphere beds, the scene-score music engine (narrative.metadata.signature
  * consumers), and the rare death/critical-health chamber dimming.
