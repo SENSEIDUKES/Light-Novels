@@ -27,6 +27,7 @@ import { ReaderHeader } from "./ReaderHeader";
 import { ReaderViewport } from "./ReaderViewport";
 import { ReaderControls } from "./ReaderControls";
 import { useCinematicScroll } from "../hooks/useCinematicScroll";
+import { cinematicEffectGovernor } from "../lib/effects/cinematicEffectGovernor";
 import { useReadingPosition } from "../hooks/useReadingPosition";
 
 interface ReaderChamberProps {
@@ -421,7 +422,17 @@ export default function ReaderChamber({
 
   // --- Climax Screen Shake State ---
   const [isShaking, setIsShaking] = useState(false);
-  const chapterShakeRef = useRef<number | null>(null);
+
+  // The governor lazily resets when it sees a new chapter number, but chapter
+  // numbers collide across stories — reset explicitly on chapter/story change
+  // and clear the anchor when the chamber unmounts so no stale budget leaks
+  // into the next reader session.
+  useEffect(() => {
+    cinematicEffectGovernor.resetChapter(selectedChapterNum);
+    return () => {
+      cinematicEffectGovernor.resetChapter(null);
+    };
+  }, [selectedChapterNum, activeStory.id]);
 
   useEffect(() => {
     const handleCue = (e: any) => {
@@ -432,7 +443,7 @@ export default function ReaderChamber({
         if (!useAppStore.getState().immersion.imagePopups) return;
         const meta = cue.metadata || cue.value;
         if (meta) {
-          const isIntense = 
+          const isIntense =
             (meta.danger && meta.danger >= 0.8 && meta.intensity && meta.intensity >= 0.8) ||
             (meta.powerShift && meta.powerShift >= 0.8) ||
             (meta.tension && meta.tension >= 0.8) ||
@@ -444,8 +455,10 @@ export default function ReaderChamber({
             (meta.tension && meta.tension >= 8);
 
           if (isIntense || isIntenseScale10) {
-            if (chapterShakeRef.current !== selectedChapterNum) {
-              chapterShakeRef.current = selectedChapterNum;
+            // The effect governor only grants the shake in cinematic modes
+            // (TTS/listen or automated cinematic scroll) and at most once per
+            // chapter. Manual reading never shakes the chamber.
+            if (cinematicEffectGovernor.requestCameraShake(selectedChapterNum)) {
               setIsShaking(true);
               setTimeout(() => {
                 setIsShaking(false);

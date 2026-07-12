@@ -38,6 +38,14 @@ export interface NarrationEventDetail {
 }
 
 export function dispatchNarration(detail: NarrationEventDetail) {
+  // Narration lifecycle drives the effect governor's TTS/listen signal:
+  // one-shot audio cues and camera shake only run in cinematic modes.
+  if (detail.status === 'start' || detail.status === 'resume') {
+    cinematicEffectGovernor.setSignal('narration', true);
+  } else if (detail.status === 'pause' || detail.status === 'end') {
+    cinematicEffectGovernor.setSignal('narration', false);
+  }
+
   const event = new CustomEvent('seihouse-narration', { detail });
   window.dispatchEvent(event);
 }
@@ -56,3 +64,4 @@ export function dispatchNarrativeCue(cue: NarrativeCue) {
   window.dispatchEvent(event);
 }
 import type { NarrationProgress } from './narration/progress';
+import { cinematicEffectGovernor } from './effects/cinematicEffectGovernor';
