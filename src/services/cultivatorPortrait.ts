@@ -6,7 +6,7 @@ export interface CultivatorPortraitRequest {
   daoRank?: string;
   daoXp?: number;
   powerStage?: string;
-  equippedArtifact?: Pick<CosmicArtifact, 'id' | 'name' | 'description' | 'rarity'> | null;
+  equippedArtifact?: Pick<CosmicArtifact, 'id' | 'name' | 'description' | 'rarity'>;
   routingConfig?: unknown;
 }
 

@@ -185,7 +185,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
           name: equippedArtifact.name,
           description: equippedArtifact.description,
           rarity: equippedArtifact.rarity
-        } : null,
+        } : undefined,
         routingConfig,
       }, apiHeaders);
 

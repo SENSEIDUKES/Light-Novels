@@ -42,7 +42,10 @@ describe('cultivator portrait route', () => {
       },
       header: vi.fn(),
     } as any;
-    const res = { json } as any;
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json,
+    } as any;
 
     await generateCultivatorPortrait(req, res);
 
