@@ -546,6 +546,12 @@ export function useReaderPlayback({
     // Chapter change: stopAllPlayback dispatches narration 'end', which is the
     // canonical signal that returns the cinematic scroll state machine to idle.
     stopAllPlayback();
+    // Unmount (leaving the reader chamber) must also stop playback — otherwise
+    // TTS/audio keeps speaking in the background and the effect governor's
+    // narration signal stays raised with no narration on screen.
+    return () => {
+      stopAllPlayback();
+    };
   }, [selectedChapter?.number]);
 
   // Keep live refs to the latest toggle handler and autoplay flag so the

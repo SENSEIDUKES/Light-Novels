@@ -161,6 +161,45 @@ describe('CinematicEffectGovernor', () => {
     });
   });
 
+  describe('per-chapter (not per-session) semantics', () => {
+    it('does not re-grant budget when narration restarts on the same chapter', () => {
+      const { governor, advance } = makeGovernor();
+      governor.setSignal('narration', true);
+      expect(governor.requestAudioCue(cue('a', 5))).toBe(true);
+      expect(governor.requestCameraShake(1)).toBe(true);
+
+      // Stop and restart listening on the same chapter.
+      governor.setSignal('narration', false);
+      governor.setSignal('narration', true);
+      advance(AUDIO_CUE_COOLDOWN_MS + 1);
+
+      expect(governor.requestAudioCue(cue('a', 5))).toBe(false); // same id stays deduped
+      expect(governor.requestCameraShake(1)).toBe(false); // shake budget stays spent
+    });
+
+    it('resetBudget clears budgets without re-anchoring the chapter', () => {
+      const { governor } = makeGovernor();
+      governor.setSignal('narration', true);
+      expect(governor.requestAudioCue(cue('a', 5))).toBe(true);
+      expect(governor.requestCameraShake(1)).toBe(true);
+
+      governor.resetBudget();
+      expect(governor.requestAudioCue(cue('a', 5))).toBe(true);
+      expect(governor.requestCameraShake(1)).toBe(true);
+    });
+
+    it('resetChapter(null) clears everything for the next reader session', () => {
+      const { governor } = makeGovernor();
+      governor.setSignal('narration', true);
+      expect(governor.requestCameraShake(7)).toBe(true);
+
+      governor.resetChapter(null);
+      // Re-entering the same chapter number (e.g. a different story) gets a
+      // fresh budget instead of inheriting the previous session's.
+      expect(governor.requestCameraShake(7)).toBe(true);
+    });
+  });
+
   describe('camera shake budget', () => {
     it('allows exactly one camera shake per chapter', () => {
       const { governor } = makeGovernor();

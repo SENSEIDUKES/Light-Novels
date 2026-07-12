@@ -423,6 +423,17 @@ export default function ReaderChamber({
   // --- Climax Screen Shake State ---
   const [isShaking, setIsShaking] = useState(false);
 
+  // The governor lazily resets when it sees a new chapter number, but chapter
+  // numbers collide across stories — reset explicitly on chapter/story change
+  // and clear the anchor when the chamber unmounts so no stale budget leaks
+  // into the next reader session.
+  useEffect(() => {
+    cinematicEffectGovernor.resetChapter(selectedChapterNum);
+    return () => {
+      cinematicEffectGovernor.resetChapter(null);
+    };
+  }, [selectedChapterNum, activeStory.id]);
+
   useEffect(() => {
     const handleCue = (e: any) => {
       const cue = e.detail;

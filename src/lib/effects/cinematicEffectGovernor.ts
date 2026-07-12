@@ -93,6 +93,15 @@ export class CinematicEffectGovernor {
   /** Clears all per-chapter budgets and re-anchors to the given chapter. */
   resetChapter(chapterNumber: number | null) {
     this.chapterNumber = chapterNumber;
+    this.resetBudget();
+  }
+
+  /**
+   * Clears the current chapter's budgets without re-anchoring. Budgets are
+   * deliberately per CHAPTER, not per narration session — restarting playback
+   * on the same chapter does not re-grant cues or the camera shake.
+   */
+  resetBudget() {
     this.grantedCueIds.clear();
     this.cuesGranted = 0;
     this.zonesUsed.clear();
