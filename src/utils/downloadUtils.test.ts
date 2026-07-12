@@ -41,4 +41,18 @@ describe('handleDownload', () => {
     });
     expect(link.click).toHaveBeenCalledOnce();
   });
+
+  it('allows relative download URLs', async () => {
+    const link = { href: '', download: '', target: '', click: vi.fn() } as any;
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+    vi.spyOn(document, 'createElement').mockReturnValue(link);
+    vi.spyOn(document.body, 'appendChild').mockImplementation(() => link);
+    vi.spyOn(document.body, 'removeChild').mockImplementation(() => link);
+
+    await handleDownload('/downloads/chapter.mp3', 'chapter.mp3');
+
+    expect(fetch).toHaveBeenCalledWith('/downloads/chapter.mp3', { mode: 'cors' });
+    expect(link.href).toBe('/downloads/chapter.mp3');
+    expect(link.click).toHaveBeenCalledOnce();
+  });
 });

@@ -1,6 +1,6 @@
 export const handleDownload = async (url: string, filename: string) => {
   try {
-    const parsedUrl = new URL(url);
+    const parsedUrl = new URL(url, window.location.origin);
     if (!['http:', 'https:', 'blob:', 'data:'].includes(parsedUrl.protocol)) {
       throw new Error('Invalid URL protocol for download');
     }
