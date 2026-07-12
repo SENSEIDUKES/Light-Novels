@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { rankRelevantEntities, filterRelevantEntities, isValidOllamaHost } from './helpers';
+import { rankRelevantEntities, filterRelevantEntities, isValidOllamaHost, truncateContextIfNeeded } from './helpers';
 
 describe('Server Helpers', () => {
   describe('rankRelevantEntities', () => {
@@ -109,6 +109,25 @@ describe('Server Helpers', () => {
       expect(cleaned.memoryUpdates.newMCAbilities[0].name).toBe('Fireball');
       expect(Array.isArray(cleaned.memoryUpdates.mcAbilityUpdates)).toBe(true);
       expect(cleaned.memoryUpdates.mcAbilityUpdates[0].name).toBe('Fireball');
+    });
+  });
+
+  describe('truncateContextIfNeeded', () => {
+    it('preserves the MC ability ledger in serialized story memory', () => {
+      const abilities = [
+        'Nine Star Fist',
+        {
+          id: 'ability-2',
+          name: 'Void Step',
+          description: 'Crosses a short distance through folded space.',
+          masteryLevel: 'Novice',
+          limits: 'Once per encounter'
+        }
+      ];
+
+      const { memoryJsonStr } = truncateContextIfNeeded({ abilities }, [], 80000);
+
+      expect(JSON.parse(memoryJsonStr).abilities).toEqual(abilities);
     });
   });
 
