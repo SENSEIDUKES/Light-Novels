@@ -133,7 +133,7 @@ describe('ReaderViewport', () => {
 
   it('renders generated prose and wires navigation and reader gestures', () => {
     const props = makeProps();
-    const { container } = render(<ReaderViewport {...props} />);
+    render(<ReaderViewport {...props} />);
 
     expect(screen.getByText('First paragraph.')).toBeDefined();
     expect(screen.getByText('Second paragraph.')).toBeDefined();
@@ -143,7 +143,8 @@ describe('ReaderViewport', () => {
     expect(props.navigatePrev).toHaveBeenCalledTimes(1);
     expect(props.navigateNext).toHaveBeenCalledTimes(1);
 
-    const viewport = container.firstElementChild as HTMLElement;
+    const viewport = props.readerRef.current;
+    expect(viewport).toBeTruthy();
     fireEvent.touchStart(viewport);
     fireEvent.touchMove(viewport);
     fireEvent.touchEnd(viewport);
@@ -152,7 +153,7 @@ describe('ReaderViewport', () => {
     expect(props.handleTouchEnd).toHaveBeenCalledTimes(1);
   });
 
-  it('saves an edited bookmark for generated prose', () => {
+  it('wires bookmark editing callbacks for generated prose', () => {
     const props = makeProps({
       activeBookmarks: [{
         id: 'bookmark-1',
@@ -173,6 +174,8 @@ describe('ReaderViewport', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save bookmark' }));
 
     expect(props.setBookmarkNoteText).toHaveBeenCalledWith('New note');
+    // setBookmarkNoteText is mocked, so bookmarkNoteText stays 'Updated note'.
+    // This verifies Save passes the current prop value to the callback.
     expect(props.handleSaveBookmark).toHaveBeenCalledWith(0, 'First paragraph.', 'Updated note');
   });
 

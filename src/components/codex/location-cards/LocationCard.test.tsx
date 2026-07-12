@@ -85,6 +85,6 @@ describe('LocationCard', () => {
     expect(screen.getByText('LANDSCAPE GEOLOCK EMPTY')).toBeDefined();
     expect(screen.getByText('Lethal')).toBeDefined();
     expect(screen.getByText('Locked')).toBeDefined();
-    expect(screen.getByTitle("Must read further into the matrix before entity's visual aura can be captured")).toBeDefined();
+    expect(screen.getByTitle('Requires further reading to manifest')).toBeDefined();
   });
 });
