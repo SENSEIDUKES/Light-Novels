@@ -1,4 +1,5 @@
 import { Story } from '../types';
+import { generateId } from '../lib/id';
 
 export const INITIAL_DEMO_STORIES: Story[] = [
   {
@@ -582,8 +583,7 @@ export const INITIAL_DEMO_STORIES: Story[] = [
 export function getRandomDemoStory(): Story {
   const index = Math.floor(Math.random() * INITIAL_DEMO_STORIES.length);
   const template = INITIAL_DEMO_STORIES[index];
-  const randomSuffix = Math.floor(100000 + Math.random() * 900000).toString();
-  const randomizedId = `demo-matrix-random-${randomSuffix}`;
+  const randomizedId = `demo-matrix-random-${generateId(6)}`;
   return {
     ...template,
     id: randomizedId,
