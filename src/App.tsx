@@ -118,6 +118,13 @@ function App() {
         if (parsed && parsed.isGenerating && Date.now() - parsed.timestamp < 10 * 60 * 1000) {
           const activeStory = state.stories.find(s => s.id === parsed.activeStoryId);
           if (activeStory) {
+            const batch = activeStory.chapterGenerationBatch;
+            if (batch && (batch.status === 'queued' || batch.status === 'generating' || batch.status === 'paused')) {
+              // Batch recovery is driven by its persisted checkpoint, never the
+              // legacy single-chapter recovery modal.
+              localStorage.removeItem('seihouse_active_generation');
+              return;
+            }
             if (parsed.generationPhase === 'chapter' && parsed.generatingChapterNum) {
               store_setDraftRecoverySession(parsed);
             }
@@ -131,6 +138,30 @@ function App() {
     }
     // We only want to run this once after initialization completes
   }, [isInitializing, store_setDraftRecoverySession]);
+
+  // A browser reload cannot keep a model request alive. Convert any persisted
+  // in-flight batch to an explicit paused state so the user can safely resume
+  // only the chapters that were not already committed.
+  useEffect(() => {
+    if (isInitializing) return;
+    const state = useAppStore.getState();
+    const pausedStories = state.stories.map(story => {
+      const batch = story.chapterGenerationBatch;
+      if (!batch || (batch.status !== 'queued' && batch.status !== 'generating')) return story;
+      return {
+        ...story,
+        chapterGenerationBatch: {
+          ...batch,
+          status: 'paused' as const,
+          currentChapterNumber: null,
+          error: 'Generation was paused because the browser session ended.',
+        },
+      };
+    });
+    if (pausedStories.some((story, index) => story !== state.stories[index])) {
+      state.saveStories(pausedStories).catch(error => console.error('Failed to pause interrupted chapter batch:', error));
+    }
+  }, [isInitializing]);
 
   // Initialize Data Persistence
   useEffect(() => {
@@ -378,6 +409,7 @@ function App() {
             >
                <ReaderScreen 
                   handleGenerateChapter={storyEngine.handleGenerateChapter}
+                  handleGenerateNextFiveChapters={storyEngine.handleGenerateNextFiveChapters}
                   handleToggleRead={storyEngine.handleToggleRead}
                   handleSteerArc={storyEngine.handleSteerArc}
                   handleUpdateStoryDirect={storyEngine.handleUpdateStoryDirect}

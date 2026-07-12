@@ -320,15 +320,39 @@ export function LivingCodexCollage({
     });
   }, [activeStory, characterMap, locationMap, artifactMap, safeFormatDate]);
 
-  // Filter memories
+  const { scenesCount, entitiesCount } = useMemo(() => {
+    let sCount = 0;
+    let eCount = 0;
+
+    for (const m of memories) {
+      const isScene = m.type === 'scene';
+
+      if (isScene) sCount++;
+      else eCount++;
+    }
+
+    return {
+      scenesCount: sCount,
+      entitiesCount: eCount
+    };
+  }, [memories]);
+
   const filteredMemories = useMemo(() => {
-    if (filter === 'scenes') {
-      return memories.filter((m) => m.type === 'scene');
+    const filtered: VisualMemory[] = [];
+
+    for (const m of memories) {
+      const isScene = m.type === 'scene';
+
+      if (filter === 'scenes' && isScene) {
+        filtered.push(m);
+      } else if (filter === 'entities' && !isScene) {
+        filtered.push(m);
+      } else if (filter !== 'scenes' && filter !== 'entities') {
+        filtered.push(m);
+      }
     }
-    if (filter === 'entities') {
-      return memories.filter((m) => m.type !== 'scene');
-    }
-    return memories;
+
+    return filtered;
   }, [memories, filter]);
 
   const handleOpenLightbox = useCallback((memoryItem: VisualMemory) => {
@@ -380,7 +404,7 @@ export function LivingCodexCollage({
                 : 'bg-transparent border-neutral-900 text-neutral-500 hover:border-neutral-800 hover:text-neutral-300'
             }`}
           >
-            Scene Cruxes ({memories.filter(m => m.type === 'scene').length})
+            Scene Cruxes ({scenesCount})
           </button>
           <button
              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setFilter('entities')}
@@ -390,7 +414,7 @@ export function LivingCodexCollage({
                 : 'bg-transparent border-neutral-900 text-neutral-500 hover:border-neutral-800 hover:text-neutral-300'
             }`}
           >
-            Aura Portraits ({memories.filter(m => m.type !== 'scene').length})
+            Aura Portraits ({entitiesCount})
           </button>
         </div>
       </div>

@@ -38,6 +38,7 @@ describe('ReaderChamber', () => {
         selectedChapterNum={1} 
         setSelectedChapterNum={vi.fn()} 
         onGenerateChapter={vi.fn()} 
+        onGenerateNextFiveChapters={vi.fn()}
         isGenerating={false}
         onToggleRead={vi.fn()}
         arcTitle="First Arc"

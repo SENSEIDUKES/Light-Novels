@@ -50,6 +50,61 @@ describe('Prompts', () => {
     expect(rendered).toContain('farming, cozy');
   });
   
+  describe('cross-genre system panels', () => {
+    it('offers Celestial Library system panels to every genre in the streamed system prompt', () => {
+      expect(PROMPTS.chapter.system).toContain('CELESTIAL LIBRARY SYSTEM PANELS (ALL GENRES)');
+      expect(PROMPTS.chapter.system).toContain('not just System/LitRPG stories');
+      expect(PROMPTS.chapter.system).not.toContain('In non-System/LitRPG stories, prefer natural prose');
+    });
+
+    it('offers Celestial Library system panels to every genre in the non-streamed system prompt', () => {
+      expect(PROMPTS.chapter.nonStreamSystem).toContain('CELESTIAL LIBRARY SYSTEM PANELS (ALL GENRES)');
+      expect(PROMPTS.chapter.nonStreamSystem).toContain('not just System/LitRPG stories');
+      expect(PROMPTS.chapter.nonStreamSystem).not.toContain('In non-System/LitRPG stories, prefer natural prose');
+    });
+
+    it('keeps genre-aware intensity guidance in both generation paths', () => {
+      for (const prompt of [PROMPTS.chapter.system, PROMPTS.chapter.nonStreamSystem]) {
+        expect(prompt).toContain('Explicit System/LitRPG stories: panels may be frequent and openly mechanical');
+        expect(prompt).toContain('Cultivation, fantasy, progression, academy, crafting, beast-taming');
+        expect(prompt).toContain('Romance, mystery, cozy, political, and grounded stories: rare panels');
+        expect(prompt).toContain('Do not force a panel into every chapter');
+        expect(prompt).toContain('never restricted to Fate events alone');
+      }
+    });
+
+    it('preserves PR #90 narrative surface hygiene in both generation paths', () => {
+      for (const prompt of [PROMPTS.chapter.system, PROMPTS.chapter.nonStreamSystem]) {
+        expect(prompt).toContain('NARRATIVE SURFACE HYGIENE');
+        expect(prompt).toContain('control signals only');
+        expect(prompt).toContain('must not appear verbatim in normal narration or dialogue');
+      }
+      expect(PROMPTS.chapter.system).toContain('never put bracketed alerts inside paragraph or dialogue text');
+      expect(PROMPTS.chapter.nonStreamSystem).toContain('never embed bracketed alerts or control labels inside narration or dialogue sentences');
+    });
+
+    it('requires promptType on structured system objects and includes it in the NDJSON example', () => {
+      expect(PROMPTS.chapter.system).toContain('ALWAYS set "promptType"');
+      expect(PROMPTS.chapter.system).toContain('"promptType": "breakthrough"');
+    });
+
+    it('instructs the streamed user prompt to allow panels in every genre', () => {
+      const rendered = PROMPTS.chapter.userPrompt(1, 'T', 'P', 'MC', 'Cultivation', 'CP', '{}', '[]', true);
+      expect(rendered).toContain('available in EVERY genre');
+      expect(rendered).toContain('structured "system" object');
+      expect(rendered).toContain('never force an empty panel');
+      expect(rendered).not.toContain('For "System" or "LitRPG" styles');
+    });
+
+    it('instructs the non-streamed user prompt to allow standalone bracketed panels in every genre', () => {
+      const rendered = PROMPTS.chapter.userPrompt(1, 'T', 'P', 'MC', 'Cozy mystery', 'CP', '{}', '[]', false);
+      expect(rendered).toContain('available in EVERY genre');
+      expect(rendered).toContain('standalone bracketed system line');
+      expect(rendered).toContain('never force an empty panel');
+      expect(rendered).not.toContain('keep system events in natural prose');
+    });
+  });
+
   it('should have a glossary prompt', () => {
     expect(PROMPTS.glossary).toBeDefined();
     expect(PROMPTS.glossary.system).toBeDefined();

@@ -20,6 +20,7 @@ import {
   lerp,
 } from '../lib/cinematicScroll/springController';
 import { NarrationEventDetail } from '../lib/narrativeCues';
+import { cinematicEffectGovernor } from '../lib/effects/cinematicEffectGovernor';
 
 /**
  * If a document `scroll` event lands further than this from the position the
@@ -259,6 +260,12 @@ export function useCinematicScroll(
       setState(nextState);
       onStateChangeRef.current?.(nextState);
 
+      // Automated cinematic scroll is a cinematic mode of its own: it raises
+      // the governor signal that permits one-shot audio cues and camera shake.
+      // A future cinematic-scroll mode without TTS activates the same way —
+      // by entering `following` — and needs no extra wiring.
+      cinematicEffectGovernor.setSignal('cinematic-scroll', nextState === 'following');
+
       if (nextState === 'following') {
         // (Re)entering following: sync the spring to the live scroll offset
         // and refresh segment geometry — the user may have moved the page.
@@ -450,6 +457,10 @@ export function useCinematicScroll(
 
   // --- Unmount cleanup -------------------------------------------------------------
   useEffect(() => stopLoop, [stopLoop]);
+  useEffect(
+    () => () => cinematicEffectGovernor.setSignal('cinematic-scroll', false),
+    [],
+  );
 
   return useMemo(
     () => ({ state, resume, intervene }),

@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { Skull, AlertTriangle } from 'lucide-react';
 import { SystemEvent } from '../types';
 import { FateResultCard } from './FateResultCard';
-import { getSystemPromptColor, getSystemColorMeaning, SystemColorMeaning } from '../lib/systemColors';
+import { getSystemPromptColor, getSystemColorMeaning, buildSystemContext } from '../lib/systemColors';
 export { SYSTEM_COLORS_LEGEND } from '../lib/systemColors';
 
 interface SystemBlockProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -32,17 +32,20 @@ export const SystemBlock = React.memo(function SystemBlock({ content, system, cl
       );
     }
 
-    let colorStyles = getSystemPromptColor(system.promptType, system.title + ' ' + (system.kind || ''));
-    const meaning = getSystemColorMeaning(system.promptType, system.title + ' ' + (system.kind || ''));
+    // Semantic inference context: title, row labels/values, and visible content.
+    const inferenceContext = buildSystemContext(system, content);
+    let colorStyles = getSystemPromptColor(system.promptType, inferenceContext);
+    const meaning = getSystemColorMeaning(system.promptType, inferenceContext);
 
-    // Apply old mapping for backwards compatibility if promptType is missing and it hit neutral
-    if (!system.promptType && colorStyles.includes('gray')) {
+    // Legacy chapters saved before promptType existed: keep their original kind
+    // palette when semantic inference found nothing better than gray. Truly
+    // unknown events stay on the intentional neutral/gray style.
+    if (!system.promptType && (meaning.type === 'neutral' || meaning.type === 'other')) {
       const kind = system.kind;
       if (kind === 'level_up') colorStyles = 'border-amber-400/50 text-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.15)] bg-amber-400/10';
       else if (kind === 'skill_acquired') colorStyles = 'border-[#00ffff]/40 text-[#00ffff] shadow-[0_0_15px_rgba(0,255,255,0.15)] bg-[#00ffff]/10';
       else if (kind === 'quest') colorStyles = 'border-violet-500/40 text-violet-400 shadow-[0_0_15px_rgba(139,92,246,0.15)] bg-violet-500/10';
       else if (kind === 'appraisal') colorStyles = 'border-yellow-300/40 text-yellow-300 shadow-[0_0_15px_rgba(253,224,71,0.15)] bg-yellow-300/10';
-      else colorStyles = 'border-portal/30 text-portal shadow-[0_0_15px_rgba(4,172,255,0.1)] bg-portal/10'; // default status
     }
 
     if (isDeathFlag) {

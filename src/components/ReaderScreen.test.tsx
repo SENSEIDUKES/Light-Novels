@@ -45,6 +45,7 @@ describe('ReaderScreen', () => {
         handleSteerArc={vi.fn()}
         handleAlterFate={vi.fn()}
         handleGenerateChapter={vi.fn()}
+        handleGenerateNextFiveChapters={vi.fn()}
         handleToggleRead={vi.fn()}
         handleUpdateStoryDirect={vi.fn()}
         setIsCodexSheetOpen={vi.fn()}

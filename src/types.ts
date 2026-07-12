@@ -384,6 +384,56 @@ export interface SystemEvent {
   fateResult?: FateResultData;
 }
 
+/**
+ * Intentional sound roles a World Card can carry. Character quotes stay on
+ * the separate "tts_line" audioType — spoken lines are never SFX assets.
+ */
+export type WorldCardSoundRole =
+  // Beast
+  | "roar"
+  | "call"
+  | "hiss"
+  | "howl"
+  | "screech"
+  | "wingbeat"
+  // Weapon
+  | "unsheathe"
+  | "metallic_ring"
+  | "swing"
+  | "impact"
+  | "activation_hum"
+  // Artifact / relic
+  | "resonance"
+  | "awakening"
+  | "pulse"
+  | "magical_activation"
+  // Location
+  | "ambience"
+  | "signature"
+  // Faction / ritual
+  | "chant"
+  | "horn"
+  | "bell"
+  | "ceremony"
+  // System
+  | "chime";
+
+/**
+ * Optional semantic hints for curated sound resolution. All fields reuse
+ * vocabulary that already exists elsewhere in the model (BeastSonicProfile
+ * sizes/tiers, element names) so generation doesn't need a new taxonomy.
+ */
+export interface WorldCardSoundHints {
+  /** Pin a specific curated catalog entry, bypassing semantic matching. */
+  assetId?: string;
+  element?: string;
+  size?: BeastSonicProfile["size"];
+  threatTier?: BeastSonicProfile["threatTier"];
+  weaponType?: string;
+  artifactCategory?: string;
+  tags?: string[];
+}
+
 export interface WorldCardEvent {
   id?: string;
   entityType:
@@ -399,7 +449,8 @@ export interface WorldCardEvent {
   imageUrl?: string;
   quote?: string;
   audioText?: string;
-  audioType: "tts_line" | "roar" | "ambience" | "chime";
+  audioType: "tts_line" | WorldCardSoundRole;
+  sound?: WorldCardSoundHints;
   voicePreset?: string;
   codexEntryId?: string;
 }
@@ -512,6 +563,18 @@ export interface StoryArc {
   isCompleted: boolean;
   summary?: string;
   episodicSummaries?: string[];
+}
+
+export interface ChapterGenerationBatch {
+  id: string;
+  chapterNumbers: number[];
+  status: 'queued' | 'generating' | 'paused' | 'completed' | 'failed';
+  currentChapterNumber: number | null;
+  completedChapterNumbers: number[];
+  failedChapterNumber?: number;
+  error?: string;
+  createdAt: string;
+  completedAt?: string;
 }
 
 export interface ReaderPreferences {
@@ -708,6 +771,8 @@ export interface StoryWorld {
   };
   lastReadAt?: string;
   conflictResolvedAt?: string;
+  /** Persisted lifecycle for a sequential five-chapter manifestation run. */
+  chapterGenerationBatch?: ChapterGenerationBatch;
 }
 
 export interface Bookmark {

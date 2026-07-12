@@ -10,6 +10,25 @@ import { auth } from '../lib/firebase';
 
 import { INITIAL_DEMO_STORIES } from '../store/demoStories';
 
+function getStoryChapterStats(story?: Story | null) {
+  let totalChapters = 0;
+  let readChapters = 0;
+  let generated = 0;
+
+  const arcs = Array.isArray(story?.arcs) ? story.arcs : [];
+  for (const arc of arcs) {
+    const chapters = Array.isArray(arc?.chapters) ? arc.chapters : [];
+    for (const chapter of chapters) {
+      if (!chapter) continue;
+      totalChapters++;
+      if (chapter.status === 'read') readChapters++;
+      if (chapter.hasContent || !!chapter.generatedContent) generated++;
+    }
+  }
+
+  return { totalChapters, readChapters, generated };
+}
+
 const HERO_VIDEOS = [
   "https://video.seihouse.org/LIGHT%20NOVEL/LIGHT_NOVEL_INTRO.mp4",
   "https://video.seihouse.org/LIGHT%20NOVEL/LIGHT_NOVEL_INTRO2.mp4"
@@ -36,11 +55,12 @@ const PUBLISHED_WORLDS: any[] = INITIAL_DEMO_STORIES.map(story => {
     reads = 6250;
     createdAt = new Date(Date.now() - 12 * 3600 * 1000).toISOString(); // 12 hours ago
   }
+  const { totalChapters } = getStoryChapterStats(story);
   return {
     ...story,
     reads,
     createdAt,
-    chapterCount: story.arcs.reduce((sum, a) => sum + a.chapters.length, 0),
+    chapterCount: totalChapters,
     powerStage: story.memory.currentPowerStage,
   };
 });
@@ -315,8 +335,7 @@ export const LibraryScreen: React.FC = () => {
                 </div>
                 
                 {(() => {
-                  const totalChapters = mostRecentStory.arcs.reduce((sum, a) => sum + a.chapters.length, 0);
-                  const readChapters = mostRecentStory.arcs.reduce((sum, a) => sum + a.chapters.filter(c => c.status === 'read').length, 0);
+                  const { totalChapters, readChapters } = getStoryChapterStats(mostRecentStory);
                   const progressPercent = totalChapters > 0 ? Math.round((readChapters / totalChapters) * 100) : 0;
                   return (
                     <div className="space-y-1.5">
@@ -363,8 +382,8 @@ export const LibraryScreen: React.FC = () => {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6">
               {stories.map((story) => {
-                const totalChapters = story.arcs.reduce((sum, a) => sum + a.chapters.length, 0);
-                const generated = story.arcs.reduce((sum, a) => sum + a.chapters.filter(c => c.hasContent || !!c.generatedContent).length, 0);
+                const { totalChapters, readChapters, generated } = getStoryChapterStats(story);
+                const progressPercent = totalChapters > 0 ? Math.round((readChapters / totalChapters) * 100) : 0;
                 
                 return (
                   <div
@@ -457,22 +476,16 @@ export const LibraryScreen: React.FC = () => {
                       <p className="text-[10px] text-neutral-500 font-sans truncate mt-1">
                         MC: {story.mcName} • {story.memory.currentPowerStage}
                       </p>
-                      
-                      {(() => {
-                        const readChapters = story.arcs.reduce((sum, a) => sum + a.chapters.filter(c => c.status === 'read').length, 0);
-                        const progressPercent = totalChapters > 0 ? Math.round((readChapters / totalChapters) * 100) : 0;
-                        return (
-                          <div className="pt-1">
-                            <div className="flex justify-between items-center text-[9px] uppercase font-mono tracking-widest text-neutral-500 mb-1">
-                              <span>Read {readChapters} / {totalChapters}</span>
-                              <span>{progressPercent}%</span>
-                            </div>
-                            <div className="w-full bg-void h-1 rounded-full overflow-hidden border border-neutral-800">
-                              <div className="bg-portal h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%` }}></div>
-                            </div>
-                          </div>
-                        );
-                      })()}
+
+                      <div className="pt-1">
+                        <div className="flex justify-between items-center text-[9px] uppercase font-mono tracking-widest text-neutral-500 mb-1">
+                          <span>Read {readChapters} / {totalChapters}</span>
+                          <span>{progressPercent}%</span>
+                        </div>
+                        <div className="w-full bg-void h-1 rounded-full overflow-hidden border border-neutral-800">
+                          <div className="bg-portal h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%` }}></div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );

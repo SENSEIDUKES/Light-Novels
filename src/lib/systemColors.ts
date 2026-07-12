@@ -172,12 +172,50 @@ export const SYSTEM_COLORS_LEGEND: SystemColorMeaning[] = [
   }
 ];
 
+// Backwards and alternative type aliases produced by older saves or model drift.
+const SYSTEM_TYPE_ALIASES: Record<string, string> = {
+  friendly_scan: 'codex_update',
+  quest_update: 'codex_update',
+  ally_scan: 'codex_update',
+  enemy_scan: 'critical_danger',
+  danger: 'critical_danger',
+  death_event: 'corruption',
+  death_flag: 'corruption',
+  fate_event: 'mystery',
+  fate: 'mystery',
+  prophecy: 'mystery',
+  revelation: 'mystery',
+  karmic_bond: 'romance',
+  bond: 'romance',
+  relationship: 'romance',
+  level_up: 'breakthrough',
+  levelup: 'breakthrough',
+  skill_acquired: 'progression',
+  technique_learned: 'progression',
+  ability_gained: 'progression',
+  achievement: 'reward',
+  loot: 'reward',
+  error: 'system_error',
+  glitch: 'system_error',
+  karma: 'choice_consequence',
+  consequence: 'choice_consequence',
+  tribulation: 'heavenly_tribulation',
+};
+
+export function normalizeSystemType(type?: string): string | undefined {
+  // Parsed from LLM-generated JSON: promptType may arrive as a non-string.
+  if (typeof type !== 'string' || !type) return undefined;
+  const key = type.trim().toLowerCase();
+  return SYSTEM_TYPE_ALIASES[key] ?? key;
+}
+
 export function getSystemInferredType(context?: string): string {
   if (!context) return "other";
 
   const lowerContext = context.toLowerCase();
-  
-  // Check combinations/multi-matches first
+
+  // Check combinations/multi-matches first so specific combined meanings beat
+  // broad single words such as "gain", "update", "record", "death", or "fate".
   if (lowerContext.includes("combat") && lowerContext.includes("artifact")) return "combat_artifact";
   if (lowerContext.includes("combat") && lowerContext.includes("breakthrough")) return "combat_breakthrough";
   if (["tribulation", "divine trial"].some(t => lowerContext.includes(t))) return "heavenly_tribulation";
@@ -197,45 +235,56 @@ export function getSystemInferredType(context?: string): string {
   if (["breakthrough", "evolution", "level up", "level-up", "ascension", "legendary", "awakening"].some(t => lowerContext.includes(t))) {
     return "breakthrough";
   }
-  if (["loot", "qi gain", "achievement", "reward", "gain"].some(t => lowerContext.includes(t))) {
-    return "reward";
-  }
+  // Bonds/relationships before generic reward words so "soul bond gained" reads as romance.
   if (["romance", "bond", "affection", "karmic affinity", "relationship"].some(t => lowerContext.includes(t))) {
     return "romance";
+  }
+  if (["loot", "qi gain", "achievement", "reward", "artifact", "treasure", "gain"].some(t => lowerContext.includes(t))) {
+    return "reward";
   }
   if (["warning", "risk", "instability", "pressure"].some(t => lowerContext.includes(t))) {
     return "warning";
   }
-  if (["fate lock", "fate event", "mystery", "fate", "unknown", "prophecy", "truth"].some(t => lowerContext.includes(t))) {
+  if (["fate lock", "fate event", "mystery", "revelation", "fate", "unknown", "prophecy", "truth"].some(t => lowerContext.includes(t))) {
     return "mystery";
   }
-  if (["friendly", "update", "quest", "info", "codex", "scan", "record"].some(t => lowerContext.includes(t))) {
+  if (["friendly", "update", "quest", "info", "codex", "scan", "record", "discover"].some(t => lowerContext.includes(t))) {
     return "codex_update";
   }
-  if (["progress", "stable", "growth", "training"].some(t => lowerContext.includes(t))) {
+  if (["progress", "stable", "growth", "training", "technique", "skill", "learned", "mastered", "comprehension", "insight"].some(t => lowerContext.includes(t))) {
     return "progression";
   }
-  
+
   return "other";
 }
 
-export function getSystemColorMeaning(promptType?: string, context?: string): SystemColorMeaning {
-  let type = promptType || getSystemInferredType(context);
-  
-  // Backwards and alternative type aliases mapping
-  if (type === 'friendly_scan' || type === 'quest_update') {
-    type = 'codex_update';
-  } else if (type === 'enemy_scan') {
-    type = 'critical_danger';
-  } else if (type === 'death_event') {
-    type = 'corruption';
-  } else if (type === 'fate_event') {
-    type = 'mystery';
-  } else if (type === 'karmic_bond') {
-    type = 'romance';
-  }
+export interface SystemContextSource {
+  title?: string;
+  rows?: Array<{ label?: string; value?: string }>;
+}
 
-  const match = SYSTEM_COLORS_LEGEND.find(m => m.type === type);
+// Flattens the searchable text of a structured system event (title, row
+// labels/values, visible content) for semantic color inference.
+export function buildSystemContext(system?: SystemContextSource, content?: string): string {
+  // Parsed from LLM-generated JSON: rows may arrive as a non-array.
+  const rawRows = system?.rows;
+  const rows = Array.isArray(rawRows) ? rawRows : [];
+  const rowText = rows
+    .map(r => `${r?.label ?? ''} ${r?.value ?? ''}`.trim())
+    .join(' ');
+  return [system?.title, rowText, content].filter(Boolean).join(' ').trim();
+}
+
+export function getSystemColorMeaning(promptType?: string, context?: string): SystemColorMeaning {
+  let type = normalizeSystemType(promptType) || getSystemInferredType(context);
+
+  let match = SYSTEM_COLORS_LEGEND.find(m => m.type === type);
+  if (!match && promptType && context) {
+    // Unrecognized promptType: fall back to semantic inference from the
+    // surrounding context instead of instantly collapsing to gray.
+    type = getSystemInferredType(context);
+    match = SYSTEM_COLORS_LEGEND.find(m => m.type === type);
+  }
   return match || SYSTEM_COLORS_LEGEND[0]; // default to neutral (gray)
 }
 

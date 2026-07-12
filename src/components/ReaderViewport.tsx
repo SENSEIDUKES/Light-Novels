@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Loader2, Plus, Trash2, Bookmark as BookmarkIcon, Lock, ArrowLeft, ArrowRight, Sparkles, Zap, Play, ShieldAlert, Info } from 'lucide-react';
 import { Chapter, StoryWorld, Bookmark } from '../types';
 import { extractSFXCues } from '../hooks/useReaderPlayback';
+import { collectBlockAutoCues } from '../lib/audio/autoCuePolicy';
 import { SystemBlock } from './SystemBlock';
 import { SYSTEM_COLORS_LEGEND } from '../lib/systemColors';
 import { CodexHovercard } from './CodexHovercard';
@@ -80,6 +81,7 @@ interface ReaderViewportProps {
   
   isGenerating: boolean;
   handleGenerate: () => void;
+  handleGenerateNextFive: () => void;
   activeAgentId: string | null;
   
   showFateCodex: boolean;
@@ -141,6 +143,7 @@ export function ReaderViewport({
   isCheckingConsistency,
   isGenerating,
   handleGenerate,
+  handleGenerateNextFive,
   activeAgentId,
   showFateCodex,
   setShowFateCodex,
@@ -150,6 +153,14 @@ export function ReaderViewport({
   chapters,
 }: ReaderViewportProps) {
   const { updateStory } = useAppStore();
+  const isCompletedBatchEndpoint = activeStory.chapterGenerationBatch?.status === 'completed'
+    && activeStory.chapterGenerationBatch.chapterNumbers.at(-1) === selectedChapter.number;
+  const resumableBatch = activeStory.chapterGenerationBatch;
+  const isResumingAtSelectedChapter = Boolean(
+    resumableBatch
+    && (resumableBatch.status === 'paused' || resumableBatch.status === 'failed')
+    && resumableBatch.chapterNumbers.find(number => !resumableBatch.completedChapterNumbers.includes(number)) === selectedChapter.number,
+  );
   const codexMap = React.useMemo(() => {
     const map = new Map<string, any>();
     codexTerms?.forEach(t => {
@@ -388,6 +399,7 @@ export function ReaderViewport({
                         if (!paragraph.trim()) return null;
                         const { cleanText, sfxList } =
                           extractSFXCues(paragraph);
+                        const autoCueList = collectBlockAutoCues(sfxList);
                         if (!cleanText) return null;
                         const isSystemLine =
                           cleanText.startsWith("[") &&
@@ -412,13 +424,14 @@ export function ReaderViewport({
                           >
                             <div className="flex items-start">
                               <div className="flex-1 min-w-0">
-                                {sfxList.map((sfx, i) => (
+                                {autoCueList.map((sfx, i) => (
                                   <span
                                     key={`sfx-${index}-${i}`}
                                     className="narrative-trigger hidden"
                                     aria-hidden="true"
                                     data-cue-type="narrative.fx.play"
                                     data-cue-id={`sfx-trans-${selectedChapter.number}-${index}-${i}`}
+                                    data-cue-block-index={index}
                                     data-cue-value={sfx}
                                     data-cue-once="true"
                                   />
@@ -435,11 +448,16 @@ export function ReaderViewport({
                       })
                   : selectedChapter.blocks
                     ? selectedChapter.blocks.map((block, index) => {
-                        if (!block.text.trim()) return null;
+                        const hasStructuredVisual = !!block.system || !!block.worldCard;
+                        if (!(block.text || '').trim() && !hasStructuredVisual) return null;
                         const { cleanText, sfxList } = extractSFXCues(
-                          block.text,
+                          block.text || '',
                         );
-                        if (!cleanText) return null;
+                        // High-confidence [SFX] tags plus structured
+                        // system/beast events; footsteps and environment
+                        // Foley never render a trigger span at all.
+                        const autoCueList = collectBlockAutoCues(sfxList, block);
+                        if (!cleanText && !hasStructuredVisual) return null;
 
                         let revealTerm: any = undefined;
                         const revealEntity = block.metadata?.entities?.find(ent => {
@@ -579,6 +597,16 @@ export function ReaderViewport({
                           );
                         }
 
+                        // Standalone worldCard block with no prose: render only the
+                        // card, not an empty paragraph container beneath it.
+                        if (!cleanText) {
+                          return revealCard ? (
+                            <React.Fragment key={block.id || `para-${index}`}>
+                              {revealCard}
+                            </React.Fragment>
+                          ) : null;
+                        }
+
                         const existingBookmark = bookmarkMap.get(index);
                         const isEditingThisBookmark =
                           editingBookmarkParagraphIndex === index;
@@ -606,13 +634,14 @@ export function ReaderViewport({
                             data-cue-once="true"
                             className={`relative group paragraph-block transition-colors duration-200 mb-6 ${existingBookmark ? "custom-bookmark-bg" : ""} ${block.metadata ? "narrative-trigger metadata-block" : ""}`}
                           >
-                            {sfxList.map((sfx, i) => (
+                            {autoCueList.map((sfx, i) => (
                               <span
                                 key={`sfx-${index}-${i}`}
                                 className="narrative-trigger hidden"
                                 aria-hidden="true"
                                 data-cue-type="narrative.fx.play"
                                 data-cue-id={`sfx-block-${selectedChapter.number}-${index}-${i}`}
+                                data-cue-block-index={index}
                                 data-cue-value={sfx}
                                 data-cue-once="true"
                               />
@@ -710,6 +739,7 @@ export function ReaderViewport({
                           if (!paragraph.trim()) return null;
                           const { cleanText, sfxList } =
                             extractSFXCues(paragraph);
+                          const autoCueList = collectBlockAutoCues(sfxList);
                           if (!cleanText) return null;
                           const isSystemLine =
                             cleanText.startsWith("[") &&
@@ -781,13 +811,14 @@ export function ReaderViewport({
 
                                 {/* Paragraph text */}
                                 <div className="flex-1 min-w-0">
-                                  {sfxList.map((sfx, i) => (
+                                  {autoCueList.map((sfx, i) => (
                                     <span
                                       key={`sfx-${index}-${i}`}
                                       className="narrative-trigger hidden"
                                       aria-hidden="true"
                                       data-cue-type="narrative.fx.play"
                                       data-cue-id={`sfx-text-${selectedChapter.number}-${index}-${i}`}
+                                      data-cue-block-index={index}
                                       data-cue-value={sfx}
                                       data-cue-once="true"
                                     />
@@ -961,6 +992,19 @@ export function ReaderViewport({
               <ArrowRight size={14} />
             </button>
           </div>
+          {isCompletedBatchEndpoint && (
+            <div className="pb-8 flex flex-col items-center gap-2">
+              <p className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider">Batch complete — choose the next fate.</p>
+              <button
+                type="button"
+                onClick={handleGenerateNextFive}
+                disabled={isGenerating}
+                className="px-6 py-3 rounded border border-human text-human hover:bg-human/10 disabled:opacity-50 font-sc font-bold uppercase tracking-widest text-xs transition-colors"
+              >
+                Manifest Next 5 Chapters
+              </button>
+            </div>
+          )}
         </>
       ) : isGenerating || selectedChapter.hasContent ? (
         <div className="max-w-2xl mx-auto py-12 animate-pulse space-y-6">
@@ -1035,6 +1079,14 @@ export function ReaderViewport({
                 </span>
               </>
             )}
+          </button>
+          <button
+            type="button"
+            onClick={handleGenerateNextFive}
+            disabled={isGenerating}
+            className="mt-3 w-full px-6 py-3 rounded border border-portal text-portal hover:bg-portal/10 disabled:opacity-50 font-sc font-bold uppercase tracking-widest text-xs transition-colors"
+          >
+            {isResumingAtSelectedChapter ? 'Resume 5-Chapter Batch' : 'Manifest Next 5 Chapters'}
           </button>
         </div>
       )}

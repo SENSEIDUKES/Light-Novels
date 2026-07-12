@@ -259,7 +259,7 @@ The reader has set the story to RELAXED pressure.
 - Avoid introducing heavy setbacks, irreversible tragedies, severe material losses, or shock betrayals.
 - Let the Main Character solve problems with cleverness, charm, or typical effort without suffering crushing psychological or physical consequences.
 - Power gains and faction status increases should proceed without severe counter-attacks or lethal danger.
-- Show positive milestones and lucky events through natural story action. Only if this is explicitly an in-world System/LitRPG story and visible UI is warranted, use a structured "system" object on its own NDJSON block; never put a bracketed alert in paragraph or dialogue text.
+- Show positive milestones and lucky events through natural story action. When a milestone genuinely earns visible Celestial Library UI treatment (any genre — frequent in System/LitRPG stories, selective elsewhere), render it in this response's visible system-panel format described in the system instructions; never put a bracketed alert inside paragraph or dialogue text.
 =========================================`;
     } else if (activeFatePressure === 'Balanced') {
       finalUserPrompt += `
@@ -270,7 +270,7 @@ FATE PRESSURE: BALANCED
 The story is operating under BALANCED fate pressure.
 - Deliver standard webnovel stakes: normal progression setbacks, rival friction, and challenging but fully surmountable conflicts.
 - Ensure setbacks feel organic and serve to build tension before the next breakthrough or training arc.
-- Show new pressure, rivals, and consequences through natural story action. Only if this is explicitly an in-world System/LitRPG story and visible UI is warranted, use a structured "system" object on its own NDJSON block; never put a bracketed alert in paragraph or dialogue text.
+- Show new pressure, rivals, and consequences through natural story action. When a consequence genuinely earns visible Celestial Library UI treatment (any genre — frequent in System/LitRPG stories, selective elsewhere), render it in this response's visible system-panel format described in the system instructions; never put a bracketed alert inside paragraph or dialogue text.
 =========================================`;
     } else if (activeFatePressure === 'Hardcore' || activeFatePressure === 'Dao Master') {
       finalUserPrompt += `
@@ -290,7 +290,7 @@ First, examine the previous chapters and current state of the world:
 - Codex Warnings: Are there many unresolved plot threats or active dangers?
 
 If any of these setups are present, you are ORDERED to introduce or advance a major, tense Hardcore Fate Event. Choose ONE of the following event types that fits best with the narrative flow and integrate it seamlessly. 
-Death Flag, Betrayal Check, Fate Lock, Destiny Shift, Hidden Timer, and similar Fate labels are UI/control concepts, not normal prose. In a System/LitRPG story, a visible alert must be a structured "system" object on its own NDJSON block. Otherwise, use natural prose, consequences, omens, pressure, and character choices. Never write a bracketed Fate alert in paragraph or dialogue text.
+Death Flag, Betrayal Check, Fate Lock, Destiny Shift, Hidden Timer, and similar Fate labels are UI/control concepts, not normal prose. When a Fate event warrants a visible alert (any genre), render it in this response's visible system-panel format described in the system instructions, styled to the world; keep the surrounding narration natural — prose carries consequences, omens, pressure, and character choices. Never write a bracketed Fate alert inside paragraph or dialogue text.
 
 1. Death risk: Place an important companion, mentor, or loved one at risk of death. Make their vulnerability clear through their vulnerability and the characters' response.
 2. Betrayal pressure: Introduce clues or actions indicating a trusted ally might be secretly plotting, compromised, or forced to turn against the MC.
@@ -313,7 +313,7 @@ If a major event just occurred in the previous chapter, allow the characters tim
 
 =========================================
 TIMING & PLACEMENT DIRECTIVE FOR SYSTEM ALERTS:
-When a System/LitRPG Fate event genuinely needs a visible UI treatment, place its standalone structured "system" NDJSON block at the end of the chapter or an active turning point. Never place a bracketed Fate alert in normal paragraph or dialogue text. In other stories, build the cliffhanger through narrative consequences instead.
+When a Fate event genuinely needs visible UI treatment (any genre), place its standalone system panel — using this response's visible system-panel format described in the system instructions — at the end of the chapter or an active turning point. Never place a bracketed Fate alert inside normal paragraph or dialogue text. When no panel is warranted, build the cliffhanger through narrative consequences instead.
 =========================================
 
 ${activeFatePressure === 'Dao Master' ? `
@@ -466,7 +466,7 @@ The reader has set the story to RELAXED pressure.
 - Avoid introducing heavy setbacks, irreversible tragedies, severe material losses, or shock betrayals.
 - Let the Main Character solve problems with cleverness, charm, or typical effort without suffering crushing psychological or physical consequences.
 - Power gains and faction status increases should proceed without severe counter-attacks or lethal danger.
-- Show positive milestones and lucky events through natural story action. Only if this is explicitly an in-world System/LitRPG story and visible UI is warranted, use a structured "system" object on its own NDJSON block; never put a bracketed alert in paragraph or dialogue text.
+- Show positive milestones and lucky events through natural story action. When a milestone genuinely earns visible Celestial Library UI treatment (any genre — frequent in System/LitRPG stories, selective elsewhere), render it in this response's visible system-panel format described in the system instructions; never put a bracketed alert inside paragraph or dialogue text.
 =========================================`;
     } else if (activeFatePressure === 'Balanced') {
       finalUserPrompt += `
@@ -477,7 +477,7 @@ FATE PRESSURE: BALANCED
 The story is operating under BALANCED fate pressure.
 - Deliver standard webnovel stakes: normal progression setbacks, rival friction, and challenging but fully surmountable conflicts.
 - Ensure setbacks feel organic and serve to build tension before the next breakthrough or training arc.
-- Show new pressure, rivals, and consequences through natural story action. Only if this is explicitly an in-world System/LitRPG story and visible UI is warranted, use a structured "system" object on its own NDJSON block; never put a bracketed alert in paragraph or dialogue text.
+- Show new pressure, rivals, and consequences through natural story action. When a consequence genuinely earns visible Celestial Library UI treatment (any genre — frequent in System/LitRPG stories, selective elsewhere), render it in this response's visible system-panel format described in the system instructions; never put a bracketed alert inside paragraph or dialogue text.
 =========================================`;
     } else if (activeFatePressure === 'Hardcore' || activeFatePressure === 'Dao Master') {
       finalUserPrompt += `
@@ -497,7 +497,7 @@ First, examine the previous chapters and current state of the world:
 - Codex Warnings: Are there many unresolved plot threats or active dangers?
 
 If any of these setups are present, you are ORDERED to introduce or advance a major, tense Hardcore Fate Event. Choose ONE of the following event types that fits best with the narrative flow and integrate it seamlessly. 
-Death Flag, Betrayal Check, Fate Lock, Destiny Shift, Hidden Timer, and similar Fate labels are UI/control concepts, not normal prose. In a System/LitRPG story, a visible alert must be a structured "system" object on its own NDJSON block. Otherwise, use natural prose, consequences, omens, pressure, and character choices. Never write a bracketed Fate alert in paragraph or dialogue text.
+Death Flag, Betrayal Check, Fate Lock, Destiny Shift, Hidden Timer, and similar Fate labels are UI/control concepts, not normal prose. When a Fate event warrants a visible alert (any genre), render it in this response's visible system-panel format described in the system instructions, styled to the world; keep the surrounding narration natural — prose carries consequences, omens, pressure, and character choices. Never write a bracketed Fate alert inside paragraph or dialogue text.
 
 1. Death risk: Place an important companion, mentor, or loved one at risk of death. Make their vulnerability clear through their vulnerability and the characters' response.
 2. Betrayal pressure: Introduce clues or actions indicating a trusted ally might be secretly plotting, compromised, or forced to turn against the MC.
@@ -520,7 +520,7 @@ If a major event just occurred in the previous chapter, allow the characters tim
 
 =========================================
 TIMING & PLACEMENT DIRECTIVE FOR SYSTEM ALERTS:
-When a System/LitRPG Fate event genuinely needs a visible UI treatment, place its standalone structured "system" NDJSON block at the end of the chapter or an active turning point. Never place a bracketed Fate alert in normal paragraph or dialogue text. In other stories, build the cliffhanger through narrative consequences instead.
+When a Fate event genuinely needs visible UI treatment (any genre), place its standalone system panel — using this response's visible system-panel format described in the system instructions — at the end of the chapter or an active turning point. Never place a bracketed Fate alert inside normal paragraph or dialogue text. When no panel is warranted, build the cliffhanger through narrative consequences instead.
 =========================================
 
 ${activeFatePressure === 'Dao Master' ? `

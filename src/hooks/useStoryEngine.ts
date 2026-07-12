@@ -20,7 +20,7 @@ export const useStoryEngine = () => {
   const store_stories = useAppStore(state => state.stories);
     const store_activeStoryId = useAppStore(state => state.activeStoryId);
     const store_saveStories = useAppStore(state => state.saveStories);
-  const { handleGenerateChapter } = useChapterGeneration();
+  const { handleGenerateChapter, handleGenerateNextFiveChapters } = useChapterGeneration();
   const { handleSteerArc, handleAlterFate } = useArcSteering();
   const { handleGenerateBlueprint, handleStartStory } = useStoryGeneration();
   const { handleGenerateCover, handleApplyCover } = useVisualAssets();
@@ -94,6 +94,7 @@ export const useStoryEngine = () => {
     handleGenerateBlueprint,
     handleStartStory,
     handleGenerateChapter,
+    handleGenerateNextFiveChapters,
     handleSteerArc,
     handleAlterFate,
     handleCheckConsistency,

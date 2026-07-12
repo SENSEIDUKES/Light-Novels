@@ -1,4 +1,5 @@
 import { useAppStore } from '../store/useAppStore';
+import { Story, ChapterGenerationBatch } from '../types';
 import { awardQi } from '../lib/qi';
 import { unlockCosmicArtifact } from '../lib/artifacts';
 import { getApiHeaders } from './storyEngineHelpers';
@@ -8,158 +9,153 @@ import { parseChapterStream } from './chapterPipeline/parseChapterStream';
 import { runContinuityPass } from './chapterPipeline/runContinuityPass';
 import { extractChapterMetadata } from './chapterPipeline/extractChapterMetadata';
 import { persistGeneratedChapter } from './chapterPipeline/persistGeneratedChapter';
+import {
+  getNextFiveUngeneratedChapters,
+  getRemainingBatchChapterNumbers,
+  runSequentialChapterBatch,
+} from './chapterPipeline/chapterBatch';
+
+type BatchProgress = { index: number; total: number } | null;
 
 /**
- * Hook responsible for streaming generation of an individual chapter.
- * Handles pacing logic, RAG history fetching, memory updating, and UI stream coordination.
+ * Streaming chapter generation and its sequential five-chapter orchestration.
+ * Both flows call the same per-chapter work so continuity, metadata, persistence,
+ * Qi, and artifacts never diverge.
  */
 export const useChapterGeneration = () => {
   const store_setActiveAgentId = useAppStore(state => state.setActiveAgentId);
-    const store_routingConfig = useAppStore(state => state.routingConfig);
-    const store_saveStories = useAppStore(state => state.saveStories);
-    const store_setAppError = useAppStore(state => state.setAppError);
-    const store_setIsGenerating = useAppStore(state => state.setIsGenerating);
-    const store_setGenerationPhase = useAppStore(state => state.setGenerationPhase);
-    const store_setGeneratingChapterNum = useAppStore(state => state.setGeneratingChapterNum);
-    const store_setStreamingChapter = useAppStore(state => state.setStreamingChapter);
-    const store_setGenerationProgressMessage = useAppStore(state => state.setGenerationProgressMessage);
+  const store_routingConfig = useAppStore(state => state.routingConfig);
+  const store_saveStories = useAppStore(state => state.saveStories);
+  const store_setAppError = useAppStore(state => state.setAppError);
+  const store_setIsGenerating = useAppStore(state => state.setIsGenerating);
+  const store_setGenerationPhase = useAppStore(state => state.setGenerationPhase);
+  const store_setGeneratingChapterNum = useAppStore(state => state.setGeneratingChapterNum);
+  const store_setStreamingChapter = useAppStore(state => state.setStreamingChapter);
+  const store_setGenerationProgressMessage = useAppStore(state => state.setGenerationProgressMessage);
 
-  /**
-   * Generates content and metadata for a specific chapter within the active story.
-   * Leverages streaming from the backend to provide real-time reader feedback.
-   * @param {number} chapterNumber - The index of the chapter to generate.
-   */
-  const handleGenerateChapter = async (chapterNumber: number) => {
-    const currentStoreState = useAppStore.getState();
-    if (currentStoreState.isGenerating) {
-      console.warn("Generation already in progress. Ignoring duplicate click.");
-      return;
-    }
-    // Synchronously set generating state on the global store before any async operations
-    currentStoreState.setIsGenerating(true);
-    currentStoreState.setGeneratingChapterNum(chapterNumber);
-    // Always start each chapter behind the full veil so continuity is verified before the
-    // reader ever sees the chapter. (They can still minimize mid-generation to watch live.)
-    currentStoreState.setIsVeilMinimized?.(false);
+  const persistBatch = async (story: Story, batch: ChapterGenerationBatch): Promise<Story> => {
+    const state = useAppStore.getState();
+    const updatedStories = state.stories.map(currentStory =>
+      currentStory.id === story.id
+        ? { ...currentStory, chapterGenerationBatch: batch, updatedAt: new Date().toISOString() }
+        : currentStory
+    );
+    const updatedStory = updatedStories.find(currentStory => currentStory.id === story.id);
+    if (!updatedStory) throw new Error('The active story is no longer available.');
+    await state.saveStories(updatedStories);
+    return updatedStory;
+  };
 
-    const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
-    if (!activeStory) {
-      currentStoreState.setIsGenerating(false);
-      currentStoreState.setGeneratingChapterNum(null);
-      return;
-    }
-    currentStoreState.setGenerationPhase('chapter');
-    currentStoreState.setAppError(null);
-
-    const selectedArcIndex = activeStory.arcs.findIndex(arc => arc.chapters.some(c => c.number === chapterNumber));
-    if (selectedArcIndex === -1) {
-      currentStoreState.setIsGenerating(false);
-      currentStoreState.setGeneratingChapterNum(null);
-      return;
-    }
+  const generateOneChapter = async (
+    activeStory: Story,
+    chapterNumber: number,
+    batchProgress: BatchProgress = null,
+  ): Promise<Story> => {
+    const selectedArcIndex = activeStory.arcs.findIndex(arc => arc.chapters.some(chapter => chapter.number === chapterNumber));
+    if (selectedArcIndex === -1) throw new Error(`Chapter ${chapterNumber} is not part of the active story.`);
 
     const currentArc = activeStory.arcs[selectedArcIndex];
-    const targetChapter = currentArc.chapters.find(c => c.number === chapterNumber);
-    if (!targetChapter) {
-      currentStoreState.setIsGenerating(false);
-      currentStoreState.setGeneratingChapterNum(null);
+    const targetChapter = currentArc.chapters.find(chapter => chapter.number === chapterNumber);
+    if (!targetChapter) throw new Error(`Chapter ${chapterNumber} could not be found.`);
+
+    const setProgress = (message: string) => {
+      const prefix = batchProgress
+        ? `Forging Chapter ${chapterNumber} · ${batchProgress.index} of ${batchProgress.total}`
+        : '';
+      store_setGenerationProgressMessage?.(prefix && message ? `${prefix} — ${message}` : prefix || message);
+    };
+
+    store_setActiveAgentId('scout');
+    const apiHeaders = await getApiHeaders();
+    const { pastSummaries, pacingDirective } = await buildChapterContext(activeStory, targetChapter, apiHeaders);
+
+    store_setActiveAgentId('versa');
+    setProgress('VERSA is weaving the chapter into being...');
+    const accumulatedRaw = await streamChapterBlocks(
+      activeStory,
+      targetChapter,
+      pastSummaries,
+      pacingDirective,
+      store_routingConfig.storyMaker,
+      apiHeaders,
+      (currentChapterText, blocksData, raw) => {
+        useAppStore.getState().setStreamingChapter({
+          number: chapterNumber,
+          content: currentChapterText || raw,
+          blocks: blocksData,
+        });
+      },
+    );
+
+    let { data, finalRawBlocksStr } = parseChapterStream(accumulatedRaw);
+    const continuityResult = await runContinuityPass(
+      finalRawBlocksStr,
+      activeStory,
+      store_routingConfig.storyMaker,
+      apiHeaders,
+      phase => setProgress(
+        phase === 'repairing'
+          ? 'Reconciling the timeline — mending continuity threads...'
+          : 'Verifying continuity against the Codex...',
+      ),
+    );
+
+    if (continuityResult.finalRawBlocksStr !== finalRawBlocksStr) {
+      finalRawBlocksStr = continuityResult.finalRawBlocksStr;
+      const repaired = parseChapterStream(finalRawBlocksStr);
+      data.blocks = repaired.data.blocks;
+      data.chapterText = repaired.data.chapterText;
+    }
+    data.hasContinuityFaults = continuityResult.hasContinuityFaults;
+    data.continuityWarnings = continuityResult.continuityWarnings;
+    data.continuitySoftNotes = continuityResult.continuitySoftNotes;
+    data = await extractChapterMetadata(targetChapter, finalRawBlocksStr, store_routingConfig.storyMaker, apiHeaders, data);
+
+    const updatedStories = await persistGeneratedChapter(activeStory, chapterNumber, selectedArcIndex, data, apiHeaders);
+    await store_saveStories(updatedStories);
+    const updatedStory = updatedStories.find(story => story.id === activeStory.id);
+    if (!updatedStory) throw new Error('The generated story could not be persisted.');
+
+    awardQi('chapter_generated');
+    import('../lib/artifacts').then(({ scanChapterForArtifacts }) => {
+      const fullText = `${data.chapterText || ''} ${(data.blocks || []).map((block: any) => block.text).join(' ')}`;
+      scanChapterForArtifacts(activeStory.id, activeStory.title, chapterNumber, fullText, data).catch(err => {
+        console.error('Failed to scan chapter for artifacts:', err);
+      });
+    });
+    if (chapterNumber === 5) {
+      unlockCosmicArtifact('chapter_5', activeStory.id, activeStory.title).catch(err => {
+        console.error('Failed to unlock Chapter 5 artifact:', err);
+      });
+    }
+
+    return updatedStory;
+  };
+
+  const handleGenerateChapter = async (chapterNumber: number) => {
+    const state = useAppStore.getState();
+    if (state.isGenerating) {
+      console.warn('Generation already in progress. Ignoring duplicate click.');
       return;
     }
 
+    state.setIsGenerating(true);
+    state.setGeneratingChapterNum(chapterNumber);
+    state.setIsVeilMinimized?.(false);
+    const activeStory = state.stories.find(story => story.id === state.activeStoryId);
+    if (!activeStory) {
+      state.setIsGenerating(false);
+      state.setGeneratingChapterNum(null);
+      return;
+    }
+
+    state.setGenerationPhase('chapter');
+    state.setAppError(null);
     try {
-      store_setActiveAgentId('scout');
-      const apiHeaders = await getApiHeaders();
-
-      const { pastSummaries, pacingDirective } = await buildChapterContext(
-        activeStory,
-        targetChapter,
-        apiHeaders
-      );
-
-      store_setActiveAgentId('versa');
-      store_setGenerationProgressMessage?.('VERSA is weaving the chapter into being...');
-
-      const accumulatedRaw = await streamChapterBlocks(
-        activeStory,
-        targetChapter,
-        pastSummaries,
-        pacingDirective,
-        store_routingConfig.storyMaker,
-        apiHeaders,
-        (currentChapterText, blocksData, raw) => {
-          currentStoreState.setStreamingChapter({
-            number: chapterNumber,
-            content: currentChapterText || raw,
-            blocks: blocksData
-          });
-        }
-      );
-
-      let { data, finalRawBlocksStr } = parseChapterStream(accumulatedRaw);
-
-      // Continuity runs BEHIND the veil, before the chapter is ever revealed to the reader.
-      // (Manifest -> Continuity check -> silent fixes -> Show clean chapter.)
-      const continuityResult = await runContinuityPass(
-        finalRawBlocksStr,
-        activeStory,
-        store_routingConfig.storyMaker,
-        apiHeaders,
-        (phase) => {
-          store_setGenerationProgressMessage?.(
-            phase === 'repairing'
-              ? 'Reconciling the timeline — mending continuity threads...'
-              : 'Verifying continuity against the Codex...'
-          );
-        }
-      );
-
-      if (continuityResult.finalRawBlocksStr !== finalRawBlocksStr) {
-        finalRawBlocksStr = continuityResult.finalRawBlocksStr;
-        const parsedRe = parseChapterStream(finalRawBlocksStr);
-        data.blocks = parsedRe.data.blocks;
-        data.chapterText = parsedRe.data.chapterText;
-      }
-      data.hasContinuityFaults = continuityResult.hasContinuityFaults;
-      data.continuityWarnings = continuityResult.continuityWarnings;
-      data.continuitySoftNotes = continuityResult.continuitySoftNotes;
-
-      data = await extractChapterMetadata(
-        targetChapter,
-        finalRawBlocksStr,
-        store_routingConfig.storyMaker,
-        apiHeaders,
-        data
-      );
-
-      const updatedStories = await persistGeneratedChapter(
-        activeStory,
-        chapterNumber,
-        selectedArcIndex,
-        data,
-        apiHeaders
-      );
-
-      await store_saveStories(updatedStories);
-      awardQi('chapter_generated');
-      
-      // Scan chapter content for epic story-event artifacts
-      import('../lib/artifacts').then(({ scanChapterForArtifacts }) => {
-        const fullText = (data.chapterText || "") + " " + (data.blocks || []).map((b: any) => b.text).join(" ");
-        scanChapterForArtifacts(activeStory.id, activeStory.title, chapterNumber, fullText, data).catch((err) => {
-          console.error("Failed to scan chapter for artifacts:", err);
-        });
-      });
-      
-      // Award Compass of Pathless Destinies on reaching Chapter 5
-      if (chapterNumber === 5) {
-        unlockCosmicArtifact('chapter_5', activeStory.id, activeStory.title).catch((err) => {
-          console.error('Failed to unlock Chapter 5 artifact:', err);
-        });
-      }
-
+      await generateOneChapter(activeStory, chapterNumber);
     } catch (err: any) {
       console.error(err);
-      store_setAppError(err.message || "Celestial feedback received. Chapter generation failed.");
+      store_setAppError(err.message || 'Celestial feedback received. Chapter generation failed.');
     } finally {
       store_setIsGenerating(false);
       store_setGenerationPhase(null);
@@ -170,5 +166,74 @@ export const useChapterGeneration = () => {
     }
   };
 
-  return { handleGenerateChapter };
+  const handleGenerateNextFiveChapters = async (fromChapterNumber: number) => {
+    const state = useAppStore.getState();
+    if (state.isGenerating) {
+      console.warn('Generation already in progress. Ignoring duplicate batch request.');
+      return;
+    }
+
+    const activeStory = state.stories.find(story => story.id === state.activeStoryId);
+    if (!activeStory) return;
+
+    const resumableBatch = activeStory.chapterGenerationBatch;
+    const canResume = resumableBatch && (resumableBatch.status === 'paused' || resumableBatch.status === 'failed');
+    const chapterNumbers = canResume
+      ? resumableBatch.chapterNumbers
+      : getNextFiveUngeneratedChapters(activeStory, fromChapterNumber);
+
+    if (!canResume && chapterNumbers.length !== 5) {
+      store_setAppError('Five ungenerated chapters must be planned before a batch manifestation can begin.');
+      return;
+    }
+    if (canResume && getRemainingBatchChapterNumbers(resumableBatch).length === 0) return;
+
+    const batch: ChapterGenerationBatch = canResume
+      ? {
+          ...resumableBatch,
+          status: 'queued',
+          currentChapterNumber: null,
+          failedChapterNumber: undefined,
+          error: undefined,
+          completedAt: undefined,
+        }
+      : {
+          id: `batch-${Date.now()}`,
+          chapterNumbers,
+          status: 'queued',
+          currentChapterNumber: null,
+          completedChapterNumbers: [],
+          createdAt: new Date().toISOString(),
+        };
+
+    state.setIsGenerating(true);
+    state.setGenerationPhase('chapter');
+    state.setIsVeilMinimized?.(false);
+    state.setAppError(null);
+    try {
+      const preparedStory = await persistBatch(activeStory, batch);
+      await runSequentialChapterBatch({
+        story: preparedStory,
+        batch,
+        persistBatch,
+        generateChapter: (story, chapterNumber) => {
+          const index = batch.chapterNumbers.indexOf(chapterNumber) + 1;
+          state.setGeneratingChapterNum(chapterNumber);
+          return generateOneChapter(story, chapterNumber, { index, total: batch.chapterNumbers.length });
+        },
+      });
+    } catch (err: any) {
+      console.error(err);
+      store_setAppError(err.message || 'Celestial feedback received. Chapter batch generation failed.');
+    } finally {
+      store_setIsGenerating(false);
+      store_setGenerationPhase(null);
+      store_setGeneratingChapterNum(null);
+      store_setActiveAgentId(null);
+      store_setStreamingChapter(null);
+      store_setGenerationProgressMessage?.('');
+    }
+  };
+
+  return { handleGenerateChapter, handleGenerateNextFiveChapters };
 };
