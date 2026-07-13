@@ -256,6 +256,7 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
                    chapter.summary = content.summary;
                    chapter.statsChangeMessage = content.statsChangeMessage;
                    chapter.cuePayload = content.cuePayload;
+                   chapter.contextManifest = content.contextManifest;
                  }
               }
             }

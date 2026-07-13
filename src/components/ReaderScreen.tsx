@@ -60,6 +60,7 @@ function buildReaderChapters(
           generatedContent: streamingChapter.content,
           blocks: streamingChapter.blocks,
           status: "read" as const,
+          contextManifest: undefined,
         };
       }
 
@@ -72,6 +73,7 @@ function buildReaderChapters(
           summary: cached.summary || ch.summary,
           statsChangeMessage: cached.statsChangeMessage || ch.statsChangeMessage,
           cuePayload: cached.cuePayload || ch.cuePayload,
+          contextManifest: cached.contextManifest || ch.contextManifest,
         };
       }
 

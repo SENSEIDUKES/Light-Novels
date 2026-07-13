@@ -71,7 +71,7 @@ export const useChapterGeneration = () => {
 
     store_setActiveAgentId('versa');
     setProgress('VERSA is weaving the chapter into being...');
-    const accumulatedRaw = await streamChapterBlocks(
+    const { accumulatedRaw, contextManifest } = await streamChapterBlocks(
       activeStory,
       targetChapter,
       pastSummaries,
@@ -110,6 +110,7 @@ export const useChapterGeneration = () => {
     data.continuityWarnings = continuityResult.continuityWarnings;
     data.continuitySoftNotes = continuityResult.continuitySoftNotes;
     data = await extractChapterMetadata(targetChapter, finalRawBlocksStr, store_routingConfig.storyMaker, apiHeaders, data);
+    data.contextManifest = contextManifest;
 
     const updatedStories = await persistGeneratedChapter(activeStory, chapterNumber, selectedArcIndex, data, apiHeaders);
     await store_saveStories(updatedStories);

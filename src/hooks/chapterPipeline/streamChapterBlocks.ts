@@ -1,4 +1,4 @@
-import { Story, Chapter } from '../../types';
+import { Story, Chapter, ContextManifest } from '../../types';
 import { extractJsonBlocks } from '../storyEngineHelpers';
 import { slimMemoryForRequest } from '../../lib/slimMemoryForRequest';
 
@@ -49,6 +49,7 @@ export const streamChapterBlocks = async (
   let accumulatedRaw = "";
   let buffer = "";
   let streamError: Error | null = null;
+  let contextManifest: ContextManifest | undefined;
 
   const textHeader = "---CHAPTER_BLOCKS---";
 
@@ -67,6 +68,9 @@ export const streamChapterBlocks = async (
           if (parsed.error) {
             streamError = new Error(parsed.error);
             throw streamError;
+          }
+          if (parsed.contextManifest) {
+            contextManifest = parsed.contextManifest as ContextManifest;
           }
           if (parsed.chunk) {
             accumulatedRaw += parsed.chunk;
@@ -102,5 +106,5 @@ export const streamChapterBlocks = async (
     }
   }
 
-  return accumulatedRaw;
+  return { accumulatedRaw, contextManifest };
 };

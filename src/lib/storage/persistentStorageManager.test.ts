@@ -111,4 +111,68 @@ describe('PersistentStorageManager migration', () => {
     );
     manager.dispose();
   });
+
+  it('stores detailed context manifests with chapter content instead of story metadata', async () => {
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    vi.clearAllMocks();
+
+    const contextManifest = {
+      version: 1,
+      route: 'generate-chapter-stream',
+      generatedAt: '2026-07-12T00:00:00.000Z',
+      chapterNumber: 1,
+      totalEstimatedTokens: 100,
+      memoryAndHistoryBudgetTokens: 80000,
+      memoryAndHistoryEstimatedTokens: 50,
+      memoryAndHistoryBudgetExceeded: false,
+      providerInputTruncated: false,
+      sections: [],
+    };
+    const story = {
+      id: 'story-with-manifest',
+      title: 'Manifest Story',
+      genre: 'Xianxia',
+      mcName: 'Lin',
+      customPremise: 'A journey',
+      createdAt: '2026-07-12T00:00:00.000Z',
+      updatedAt: '2026-07-12T00:00:00.000Z',
+      currentChapterNumber: 1,
+      memory: {
+        powerSystem: '',
+        currentPowerStage: '',
+        worldRules: [],
+        characters: [],
+        unresolvedPlotThreads: [],
+        resolvedPlotThreads: [],
+      },
+      arcs: [{
+        title: 'Arc',
+        isCompleted: false,
+        chapters: [{
+          number: 1,
+          title: 'Chapter',
+          premise: 'Begin',
+          status: 'read',
+          generatedContent: 'Chapter prose',
+          _isNewContent: true,
+          contextManifest,
+        }],
+      }],
+    } as any;
+
+    await manager.saveStory(story);
+
+    expect(mocks.idb.saveChapterContent).toHaveBeenCalledWith(expect.objectContaining({
+      storyId: story.id,
+      chapterNumber: 1,
+      contextManifest,
+    }));
+    expect(mocks.idb.saveStory).toHaveBeenCalledWith(expect.objectContaining({
+      arcs: [expect.objectContaining({
+        chapters: [expect.not.objectContaining({ contextManifest: expect.anything() })],
+      })],
+    }));
+    manager.dispose();
+  });
 });

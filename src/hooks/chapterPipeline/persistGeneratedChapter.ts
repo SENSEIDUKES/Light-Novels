@@ -45,7 +45,8 @@ export const persistGeneratedChapter = async (
             status: 'read' as const,
             hasContinuityFaults: data.hasContinuityFaults || false,
             continuityWarnings: data.continuityWarnings || [],
-            continuitySoftNotes: data.continuitySoftNotes || []
+            continuitySoftNotes: data.continuitySoftNotes || [],
+            contextManifest: data.contextManifest,
           };
         })
       };
