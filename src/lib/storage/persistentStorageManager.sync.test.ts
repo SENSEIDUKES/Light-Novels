@@ -212,6 +212,33 @@ describe('PersistentStorageManager automatic inbound sync', () => {
     manager.dispose();
   });
 
+  it('counts only the active account stories while cataloguing', async () => {
+    mocks.auth.currentUser = { uid: 'reader' };
+    mocks.idb.getStories.mockResolvedValue([
+      makeStory({ id: 'reader-story', userId: 'reader' }),
+      makeStory({ id: 'another-account-story', userId: 'another-account' }),
+    ]);
+    const manager = new PersistentStorageManager();
+    const progress: Array<{ phase: string; completed: number; total: number }> = [];
+    const unsubscribe = manager.subscribeToSyncProgress((update) => progress.push(update));
+
+    await manager.init();
+
+    expect(progress).toContainEqual({
+      phase: 'cataloguing',
+      completed: 0,
+      total: 1,
+    });
+    expect(progress).toContainEqual({
+      phase: 'cataloguing',
+      completed: 1,
+      total: 1,
+    });
+
+    unsubscribe();
+    manager.dispose();
+  });
+
   it('refuses to sync through a local namespace that belongs to the previous account', async () => {
     localStorage.setItem('@seihouse/sync-queue', JSON.stringify([{
       type: 'story',

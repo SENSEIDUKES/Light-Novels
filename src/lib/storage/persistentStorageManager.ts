@@ -1705,13 +1705,15 @@ export class PersistentStorageManager implements StorageAdapter {
       // the first authenticated account to claim legacy/offline-created stories.
       const localStories: StoryWorld[] = [];
       let claimedQueueTask = false;
+      const storiesToCatalogue = allLocalStories.filter(
+        (story) => !story.userId || story.userId === userId,
+      );
       this.setSyncProgress({
         phase: "cataloguing",
         completed: 0,
-        total: allLocalStories.length,
+        total: storiesToCatalogue.length,
       });
-      for (const [index, story] of allLocalStories.entries()) {
-        if (story.userId && story.userId !== userId) continue;
+      for (const [index, story] of storiesToCatalogue.entries()) {
         try {
           const claimedStory = await this.withRecordLock(
             this.storyLockKey(story.id),
@@ -1742,12 +1744,13 @@ export class PersistentStorageManager implements StorageAdapter {
         } catch (error) {
           hadError = true;
           console.error(`Failed to claim local story ${story.id} for sync:`, error);
+        } finally {
+          this.setSyncProgress({
+            phase: "cataloguing",
+            completed: index + 1,
+            total: storiesToCatalogue.length,
+          });
         }
-        this.setSyncProgress({
-          phase: "cataloguing",
-          completed: index + 1,
-          total: allLocalStories.length,
-        });
       }
       if (claimedQueueTask) this.saveQueue();
 
