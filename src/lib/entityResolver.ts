@@ -44,7 +44,7 @@ export function resolveEntity(rawName: string, entities: { id: string, name?: st
   }
 
   const namedEntities = entities.filter((entity): entity is { id: string; name: string; aliases?: string[] } =>
-    typeof entity.name === 'string' && normalizeCodexSurface(entity.name).length > 0
+    entity && typeof entity.name === 'string' && normalizeCodexSurface(entity.name).length > 0
   );
 
   const exactCanonicalMatches = namedEntities.filter(entity =>
