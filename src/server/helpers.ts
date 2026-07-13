@@ -1,5 +1,44 @@
 import { StoryWorld, WorldBlueprint, StoryArc, ChapterContent } from '../types';
 
+const truncatePromptField = (value: unknown, maxLength: number): unknown =>
+  typeof value === 'string' && value.length > maxLength
+    ? `${value.substring(0, maxLength)}...`
+    : value;
+
+/**
+ * Keep the chapter prompt's MC ability ledger useful without allowing accumulated
+ * Codex metadata or oversized descriptions to consume the context window.
+ * Abilities are appended as they are acquired, so the newest records are retained.
+ */
+export function formatAbilityLedgerForPrompt(abilities: unknown): unknown[] {
+  if (!Array.isArray(abilities)) return [];
+
+  return abilities
+    .filter((ability) => typeof ability === 'string' || (ability !== null && typeof ability === 'object'))
+    .slice(-30)
+    .map((ability) => {
+      if (typeof ability === 'string') return truncatePromptField(ability, 1000);
+
+      const record = ability as Record<string, unknown>;
+      const promptFields: Record<string, unknown> = {
+        name: truncatePromptField(record.name, 200),
+        description: truncatePromptField(record.description, 1000),
+        source: truncatePromptField(record.source, 500),
+        acquiredChapter: record.acquiredChapter,
+        acquisitionMethod: truncatePromptField(record.acquisitionMethod, 500),
+        cost: truncatePromptField(record.cost, 500),
+        limits: truncatePromptField(record.limits, 500),
+        masteryLevel: truncatePromptField(record.masteryLevel, 200),
+        lastUsedChapter: record.lastUsedChapter,
+        canonStatus: truncatePromptField(record.canonStatus, 100)
+      };
+
+      return Object.fromEntries(
+        Object.entries(promptFields).filter(([, value]) => value !== undefined)
+      );
+    });
+}
+
 export function rankRelevantEntities(
   entities: any[] | undefined,
   mcName: string,
