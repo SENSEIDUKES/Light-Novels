@@ -49,6 +49,26 @@ describe('Prompts', () => {
     expect(rendered).toContain('My Custom Trope Rules');
     expect(rendered).toContain('farming, cozy');
   });
+
+  it('treats aliases and author context as input-only user canon', () => {
+    const rendered = PROMPTS.chapter.userPrompt(
+      1,
+      'Test Chapter',
+      'Test Premise',
+      'Test MC',
+      'Fantasy',
+      'Premise',
+      '{}',
+      '[]',
+      false,
+    );
+
+    expect(PROMPTS.chapter.system).toContain('AUTHOR-CONTROLLED IDENTITY');
+    expect(PROMPTS.chapter.system).toContain('Never invent additional aliases or titles');
+    expect(PROMPTS.chapter.nonStreamSystem).toContain('Never create, propose, rename, or update aliases');
+    expect(rendered).toContain('AUTHOR CONTEXT AUTHORITY');
+    expect(rendered).not.toContain('"aliases": [');
+  });
   
   describe('cross-genre system panels', () => {
     it('offers Celestial Library system panels to every genre in the streamed system prompt', () => {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Settings2 } from 'lucide-react';
 import { Character, Faction } from '../../types';
 import { useCodex } from './CodexContext';
 
@@ -14,7 +14,7 @@ export function LivingCodexFactions({
   memoryCharacters,
   setDeletePrompt
 }: LivingCodexFactionsProps) {
-  const { memory, onUpdateMemory } = useCodex();
+  const { memory, onUpdateMemory, openEntryContextEditor } = useCodex();
   const [showAddFactionForm, setShowAddFactionForm] = useState(false);
   const [newFaction, setNewFaction] = useState<Partial<Faction>>({
     name: '',
@@ -159,6 +159,17 @@ export function LivingCodexFactions({
                     }`}>
                       {fac.status}
                     </span>
+                    {openEntryContextEditor && (
+                      <button
+                        type="button"
+                        onClick={() => openEntryContextEditor({ collection: 'factions', id: fac.id })}
+                        className="text-neutral-600 hover:text-portal"
+                        title="Edit generation context"
+                        aria-label={`Edit generation context for ${fac.name}`}
+                      >
+                        <Settings2 size={12} />
+                      </button>
+                    )}
                     <button
                        tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setDeletePrompt({ id: fac.id, type: 'faction', name: fac.name })}
                       className="text-neutral-600 hover:text-human text-[9px] font-mono"

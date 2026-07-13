@@ -1,6 +1,6 @@
 import React from 'react';
 import { Location, Story } from '../../../types';
-import { Download, Compass, Lock, MapPin, Eye, RefreshCcw, Loader2, Sparkles } from 'lucide-react';
+import { Download, Compass, Lock, MapPin, Eye, RefreshCcw, Loader2, Sparkles, Settings2 } from 'lucide-react';
 import { LivingCodexImageGallery } from '../LivingCodexImageGallery';
 import { handleDownload } from '../../../utils/downloadUtils';
 
@@ -14,6 +14,7 @@ interface LocationCardProps {
   isFreeUserOnHubStory: boolean;
   handleAwakenCardImage: (id: string, type: "location", obj: any) => void;
   setSelectedNodeChar: (c: any) => void;
+  openEntryContextEditor?: () => void;
 }
 
 export const LocationCard: React.FC<LocationCardProps> = ({
@@ -25,7 +26,8 @@ export const LocationCard: React.FC<LocationCardProps> = ({
   isGenerating,
   isFreeUserOnHubStory,
   handleAwakenCardImage,
-  setSelectedNodeChar
+  setSelectedNodeChar,
+  openEntryContextEditor,
 }) => {
   const displayedImage = activePreview ? activePreview.urls[activePreview.selectedIndex] : loc.imageUrl;
   const hasImage = !!loc.imageUrl;
@@ -115,6 +117,17 @@ export const LocationCard: React.FC<LocationCardProps> = ({
             {loc.firstAppeared !== undefined ? `Known since Ch.${loc.firstAppeared}` : 'Lore only'}
           </div>
           <div className="flex space-x-1.5">
+            {openEntryContextEditor && (
+              <button
+                type="button"
+                onClick={openEntryContextEditor}
+                className="rounded border border-transparent p-1 text-neutral-500 transition-colors hover:border-portal/30 hover:text-portal"
+                title="Edit generation context"
+                aria-label={`Edit generation context for ${loc.name}`}
+              >
+                <Settings2 size={12} />
+              </button>
+            )}
             <button
                tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setSelectedNodeChar(loc as any)}
               className="text-neutral-500 hover:text-portal transition-colors border border-transparent hover:border-portal/30 rounded p-1"

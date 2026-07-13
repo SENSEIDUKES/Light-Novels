@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Sword, RefreshCcw, Sparkles, Download, Lock, Compass } from 'lucide-react';
+import { Plus, Sword, RefreshCcw, Sparkles, Download, Lock, Compass, Settings2 } from 'lucide-react';
 import { Artifact, StoryWorld } from '../../types';
 import { useCodex } from './CodexContext';
 import { useAppStore } from '../../store/useAppStore';
@@ -22,7 +22,8 @@ export function LivingCodexArtifacts({
     onUpdateMemory,
     generatingId,
     previews,
-    handleAwakenCardImage
+    handleAwakenCardImage,
+    openEntryContextEditor,
   } = useCodex();
 
   const userProfile = useAppStore(state => state.userProfile);
@@ -242,6 +243,17 @@ export function LivingCodexArtifacts({
                   )}
                   
                   <div className="flex justify-between items-center mt-1 gap-2 border-t border-neutral-900/50 pt-2">
+                        {openEntryContextEditor && (
+                          <button
+                            type="button"
+                            onClick={() => openEntryContextEditor({ collection: 'artifacts', id: art.id })}
+                            className="text-neutral-600 hover:text-portal"
+                            title="Edit generation context"
+                            aria-label={`Edit generation context for ${art.name}`}
+                          >
+                            <Settings2 size={12} />
+                          </button>
+                        )}
                         <button
                            tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setDeletePrompt({ id: art.id, type: 'artifact', name: art.name })}
                           className="text-[9px] text-neutral-600 hover:text-human uppercase font-mono flex-shrink-0"

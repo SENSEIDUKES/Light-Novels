@@ -147,6 +147,7 @@ CRITICAL ANTI-DRIFT MANDATE (COHERENCE PROTOCOL):
 3. CHARACTER ACCORD: Try not to create a new character that conflicts with or duplicates the name of an existing one. If a character from the 'Living/Met Characters' list appears, treat them as fully known to the MC and the reader. DO NOT re-introduce them or describe them as a stranger. Respect historical character relationships and status.
 4. SEQUENTIAL ASCENSION: If the character advances in their cultivation rank, they should generally progress logically from the current stage to the next sequential stage defined in the Power System ranks.
 5. ABILITY LEDGER STRICTNESS: The MC can ONLY use abilities, spells, or techniques that are already listed in the 'abilities' section of the Story Memory (the Ability Ledger), or if they are explicitly learning/acquiring them on-page in this chapter. Do not invent random pre-existing powers that are not in the ledger. Abilities are canon, not flavor.
+6. AUTHOR-CONTROLLED IDENTITY: Existing "aliases" and "authorContextNote" values in Story Memory are user-authored canon. Use aliases only to recognize the exact entity and obey an authorContextNote over conflicting generated lore. Never invent additional aliases or titles.
 
 CONTENT AND AGE SAFETY PROTOCOLS:
 1. AGE APPROPRIATENESS (Ages 8-12): You are highly comfortable starting or continuing the story around this age when the character starts learning their craft, exploring, or training as an apprentice, student, or young cultivator. Generate adventurous, wholesome, or action-based narrative actions for younger protagonists.
@@ -197,6 +198,7 @@ CRITICAL ANTI-DRIFT MANDATE (COHERENCE PROTOCOL):
 4. SEQUENTIAL ASCENSION & GUARDRAILS: If the protagonist (MC) advances in their cultivation rank or power level, they should logically proceed to the next sequential stage defined in the Power System ranks. Avoid skipping power stages without an on-screen justification or tribulation.
 5. ABILITY LEDGER STRICTNESS: The MC can ONLY use abilities, spells, or techniques that are already listed in the 'abilities' section of the Story Memory (the Ability Ledger), or if they are explicitly learning/acquiring them on-page in this chapter. Do not invent random pre-existing powers that are not in the ledger. Abilities are canon, not flavor.
 6. CLEAN MEMORY SECTIONS: The "memoryUpdates" field must contain true logical deltas (introducing actual newly met characters with distinct names, moving unresolved plot threads to resolved only if they are fully completed in the text, and changing statuses on existing characters based on the physical events in this chapter).
+7. AUTHOR-CONTROLLED IDENTITY: Existing "aliases" and "authorContextNote" values in Story Memory are user-authored canon. You may use aliases to recognize an entity, and an authorContextNote overrides conflicting generated lore. Never create, propose, rename, or update aliases, authorContextNote, contextPriority, or provenance in memoryUpdates.
 
 CONTENT AND AGE SAFETY PROTOCOLS:
 1. AGE APPROPRIATENESS (Ages 8-12): You are highly comfortable starting or continuing the story around this age when the character starts learning their craft, exploring, or training as an apprentice, student, or young cultivator. Generate adventurous, wholesome, or action-based narrative actions for younger protagonists.
@@ -244,6 +246,9 @@ ${tropeRules ? `- Trope Rules:\n${tropeRules}` : ''}
 
       prompt += `CURRENT STORY MEMORY (Ensure complete consistency with these):
 ${memoryJson}
+
+AUTHOR CONTEXT AUTHORITY:
+Any authorContextNote in Story Memory is a direct author instruction. Obey it over conflicting generated descriptions or summaries. Aliases are recognition keys only; do not treat them as permission to invent additional names or titles.
 
 PAST SUMMARY CONTEXT (What happened in previous chapters to prevent plot holes):
 ${pastSummariesJson}
@@ -314,7 +319,8 @@ Do not add any text before or after the JSON.` : `Output strictly the NDJSON blo
 
   extractMetadata: {
     system: `You are an elite fantasy web-novel editor. Your task is to analyze the just-written chapter text and extract structured metadata and story memory updates.
-You must output strictly JSON matching the specified schema format. Do NOT generate chapter text. Focus entirely on analyzing the provided chapter to produce accurate memory updates.`,
+You must output strictly JSON matching the specified schema format. Do NOT generate chapter text. Focus entirely on analyzing the provided chapter to produce accurate memory updates.
+Aliases, authorContextNote, contextPriority, and provenance are author-controlled Codex metadata. Never create or return those fields.`,
     userPrompt: (chapterNumber: number, title: string, chapterText: string) => `Analyze the following chapter text.
 
 Chapter ${chapterNumber}: "${title}"
@@ -649,6 +655,8 @@ BRIEF CHRONOLOGY OF PREVIOUS CHAPTERS:
 ${pastSummariesJson}
 
 You must return a JSON object containing the new sequential chapter lists (Chapters ${startNum} to ${startNum + count - 1}), introducing dramatic twists, new realms, or romantic complications based on the chosen steer direction.
+
+Aliases, authorContextNote, contextPriority, and provenance are author-controlled Codex metadata. Never create or return those fields.
 
 JSON fields required:
 {

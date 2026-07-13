@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
-  Zap, Compass, Crown, SlidersHorizontal, LayoutGrid, ChevronRight, Sparkles
+  Zap, Compass, Crown, SlidersHorizontal, LayoutGrid, ChevronRight, Sparkles, Settings2
 } from 'lucide-react';
+import type { CodexContextEditorTarget } from './CodexContext';
 import { StoryMemory, StoryWorld } from '../../types';
 
 interface LivingCodexPowerProps {
@@ -11,6 +12,7 @@ interface LivingCodexPowerProps {
   mcName: string;
   getPowerRankScore: (s?: string) => { score: number, title: string };
   charsToRender: any[];
+  openEntryContextEditor?: (target: CodexContextEditorTarget) => void;
 }
 
 export function LivingCodexPower({
@@ -19,7 +21,8 @@ export function LivingCodexPower({
   getPowerStageLevel,
   mcName,
   getPowerRankScore,
-  charsToRender
+  charsToRender,
+  openEntryContextEditor,
 }: LivingCodexPowerProps) {
   return (
     <>
@@ -203,7 +206,20 @@ export function LivingCodexPower({
                   if (typeof ability === 'string') {
                     return (
                       <div key={idx} className="codex-panel p-4 rounded-2xl space-y-1">
-                        <span className="text-signal font-display font-bold text-sm tracking-wide">{ability}</span>
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-signal font-display font-bold text-sm tracking-wide">{ability}</span>
+                          {openEntryContextEditor && (
+                            <button
+                              type="button"
+                              onClick={() => openEntryContextEditor({ collection: 'abilities', index: idx })}
+                              className="text-neutral-600 hover:text-portal"
+                              title="Edit generation context"
+                              aria-label={`Edit generation context for ${ability}`}
+                            >
+                              <Settings2 size={12} />
+                            </button>
+                          )}
+                        </div>
                         <span className="block text-[9px] text-neutral-500 font-sc uppercase tracking-widest">Legacy Text Record</span>
                       </div>
                     );
@@ -213,11 +229,24 @@ export function LivingCodexPower({
                     <div key={ability.id || idx} className="codex-panel p-4 sm:p-5 hover:border-portal/40 hover:shadow-[0_0_20px_rgba(4,172,255,0.1)] transition-all duration-300 rounded-2xl space-y-3">
                       <div className="flex justify-between items-start">
                         <h4 className="text-signal font-display font-bold text-base tracking-wide">{ability.name}</h4>
-                        {ability.masteryLevel && (
-                          <span className="text-[9px] px-2 py-0.5 bg-portal/10 text-portal font-sc uppercase tracking-widest rounded border border-portal/30 shadow-[0_0_8px_rgba(4,172,255,0.15)]">
-                            {ability.masteryLevel}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {ability.masteryLevel && (
+                            <span className="text-[9px] px-2 py-0.5 bg-portal/10 text-portal font-sc uppercase tracking-widest rounded border border-portal/30 shadow-[0_0_8px_rgba(4,172,255,0.15)]">
+                              {ability.masteryLevel}
+                            </span>
+                          )}
+                          {openEntryContextEditor && (
+                            <button
+                              type="button"
+                              onClick={() => openEntryContextEditor({ collection: 'abilities', index: idx })}
+                              className="text-neutral-600 hover:text-portal"
+                              title="Edit generation context"
+                              aria-label={`Edit generation context for ${ability.name}`}
+                            >
+                              <Settings2 size={12} />
+                            </button>
+                          )}
+                        </div>
                       </div>
                       
                       <p className="text-neutral-400 text-xs leading-relaxed font-serif italic">

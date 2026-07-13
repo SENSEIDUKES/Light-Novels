@@ -2,6 +2,15 @@ import { generateId } from '../../lib/id';
 import { Story, StoryMemory } from '../../types';
 import { runMemoryLinter } from '../storyEngineHelpers';
 import { resolveEntity } from '../../lib/entityResolver';
+import { stripAuthorControlledCodexFields } from '../../lib/codexContext';
+
+const stripGeneratedAbilityContext = (ability: any) => {
+  if (!ability || typeof ability !== 'object') return ability;
+  return stripAuthorControlledCodexFields(ability);
+};
+
+const sanitizeGeneratedAbilities = (value: unknown): any[] | undefined =>
+  Array.isArray(value) ? value.map(stripGeneratedAbilityContext) : undefined;
 
 export const applyMemoryPatch = (
   cloned: Story,
@@ -28,7 +37,7 @@ export const applyMemoryPatch = (
       relationshipToMC: c.relationshipToMC || 'Neutral',
       status: c.status || 'alive',
       powerLevel: c.powerLevel || undefined,
-      abilities: c.abilities || undefined,
+      abilities: sanitizeGeneratedAbilities(c.abilities),
       faction: c.faction || undefined,
       relevanceState: c.relevanceState || 'active',
       currentRelevance: c.currentRelevance || undefined,
@@ -49,8 +58,9 @@ export const applyMemoryPatch = (
       const rule = resolvedRules.find((u: any) => u.resolved.resolvedEntityId === char.id);
       if (rule) {
         const nextAbilities = char.abilities || [];
-        const mergedAbilities = rule.newAbilities 
-          ? Array.from(new Set([...nextAbilities, ...rule.newAbilities]))
+        const generatedAbilities = sanitizeGeneratedAbilities(rule.newAbilities);
+        const mergedAbilities = generatedAbilities
+          ? Array.from(new Set([...nextAbilities, ...generatedAbilities]))
           : nextAbilities;
         
         let newDesc = char.description;
@@ -296,7 +306,7 @@ export const applyMemoryPatch = (
         firstAppeared: chapterNumber
       };
     });
-    const currentAbilitiesObjects = currentAbilities.map(a => typeof a === 'string' ? { id: a, name: a } : { id: a.id || a.name, name: a.name });
+    const currentAbilitiesObjects = currentAbilities.map(a => typeof a === 'string' ? { id: a, name: a } : { id: a.id || a.name, name: a.name, aliases: a.aliases });
     const filteredAbilities = added.filter((newAb: any) => {
        const res = resolveEntity(newAb.name, currentAbilitiesObjects, "newAbilityCheck");
        return res.resolvedEntityId === null;
@@ -306,7 +316,7 @@ export const applyMemoryPatch = (
 
   if (memoryUpdates.mcAbilityUpdates && memoryUpdates.mcAbilityUpdates.length > 0) {
     const currentAbilities = nextMemory.abilities || [];
-    const currentAbilitiesObjects = currentAbilities.map(a => typeof a === 'string' ? { id: a, name: a } : { id: a.id || a.name, name: a.name });
+    const currentAbilitiesObjects = currentAbilities.map(a => typeof a === 'string' ? { id: a, name: a } : { id: a.id || a.name, name: a.name, aliases: a.aliases });
     
     memoryUpdates.mcAbilityUpdates.forEach((update: any) => {
        const res = resolveEntity(update.name || "", currentAbilitiesObjects, "abilityUpdate");
@@ -316,9 +326,9 @@ export const applyMemoryPatch = (
          );
          
          if (abilityIndex >= 0) {
-           const ability = currentAbilities[abilityIndex];
-           if (typeof ability !== 'string') {
-             if (update.newMasteryLevel) ability.masteryLevel = update.newMasteryLevel;
+            const ability = currentAbilities[abilityIndex];
+            if (typeof ability !== 'string') {
+              if (update.newMasteryLevel) ability.masteryLevel = update.newMasteryLevel;
              if (update.lastUsedChapter) ability.lastUsedChapter = update.lastUsedChapter;
            }
          }

@@ -17,6 +17,90 @@ describe('Server Helpers', () => {
     it('returns empty array when entities is undefined', () => {
       expect(rankRelevantEntities(undefined, 'John', '', '', [])).toEqual([]);
     });
+
+    it('matches aliases in prose and forces aliases mentioned in the last summary', () => {
+      const entity = {
+        name: 'Mei Lian',
+        aliases: ['Sister Mei', 'the Pavilion Mistress'],
+        description: 'Keeper of the eastern pavilion'
+      };
+
+      expect(rankRelevantEntities([entity], '', '', 'Sister Mei closed the gates.', [])).toEqual([entity]);
+      expect(rankRelevantEntities([entity], '', 'The Pavilion Mistress vanished.', '', [], 0)).toEqual([entity]);
+    });
+
+    it('matches aliases only as exact boundary-aware surface forms', () => {
+      const entity = { name: 'Mei Lian', aliases: ['Master'], description: 'A teacher' };
+
+      expect(rankRelevantEntities([entity], '', '', 'The Master entered.', [])).toHaveLength(1);
+      expect(rankRelevantEntities([entity], '', '', 'The Grandmaster entered.', [])).toEqual([]);
+      expect(rankRelevantEntities([entity], '', '', 'Mastre entered.', [])).toEqual([]);
+    });
+
+    it('does not use a colliding alias to select either entity', () => {
+      const entities = [
+        { name: 'Mei Lian', aliases: ['Master'] },
+        { name: 'Lan Wei', aliases: ['Master'] },
+      ];
+
+      expect(rankRelevantEntities(entities, '', '', 'Master entered.', [])).toEqual([]);
+    });
+
+    it('filters colliding aliases and legacy context from nested character abilities', () => {
+      const [character] = rankRelevantEntities([{
+        name: 'Mei Lian',
+        abilities: [
+          'Moon Dance',
+          {
+            name: 'Moon Step',
+            description: 'A movement art',
+            aliases: ['Moon Dance'],
+            pinned: true,
+            priority: 99,
+            contextNote: 'Legacy note',
+          },
+        ],
+      }], '', '', 'Mei Lian entered.', []);
+
+      expect(character.abilities).toEqual([
+        'Moon Dance',
+        { name: 'Moon Step', description: 'A movement art' },
+      ]);
+    });
+
+    it('always includes provenance-pinned entities even when they exceed the normal budget', () => {
+      const pinned = Array.from({ length: 3 }, (_, index) => ({
+        name: `Pinned ${index}`,
+        provenance: { isUserPinned: true },
+      }));
+
+      expect(rankRelevantEntities(pinned, '', '', '', [], 1)).toHaveLength(3);
+    });
+
+    it('uses contextPriority to break equal relevance scores', () => {
+      const ranked = rankRelevantEntities([
+        { name: 'Azure Hall', contextPriority: 1 },
+        { name: 'Crimson Hall', contextPriority: 10 }
+      ], '', '', 'Azure Hall and Crimson Hall prepare for war.', [], 1);
+
+      expect(ranked.map(entity => entity.name)).toEqual(['Crimson Hall']);
+    });
+
+    it('preserves an explicit authoritative authorContextNote in prompt context', () => {
+      const entity = {
+        name: 'Mei Lian',
+        description: 'Generated public description',
+        authorContextNote: 'Never uses contractions; secretly hates the MC.'
+      };
+
+      const [rendered] = rankRelevantEntities([entity], '', '', 'Mei Lian arrives.', []);
+
+      expect(rendered.description).toBe(entity.description);
+      expect(rendered.authorContextNote).toBe(entity.authorContextNote);
+      expect(rendered).not.toHaveProperty('contextNote');
+      expect(rendered).not.toHaveProperty('pinned');
+      expect(entity.description).toBe('Generated public description');
+    });
   });
 
   describe('filterRelevantEntities', () => {
@@ -69,6 +153,21 @@ describe('Server Helpers', () => {
       expect(Array.isArray(cleaned.characters)).toBe(true);
       expect(Array.isArray(cleaned.worldRules)).toBe(true);
     });
+
+    it('removes model-created aliases and author context metadata', async () => {
+      const { cleanInitialArc } = await import('./helpers');
+      const cleaned = cleanInitialArc({
+        characters: [{
+          name: 'Mei Lian',
+          role: 'Mentor',
+          aliases: ['Sister Mei'],
+          authorContextNote: 'Invented note',
+          provenance: { isUserPinned: true },
+        }],
+      });
+
+      expect(cleaned.characters[0]).toEqual({ name: 'Mei Lian', role: 'Mentor' });
+    });
   });
 
   describe('cleanSteerArc', () => {
@@ -78,6 +177,15 @@ describe('Server Helpers', () => {
       const cleaned = cleanSteerArc(mockSteer);
       expect(cleaned.title).toBe('Steer 1');
       expect(Array.isArray(cleaned.newCharacters)).toBe(true);
+    });
+
+    it('removes model-created aliases from steered characters', async () => {
+      const { cleanSteerArc } = await import('./helpers');
+      const cleaned = cleanSteerArc({
+        newCharacters: [{ name: 'Lan Wei', aliases: ['Little Lan'], contextPriority: 10 }],
+      });
+
+      expect(cleaned.newCharacters[0]).toEqual({ name: 'Lan Wei' });
     });
   });
 
@@ -129,6 +237,28 @@ describe('Server Helpers', () => {
 
       expect(JSON.parse(memoryJsonStr).abilities).toEqual(abilities);
     });
+
+    it('strips model-proposed aliases and other author-controlled context fields', async () => {
+      const { cleanChapterResponse } = await import('./helpers');
+      const cleaned = cleanChapterResponse({
+        memoryUpdates: {
+          newCharacters: [{
+            name: 'Mei Lian',
+            aliases: ['Sister Mei'],
+            contextPriority: 10,
+            authorContextNote: 'Trust the model',
+            provenance: { isUserPinned: true },
+          }],
+          characterStatusUpdates: [{
+            name: 'Mei Lian',
+            aliases: ['the Pavilion Mistress']
+          }]
+        }
+      });
+
+      expect(cleaned.memoryUpdates.newCharacters[0]).toEqual({ name: 'Mei Lian' });
+      expect(cleaned.memoryUpdates.characterStatusUpdates[0]).toEqual({ name: 'Mei Lian' });
+    });
   });
 
   describe('formatAbilityLedgerForPrompt', () => {
@@ -161,6 +291,58 @@ describe('Server Helpers', () => {
     it('returns an empty ledger for missing or malformed abilities', () => {
       expect(formatAbilityLedgerForPrompt(undefined)).toEqual([]);
       expect(formatAbilityLedgerForPrompt({ name: 'Not an array' })).toEqual([]);
+    });
+
+    it('retains provenance-pinned abilities and applies approved context metadata', () => {
+      const abilities = [
+        {
+          id: 'old-pinned',
+          name: 'Heaven Step',
+          aliases: ['Sky Walk'],
+          provenance: { isUserPinned: true, lastMentionedChapter: 2, createdBy: 'user' },
+          contextPriority: 9,
+          description: 'Generated description',
+          authorContextNote: 'Cannot be used underground.'
+        },
+        ...Array.from({ length: 30 }, (_, index) => ({
+          id: `new-${index}`,
+          name: `New Ability ${index}`,
+          description: 'Recent technique'
+        }))
+      ];
+
+      const formatted = formatAbilityLedgerForPrompt(abilities) as Array<Record<string, unknown>>;
+      const pinned = formatted.find(ability => ability.name === 'Heaven Step');
+
+      expect(formatted).toHaveLength(30);
+      expect(pinned).toMatchObject({
+        aliases: ['Sky Walk'],
+        provenance: { isUserPinned: true, lastMentionedChapter: 2 },
+        contextPriority: 9,
+        authorContextNote: 'Cannot be used underground.',
+        description: 'Generated description'
+      });
+      expect(pinned).not.toHaveProperty('pinned');
+      expect(pinned).not.toHaveProperty('priority');
+      expect((pinned?.provenance as Record<string, unknown>)).not.toHaveProperty('createdBy');
+      expect(formatted.some(ability => ability.name === 'New Ability 0')).toBe(false);
+    });
+
+    it('checks alias collisions against abilities omitted by the prompt cap', () => {
+      const abilities = [
+        'Moon Dance',
+        ...Array.from({ length: 29 }, (_, index) => ({ name: `Filler ${index}` })),
+        { name: 'Moon Step', aliases: ['Moon Dance'], description: 'A movement art' },
+      ];
+
+      const formatted = formatAbilityLedgerForPrompt(abilities) as Array<string | Record<string, unknown>>;
+      const moonStep = formatted.find(ability => (
+        typeof ability === 'object' && ability.name === 'Moon Step'
+      ));
+
+      expect(formatted).toHaveLength(30);
+      expect(formatted).not.toContain('Moon Dance');
+      expect(moonStep).toEqual({ name: 'Moon Step', description: 'A movement art' });
     });
   });
 

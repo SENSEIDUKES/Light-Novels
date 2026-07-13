@@ -6,9 +6,13 @@ import {
   BookMarked, Activity, History
 } from 'lucide-react';
 import { vibrate } from '../lib/vibration';
-import { StoryMemory, Character, StoryArc, StoryWorld, Chapter, MultiModelRouting, GeneratedImage } from '../types';
+import { StoryMemory, Character, StoryArc, StoryWorld, MultiModelRouting } from '../types';
 import { secureStorage } from '../lib/encryption';
-import { CodexProvider } from './codex/CodexContext';
+import {
+  CodexProvider,
+  type CodexContextEditorTarget,
+} from './codex/CodexContext';
+import { CodexEntryContextDialog } from './codex/CodexEntryContextDialog';
 import { LivingCodexCollage } from './codex/LivingCodexCollage';
 import { LivingCodexCharacters } from './codex/LivingCodexCharacters';
 import { LivingCodexRelations } from './codex/LivingCodexRelations';
@@ -27,6 +31,8 @@ import { checkAndConsumeImageQuota } from '../lib/quota';
 import { useCodexAnalytics } from '../hooks/useCodexAnalytics';
 import { useCodexImageEvolution } from '../hooks/useCodexImageEvolution';
 import { useCodexDeletions } from '../hooks/useCodexDeletions';
+import { generateId } from '../lib/id';
+import { stripLegacyCodexContextFields } from '../lib/codexContext';
 
 interface LivingCodexProps {
   memory: StoryMemory;
@@ -73,7 +79,7 @@ export default function LivingCodex({
   onUpdateStory,
   routingConfig
 }: LivingCodexProps) {
-  const memory = {
+  const memory = useMemo(() => ({
     ...rawMemory,
     characters: rawMemory.characters || [],
     unresolvedPlotThreads: rawMemory.unresolvedPlotThreads || [],
@@ -83,8 +89,8 @@ export default function LivingCodex({
     factions: rawMemory.factions || [],
     locations: rawMemory.locations || [],
     artifacts: rawMemory.artifacts || [],
-    abilities: rawMemory.abilities || []
-  };
+    abilities: rawMemory.abilities || [],
+  }), [rawMemory]);
 
   const [activePage, setActivePage] = useState<'portraits' | 'karma' | 'power' | 'artifacts' | 'fate' | 'lore'>('portraits');
   
@@ -95,6 +101,7 @@ export default function LivingCodex({
   const [showDeepMemory, setShowDeepMemory] = useState(false);
   const [codexNotification, setCodexNotification] = useState<string | null>(null);
   const [selectedChartCharId, setSelectedChartCharId] = useState<string>('');
+  const [contextEditorTarget, setContextEditorTarget] = useState<CodexContextEditorTarget | null>(null);
     
   const [deletePrompt, setDeletePrompt] = useState<{type: string, id: string, name?: string} | null>(null);
   const [deleteInput, setDeleteInput] = useState('');
@@ -143,22 +150,74 @@ export default function LivingCodex({
   const activePreviewId = Object.keys(previews)[0];
   const activePreview = activePreviewId ? previews[activePreviewId] : null;
 
-  // Memory Temperature Filtering
+  const contextEditorData = useMemo(() => {
+    if (!contextEditorTarget) return null;
+    const source = (memory[contextEditorTarget.collection] || []) as any[];
+    const entryIndex = typeof contextEditorTarget.index === 'number'
+      ? contextEditorTarget.index
+      : source.findIndex(entry => (
+        entry && typeof entry === 'object' && entry.id === contextEditorTarget.id
+      ));
+    if (entryIndex < 0 || entryIndex >= source.length) return null;
+
+    const rawEntry = source[entryIndex];
+    const entry = typeof rawEntry === 'string'
+      ? { id: `legacy-ability-${entryIndex}`, name: rawEntry, description: '' }
+      : rawEntry;
+    const peerEntries = source.map((peer, index) => (
+      typeof peer === 'string'
+        ? { id: `legacy-ability-${index}`, name: peer }
+        : peer
+    ));
+
+    return { entry, entryIndex, peerEntries };
+  }, [contextEditorTarget, memory]);
+
+  const handleSaveEntryContext = (value: any) => {
+    if (!contextEditorTarget || !contextEditorData) return;
+    const collection = contextEditorTarget.collection;
+    const source = [...((memory[collection] || []) as any[])];
+    const current = source[contextEditorData.entryIndex];
+    const currentWithoutLegacyContext = current && typeof current === 'object'
+      ? stripLegacyCodexContextFields(current)
+      : current;
+    source[contextEditorData.entryIndex] = typeof current === 'string'
+      ? {
+        id: `abil-${generateId(9)}`,
+        name: current,
+        description: '',
+        ...value,
+      }
+      : { ...currentWithoutLegacyContext, ...value };
+    onUpdateMemory({ ...memory, [collection]: source });
+    pushNotification(`Context updated for ${contextEditorData.entry.name}.`);
+    setContextEditorTarget(null);
+  };
+
+  // Memory Temperature Filtering. A user pin is the existing force-include
+  // contract, so pinned dormant entries stay inspectable without Deep Memory.
+  const isVisibleInCurrentMemory = (entry: { relevanceState?: string; provenance?: { isUserPinned?: boolean } }) =>
+    entry.provenance?.isUserPinned === true
+    || !entry.relevanceState
+    || entry.relevanceState === 'active'
+    || entry.relevanceState === 'warm'
+    || entry.relevanceState === 'reactivated';
+
   const allChars = memory.characters || [];
   const dormantChars = allChars.filter(c => c.relevanceState === 'dormant' || c.relevanceState === 'archived');
-  const charsToRender = showDeepMemory ? allChars : allChars.filter(c => !c.relevanceState || c.relevanceState === 'active' || c.relevanceState === 'warm' || c.relevanceState === 'reactivated');
+  const charsToRender = showDeepMemory ? allChars : allChars.filter(isVisibleInCurrentMemory);
 
   const allLocs = memory.locations || [];
   const dormantLocs = allLocs.filter(l => l.relevanceState === 'dormant' || l.relevanceState === 'archived');
-  const locationsToRender = showDeepMemory ? allLocs : allLocs.filter(l => !l.relevanceState || l.relevanceState === 'active' || l.relevanceState === 'warm' || l.relevanceState === 'reactivated');
+  const locationsToRender = showDeepMemory ? allLocs : allLocs.filter(isVisibleInCurrentMemory);
 
   const allFactions = memory.factions || [];
   const dormantFactions = allFactions.filter(f => f.relevanceState === 'dormant' || f.relevanceState === 'archived');
-  const factionsToRender = showDeepMemory ? allFactions : allFactions.filter(f => !f.relevanceState || f.relevanceState === 'active' || f.relevanceState === 'warm' || f.relevanceState === 'reactivated');
+  const factionsToRender = showDeepMemory ? allFactions : allFactions.filter(isVisibleInCurrentMemory);
 
   const allArtifacts = memory.artifacts || [];
   const dormantArtifacts = allArtifacts.filter(a => a.relevanceState === 'dormant' || a.relevanceState === 'archived');
-  const artifactsToRender = showDeepMemory ? allArtifacts : allArtifacts.filter(a => !a.relevanceState || a.relevanceState === 'active' || a.relevanceState === 'warm' || a.relevanceState === 'reactivated');
+  const artifactsToRender = showDeepMemory ? allArtifacts : allArtifacts.filter(isVisibleInCurrentMemory);
 
   const hasDormantState = dormantChars.length > 0 || dormantLocs.length > 0 || dormantFactions.length > 0 || dormantArtifacts.length > 0;
 
@@ -176,7 +235,8 @@ export default function LivingCodex({
     handleRevertImage,
     previews,
     setPreviews,
-    generatingId }}>
+    generatingId,
+    openEntryContextEditor: setContextEditorTarget }}>
       <div className="codex-premium-shell rounded-2xl p-4 sm:p-6 flex flex-col md:flex-row gap-6 relative min-h-[690px] overflow-hidden" id="living-codex-container">
       <DestinyChoicePanel 
         isOpen={!!activePreview}
@@ -188,6 +248,15 @@ export default function LivingCodex({
         title="Evolution Preview"
         subtitle="Choose the form that will be bound to the Living Codex."
       />
+
+      {contextEditorData && (
+        <CodexEntryContextDialog
+          entry={contextEditorData.entry}
+          peerEntries={contextEditorData.peerEntries}
+          onClose={() => setContextEditorTarget(null)}
+          onSave={handleSaveEntryContext}
+        />
+      )}
       
       {/* Dynamic Portal aura line */}
       <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-portal to-transparent opacity-80"></div>
@@ -470,6 +539,7 @@ export default function LivingCodex({
               mcName={mcName}
               getPowerRankScore={getPowerRankScore}
               charsToRender={charsToRender}
+              openEntryContextEditor={setContextEditorTarget}
             />
 
             <div className="border-t border-neutral-900 pt-6">

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Users } from 'lucide-react';
 import { IntakeData } from '../../../types';
+import { normalizeCodexAliases, parseCodexAliases } from '../../../lib/codexContext';
 import { FormSection, FormSectionId } from './FormSection';
 
 interface CustomCharactersFormProps {
@@ -93,6 +94,25 @@ export const CustomCharactersForm = ({ intake, updateIntake, activeSection, setA
                 }} placeholder="e.g. Rival, Foe, Ally..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" id={`mc-char-connection-${char.id}`} />
               </div>
               <div className="col-span-1 sm:col-span-2 md:col-span-4">
+                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor={`char-aliases-${char.id}`}>Aliases / Known Titles</label>
+                <textarea
+                  key={`${char.id}-${normalizeCodexAliases(char.aliases, char.name).join('|')}`}
+                  id={`char-aliases-${char.id}`}
+                  rows={2}
+                  defaultValue={normalizeCodexAliases(char.aliases, char.name).join(', ')}
+                  onBlur={(e) => {
+                    const aliases = parseCodexAliases(e.currentTarget.value, char.name);
+                    e.currentTarget.value = aliases.join(', ');
+                    const newChars = [...(intake.customCharacters || [])];
+                    newChars[index] = { ...newChars[index], aliases };
+                    updateIntake('customCharacters', newChars);
+                  }}
+                  placeholder="e.g. Sister Mei; Pavilion Mistress"
+                  className="w-full resize-none bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors"
+                />
+                <p className="mt-1 text-[9px] font-sans text-neutral-600">User-authored only. Separate names or titles with commas, semicolons, or new lines.</p>
+              </div>
+              <div className="col-span-1 sm:col-span-2 md:col-span-4">
                 <div className="flex justify-between items-end mb-1">
                   <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest" htmlFor={`char-bio-${char.id}`}>Biography & Traits</label>
                   <span className="text-[9px] font-mono text-neutral-500">{(char.bio || '').length} / 2000</span>
@@ -118,7 +138,7 @@ export const CustomCharactersForm = ({ intake, updateIntake, activeSection, setA
           <button
             type="button"
              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-              const newChars = [...(intake.customCharacters || []), { id: crypto.randomUUID(), name: '', age: '', skinTone: '', eyeColor: '', powerType: '', rankLevel: '', role: '', connectionToMC: '', bio: '' }];
+              const newChars = [...(intake.customCharacters || []), { id: crypto.randomUUID(), name: '', aliases: [], age: '', skinTone: '', eyeColor: '', powerType: '', rankLevel: '', role: '', connectionToMC: '', bio: '' }];
               updateIntake('customCharacters', newChars);
             }}
             className="w-full py-2 border border-dashed border-neutral-800 hover:border-[#04ACFF]/50 hover:bg-[#04ACFF]/5 text-neutral-400 hover:text-[#04ACFF] font-sc text-xs uppercase tracking-widest transition-all rounded"

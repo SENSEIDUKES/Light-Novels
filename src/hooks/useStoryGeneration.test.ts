@@ -45,10 +45,43 @@ describe('useStoryGeneration', () => {
       powerSystem: 'Cultivation',
       currentPowerStage: 'Qi Gathering',
       worldRules: ['Debts have consequences'],
-      characters: [{ name: 'Mei' }],
+      characters: [{
+        name: 'Mei',
+        role: 'Keeper',
+        aliases: ['Model-Invented Title'],
+        contextPriority: 999,
+        authorContextNote: 'Model-authored instruction',
+        provenance: { isUserPinned: true },
+        isUserPinned: true,
+        powerLevel: 'Core Formation',
+        faction: 'Jade Court',
+        abilities: [{
+          name: 'Moon Step',
+          description: 'A swift movement art.',
+          aliases: ['Moon Dance'],
+          authorContextNote: 'Provider ability note',
+        }],
+      }],
       unresolvedPlotThreads: ['Who opened the gate?'],
     });
-    const intake = { mcName: 'Lin', genrePath: 'Xianxia', corePremise: 'A sealed gate.' };
+    const intake = {
+      mcName: 'Lin',
+      genrePath: 'Xianxia',
+      corePremise: 'A sealed gate.',
+      customCharacters: [{
+        id: 'intake-mei',
+        name: '  Mei  ',
+        aliases: [' Sister Mei ', 'sister mei', 'Mei', 'Pavilion Mistress'],
+      }],
+      customFactions: [{
+        id: 'intake-faction-1',
+        name: ' Heavenly Sword Sect ',
+        aliases: ['Azure Hall', 'azure hall', 'Heavenly Sword Sect'],
+        description: 'An old mountain sect.',
+        alignment: 'Righteous',
+        connectionToMC: 'The protagonist\'s starting sect',
+      }],
+    };
     const blueprint = { title: 'Blueprint Title', logline: 'A logline', powerSystemOutline: 'Blueprint system' };
     const { result } = renderHook(() => useStoryGeneration());
 
@@ -77,7 +110,28 @@ describe('useStoryGeneration', () => {
         worldRules: ['Debts have consequences'],
       },
     });
-    expect(created.memory.characters[0]).toMatchObject({ id: expect.stringMatching(/^char-/), name: 'Mei' });
+    expect(created.memory.characters[0]).toMatchObject({
+      id: expect.stringMatching(/^char-/),
+      name: 'Mei',
+      role: 'Keeper',
+      aliases: ['Sister Mei', 'Pavilion Mistress'],
+      powerLevel: 'Core Formation',
+      faction: 'Jade Court',
+      abilities: [{ name: 'Moon Step', description: 'A swift movement art.' }],
+    });
+    expect(created.memory.characters[0]).not.toHaveProperty('contextPriority');
+    expect(created.memory.characters[0]).not.toHaveProperty('authorContextNote');
+    expect(created.memory.characters[0]).not.toHaveProperty('provenance');
+    expect(created.memory.characters[0]).not.toHaveProperty('isUserPinned');
+    expect(created.memory.factions[0]).toMatchObject({
+      id: expect.stringMatching(/^fct-/),
+      name: 'Heavenly Sword Sect',
+      aliases: ['Azure Hall'],
+      description: 'An old mountain sect.',
+      alignment: 'Righteous',
+      currentRelevance: 'The protagonist\'s starting sect',
+      provenance: { createdBy: 'user-intake' },
+    });
     expect(created.memory.unresolvedPlotThreads[0]).toMatchObject({
       id: expect.stringMatching(/^thread-/),
       description: 'Who opened the gate?',
@@ -90,6 +144,38 @@ describe('useStoryGeneration', () => {
     expect(awardQi).toHaveBeenCalledWith('world_created');
     expect(state.setIsGenerating).toHaveBeenLastCalledWith(false);
     expect(state.setGenerationPhase).toHaveBeenLastCalledWith(null);
+  });
+
+  it('does not guess intake aliases for renamed or ambiguous generated characters', async () => {
+    vi.mocked(storyApi.generateInitialArc).mockResolvedValue({
+      title: 'The Jade Gate',
+      chapters: [{ number: 1, title: 'Arrival', premise: 'Enter the sect.' }],
+      powerSystem: 'Cultivation',
+      currentPowerStage: 'Qi Gathering',
+      worldRules: [],
+      characters: [
+        { name: 'Mei Lian the Elder', aliases: ['Model Alias'] },
+        { name: 'Lan Wei', aliases: ['Another Model Alias'] },
+      ],
+      unresolvedPlotThreads: [],
+    });
+    const intake = {
+      customCharacters: [
+        { id: 'mei', name: 'Mei Lian', aliases: ['Sister Mei'] },
+        { id: 'lan-1', name: 'Lan Wei', aliases: ['Little Lan'] },
+        { id: 'lan-2', name: ' lan  wei ', aliases: ['Second Lan'] },
+      ],
+    } as any;
+    const { result } = renderHook(() => useStoryGeneration());
+
+    await act(async () => {
+      await result.current.handleStartStory(intake, { title: 'Blueprint' } as any, 1);
+    });
+
+    const createdCharacters = state.saveStories.mock.calls[0][0][0].memory.characters;
+    expect(createdCharacters).toHaveLength(2);
+    expect(createdCharacters[0]).not.toHaveProperty('aliases');
+    expect(createdCharacters[1]).not.toHaveProperty('aliases');
   });
 
   it('surfaces blueprint failures while restoring generation state', async () => {

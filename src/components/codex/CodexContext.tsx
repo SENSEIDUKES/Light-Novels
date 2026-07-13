@@ -1,6 +1,14 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { StoryMemory, StoryArc, StoryWorld, MultiModelRouting } from '../../types';
 
+export type CodexEntryCollection = 'characters' | 'factions' | 'locations' | 'artifacts' | 'abilities';
+
+export interface CodexContextEditorTarget {
+  collection: CodexEntryCollection;
+  id?: string;
+  index?: number;
+}
+
 interface CodexContextType {
   memory: StoryMemory;
   arcs: StoryArc[];
@@ -16,6 +24,7 @@ interface CodexContextType {
   previews: Record<string, any>;
   setPreviews: React.Dispatch<React.SetStateAction<Record<string, any>>>;
   generatingId: string | null;
+  openEntryContextEditor: (target: CodexContextEditorTarget) => void;
 }
 
 const CodexContext = createContext<CodexContextType | undefined>(undefined);
