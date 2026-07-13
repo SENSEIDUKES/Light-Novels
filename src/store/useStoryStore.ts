@@ -1,13 +1,22 @@
 import { StateCreator } from 'zustand';
-import { Story, Chapter, DraftRecoverySession, AppUser } from '../types';
+import { Story, Chapter, ChapterContent, DraftRecoverySession, AppUser } from '../types';
 import { storyStorage } from '../lib/storage';
 import { AppState } from './useAppStore';
-import { auth } from '../lib/firebase';
+import { auth, LOCAL_ONLY_MODE } from '../lib/firebase';
 import { getRandomDemoStory } from './demoStories';
 import { secureStorage } from '../lib/encryption';
 import { mergeStories } from '../lib/merge';
 
 const STORAGE_KEY = '@seihouse/fiction-generator-stories-v2';
+let storageInitVersion = 0;
+
+const nextResolutionCheckpoint = (...timestamps: Array<string | undefined>): string => {
+  const latest = timestamps.reduce((maximum, timestamp) => {
+    const parsed = timestamp ? new Date(timestamp).getTime() : Number.NaN;
+    return Number.isFinite(parsed) ? Math.max(maximum, parsed) : maximum;
+  }, Date.now());
+  return new Date(latest + 1).toISOString();
+};
 
 export interface StorySlice {
   stories: Story[];
@@ -47,9 +56,20 @@ export interface StorySlice {
   handleImportLibrary: (e: any) => void;
   initStorage: () => Promise<void>;
   migrateOrDiscardDemoStories: (user: AppUser | null) => Promise<void>;
-  activeConflict: { storyId: string; localStory: Story; cloudStory: Story } | null;
-  setActiveConflict: (conflict: { storyId: string; localStory: Story; cloudStory: Story } | null) => void;
+  activeConflict: StorySyncConflict | null;
+  setActiveConflict: (conflict: StorySyncConflict | null) => void;
   resolveConflict: (resolution: 'local' | 'cloud' | 'merge') => Promise<void>;
+}
+
+export interface StorySyncConflict {
+  storyId: string;
+  localStory: Story;
+  cloudStory: Story;
+  chapterConflict?: {
+    chapterNumber: number;
+    localContent: ChapterContent;
+    cloudContent: ChapterContent;
+  };
 }
 
 export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set, get) => ({
@@ -81,36 +101,88 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
   setStorageType: (storageType) => set({ storageType }),
   setLastSavedTime: (lastSavedTime) => set({ lastSavedTime }),
   activeConflict: null,
-  setActiveConflict: (activeConflict) => set({ activeConflict }),
+  setActiveConflict: (activeConflict) => {
+    if (activeConflict && !LOCAL_ONLY_MODE) {
+      const currentUid = auth.currentUser?.uid;
+      const owners = [
+        activeConflict.localStory.userId,
+        activeConflict.cloudStory.userId,
+      ].filter((owner): owner is string => Boolean(owner));
+      if (owners.some((owner) => owner !== currentUid)) return;
+    }
+    set({ activeConflict });
+  },
   resolveConflict: async (resolution: 'local' | 'cloud' | 'merge') => {
     const conflict = get().activeConflict;
     if (!conflict) return;
+    const expectedUid = auth.currentUser?.uid;
+    const accountIsCurrent = () =>
+      LOCAL_ONLY_MODE || auth.currentUser?.uid === expectedUid;
+
+    if (!LOCAL_ONLY_MODE) {
+      const owners = [
+        conflict.localStory.userId,
+        conflict.cloudStory.userId,
+      ].filter((owner): owner is string => Boolean(owner));
+      if (owners.some((owner) => owner !== expectedUid)) {
+        set({ activeConflict: null });
+        return;
+      }
+    }
 
     const { storyId, localStory, cloudStory } = conflict;
     const { setStories } = get();
-
-    let resolvedStory: Story;
-
-    if (resolution === 'local') {
-      resolvedStory = { ...localStory, updatedAt: new Date().toISOString(), conflictResolvedAt: new Date().toISOString() };
-    } else if (resolution === 'cloud') {
-      resolvedStory = { ...cloudStory, updatedAt: new Date().toISOString(), conflictResolvedAt: new Date().toISOString() };
-    } else {
-      // Use smart merge helper
-      resolvedStory = mergeStories(localStory, cloudStory);
-      resolvedStory.conflictResolvedAt = new Date().toISOString();
-    }
 
     try {
       // Clear the active conflict first to avoid re-triggering the check
       set({ activeConflict: null });
 
-      // Save to storage (triggers sync internally)
-      await storyStorage.saveStory(resolvedStory);
+      if (conflict.chapterConflict) {
+        if (resolution === 'merge') {
+          throw new Error('Chapter prose cannot be merged automatically; choose local or cloud');
+        }
+        const chosenContent = resolution === 'cloud'
+          ? conflict.chapterConflict.cloudContent
+          : conflict.chapterConflict.localContent;
+        const resolutionCheckpoint = nextResolutionCheckpoint(
+          conflict.chapterConflict.localContent.updatedAt,
+          conflict.chapterConflict.cloudContent.updatedAt,
+        );
+        await storyStorage.saveChapterContent({
+          ...chosenContent,
+          updatedAt: resolutionCheckpoint,
+        });
+      } else {
+        const resolutionCheckpoint = nextResolutionCheckpoint(
+          localStory.updatedAt,
+          cloudStory.updatedAt,
+        );
+        let resolvedStory: Story;
+        if (resolution === 'local') {
+          resolvedStory = {
+            ...localStory,
+            updatedAt: resolutionCheckpoint,
+            conflictResolvedAt: resolutionCheckpoint,
+          };
+        } else if (resolution === 'cloud') {
+          resolvedStory = {
+            ...cloudStory,
+            updatedAt: resolutionCheckpoint,
+            conflictResolvedAt: resolutionCheckpoint,
+          };
+        } else {
+          // Use smart merge helper
+          resolvedStory = mergeStories(localStory, cloudStory);
+          resolvedStory.updatedAt = resolutionCheckpoint;
+          resolvedStory.conflictResolvedAt = resolutionCheckpoint;
+        }
+        await storyStorage.saveStory(resolvedStory);
+      }
       await storyStorage.performSync();
 
     } catch (err: any) {
       console.error("Failed to resolve sync conflict:", err);
+      if (!accountIsCurrent()) return;
       // The selected version was not persisted, so keep the conflict actionable.
       set({
         activeConflict: conflict,
@@ -120,12 +192,15 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
     }
 
     try {
+      if (!accountIsCurrent()) return;
       // Refreshing the library is separate from persistence. If this read fails,
       // the conflict is still resolved and must not be shown again.
       const freshStories = await storyStorage.getStories();
+      if (!accountIsCurrent()) return;
       setStories(freshStories);
     } catch (err: any) {
       console.error("Sync conflict resolved, but failed to refresh stories:", err);
+      if (!accountIsCurrent()) return;
       set({
         appError: "Sync conflict resolved, but failed to refresh stories: " + err.message,
       });
@@ -133,6 +208,17 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
   },
 
   saveStories: async (updated: Story[]) => {
+    const expectedUid = auth.currentUser?.uid;
+    if (!LOCAL_ONLY_MODE) {
+      const foreignStory = updated.find(
+        story => story.userId && story.userId !== expectedUid,
+      );
+      if (foreignStory) {
+        throw new Error(
+          `Cannot publish story ${foreignStory.id} while a different account is active`,
+        );
+      }
+    }
     const currentStories = get().stories;
     const activeId = get().activeStoryId;
     const markedStories = updated.map(s => {
@@ -163,9 +249,17 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
         await storyStorage.saveStory(s);
       }
       await storyStorage.commitTransaction();
+      if (!LOCAL_ONLY_MODE && auth.currentUser?.uid !== expectedUid) {
+        set({ stories: [], activeStoryId: null });
+        throw new Error('Active account changed while saving the story library');
+      }
       set({ lastSavedTime: new Date() });
     } catch (e) {
       storyStorage.rollbackTransaction();
+      if (!LOCAL_ONLY_MODE && auth.currentUser?.uid !== expectedUid) {
+        set({ stories: [], activeStoryId: null });
+        throw e;
+      }
       console.error("Celestial local disk write breached, reverting to standard storage cache:", e);
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(markedStories));
@@ -347,15 +441,25 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
   cancelDeleteStory: () => set({ storyToDelete: null }),
 
   initStorage: async () => {
-    storyStorage.onConflict((conflict) => set({ activeConflict: conflict }));
+    const initVersion = ++storageInitVersion;
+    const expectedUid = auth.currentUser?.uid;
+    const initIsCurrent = () =>
+      initVersion === storageInitVersion &&
+      (LOCAL_ONLY_MODE || auth.currentUser?.uid === expectedUid);
+
+    storyStorage.onConflict((conflict) => get().setActiveConflict(conflict));
     try {
       await storyStorage.init();
+      if (!initIsCurrent()) return;
       set({ storageType: storyStorage.getActiveAdapterName() });
       
-      const gemini = await secureStorage.getItem('@seihouse/api-key-gemini');
-      const openrouter = await secureStorage.getItem('@seihouse/api-key-openrouter');
-      const ollama = await secureStorage.getItem('@seihouse/api-key-ollama-host');
-      const deepinfra = await secureStorage.getItem('@seihouse/api-key-deepinfra');
+      const [gemini, openrouter, ollama, deepinfra] = await Promise.all([
+        secureStorage.getItem('@seihouse/api-key-gemini'),
+        secureStorage.getItem('@seihouse/api-key-openrouter'),
+        secureStorage.getItem('@seihouse/api-key-ollama-host'),
+        secureStorage.getItem('@seihouse/api-key-deepinfra'),
+      ]);
+      if (!initIsCurrent()) return;
       set({
         localGeminiKey: gemini || '',
         localOpenrouterKey: openrouter || '',
@@ -364,6 +468,7 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
       });
 
       let loaded = await storyStorage.getStories();
+      if (!initIsCurrent()) return;
       const user = auth.currentUser;
       
       if (loaded && loaded.length > 0) {
@@ -393,10 +498,18 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
                     return s;
                   });
                   await storyStorage.deleteStory(demo.id);
+                  if (!initIsCurrent()) {
+                    storyStorage.rollbackTransaction();
+                    return;
+                  }
                   changed = true;
                 } else {
                   updatedLoaded = updatedLoaded.filter(s => s.id !== demo.id);
                   await storyStorage.deleteStory(demo.id);
+                  if (!initIsCurrent()) {
+                    storyStorage.rollbackTransaction();
+                    return;
+                  }
                   changed = true;
                 }
               }
@@ -405,32 +518,49 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
                 loaded = updatedLoaded;
                 for (const s of loaded) {
                   await storyStorage.saveStory(s);
+                  if (!initIsCurrent()) {
+                    storyStorage.rollbackTransaction();
+                    return;
+                  }
                 }
                 await storyStorage.commitTransaction();
+                if (!initIsCurrent()) return;
               } else {
                 storyStorage.rollbackTransaction();
               }
             } catch (err) {
               storyStorage.rollbackTransaction();
               console.error("Failed to migrate demo stories during init", err);
+              if (!initIsCurrent()) return;
             }
           }
         }
+        if (!initIsCurrent()) return;
         set({ stories: loaded });
       } else {
-        if (user) {
+        if (user && storyStorage.getSyncStatus() === 'synced') {
           const randomDemo = getRandomDemoStory();
           randomDemo.id = `demo-matrix-${user.uid}`;
           randomDemo.userId = user.uid;
           await storyStorage.saveStory(randomDemo);
+          if (!initIsCurrent()) return;
           set({ stories: [randomDemo] });
         } else {
+          if (!initIsCurrent()) return;
           set({ stories: [] });
         }
       }
     } catch (e) {
       console.error("Persistent story memory failed to initialize, reverting to local fallback:", e);
+      if (!initIsCurrent()) return;
       set({ storageType: 'LocalStorage (Fallback)' });
+      if (!LOCAL_ONLY_MODE) {
+        // The storage manager already applies account-scoped fallbacks. Reading
+        // the old global key here would bypass that boundary and could render a
+        // previous account's library during an auth transition.
+        set({ stories: [] });
+        return;
+      }
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {

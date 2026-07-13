@@ -502,6 +502,8 @@ export interface AudioManifest {
 
 export interface ChapterContent {
   storyId: string;
+  /** Cloud owner tag. Optional only while legacy chapter documents are backfilled. */
+  userId?: string;
   chapterNumber: number;
   generatedContent: string;
   blocks?: StoryBlock[];
@@ -520,6 +522,8 @@ export interface ChapterContent {
   audioManifest?: AudioManifest;
   syncStatus?: "local" | "synced" | "conflict";
   revisionId?: string;
+  /** Unique cloud write token used for optimistic cross-device concurrency. */
+  syncRevision?: string;
   updatedAt?: string;
   contextManifest?: ContextManifest;
 }
@@ -770,6 +774,8 @@ export interface StoryWorld {
   customPremise: string;
   createdAt: string;
   updatedAt: string;
+  /** Unique cloud write token used for optimistic cross-device concurrency. */
+  syncRevision?: string;
   memory: StoryMemory;
   arcs: StoryArc[];
   currentChapterNumber: number;

@@ -1,13 +1,10 @@
 import { CloudOff, RefreshCw, Cloud, Globe, Sliders, AlertTriangle } from 'lucide-react';
 import { storyStorage } from '../lib/storage';
 import { UserProfile as UserProfileType } from '../types';
-import { useState } from 'react';
+import { LOCAL_ONLY_MODE, setLocalOnlyMode } from '../lib/firebase';
 
 interface UserProfileSettingsPanelProps {
   syncStatus: string;
-  daoStatus: 'checking' | 'connected' | 'disconnected';
-  daoDetail: string;
-  checkDaoConnection: () => void;
   lastSavedTime: Date | null;
   formData: Partial<UserProfileType>;
   profile: UserProfileType | null;
@@ -16,28 +13,34 @@ interface UserProfileSettingsPanelProps {
 
 export function UserProfileSettingsPanel({
   syncStatus,
-  daoStatus,
-  daoDetail,
-  checkDaoConnection,
   lastSavedTime,
   formData,
   profile,
   handleLanguageChangeDirect
 }: UserProfileSettingsPanelProps) {
-  const [isWiping, setIsWiping] = useState(false);
-
-  const handleWipeData = async () => {
-    if (window.confirm("WARNING: This will permanently delete ALL of your stories and chapters from Firebase Cloud Storage to free up space. This action cannot be undone. Are you absolutely sure?")) {
-       setIsWiping(true);
-       try {
-         await storyStorage.wipeMyCloudData();
-         alert("Your cloud storage has been wiped clean.");
-       } catch (err: any) {
-         alert("Failed to wipe data: " + err.message);
-       } finally {
-         setIsWiping(false);
-       }
+  const isHarmonizing = syncStatus === 'syncing';
+  const harmonyDetail = syncStatus === 'offline'
+    ? 'Offline'
+    : isHarmonizing
+      ? 'Harmonizing…'
+      : syncStatus === 'error'
+        ? 'Needs attention'
+        : 'Automatic';
+  const harmonyTitle = syncStatus === 'offline'
+    ? LOCAL_ONLY_MODE
+      ? 'Harmony is in legacy device-only mode. Activate to reconnect automatic sync.'
+      : 'Harmony is offline. Activate to try syncing now.'
+    : isHarmonizing
+      ? 'Harmony is synchronizing your library.'
+      : syncStatus === 'error'
+        ? 'Harmony needs attention. Activate to retry syncing.'
+        : 'Harmony sync is automatic. Activate to sync now.';
+  const activateHarmony = () => {
+    if (LOCAL_ONLY_MODE) {
+      setLocalOnlyMode(false);
+      return;
     }
+    void storyStorage.performSync();
   };
 
   return (
@@ -50,51 +53,50 @@ export function UserProfileSettingsPanel({
         </h3>
         <div className="flex flex-col gap-5 bg-[#030303] p-5 rounded-xl border border-neutral-900 shadow-inner">
           <div className="flex flex-wrap items-center gap-4 border-b border-neutral-900/50 pb-4">
-            <div className="flex items-center space-x-2 border border-neutral-800 px-4 py-2 rounded-lg bg-black">
-              {syncStatus === 'offline' ? (
-                <button  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => storyStorage.performSync()} title="Offline / Local Only. Click to sync" className="flex items-center space-x-2 hover:text-portal transition-colors"><CloudOff size={14} className="text-neutral-600" /> <span className="text-[11px] font-sans text-neutral-500 uppercase tracking-widest">Offline Flow</span></button>
-              ) : syncStatus === 'syncing' ? (
-                <span title="Syncing..." className="flex items-center space-x-2"><RefreshCw size={14} className="text-portal animate-spin" /> <span className="text-[11px] font-sans text-portal uppercase tracking-widest">Channeling...</span></span>
-              ) : syncStatus === 'error' ? (
-                <button  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => storyStorage.performSync()} title="Sync Error. Click to retry" className="flex items-center space-x-2 hover:text-portal transition-colors"><CloudOff size={14} className="text-human" /> <span className="text-[11px] font-sans text-human uppercase tracking-widest">Disharmony</span></button>
-              ) : (
-                <button  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => storyStorage.performSync()} title="Synced to Firebase. Click to force sync" className="flex items-center space-x-2 hover:text-portal transition-colors"><Cloud size={14} className="text-portal" /> <span className="text-[11px] font-sans text-portal uppercase tracking-widest">Harmonized</span></button>
-              )}
-            </div>
-
-            {/* Dao Connection Badge */}
             <button
               type="button"
-               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={checkDaoConnection}
-              className={`flex items-center space-x-1.5 px-4 py-2 rounded-lg text-[11px] uppercase font-bold transition-all duration-300 border border-neutral-800 bg-black shrink-0 font-sc tracking-wider hover:scale-105 select-none ${
-                daoStatus === 'connected'
-                  ? 'border-emerald-500/25 text-emerald-400 hover:bg-emerald-950/20 shadow-[0_0_12px_rgba(16,185,129,0.06)]'
-                  : daoStatus === 'disconnected'
-                  ? 'border-red-900/30 text-red-400 hover:bg-red-900/20 shadow-[0_0_12px_rgba(139,0,0,0.04)]'
-                  : 'text-neutral-400'
+              onClick={activateHarmony}
+              disabled={isHarmonizing}
+              title={harmonyTitle}
+              aria-label={`Harmony: ${harmonyDetail}`}
+              aria-busy={isHarmonizing}
+              className={`group flex min-w-48 items-center gap-3 rounded-lg border bg-black px-4 py-2.5 text-left transition-all disabled:cursor-wait ${
+                syncStatus === 'error'
+                  ? 'border-human/40 text-human hover:bg-human/10'
+                  : syncStatus === 'offline'
+                    ? 'border-neutral-800 text-neutral-500 hover:border-portal/40 hover:text-portal'
+                    : 'border-portal/30 text-portal hover:border-portal/60 hover:bg-portal/5'
               }`}
-              title={`${daoDetail} — Click to verify connection state`}
-              aria-label="Celestial Connection Status"
             >
-              {daoStatus === 'checking' ? (
-                <RefreshCw size={12} className="animate-spin text-amber-400" />
-              ) : daoStatus === 'connected' ? (
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-              ) : (
-                <span className="relative flex h-2 w-2">
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                </span>
-              )}
-              <span className="font-sans font-bold">
-                {daoStatus === 'connected' ? 'Dao Aligned' : daoStatus === 'disconnected' ? 'Dao Severed' : 'Sensing...'}
+              <span aria-hidden="true" className="shrink-0">
+                {syncStatus === 'offline' ? (
+                  <CloudOff size={16} />
+                ) : isHarmonizing ? (
+                  <RefreshCw size={16} className="animate-spin" />
+                ) : syncStatus === 'error' ? (
+                  <AlertTriangle size={16} />
+                ) : (
+                  <Cloud size={16} />
+                )}
               </span>
+              <span className="flex min-w-0 flex-col">
+                <span className="font-sc text-[11px] font-bold uppercase tracking-widest">Harmony</span>
+                <span
+                  aria-live="polite"
+                  className="font-sans text-[9px] font-medium uppercase tracking-[0.16em] opacity-70"
+                >
+                  {harmonyDetail}
+                </span>
+              </span>
+              {isHarmonizing ? (
+                <span className="sr-only">Library synchronization is in progress.</span>
+              ) : (
+                <span className="sr-only">Activate to synchronize now.</span>
+              )}
             </button>
             {lastSavedTime && (
               <div className="text-[10px] font-mono text-neutral-600 tracking-wider">
-                Auto-saved: {new Date(lastSavedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                Saved on device: {new Date(lastSavedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               </div>
             )}
           </div>
@@ -162,24 +164,6 @@ export function UserProfileSettingsPanel({
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500 text-[9px]">▼</div>
               </div>
             </div>
-          </div>
-          
-          {/* Danger Zone */}
-          <div className="flex items-center justify-between bg-red-950/10 border border-red-900/20 rounded-xl p-3 sm:p-3.5 gap-2 mt-1">
-             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                <div className="p-2 bg-red-900/20 rounded-lg shrink-0"><AlertTriangle size={13} className="text-red-500" /></div>
-                <div className="flex flex-col min-w-0">
-                  <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-widest text-red-400 font-sc truncate">Wipe Cloud Storage</span>
-                  <span className="text-[8px] text-neutral-500 font-sans truncate">Delete all stories to free quota</span>
-                </div>
-              </div>
-              <button
-                onClick={handleWipeData}
-                disabled={isWiping}
-                className="px-3 py-1.5 bg-red-950 hover:bg-red-900 text-red-200 text-[10px] uppercase tracking-wider font-bold rounded border border-red-900/50 transition-colors disabled:opacity-50"
-              >
-                 {isWiping ? 'Wiping...' : 'Clear All'}
-              </button>
           </div>
         </div>
       </div>

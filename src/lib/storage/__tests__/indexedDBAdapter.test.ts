@@ -29,6 +29,7 @@ class MockIDBObjectStore {
   name: string;
   data: Map<any, any> = new Map();
   keyPath: any;
+  pendingOperations = 0;
 
   constructor(name: string, options: any) {
     this.name = name;
@@ -37,14 +38,22 @@ class MockIDBObjectStore {
 
   getAll() {
     const req = new MockIDBRequest();
-    setTimeout(() => req.fireSuccess(Array.from(this.data.values())), 0);
+    this.pendingOperations += 1;
+    setTimeout(() => {
+      try { req.fireSuccess(Array.from(this.data.values())); }
+      finally { this.pendingOperations -= 1; }
+    }, 0);
     return req;
   }
 
   get(key: any) {
     const req = new MockIDBRequest();
     const stringKey = Array.isArray(key) ? JSON.stringify(key) : key;
-    setTimeout(() => req.fireSuccess(this.data.get(stringKey)), 0);
+    this.pendingOperations += 1;
+    setTimeout(() => {
+      try { req.fireSuccess(this.data.get(stringKey)); }
+      finally { this.pendingOperations -= 1; }
+    }, 0);
     return req;
   }
 
@@ -57,9 +66,14 @@ class MockIDBObjectStore {
     } else {
        key = item[this.keyPath];
     }
+    this.pendingOperations += 1;
     setTimeout(() => {
-      this.data.set(key, item);
-      req.fireSuccess(key);
+      try {
+        this.data.set(key, item);
+        req.fireSuccess(key);
+      } finally {
+        this.pendingOperations -= 1;
+      }
     }, 0);
     return req;
   }
@@ -67,24 +81,35 @@ class MockIDBObjectStore {
   delete(key: any) {
     const req = new MockIDBRequest();
     const stringKey = Array.isArray(key) ? JSON.stringify(key) : key;
+    this.pendingOperations += 1;
     setTimeout(() => {
-      this.data.delete(stringKey);
-      req.fireSuccess(undefined);
+      try {
+        this.data.delete(stringKey);
+        req.fireSuccess(undefined);
+      } finally {
+        this.pendingOperations -= 1;
+      }
     }, 0);
     return req;
   }
 
   clear() {
     const req = new MockIDBRequest();
+    this.pendingOperations += 1;
     setTimeout(() => {
-      this.data.clear();
-      req.fireSuccess(undefined);
+      try {
+        this.data.clear();
+        req.fireSuccess(undefined);
+      } finally {
+        this.pendingOperations -= 1;
+      }
     }, 0);
     return req;
   }
 
   openCursor() {
     const req = new MockIDBRequest();
+    this.pendingOperations += 1;
     setTimeout(() => {
       const items = Array.from(this.data.values());
       const keys = Array.from(this.data.keys());
@@ -107,6 +132,7 @@ class MockIDBObjectStore {
         } else {
           req.result = null;
           if (req.onsuccess) req.onsuccess({ target: req });
+          this.pendingOperations -= 1;
         }
       };
       fireNext();
@@ -131,10 +157,20 @@ class MockIDBTransaction {
     this.stores = stores;
     this._completeCallback = completeCallback;
 
-    setTimeout(() => {
+    const completeWhenIdle = () => {
+      const names = Array.isArray(this.storeNames) ? this.storeNames : [this.storeNames];
+      const pending = names.reduce(
+        (total, name) => total + (this.stores.get(name)?.pendingOperations ?? 0),
+        0,
+      );
+      if (pending > 0) {
+        setTimeout(completeWhenIdle, 0);
+        return;
+      }
       if (this.oncomplete) this.oncomplete();
       if (this._completeCallback) this._completeCallback();
-    }, 10);
+    };
+    setTimeout(completeWhenIdle, 0);
   }
 
   objectStore(name: string) {
@@ -375,4 +411,172 @@ describe('IndexedDBStorageAdapter', () => {
 
     expect(retrieved).toBeDefined();
   });
+
+  it('keeps identical story and chapter ids isolated across accounts', async () => {
+    await adapter.init();
+    const storyA = {
+      ...makeNamespacedStory('shared-id', 'Account A'),
+      userId: 'account-a',
+    };
+    const storyB = {
+      ...makeNamespacedStory('shared-id', 'Account B'),
+      userId: 'account-b',
+      updatedAt: '2026-01-02T00:00:00.000Z',
+    };
+
+    adapter.setAccountScope('account-a');
+    await adapter.saveStory(storyA);
+    await adapter.saveChapterContent({
+      storyId: 'shared-id', chapterNumber: 1, generatedContent: 'A chapter',
+    });
+    adapter.setAccountScope('account-b');
+    await adapter.saveStory(storyB);
+    await adapter.saveChapterContent({
+      storyId: 'shared-id', chapterNumber: 1, generatedContent: 'B chapter',
+    });
+
+    adapter.setAccountScope('account-a');
+    await expect(adapter.getStory('shared-id')).resolves.toMatchObject({
+      title: 'Account A', userId: 'account-a',
+    });
+    await expect(adapter.getChapterContent('shared-id', 1)).resolves.toMatchObject({
+      generatedContent: 'A chapter',
+    });
+    adapter.setAccountScope('account-b');
+    await expect(adapter.getStory('shared-id')).resolves.toMatchObject({
+      title: 'Account B', userId: 'account-b',
+    });
+    await expect(adapter.getChapterContent('shared-id', 1)).resolves.toMatchObject({
+      generatedContent: 'B chapter',
+    });
+
+    const unscoped = new IndexedDBStorageAdapter();
+    await unscoped.init();
+    await expect(unscoped.getStories()).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'shared-id', userId: 'account-a' }),
+        expect.objectContaining({ id: 'shared-id', userId: 'account-b' }),
+      ]),
+    );
+    expect(await unscoped.getStories()).toHaveLength(2);
+    await expect(unscoped.getStory('shared-id')).resolves.toMatchObject({
+      title: 'Account B',
+    });
+    await expect(unscoped.getChapterContent('shared-id', 1)).resolves.toMatchObject({
+      generatedContent: 'B chapter',
+    });
+    await expect(unscoped.getAllChapterContents()).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          userId: 'account-a',
+          content: expect.objectContaining({ generatedContent: 'A chapter' }),
+        }),
+        expect.objectContaining({
+          userId: 'account-b',
+          content: expect.objectContaining({ generatedContent: 'B chapter' }),
+        }),
+      ]),
+    );
+    expect(await unscoped.getAllChapterContents()).toHaveLength(2);
+  });
+
+  it('migrates owned raw rows while retaining unowned rows for claim', async () => {
+    await adapter.init();
+    const db = (adapter as any).db as MockIDBDatabase;
+    const storiesStore = db.stores.get('stories')!;
+    const chaptersStore = db.stores.get('chapter_contents')!;
+    storiesStore.data.set('owned', {
+      ...makeNamespacedStory('owned', 'Owned'), userId: 'account-a',
+    });
+    storiesStore.data.set('unowned', makeNamespacedStory('unowned', 'Unowned'));
+    chaptersStore.data.set(JSON.stringify(['owned', 1]), {
+      storyId: 'owned', chapterNumber: 1, generatedContent: 'Owned chapter',
+    });
+
+    const migrated = new IndexedDBStorageAdapter();
+    await migrated.init();
+    migrated.setAccountScope(null);
+    await expect(migrated.getStories()).resolves.toEqual([
+      expect.objectContaining({ id: 'unowned' }),
+    ]);
+    await expect(migrated.getStory('owned')).resolves.toBeNull();
+
+    migrated.setAccountScope('account-a');
+    await expect(migrated.getStory('owned')).resolves.toMatchObject({
+      id: 'owned', userId: 'account-a',
+    });
+    await expect(migrated.getChapterContent('owned', 1)).resolves.toMatchObject({
+      generatedContent: 'Owned chapter',
+    });
+    await expect(migrated.getStory('unowned')).resolves.toMatchObject({ id: 'unowned' });
+  });
+
+  it('atomically claims a raw story and its chapter into the active account', async () => {
+    await adapter.init();
+    await adapter.saveStory(makeNamespacedStory('legacy', 'Legacy'));
+    await adapter.saveChapterContent({
+      storyId: 'legacy', chapterNumber: 1, generatedContent: 'Legacy chapter',
+    });
+    adapter.setAccountScope('account-a');
+    const legacy = await adapter.getStory('legacy');
+    await adapter.saveStory({ ...legacy!, userId: 'account-a' });
+
+    const db = (adapter as any).db as MockIDBDatabase;
+    expect(db.stores.get('stories')!.data.has('legacy')).toBe(false);
+    expect(db.stores.get('chapter_contents')!.data.has(JSON.stringify(['legacy', 1]))).toBe(false);
+    await expect(adapter.getChapterContent('legacy', 1)).resolves.toMatchObject({
+      generatedContent: 'Legacy chapter',
+    });
+    adapter.setAccountScope('account-b');
+    await expect(adapter.getStory('legacy')).resolves.toBeNull();
+    await expect(adapter.getChapterContent('legacy', 1)).resolves.toBeNull();
+  });
+
+  it('uses the account scope captured when asynchronous reads start', async () => {
+    await adapter.init();
+    adapter.setAccountScope('account-a');
+    await adapter.saveStory({
+      ...makeNamespacedStory('same', 'A'), userId: 'account-a',
+    });
+    await adapter.saveChapterContent({
+      storyId: 'same', chapterNumber: 1, generatedContent: 'A chapter',
+    });
+    adapter.setAccountScope('account-b');
+    await adapter.saveStory({
+      ...makeNamespacedStory('same', 'B'), userId: 'account-b',
+    });
+    await adapter.saveChapterContent({
+      storyId: 'same', chapterNumber: 1, generatedContent: 'B chapter',
+    });
+
+    adapter.setAccountScope('account-a');
+    const stories = adapter.getStories();
+    const chapter = adapter.getChapterContent('same', 1);
+    adapter.setAccountScope('account-b');
+
+    await expect(stories).resolves.toEqual([
+      expect.objectContaining({ title: 'A' }),
+    ]);
+    await expect(chapter).resolves.toEqual(
+      expect.objectContaining({ generatedContent: 'A chapter' }),
+    );
+  });
 });
+
+function makeNamespacedStory(id: string, title: string): StoryWorld {
+  return {
+    id,
+    title,
+    genre: 'Fantasy',
+    mcName: 'Hero',
+    customPremise: 'Premise',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    currentChapterNumber: 1,
+    memory: {
+      powerSystem: '', characters: [], currentPowerStage: '', worldRules: [],
+      unresolvedPlotThreads: [], resolvedPlotThreads: [],
+    },
+    arcs: [],
+  };
+}

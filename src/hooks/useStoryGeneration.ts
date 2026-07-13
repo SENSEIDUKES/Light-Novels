@@ -1,4 +1,4 @@
-import { generateId } from '../lib/id';
+import { generateId, generateUUID } from '../lib/id';
 import { useAppStore } from '../store/useAppStore';
 import { IntakeData, WorldBlueprint, Chapter, Story } from '../types';
 import { auth } from '../lib/firebase';
@@ -6,7 +6,6 @@ import { awardQi } from '../lib/qi';
 import { storyApi } from '../services/api';
 
 export const useStoryGeneration = () => {
-  const store_stories = useAppStore(state => state.stories);
     const store_saveStories = useAppStore(state => state.saveStories);
     const store_setActiveStoryId = useAppStore(state => state.setActiveStoryId);
     const store_setSelectedChapterNum = useAppStore(state => state.setSelectedChapterNum);
@@ -18,6 +17,9 @@ export const useStoryGeneration = () => {
 
   const handleGenerateBlueprint = async (intake: IntakeData): Promise<WorldBlueprint> => {
     const currentStoreState = useAppStore.getState();
+    const initiatingUserId = auth.currentUser?.uid ?? null;
+    const accountIsCurrent = () =>
+      (auth.currentUser?.uid ?? null) === initiatingUserId;
     if (currentStoreState.isGenerating) {
       console.warn("Generation already in progress. Ignoring duplicate click.");
       return {} as any;
@@ -28,10 +30,15 @@ export const useStoryGeneration = () => {
     currentStoreState.setAppError(null);
     try {
       const blueprint = await storyApi.generateBlueprint(intake, currentStoreState.routingConfig.storyMaker);
+      if (!accountIsCurrent()) {
+        throw new Error('Active account changed while generating the blueprint');
+      }
       return blueprint;
     } catch (err: any) {
       console.error(err);
-      currentStoreState.setAppError(err.message || "Failed to generate world blueprint.");
+      if (accountIsCurrent()) {
+        currentStoreState.setAppError(err.message || "Failed to generate world blueprint.");
+      }
       throw err;
     } finally {
       currentStoreState.setIsGenerating(false);
@@ -42,6 +49,9 @@ export const useStoryGeneration = () => {
 
   const handleStartStory = async (intake: IntakeData, blueprint: WorldBlueprint, chapterCount: number) => {
     const currentStoreState = useAppStore.getState();
+    const initiatingUserId = auth.currentUser?.uid ?? null;
+    const accountIsCurrent = () =>
+      (auth.currentUser?.uid ?? null) === initiatingUserId;
     if (currentStoreState.isGenerating) {
       console.warn("Generation already in progress. Ignoring duplicate click.");
       return;
@@ -58,6 +68,10 @@ export const useStoryGeneration = () => {
         chapterCount,
         currentStoreState.routingConfig.storyMaker
       );
+      if (!accountIsCurrent()) {
+        console.warn('Discarded generated story because the active account changed.');
+        return;
+      }
 
       const formattedChapters: Chapter[] = responseData.chapters.map((ch: any) => ({
         number: ch.number,
@@ -67,8 +81,8 @@ export const useStoryGeneration = () => {
       }));
 
       const newStory: Story = {
-        id: `story-${Date.now()}`,
-        userId: auth.currentUser?.uid || undefined,
+        id: `story-${generateUUID()}`,
+        userId: initiatingUserId || undefined,
         title: responseData.title || blueprint.title || 'The Ascension Chronicles',
         genre: intake.genrePath || 'Xianxia',
         mcName: intake.mcName || 'Unknown',
@@ -105,15 +119,18 @@ export const useStoryGeneration = () => {
         ]
       };
 
-      const updated = [newStory, ...store_stories];
+      const updated = [newStory, ...useAppStore.getState().stories];
       await store_saveStories(updated);
+      if (!accountIsCurrent()) return;
       store_setActiveStoryId(newStory.id);
       store_setSelectedChapterNum(1);
       store_setCurrentScreen('detail');
       awardQi('world_created');
     } catch (err: any) {
       console.error(err);
-      store_setAppError(err.message || "Failed to align celestial gates.");
+      if (accountIsCurrent()) {
+        store_setAppError(err.message || "Failed to align celestial gates.");
+      }
     } finally {
       store_setIsGenerating(false);
       store_setGenerationPhase(null);
