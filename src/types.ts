@@ -521,6 +521,42 @@ export interface ChapterContent {
   syncStatus?: "local" | "synced" | "conflict";
   revisionId?: string;
   updatedAt?: string;
+  contextManifest?: ContextManifest;
+}
+
+export type ContextManifestSectionKey =
+  | "pinnedRules"
+  | "premise"
+  | "anchor"
+  | "recentChapters"
+  | "entityCards"
+  | "threads"
+  | "rag"
+  | "arcSummaries";
+
+export interface ContextManifestSection {
+  key: ContextManifestSectionKey;
+  label: string;
+  estimatedTokens: number;
+  includedItemCount: number;
+  availableItemCount: number;
+  includedItems: string[];
+  omittedItems: string[];
+  truncated: boolean;
+  omissionReason?: "relevance_or_cap" | "token_budget" | "selection_or_token_budget";
+}
+
+export interface ContextManifest {
+  version: 1;
+  route: "generate-chapter-stream" | "generate-chapter";
+  generatedAt: string;
+  chapterNumber: number;
+  totalEstimatedTokens: number;
+  memoryAndHistoryBudgetTokens: number;
+  memoryAndHistoryEstimatedTokens: number;
+  memoryAndHistoryBudgetExceeded: boolean;
+  providerInputTruncated: boolean;
+  sections: ContextManifestSection[];
 }
 
 export interface Chapter {
@@ -555,6 +591,8 @@ export interface Chapter {
   hasContinuityFaults?: boolean;
   continuityWarnings?: string[];
   continuitySoftNotes?: string[];
+  /** Debug record of the exact context classes available to this generation. */
+  contextManifest?: ContextManifest;
 }
 
 export interface StoryArc {

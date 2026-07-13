@@ -85,7 +85,20 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
     const encoder = new TextEncoder();
     
     // Send novelty blocks and proper content
+    const contextManifest = {
+      version: 1,
+      route: 'generate-chapter-stream',
+      generatedAt: '2026-07-12T00:00:00.000Z',
+      chapterNumber: 1,
+      totalEstimatedTokens: 123,
+      memoryAndHistoryBudgetTokens: 80000,
+      memoryAndHistoryEstimatedTokens: 50,
+      memoryAndHistoryBudgetExceeded: false,
+      providerInputTruncated: false,
+      sections: [],
+    };
     const chunks = [
+      `data: ${JSON.stringify({ contextManifest })}\n\n`,
       'data: {"chunk": "{\\"text\\": \\"[System: Novelty]\\"}\\n"}\n',
       `data: {"chunk": "{\\"text\\": \\"${'A'.repeat(160)}\\"}\\n"}\n`,
       'data: [DONE]\n'
@@ -119,6 +132,7 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
     expect(ch.blocks.length).toBe(2);
     expect(ch.blocks[0].text).toBe('[System: Novelty]');
     expect(ch.summary).toBe('Sum');
+    expect(ch.contextManifest).toEqual(contextManifest);
   });
 
   it('handles malformed LLM responses with safe fallbacks', async () => {

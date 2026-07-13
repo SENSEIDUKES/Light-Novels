@@ -393,7 +393,12 @@ export function truncateContextIfNeeded(
     }
   }
 
-  return { memoryJsonStr: memoryStr, pastSummariesStr: summariesStr };
+  return {
+    memoryJsonStr: memoryStr,
+    pastSummariesStr: summariesStr,
+    includedPastSummaries: workingSummaries,
+    droppedPastSummariesCount: originalSummaryCount - workingSummaries.length,
+  };
 }
 
 /**

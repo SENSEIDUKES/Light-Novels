@@ -13,6 +13,7 @@ import { ReaderFateAlerts } from './ReaderFateAlerts';
 import { AetherialSystemLegend } from './AetherialSystemLegend';
 import { ManifestHeroImage } from './ManifestHeroImage';
 import { anchorAttributes } from '../lib/cinematicScroll/anchors';
+import { ContextInspector } from './ContextInspector';
 
 const FALLBACK_BACKDROPS = [
   "https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/images/LIBRARY%20BACKDROPS/LIBRARY_THUNDER.PNG",
@@ -955,6 +956,8 @@ export function ReaderViewport({
               )}
             </motion.div>
           </AnimatePresence>
+
+          <ContextInspector manifest={selectedChapter.contextManifest} />
 
           {/* Navigation links at bottom of chapter */}
           <div className="flex items-center justify-between border-t border-neutral-900 pt-8 mt-16 pb-8">

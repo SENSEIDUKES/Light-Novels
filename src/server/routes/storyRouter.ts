@@ -23,6 +23,8 @@ import { routeTextGeneration, routeImageGeneration, routeTextGenerationStream, R
 import { ensureString, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChapterResponse, filterRelevantEntities, formatAbilityLedgerForPrompt, rankRelevantEntities, truncateContextIfNeeded } from "../helpers";
 import { retrieveGlossaryEntries, formatGlossaryForPrompt } from "../../lib/glossary";
 import { PROMPTS } from "../prompts";
+import { buildContextManifest, contextManifestLogPayload } from "../contextManifest";
+import { logger } from "../logger";
 export const storyRouter = express.Router();
 
 const buildIntakeGlossarySourceText = (intake: any) =>
@@ -209,7 +211,11 @@ storyRouter.post("/api/generate-chapter-stream", validateBody(chapterGenerationS
       artifacts: rankRelevantEntities(memory.artifacts, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise])
     };
 
-    const { memoryJsonStr, pastSummariesStr } = truncateContextIfNeeded(rawMemoryObj, pastSummaries, 80000, "This is the very first chapter of the story arc! Set the scene dramatically.");
+    const {
+      memoryJsonStr,
+      pastSummariesStr,
+      droppedPastSummariesCount,
+    } = truncateContextIfNeeded(rawMemoryObj, pastSummaries, 80000, "This is the very first chapter of the story arc! Set the scene dramatically.");
 
     const systemInstruction = PROMPTS.chapter.system;
     const userPrompt = PROMPTS.chapter.userPrompt(
@@ -332,9 +338,38 @@ PACING DIRECTIVE: Build real suspense and danger. Make sure characters face phys
 =========================================`;
     }
 
+    const contextManifest = buildContextManifest({
+      route: "generate-chapter-stream",
+      chapterNumber: currentChapterNum,
+      chapterTitle: currentChapter.title,
+      chapterPremise: currentChapter.premise,
+      mcName,
+      genre,
+      customPremise,
+      systemInstruction,
+      finalUserPrompt,
+      rawMemory: rawMemoryObj,
+      sourceMemory: memory,
+      memoryJsonStr,
+      pastSummariesStr,
+      pastSummaries,
+      droppedPastSummariesCount,
+      styleBible,
+      tropeRules,
+      storyTags,
+      glossaryRules,
+      pacingDirective,
+      fatePressure: activeFatePressure,
+    });
+    logger.info(
+      { event: "chapter_context_manifest", contextManifest: contextManifestLogPayload(contextManifest) },
+      `Chapter ${currentChapterNum} context manifest`,
+    );
+
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.write(`data: ${JSON.stringify({ contextManifest })}\n\n`);
 
     const stream = await routeTextGenerationStream(
       "storyMaker",
@@ -417,7 +452,11 @@ storyRouter.post("/api/generate-chapter", validateBody(chapterGenerationSchema),
       artifacts: rankRelevantEntities(memory.artifacts, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise])
     };
 
-    const { memoryJsonStr, pastSummariesStr } = truncateContextIfNeeded(rawMemoryObj, pastSummaries, 80000, "This is the very first chapter of the story arc! Set the scene dramatically.");
+    const {
+      memoryJsonStr,
+      pastSummariesStr,
+      droppedPastSummariesCount,
+    } = truncateContextIfNeeded(rawMemoryObj, pastSummaries, 80000, "This is the very first chapter of the story arc! Set the scene dramatically.");
 
     const systemInstruction = PROMPTS.chapter.nonStreamSystem;
     const userPrompt = PROMPTS.chapter.userPrompt(
@@ -540,6 +579,34 @@ PACING DIRECTIVE: Build real suspense and danger. Make sure characters face phys
 =========================================`;
     }
 
+    const contextManifest = buildContextManifest({
+      route: "generate-chapter",
+      chapterNumber: currentChapterNum,
+      chapterTitle: currentChapter.title,
+      chapterPremise: currentChapter.premise,
+      mcName,
+      genre,
+      customPremise,
+      systemInstruction,
+      finalUserPrompt,
+      rawMemory: rawMemoryObj,
+      sourceMemory: memory,
+      memoryJsonStr,
+      pastSummariesStr,
+      pastSummaries,
+      droppedPastSummariesCount,
+      styleBible,
+      tropeRules,
+      storyTags,
+      glossaryRules,
+      pacingDirective,
+      fatePressure: activeFatePressure,
+    });
+    logger.info(
+      { event: "chapter_context_manifest", contextManifest: contextManifestLogPayload(contextManifest) },
+      `Chapter ${currentChapterNum} context manifest`,
+    );
+
     const data = await routeTextGeneration(
       "storyMaker",
       systemInstruction,
@@ -548,7 +615,10 @@ PACING DIRECTIVE: Build real suspense and danger. Make sure characters face phys
       routingConfig,
       getCustomKeys(req)
     );
-    return res.json(cleanChapterResponse(data));
+    return res.json({
+      ...cleanChapterResponse(data),
+      contextManifest,
+    });
   } catch (error: any) {
     console.error("Error generating chapter:", error);
     return res.status(500).json({ error: error.message || "Internal server error" });

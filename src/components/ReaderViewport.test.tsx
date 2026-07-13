@@ -151,6 +151,61 @@ describe('ReaderViewport', () => {
     expect(props.handleTouchStart).toHaveBeenCalledTimes(1);
     expect(props.handleTouchMove).toHaveBeenCalledTimes(1);
     expect(props.handleTouchEnd).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Context Inspector')).toBeNull();
+  });
+
+  it('renders the chapter context manifest as one collapsed inspector list', () => {
+    const sectionKeys = [
+      ['pinnedRules', 'Pinned rules'],
+      ['premise', 'Premise'],
+      ['anchor', 'Anchor'],
+      ['recentChapters', 'Recent chapters'],
+      ['entityCards', 'Entity cards'],
+      ['threads', 'Threads'],
+      ['rag', 'RAG'],
+      ['arcSummaries', 'Arc summaries'],
+    ] as const;
+    const contextManifest = {
+      version: 1 as const,
+      route: 'generate-chapter-stream' as const,
+      generatedAt: '2026-07-12T00:00:00.000Z',
+      chapterNumber: 2,
+      totalEstimatedTokens: 800,
+      memoryAndHistoryBudgetTokens: 80000,
+      memoryAndHistoryEstimatedTokens: 400,
+      memoryAndHistoryBudgetExceeded: false,
+      providerInputTruncated: false,
+      sections: sectionKeys.map(([key, label], index) => ({
+        key,
+        label,
+        estimatedTokens: 100,
+        includedItemCount: 1,
+        availableItemCount: index === 4 ? 2 : 1,
+        includedItems: index === 4 ? ['Artifact: Sun Shield'] : [`${label} input`],
+        omittedItems: index === 4 ? ['Artifact: Moon Sword'] : [],
+        truncated: index === 4,
+      })),
+    };
+
+    render(
+      <ReaderViewport
+        {...makeProps({
+          selectedChapter: { ...baseChapter, contextManifest },
+        })}
+      />,
+    );
+
+    const summary = screen.getByText('Context Inspector').closest('summary');
+    const inspector = summary?.closest('details') as HTMLDetailsElement | null;
+    expect(summary).toBeTruthy();
+    expect(inspector?.open).toBe(false);
+
+    fireEvent.click(summary!);
+    expect(inspector?.open).toBe(true);
+    sectionKeys.forEach(([, label]) => {
+      expect(screen.getByText(label)).toBeDefined();
+    });
+    expect(screen.getByText('Artifact: Moon Sword')).toBeDefined();
   });
 
   it('wires bookmark editing callbacks for generated prose', () => {

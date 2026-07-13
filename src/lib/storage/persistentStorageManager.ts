@@ -924,6 +924,7 @@ export class PersistentStorageManager implements StorageAdapter {
                 summary: chapter.summary,
                 statsChangeMessage: chapter.statsChangeMessage,
                 cuePayload: chapter.cuePayload,
+                contextManifest: chapter.contextManifest,
               };
               await this.saveChapterContent(content);
             }
@@ -935,6 +936,7 @@ export class PersistentStorageManager implements StorageAdapter {
             // delete chapter.summary; // Keep summary in the main story document for lightweight context retrieval
             delete chapter.statsChangeMessage;
             delete chapter.cuePayload;
+            delete chapter.contextManifest;
             delete chapter._isNewContent;
           }
         }
