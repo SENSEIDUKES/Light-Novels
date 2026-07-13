@@ -143,6 +143,27 @@ export function LivingCodexFactions({
               fac.alignment === 'Mysterious' ? 'text-portal border-cyan-950 bg-cyan-950/10 animate-pulse' :
               'text-neutral-400 border-neutral-850 bg-neutral-950';
 
+            const leaders: Character[] = [];
+            const elders: Character[] = [];
+            const disciples: Character[] = [];
+
+            // Single pass O(N) categorization to avoid multiple filter/some iterations
+            for (let i = 0; i < mates.length; i++) {
+              const c = mates[i];
+              const roleLower = c.role.toLowerCase();
+
+              const isLeader = ['leader', 'master', 'ancestor', 'head'].some(r => roleLower.includes(r));
+              const isElder = ['elder', 'mentor', 'grandmaster'].some(r => roleLower.includes(r));
+
+              if (isLeader) {
+                leaders.push(c);
+              } else if (isElder) {
+                elders.push(c);
+              } else {
+                disciples.push(c);
+              }
+            }
+
             return (
               <div key={fac.id} className="p-4 bg-neutral-950/60 border border-neutral-900 rounded-lg space-y-4">
                 <div className="flex items-start justify-between flex-wrap gap-2">
@@ -193,10 +214,10 @@ export function LivingCodexFactions({
                   ) : (
                     <div className="space-y-1.5 pl-3 border-l border-neutral-900">
                       {/* Compute hierarchy branches based on simple keyword search inside roles */}
-                      {mates.some(c => c.role.toLowerCase().includes('leader') || c.role.toLowerCase().includes('master') || c.role.toLowerCase().includes('ancestor') || c.role.toLowerCase().includes('head')) && (
+                      {leaders.length > 0 && (
                         <div className="space-y-1">
                           <span className="text-[9.5px] uppercase font-sc text-human block tracking-widest">Sect Leader / Pillar:</span>
-                          {mates.filter(c => c.role.toLowerCase().includes('leader') || c.role.toLowerCase().includes('master') || c.role.toLowerCase().includes('ancestor') || c.role.toLowerCase().includes('head')).map(mx => (
+                          {leaders.map(mx => (
                             <div key={mx.id} className="text-xs pl-2 text-neutral-300 font-sans flex items-center space-x-1">
                               <span>├─</span>
                               <strong className="text-signal">{mx.name}</strong>
@@ -206,10 +227,10 @@ export function LivingCodexFactions({
                         </div>
                       )}
 
-                      {mates.some(c => c.role.toLowerCase().includes('elder') || c.role.toLowerCase().includes('mentor') || c.role.toLowerCase().includes('grandmaster')) && (
+                      {elders.length > 0 && (
                         <div className="space-y-1 pt-1">
                           <span className="text-[9.5px] uppercase font-sc text-yellow-500 block tracking-widest">Elders Council:</span>
-                          {mates.filter(c => c.role.toLowerCase().includes('elder') || c.role.toLowerCase().includes('mentor') || c.role.toLowerCase().includes('grandmaster')).map(mx => (
+                          {elders.map(mx => (
                             <div key={mx.id} className="text-xs pl-2 text-neutral-300 font-sans flex items-center space-x-1">
                               <span>├─</span>
                               <span>{mx.name}</span>
@@ -219,10 +240,10 @@ export function LivingCodexFactions({
                         </div>
                       )}
 
-                      {mates.some(c => !c.role.toLowerCase().includes('elder') && !c.role.toLowerCase().includes('mentor') && !c.role.toLowerCase().includes('grandmaster') && !c.role.toLowerCase().includes('leader') && !c.role.toLowerCase().includes('master') && !c.role.toLowerCase().includes('ancestor') && !c.role.toLowerCase().includes('head')) && (
+                      {disciples.length > 0 && (
                         <div className="space-y-1 pt-1">
                           <span className="text-[9.5px] uppercase font-sc text-portal block tracking-widest">Core & Outer Disciples:</span>
-                          {mates.filter(c => !c.role.toLowerCase().includes('elder') && !c.role.toLowerCase().includes('mentor') && !c.role.toLowerCase().includes('grandmaster') && !c.role.toLowerCase().includes('leader') && !c.role.toLowerCase().includes('master') && !c.role.toLowerCase().includes('ancestor') && !c.role.toLowerCase().includes('head')).map(mx => (
+                          {disciples.map(mx => (
                             <div key={mx.id} className="text-xs pl-2 text-neutral-300 font-sans flex items-center space-x-1">
                               <span>└─</span>
                               <span>{mx.name}</span>
