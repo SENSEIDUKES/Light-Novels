@@ -1,4 +1,4 @@
-import { generateId } from '../lib/id';
+import { generateId, generateUUID } from '../lib/id';
 import { slimMemoryForRequest } from '../lib/slimMemoryForRequest';
 import { useAppStore } from '../store/useAppStore';
 import { retrieveRelevantContext } from '../lib/rag';
@@ -235,7 +235,7 @@ export const useArcSteering = () => {
 
     const clonedBookmarks = (activeStory.bookmarks || []).filter(b => b.chapterNumber <= chapterNumber);
 
-    const newStoryId = `story-${Date.now()}-fork`;
+    const newStoryId = `story-${generateUUID()}-fork`;
     const newStory: StoryWorld = {
       ...activeStory,
       id: newStoryId,

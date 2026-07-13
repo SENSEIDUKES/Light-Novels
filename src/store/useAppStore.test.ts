@@ -29,18 +29,88 @@ vi.mock('../lib/encryption', () => ({
 }));
 
 vi.mock('../lib/firebase', () => ({
-  auth: { currentUser: null, onAuthStateChanged: vi.fn() }
+  auth: { currentUser: null, onAuthStateChanged: vi.fn() },
+  LOCAL_ONLY_MODE: false,
 }));
 
 describe('useAppStore', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (auth as any).currentUser = null;
     // Reset Zustand store state before each test
-    const { setStories, setActiveStoryId, setCurrentScreen, setStoryToDelete } = useAppStore.getState();
+    const {
+      setStories,
+      setActiveStoryId,
+      setCurrentScreen,
+      setStoryToDelete,
+      setActiveConflict,
+      setAppError,
+    } = useAppStore.getState();
     setStories([]);
     setActiveStoryId(null);
     setCurrentScreen('home');
     setStoryToDelete(null);
+    setActiveConflict(null);
+    setAppError(null);
+    vi.mocked(storyStorage.saveStory).mockResolvedValue(undefined);
+    vi.mocked(storyStorage.saveChapterContent).mockResolvedValue(undefined);
+    vi.mocked(storyStorage.performSync).mockResolvedValue(undefined);
+    vi.mocked(storyStorage.getStories).mockResolvedValue([]);
+    vi.mocked(storyStorage.deleteStory).mockResolvedValue(true as any);
+  });
+
+  it('rejects a mixed-account library before publishing it to Zustand', async () => {
+    const accountBStory = {
+      id: 'account-b-story',
+      userId: 'account-b',
+      title: 'B',
+      arcs: [],
+      memory: {},
+    } as any;
+    const accountAStory = {
+      ...accountBStory,
+      id: 'account-a-story',
+      userId: 'account-a',
+      title: 'Private A',
+    };
+    (auth as any).currentUser = { uid: 'account-b' };
+    useAppStore.getState().setStories([accountBStory]);
+
+    await expect(
+      useAppStore.getState().saveStories([accountBStory, accountAStory]),
+    ).rejects.toThrow('different account is active');
+
+    expect(useAppStore.getState().stories).toEqual([accountBStory]);
+    expect(storyStorage.startTransaction).not.toHaveBeenCalled();
+    expect(storyStorage.saveStory).not.toHaveBeenCalled();
+  });
+
+  it('clears optimistic stories when the account changes during persistence', async () => {
+    let releaseSave!: () => void;
+    vi.mocked(storyStorage.saveStory).mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        releaseSave = resolve;
+      }),
+    );
+    (auth as any).currentUser = { uid: 'account-a' };
+    const accountAStory = {
+      id: 'account-a-story',
+      userId: 'account-a',
+      title: 'Private A',
+      arcs: [],
+      memory: {},
+    } as any;
+
+    const saving = useAppStore.getState().saveStories([accountAStory]);
+    await vi.waitFor(() => expect(storyStorage.saveStory).toHaveBeenCalledOnce());
+    (auth as any).currentUser = { uid: 'account-b' };
+    releaseSave();
+
+    await expect(saving).rejects.toThrow(
+      'Active account changed while saving the story library',
+    );
+    expect(useAppStore.getState().stories).toEqual([]);
+    expect(useAppStore.getState().activeStoryId).toBeNull();
   });
 
   it('initializes with default state', () => {
@@ -203,6 +273,43 @@ describe('useAppStore', () => {
     expect(storyStorage.deleteStory).toHaveBeenCalledWith('demo-matrix-test');
   });
 
+  it('does not republish an old account library when demo migration finishes after auth changes', async () => {
+    let rejectDelete!: (error: Error) => void;
+    vi.mocked(storyStorage.deleteStory).mockReturnValueOnce(
+      new Promise<any>((_resolve, reject) => {
+        rejectDelete = reject;
+      }),
+    );
+    const privateAStory = {
+      id: 'private-a-story',
+      userId: 'account-a',
+      title: 'Private A',
+      arcs: [],
+      memory: {},
+    } as any;
+    vi.mocked(storyStorage.getStories).mockResolvedValue([
+      privateAStory,
+      {
+        id: 'demo-matrix-legacy',
+        isEdited: true,
+        currentChapterNumber: 2,
+        arcs: [],
+        memory: {},
+      } as any,
+    ]);
+    (auth as any).currentUser = { uid: 'account-a' };
+
+    const initialization = useAppStore.getState().initStorage();
+    await vi.waitFor(() => expect(storyStorage.deleteStory).toHaveBeenCalled());
+    (auth as any).currentUser = { uid: 'account-b' };
+    useAppStore.getState().setStories([]);
+    rejectDelete(new Error('old account migration cancelled'));
+    await initialization;
+
+    expect(useAppStore.getState().stories).toEqual([]);
+    expect(storyStorage.rollbackTransaction).toHaveBeenCalled();
+  });
+
   it('migrateOrDiscardDemoStories works', async () => {
     const store = useAppStore.getState();
     store.setStories([
@@ -232,6 +339,118 @@ describe('useAppStore', () => {
     expect(storyStorage.performSync).toHaveBeenCalled();
     expect(useAppStore.getState().stories).toEqual(refreshed);
     expect(useAppStore.getState().activeConflict).toBeNull();
+  });
+
+  it('stamps a chosen local story beyond a future-skewed cloud revision', async () => {
+    const localStory = {
+      id: 'future-conflict',
+      title: 'Chosen local',
+      updatedAt: '2026-07-13T12:00:00.000Z',
+      arcs: [],
+      memory: {},
+    } as any;
+    const cloudStory = {
+      ...localStory,
+      title: 'Future cloud clock',
+      updatedAt: '2099-07-13T12:00:00.000Z',
+    };
+    useAppStore.getState().setActiveConflict({
+      storyId: localStory.id,
+      localStory,
+      cloudStory,
+    });
+
+    await useAppStore.getState().resolveConflict('local');
+
+    const saved = vi.mocked(storyStorage.saveStory).mock.calls[0][0] as any;
+    expect(new Date(saved.updatedAt).getTime()).toBeGreaterThan(
+      new Date(cloudStory.updatedAt).getTime(),
+    );
+    expect(saved.conflictResolvedAt).toBe(saved.updatedAt);
+    expect(saved.title).toBe('Chosen local');
+  });
+
+  it('resolves a chapter-body conflict without silently merging prose', async () => {
+    const story = {
+      id: 'chapter-conflict',
+      title: 'Shared story',
+      arcs: [],
+      memory: {},
+    } as any;
+    const cloudContent = {
+      storyId: story.id,
+      chapterNumber: 4,
+      generatedContent: 'Cloud prose selected by the reader.',
+      updatedAt: '2026-07-13T12:00:00.000Z',
+      syncRevision: 'cloud-revision',
+    };
+    vi.mocked(storyStorage.getStories).mockResolvedValue([story]);
+    useAppStore.getState().setActiveConflict({
+      storyId: story.id,
+      localStory: story,
+      cloudStory: story,
+      chapterConflict: {
+        chapterNumber: 4,
+        localContent: {
+          ...cloudContent,
+          generatedContent: 'Local prose.',
+          syncRevision: 'local-revision',
+        },
+        cloudContent,
+      },
+    });
+
+    await useAppStore.getState().resolveConflict('cloud');
+
+    expect(storyStorage.saveChapterContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storyId: story.id,
+        chapterNumber: 4,
+        generatedContent: 'Cloud prose selected by the reader.',
+        updatedAt: expect.any(String),
+      }),
+    );
+    expect(storyStorage.saveStory).not.toHaveBeenCalled();
+    expect(storyStorage.performSync).toHaveBeenCalled();
+    expect(useAppStore.getState().activeConflict).toBeNull();
+  });
+
+  it('stamps chosen local chapter prose beyond a future-skewed cloud revision', async () => {
+    const story = {
+      id: 'future-chapter-conflict',
+      title: 'Shared story',
+      arcs: [],
+      memory: {},
+    } as any;
+    const localContent = {
+      storyId: story.id,
+      chapterNumber: 2,
+      generatedContent: 'Chosen local prose',
+      updatedAt: '2026-07-13T12:00:00.000Z',
+    };
+    const cloudContent = {
+      ...localContent,
+      generatedContent: 'Future cloud prose',
+      updatedAt: '2099-07-13T12:00:00.000Z',
+    };
+    useAppStore.getState().setActiveConflict({
+      storyId: story.id,
+      localStory: story,
+      cloudStory: story,
+      chapterConflict: {
+        chapterNumber: 2,
+        localContent,
+        cloudContent,
+      },
+    });
+
+    await useAppStore.getState().resolveConflict('local');
+
+    const saved = vi.mocked(storyStorage.saveChapterContent).mock.calls[0][0] as any;
+    expect(new Date(saved.updatedAt).getTime()).toBeGreaterThan(
+      new Date(cloudContent.updatedAt).getTime(),
+    );
+    expect(saved.generatedContent).toBe('Chosen local prose');
   });
 
   it('keeps a conflict available for retry when resolution persistence fails', async () => {
@@ -269,6 +488,106 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().appError).toBe(
       'Sync conflict resolved, but failed to refresh stories: read unavailable',
     );
+  });
+
+  it('does not restore an old account conflict after its persistence fails', async () => {
+    let rejectSave!: (error: Error) => void;
+    vi.mocked(storyStorage.saveStory).mockReturnValueOnce(
+      new Promise<void>((_resolve, reject) => {
+        rejectSave = reject;
+      }),
+    );
+    const conflict = {
+      storyId: 'account-a-conflict',
+      localStory: {
+        id: 'account-a-conflict',
+        userId: 'account-a',
+        title: 'Private local A',
+        arcs: [],
+        memory: {},
+      } as any,
+      cloudStory: {
+        id: 'account-a-conflict',
+        userId: 'account-a',
+        title: 'Private cloud A',
+        arcs: [],
+        memory: {},
+      } as any,
+    };
+    (auth as any).currentUser = { uid: 'account-a' };
+    useAppStore.getState().setActiveConflict(conflict);
+
+    const resolving = useAppStore.getState().resolveConflict('local');
+    await vi.waitFor(() => expect(storyStorage.saveStory).toHaveBeenCalledOnce());
+    (auth as any).currentUser = { uid: 'account-b' };
+    useAppStore.getState().setActiveConflict(null);
+    rejectSave(new Error('old account write cancelled'));
+    await resolving;
+
+    expect(useAppStore.getState().activeConflict).toBeNull();
+    expect(useAppStore.getState().appError).toBeNull();
+  });
+
+  it('ignores a conflict owned by a different active account', () => {
+    (auth as any).currentUser = { uid: 'account-b' };
+
+    useAppStore.getState().setActiveConflict({
+      storyId: 'account-a-conflict',
+      localStory: {
+        id: 'account-a-conflict',
+        userId: 'account-a',
+        title: 'Private A',
+        arcs: [],
+        memory: {},
+      } as any,
+      cloudStory: {
+        id: 'account-a-conflict',
+        userId: 'account-a',
+        title: 'Private cloud A',
+        arcs: [],
+        memory: {},
+      } as any,
+    });
+
+    expect(useAppStore.getState().activeConflict).toBeNull();
+  });
+
+  it('does not publish an old account library after conflict refresh completes', async () => {
+    let releaseStories!: (stories: any[]) => void;
+    vi.mocked(storyStorage.getStories).mockReturnValueOnce(
+      new Promise<any[]>((resolve) => {
+        releaseStories = resolve;
+      }),
+    );
+    const conflict = {
+      storyId: 'account-a-conflict',
+      localStory: {
+        id: 'account-a-conflict',
+        userId: 'account-a',
+        title: 'Private local A',
+        arcs: [],
+        memory: {},
+      } as any,
+      cloudStory: {
+        id: 'account-a-conflict',
+        userId: 'account-a',
+        title: 'Private cloud A',
+        arcs: [],
+        memory: {},
+      } as any,
+    };
+    (auth as any).currentUser = { uid: 'account-a' };
+    useAppStore.getState().setActiveConflict(conflict);
+
+    const resolving = useAppStore.getState().resolveConflict('cloud');
+    await vi.waitFor(() => expect(storyStorage.getStories).toHaveBeenCalledOnce());
+    (auth as any).currentUser = { uid: 'account-b' };
+    useAppStore.getState().setStories([]);
+    releaseStories([{ ...conflict.cloudStory, title: 'Stale A refresh' }]);
+    await resolving;
+
+    expect(useAppStore.getState().stories).toEqual([]);
+    expect(useAppStore.getState().appError).toBeNull();
   });
 });
 

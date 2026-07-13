@@ -1,7 +1,7 @@
 import React from 'react';
 import { UserProfile as UserProfileType, Story, AppUser } from '../types';
-import { LOCAL_ONLY_MODE, setLocalOnlyMode } from "../lib/firebase";
-import { LogOut, Save, User as UserIcon, Calendar, BookOpen, Globe, Cloud, CloudOff, RefreshCw, Sliders, Upload, Download, Database, Zap, Keyboard, Flame, Award, Shield, Compass, Key, Sparkles, Search, Sword, HelpCircle } from 'lucide-react';
+import { LOCAL_ONLY_MODE } from "../lib/firebase";
+import { LogOut, Save, User as UserIcon, Calendar, BookOpen, Globe, Cloud, CloudOff, Sliders, Upload, Download, Zap, Keyboard, Flame, Award, Shield, Compass, Key, Sparkles, Search, Sword, HelpCircle } from 'lucide-react';
 import { getDaoRankData, AURA_TIERS, getAuraTextStyle, getAuraGlowStyle } from '../lib/qi';
 import { UserProfileAdminPanel } from './UserProfileAdminPanel';
 import { UserProfileSettingsPanel } from './UserProfileSettingsPanel';
@@ -33,10 +33,6 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     handleExportLibrary,
     handleImportLibrary,
     storageType,
-    localGeminiKey,
-    localOpenrouterKey,
-    localOllamaHost,
-    isSettingsOpen,
     activeStoryId,
     routingConfig,
     profile,
@@ -72,9 +68,6 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     handleDrop,
     handleGeneratePortrait,
     handleApplyPortrait,
-    daoStatus,
-    daoDetail,
-    checkDaoConnection,
     fetchAdminData,
     handleUpdateUserRole,
     handleUpdateUserTier,
@@ -94,10 +87,6 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     handleLanguageChangeDirect,
     handleSave,
     handleChange,
-    isAuditing,
-    auditResult,
-    handleRunAudit,
-    handleRecover,
     daoData,
     equippedArtifact,
     currentPowerStage,
@@ -275,30 +264,6 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                         </div>
 
                         <div className="border-t border-neutral-900/50 pt-3 flex flex-col gap-2">
-                          <button
-                            type="button"
-                            tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
-                            onClick={() => setLocalOnlyMode(!LOCAL_ONLY_MODE)}
-                            className={`w-full px-3 py-2 border transition-all rounded-lg font-sc text-[9px] flex items-center gap-2 font-bold group ${LOCAL_ONLY_MODE ? 'bg-portal/10 border-portal text-portal hover:bg-portal/20' : 'bg-black border-neutral-850 hover:border-portal/50 text-neutral-400 hover:text-portal'}`}
-                            title={LOCAL_ONLY_MODE ? "Switch to Cloud Sync Mode" : "Switch to Local-Only Mode"}
-                          >
-                            {LOCAL_ONLY_MODE ? <CloudOff size={12} className="group-hover:scale-110 transition-transform shrink-0" /> : <Cloud size={12} className="group-hover:scale-110 transition-transform shrink-0" />}
-                            <span className="uppercase tracking-widest font-semibold whitespace-nowrap">
-                              {LOCAL_ONLY_MODE ? "Local Mode (Click to connect Cloud)" : "Cloud Sync (Click to go Local)"}
-                            </span>
-                          </button>
-
-                          {!LOCAL_ONLY_MODE && (
-                            <button
-                              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleRunAudit}
-                              disabled={isAuditing}
-                              className="w-full flex items-center gap-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-portal border border-neutral-800 hover:border-portal/50 px-3 py-2 rounded-lg text-[9px] font-sc font-bold uppercase tracking-wider disabled:opacity-20 disabled:cursor-not-allowed transition-all group"
-                            >
-                              <Database size={12} className="text-portal group-hover:scale-110 transition-transform shrink-0" />
-                              <span>Audit Sync</span>
-                            </button>
-                          )}
-
                           <label className="flex items-center gap-2 bg-black hover:bg-neutral-900 text-neutral-300 hover:text-portal border border-neutral-800 hover:border-portal/50 px-3 py-2 rounded-lg text-[9px] font-sc font-bold uppercase tracking-wider cursor-pointer transition-all group" htmlFor="a11y-id-1">
                             <Upload size={12} className="text-portal group-hover:-translate-y-0.5 transition-transform shrink-0" />
                             <span>Import Scroll</span>
@@ -320,28 +285,6 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                           </button>
                         </div>
 
-                        {/* Audit Results */}
-                        {auditResult && (
-                          <div className="mt-2 p-3 border border-portal/30 bg-black rounded-lg text-[9px] font-mono text-neutral-400 space-y-1.5">
-                            <div className="text-portal font-sc uppercase tracking-widest border-b border-neutral-800 pb-1 mb-1 font-bold">Sync Diagnostic</div>
-                            <div className="space-y-0.5">
-                              <div>Local Realms: <span className="text-signal">{auditResult.localStories}</span></div>
-                              <div>Cloud Realms: <span className="text-signal">{auditResult.cloudStories}</span></div>
-                              <div>Pending Writes: <span className="text-signal">{auditResult.pendingWrites}</span></div>
-                              <div>Missing Chapters: <span className={auditResult.missingChapters.length > 0 ? "text-human" : "text-signal"}>{auditResult.missingChapters.length}</span></div>
-                            </div>
-                            {auditResult.missingChapters.length > 0 && (
-                              <div className="pt-1.5 border-t border-neutral-800 mt-1.5">
-                                <button tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleRecover} disabled={isAuditing} className="w-full py-1 bg-human/10 text-human border border-human/30 hover:bg-human/20 rounded uppercase tracking-widest font-sc text-[9px] cursor-pointer">
-                                  Cloud Recovery
-                                </button>
-                              </div>
-                            )}
-                            {auditResult.recovered !== undefined && (
-                              <div className="text-portal mt-1">Recovered {auditResult.recovered} chapters.</div>
-                            )}
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
@@ -906,9 +849,6 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
           {/* Settings & boring things at the very bottom! */}
           <UserProfileSettingsPanel 
             syncStatus={syncStatus}
-            daoStatus={daoStatus}
-            daoDetail={daoDetail}
-            checkDaoConnection={checkDaoConnection}
             lastSavedTime={lastSavedTime}
             formData={formData}
             profile={profile}

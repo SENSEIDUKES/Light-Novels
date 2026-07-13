@@ -26,10 +26,14 @@ export const SyncConflictModal: React.FC = () => {
 
   if (!activeConflict) return null;
 
-  const { localStory, cloudStory } = activeConflict;
+  const { localStory, cloudStory, chapterConflict } = activeConflict;
 
-  const localTime = new Date(localStory.updatedAt || 0).getTime();
-  const cloudTime = new Date(cloudStory.updatedAt || 0).getTime();
+  const localTime = new Date(
+    chapterConflict?.localContent.updatedAt || localStory.updatedAt || 0,
+  ).getTime();
+  const cloudTime = new Date(
+    chapterConflict?.cloudContent.updatedAt || cloudStory.updatedAt || 0,
+  ).getTime();
   
   const isLocalNewer = localTime > cloudTime;
   const isCloudNewer = cloudTime > localTime;
@@ -117,7 +121,9 @@ export const SyncConflictModal: React.FC = () => {
                   Aetheric Sync Divergence
                 </h2>
                 <p className="text-xs text-neutral-500 font-mono uppercase tracking-widest mt-1">
-                  Local and Cloud data differ significantly
+                  {chapterConflict
+                    ? `Chapter ${chapterConflict.chapterNumber} differs across devices`
+                    : 'Local and Cloud data differ significantly'}
                 </p>
               </div>
             </div>
@@ -125,8 +131,9 @@ export const SyncConflictModal: React.FC = () => {
             <div className="p-3.5 bg-neutral-900/40 border border-neutral-900 rounded-xl flex items-start gap-2.5 mb-6 text-xs text-neutral-400 font-sans">
               <Info size={16} className="text-portal mt-0.5 flex-shrink-0" />
               <div>
-                We detected that this story has been modified independently on both your local device and the cloud.
-                Please choose which timeline to keep, or merge their creative assets seamlessly.
+                {chapterConflict
+                  ? 'This chapter was edited independently on two devices. Choose which complete prose version to keep; neither copy will be overwritten until you decide.'
+                  : 'We detected that this story has been modified independently on both your local device and the cloud. Please choose which timeline to keep, or merge their creative assets seamlessly.'}
               </div>
             </div>
 
@@ -184,7 +191,9 @@ export const SyncConflictModal: React.FC = () => {
                     <h4 className="text-[10px] text-neutral-500 uppercase tracking-wider font-mono flex items-center gap-1">
                       <Calendar size={10} /> Last Modified
                     </h4>
-                    <p className="text-xs text-neutral-400 mt-0.5 font-mono">{formatDate(localStory.updatedAt)}</p>
+                    <p className="text-xs text-neutral-400 mt-0.5 font-mono">
+                      {formatDate(chapterConflict?.localContent.updatedAt || localStory.updatedAt)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -241,7 +250,9 @@ export const SyncConflictModal: React.FC = () => {
                     <h4 className="text-[10px] text-neutral-500 uppercase tracking-wider font-mono flex items-center gap-1">
                       <Calendar size={10} /> Last Modified
                     </h4>
-                    <p className="text-xs text-neutral-400 mt-0.5 font-mono">{formatDate(cloudStory.updatedAt)}</p>
+                    <p className="text-xs text-neutral-400 mt-0.5 font-mono">
+                      {formatDate(chapterConflict?.cloudContent.updatedAt || cloudStory.updatedAt)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -267,7 +278,9 @@ export const SyncConflictModal: React.FC = () => {
                     <ArrowRight size={14} className="text-neutral-600 group-hover:translate-x-1 group-hover:text-portal transition-all" />
                   </div>
                   <p className="text-xs text-neutral-500 mt-1">
-                    Uploads this device's version and overwrites cloud storage. Best if you worked offline on this device.
+                    {chapterConflict
+                      ? 'Keeps this device’s complete chapter prose and safely publishes it to the cloud.'
+                      : "Uploads this device's version and overwrites cloud storage. Best if you worked offline on this device."}
                   </p>
                 </div>
               </button>
@@ -290,13 +303,15 @@ export const SyncConflictModal: React.FC = () => {
                     <ArrowRight size={14} className="text-neutral-600 group-hover:translate-x-1 group-hover:text-human transition-all" />
                   </div>
                   <p className="text-xs text-neutral-500 mt-1">
-                    Downloads the cloud version and discards any un-synchronized local edits. Best if you wrote content on another device.
+                    {chapterConflict
+                      ? 'Keeps the cloud chapter prose and replaces the conflicting local copy.'
+                      : 'Downloads the cloud version and discards any un-synchronized local edits. Best if you wrote content on another device.'}
                   </p>
                 </div>
               </button>
 
-              {/* Option 3: Merge */}
-              <button
+              {/* Complete chapter prose cannot be merged safely. */}
+              {!chapterConflict && <button
                 type="button"
                 disabled={isResolving}
                 onClick={() => handleResolution('merge')}
@@ -316,7 +331,7 @@ export const SyncConflictModal: React.FC = () => {
                     Combines the list of characters, locations, factions, and assets. Integrates chapters chronologically and preserves the latest edits of conflicting chapters.
                   </p>
                 </div>
-              </button>
+              </button>}
             </div>
 
             {/* Inner progress state if resolving */}

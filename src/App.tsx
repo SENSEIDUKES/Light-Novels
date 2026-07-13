@@ -10,6 +10,15 @@ import { useStoryEngine } from './hooks/useStoryEngine';
 import { useStoryExporter } from './hooks/useStoryExporter';
 import { storyStorage } from './lib/storage';
 import { autoSubmitPreviousWeeksOfferings } from './lib/artifacts';
+import {
+  mergeChapterContentIntoStories,
+  refreshActiveChapterAfterMetadataSync,
+} from './lib/syncStoryRefresh';
+import {
+  isProfileSnapshotStillCurrent,
+  isStoryRefreshStillCurrent,
+  type StoryRefreshGuardState,
+} from './appSessionGuards';
 
 // Types
 import { UserProfile as UserProfileType } from './types';
@@ -45,14 +54,17 @@ function App() {
     const store_migrateOrDiscardDemoStories = useAppStore(state => state.migrateOrDiscardDemoStories);
     const store_setSyncStatus = useAppStore(state => state.setSyncStatus);
     const store_setStories = useAppStore(state => state.setStories);
+    const store_setActiveStoryId = useAppStore(state => state.setActiveStoryId);
     const store_activeStoryId = useAppStore(state => state.activeStoryId);
     const store_selectedChapterNum = useAppStore(state => state.selectedChapterNum);
-    const store_updateChapter = useAppStore(state => state.updateChapter);
+    const store_setAppError = useAppStore(state => state.setAppError);
     const store_currentScreen = useAppStore(state => state.currentScreen);
     const store_isGenerating = useAppStore(state => state.isGenerating);
     const store_appError = useAppStore(state => state.appError);
     const store_setStoryToDelete = useAppStore(state => state.setStoryToDelete);
     const store_setIsCodexSheetOpen = useAppStore(state => state.setIsCodexSheetOpen);
+    const store_setIsSettingsOpen = useAppStore(state => state.setIsSettingsOpen);
+    const store_setIsShortcutsOpen = useAppStore(state => state.setIsShortcutsOpen);
     const store_currentUser = useAppStore(state => state.currentUser);
     const store_setCurrentScreen = useAppStore(state => state.setCurrentScreen);
   const storyEngine = useStoryEngine();
@@ -175,6 +187,7 @@ function App() {
     initAndLoad();
 
     let unsubProfile: (() => void) | undefined;
+    let profileSubscriptionVersion = 0;
 
     let unsubAuth = () => {};
     if (LOCAL_ONLY_MODE) {
@@ -182,6 +195,21 @@ function App() {
       store_setUserProfile(null);
     } else {
       unsubAuth = onAuthStateChanged(auth, async (user) => {
+        const subscriptionVersion = ++profileSubscriptionVersion;
+        // Local persistence survives authentication changes. Clear the rendered
+        // library and reader selection immediately so one account's stories can
+        // never remain visible while the next account's scope is being restored.
+        store_setUserProfile(null);
+        store_setStories([]);
+        store_setActiveStoryId(null);
+        store_setDraftRecoverySession(null);
+        store_setStoryToDelete(null);
+        store_setAppError(null);
+        store_setIsSettingsOpen(false);
+        store_setIsShortcutsOpen(false);
+        store_setIsCodexSheetOpen(false);
+        store_setCurrentScreen('home');
+        useAppStore.getState().setActiveConflict(null);
         store_setCurrentUser(user);
         
         if (unsubProfile) {
@@ -190,37 +218,126 @@ function App() {
         }
         
         if (user) {
-          unsubProfile = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
-            if (docSnap.exists()) {
-              const data = docSnap.data() as UserProfileType;
-              if (user.email && ['amaurylindy@gmail.com', 'seihouseproductions@gmail.com'].includes(user.email.toLowerCase())) {
-                data.premiumTier = 'immortal';
-                data.role = 'owner';
-              }
-              store_setUserProfile(data);
-            } else {
-              store_setUserProfile(null);
-            }
+          const expectedUid = user.uid;
+          const snapshotIsCurrent = () => isProfileSnapshotStillCurrent({
+            expectedUid,
+            expectedVersion: subscriptionVersion,
+            currentVersion: profileSubscriptionVersion,
+            authenticatedUid: auth.currentUser?.uid ?? null,
+            renderedUid: useAppStore.getState().currentUser?.uid ?? null,
           });
 
-          // Handle unmigrated demo stories: migrate if worked on, otherwise discard them
-          await store_migrateOrDiscardDemoStories(user);
+          unsubProfile = onSnapshot(
+            doc(db, 'users', expectedUid),
+            (docSnap) => {
+              if (!snapshotIsCurrent()) return;
+              if (docSnap.exists()) {
+                const data = {
+                  ...(docSnap.data() as UserProfileType),
+                  uid: expectedUid,
+                };
+                if (user.email && ['amaurylindy@gmail.com', 'seihouseproductions@gmail.com'].includes(user.email.toLowerCase())) {
+                  data.premiumTier = 'immortal';
+                  data.role = 'owner';
+                }
+                store_setUserProfile(data);
+              } else {
+                store_setUserProfile(null);
+              }
+            },
+            (error) => {
+              if (!snapshotIsCurrent()) return;
+              console.error('Failed to load the active user profile:', error);
+              store_setUserProfile(null);
+            },
+          );
+
         } else {
           store_setUserProfile(null);
         }
       });
     }
 
+    let syncRefreshVersion = 0;
+    let syncSubscriberDisposed = false;
     const unsubSync = storyStorage.subscribe(async (status) => {
+      const refreshVersion = ++syncRefreshVersion;
       store_setSyncStatus(status);
-      if (status === 'synced') {
-         // Reload stories from storage to catch cloud-merged data
-         const freshStories = await storyStorage.getStories();
-         store_setStories(freshStories);
+      if (status === 'synced' || status === 'error') {
+        const refreshUserId = auth.currentUser?.uid ?? null;
+        const refreshStartState = useAppStore.getState();
+        const refreshSourceState: StoryRefreshGuardState = {
+          stories: refreshStartState.stories,
+          activeStoryId: refreshStartState.activeStoryId,
+          selectedChapterNum: refreshStartState.selectedChapterNum,
+        };
+        try {
+          // Reload after every completed/partial pass so a failed upload cannot hide
+          // unrelated stories that were successfully pulled from the cloud. Story
+          // metadata is stored separately from chapter bodies, so preserve hydrated
+          // reader content and explicitly refresh the active chapter before publishing
+          // the new store state.
+          const freshStories = await storyStorage.getStories();
+          const refreshed = await refreshActiveChapterAfterMetadataSync({
+            freshStories,
+            currentStories: refreshSourceState.stories,
+            activeStoryId: refreshSourceState.activeStoryId,
+            selectedChapterNumber: refreshSourceState.selectedChapterNum,
+            loadChapter: (storyId, chapterNumber) =>
+              storyStorage.getChapterContent(storyId, chapterNumber),
+          });
+
+          const latestState = useAppStore.getState();
+
+          if (
+            syncSubscriberDisposed ||
+            refreshVersion !== syncRefreshVersion ||
+            (auth.currentUser?.uid ?? null) !== refreshUserId ||
+            !isStoryRefreshStillCurrent(refreshSourceState, latestState)
+          ) return;
+          store_setStories(refreshed.stories);
+
+          // Auth may resolve after local storage initialization. Run the legacy
+          // demo migration only after the correct account-scoped library is loaded.
+          if (auth.currentUser && auth.currentUser.uid === refreshUserId) {
+            void store_migrateOrDiscardDemoStories(auth.currentUser).catch((error) => {
+              console.error('Failed to migrate legacy demo stories after Harmony sync:', error);
+            });
+          }
+
+          const activeSelectionStillMatches =
+            latestState.activeStoryId === refreshSourceState.activeStoryId &&
+            latestState.selectedChapterNum === refreshSourceState.selectedChapterNum;
+          if (activeSelectionStillMatches && refreshed.unavailable) {
+            const storyTitle = refreshed.stories.find(
+              story => story.id === refreshSourceState.activeStoryId,
+            )?.title || 'the active story';
+            store_setAppError(
+              `Harmony refreshed ${storyTitle}, but Chapter ${refreshSourceState.selectedChapterNum} is marked as generated and its content is currently unavailable from local or cloud storage. No chapter metadata was changed; sync will retry automatically.`,
+            );
+          } else if (activeSelectionStillMatches && refreshed.loadFailed) {
+            store_setAppError(
+              `Harmony refreshed the library, but could not refresh Chapter ${refreshSourceState.selectedChapterNum}. Its saved chapter metadata was left unchanged and sync will retry automatically.`,
+            );
+          }
+        } catch (error) {
+          if (
+            syncSubscriberDisposed ||
+            refreshVersion !== syncRefreshVersion ||
+            (auth.currentUser?.uid ?? null) !== refreshUserId
+          ) return;
+          console.error('Failed to refresh stories after Harmony sync:', error);
+          store_setAppError(
+            'Harmony completed, but the refreshed library could not be loaded on this device. Your saved data was left unchanged and sync will retry automatically.',
+          );
+        }
       }
     });
 
     return () => {
+      syncSubscriberDisposed = true;
+      syncRefreshVersion += 1;
+      profileSubscriptionVersion += 1;
       unsubAuth();
       unsubSync();
       if (unsubProfile) unsubProfile();
@@ -237,6 +354,7 @@ function App() {
 
   // Dynamically fetch missing content for active chapter
   useEffect(() => {
+    let cancelled = false;
     // Narrow dependency to just ID and chapter num to avoid looping on whole stories array
     const activeStory = useAppStore.getState().stories.find(s => s.id === store_activeStoryId);
     if (activeStory && store_selectedChapterNum !== -1) {
@@ -246,30 +364,36 @@ function App() {
       if (tgtChapter && !tgtChapter.generatedContent && (!tgtChapter.blocks || tgtChapter.blocks.length === 0) && (tgtChapter.status === 'read' || tgtChapter.status === 'unlocked' || tgtChapter.status === 'generating' || tgtChapter.hasContent)) {
         storyStorage.getChapterContent(activeStory.id, store_selectedChapterNum)
           .then(content => {
-            if (content) {
-              const isEmptyContent = !content.generatedContent && (!content.blocks || content.blocks.length === 0);
-              store_updateChapter(activeStory.id, store_selectedChapterNum, {
-                generatedContent: content.generatedContent,
-                blocks: content.blocks,
-                summary: content.summary,
-                statsChangeMessage: content.statsChangeMessage,
-                cuePayload: content.cuePayload,
-                hasContent: isEmptyContent ? false : true
-              });
-            } else {
-              // Failed to fetch or missing: un-mark hasContent so user can regenerate
-              store_updateChapter(activeStory.id, store_selectedChapterNum, {
-                hasContent: false
-              });
+            if (cancelled) return;
+            const hasRenderableContent = Boolean(
+              content?.generatedContent || (content?.blocks && content.blocks.length > 0),
+            );
+            if (content && hasRenderableContent) {
+              store_setStories(mergeChapterContentIntoStories(
+                useAppStore.getState().stories,
+                activeStory.id,
+                store_selectedChapterNum,
+                content,
+              ));
+            } else if (tgtChapter.hasContent) {
+              store_setAppError(
+                `Chapter ${store_selectedChapterNum} is marked as generated, but its content is currently unavailable from local or cloud storage. No chapter metadata was changed; Harmony will retry automatically.`,
+              );
             }
           })
           .catch(error => {
+            if (cancelled) return;
             console.error("Failed to load chapter content due to error (e.g. quota exceeded):", error);
-            // Do NOT un-mark hasContent on network failure.
+            store_setAppError(
+              `Chapter ${store_selectedChapterNum} could not be loaded right now. Its saved chapter metadata was left unchanged and Harmony will retry automatically.`,
+            );
           });
       }
     }
-  }, [store_activeStoryId, store_selectedChapterNum, store_updateChapter]); // Removed store.stories
+    return () => {
+      cancelled = true;
+    };
+  }, [store_activeStoryId, store_selectedChapterNum, store_setAppError, store_setStories]); // Removed store.stories
 
   // --- IDLE CULTIVATION ---
   const [idleQiEarned, setIdleQiEarned] = useState<number | null>(null);
@@ -437,9 +561,10 @@ function App() {
               className="w-full"
             >
               <UserProfile 
+                key={store_currentUser?.uid ?? 'guest'}
                 currentUser={store_currentUser}
                 stories={store_stories}
-                onLogout={() => { signOut(auth); store_setCurrentUser(null); }}
+                onLogout={() => { void signOut(auth); }}
                 onNavigateHome={() => store_setCurrentScreen('home')}
               />
             </motion.div>

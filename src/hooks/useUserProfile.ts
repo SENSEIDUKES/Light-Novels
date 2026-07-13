@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile as UserProfileType, Story, AppUser } from '../types';
 import { db, auth, LOCAL_ONLY_MODE } from '../lib/firebase';
-import { doc, setDoc, onSnapshot, collection, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot, collection, getDoc, getDocs, deleteDoc } from 'firebase/firestore';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
@@ -25,16 +25,18 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
   const handleExportLibrary = useAppStore(state => state.handleExportLibrary);
   const handleImportLibrary = useAppStore(state => state.handleImportLibrary);
   const storageType = useAppStore(state => state.storageType);
-  const localGeminiKey = useAppStore(state => state.localGeminiKey);
-  const localOpenrouterKey = useAppStore(state => state.localOpenrouterKey);
-  const localOllamaHost = useAppStore(state => state.localOllamaHost);
-  const isSettingsOpen = useAppStore(state => state.isSettingsOpen);
   const activeStoryId = useAppStore(state => state.activeStoryId);
   const routingConfig = useAppStore(state => state.routingConfig);
 
-  const [profile, setProfile] = useState<UserProfileType | null>(null);
+  const activeProfileUid = currentUser?.uid ?? null;
+  const activeProfileUidRef = useRef<string | null>(activeProfileUid);
+  const visibleProfileUid = activeProfileUid ?? 'anonymous';
+
+  const [storedProfile, setProfile] = useState<UserProfileType | null>(null);
+  const profile = storedProfile?.uid === visibleProfileUid ? storedProfile : null;
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState<Partial<UserProfileType>>({});
+  const [storedFormData, setFormData] = useState<Partial<UserProfileType>>({});
+  const formData = storedFormData.uid === visibleProfileUid ? storedFormData : {};
   const [isLoading, setIsLoading] = useState(true);
   const colorInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
@@ -50,6 +52,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
   const [isFetchingAdminData, setIsFetchingAdminData] = useState(false);
   const [adminSearchQuery, setAdminSearchQuery] = useState('');
   const [adminError, setAdminError] = useState('');
+  const adminRequestVersionRef = useRef(0);
 
   // Language safeguard states
   const [pendingLanguageChange, setPendingLanguageChange] = useState<{ preferred: string, translation: string, prevPreferred: string, prevTranslation: string } | null>(null);
@@ -116,6 +119,40 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
   const [portraitError, setPortraitError] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const [generationStep, setGenerationStep] = useState(0);
+
+  // Profile, editing, portrait, and admin state is account-scoped. Clear it as
+  // soon as the identity changes so account A can never be rendered while the
+  // account B snapshot is loading (or if that snapshot fails).
+  useEffect(() => {
+    activeProfileUidRef.current = activeProfileUid;
+    adminRequestVersionRef.current += 1;
+    setProfile(null);
+    setFormData({});
+    setIsEditing(false);
+    setIsLoading(Boolean(activeProfileUid));
+    setError('');
+    setShowAdvanced(false);
+    setIsQiMenuOpen(false);
+    setActiveQiTooltip(null);
+    setIsAdminPanelOpen(false);
+    setAdminTab('users');
+    setAllUsers([]);
+    setAllStories([]);
+    setIsFetchingAdminData(false);
+    setAdminSearchQuery('');
+    setAdminError('');
+    setPendingLanguageChange(null);
+    setCountdown(30);
+    setShowPortraitModal(false);
+    setPortraitUploadFile(null);
+    setPortraitUploadBase64('');
+    setPortraitDesc('');
+    setIsGeneratingPortrait(false);
+    setGeneratedPortraitUrl('');
+    setPortraitError('');
+    setDragActive(false);
+    setGenerationStep(0);
+  }, [activeProfileUid]);
 
   const generationSteps = [
     "Initializing Divine Mirror protocol...",
@@ -298,37 +335,24 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
     setGeneratedPortraitUrl('');
   };
 
-  const [daoStatus, setDaoStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
-  const [daoDetail, setDaoDetail] = useState<string>('Sensing alignment with the cosmic Dao...');
-
-  const checkDaoConnection = useCallback(async () => {
-    setDaoStatus('checking');
-    try {
-      const res = await fetch('/api/config-status');
-      const status = res.ok ? await res.json() : { hasServerGemini: true };
-
-      setDaoStatus('connected');
-      const hasLocalKey = !!(localGeminiKey || localOpenrouterKey || localOllamaHost);
-      if (hasLocalKey) {
-        setDaoDetail('Local Conduit Active (Overriding Keys configured)');
-      } else {
-        setDaoDetail('Divine Flow Stable (Server-managed Gemini active)');
-      }
-    } catch (err) {
-      setDaoStatus('connected');
-      setDaoDetail('Divine Flow Stable (Server-managed Gemini active)');
-    }
-  }, [localGeminiKey, localOpenrouterKey, localOllamaHost]);
-
-  useEffect(() => {
-    checkDaoConnection();
-  }, [localGeminiKey, localOpenrouterKey, localOllamaHost, isSettingsOpen, checkDaoConnection]);
-
   const fetchAdminData = async () => {
+    const requestUid = activeProfileUidRef.current;
+    if (!requestUid) {
+      setAllUsers([]);
+      setAllStories([]);
+      setIsFetchingAdminData(false);
+      return;
+    }
+    const requestVersion = ++adminRequestVersionRef.current;
+    const requestIsCurrent = () =>
+      activeProfileUidRef.current === requestUid
+      && adminRequestVersionRef.current === requestVersion;
+
     setIsFetchingAdminData(true);
     setAdminError('');
     try {
       const usersSnap = await getDocs(collection(db, 'users'));
+      if (!requestIsCurrent()) return;
       const usersList: UserProfileType[] = [];
       usersSnap.forEach((d) => {
         usersList.push(d.data() as UserProfileType);
@@ -336,16 +360,21 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
       setAllUsers(usersList);
 
       const storiesSnap = await getDocs(collection(db, 'stories'));
+      if (!requestIsCurrent()) return;
       const storiesList: any[] = [];
       storiesSnap.forEach((d) => {
-        storiesList.push(d.data());
+        const story = d.data();
+        if (!story.deleted) storiesList.push(story);
       });
       setAllStories(storiesList);
     } catch (err: any) {
+      if (!requestIsCurrent()) return;
       console.error(err);
       setAdminError(err.message || 'Failed to fetch admin data. Check security rules or authentication.');
     } finally {
-      setIsFetchingAdminData(false);
+      if (requestIsCurrent()) {
+        setIsFetchingAdminData(false);
+      }
     }
   };
 
@@ -370,11 +399,26 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
   };
 
   const handleDeleteStoryAdmin = async (storyId: string) => {
-    if (!window.confirm("Are you absolutely sure you want to delete this story? This action is IRREVERSIBLE and will wipe the story and its chapters from existence!")) {
+    if (!window.confirm("Remove this story and its chapter content from the cloud? A deletion marker will remain so offline devices cannot restore it.")) {
       return;
     }
     try {
-      await deleteDoc(doc(db, 'stories', storyId));
+      const storyRef = doc(db, 'stories', storyId);
+      const storySnap = await getDoc(storyRef);
+      if (storySnap.exists()) {
+        const ownerUid = storySnap.data().userId;
+        if (typeof ownerUid !== 'string' || !ownerUid) {
+          throw new Error('Story owner is missing; refusing an unsafe deletion');
+        }
+        await setDoc(storyRef, {
+          id: storyId,
+          userId: ownerUid,
+          deleted: true,
+          updatedAt: new Date().toISOString(),
+        });
+        const chaptersSnap = await getDocs(collection(db, 'stories', storyId, 'chapters'));
+        await Promise.all(chaptersSnap.docs.map(chapter => deleteDoc(chapter.ref)));
+      }
       setAllStories(prev => prev.filter(s => s.id !== storyId));
     } catch (err: any) {
       console.error(err);
@@ -403,50 +447,77 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
       return;
     }
 
+    const expectedUid = currentUser.uid;
+    let cancelled = false;
+    const snapshotIsCurrent = () =>
+      !cancelled && activeProfileUidRef.current === expectedUid;
+
     setIsLoading(true);
     // Subscribe to profile updates
-    const unsubscribe = onSnapshot(doc(db, 'users', currentUser.uid), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data() as UserProfileType;
+    const unsubscribe = onSnapshot(
+      doc(db, 'users', expectedUid),
+      (docSnap) => {
+        if (!snapshotIsCurrent()) return;
+        if (docSnap.exists()) {
+          const data: UserProfileType = {
+            ...(docSnap.data() as UserProfileType),
+            uid: expectedUid,
+          };
 
-        // Auto-bootstrap Owner role and Immortal tier for owner emails
-        if ((currentUser.email === 'amaurylindy@gmail.com' || currentUser.email === 'seihouseproductions@gmail.com' || currentUser.email === 'Amaurylindy@gmail.com' || currentUser.email === 'Seihouseproductions@gmail.com')) {
-          data.role = 'owner';
-          data.premiumTier = 'immortal';
+          // Auto-bootstrap Owner role and Immortal tier for owner emails.
+          const email = currentUser.email?.toLowerCase();
+          if (email === 'amaurylindy@gmail.com' || email === 'seihouseproductions@gmail.com') {
+            data.role = 'owner';
+            data.premiumTier = 'immortal';
+          }
+
+          setProfile(data);
+          setError('');
+        } else {
+          const email = currentUser.email?.toLowerCase();
+          const isOwner = email === 'amaurylindy@gmail.com' || email === 'seihouseproductions@gmail.com';
+          const defaultProfile: UserProfileType = {
+            uid: expectedUid,
+            username: currentUser.email?.split('@')[0] || `user_${expectedUid.substring(0,5)}`,
+            displayName: currentUser.displayName || '',
+            avatarUrl: currentUser.photoURL || '',
+            preferredLanguage: 'English',
+            defaultTranslationLanguage: 'English',
+            savedStoryCount: 0,
+            activeStories: [],
+            inactiveStories: [],
+            joinedDate: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            role: isOwner ? 'owner' : 'user',
+            premiumTier: isOwner ? 'immortal' : 'mortal'
+          };
+
+          // Publish only a profile belonging to the active identity, and do not
+          // start a default write from a queued callback after an account switch.
+          if (!snapshotIsCurrent()) return;
+          setProfile(defaultProfile);
+          void setDoc(doc(db, 'users', expectedUid), defaultProfile, { merge: true }).catch(err => {
+            if (!snapshotIsCurrent()) return;
+            console.error("Failed to create profile", err);
+            setError('Unable to create profile data.');
+          });
         }
+        setIsLoading(false);
+      },
+      (err) => {
+        if (!snapshotIsCurrent()) return;
+        console.error(err);
+        setProfile(null);
+        setFormData({});
+        setError('Unable to load profile data.');
+        setIsLoading(false);
+      },
+    );
 
-        setProfile(data);
-      } else {
-        // Create initial profile if it doesn't exist
-        const defaultProfile: UserProfileType = {
-          uid: currentUser.uid,
-          username: currentUser.email?.split('@')[0] || `user_${currentUser.uid.substring(0,5)}`,
-          displayName: currentUser.displayName || '',
-          avatarUrl: currentUser.photoURL || '',
-          preferredLanguage: 'English',
-          defaultTranslationLanguage: 'English',
-          savedStoryCount: 0,
-          activeStories: [],
-          inactiveStories: [],
-          joinedDate: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          role: (currentUser.email === 'amaurylindy@gmail.com' || currentUser.email === 'seihouseproductions@gmail.com' || currentUser.email === 'Amaurylindy@gmail.com' || currentUser.email === 'Seihouseproductions@gmail.com') ? 'owner' : 'user',
-          premiumTier: (currentUser.email === 'amaurylindy@gmail.com' || currentUser.email === 'seihouseproductions@gmail.com' || currentUser.email === 'Amaurylindy@gmail.com' || currentUser.email === 'Seihouseproductions@gmail.com') ? 'immortal' : 'mortal'
-        };
-
-        // This will trigger the snapshot again
-        setDoc(doc(db, 'users', currentUser.uid), defaultProfile, { merge: true }).catch(err => {
-          console.error("Failed to create profile", err);
-        });
-      }
-      setIsLoading(false);
-    }, (err) => {
-      console.error(err);
-      setError('Unable to load profile data.');
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [currentUser]);
 
   useEffect(() => {
@@ -766,6 +837,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
       }
       const updatedLocalProfile = {
         ...localProfile,
+        uid: 'anonymous',
         preferredLanguage: preferredLang,
         defaultTranslationLanguage: defaultTransLang,
         updatedAt: new Date().toISOString()
@@ -874,32 +946,6 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
     }));
   };
 
-  const [isAuditing, setIsAuditing] = useState(false);
-  const [auditResult, setAuditResult] = useState<any>(null);
-
-  const handleRunAudit = async () => {
-     setIsAuditing(true);
-     setAuditResult(null);
-     try {
-       const result = await storyStorage.getSyncAudit();
-       setAuditResult(result);
-     } catch (e) {
-       console.error(e);
-     } finally {
-       setIsAuditing(false);
-     }
-  };
-
-  const handleRecover = async () => {
-      setIsAuditing(true);
-      let totalRecovered = 0;
-      for (const s of userStories) {
-          totalRecovered += await storyStorage.auditAndRecoverChapters(s.id);
-      }
-      setAuditResult((prev: any) => ({ ...prev, recovered: totalRecovered }));
-      setIsAuditing(false);
-  };
-
   const daoData = getDaoRankData(profile?.dao_xp || profile?.qi || 0);
 
   return {
@@ -909,10 +955,6 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
     handleExportLibrary,
     handleImportLibrary,
     storageType,
-    localGeminiKey,
-    localOpenrouterKey,
-    localOllamaHost,
-    isSettingsOpen,
     activeStoryId,
     routingConfig,
     profile,
@@ -950,9 +992,6 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
     handleDrop,
     handleGeneratePortrait,
     handleApplyPortrait,
-    daoStatus,
-    daoDetail,
-    checkDaoConnection,
     fetchAdminData,
     handleUpdateUserRole,
     handleUpdateUserTier,
@@ -972,10 +1011,6 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
     handleLanguageChangeDirect,
     handleSave,
     handleChange,
-    isAuditing,
-    auditResult,
-    handleRunAudit,
-    handleRecover,
     daoData,
     equippedArtifact,
     currentPowerStage,

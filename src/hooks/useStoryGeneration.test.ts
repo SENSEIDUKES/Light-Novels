@@ -4,6 +4,7 @@ import { useStoryGeneration } from './useStoryGeneration';
 import { storyApi } from '../services/api';
 import { awardQi } from '../lib/qi';
 import { useAppStore } from '../store/useAppStore';
+import { auth } from '../lib/firebase';
 
 vi.mock('../services/api', () => ({
   storyApi: {
@@ -21,6 +22,7 @@ describe('useStoryGeneration', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    (auth as any).currentUser = { uid: 'reader-1' };
     state = {
       isGenerating: false,
       stories: [{ id: 'existing-story' }],
@@ -190,6 +192,32 @@ describe('useStoryGeneration', () => {
     expect(state.setActiveAgentId).toHaveBeenLastCalledWith(null);
   });
 
+  it('rejects a delayed blueprint result after the account changes', async () => {
+    let resolveBlueprint!: (value: any) => void;
+    vi.mocked(storyApi.generateBlueprint).mockReturnValue(
+      new Promise((resolve) => {
+        resolveBlueprint = resolve;
+      }),
+    );
+    const { result } = renderHook(() => useStoryGeneration());
+    const generation = result.current.handleGenerateBlueprint({
+      corePremise: 'Private Account A premise',
+    } as any);
+    await vi.waitFor(() => {
+      expect(storyApi.generateBlueprint).toHaveBeenCalledOnce();
+    });
+
+    (auth as any).currentUser = { uid: 'reader-2' };
+    resolveBlueprint({ title: 'Private Account A blueprint' });
+
+    await expect(generation).rejects.toThrow(
+      'Active account changed while generating the blueprint',
+    );
+    expect(state.setAppError).not.toHaveBeenCalledWith(
+      'Active account changed while generating the blueprint',
+    );
+  });
+
   it('does not start a second generation while one is already active', async () => {
     state.isGenerating = true;
     const { result } = renderHook(() => useStoryGeneration());
@@ -200,5 +228,42 @@ describe('useStoryGeneration', () => {
 
     expect(storyApi.generateInitialArc).not.toHaveBeenCalled();
     expect(state.saveStories).not.toHaveBeenCalled();
+  });
+
+  it('discards a delayed generation result after the account changes', async () => {
+    let resolveGeneration!: (value: any) => void;
+    vi.mocked(storyApi.generateInitialArc).mockReturnValue(
+      new Promise((resolve) => {
+        resolveGeneration = resolve;
+      }),
+    );
+    const { result } = renderHook(() => useStoryGeneration());
+    let generation!: Promise<void>;
+    act(() => {
+      generation = result.current.handleStartStory(
+        { mcName: 'Account A hero' } as any,
+        { title: 'Account A blueprint' } as any,
+        1,
+      );
+    });
+    await vi.waitFor(() => {
+      expect(storyApi.generateInitialArc).toHaveBeenCalledOnce();
+    });
+
+    (auth as any).currentUser = { uid: 'reader-2' };
+    resolveGeneration({
+      title: 'Must be discarded',
+      chapters: [{ number: 1, title: 'One', premise: '' }],
+      characters: [],
+      unresolvedPlotThreads: [],
+      worldRules: [],
+    });
+    await act(async () => {
+      await generation;
+    });
+
+    expect(state.saveStories).not.toHaveBeenCalled();
+    expect(state.setActiveStoryId).not.toHaveBeenCalled();
+    expect(awardQi).not.toHaveBeenCalled();
   });
 });

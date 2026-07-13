@@ -57,13 +57,16 @@ describe("Firestore Security Rules", () => {
     customPremise: "A hero's journey",
     createdAt: "2023-01-01",
     updatedAt: "2023-01-01",
+    syncRevision: "story-rev-1",
     currentChapterNumber: 1,
   };
 
   const validChapter = {
     storyId: "story_1",
+    userId: ownerUid,
     chapterNumber: 1,
     generatedContent: "Once upon a time...",
+    syncRevision: "chapter-rev-1",
   };
 
   describe("users collection", () => {
@@ -108,6 +111,44 @@ describe("Firestore Security Rules", () => {
       }));
     });
 
+    it("should allow updating semantic reading position", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      const dbAuth = testEnv.authenticatedContext(ownerUid).firestore();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection("stories").doc("story_1").set(validStory);
+      });
+
+      await assertSucceeds(dbAuth.collection("stories").doc("story_1").update({
+        syncRevision: "story-rev-2",
+        readingAnchor: {
+          chapterNumber: 1,
+          blockId: "block_1",
+          paragraphIndex: 2,
+          intraBlockRatio: 0.5,
+          savedAt: "2026-07-13T00:00:00.000Z"
+        }
+      }));
+    });
+
+    it("should allow updating sequential chapter generation state", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      const dbAuth = testEnv.authenticatedContext(ownerUid).firestore();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection("stories").doc("story_1").set(validStory);
+      });
+
+      await assertSucceeds(dbAuth.collection("stories").doc("story_1").update({
+        chapterGenerationBatch: {
+          id: "batch_1",
+          status: "generating",
+          chapterNumbers: [2, 3, 4, 5, 6],
+          completedChapterNumbers: [2],
+          currentChapterNumber: 3,
+          createdAt: "2026-07-13T00:00:00.000Z"
+        }
+      }));
+    });
+
     it("should deny creating a story missing keys (Anti-Update Gap)", async (ctx) => {
       if (!emulatorReady) return ctx.skip();
       const db = testEnv.authenticatedContext(ownerUid).firestore();
@@ -126,6 +167,116 @@ describe("Firestore Security Rules", () => {
       const otherDb = testEnv.authenticatedContext(otherUid).firestore();
       await assertFails(otherDb.collection("stories").doc("story_1").get());
       await assertFails(otherDb.collection("stories").doc("story_1").update({ title: "Hacked" }));
+    });
+
+    it("should deny reviving a tombstoned story through a production-shaped merge write", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      const tombstonedStory = {
+        ...validStory,
+        updatedAt: "2026-07-13T00:00:00.000Z",
+        deleted: true,
+        memory: {
+          powerSystem: "Qi",
+          characters: [],
+          currentPowerStage: "Foundation",
+          worldRules: [],
+          unresolvedPlotThreads: [],
+          resolvedPlotThreads: []
+        },
+        arcs: [],
+        readingAnchor: {
+          chapterNumber: 1,
+          blockId: "block_1",
+          paragraphIndex: 2,
+          intraBlockRatio: 0.5,
+          savedAt: "2026-07-13T00:00:00.000Z"
+        },
+        chapterGenerationBatch: {
+          id: "batch_1",
+          status: "paused",
+          chapterNumbers: [2, 3, 4, 5, 6],
+          completedChapterNumbers: [2],
+          currentChapterNumber: null,
+          createdAt: "2026-07-13T00:00:00.000Z"
+        }
+      };
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection("stories").doc("story_1").set(tombstonedStory);
+      });
+
+      const dbAuth = testEnv.authenticatedContext(ownerUid).firestore();
+      await assertSucceeds(dbAuth.collection("stories").doc("story_1").set({
+        ...tombstonedStory,
+        updatedAt: "2026-07-13T00:01:00.000Z"
+      }, { merge: true }));
+      await assertFails(dbAuth.collection("stories").doc("story_1").set({
+        ...tombstonedStory,
+        updatedAt: "2026-07-13T00:02:00.000Z",
+        deleted: false
+      }, { merge: true }));
+    });
+
+    it("should allow replacing a full story with a content-free tombstone", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection("stories").doc("story_1").set({
+          ...validStory,
+          memory: { secretDraft: "must be removed" },
+          arcs: [{ title: "Private draft", chapters: [] }]
+        });
+      });
+
+      const tombstone = {
+        id: "story_1",
+        userId: ownerUid,
+        deleted: true,
+        updatedAt: "2026-07-13T00:03:00.000Z"
+      };
+      const dbAuth = testEnv.authenticatedContext(ownerUid).firestore();
+      const storyRef = dbAuth.collection("stories").doc("story_1");
+      await assertSucceeds(storyRef.set(tombstone));
+      const saved = await storyRef.get();
+      expect(saved.data()).toEqual(tombstone);
+    });
+
+    it("should allow the owner to create a tombstone when the cloud story is absent", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      const db = testEnv.authenticatedContext(ownerUid).firestore();
+      await assertSucceeds(db.collection("stories").doc("missing_story").set({
+        id: "missing_story",
+        userId: ownerUid,
+        deleted: true,
+        updatedAt: "2026-07-13T00:04:00.000Z"
+      }));
+    });
+
+    it("should deny another account from tombstoning an existing story", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection("stories").doc("story_1").set(validStory);
+      });
+      const otherDb = testEnv.authenticatedContext(otherUid).firestore();
+      await assertFails(otherDb.collection("stories").doc("story_1").set({
+        id: "story_1",
+        userId: ownerUid,
+        deleted: true,
+        updatedAt: "2026-07-13T00:05:00.000Z"
+      }));
+    });
+
+    it("should keep tombstones durable by denying hard delete", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection("stories").doc("story_1").set({
+          id: "story_1",
+          userId: ownerUid,
+          deleted: true,
+          updatedAt: "2026-07-13T00:06:00.000Z"
+        });
+      });
+      const db = testEnv.authenticatedContext(ownerUid).firestore();
+      await assertFails(db.collection("stories").doc("story_1").delete());
+      await assertSucceeds(db.collection("stories").doc("story_1").get());
     });
   });
 
@@ -146,6 +297,46 @@ describe("Firestore Security Rules", () => {
       await assertSucceeds(db.collection("stories").doc("story_1").collection("chapters").doc("chap_1").set(validChapter));
     });
 
+    it("should allow updating a chapter context manifest", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("stories").doc("story_1").set(validStory);
+        await db.collection("stories").doc("story_1").collection("chapters").doc("chap_1").set(validChapter);
+      });
+
+      const db = testEnv.authenticatedContext(ownerUid).firestore();
+      await assertSucceeds(db.collection("stories").doc("story_1").collection("chapters").doc("chap_1").update({
+        syncRevision: "chapter-rev-2",
+        contextManifest: {
+          version: 1,
+          route: "generate-chapter-stream",
+          generatedAt: "2026-07-13T00:00:00.000Z",
+          chapterNumber: 1,
+          totalEstimatedTokens: 1200,
+          memoryAndHistoryBudgetTokens: 80000,
+          memoryAndHistoryEstimatedTokens: 700,
+          memoryAndHistoryBudgetExceeded: false,
+          providerInputTruncated: false,
+          sections: []
+        }
+      }));
+    });
+
+    it("should allow one owner backfill of a legacy chapter owner tag", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("stories").doc("story_1").set(validStory);
+        const { userId: _legacyOwner, ...legacyChapter } = validChapter;
+        await db.collection("stories").doc("story_1").collection("chapters").doc("chap_1").set(legacyChapter);
+      });
+      const db = testEnv.authenticatedContext(ownerUid).firestore();
+      const chapterRef = db.collection("stories").doc("story_1").collection("chapters").doc("chap_1");
+      await assertSucceeds(chapterRef.update({ userId: ownerUid }));
+      await assertFails(chapterRef.update({ userId: otherUid }));
+    });
+
     it("should deny creating a chapter if NOT owner of parent story", async (ctx) => {
       if (!emulatorReady) return ctx.skip();
       await testEnv.withSecurityRulesDisabled(async (context) => {
@@ -154,6 +345,75 @@ describe("Firestore Security Rules", () => {
 
       const db = testEnv.authenticatedContext(otherUid).firestore();
       await assertFails(db.collection("stories").doc("story_1").collection("chapters").doc("chap_1").set(validChapter));
+    });
+
+    it("should deny chapter writes after the parent story is tombstoned", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("stories").doc("story_1").set({
+          ...validStory,
+          deleted: true,
+        });
+        await db.collection("stories").doc("story_1").collection("chapters").doc("existing").set(validChapter);
+      });
+
+      const db = testEnv.authenticatedContext(ownerUid).firestore();
+      await assertFails(
+        db.collection("stories").doc("story_1").collection("chapters").doc("new").set(validChapter),
+      );
+      await assertFails(
+        db.collection("stories").doc("story_1").collection("chapters").doc("existing").update({
+          generatedContent: "A stale device tried to restore this.",
+        }),
+      );
+    });
+
+    it("should allow the owner to delete chapter bodies before tombstoning", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("stories").doc("story_1").set(validStory);
+        await db.collection("stories").doc("story_1").collection("chapters").doc("chap_1").set(validChapter);
+      });
+      const db = testEnv.authenticatedContext(ownerUid).firestore();
+      await assertSucceeds(
+        db.collection("stories").doc("story_1").collection("chapters").doc("chap_1").delete(),
+      );
+    });
+
+    it("should deny ordinary accounts access to orphan chapters", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection("stories").doc("orphaned").collection("chapters").doc("chap_1").set({
+          ...validChapter,
+          storyId: "orphaned"
+        });
+      });
+      const db = testEnv.authenticatedContext(otherUid).firestore();
+      const orphanRef = db.collection("stories").doc("orphaned").collection("chapters").doc("chap_1");
+      await assertFails(orphanRef.get());
+      await assertFails(orphanRef.delete());
+    });
+
+    it("should not transfer a tagged orphan chapter when another account claims its parent id", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection("stories").doc("claimed_parent").collection("chapters").doc("chap_1").set({
+          ...validChapter,
+          storyId: "claimed_parent"
+        });
+      });
+      const otherDb = testEnv.authenticatedContext(otherUid).firestore();
+      await assertSucceeds(otherDb.collection("stories").doc("claimed_parent").set({
+        ...validStory,
+        id: "claimed_parent",
+        userId: otherUid
+      }));
+      const chapterRef = otherDb.collection("stories").doc("claimed_parent").collection("chapters").doc("chap_1");
+      await assertFails(chapterRef.get());
+      await assertFails(chapterRef.update({ generatedContent: "stolen" }));
+      await assertFails(chapterRef.delete());
     });
   });
 

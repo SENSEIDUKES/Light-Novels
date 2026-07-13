@@ -92,6 +92,7 @@ service cloud.firestore {
         && (!('customPremise' in data) || (data.customPremise is string && data.customPremise.size() <= 50000))
         && (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 40))
         && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 40))
+        && (!('syncRevision' in data) || (data.syncRevision is string && data.syncRevision.size() <= 128))
         && (!('conflictResolvedAt' in data) || (data.conflictResolvedAt is string && data.conflictResolvedAt.size() <= 40))
         && (!('currentChapterNumber' in data) || data.currentChapterNumber is number)
         && (!('isEdited' in data) || data.isEdited is bool)
@@ -99,10 +100,20 @@ service cloud.firestore {
         && data.userId == request.auth.uid;
     }
 
+    function isMinimalStoryTombstone(data, storyId) {
+      return data.keys().hasOnly(['id', 'userId', 'deleted', 'updatedAt'])
+        && data.id == storyId
+        && data.deleted == true
+        && data.updatedAt is string
+        && data.updatedAt.size() <= 40;
+    }
+
     function isValidChapter(data) {
       return data.keys().hasAll(['storyId', 'chapterNumber'])
         && data.storyId is string && data.storyId.size() <= 128
-        && data.chapterNumber is number;
+        && data.chapterNumber is number
+        && (!('syncRevision' in data) || (data.syncRevision is string && data.syncRevision.size() <= 128))
+        && (!('userId' in data) || (data.userId is string && data.userId.size() <= 128));
     }
 
     function isValidLoreGlossary(data) {
@@ -173,41 +184,78 @@ service cloud.firestore {
         && incoming().get('userId', '') == existing().get('userId', '')
         && incoming().get('id', '') == existing().get('id', '')
         && (!('createdAt' in existing()) || !('createdAt' in incoming()) || incoming().createdAt == existing().get('createdAt', ''))
+        // A normal merge write may maintain a tombstone, but it must never
+        // revive one. Restoration requires an explicit delete/create flow.
+        && (existing().get('deleted', false) != true || incoming().get('deleted', false) == true)
         && (
+          // Deletion replaces the full story with a content-free marker. This
+          // intentionally removes arbitrary historical fields, so it has its
+          // own strict shape instead of the normal update allowlist.
+          isMinimalStoryTombstone(incoming(), storyId)
+          || (
             isValidStoryWorld(incoming())
-        )
-        && incoming().diff(existing()).affectedKeys().hasOnly([
-          'title', 'genre', 'mcName', 'customPremise', 'updatedAt', 'currentChapterNumber', 
-          'imageUrl', 'intake', 'blueprint', 'relationships', 'karmaNodes', 'readerPreferences', 
-          'bookmarks', 'memory', 'arcs', 'parentStoryId', 'forkChapterNumber', 'imageHistory', 
-          'lastImageChapter', 'evolutionReady', 'evolutionReason', 'availableVisualUpdate',
-          'isEdited', 'userId', 'hardcoreFateMode', 'fatePressure', 'lastReadChapter', 
-          'lastReadScrollPosition', 'lastReadAt', 'deleted', 'readingStats', 'createdAt',
-          'assignedRevealBackdrops', 'motionCoverActive', 'conflictResolvedAt'
-        ])
-        && (!('title' in incoming().diff(existing()).affectedKeys()) || (incoming().title is string && incoming().title.size() <= 500))
-        && (!('updatedAt' in incoming().diff(existing()).affectedKeys()) || (incoming().updatedAt is string && incoming().updatedAt.size() <= 40));
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'title', 'genre', 'mcName', 'customPremise', 'updatedAt', 'syncRevision', 'currentChapterNumber',
+              'imageUrl', 'intake', 'blueprint', 'relationships', 'karmaNodes', 'readerPreferences',
+              'bookmarks', 'memory', 'arcs', 'parentStoryId', 'forkChapterNumber', 'imageHistory',
+              'lastImageChapter', 'evolutionReady', 'evolutionReason', 'availableVisualUpdate',
+              'isEdited', 'userId', 'hardcoreFateMode', 'fatePressure', 'lastReadChapter',
+              'lastReadScrollPosition', 'lastReadAt', 'deleted', 'readingStats', 'createdAt',
+              'assignedRevealBackdrops', 'motionCoverActive', 'conflictResolvedAt',
+              'readingAnchor', 'chapterGenerationBatch'
+            ])
+            && (!('title' in incoming().diff(existing()).affectedKeys()) || (incoming().title is string && incoming().title.size() <= 500))
+            && (!('updatedAt' in incoming().diff(existing()).affectedKeys()) || (incoming().updatedAt is string && incoming().updatedAt.size() <= 40))
+          )
+        );
 
-      allow delete: if isSignedIn() && isValidId(storyId) && (!exists(/databases/$(database)/documents/stories/$(storyId)) || existing().userId == request.auth.uid || isAdmin());
+      // Story documents are durable deletion markers. Removing one would let a
+      // stale client recreate the story and reattach any legacy orphan chapters.
+      allow delete: if false;
 
       match /chapters/{chapterId} {
-        allow read: if isSignedIn() && (!exists(/databases/$(database)/documents/stories/$(storyId)) || get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid || isAdmin());
+        allow read: if isSignedIn() && (
+          isAdmin() || (
+            exists(/databases/$(database)/documents/stories/$(storyId))
+            && get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid
+            // Transitional fallback for legacy untagged chapters. Tagged
+            // chapters never inherit ownership from a newly claimed parent.
+            && (!('userId' in existing()) || existing().userId == request.auth.uid)
+          )
+        );
         
         allow create: if isSignedIn()
           && isValidId(chapterId)
           && get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid
+          && get(/databases/$(database)/documents/stories/$(storyId)).data.get('deleted', false) != true
           && isValidChapter(incoming())
-          && incoming().storyId == storyId;
+          && incoming().storyId == storyId
+          && incoming().userId == request.auth.uid;
           
         allow update: if isSignedIn()
           && isValidId(chapterId)
           && (get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid || isAdmin())
+          && get(/databases/$(database)/documents/stories/$(storyId)).data.get('deleted', false) != true
           && incoming().get('storyId', '') == existing().get('storyId', '')
           && incoming().get('chapterNumber', -1) == existing().get('chapterNumber', -1)
+          && (!('userId' in incoming()) || incoming().userId == get(/databases/$(database)/documents/stories/$(storyId)).data.userId)
+          && (
+            ('userId' in existing() && incoming().get('userId', '') == existing().userId)
+            || (!('userId' in existing()) && (
+              !('userId' in incoming())
+              || incoming().userId == get(/databases/$(database)/documents/stories/$(storyId)).data.userId
+            ))
+          )
           && (isValidChapter(incoming()))
-          && incoming().diff(existing()).affectedKeys().hasOnly(['generatedContent', 'blocks', 'archivedBlocks', 'summary', 'episodicSummary', 'statsChangeMessage', 'cuePayload', 'translations', 'audioManifest', 'updatedAt', 'revisionId', 'syncStatus', 'imageUrl']);
+          && incoming().diff(existing()).affectedKeys().hasOnly(['generatedContent', 'blocks', 'archivedBlocks', 'summary', 'episodicSummary', 'statsChangeMessage', 'cuePayload', 'contextManifest', 'translations', 'audioManifest', 'updatedAt', 'revisionId', 'syncRevision', 'syncStatus', 'imageUrl', 'userId']);
           
-        allow delete: if isSignedIn() && isValidId(chapterId) && (!exists(/databases/$(database)/documents/stories/$(storyId)) || get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid || isAdmin());
+        allow delete: if isSignedIn() && isValidId(chapterId) && (
+          isAdmin() || (
+            exists(/databases/$(database)/documents/stories/$(storyId))
+            && get(/databases/$(database)/documents/stories/$(storyId)).data.userId == request.auth.uid
+            && (!('userId' in existing()) || existing().userId == request.auth.uid)
+          )
+        );
       }
     }
     match /lore_glossary/{termId} {
