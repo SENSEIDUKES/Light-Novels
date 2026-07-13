@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChapterContent, StoryWorld } from "../../../types";
 import { LocalStorageFallbackAdapter } from "../localStorageAdapter";
 
@@ -35,6 +35,44 @@ const makeChapter = (storyId: string, text: string): ChapterContent => ({
 
 describe("LocalStorageFallbackAdapter account namespaces", () => {
   beforeEach(() => localStorage.clear());
+
+  it("survives corrupted LocalStorage rows", async () => {
+    localStorage.setItem("@seihouse/fiction-generator-stories-v2", "not valid json");
+    const adapter = new LocalStorageFallbackAdapter();
+
+    await expect(adapter.init()).resolves.toBeUndefined();
+    await expect(adapter.getStories()).resolves.toEqual([]);
+  });
+
+  it("preserves an assigned account owner when quota fallback strips story assets", async () => {
+    const adapter = new LocalStorageFallbackAdapter();
+    await adapter.init();
+    adapter.setAccountScope("account-a");
+
+    const targetKey = "@seihouse/fiction-generator-stories-v3:account-a";
+    const originalSetItem = Storage.prototype.setItem;
+    let rejectAssetPayload = true;
+    const quotaSpy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (key, value) {
+      if (key === targetKey && rejectAssetPayload && value.includes("data:image/png;base64,strip")) {
+        rejectAssetPayload = false;
+        throw new DOMException("Quota exceeded", "QuotaExceededError");
+      }
+      return originalSetItem.call(this, key, value);
+    });
+
+    try {
+      await adapter.saveStory({
+        ...makeStory("quota-story", "Quota story"),
+        imageUrl: "data:image/png;base64,strip",
+      });
+    } finally {
+      quotaSpy.mockRestore();
+    }
+
+    await expect(adapter.getStory("quota-story")).resolves.toEqual(
+      expect.objectContaining({ userId: "account-a" }),
+    );
+  });
 
   it("keeps identical story and chapter ids isolated across accounts", async () => {
     const adapter = new LocalStorageFallbackAdapter();

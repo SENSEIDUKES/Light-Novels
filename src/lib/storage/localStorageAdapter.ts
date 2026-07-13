@@ -53,10 +53,15 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
   }
 
   private readArray<T>(key: string): T[] {
-    const saved = localStorage.getItem(key);
-    if (!saved) return [];
-    const parsed = JSON.parse(saved);
-    return Array.isArray(parsed) ? (parsed as T[]) : [];
+    try {
+      const saved = localStorage.getItem(key);
+      if (!saved) return [];
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? (parsed as T[]) : [];
+    } catch (error) {
+      console.warn(`Failed to read LocalStorage key ${key}:`, error);
+      return [];
+    }
   }
 
   private mergeStories(existing: StoryWorld[], incoming: StoryWorld[]): StoryWorld[] {
@@ -119,17 +124,20 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
     );
   }
 
-  private ownersForStoryId(storyId: string): Set<string | undefined> {
-    const owners = new Set<string | undefined>();
+  private ownersByStoryId(): Map<string, Set<string | undefined>> {
+    const ownersByStoryId = new Map<string, Set<string | undefined>>();
     for (const story of this.getStoriesForScope(undefined)) {
-      if (story.id === storyId) owners.add(story.userId);
+      const owners = ownersByStoryId.get(story.id) ?? new Set<string | undefined>();
+      owners.add(story.userId);
+      ownersByStoryId.set(story.id, owners);
     }
-    return owners;
+    return ownersByStoryId;
   }
 
   private legacyChapterIsVisible(
     chapter: ChapterContent,
     scope: AccountScope,
+    ownersByStoryId = this.ownersByStoryId(),
   ): boolean {
     if (scope === undefined) return true;
     if (
@@ -139,7 +147,7 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
     ) {
       return false;
     }
-    const owners = this.ownersForStoryId(chapter.storyId);
+    const owners = ownersByStoryId.get(chapter.storyId) ?? new Set<string | undefined>();
     if (owners.size !== 1) return false;
     const ownerId = Array.from(owners)[0];
     if (scope === null) return !ownerId;
@@ -148,8 +156,9 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
 
   private rememberAmbiguousLegacyChapters(): void {
     const ambiguous = this.ambiguousLegacyChapterKeys();
+    const ownersByStoryId = this.ownersByStoryId();
     for (const chapter of this.readArray<ChapterContent>(this.chaptersStorageKey)) {
-      if (this.ownersForStoryId(chapter.storyId).size > 1) {
+      if ((ownersByStoryId.get(chapter.storyId)?.size ?? 0) > 1) {
         ambiguous.add(this.legacyChapterKey(chapter.storyId, chapter.chapterNumber));
       }
     }
@@ -374,12 +383,13 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
       (story) => story.id === storyId && story.userId && story.userId !== accountId,
     );
     const legacyChapters = this.readArray<ChapterContent>(this.chaptersStorageKey);
+    const ownersByStoryId = this.ownersByStoryId();
     try {
       if (!hasConflictingOwner) {
         const chaptersToClaim = legacyChapters.filter(
           (chapter) =>
             chapter.storyId === storyId &&
-            this.legacyChapterIsVisible(chapter, accountId),
+            this.legacyChapterIsVisible(chapter, accountId, ownersByStoryId),
         );
         if (chaptersToClaim.length > 0) {
           const claimedChapterKeys = new Set(
@@ -469,7 +479,7 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
         "LocalStorage quota exceeded; stripping images only from the story being saved.",
         error,
       );
-      const strippedStory = this.stripStoryAssets(story);
+      const strippedStory = this.stripStoryAssets(savedStory);
       const fallbackStories = stories.map((existingStory) =>
         existingStory.id === story.id ? strippedStory : existingStory,
       );
@@ -512,12 +522,13 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
       const legacyDeletionScope = scope === undefined
         ? selectedOwner ?? null
         : scope;
+      const ownersByStoryId = this.ownersByStoryId();
       const visibleLegacyChapterKeys = new Set(
         this.readArray<ChapterContent>(this.chaptersStorageKey)
           .filter(
             (chapter) =>
               chapter.storyId === id &&
-              this.legacyChapterIsVisible(chapter, legacyDeletionScope),
+              this.legacyChapterIsVisible(chapter, legacyDeletionScope, ownersByStoryId),
           )
           .map((chapter) => this.legacyChapterKey(chapter.storyId, chapter.chapterNumber)),
       );
@@ -571,9 +582,10 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
     }
 
     const legacyChapters = this.readArray<ChapterContent>(this.chaptersStorageKey);
+    const ownersByStoryId = this.ownersByStoryId();
     const visibleLegacyChapterKeys = new Set(
       legacyChapters
-        .filter((chapter) => this.legacyChapterIsVisible(chapter, scope))
+        .filter((chapter) => this.legacyChapterIsVisible(chapter, scope, ownersByStoryId))
         .map((chapter) => this.legacyChapterKey(chapter.storyId, chapter.chapterNumber)),
     );
     const legacyStories = this.readArray<StoryWorld>(this.storageKey);
@@ -693,6 +705,7 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
         );
         if (legacyParent) {
           const legacyChapters = this.readArray<ChapterContent>(this.chaptersStorageKey);
+          const ownersByStoryId = this.ownersByStoryId();
           localStorage.setItem(
             this.chaptersStorageKey,
             JSON.stringify(
@@ -700,7 +713,7 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
                 (chapter) =>
                   chapter.storyId !== content.storyId ||
                   chapter.chapterNumber !== content.chapterNumber ||
-                  !this.legacyChapterIsVisible(chapter, accountId),
+                  !this.legacyChapterIsVisible(chapter, accountId, ownersByStoryId),
               ),
             ),
           );
@@ -741,7 +754,7 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
     for (const chapter of this.readArray<ChapterContent>(this.chaptersStorageKey)) {
       const ambiguousOwner = this.ambiguousLegacyChapterKeys().has(
         this.legacyChapterKey(chapter.storyId, chapter.chapterNumber),
-      ) || this.ownersForStoryId(chapter.storyId).size > 1;
+      ) || (ownersByStoryId.get(chapter.storyId)?.size ?? 0) > 1;
       if (ambiguousOwner) {
         const key = `ambiguous\u0000${chapter.storyId}\u0000${chapter.chapterNumber}`;
         byOwnerAndChapter.set(key, { content: chapter, ambiguousOwner: true });
