@@ -180,6 +180,38 @@ describe('PersistentStorageManager automatic inbound sync', () => {
     manager.dispose();
   });
 
+  it('reports numbered progress while restoring cloud-only stories', async () => {
+    mocks.auth.currentUser = { uid: 'restored-reader' };
+    mocks.cloud.getStories.mockResolvedValue([
+      makeStory({ id: 'remote-1' }),
+      makeStory({ id: 'remote-2' }),
+    ]);
+    const manager = new PersistentStorageManager();
+    const progress: Array<{ phase: string; completed: number; total: number }> = [];
+    const unsubscribe = manager.subscribeToSyncProgress((update) => progress.push(update));
+
+    await manager.init();
+
+    expect(progress).toContainEqual({
+      phase: 'downloading',
+      completed: 0,
+      total: 2,
+    });
+    expect(progress).toContainEqual({
+      phase: 'downloading',
+      completed: 1,
+      total: 2,
+    });
+    expect(progress).toContainEqual({
+      phase: 'downloading',
+      completed: 2,
+      total: 2,
+    });
+
+    unsubscribe();
+    manager.dispose();
+  });
+
   it('refuses to sync through a local namespace that belongs to the previous account', async () => {
     localStorage.setItem('@seihouse/sync-queue', JSON.stringify([{
       type: 'story',

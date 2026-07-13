@@ -9,7 +9,12 @@ import { useAppStore } from './store/useAppStore';
 import { useStoryEngine } from './hooks/useStoryEngine';
 import { useStoryExporter } from './hooks/useStoryExporter';
 import { storyStorage } from './lib/storage';
+import type { SyncProgress } from './lib/storage';
 import { autoSubmitPreviousWeeksOfferings } from './lib/artifacts';
+import {
+  formatHarmonySyncProgress,
+  getHarmonySyncProgressPercent,
+} from './lib/syncProgress';
 import {
   mergeChapterContentIntoStories,
   refreshActiveChapterAfterMetadataSync,
@@ -71,6 +76,11 @@ function App() {
   const storyExporter = useStoryExporter();
 
   const [isInitializing, setIsInitializing] = useState(true);
+  const [syncProgress, setSyncProgress] = useState<SyncProgress>({
+    phase: 'initializing',
+    completed: 0,
+    total: 0,
+  });
 
   // Save active generation state to localStorage on any store change
   useEffect(() => {
@@ -177,6 +187,7 @@ function App() {
 
   // Initialize Data Persistence
   useEffect(() => {
+    const unsubProgress = storyStorage.subscribeToSyncProgress(setSyncProgress);
     const initAndLoad = async () => {
       try {
         await store_initStorage();
@@ -340,6 +351,7 @@ function App() {
       profileSubscriptionVersion += 1;
       unsubAuth();
       unsubSync();
+      unsubProgress();
       if (unsubProfile) unsubProfile();
     };
     // Note: These Zustand store actions are guaranteed stable.
@@ -455,10 +467,21 @@ function App() {
   // ------------------------
 
   if (isInitializing) {
+    const progressPercent = getHarmonySyncProgressPercent(syncProgress);
     return (
       <div className="flex h-dvh items-center justify-center bg-[#050505]">
-        <div className="animate-pulse text-portal font-mono text-sm tracking-widest uppercase">
-          Initializing Celestial Matrices...
+        <div className="w-72 text-center font-mono uppercase" role="status" aria-live="polite" aria-atomic="true">
+          <div className="animate-pulse text-sm tracking-widest text-portal">
+            {formatHarmonySyncProgress(syncProgress)}
+          </div>
+          {progressPercent !== null && (
+            <div className="mt-4 h-px overflow-hidden bg-portal/20" aria-hidden="true">
+              <div
+                className="h-full bg-portal transition-[width] duration-300 ease-out"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          )}
         </div>
       </div>
     );

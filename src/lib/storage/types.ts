@@ -56,3 +56,19 @@ export interface AccountScopedChapterContent {
 }
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'offline';
+
+export type SyncProgressPhase =
+  | 'initializing'
+  | 'cataloguing'
+  | 'downloading'
+  | 'harmonizing-stories'
+  | 'harmonizing-chapters'
+  | 'sealing'
+  | 'complete'
+  | 'error';
+
+export interface SyncProgress {
+  phase: SyncProgressPhase;
+  completed: number;
+  total: number;
+}
