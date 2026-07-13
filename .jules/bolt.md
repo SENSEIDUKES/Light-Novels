@@ -11,3 +11,6 @@
 ## 2024-07-28 - [Optimizing Word Counting in Text Chunking]
 **Learning:** Found a regex array splitting operation (`spacedText.trim().split(/\s+/).filter(Boolean).length`) inside `estimateChunkDurationMs` in `src/lib/voice/webSpeechCast.ts`, which is a hot path during TTS text processing.
 **Action:** Replaced the operation with a fast single-pass string scan via `countWords` from `src/utils/textUtils.ts`. This avoids the unnecessary allocation of strings/booleans arrays and overhead from regex execution for counting spaces.
+## 2024-07-29 - [Optimizing Multiple Filters in Render Cycles for Hierarchy Traversal]
+**Learning:** Found multiple `.some()` and `.filter()` operations iterating over the same `mates` array using identical string matching rules (e.g. `c.role.toLowerCase().includes('leader')`) inside the render block of `LivingCodexFactions.tsx`. This causes O(N*k) passes and redundant array allocations during React render cycles.
+**Action:** Combined these into a single O(N) `for` loop to categorize the items into `leaders`, `elders`, and `disciples` simultaneously. This significantly decreases computational overhead during rendering of hierarchical data.
