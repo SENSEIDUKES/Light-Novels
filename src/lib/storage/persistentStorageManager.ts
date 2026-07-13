@@ -1,6 +1,6 @@
 import { StorageAdapter } from "./types";
 import { StoryWorld, ChapterContent } from "../../types";
-import { SyncStatus, SyncTask } from "./types";
+import { SyncProgress, SyncStatus, SyncTask } from "./types";
 import { LocalStorageFallbackAdapter } from "./localStorageAdapter";
 import {
   FirebaseStorageAdapter,
@@ -24,6 +24,12 @@ export class PersistentStorageManager implements StorageAdapter {
   private isCloudAvailable = false;
   private syncStatus: SyncStatus = "idle";
   private subscribers: ((status: SyncStatus) => void)[] = [];
+  private syncProgress: SyncProgress = {
+    phase: "initializing",
+    completed: 0,
+    total: 0,
+  };
+  private progressSubscribers: ((progress: SyncProgress) => void)[] = [];
   private syncQueue: SyncTask[] = [];
   private queueKey = "@seihouse/sync-queue";
   private cloudRevisionsKey = "@seihouse/cloud-revisions";
@@ -641,6 +647,18 @@ export class PersistentStorageManager implements StorageAdapter {
       this.setStatus("syncing");
       let hadError = false;
       let remainingThisPass = this.syncQueue.length;
+      const pendingTasksForUser = this.syncQueue.filter(
+        (task) => task.userId === userId,
+      ).length;
+      let completedTasksForUser = 0;
+      const reportSealingProgress = () => {
+        this.setSyncProgress({
+          phase: "sealing",
+          completed: completedTasksForUser,
+          total: pendingTasksForUser,
+        });
+      };
+      if (pendingTasksForUser > 0) reportSealingProgress();
 
       try {
         while (this.syncQueue.length > 0 && remainingThisPass > 0) {
@@ -670,6 +688,8 @@ export class PersistentStorageManager implements StorageAdapter {
             this.syncQueue.push(this.syncQueue.shift()!);
             remainingThisPass -= 1;
             hadError = true;
+            completedTasksForUser += 1;
+            reportSealingProgress();
             continue;
           }
           const receipt = { ...task };
@@ -854,6 +874,8 @@ export class PersistentStorageManager implements StorageAdapter {
             this.saveQueue();
             remainingThisPass -= 1;
             hadError = true;
+            completedTasksForUser += 1;
+            reportSealingProgress();
             continue;
           }
 
@@ -866,6 +888,8 @@ export class PersistentStorageManager implements StorageAdapter {
 
           this.acknowledgeTask(receipt);
           remainingThisPass -= 1;
+          completedTasksForUser += 1;
+          reportSealingProgress();
         }
 
         this.setStatus(
@@ -892,6 +916,14 @@ export class PersistentStorageManager implements StorageAdapter {
     };
   }
 
+  subscribeToSyncProgress(callback: (progress: SyncProgress) => void) {
+    this.progressSubscribers.push(callback);
+    callback(this.syncProgress);
+    return () => {
+      this.progressSubscribers = this.progressSubscribers.filter((cb) => cb !== callback);
+    };
+  }
+
   public getSyncStatus(): SyncStatus {
     return this.syncStatus;
   }
@@ -899,6 +931,11 @@ export class PersistentStorageManager implements StorageAdapter {
   private setStatus(status: SyncStatus) {
     this.syncStatus = status;
     this.subscribers.forEach((cb) => cb(status));
+  }
+
+  private setSyncProgress(progress: SyncProgress) {
+    this.syncProgress = progress;
+    this.progressSubscribers.forEach((cb) => cb(progress));
   }
 
   private stopCloudStorySubscription() {
@@ -1374,23 +1411,34 @@ export class PersistentStorageManager implements StorageAdapter {
     localMap: Map<string, StoryWorld>,
   ): Promise<number> {
     let failures = 0;
-    for (const cloudStory of cloudStories) {
-      if (!localMap.has(cloudStory.id)) {
-        try {
-          await this.withRecordLock(this.storyLockKey(cloudStory.id), async () => {
-            if (await this.localAdapter.getStory(cloudStory.id)) return;
-            if (cloudStory.deleted) {
-              await this.applyCloudTombstone(cloudStory);
-            } else {
-              await this.localAdapter.saveStory(cloudStory);
-              this.rememberCloudRevision(cloudStory);
-            }
-          });
-        } catch (err) {
-          failures += 1;
-          console.error("Failed to save downloaded cloud story locally:", err);
-        }
+    const missingStories = cloudStories.filter((story) => !localMap.has(story.id));
+    if (missingStories.length === 0) return failures;
+
+    this.setSyncProgress({
+      phase: "downloading",
+      completed: 0,
+      total: missingStories.length,
+    });
+    for (const [index, cloudStory] of missingStories.entries()) {
+      try {
+        await this.withRecordLock(this.storyLockKey(cloudStory.id), async () => {
+          if (await this.localAdapter.getStory(cloudStory.id)) return;
+          if (cloudStory.deleted) {
+            await this.applyCloudTombstone(cloudStory);
+          } else {
+            await this.localAdapter.saveStory(cloudStory);
+            this.rememberCloudRevision(cloudStory);
+          }
+        });
+      } catch (err) {
+        failures += 1;
+        console.error("Failed to save downloaded cloud story locally:", err);
       }
+      this.setSyncProgress({
+        phase: "downloading",
+        completed: index + 1,
+        total: missingStories.length,
+      });
     }
     return failures;
   }
@@ -1605,12 +1653,23 @@ export class PersistentStorageManager implements StorageAdapter {
     }
 
     let failures = 0;
+    if (jobs.length === 0) return failures;
+    this.setSyncProgress({
+      phase: "harmonizing-chapters",
+      completed: 0,
+      total: jobs.length,
+    });
     const BATCH_SIZE = 10;
     for (let i = 0; i < jobs.length; i += BATCH_SIZE) {
       const results = await Promise.all(
         jobs.slice(i, i + BATCH_SIZE).map((job) => job()),
       );
       failures += results.filter((ok) => !ok).length;
+      this.setSyncProgress({
+        phase: "harmonizing-chapters",
+        completed: Math.min(i + BATCH_SIZE, jobs.length),
+        total: jobs.length,
+      });
     }
     return failures;
   }
@@ -1646,8 +1705,15 @@ export class PersistentStorageManager implements StorageAdapter {
       // the first authenticated account to claim legacy/offline-created stories.
       const localStories: StoryWorld[] = [];
       let claimedQueueTask = false;
-      for (const story of allLocalStories) {
-        if (story.userId && story.userId !== userId) continue;
+      const storiesToCatalogue = allLocalStories.filter(
+        (story) => !story.userId || story.userId === userId,
+      );
+      this.setSyncProgress({
+        phase: "cataloguing",
+        completed: 0,
+        total: storiesToCatalogue.length,
+      });
+      for (const [index, story] of storiesToCatalogue.entries()) {
         try {
           const claimedStory = await this.withRecordLock(
             this.storyLockKey(story.id),
@@ -1678,6 +1744,12 @@ export class PersistentStorageManager implements StorageAdapter {
         } catch (error) {
           hadError = true;
           console.error(`Failed to claim local story ${story.id} for sync:`, error);
+        } finally {
+          this.setSyncProgress({
+            phase: "cataloguing",
+            completed: index + 1,
+            total: storiesToCatalogue.length,
+          });
         }
       }
       if (claimedQueueTask) this.saveQueue();
@@ -1693,6 +1765,13 @@ export class PersistentStorageManager implements StorageAdapter {
 
       // Merge logic: newest updatedAt wins, with explicit conflict handling.
       const BATCH_SIZE = 10;
+      if (localStories.length > 0) {
+        this.setSyncProgress({
+          phase: "harmonizing-stories",
+          completed: 0,
+          total: localStories.length,
+        });
+      }
       for (let i = 0; i < localStories.length; i += BATCH_SIZE) {
         const batch = localStories.slice(i, i + BATCH_SIZE);
         const pendingReceipts = new Map(
@@ -1746,6 +1825,11 @@ export class PersistentStorageManager implements StorageAdapter {
           hadError = true;
           break;
         }
+        this.setSyncProgress({
+          phase: "harmonizing-stories",
+          completed: Math.min(i + batch.length, localStories.length),
+          total: localStories.length,
+        });
       }
 
       const harmonizedStories = (await this.localAdapter.getStories()).filter(
@@ -1779,9 +1863,17 @@ export class PersistentStorageManager implements StorageAdapter {
           hadError || this.hasPendingTasksFor(userId) ? "error" : "synced",
         );
       }
+      if (!this.syncRequested) {
+        this.setSyncProgress({
+          phase: hadError ? "error" : "complete",
+          completed: 0,
+          total: 0,
+        });
+      }
     } catch (error) {
       console.error("Cloud sync failed:", error);
       this.setStatus("error");
+      this.setSyncProgress({ phase: "error", completed: 0, total: 0 });
     } finally {
       this.activeSyncUserId = null;
     }
