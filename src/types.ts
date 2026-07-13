@@ -197,6 +197,9 @@ export interface Ability extends BaseCodexEntry {
 }
 
 export interface BaseCodexEntry {
+  aliases?: string[];
+  contextPriority?: number;
+  authorContextNote?: string;
   relevanceState?: RelevanceState;
   firstAppeared?: number;
   lastMajorInvolvement?: number;
@@ -661,6 +664,7 @@ export interface CharacterRelationship {
 export interface IntakeCharacter {
   id: string;
   name: string;
+  aliases?: string[];
   age?: string;
   skinTone?: string;
   eyeColor?: string;
@@ -674,6 +678,7 @@ export interface IntakeCharacter {
 export interface IntakeFaction {
   id: string;
   name: string;
+  aliases?: string[];
   role?: string;
   powerLevel?: string;
   alignment?: string;

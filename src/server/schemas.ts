@@ -21,11 +21,18 @@ const memoryProvenanceSchema = z.object({
   sourceChapterNumber: z.number().optional(),
   sourceBlockId: z.string().optional(),
   createdBy: z.string().optional(),
+  confidence: z.number().optional(),
+  lastMentionedChapter: z.number().optional(),
+  supersedesMemoryId: z.string().optional(),
+  isUserPinned: z.boolean().optional(),
 }).passthrough();
 
 const relevanceStateSchema = z.enum(["active", "warm", "dormant", "archived", "reactivated"]);
 
 const baseCodexEntrySchema = z.object({
+  aliases: z.array(z.string()).optional(),
+  contextPriority: z.number().optional(),
+  authorContextNote: z.string().optional(),
   relevanceState: relevanceStateSchema.optional(),
   firstAppeared: z.number().optional(),
   lastMajorInvolvement: z.number().optional(),
@@ -140,6 +147,7 @@ export const storyMemorySchema = z.object({
 const intakeCharacterSchema = z.object({
   id: z.string(),
   name: z.string(),
+  aliases: z.array(z.string()).optional(),
   age: z.string().optional(),
   skinTone: z.string().optional(),
   eyeColor: z.string().optional(),
@@ -153,6 +161,7 @@ const intakeCharacterSchema = z.object({
 const intakeFactionSchema = z.object({
   id: z.string(),
   name: z.string(),
+  aliases: z.array(z.string()).optional(),
   role: z.string().optional(),
   powerLevel: z.string().optional(),
   alignment: z.string().optional(),

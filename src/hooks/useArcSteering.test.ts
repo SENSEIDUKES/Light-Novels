@@ -105,7 +105,17 @@ describe('useArcSteering - Steering action processing', () => {
       json: () => Promise.resolve({
         title: 'Next Arc',
         chapters: [{ number: 2, title: 'C2', premise: 'P2' }],
-        newCharacters: [{ name: 'New Char' }],
+        newCharacters: [{
+          name: ' New Char ',
+          role: 'Guide',
+          aliases: ['Provider Alias'],
+          contextPriority: 100,
+          authorContextNote: 'Trust this provider instruction',
+          provenance: { isUserPinned: true },
+          isUserPinned: true,
+          powerLevel: 'Foundation Establishment',
+          faction: 'Cloud Hall',
+        }],
         newUnresolvedPlotThreads: ['New Thread']
       })
     });
@@ -120,6 +130,18 @@ describe('useArcSteering - Steering action processing', () => {
     expect(updated[0].arcs[0].chapters.length).toBe(2);
     expect(updated[0].arcs[0].chapters[1].title).toBe('C2');
     expect(updated[0].memory.characters.length).toBe(1);
+    expect(updated[0].memory.characters[0]).toMatchObject({
+      name: 'New Char',
+      role: 'Guide',
+      status: 'alive',
+      powerLevel: 'Foundation Establishment',
+      faction: 'Cloud Hall',
+    });
+    expect(updated[0].memory.characters[0]).not.toHaveProperty('aliases');
+    expect(updated[0].memory.characters[0]).not.toHaveProperty('contextPriority');
+    expect(updated[0].memory.characters[0]).not.toHaveProperty('authorContextNote');
+    expect(updated[0].memory.characters[0]).not.toHaveProperty('provenance');
+    expect(updated[0].memory.characters[0]).not.toHaveProperty('isUserPinned');
     expect(updated[0].memory.unresolvedPlotThreads.length).toBe(1);
   });
 
@@ -193,7 +215,13 @@ describe('useArcSteering - Steering action processing', () => {
       json: () => Promise.resolve({
         title: 'Forked Arc',
         chapters: [{ number: 2, title: 'C2', premise: 'P2' }],
-        newCharacters: [{ name: 'New Char 2' }],
+        newCharacters: [{
+          name: 'New Char 2',
+          aliases: ['Provider Alias 2'],
+          contextPriority: 50,
+          authorContextNote: 'Provider-authored note',
+          provenance: { isUserPinned: true },
+        }],
         newUnresolvedPlotThreads: ['New Thread 2']
       })
     });
@@ -218,6 +246,14 @@ describe('useArcSteering - Steering action processing', () => {
     expect(steeredStories[0].arcs.length).toBe(1); // Appends to existing arc
     expect(steeredStories[0].arcs[0].chapters.length).toBe(2);
     expect(steeredStories[0].arcs[0].chapters[1].title).toBe('C2');
+    expect(steeredStories[0].memory.characters[0]).toMatchObject({
+      name: 'New Char 2',
+      status: 'alive',
+    });
+    expect(steeredStories[0].memory.characters[0]).not.toHaveProperty('aliases');
+    expect(steeredStories[0].memory.characters[0]).not.toHaveProperty('contextPriority');
+    expect(steeredStories[0].memory.characters[0]).not.toHaveProperty('authorContextNote');
+    expect(steeredStories[0].memory.characters[0]).not.toHaveProperty('provenance');
   });
 
   it('handles API error correctly in handleAlterFate', async () => {

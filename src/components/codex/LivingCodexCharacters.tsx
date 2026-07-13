@@ -33,7 +33,8 @@ export function LivingCodexCharacters({
     generatingId, 
     previews, 
     handleAwakenCardImage,
-    getPowerRankScore
+    getPowerRankScore,
+    openEntryContextEditor,
   } = useCodex();
 
   const userProfile = useAppStore(state => state.userProfile);
@@ -68,6 +69,7 @@ export function LivingCodexCharacters({
     setEditingCharId,
     editingCharData,
     setEditingCharData,
+    aliasCollisions,
     handleSaveCharEdit,
     beginCharEdit,
     addAbility,
@@ -129,6 +131,7 @@ export function LivingCodexCharacters({
                         addAbility={addAbility}
                         removeAbility={removeAbility}
                         updateAbility={updateAbility}
+                        aliasCollisions={aliasCollisions}
                       />
                     );
                   }
@@ -245,6 +248,7 @@ export function LivingCodexCharacters({
                         isFreeUserOnHubStory={isFreeUserOnHubStory}
                         handleAwakenCardImage={handleAwakenCardImage}
                         setSelectedNodeChar={setSelectedNodeChar}
+                        openEntryContextEditor={() => openEntryContextEditor({ collection: 'locations', id: loc.id })}
                       />
                     );
                   })

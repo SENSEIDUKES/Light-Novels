@@ -1,6 +1,7 @@
 import React from 'react';
 import { Shield } from 'lucide-react';
 import { IntakeData } from '../../../types';
+import { normalizeCodexAliases, parseCodexAliases } from '../../../lib/codexContext';
 import { FormSection, FormSectionId } from './FormSection';
 
 interface CustomFactionsFormProps {
@@ -69,6 +70,25 @@ export const CustomFactionsForm = ({ intake, updateIntake, activeSection, setAct
                 }} placeholder="e.g. MC's starting sect, Sworn enemies..." className="w-full bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors" />
               </div>
               <div className="col-span-1 sm:col-span-2 md:col-span-3">
+                <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest mb-1" htmlFor={`faction-aliases-${faction.id}`}>Aliases / Known Titles</label>
+                <textarea
+                  key={`${faction.id}-${normalizeCodexAliases(faction.aliases, faction.name).join('|')}`}
+                  id={`faction-aliases-${faction.id}`}
+                  rows={2}
+                  defaultValue={normalizeCodexAliases(faction.aliases, faction.name).join(', ')}
+                  onBlur={(e) => {
+                    const aliases = parseCodexAliases(e.currentTarget.value, faction.name);
+                    e.currentTarget.value = aliases.join(', ');
+                    const newFactions = [...(intake.customFactions || [])];
+                    newFactions[index] = { ...newFactions[index], aliases };
+                    updateIntake('customFactions', newFactions);
+                  }}
+                  placeholder="e.g. Azure Hall; Eastern Pavilion"
+                  className="w-full resize-none bg-void border border-neutral-800 text-signal text-xs rounded px-2 py-1.5 focus:border-portal outline-none transition-colors"
+                />
+                <p className="mt-1 text-[9px] font-sans text-neutral-600">User-authored only. Separate names or titles with commas, semicolons, or new lines.</p>
+              </div>
+              <div className="col-span-1 sm:col-span-2 md:col-span-3">
                 <div className="flex justify-between items-end mb-1">
                   <label className="block font-sc text-[10px] text-neutral-400 uppercase tracking-widest" htmlFor={`faction-description-${faction.id}`}>Detailed Description & Hierarchy</label>
                   <span className="text-[9px] font-mono text-neutral-500">{(faction.description || '').length} / 1200</span>
@@ -94,7 +114,7 @@ export const CustomFactionsForm = ({ intake, updateIntake, activeSection, setAct
           <button
             type="button"
              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-              const newFactions = [...(intake.customFactions || []), { id: crypto.randomUUID(), name: '', role: '', powerLevel: '', alignment: '', connectionToMC: '', description: '' }];
+              const newFactions = [...(intake.customFactions || []), { id: crypto.randomUUID(), name: '', aliases: [], role: '', powerLevel: '', alignment: '', connectionToMC: '', description: '' }];
               updateIntake('customFactions', newFactions);
             }}
             className="w-full py-2 border border-dashed border-neutral-800 hover:border-[#04ACFF]/50 hover:bg-[#04ACFF]/5 text-neutral-400 hover:text-[#04ACFF] font-sc text-xs uppercase tracking-widest transition-all rounded"

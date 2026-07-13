@@ -1,16 +1,23 @@
 import React from 'react';
 import { Character } from '../../../types';
 import { Trash2 } from 'lucide-react';
+import { CodexEntryContextFields } from '../CodexEntryContextFields';
+import type {
+  EditableCodexAbility,
+  EditingCharData,
+  CodexEditingAliasCollision,
+} from '../../../hooks/useCodexCharacterEditing';
 
 interface CharacterEditCardProps {
   char: Character;
-  editingCharData: any;
-  setEditingCharData: (data: any) => void;
+  editingCharData: EditingCharData;
+  setEditingCharData: React.Dispatch<React.SetStateAction<EditingCharData>>;
   setEditingCharId: (id: string | null) => void;
   handleSaveCharEdit: () => void;
   addAbility: () => void;
   removeAbility: (id: string) => void;
-  updateAbility: (id: string, data: any) => void;
+  updateAbility: (id: string, data: Partial<EditableCodexAbility>) => void;
+  aliasCollisions?: CodexEditingAliasCollision[];
 }
 
 export const CharacterEditCard: React.FC<CharacterEditCardProps> = ({
@@ -21,7 +28,8 @@ export const CharacterEditCard: React.FC<CharacterEditCardProps> = ({
   handleSaveCharEdit,
   addAbility,
   removeAbility,
-  updateAbility
+  updateAbility,
+  aliasCollisions = [],
 }) => {
   return (
     <div key={char.id} className="bg-neutral-950 border border-portal/50 shadow-[0_0_15px_rgba(4,172,255,0.15)] rounded-lg overflow-hidden flex flex-col group relative h-[500px]">
@@ -37,7 +45,10 @@ export const CharacterEditCard: React.FC<CharacterEditCardProps> = ({
           <select
             id="edit-status"
             value={editingCharData.status || 'alive'}
-            onChange={(e) => setEditingCharData({ ...editingCharData, status: e.target.value })}
+            onChange={(e) => setEditingCharData({
+              ...editingCharData,
+              status: e.target.value as Character['status'],
+            })}
             className="w-full bg-neutral-900 border border-neutral-800 text-neutral-300 p-1.5 text-xs rounded focus:border-portal outline-none font-sc"
           >
             <option value="alive">Alive</option>
@@ -89,6 +100,23 @@ export const CharacterEditCard: React.FC<CharacterEditCardProps> = ({
           />
         </div>
 
+        <CodexEntryContextFields
+          idPrefix={`character-${char.id}`}
+          entityLabel={char.name}
+          value={editingCharData}
+          onChange={(updates) => setEditingCharData(current => ({ ...current, ...updates }))}
+        />
+
+        {aliasCollisions.length > 0 && (
+          <div role="alert" className="rounded border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[9px] text-amber-300">
+            {aliasCollisions.map((collision, index) => (
+              <p key={`${collision.ownerName}-${collision.alias}-${collision.conflictingEntryName}-${index}`}>
+                “{collision.alias}” on {collision.ownerName} already identifies {collision.conflictingEntryName}.
+              </p>
+            ))}
+          </div>
+        )}
+
         <div className="border-t border-neutral-800 pt-4 mt-4">
           <div className="flex justify-between items-center mb-3">
             <span className="text-[10px] text-portal uppercase tracking-wider block font-bold font-sc">Known Abilities</span>
@@ -102,7 +130,7 @@ export const CharacterEditCard: React.FC<CharacterEditCardProps> = ({
           </div>
 
           <div className="space-y-3">
-            {editingCharData.abilitiesList?.map((ability: any) => (
+            {editingCharData.abilitiesList?.map((ability) => (
               <div key={ability.id} className="bg-neutral-900/50 border border-neutral-800 rounded p-2 space-y-2 relative">
                 <div className="flex justify-between items-start">
                   <input
@@ -209,6 +237,14 @@ export const CharacterEditCard: React.FC<CharacterEditCardProps> = ({
                     </select>
                   </div>
                 </div>
+
+                <CodexEntryContextFields
+                  compact
+                  idPrefix={`ability-${ability.id}`}
+                  entityLabel={ability.name || 'unnamed ability'}
+                  value={ability}
+                  onChange={(updates) => updateAbility(ability.id, updates)}
+                />
               </div>
             ))}
             {(!editingCharData.abilitiesList || editingCharData.abilitiesList.length === 0) && (
@@ -222,7 +258,14 @@ export const CharacterEditCard: React.FC<CharacterEditCardProps> = ({
 
       <div className="flex justify-end space-x-2 pt-4 mt-auto border-t border-neutral-900 sticky bottom-0 bg-black/95">
         <button  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setEditingCharId(null)} className="text-neutral-500 hover:text-neutral-300">Abort</button>
-        <button onClick={() => handleSaveCharEdit()} className="bg-portal text-void px-3 py-1 rounded font-bold font-sc uppercase tracking-wider text-[10px] hover:bg-portal-300 transition-colors shadow-lg shadow-portal/20">Save</button>
+        <button
+          type="button"
+          disabled={aliasCollisions.length > 0}
+          onClick={() => handleSaveCharEdit()}
+          className="bg-portal text-void px-3 py-1 rounded font-bold font-sc uppercase tracking-wider text-[10px] hover:bg-portal-300 transition-colors shadow-lg shadow-portal/20 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Save
+        </button>
       </div>
     </div>
   );

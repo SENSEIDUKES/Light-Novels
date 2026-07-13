@@ -59,6 +59,38 @@ describe('applyMemoryPatch', () => {
     expect(nextMemory.characters?.[0].firstAppeared).toBe(1);
   });
 
+  it('uses trusted aliases for resolution but ignores model-proposed aliases', () => {
+    mockStory.memory.characters = [{
+      id: 'char-1',
+      name: 'Mei Lian',
+      aliases: ['Sister Mei'],
+      role: 'Pavilion Mistress',
+      description: '',
+      relationshipToMC: 'Neutral',
+      status: 'alive'
+    }];
+
+    const nextMemory = applyMemoryPatch(mockStory, {
+      memoryUpdates: {
+        newCharacters: [{
+          name: 'Lan Wei',
+          aliases: ['Little Lan'],
+          role: 'Disciple'
+        }],
+        characterStatusUpdates: [{
+          name: 'Sister Mei',
+          aliases: ['The Pavilion Mistress', 'sister mei'],
+          newRelationship: 'Ally',
+        }]
+      },
+      chapterText: 'The Pavilion Mistress welcomed Little Lan into the sect.'
+    }, 2, false, 0);
+
+    expect(nextMemory.characters[0].aliases).toEqual(['Sister Mei']);
+    expect(nextMemory.characters[0].relationshipToMC).toBe('Ally');
+    expect(nextMemory.characters[1].aliases).toBeUndefined();
+  });
+
   it('should update existing character status', () => {
     mockStory.memory.characters = [
       { id: 'char-1', name: 'John', status: 'alive', powerLevel: 'Low', abilities: [], evolutionReason: '', relevanceState: 'active' } as any

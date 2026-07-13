@@ -22,6 +22,53 @@ describe('resolveEntity', () => {
     expect(result.confidence).toBe(1.0);
   });
 
+  it('resolves an entity by alias', () => {
+    const result = resolveEntity('the Pavilion Mistress', [
+      { id: '1', name: 'Mei Lian', aliases: ['Sister Mei', 'The Pavilion Mistress'] }
+    ], 'test');
+
+    expect(result.resolvedEntityId).toBe('1');
+    expect(result.confidence).toBe(1.0);
+  });
+
+  it('never substring or fuzzy matches an alias', () => {
+    const aliasEntity = [
+      { id: '1', name: 'Mei Lian', aliases: ['The Pavilion Mistress'] },
+    ];
+
+    expect(resolveEntity('Pavilion Mistress', aliasEntity, 'test').resolvedEntityId).toBe(null);
+    expect(resolveEntity('The Pavilion Mistriss', aliasEntity, 'test').resolvedEntityId).toBe(null);
+  });
+
+  it('leaves colliding aliases unresolved', () => {
+    const result = resolveEntity('Master', [
+      { id: '1', name: 'Mei Lian', aliases: ['Master'] },
+      { id: '2', name: 'Lan Wei', aliases: ['master'] },
+    ], 'test');
+
+    expect(result.resolvedEntityId).toBe(null);
+    expect(result.confidence).toBe(1);
+  });
+
+  it('prefers an exact canonical name over another entity alias', () => {
+    const result = resolveEntity('Sister Mei', [
+      { id: '1', name: 'Sister Mei' },
+      { id: '2', name: 'Mei Lian', aliases: ['Sister Mei'] },
+    ], 'test');
+
+    expect(result.resolvedEntityId).toBe('1');
+  });
+
+  it('preserves deterministic first-match behavior for duplicate canonical names', () => {
+    const result = resolveEntity('Elder Lin', [
+      { id: 'existing', name: 'Elder Lin' },
+      { id: 'new', name: 'Elder Lin' },
+    ], 'test');
+
+    expect(result.resolvedEntityId).toBe('existing');
+    expect(result.confidence).toBe(1);
+  });
+
   it('resolves "contains" matches with 0.8 confidence', () => {
     const result = resolveEntity('Lin', entities, 'test');
     expect(result.resolvedEntityId).toBe('1');

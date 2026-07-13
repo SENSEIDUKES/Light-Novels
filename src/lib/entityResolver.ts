@@ -1,3 +1,5 @@
+import { normalizeCodexAliases, normalizeCodexSurface } from './codexContext';
+
 export interface ResolutionResult {
   rawName: string;
   resolvedEntityId: string | null;
@@ -35,25 +37,59 @@ function levenshteinDistance(a: string, b: string): number {
   return matrix[b.length][a.length];
 }
 
-export function resolveEntity(rawName: string, entities: { id: string, name?: string }[], updateType: string): ResolutionResult {
+export function resolveEntity(rawName: string, entities: { id: string, name?: string, aliases?: string[] }[], updateType: string): ResolutionResult {
+  const normalizedRawName = normalizeCodexSurface(rawName);
+  if (!normalizedRawName) {
+    return { rawName, resolvedEntityId: null, confidence: 0, updateType };
+  }
+
+  const namedEntities = entities.filter((entity): entity is { id: string; name: string; aliases?: string[] } =>
+    entity && typeof entity.name === 'string' && normalizeCodexSurface(entity.name).length > 0
+  );
+
+  const exactCanonicalMatches = namedEntities.filter(entity =>
+    normalizeCodexSurface(entity.name) === normalizedRawName
+  );
+  if (exactCanonicalMatches.length > 0) {
+    return {
+      rawName,
+      resolvedEntityId: exactCanonicalMatches[0].id,
+      confidence: 1,
+      updateType,
+    };
+  }
+  // Aliases are explicit identity keys. They resolve only on an exact normalized
+  // match, and a collision is deliberately unresolved rather than array-order wins.
+  const exactAliasMatches = namedEntities.filter(entity =>
+    normalizeCodexAliases(entity.aliases, entity.name)
+      .some(alias => normalizeCodexSurface(alias) === normalizedRawName)
+  );
+  if (exactAliasMatches.length === 1) {
+    return {
+      rawName,
+      resolvedEntityId: exactAliasMatches[0].id,
+      confidence: 1,
+      updateType,
+    };
+  }
+  if (exactAliasMatches.length > 1) {
+    return { rawName, resolvedEntityId: null, confidence: 1, updateType };
+  }
+
+  // Preserve legacy partial/fuzzy resolution for canonical names only. Never
+  // fuzzy-match an alias: a typo or descriptive phrase must not become identity.
   let bestMatchId: string | null = null;
   let bestConfidence = 0;
 
-  const lowerRawName = rawName.toLowerCase();
-
-  for (const entity of entities) {
-    if (!entity.name) continue;
-    const entityNameLower = entity.name.toLowerCase();
-    
-    let confidence = 0;
-    if (entityNameLower === lowerRawName) {
-      confidence = 1.0;
-    } else if (entityNameLower.includes(lowerRawName) || lowerRawName.includes(entityNameLower)) {
+  for (const entity of namedEntities) {
+    const entityName = normalizeCodexSurface(entity.name);
+    let confidence: number;
+    if (entityName.includes(normalizedRawName) || normalizedRawName.includes(entityName)) {
       confidence = 0.8;
     } else {
-      const distance = levenshteinDistance(lowerRawName, entityNameLower);
-      const maxLength = Math.max(lowerRawName.length, entityNameLower.length);
-      confidence = 1 - (distance / maxLength);
+      const distance = levenshteinDistance(normalizedRawName, entityName);
+      const maxLength = Math.max(normalizedRawName.length, entityName.length);
+      confidence = maxLength > 0 ? 1 - (distance / maxLength) : 0;
     }
 
     if (confidence > bestConfidence) {
@@ -63,7 +99,7 @@ export function resolveEntity(rawName: string, entities: { id: string, name?: st
   }
 
   if (bestConfidence < 0.6) {
-    bestMatchId = null; // Confidence too low
+    bestMatchId = null;
   }
 
   return {

@@ -2,11 +2,46 @@ import { generateId } from '../lib/id';
 import { slimMemoryForRequest } from '../lib/slimMemoryForRequest';
 import { useAppStore } from '../store/useAppStore';
 import { retrieveRelevantContext } from '../lib/rag';
-import { Chapter, StoryArc, StoryWorld } from '../types';
+import { Chapter, StoryArc, StoryWorld, Character } from '../types';
 import { storyStorage } from '../lib/storage';
 import { awardQi } from '../lib/qi';
 import { getApiHeaders } from './storyEngineHelpers';
 import { getFateLockMessage } from './chapterPipeline/chapterBatch';
+import { stripAuthorControlledCodexFields } from '../lib/codexContext';
+
+const PROVIDER_CHARACTER_STATUSES = new Set<Character['status']>([
+  'alive',
+  'deceased',
+  'unknown',
+  'ascended',
+]);
+
+const providerString = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed || undefined;
+};
+
+/** Keep provider-created arc characters inside the generated character contract. */
+const sanitizeProviderCharacter = (value: unknown): Character => {
+  const candidate = value && typeof value === 'object'
+    ? stripAuthorControlledCodexFields(value as Record<string, unknown>)
+    : {};
+  const requestedStatus = providerString(candidate.status)?.toLocaleLowerCase();
+  const status = PROVIDER_CHARACTER_STATUSES.has(requestedStatus as Character['status'])
+    ? requestedStatus as Character['status']
+    : 'alive';
+
+  return {
+    ...candidate,
+    id: `char-${generateId(9)}`,
+    name: providerString(candidate.name) || 'Unknown',
+    role: providerString(candidate.role) || 'Neutral figure',
+    description: providerString(candidate.description) || '',
+    relationshipToMC: providerString(candidate.relationshipToMC) || 'Neutral',
+    status,
+  };
+};
 
 /**
  * Custom hook managing branching narratives and Arc-level destiny steering.
@@ -97,12 +132,8 @@ export const useArcSteering = () => {
 
         const nextStoriesMemory = { ...s.memory };
 
-        if (data.newCharacters && data.newCharacters.length > 0) {
-          const verified = data.newCharacters.map((c: any) => ({
-            id: `char-${generateId(9)}`,
-            ...c,
-            status: c.status || 'alive'
-          }));
+        if (Array.isArray(data.newCharacters) && data.newCharacters.length > 0) {
+          const verified = data.newCharacters.map(sanitizeProviderCharacter);
           nextStoriesMemory.characters = [...(nextStoriesMemory.characters || []), ...verified];
         }
 
@@ -279,12 +310,8 @@ export const useArcSteering = () => {
 
         const nextStoriesMemory = { ...s.memory };
 
-        if (data.newCharacters && data.newCharacters.length > 0) {
-          const verified = data.newCharacters.map((c: any) => ({
-            id: `char-${generateId(9)}`,
-            ...c,
-            status: c.status || 'alive'
-          }));
+        if (Array.isArray(data.newCharacters) && data.newCharacters.length > 0) {
+          const verified = data.newCharacters.map(sanitizeProviderCharacter);
           nextStoriesMemory.characters = [...(nextStoriesMemory.characters || []), ...verified];
         }
 

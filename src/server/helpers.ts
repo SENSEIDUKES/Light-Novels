@@ -1,9 +1,96 @@
 import { StoryWorld, WorldBlueprint, StoryArc, ChapterContent } from '../types';
+import {
+  normalizeCodexAliases,
+  normalizeCodexSurface,
+  stripAuthorControlledCodexFields,
+  stripLegacyCodexContextFields,
+} from '../lib/codexContext';
 
 const truncatePromptField = (value: unknown, maxLength: number): unknown =>
   typeof value === 'string' && value.length > maxLength
     ? `${value.substring(0, maxLength)}...`
     : value;
+
+const surfaceAppearsInText = (surface: string, text: string): boolean => {
+  const needle = normalizeCodexSurface(surface);
+  const haystack = normalizeCodexSurface(text);
+  if (!needle || !haystack) return false;
+
+  let fromIndex = 0;
+  while (fromIndex <= haystack.length - needle.length) {
+    const matchIndex = haystack.indexOf(needle, fromIndex);
+    if (matchIndex === -1) return false;
+
+    const before = matchIndex > 0 ? haystack[matchIndex - 1] : '';
+    const afterIndex = matchIndex + needle.length;
+    const after = afterIndex < haystack.length ? haystack[afterIndex] : '';
+    const wordCharacter = /[\p{L}\p{N}_]/u;
+    const startsOnBoundary = !before || !wordCharacter.test(before) || !wordCharacter.test(needle[0]);
+    const endsOnBoundary = !after || !wordCharacter.test(after) || !wordCharacter.test(needle[needle.length - 1]);
+
+    if (startsOnBoundary && endsOnBoundary) return true;
+    fromIndex = matchIndex + 1;
+  }
+
+  return false;
+};
+
+const buildDeterministicAliasLists = (
+  entities: Array<Record<string, unknown>>,
+): string[][] => {
+  const canonicalOwners = new Map<string, Set<number>>();
+  const aliasOwners = new Map<string, Set<number>>();
+
+  entities.forEach((entity, index) => {
+    const canonicalKey = normalizeCodexSurface(entity.name);
+    if (canonicalKey) {
+      const owners = canonicalOwners.get(canonicalKey) || new Set<number>();
+      owners.add(index);
+      canonicalOwners.set(canonicalKey, owners);
+    }
+
+    normalizeCodexAliases(entity.aliases, typeof entity.name === 'string' ? entity.name : undefined)
+      .forEach(alias => {
+        const key = normalizeCodexSurface(alias);
+        const owners = aliasOwners.get(key) || new Set<number>();
+        owners.add(index);
+        aliasOwners.set(key, owners);
+      });
+  });
+
+  return entities.map((entity, index) =>
+    normalizeCodexAliases(entity.aliases, typeof entity.name === 'string' ? entity.name : undefined)
+      .filter(alias => {
+        const key = normalizeCodexSurface(alias);
+        const aliasOwnerSet = aliasOwners.get(key);
+        const canonicalOwnerSet = canonicalOwners.get(key);
+        const collidesWithAnotherCanonical = canonicalOwnerSet
+          ? [...canonicalOwnerSet].some(ownerIndex => ownerIndex !== index)
+          : false;
+        return aliasOwnerSet?.size === 1 && !collidesWithAnotherCanonical;
+      }),
+  );
+};
+
+const renderEntityForContext = (
+  entity: Record<string, unknown>,
+  deterministicAliases: string[],
+): Record<string, unknown> => {
+  const trustedEntity = stripLegacyCodexContextFields(entity);
+  const authorContextNote = typeof entity.authorContextNote === 'string'
+    ? entity.authorContextNote.trim()
+    : '';
+  const abilities = Array.isArray(trustedEntity.abilities)
+    ? formatAbilityLedgerForPrompt(trustedEntity.abilities)
+    : trustedEntity.abilities;
+
+  return Object.fromEntries(Object.entries({
+    ...trustedEntity,
+    aliases: deterministicAliases.length > 0 ? deterministicAliases : undefined,
+    authorContextNote: authorContextNote || undefined,
+    abilities,
+  }).filter(([, value]) => value !== undefined));
+};
 
 /**
  * Keep the chapter prompt's MC ability ledger useful without allowing accumulated
@@ -13,15 +100,76 @@ const truncatePromptField = (value: unknown, maxLength: number): unknown =>
 export function formatAbilityLedgerForPrompt(abilities: unknown): unknown[] {
   if (!Array.isArray(abilities)) return [];
 
-  return abilities
-    .filter((ability) => typeof ability === 'string' || (ability !== null && typeof ability === 'object'))
-    .slice(-30)
-    .map((ability) => {
+  const validAbilities = abilities
+    .filter((ability) => typeof ability === 'string' || (ability !== null && typeof ability === 'object'));
+  const indexedAbilities = validAbilities.map((ability, index) => ({ ability, index }));
+  const pinnedAbilities = indexedAbilities.filter(({ ability }) =>
+    typeof ability === 'object'
+      && (ability as Record<string, any>).provenance?.isUserPinned === true
+  );
+  const remainingSlots = Math.max(0, 30 - pinnedAbilities.length);
+  const selectedAbilities = [
+    ...pinnedAbilities,
+    ...indexedAbilities
+      .filter(({ ability }) => !(
+        typeof ability === 'object'
+        && (ability as Record<string, any>).provenance?.isUserPinned === true
+      ))
+      .sort((a, b) => {
+        const aPriority = typeof (a.ability as any)?.contextPriority === 'number'
+          && Number.isFinite((a.ability as any).contextPriority)
+          ? (a.ability as any).contextPriority
+          : 0;
+        const bPriority = typeof (b.ability as any)?.contextPriority === 'number'
+          && Number.isFinite((b.ability as any).contextPriority)
+          ? (b.ability as any).contextPriority
+          : 0;
+        return (bPriority - aPriority) || (b.index - a.index);
+      })
+      .slice(0, remainingSlots)
+  ]
+    .sort((a, b) => a.index - b.index);
+
+  // Collision ownership must include the full ledger, not only the entries that
+  // survive the prompt cap. Otherwise an omitted canonical name or alias could
+  // make an included alias look unique.
+  const deterministicAliases = buildDeterministicAliasLists(
+    indexedAbilities.map(({ ability }) => (
+      typeof ability === 'string'
+        ? { name: ability }
+        : ability as Record<string, unknown>
+    )),
+  );
+
+  return selectedAbilities.map(({ ability, index }) => {
       if (typeof ability === 'string') return truncatePromptField(ability, 1000);
 
       const record = ability as Record<string, unknown>;
+      const authorContextNote = typeof record.authorContextNote === 'string'
+        ? record.authorContextNote.trim()
+        : '';
+      const aliases = deterministicAliases[index] || [];
+      const provenance = record.provenance && typeof record.provenance === 'object'
+        ? record.provenance as Record<string, unknown>
+        : undefined;
+      const promptProvenance = provenance
+        ? Object.fromEntries(Object.entries({
+          lastMentionedChapter: provenance.lastMentionedChapter,
+          isUserPinned: provenance.isUserPinned === true ? true : undefined,
+        }).filter(([, value]) => value !== undefined))
+        : undefined;
       const promptFields: Record<string, unknown> = {
         name: truncatePromptField(record.name, 200),
+        aliases: aliases.length > 0 ? aliases : undefined,
+        contextPriority: typeof record.contextPriority === 'number' && Number.isFinite(record.contextPriority)
+          ? record.contextPriority
+          : undefined,
+        authorContextNote: authorContextNote
+          ? truncatePromptField(authorContextNote, 1000)
+          : undefined,
+        provenance: promptProvenance && Object.keys(promptProvenance).length > 0
+          ? promptProvenance
+          : undefined,
         description: truncatePromptField(record.description, 1000),
         source: truncatePromptField(record.source, 500),
         acquiredChapter: record.acquiredChapter,
@@ -61,46 +209,92 @@ export function rankRelevantEntities(
   const lastSummaryTokens = tokenize(lastSummaryText);
   const bonusTokens = tokenize(bonusText);
 
-  const scoredEntities = entities.map(entity => {
+  const entityRecords = entities.map(entity => (
+    entity && typeof entity === 'object' ? entity as Record<string, any> : {}
+  ));
+  const deterministicAliases = buildDeterministicAliasLists(entityRecords);
+
+  const scoredEntities = entities.map((entity, index) => {
     let score = 0;
     let isForced = false;
+    const contextPriority = typeof entity?.contextPriority === 'number'
+      && Number.isFinite(entity.contextPriority)
+      ? entity.contextPriority
+      : 0;
+    const canonicalName = typeof entity?.name === 'string' ? entity.name.trim() : '';
+    const aliases = deterministicAliases[index] || [];
+    const canonicalKey = normalizeCodexSurface(canonicalName);
+    const aliasKeys = aliases.map(normalizeCodexSurface);
+    const mcNameKey = normalizeCodexSurface(mcName);
+    const provenance = entity?.provenance && typeof entity.provenance === 'object'
+      ? entity.provenance
+      : undefined;
+    const recency = [
+      provenance?.lastMentionedChapter,
+      entity?.lastMajorInvolvement,
+      entity?.firstAppeared,
+    ].find(value => typeof value === 'number' && Number.isFinite(value)) || 0;
 
-    if (!entity.name) return { entity, score: 0, isForced: false };
+    if (provenance?.isUserPinned === true) {
+      isForced = true;
+      score = 900;
+    }
 
-    const nameLower = entity.name.toLowerCase();
-    const mcNameLower = (mcName || "").toLowerCase();
-    
-    // Always include MC
-    if (mcNameLower && (nameLower === mcNameLower || mcNameLower.includes(nameLower) || nameLower.includes(mcNameLower))) {
+    if (!canonicalName) {
+      return { entity, aliases, score, isForced, contextPriority, recency, index };
+    }
+
+    // Always include the MC. Alias identity is exact; the canonical-name fallback
+    // retains the legacy short/full-name behavior for old stories.
+    if (mcNameKey && (
+      canonicalKey === mcNameKey
+      || aliasKeys.includes(mcNameKey)
+      || canonicalKey.includes(mcNameKey)
+      || mcNameKey.includes(canonicalKey)
+    )) {
        isForced = true;
-       score = 1000;
+       score = Math.max(score, 1000);
     }
     
-    // Always include if exactly mentioned in last chapter
-    if (lastSummaryText && lastSummaryText.includes(nameLower)) {
+    const mentionedInLastSummary = surfaceAppearsInText(canonicalName, lastSummaryText)
+      || aliases.some(alias => surfaceAppearsInText(alias, lastSummaryText));
+    if (mentionedInLastSummary) {
        isForced = true;
-       score = 500;
+       score = Math.max(score, 500);
     }
 
     if (entity.evolutionReady) {
        isForced = true;
-       score = 500;
+       score = Math.max(score, 500);
     }
 
     if (!isForced) {
-      // Direct premise name match
-      if (premiseText && premiseText.includes(nameLower)) {
+      const premiseIdentityMatch = surfaceAppearsInText(canonicalName, premiseText)
+        || aliases.some(alias => surfaceAppearsInText(alias, premiseText));
+      if (premiseIdentityMatch) {
          score += 100;
       }
       
-      // Bonus text name match
-      if (bonusText && bonusText.includes(nameLower)) {
+      const bonusIdentityMatch = surfaceAppearsInText(canonicalName, bonusText)
+        || aliases.some(alias => surfaceAppearsInText(alias, bonusText));
+      if (bonusIdentityMatch) {
          score += 50;
       }
 
-      // Name tokens overlap (only match on the name itself, NOT the description)
-      const nameTokens = tokenize(nameLower);
-      const entityText = `${entity.name} ${entity.description || ''} ${entity.role || ''} ${entity.abilityDescription || ''}`;
+      // Only canonical-name tokens receive legacy partial-match weight. Aliases are
+      // deterministic full surface forms and are never fuzzy/token matched.
+      const nameTokens = tokenize(canonicalName);
+      const entityText = [
+        canonicalName,
+        entity.description,
+        entity.role,
+        entity.abilityDescription,
+        entity.currentRelevance,
+        entity.toneMemory,
+        Array.isArray(entity.unresolvedThreads) ? entity.unresolvedThreads.join(' ') : '',
+        entity.arcAccumulation,
+        entity.authorContextNote,
+      ].filter(Boolean).join(' ');
       const entityTokens = tokenize(entityText);
       const entitySet = new Set(entityTokens);
       
@@ -118,38 +312,57 @@ export function rankRelevantEntities(
       }
     }
 
-    return { entity, score, isForced };
+    return { entity, aliases, score, isForced, contextPriority, recency, index };
   });
 
-  // Ruthlessly filter: must have a score > 0 (meaning name was matched) or be forced
-  const salient = scoredEntities.filter(e => e.score > 0 || e.isForced)
-                                .sort((a, b) => b.score - a.score);
-  
-  return salient.slice(0, maxFeatures).map(e => e.entity);
+  const compareRank = (
+    a: { score: number; contextPriority: number; recency: number; index: number },
+    b: { score: number; contextPriority: number; recency: number; index: number }
+  ) => (b.score - a.score)
+    || (b.contextPriority - a.contextPriority)
+    || (b.recency - a.recency)
+    || (a.index - b.index);
+
+  // The cap cannot evict forced entries, even when the forced set alone exceeds it.
+  const forced = scoredEntities.filter(e => e.isForced).sort(compareRank);
+  const remainingSlots = Math.max(0, Math.floor(maxFeatures) - forced.length);
+  const ranked = [
+    ...forced,
+    ...scoredEntities.filter(e => !e.isForced && e.score > 0).sort(compareRank).slice(0, remainingSlots)
+  ].sort(compareRank);
+
+  return ranked.map(e => renderEntityForContext(e.entity, e.aliases));
 }
 
 export function filterRelevantEntities(entities: any[] | undefined, ...contexts: (string|undefined|null)[]) {
   if (!entities || !Array.isArray(entities)) return [];
   
-  const contextText = contexts.filter(Boolean).join(" ").toLowerCase();
+  const contextText = contexts.filter(Boolean).join(" ");
+  const contextKey = normalizeCodexSurface(contextText);
   const STOP_WORDS = new Set(["the", "and", "for", "with", "from", "that", "this", "they", "them", "their", "his", "hers", "there", "what", "where", "when", "why", "how", "then"]);
-  
-  return entities.filter(entity => {
+
+  const entityRecords = entities.map(entity => (
+    entity && typeof entity === 'object' ? entity as Record<string, unknown> : {}
+  ));
+  const deterministicAliases = buildDeterministicAliasLists(entityRecords);
+
+  return entities.filter((entity, index) => {
+    if (entity?.provenance?.isUserPinned === true) return true;
     if (!entity.name) return true;
     
     // Always include the entity if it's explicitly marked evolutionReady (means it changed recently)
     if (entity.evolutionReady) return true;
 
-    const nameStr = entity.name.toLowerCase();
+    if (surfaceAppearsInText(entity.name, contextText)) return true;
+    if ((deterministicAliases[index] || []).some(alias => surfaceAppearsInText(alias, contextText))) {
+      return true;
+    }
     
-    // Exact full name match
-    if (contextText.includes(nameStr)) return true;
-    
-    // Partial word match (useful for titles or multi-word names like "Elder Zhao")
-    const tokens = nameStr.split(/\s+/);
+    // Retain partial canonical-name matching for legacy entries. Aliases never use it.
+    const tokens = normalizeCodexSurface(entity.name).split(/\s+/);
     for (const token of tokens) {
       if (token.length > 3 && !STOP_WORDS.has(token)) {
-         if (contextText.includes(token)) return true;
+         if (contextKey.includes(token)) return true;
       }
     }
     
@@ -260,7 +473,7 @@ export function cleanInitialArc(arc: Record<string, unknown> | null | undefined)
   if ("characters" in cleaned && Array.isArray(cleaned.characters)) {
     cleaned.characters = cleaned.characters.map((c: any) => {
       if (!c || typeof c !== "object") return c;
-      const cleanChar = { ...c };
+      const cleanChar = stripAuthorControlledCodexFields(c);
       if ("name" in cleanChar) cleanChar.name = ensureString(cleanChar.name);
       if ("role" in cleanChar) cleanChar.role = ensureString(cleanChar.role);
       if ("description" in cleanChar) cleanChar.description = ensureString(cleanChar.description);
@@ -307,7 +520,7 @@ export function cleanSteerArc(resp: Record<string, unknown> | null | undefined):
   if ("newCharacters" in cleaned && Array.isArray(cleaned.newCharacters)) {
     cleaned.newCharacters = cleaned.newCharacters.map((c: any) => {
       if (!c || typeof c !== "object") return c;
-      const cleanChar = { ...c };
+      const cleanChar = stripAuthorControlledCodexFields(c);
       if ("name" in cleanChar) cleanChar.name = ensureString(cleanChar.name);
       if ("role" in cleanChar) cleanChar.role = ensureString(cleanChar.role);
       if ("description" in cleanChar) cleanChar.description = ensureString(cleanChar.description);
@@ -350,7 +563,9 @@ export function cleanChapterResponse(resp: Record<string, unknown> | null | unde
     const objArrayFields = ["newCharacters", "characterStatusUpdates", "relationshipUpdates", "newFactions", "factionUpdates", "newLocations", "locationUpdates", "newArtifacts", "artifactUpdates", "newMCAbilities", "mcAbilityUpdates"];
     objArrayFields.forEach(field => {
       if (field in mu && Array.isArray(mu[field])) {
-        mu[field] = mu[field].filter((i: unknown) => i && typeof i === "object");
+        mu[field] = mu[field]
+          .filter((i: unknown) => i && typeof i === "object")
+          .map((i: Record<string, unknown>) => stripAuthorControlledCodexFields(i));
       }
     });
   }
