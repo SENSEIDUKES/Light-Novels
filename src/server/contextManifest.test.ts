@@ -128,6 +128,24 @@ describe("buildContextManifest", () => {
     expect(manifest.memoryAndHistoryBudgetExceeded).toBe(true);
   });
 
+  it("only removes the generated age annotation from thread identities", () => {
+    const annotatedThread = "Find the sword (Thread open for 7 chapters — pay it off or deepen it!)";
+    const userAuthoredNearMatch = "Find the sword (Thread open for many chapters — pay it off or deepen it!)";
+    const manifest = buildContextManifest({
+      route: "generate-chapter-stream",
+      chapterNumber: 9,
+      systemInstruction: "rules",
+      finalUserPrompt: annotatedThread,
+      rawMemory: { unresolvedPlotThreads: [annotatedThread, userAuthoredNearMatch] },
+      sourceMemory: { unresolvedPlotThreads: ["Find the sword", userAuthoredNearMatch] },
+      droppedPastSummariesCount: 0,
+    });
+
+    const threads = manifest.sections.find(section => section.key === "threads");
+    expect(threads?.includedItemCount).toBe(2);
+    expect(threads?.omittedItems).toEqual([]);
+  });
+
   it("makes the first-chapter fallback visible without inventing recent history", () => {
     const fallback = "This is the first chapter. Set the scene dramatically.";
     const memoryJsonStr = JSON.stringify(sourceMemory, null, 2);

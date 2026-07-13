@@ -100,6 +100,27 @@ const getThreadLabel = (thread: any) => {
   return label.length > 180 ? `${label.slice(0, 177)}...` : label;
 };
 
+const normalizeThreadIdentity = (item: string) => {
+  const normalized = item.toLocaleLowerCase();
+  const marker = " (thread open for ";
+  const annotationStart = normalized.lastIndexOf(marker);
+  if (annotationStart < 0) return normalized;
+
+  const annotation = normalized.slice(annotationStart + marker.length);
+  const chapterIndex = annotation.indexOf(" chapter");
+  if (chapterIndex <= 0) return normalized;
+
+  const age = annotation.slice(0, chapterIndex);
+  for (const character of age) {
+    if (character < "0" || character > "9") return normalized;
+  }
+
+  const expectedEnding = `${age} chapter${age === "1" ? "" : "s"} — pay it off or deepen it!)`;
+  return annotation === expectedEnding
+    ? normalized.slice(0, annotationStart)
+    : normalized;
+};
+
 const makeSection = (
   key: ContextManifestSectionKey,
   estimatedTokens: number,
@@ -238,9 +259,7 @@ export function buildContextManifest(input: BuildContextManifestInput): ContextM
       estimateTokens(threadsText),
       includedThreads,
       availableThreads,
-      item => item
-        .replace(/\s+\(Thread open for \d+ chapters?.*\)$/i, "")
-        .toLocaleLowerCase(),
+      normalizeThreadIdentity,
       "selection_or_token_budget",
     ),
     historySection("rag", classifiedHistory, includedHistory),
