@@ -110,7 +110,7 @@ describe("Cultivator portrait Storage Security Rules", () => {
     )));
   });
 
-  it("should reject metadata updates that turn a portrait into a disallowed type", async (ctx) => {
+  it("should keep accepted portrait objects immutable", async (ctx) => {
     if (!emulatorReady) return ctx.skip();
     const portraitRef = testEnv.authenticatedContext(ownerUid).storage().ref(portraitPath);
     await assertSucceeds(Promise.resolve(portraitRef.put(
@@ -118,6 +118,11 @@ describe("Cultivator portrait Storage Security Rules", () => {
       { contentType: "image/webp" },
     )));
 
+    await assertFails(Promise.resolve(portraitRef.put(
+      new Uint8Array([4, 5, 6]),
+      { contentType: "image/webp" },
+    )));
+    await assertFails(portraitRef.updateMetadata({ contentType: "image/webp" }));
     await assertFails(portraitRef.updateMetadata({ contentType: "text/plain" }));
   });
 });

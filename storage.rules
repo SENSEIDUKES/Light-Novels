@@ -29,7 +29,7 @@ service firebase.storage {
       allow get, list: if isPortraitOwner(userId)
         && hasValidPortraitFileName(fileName);
 
-      allow create, update: if isPortraitOwner(userId)
+      allow create: if isPortraitOwner(userId)
         && hasValidPortraitFileName(fileName)
         && request.resource.size > 0
         && request.resource.size <= 10 * 1024 * 1024

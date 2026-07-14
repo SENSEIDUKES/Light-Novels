@@ -314,7 +314,13 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
         finalUrl = await compressDataUrl(generatedPortraitUrl);
         let localProfile: Partial<UserProfileType> = {};
         const localProfileStr = localStorage.getItem('seihouse-local-user-profile');
-        if (localProfileStr) localProfile = JSON.parse(localProfileStr);
+        if (localProfileStr) {
+          try {
+            localProfile = JSON.parse(localProfileStr);
+          } catch (parseError) {
+            console.warn('Failed to parse local profile:', parseError);
+          }
+        }
         const updatedLocalProfile = {
           ...localProfile,
           avatarUrl: finalUrl,

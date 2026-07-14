@@ -159,6 +159,7 @@ describe('persistCultivatorPortrait', () => {
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
+      headers: new Headers(),
       blob: async () => remoteBlob,
     } as Response);
 
@@ -186,6 +187,7 @@ describe('persistCultivatorPortrait', () => {
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
+      headers: new Headers(),
       blob: async () => new Blob(['gif'], { type: 'image/gif' }),
     } as Response);
 
@@ -234,6 +236,7 @@ describe('persistCultivatorPortrait', () => {
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
+      headers: new Headers(),
       blob: async () => oversizedBlob,
     } as Response);
 
@@ -241,6 +244,26 @@ describe('persistCultivatorPortrait', () => {
       imageSource: 'https://images.example.test/oversized.jpg',
     }))).rejects.toThrow('Portrait image exceeds the 10 MiB limit.');
 
+    expect(mocks.uploadBytes).not.toHaveBeenCalled();
+    expect(mocks.writeBatch).not.toHaveBeenCalled();
+  });
+
+  it('rejects an oversized remote image from Content-Length before reading its body', async () => {
+    const readBody = vi.fn();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({
+        'content-length': String((10 * 1024 * 1024) + 1),
+      }),
+      blob: readBody,
+    } as unknown as Response);
+
+    await expect(persistCultivatorPortrait(makeInput({
+      imageSource: 'https://images.example.test/declared-oversized.jpg',
+    }))).rejects.toThrow('Portrait image exceeds the 10 MiB limit.');
+
+    expect(readBody).not.toHaveBeenCalled();
     expect(mocks.uploadBytes).not.toHaveBeenCalled();
     expect(mocks.writeBatch).not.toHaveBeenCalled();
   });

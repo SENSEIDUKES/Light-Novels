@@ -93,6 +93,14 @@ async function downloadRemoteImage(source: string): Promise<NormalizedPortraitIm
     throw new Error(`Failed to fetch portrait image (HTTP ${response.status}).`);
   }
 
+  const contentLength = response.headers.get('content-length');
+  if (contentLength) {
+    const declaredSize = Number.parseInt(contentLength, 10);
+    if (Number.isFinite(declaredSize) && declaredSize > MAX_PORTRAIT_BYTES) {
+      throw new Error('Portrait image exceeds the 10 MiB limit.');
+    }
+  }
+
   let blob: Blob;
   try {
     blob = await response.blob();

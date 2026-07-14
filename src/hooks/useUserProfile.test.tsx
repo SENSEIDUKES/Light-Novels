@@ -310,6 +310,7 @@ describe('useUserProfile portrait persistence', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     firestoreMocks.subscriptions.length = 0;
     storeMocks.state.userProfile = null;
     firestoreMocks.onSnapshot.mockImplementation((ref, next, error) => {
@@ -403,6 +404,31 @@ describe('useUserProfile portrait persistence', () => {
       avatarUrl: savedPortrait.imageUrl,
       activePortraitId: savedPortrait.id,
     }));
+  });
+
+  it('recovers from malformed guest profile JSON when applying a portrait', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    localStorage.setItem('seihouse-local-user-profile', '{malformed-json');
+    const { result } = renderHook(() => useUserProfile({
+      currentUser: null,
+      stories: [],
+      onLogout: vi.fn(),
+      onNavigateHome: vi.fn(),
+    }));
+
+    await waitFor(() => expect(result.current.profile?.uid).toBe('anonymous'));
+    await generatePreview(result);
+
+    await act(async () => {
+      await result.current.handleApplyPortrait();
+    });
+
+    const savedProfile = JSON.parse(localStorage.getItem('seihouse-local-user-profile')!);
+    expect(savedProfile.avatarUrl).toBe('data:image/webp;base64,generated-portrait');
+    expect(result.current.showPortraitModal).toBe(false);
+    expect(result.current.portraitError).toBe('');
+    expect(warnSpy).toHaveBeenCalledWith('Failed to parse local profile:', expect.any(SyntaxError));
+    warnSpy.mockRestore();
   });
 
   it('keeps the generated preview available when account persistence fails', async () => {
