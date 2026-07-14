@@ -144,16 +144,16 @@ export function LivingCodexFactions({
               'text-neutral-400 border-neutral-850 bg-neutral-950';
 
             // O(N) single-pass optimization to avoid multiple array allocations and `.filter()` traverses in React render loops
-            const leaders: typeof mates = [];
-            const elders: typeof mates = [];
-            const disciples: typeof mates = [];
+            const leaders: Character[] = [];
+            const elders: Character[] = [];
+            const disciples: Character[] = [];
             for (let i = 0; i < mates.length; i++) {
               const c = mates[i];
               const r = c.role.toLowerCase();
-              if (r.includes('leader') || r.includes('master') || r.includes('ancestor') || r.includes('head')) {
-                leaders.push(c);
-              } else if (r.includes('elder') || r.includes('mentor') || r.includes('grandmaster')) {
+              if (r.includes('grandmaster') || r.includes('elder') || r.includes('mentor')) {
                 elders.push(c);
+              } else if (r.includes('leader') || r.includes('master') || r.includes('ancestor') || r.includes('head')) {
+                leaders.push(c);
               } else {
                 disciples.push(c);
               }
