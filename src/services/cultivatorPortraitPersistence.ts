@@ -9,6 +9,8 @@ import type {
 
 const MAX_PORTRAIT_BYTES = 10 * 1024 * 1024;
 const FIREBASE_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+const PENDING_PORTRAIT_PREFIX = 'seihouse-pending-portrait-commits-v1:';
+const pendingRetries = new Map<string, Promise<void>>();
 
 const EXTENSION_BY_MIME_TYPE: Record<CultivatorPortraitMimeType, string> = {
   'image/jpeg': 'jpg',
@@ -31,6 +33,108 @@ export interface PersistCultivatorPortraitInput {
 interface NormalizedPortraitImage {
   blob: Blob;
   mimeType: CultivatorPortraitMimeType;
+}
+
+export class CultivatorPortraitCommitDeferredError extends Error {
+  readonly portrait: CultivatorPortraitAsset;
+
+  constructor(portrait: CultivatorPortraitAsset, options?: ErrorOptions) {
+    super('Portrait image is safe in cloud storage, but its account record is waiting to sync.', options);
+    this.name = 'CultivatorPortraitCommitDeferredError';
+    this.portrait = portrait;
+  }
+}
+
+const pendingPortraitKey = (userId: string) =>
+  `${PENDING_PORTRAIT_PREFIX}${encodeURIComponent(userId)}`;
+
+function readPendingPortraits(userId: string): CultivatorPortraitAsset[] {
+  try {
+    const serialized = localStorage.getItem(pendingPortraitKey(userId));
+    if (!serialized) return [];
+    const value: unknown = JSON.parse(serialized);
+    if (!Array.isArray(value)) return [];
+    return value.filter((portrait): portrait is CultivatorPortraitAsset => {
+      if (!portrait || typeof portrait !== 'object') return false;
+      const candidate = portrait as Partial<CultivatorPortraitAsset>;
+      return candidate.schemaVersion === 1
+        && candidate.userId === userId
+        && typeof candidate.id === 'string'
+        && FIREBASE_ID_PATTERN.test(candidate.id)
+        && typeof candidate.imageUrl === 'string'
+        && typeof candidate.storagePath === 'string';
+    });
+  } catch (error) {
+    console.warn('Failed to read pending portrait commits:', error);
+    return [];
+  }
+}
+
+function writePendingPortraits(userId: string, portraits: CultivatorPortraitAsset[]): void {
+  try {
+    if (portraits.length === 0) {
+      localStorage.removeItem(pendingPortraitKey(userId));
+      return;
+    }
+    localStorage.setItem(pendingPortraitKey(userId), JSON.stringify(portraits.slice(-5)));
+  } catch (error) {
+    console.warn('Failed to cache a pending portrait commit:', error);
+  }
+}
+
+function queuePendingPortrait(portrait: CultivatorPortraitAsset): void {
+  const pending = readPendingPortraits(portrait.userId)
+    .filter(candidate => candidate.id !== portrait.id);
+  pending.push(portrait);
+  writePendingPortraits(portrait.userId, pending);
+}
+
+function isRetryableCommitError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const code = 'code' in error ? String(error.code) : '';
+  const message = 'message' in error ? String(error.message).toLowerCase() : '';
+  return code.endsWith('resource-exhausted')
+    || code.endsWith('unavailable')
+    || code.endsWith('deadline-exceeded')
+    || message.includes('quota limit exceeded')
+    || message.includes('quota exceeded');
+}
+
+async function commitPortraitRecords(portrait: CultivatorPortraitAsset): Promise<void> {
+  const batch = writeBatch(db);
+  batch.set(doc(db, 'users', portrait.userId, 'portraits', portrait.id), portrait);
+  batch.set(doc(db, 'users', portrait.userId), {
+    avatarUrl: portrait.imageUrl,
+    activePortraitId: portrait.id,
+    updatedAt: portrait.updatedAt,
+  }, { merge: true });
+  await batch.commit();
+}
+
+/** Retries account metadata for portrait images already secured in cloud storage. */
+export function retryPendingCultivatorPortraits(userId: string): Promise<void> {
+  if (!FIREBASE_ID_PATTERN.test(userId)) return Promise.resolve();
+  const activeRetry = pendingRetries.get(userId);
+  if (activeRetry) return activeRetry;
+
+  const retry = (async () => {
+    const pending = readPendingPortraits(userId);
+    const remaining: CultivatorPortraitAsset[] = [];
+    for (const portrait of pending) {
+      try {
+        await commitPortraitRecords(portrait);
+      } catch (error) {
+        remaining.push(portrait);
+        console.warn('A pending portrait is still waiting for cloud profile access:', error);
+      }
+    }
+    writePendingPortraits(userId, remaining);
+  })().finally(() => {
+    pendingRetries.delete(userId);
+  });
+
+  pendingRetries.set(userId, retry);
+  return retry;
 }
 
 function requireSupportedMimeType(value: string): CultivatorPortraitMimeType {
@@ -179,17 +283,21 @@ export async function persistCultivatorPortrait(
       },
     };
 
-    const batch = writeBatch(db);
-    batch.set(doc(db, 'users', input.userId, 'portraits', id), portrait);
-    batch.set(doc(db, 'users', input.userId), {
-      avatarUrl: imageUrl,
-      activePortraitId: id,
-      updatedAt: timestamp,
-    }, { merge: true });
-    await batch.commit();
+    try {
+      await commitPortraitRecords(portrait);
+    } catch (error) {
+      if (isRetryableCommitError(error)) {
+        queuePendingPortrait(portrait);
+        throw new CultivatorPortraitCommitDeferredError(portrait, { cause: error });
+      }
+      throw error;
+    }
 
     return portrait;
   } catch (error) {
+    if (error instanceof CultivatorPortraitCommitDeferredError) {
+      throw error;
+    }
     try {
       await deleteObject(storageRef);
     } catch {

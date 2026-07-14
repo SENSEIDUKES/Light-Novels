@@ -9,7 +9,11 @@ import { getDaoRankData } from '../lib/qi';
 import { getApiHeaders } from '../hooks/storyEngineHelpers';
 import { generateId } from '../lib/id';
 import { generateCultivatorPortrait } from '../services/cultivatorPortrait';
-import { persistCultivatorPortrait } from '../services/cultivatorPortraitPersistence';
+import {
+  CultivatorPortraitCommitDeferredError,
+  persistCultivatorPortrait,
+} from '../services/cultivatorPortraitPersistence';
+import { cacheAccountProfile, createAccountProfileFallback } from '../lib/userProfileCache';
 
 interface UseUserProfileProps {
   currentUser: AppUser | null;
@@ -129,8 +133,9 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
   useEffect(() => {
     activeProfileUidRef.current = activeProfileUid;
     adminRequestVersionRef.current += 1;
-    setProfile(null);
-    setFormData({});
+    const fallbackProfile = currentUser ? createAccountProfileFallback(currentUser) : null;
+    setProfile(fallbackProfile);
+    setFormData(fallbackProfile || {});
     setIsEditing(false);
     setIsLoading(Boolean(activeProfileUid));
     setError('');
@@ -157,7 +162,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
     setPortraitError('');
     setDragActive(false);
     setGenerationStep(0);
-  }, [activeProfileUid]);
+  }, [activeProfileUid, currentUser]);
 
   const generationSteps = [
     "Initializing Divine Mirror protocol...",
@@ -337,6 +342,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
       if (profile) {
         const updatedProfile = { ...profile, avatarUrl: finalUrl, activePortraitId };
         setProfile(updatedProfile);
+        cacheAccountProfile(updatedProfile);
         useAppStore.getState().setUserProfile(updatedProfile);
       }
 
@@ -349,6 +355,26 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
     } catch (err) {
       console.error('Failed to save cultivator portrait:', err);
       if (identityIsCurrent()) {
+        if (err instanceof CultivatorPortraitCommitDeferredError) {
+          const fallbackProfile = profile || createAccountProfileFallback(currentUser!);
+          const updatedProfile = {
+            ...fallbackProfile,
+            avatarUrl: err.portrait.imageUrl,
+            activePortraitId: err.portrait.id,
+          };
+          setProfile(updatedProfile);
+          setFormData(updatedProfile);
+          cacheAccountProfile(updatedProfile);
+          useAppStore.getState().setUserProfile(updatedProfile);
+          setShowPortraitModal(false);
+          setPortraitUploadFile(null);
+          setPortraitUploadBase64('');
+          setPortraitDesc('');
+          setGeneratedPortraitUrl('');
+          setGeneratedPortraitPrompt('');
+          setPortraitError('');
+          return;
+        }
         setPortraitError(currentUser
           ? 'Your portrait could not be saved to your account. The preview has been kept so you can retry.'
           : 'Your portrait could not be saved on this device. The preview has been kept so you can retry.');
@@ -494,31 +520,23 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
             data.premiumTier = 'immortal';
           }
 
+          cacheAccountProfile(data);
           setProfile(data);
           setError('');
         } else {
           const email = currentUser.email?.toLowerCase();
           const isOwner = email === 'amaurylindy@gmail.com' || email === 'seihouseproductions@gmail.com';
           const defaultProfile: UserProfileType = {
-            uid: expectedUid,
-            username: currentUser.email?.split('@')[0] || `user_${expectedUid.substring(0,5)}`,
-            displayName: currentUser.displayName || '',
-            avatarUrl: currentUser.photoURL || '',
-            preferredLanguage: 'English',
-            defaultTranslationLanguage: 'English',
-            savedStoryCount: 0,
-            activeStories: [],
-            inactiveStories: [],
-            joinedDate: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            ...createAccountProfileFallback(currentUser),
             role: isOwner ? 'owner' : 'user',
-            premiumTier: isOwner ? 'immortal' : 'mortal'
+            premiumTier: isOwner ? 'immortal' : 'mortal',
           };
 
           // Publish only a profile belonging to the active identity, and do not
           // start a default write from a queued callback after an account switch.
           if (!snapshotIsCurrent()) return;
           setProfile(defaultProfile);
+          cacheAccountProfile(defaultProfile);
           void setDoc(doc(db, 'users', expectedUid), defaultProfile, { merge: true }).catch(err => {
             if (!snapshotIsCurrent()) return;
             console.error("Failed to create profile", err);
@@ -530,9 +548,10 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
       (err) => {
         if (!snapshotIsCurrent()) return;
         console.error(err);
-        setProfile(null);
-        setFormData({});
-        setError('Unable to load profile data.');
+        const fallbackProfile = createAccountProfileFallback(currentUser);
+        setProfile(fallbackProfile);
+        setFormData(fallbackProfile);
+        setError('');
         setIsLoading(false);
       },
     );

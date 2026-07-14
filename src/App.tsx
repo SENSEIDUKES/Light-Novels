@@ -24,6 +24,8 @@ import {
   isStoryRefreshStillCurrent,
   type StoryRefreshGuardState,
 } from './appSessionGuards';
+import { cacheAccountProfile, createAccountProfileFallback } from './lib/userProfileCache';
+import { retryPendingCultivatorPortraits } from './services/cultivatorPortraitPersistence';
 
 // Types
 import { UserProfile as UserProfileType } from './types';
@@ -251,15 +253,17 @@ function App() {
                   data.premiumTier = 'immortal';
                   data.role = 'owner';
                 }
+                cacheAccountProfile(data);
                 store_setUserProfile(data);
+                void retryPendingCultivatorPortraits(expectedUid);
               } else {
-                store_setUserProfile(null);
+                store_setUserProfile(createAccountProfileFallback(user));
               }
             },
             (error) => {
               if (!snapshotIsCurrent()) return;
               console.error('Failed to load the active user profile:', error);
-              store_setUserProfile(null);
+              store_setUserProfile(createAccountProfileFallback(user));
             },
           );
 
