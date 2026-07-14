@@ -8,3 +8,6 @@
 ## 2026-07-11 - [Restoring Button State Context & Focus Accessibility]
 **Learning:** The use of `disabled:pointer-events-none` on buttons is a UX trap; it prevents users from hovering and seeing native browser tooltips or custom `title` attributes explaining *why* the button is disabled. Furthermore, stripping focus with `focus:outline-none` breaks keyboard navigation unless explicitly replaced by a `focus-visible` ring.
 **Action:** Always favor `disabled:cursor-not-allowed` over `pointer-events-none` for interactive elements to retain state clarity via tooltips, and ensure every `outline-none` element explicitly includes `focus-visible` styles to preserve keyboard accessibility.
+## 2024-07-24 - Missing ARIA Labels on Icon Buttons
+**Learning:** Many interactive icon-only buttons across the app (like `Trash2` remove buttons in editing interfaces) lack proper `aria-label` and `title` attributes. This breaks accessibility for screen reader users and reduces discoverability for sighted users who rely on hover tooltips.
+**Action:** When working on form or list editing components, always check inline icon-only buttons (like delete, edit, or add buttons) for explicit accessibility text and hover hints.
