@@ -147,13 +147,16 @@ export function LivingCodexFactions({
             const elders: Character[] = [];
             const disciples: Character[] = [];
 
+            const LEADER_KEYWORDS = ['leader', 'master', 'ancestor', 'head'];
+            const ELDER_KEYWORDS = ['elder', 'mentor', 'grandmaster'];
+
             // Single pass O(N) categorization to avoid multiple filter/some iterations
             for (let i = 0; i < mates.length; i++) {
               const c = mates[i];
-              const roleLower = c.role.toLowerCase();
+              const roleLower = (c.role || '').toLowerCase();
 
-              const isLeader = ['leader', 'master', 'ancestor', 'head'].some(r => roleLower.includes(r));
-              const isElder = ['elder', 'mentor', 'grandmaster'].some(r => roleLower.includes(r));
+              const isLeader = LEADER_KEYWORDS.some(r => roleLower.includes(r));
+              const isElder = ELDER_KEYWORDS.some(r => roleLower.includes(r));
 
               if (isLeader) {
                 leaders.push(c);
