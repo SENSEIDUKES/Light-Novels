@@ -9,6 +9,7 @@
         "username": { "type": "string" },
         "displayName": { "type": "string" },
         "avatarUrl": { "type": "string" },
+        "activePortraitId": { "type": "string", "description": "ID of the selected account-owned cultivator portrait." },
         "preferredLanguage": { "type": "string" },
         "defaultTranslationLanguage": { "type": "string" },
         "savedStoryCount": { "type": "number" },
@@ -19,6 +20,49 @@
         "role": { "type": "string", "enum": ["owner", "admin", "user"] }
       },
       "required": ["uid", "username", "joinedDate", "updatedAt"]
+    },
+    "CultivatorPortraitAsset": {
+      "title": "Cultivator Portrait Asset",
+      "description": "A durable, account-owned portrait and its future-facing visual customization metadata.",
+      "type": "object",
+      "properties": {
+        "schemaVersion": { "type": "number", "enum": [1] },
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "storagePath": { "type": "string" },
+        "mimeType": { "type": "string", "enum": ["image/jpeg", "image/png", "image/webp"] },
+        "source": { "type": "string", "enum": ["generated"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "generation": {
+          "type": "object",
+          "properties": {
+            "prompt": { "type": "string" },
+            "description": { "type": "string" },
+            "daoRank": { "type": "string" },
+            "daoXp": { "type": "number" },
+            "powerStage": { "type": "string" },
+            "equippedArtifactId": { "type": ["string", "null"] },
+            "usedReferenceImage": { "type": "boolean" }
+          },
+          "required": ["prompt", "description", "daoRank", "daoXp", "powerStage", "equippedArtifactId", "usedReferenceImage"]
+        },
+        "customization": {
+          "type": "object",
+          "properties": {
+            "frameId": { "type": ["string", "null"] },
+            "glowId": { "type": ["string", "null"] },
+            "bannerId": { "type": ["string", "null"] },
+            "effectIds": { "type": "array", "items": { "type": "string" } }
+          },
+          "required": ["frameId", "glowId", "bannerId", "effectIds"]
+        }
+      },
+      "required": [
+        "schemaVersion", "id", "userId", "imageUrl", "storagePath", "mimeType", "source",
+        "createdAt", "updatedAt", "generation", "customization"
+      ]
     },
     "StoryWorld": {
       "title": "Story World",
@@ -100,6 +144,10 @@
     "users/{userId}": {
       "schema": "#/entities/UserProfile",
       "description": "User profiles containing public and preference data."
+    },
+    "users/{userId}/portraits/{portraitId}": {
+      "schema": "#/entities/CultivatorPortraitAsset",
+      "description": "Private durable cultivator portrait assets owned by the parent user."
     },
     "stories/{storyId}": {
       "schema": "#/entities/StoryWorld",

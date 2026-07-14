@@ -40,6 +40,7 @@ afterAll(async () => {
 describe("Firestore Security Rules", () => {
   const ownerUid = "owner_123";
   const otherUid = "other_456";
+  const adminUid = "admin_789";
 
   const ownerProfile = {
     uid: ownerUid,
@@ -69,6 +70,33 @@ describe("Firestore Security Rules", () => {
     syncRevision: "chapter-rev-1",
   };
 
+  const validPortrait = {
+    schemaVersion: 1,
+    id: "portrait_1",
+    userId: ownerUid,
+    imageUrl: "https://firebasestorage.example.test/portrait_1.webp",
+    storagePath: `users/${ownerUid}/portraits/portrait_1.webp`,
+    mimeType: "image/webp",
+    source: "generated",
+    createdAt: "2026-07-14T18:00:00.000Z",
+    updatedAt: "2026-07-14T18:00:00.000Z",
+    generation: {
+      prompt: "Celestial sword cultivator",
+      description: "Azure robes and a calm aura",
+      daoRank: "Nascent Soul",
+      daoXp: 4200,
+      powerStage: "Early",
+      equippedArtifactId: null,
+      usedReferenceImage: false,
+    },
+    customization: {
+      frameId: null,
+      glowId: null,
+      bannerId: null,
+      effectIds: [],
+    },
+  };
+
   describe("users collection", () => {
     it("should allow a user to create their own profile", async (ctx) => {
       if (!emulatorReady) return ctx.skip();
@@ -89,6 +117,122 @@ describe("Firestore Security Rules", () => {
       if (!emulatorReady) return ctx.skip();
       const db = testEnv.authenticatedContext(ownerUid).firestore();
       await assertFails(db.collection("users").doc(ownerUid).set({ uid: ownerUid }));
+    });
+
+    it("should allow a user to select a valid portrait id and reject unsafe ids", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection("users").doc(ownerUid).set(ownerProfile);
+      });
+
+      const profileRef = testEnv.authenticatedContext(ownerUid).firestore()
+        .collection("users").doc(ownerUid);
+      await assertSucceeds(profileRef.update({ activePortraitId: "portrait_1" }));
+      await assertFails(profileRef.update({ activePortraitId: "../other-user" }));
+      await assertFails(profileRef.update({ activePortraitId: 123 }));
+    });
+  });
+
+  describe("users/{userId}/portraits subcollection", () => {
+    it("should allow the owner to create, read, customize, and delete a portrait", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      const portraitRef = testEnv.authenticatedContext(ownerUid).firestore()
+        .collection("users").doc(ownerUid).collection("portraits").doc("portrait_1");
+
+      await assertSucceeds(portraitRef.set(validPortrait));
+      await assertSucceeds(portraitRef.get());
+      await assertSucceeds(portraitRef.update({
+        customization: {
+          frameId: "jade_frame",
+          glowId: "azure_glow",
+          bannerId: null,
+          effectIds: ["spirit_motes"],
+        },
+        updatedAt: "2026-07-14T18:01:00.000Z",
+      }));
+      await assertSucceeds(portraitRef.delete());
+    });
+
+    it("should deny other users and anonymous clients access to an owner's portrait", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection("users").doc(ownerUid)
+          .collection("portraits").doc("portrait_1").set(validPortrait);
+      });
+
+      const otherRef = testEnv.authenticatedContext(otherUid).firestore()
+        .collection("users").doc(ownerUid).collection("portraits").doc("portrait_1");
+      const anonymousRef = testEnv.unauthenticatedContext().firestore()
+        .collection("users").doc(ownerUid).collection("portraits").doc("portrait_1");
+      await assertFails(otherRef.get());
+      await assertFails(otherRef.update({ updatedAt: "2026-07-14T18:02:00.000Z" }));
+      await assertFails(otherRef.delete());
+      await assertFails(anonymousRef.get());
+    });
+
+    it("should keep portrait metadata private from admins and deny admin writes", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await db.collection("users").doc(adminUid).set({
+          uid: adminUid,
+          username: "admin",
+          role: "admin",
+        });
+        await db.collection("users").doc(ownerUid)
+          .collection("portraits").doc("portrait_1").set(validPortrait);
+      });
+
+      const adminRef = testEnv.authenticatedContext(adminUid).firestore()
+        .collection("users").doc(ownerUid).collection("portraits").doc("portrait_1");
+      await assertFails(adminRef.get());
+      await assertFails(adminRef.update({ updatedAt: "2026-07-14T18:03:00.000Z" }));
+      await assertFails(adminRef.delete());
+    });
+
+    it("should reject malformed, cross-account, and oversized portrait metadata", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      const portraits = testEnv.authenticatedContext(ownerUid).firestore()
+        .collection("users").doc(ownerUid).collection("portraits");
+
+      await assertFails(portraits.doc("portrait_1").set({
+        ...validPortrait,
+        userId: otherUid,
+      }));
+      await assertFails(portraits.doc("portrait_1").set({
+        ...validPortrait,
+        storagePath: `users/${otherUid}/portraits/portrait_1.webp`,
+      }));
+      await assertFails(portraits.doc("portrait_1").set({
+        ...validPortrait,
+        generation: {
+          ...validPortrait.generation,
+          prompt: "x".repeat(5001),
+        },
+      }));
+      await assertFails(portraits.doc("portrait_1").set({
+        ...validPortrait,
+        unexpectedField: true,
+      }));
+    });
+
+    it("should keep identity, generation, and storage metadata immutable", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().collection("users").doc(ownerUid)
+          .collection("portraits").doc("portrait_1").set(validPortrait);
+      });
+
+      const portraitRef = testEnv.authenticatedContext(ownerUid).firestore()
+        .collection("users").doc(ownerUid).collection("portraits").doc("portrait_1");
+      await assertFails(portraitRef.update({
+        imageUrl: "https://attacker.example/portrait.webp",
+        updatedAt: "2026-07-14T18:04:00.000Z",
+      }));
+      await assertFails(portraitRef.update({
+        "generation.prompt": "Rewritten provenance",
+        updatedAt: "2026-07-14T18:04:00.000Z",
+      }));
     });
   });
 

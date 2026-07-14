@@ -1,6 +1,8 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useUserProfile } from './useUserProfile';
+import { generateCultivatorPortrait } from '../services/cultivatorPortrait';
+import { persistCultivatorPortrait } from '../services/cultivatorPortraitPersistence';
 
 const firestoreMocks = vi.hoisted(() => ({
   subscriptions: [] as Array<{
@@ -83,6 +85,10 @@ vi.mock('./storyEngineHelpers', () => ({
 
 vi.mock('../services/cultivatorPortrait', () => ({
   generateCultivatorPortrait: vi.fn(),
+}));
+
+vi.mock('../services/cultivatorPortraitPersistence', () => ({
+  persistCultivatorPortrait: vi.fn(),
 }));
 
 const makeUser = (uid: string, email = `${uid}@example.com`) => ({
@@ -255,5 +261,201 @@ describe('useUserProfile account switching', () => {
     expect(result.current.profile).toBeNull();
     expect(result.current.formData).toEqual({});
     expect(result.current.error).toBe('Unable to load profile data.');
+  });
+});
+
+describe('useUserProfile portrait persistence', () => {
+  const profileData = {
+    uid: 'account-a',
+    username: 'account-a',
+    displayName: 'Account A',
+    avatarUrl: 'provider-photo.png',
+    preferredLanguage: 'English',
+    defaultTranslationLanguage: 'English',
+    savedStoryCount: 0,
+    activeStories: [],
+    inactiveStories: [],
+    joinedDate: '2026-01-01',
+    updatedAt: '2026-01-01',
+    dao_rank: 'Dao Adept',
+    dao_xp: 400,
+  };
+
+  const savedPortrait = {
+    schemaVersion: 1 as const,
+    id: 'portrait-1',
+    userId: 'account-a',
+    imageUrl: 'https://firebasestorage.example/portrait-1.webp',
+    storagePath: 'users/account-a/portraits/portrait-1.webp',
+    mimeType: 'image/webp' as const,
+    source: 'generated' as const,
+    createdAt: '2026-07-14T12:00:00.000Z',
+    updatedAt: '2026-07-14T12:00:00.000Z',
+    generation: {
+      prompt: 'refined prompt',
+      description: 'silver hair',
+      daoRank: 'Dao Adept',
+      daoXp: 400,
+      powerStage: '',
+      equippedArtifactId: null,
+      usedReferenceImage: false,
+    },
+    customization: {
+      frameId: null,
+      glowId: null,
+      bannerId: null,
+      effectIds: [],
+    },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    firestoreMocks.subscriptions.length = 0;
+    storeMocks.state.userProfile = null;
+    firestoreMocks.onSnapshot.mockImplementation((ref, next, error) => {
+      const unsubscribe = vi.fn();
+      firestoreMocks.subscriptions.push({ ref, next, error, unsubscribe });
+      return unsubscribe;
+    });
+    vi.mocked(generateCultivatorPortrait).mockResolvedValue({
+      imageUrl: 'data:image/webp;base64,generated-portrait',
+      promptUsed: 'refined prompt',
+    });
+    vi.mocked(persistCultivatorPortrait).mockResolvedValue(savedPortrait);
+  });
+
+  const renderLoadedProfile = async () => {
+    const user = makeUser('account-a');
+    const hook = renderHook(() => useUserProfile({
+      currentUser: user,
+      stories: [],
+      onLogout: vi.fn(),
+      onNavigateHome: vi.fn(),
+    }));
+    act(() => {
+      firestoreMocks.subscriptions[0].next(profileSnapshot(profileData));
+    });
+    await waitFor(() => expect(hook.result.current.profile?.uid).toBe('account-a'));
+    return hook;
+  };
+
+  const generatePreview = async (result: Awaited<ReturnType<typeof renderLoadedProfile>>['result']) => {
+    act(() => {
+      result.current.setShowPortraitModal(true);
+      result.current.setPortraitDesc('silver hair');
+    });
+    await act(async () => {
+      await result.current.handleGeneratePortrait();
+    });
+    expect(result.current.generatedPortraitUrl).toContain('data:image/webp');
+  };
+
+  it('applies an account-owned portrait only after durable persistence succeeds', async () => {
+    const { result } = await renderLoadedProfile();
+    await generatePreview(result);
+
+    await act(async () => {
+      await result.current.handleApplyPortrait();
+    });
+
+    expect(persistCultivatorPortrait).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'account-a',
+      imageSource: 'data:image/webp;base64,generated-portrait',
+      prompt: 'refined prompt',
+      description: 'silver hair',
+      daoRank: 'Dao Adept',
+      daoXp: 400,
+    }));
+    expect(result.current.profile).toMatchObject({
+      avatarUrl: savedPortrait.imageUrl,
+      activePortraitId: 'portrait-1',
+    });
+    expect(result.current.formData).toMatchObject({
+      avatarUrl: savedPortrait.imageUrl,
+      activePortraitId: 'portrait-1',
+    });
+    expect(storeMocks.state.setUserProfile).toHaveBeenCalledWith(expect.objectContaining({
+      avatarUrl: savedPortrait.imageUrl,
+      activePortraitId: 'portrait-1',
+    }));
+    expect(result.current.showPortraitModal).toBe(false);
+    expect(result.current.generatedPortraitUrl).toBe('');
+  });
+
+  it('restores the selected account portrait from the profile snapshot on reload', async () => {
+    const user = makeUser('account-a');
+    const { result } = renderHook(() => useUserProfile({
+      currentUser: user,
+      stories: [],
+      onLogout: vi.fn(),
+      onNavigateHome: vi.fn(),
+    }));
+
+    act(() => {
+      firestoreMocks.subscriptions[0].next(profileSnapshot({
+        ...profileData,
+        avatarUrl: savedPortrait.imageUrl,
+        activePortraitId: savedPortrait.id,
+      }));
+    });
+
+    await waitFor(() => expect(result.current.formData).toMatchObject({
+      avatarUrl: savedPortrait.imageUrl,
+      activePortraitId: savedPortrait.id,
+    }));
+  });
+
+  it('keeps the generated preview available when account persistence fails', async () => {
+    vi.mocked(persistCultivatorPortrait).mockRejectedValueOnce(new Error('storage denied'));
+    const { result } = await renderLoadedProfile();
+    await generatePreview(result);
+
+    await act(async () => {
+      await result.current.handleApplyPortrait();
+    });
+
+    expect(result.current.showPortraitModal).toBe(true);
+    expect(result.current.generatedPortraitUrl).toBe('data:image/webp;base64,generated-portrait');
+    expect(result.current.portraitError).toContain('preview has been kept');
+    expect(result.current.isSavingPortrait).toBe(false);
+    expect(result.current.profile?.avatarUrl).toBe('provider-photo.png');
+  });
+
+  it('does not publish an account A save completion into account B state', async () => {
+    let resolvePersistence!: (portrait: typeof savedPortrait) => void;
+    vi.mocked(persistCultivatorPortrait).mockReturnValueOnce(new Promise(resolve => {
+      resolvePersistence = resolve;
+    }));
+
+    const accountA = makeUser('account-a');
+    const accountB = makeUser('account-b');
+    const { result, rerender } = renderHook(
+      ({ user }) => useUserProfile({
+        currentUser: user,
+        stories: [],
+        onLogout: vi.fn(),
+        onNavigateHome: vi.fn(),
+      }),
+      { initialProps: { user: accountA } },
+    );
+    act(() => {
+      firestoreMocks.subscriptions[0].next(profileSnapshot(profileData));
+    });
+    await waitFor(() => expect(result.current.profile?.uid).toBe('account-a'));
+    await generatePreview(result);
+
+    let applyPromise!: Promise<void>;
+    act(() => {
+      applyPromise = result.current.handleApplyPortrait();
+    });
+    rerender({ user: accountB });
+    await act(async () => {
+      resolvePersistence(savedPortrait);
+      await applyPromise;
+    });
+
+    expect(result.current.profile).toBeNull();
+    expect(result.current.formData).toEqual({});
+    expect(storeMocks.state.setUserProfile).not.toHaveBeenCalled();
   });
 });

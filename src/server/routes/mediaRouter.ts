@@ -128,7 +128,7 @@ GENERAL CONSTRAINTS:
     return res.json({ 
       imageUrl: result.imageUrls?.[0], 
       promptUsed: refinedPrompt,
-      note: "No personal data, images, or files are stored on our servers. This transformation occurs dynamically in real-time."
+      note: "Source and reference images are not retained by this endpoint. An accepted generated portrait may be saved to your signed-in account by the client."
     });
   } catch (error: any) {
     logger.error({ err: error }, "Error generating cultivator portrait");
