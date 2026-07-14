@@ -144,7 +144,7 @@ export const CharacterEditCard: React.FC<CharacterEditCardProps> = ({
                     type="button"
                     onClick={() => removeAbility(ability.id)}
                     className="text-human/60 hover:text-human p-1 transition-colors"
-                    aria-label={`Remove ability ${ability.name || 'unnamed'}`}
+                    aria-label={"Remove ability " + (ability.name.trim() || 'unnamed')}
                     title="Remove Ability"
                   >
                     <Trash2 size={10} />
