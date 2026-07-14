@@ -143,7 +143,9 @@ export const CharacterEditCard: React.FC<CharacterEditCardProps> = ({
                   <button
                     type="button"
                     onClick={() => removeAbility(ability.id)}
-                    className="text-human/60 hover:text-human p-1"
+                    className="text-human/60 hover:text-human p-1 transition-colors"
+                    aria-label={"Remove ability " + (ability.name.trim() || 'unnamed')}
+                    title="Remove Ability"
                   >
                     <Trash2 size={10} />
                   </button>
