@@ -1,6 +1,7 @@
 import { StoryWorld } from '../types';
 import { StorageAdapter } from './storage';
 import { db, auth, handleFirestoreError, OperationType } from './firebase';
+import { generateUUID } from './id';
 import {
   collection,
   deleteDoc,
@@ -67,10 +68,7 @@ export class FirebaseStorageAdapter implements StorageAdapter {
   }
 
   private createSyncRevision(): string {
-    if (typeof globalThis.crypto?.randomUUID === 'function') {
-      return globalThis.crypto.randomUUID();
-    }
-    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return generateUUID();
   }
 
   async init(): Promise<void> {
