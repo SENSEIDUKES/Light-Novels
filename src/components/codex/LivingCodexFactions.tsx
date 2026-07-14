@@ -144,9 +144,8 @@ export function LivingCodexFactions({
             const elders: typeof mates = [];
             const disciples: typeof mates = [];
 
-            for (let i = 0; i < mates.length; i++) {
-              const mx = mates[i];
-              const roleLower = mx.role.toLowerCase();
+            for (const mx of mates) {
+              const roleLower = (mx.role || '').toLowerCase();
 
               const isLeader = roleLower.includes('leader') || roleLower.includes('master') || roleLower.includes('ancestor') || roleLower.includes('head');
               const isElder = roleLower.includes('elder') || roleLower.includes('mentor') || roleLower.includes('grandmaster');
