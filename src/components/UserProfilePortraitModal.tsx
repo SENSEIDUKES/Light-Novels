@@ -12,6 +12,7 @@ interface UserProfilePortraitModalProps {
   portraitDesc: string;
   setPortraitDesc: (desc: string) => void;
   isGeneratingPortrait: boolean;
+  isSavingPortrait: boolean;
   portraitError: string;
   generatedPortraitUrl: string;
   generationStep: number;
@@ -32,6 +33,7 @@ export const UserProfilePortraitModal: React.FC<UserProfilePortraitModalProps> =
   portraitDesc,
   setPortraitDesc,
   isGeneratingPortrait,
+  isSavingPortrait,
   portraitError,
   generatedPortraitUrl,
   generationStep,
@@ -77,12 +79,18 @@ export const UserProfilePortraitModal: React.FC<UserProfilePortraitModalProps> =
           <h3 id="portrait-modal-title" className="font-sc font-bold uppercase tracking-widest text-portal text-xs flex items-center gap-2">
             <Camera size={14} /> Cultivator Portrait Builder
           </h3>
-          <button onClick={() => setShowPortraitModal(false)} className="text-neutral-500 hover:text-white transition-colors" aria-label="Close Portrait Builder">
+          <button onClick={() => setShowPortraitModal(false)} disabled={isSavingPortrait} className="text-neutral-500 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed" aria-label="Close Portrait Builder">
             <X size={16} />
           </button>
         </div>
         
         <div className="p-6 overflow-y-auto custom-scrollbar">
+          {portraitError && (
+            <div className="p-3 mb-6 bg-human/10 border border-human/30 rounded-lg" role="alert">
+              <p className="text-human font-mono text-xs">{portraitError}</p>
+            </div>
+          )}
+
           {!generatedPortraitUrl ? (
             <div className="space-y-6">
               <div 
@@ -140,16 +148,11 @@ export const UserProfilePortraitModal: React.FC<UserProfilePortraitModalProps> =
                 <textarea id="desc-input" 
                   value={portraitDesc}
                   onChange={(e) => setPortraitDesc(e.target.value)}
+                  maxLength={2000}
                   placeholder="e.g. A young scholar with silver hair, sharp eyes, wearing azure robes of the Sky Sword Sect..."
                   className="w-full h-24 bg-[#080808] border border-neutral-800 rounded-xl p-3 text-sm text-neutral-200 font-sans focus:outline-none focus:border-portal/50 transition-colors resize-none"
                 />
               </div>
-
-              {portraitError && (
-                <div className="p-3 bg-human/10 border border-human/30 rounded-lg">
-                  <p className="text-human font-mono text-xs">{portraitError}</p>
-                </div>
-              )}
 
               <button 
                 onClick={handleGeneratePortrait}
@@ -191,15 +194,17 @@ export const UserProfilePortraitModal: React.FC<UserProfilePortraitModalProps> =
               <div className="flex gap-3">
                 <button 
                   onClick={() => handleGeneratePortrait()}
+                  disabled={isSavingPortrait}
                   className="flex-1 py-3 bg-transparent border border-neutral-700 hover:border-neutral-500 rounded-lg text-neutral-300 font-sans text-xs transition-colors"
                 >
                   Regenerate
                 </button>
                 <button 
                   onClick={handleApplyPortrait}
-                  className="flex-[2] py-3 bg-portal/20 border border-portal/50 hover:bg-portal/30 rounded-lg text-portal font-sc uppercase font-bold tracking-widest text-xs shadow-[0_0_15px_rgba(4,172,255,0.2)] transition-all"
+                  disabled={isSavingPortrait}
+                  className="flex-[2] py-3 bg-portal/20 border border-portal/50 hover:bg-portal/30 rounded-lg text-portal font-sc uppercase font-bold tracking-widest text-xs shadow-[0_0_15px_rgba(4,172,255,0.2)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Accept & Apply
+                  {isSavingPortrait ? 'Saving Portrait...' : 'Accept & Apply'}
                 </button>
               </div>
             </div>

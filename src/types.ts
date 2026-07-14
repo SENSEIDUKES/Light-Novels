@@ -58,12 +58,47 @@ export interface CosmicArtifact {
   rewardValueSectMerit?: number;
 }
 
+export type CultivatorPortraitMimeType = 'image/jpeg' | 'image/png' | 'image/webp';
+
+export interface CultivatorPortraitCustomization {
+  frameId: string | null;
+  glowId: string | null;
+  bannerId: string | null;
+  effectIds: string[];
+}
+
+export interface CultivatorPortraitGeneration {
+  prompt: string;
+  description: string;
+  daoRank: string;
+  daoXp: number;
+  powerStage: string;
+  equippedArtifactId: string | null;
+  usedReferenceImage: boolean;
+}
+
+export interface CultivatorPortraitAsset {
+  schemaVersion: 1;
+  id: string;
+  userId: string;
+  imageUrl: string;
+  storagePath: string;
+  mimeType: CultivatorPortraitMimeType;
+  source: 'generated';
+  createdAt: string;
+  updatedAt: string;
+  generation: CultivatorPortraitGeneration;
+  customization: CultivatorPortraitCustomization;
+}
+
 export interface UserProfile {
   uid: string;
   username: string;
   displayName: string;
   displayNameColor?: string;
   avatarUrl: string;
+  /** Account-owned portrait selected from users/{uid}/portraits. */
+  activePortraitId?: string;
   preferredLanguage: string;
   defaultTranslationLanguage: string;
   savedStoryCount: number;

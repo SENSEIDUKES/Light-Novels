@@ -9,6 +9,7 @@ import { getDaoRankData } from '../lib/qi';
 import { getApiHeaders } from '../hooks/storyEngineHelpers';
 import { generateId } from '../lib/id';
 import { generateCultivatorPortrait } from '../services/cultivatorPortrait';
+import { persistCultivatorPortrait } from '../services/cultivatorPortraitPersistence';
 
 interface UseUserProfileProps {
   currentUser: AppUser | null;
@@ -115,7 +116,9 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
   const [portraitUploadBase64, setPortraitUploadBase64] = useState<string>('');
   const [portraitDesc, setPortraitDesc] = useState('');
   const [isGeneratingPortrait, setIsGeneratingPortrait] = useState(false);
+  const [isSavingPortrait, setIsSavingPortrait] = useState(false);
   const [generatedPortraitUrl, setGeneratedPortraitUrl] = useState('');
+  const [generatedPortraitPrompt, setGeneratedPortraitPrompt] = useState('');
   const [portraitError, setPortraitError] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const [generationStep, setGenerationStep] = useState(0);
@@ -148,7 +151,9 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
     setPortraitUploadBase64('');
     setPortraitDesc('');
     setIsGeneratingPortrait(false);
+    setIsSavingPortrait(false);
     setGeneratedPortraitUrl('');
+    setGeneratedPortraitPrompt('');
     setPortraitError('');
     setDragActive(false);
     setGenerationStep(0);
@@ -200,18 +205,23 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
   };
 
   const handleGeneratePortrait = async () => {
+    const expectedUid = activeProfileUidRef.current;
+    const identityIsCurrent = () => activeProfileUidRef.current === expectedUid;
     setIsGeneratingPortrait(true);
     setPortraitError("");
     setGeneratedPortraitUrl("");
+    setGeneratedPortraitPrompt("");
     setGenerationStep(0);
 
     const stepInterval = setInterval(() => {
-      setGenerationStep(prev => (prev < generationSteps.length - 1 ? prev + 1 : prev));
+      if (identityIsCurrent()) {
+        setGenerationStep(prev => (prev < generationSteps.length - 1 ? prev + 1 : prev));
+      }
     }, 2500);
 
     try {
       const apiHeaders = await getApiHeaders();
-      const imageUrl = await generateCultivatorPortrait({
+      const generatedPortrait = await generateCultivatorPortrait({
         image: portraitUploadBase64 || undefined,
         description: portraitDesc,
         daoRank: profile?.dao_rank || "Mortal Reader",
@@ -226,13 +236,18 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
         routingConfig,
       }, apiHeaders);
 
-      setGeneratedPortraitUrl(imageUrl);
+      if (identityIsCurrent()) {
+        setGeneratedPortraitUrl(generatedPortrait.imageUrl);
+        setGeneratedPortraitPrompt(generatedPortrait.promptUsed);
+      }
     } catch (err: any) {
       console.error(err);
-      setPortraitError(err.message || "Celestial connection timed out. Please retry.");
+      if (identityIsCurrent()) {
+        setPortraitError(err.message || "Celestial connection timed out. Please retry.");
+      }
     } finally {
       clearInterval(stepInterval);
-      setIsGeneratingPortrait(false);
+      if (identityIsCurrent()) setIsGeneratingPortrait(false);
     }
   };
 
@@ -270,69 +285,77 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
   };
 
   const handleApplyPortrait = async () => {
-    if (!generatedPortraitUrl) return;
+    if (!generatedPortraitUrl || isSavingPortrait) return;
 
-    setIsLoading(true);
-    let finalUrl = generatedPortraitUrl;
+    const expectedUid = currentUser?.uid ?? null;
+    const identityIsCurrent = () => activeProfileUidRef.current === expectedUid;
+    setIsSavingPortrait(true);
+    setPortraitError('');
+
     try {
-      finalUrl = await compressDataUrl(generatedPortraitUrl);
-    } catch (e) {
-      console.warn("Failed to compress portrait:", e);
-    }
+      let finalUrl = generatedPortraitUrl;
+      let activePortraitId = profile?.activePortraitId;
 
-    setFormData(prev => ({
-      ...prev,
-      avatarUrl: finalUrl
-    }));
-
-    if (currentUser) {
-      try {
-        await setDoc(doc(db, 'users', currentUser.uid), {
-          avatarUrl: finalUrl,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-
-        if (profile) {
-          setProfile({
-            ...profile,
-            avatarUrl: finalUrl
-          });
-        }
-      } catch (err) {
-        console.error("Failed to save avatarUrl:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    } else {
-      let localProfile = null;
-      try {
-        const localProfileStr = localStorage.getItem('seihouse-local-user-profile');
-        localProfile = localProfileStr ? JSON.parse(localProfileStr) : null;
-      } catch (e) {
-        console.warn("Failed to parse local profile:", e);
-      }
-      const updatedLocalProfile = {
-        ...(localProfile || {}),
-        avatarUrl: finalUrl,
-        updatedAt: new Date().toISOString()
-      };
-      try {
-        localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedLocalProfile));
-      } catch(e) {}
-      if (profile) {
-        setProfile({
-          ...profile,
-          avatarUrl: finalUrl
+      if (currentUser) {
+        const portrait = await persistCultivatorPortrait({
+          userId: expectedUid!,
+          imageSource: generatedPortraitUrl,
+          prompt: generatedPortraitPrompt,
+          description: portraitDesc,
+          daoRank: profile?.dao_rank || 'Mortal Reader',
+          daoXp: profile?.dao_xp || 0,
+          powerStage: currentPowerStage,
+          equippedArtifactId: equippedArtifact?.id || null,
+          usedReferenceImage: Boolean(portraitUploadBase64),
         });
+        finalUrl = portrait.imageUrl;
+        activePortraitId = portrait.id;
+      } else {
+        finalUrl = await compressDataUrl(generatedPortraitUrl);
+        let localProfile: Partial<UserProfileType> = {};
+        const localProfileStr = localStorage.getItem('seihouse-local-user-profile');
+        if (localProfileStr) {
+          try {
+            localProfile = JSON.parse(localProfileStr);
+          } catch (parseError) {
+            console.warn('Failed to parse local profile:', parseError);
+          }
+        }
+        const updatedLocalProfile = {
+          ...localProfile,
+          avatarUrl: finalUrl,
+          updatedAt: new Date().toISOString(),
+        };
+        localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedLocalProfile));
       }
-      setIsLoading(false);
-    }
 
-    setShowPortraitModal(false);
-    setPortraitUploadFile(null);
-    setPortraitUploadBase64('');
-    setPortraitDesc('');
-    setGeneratedPortraitUrl('');
+      // An upload for account A may finish after the UI has switched to account B.
+      // The asset remains correctly owned by A, but it must never be published into B's state.
+      if (!identityIsCurrent()) return;
+
+      setFormData(prev => ({ ...prev, avatarUrl: finalUrl, activePortraitId }));
+      if (profile) {
+        const updatedProfile = { ...profile, avatarUrl: finalUrl, activePortraitId };
+        setProfile(updatedProfile);
+        useAppStore.getState().setUserProfile(updatedProfile);
+      }
+
+      setShowPortraitModal(false);
+      setPortraitUploadFile(null);
+      setPortraitUploadBase64('');
+      setPortraitDesc('');
+      setGeneratedPortraitUrl('');
+      setGeneratedPortraitPrompt('');
+    } catch (err) {
+      console.error('Failed to save cultivator portrait:', err);
+      if (identityIsCurrent()) {
+        setPortraitError(currentUser
+          ? 'Your portrait could not be saved to your account. The preview has been kept so you can retry.'
+          : 'Your portrait could not be saved on this device. The preview has been kept so you can retry.');
+      }
+    } finally {
+      if (identityIsCurrent()) setIsSavingPortrait(false);
+    }
   };
 
   const fetchAdminData = async () => {
@@ -1021,6 +1044,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
     portraitDesc,
     setPortraitDesc,
     isGeneratingPortrait,
+    isSavingPortrait,
     generatedPortraitUrl,
     portraitError,
     dragActive,

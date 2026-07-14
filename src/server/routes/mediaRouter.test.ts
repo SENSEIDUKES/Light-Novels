@@ -55,8 +55,11 @@ describe('cultivator portrait route', () => {
       {},
       expect.any(Object),
     );
+    const generatedPrompt = vi.mocked(routeImageGeneration).mock.calls[0][0];
     expect(json).toHaveBeenCalledWith(expect.objectContaining({
       imageUrl: 'data:image/jpeg;base64,portrait',
+      promptUsed: generatedPrompt,
+      note: 'Source and reference images are not retained by this endpoint. An accepted generated portrait may be saved to your signed-in account by the client.',
     }));
   });
 });

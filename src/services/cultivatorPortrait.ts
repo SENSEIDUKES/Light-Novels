@@ -12,14 +12,20 @@ export interface CultivatorPortraitRequest {
 
 interface CultivatorPortraitResponse {
   imageUrl?: unknown;
+  promptUsed?: unknown;
   error?: string;
+}
+
+export interface GeneratedCultivatorPortrait {
+  imageUrl: string;
+  promptUsed: string;
 }
 
 /** Calls the portrait pipeline and verifies that the UI received a renderable image. */
 export async function generateCultivatorPortrait(
   request: CultivatorPortraitRequest,
   apiHeaders: Record<string, string>
-): Promise<string> {
+): Promise<GeneratedCultivatorPortrait> {
   const response = await fetch('/api/generate-cultivator-portrait', {
     method: 'POST',
     headers: { ...apiHeaders, 'Content-Type': 'application/json' },
@@ -39,5 +45,8 @@ export async function generateCultivatorPortrait(
   if (typeof data.imageUrl !== 'string' || !data.imageUrl.trim()) {
     throw new Error('No image URL returned from celestial plane.');
   }
-  return data.imageUrl;
+  return {
+    imageUrl: data.imageUrl,
+    promptUsed: typeof data.promptUsed === 'string' ? data.promptUsed : '',
+  };
 }

@@ -1,0 +1,42 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isPortraitOwner(userId) {
+      return request.auth != null
+        && request.auth.uid != null
+        && request.auth.uid == userId;
+    }
+
+    function hasValidPortraitFileName(fileName) {
+      return fileName.matches('^[a-zA-Z0-9_-]{1,128}\\.(jpg|jpeg|png|webp)$');
+    }
+
+    function hasMatchingPortraitContentType(fileName) {
+      return (
+        request.resource.contentType == 'image/jpeg'
+        && fileName.matches('^[a-zA-Z0-9_-]{1,128}\\.(jpg|jpeg)$')
+      ) || (
+        request.resource.contentType == 'image/png'
+        && fileName.matches('^[a-zA-Z0-9_-]{1,128}\\.png$')
+      ) || (
+        request.resource.contentType == 'image/webp'
+        && fileName.matches('^[a-zA-Z0-9_-]{1,128}\\.webp$')
+      );
+    }
+
+    match /users/{userId}/portraits/{fileName} {
+      allow get, list: if isPortraitOwner(userId)
+        && hasValidPortraitFileName(fileName);
+
+      allow create: if isPortraitOwner(userId)
+        && hasValidPortraitFileName(fileName)
+        && request.resource.size > 0
+        && request.resource.size <= 10 * 1024 * 1024
+        && hasMatchingPortraitContentType(fileName);
+
+      allow delete: if isPortraitOwner(userId)
+        && hasValidPortraitFileName(fileName);
+    }
+  }
+}

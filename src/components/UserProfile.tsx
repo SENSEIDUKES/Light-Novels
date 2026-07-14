@@ -97,6 +97,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     portraitDesc,
     setPortraitDesc,
     isGeneratingPortrait,
+    isSavingPortrait,
     generatedPortraitUrl,
     portraitError,
     generationStep,
@@ -835,6 +836,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
           portraitDesc={portraitDesc}
           setPortraitDesc={setPortraitDesc}
           isGeneratingPortrait={isGeneratingPortrait}
+          isSavingPortrait={isSavingPortrait}
           portraitError={portraitError}
           generatedPortraitUrl={generatedPortraitUrl}
           generationStep={generationStep}
