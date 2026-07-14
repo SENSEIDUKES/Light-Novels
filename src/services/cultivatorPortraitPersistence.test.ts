@@ -36,7 +36,11 @@ vi.mock('firebase/storage', () => ({
   deleteObject: mocks.deleteObject,
 }));
 
-import { persistCultivatorPortrait } from './cultivatorPortraitPersistence';
+import {
+  CultivatorPortraitCommitDeferredError,
+  persistCultivatorPortrait,
+  retryPendingCultivatorPortraits,
+} from './cultivatorPortraitPersistence';
 
 const DOWNLOAD_URL = 'https://storage.example.test/portrait-id.png';
 
@@ -62,6 +66,7 @@ describe('persistCultivatorPortrait', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
@@ -295,5 +300,33 @@ describe('persistCultivatorPortrait', () => {
       kind: 'storage-reference',
       path: 'users/user-123/portraits/portrait-id.png',
     });
+  });
+
+  it('keeps an uploaded portrait queued when Firestore quota blocks its account record', async () => {
+    const quotaError = Object.assign(new Error('Quota limit exceeded'), {
+      code: 'resource-exhausted',
+    });
+    mocks.batchCommit.mockRejectedValueOnce(quotaError);
+
+    let deferredError: unknown;
+    try {
+      await persistCultivatorPortrait(makeInput());
+    } catch (error) {
+      deferredError = error;
+    }
+
+    expect(deferredError).toBeInstanceOf(CultivatorPortraitCommitDeferredError);
+    expect((deferredError as CultivatorPortraitCommitDeferredError).portrait).toMatchObject({
+      id: 'portrait-id',
+      imageUrl: DOWNLOAD_URL,
+    });
+    expect(mocks.deleteObject).not.toHaveBeenCalled();
+    expect(localStorage.getItem('seihouse-pending-portrait-commits-v1:user-123'))
+      .toContain('portrait-id');
+
+    await retryPendingCultivatorPortraits('user-123');
+
+    expect(mocks.batchCommit).toHaveBeenCalledTimes(2);
+    expect(localStorage.getItem('seihouse-pending-portrait-commits-v1:user-123')).toBeNull();
   });
 });
