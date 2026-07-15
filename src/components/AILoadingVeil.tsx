@@ -166,6 +166,7 @@ export default function AILoadingVeil() {
                       setShowDetails(false);
                     }}
                     title="Expand Visual Chamber"
+                    aria-label="Expand Visual Chamber"
                     className={`p-1 rounded text-zinc-400 ${isVersa ? 'hover:text-amber-500' : 'hover:text-portal'} hover:bg-zinc-900/50 transition-all cursor-pointer`}
                   >
                     <Maximize2 size={13} />

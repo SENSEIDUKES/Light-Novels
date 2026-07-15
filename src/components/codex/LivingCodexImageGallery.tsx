@@ -30,6 +30,7 @@ export function LivingCodexImageGallery({
           onClick={() => handleRevertImage(entityId, type, img.imageUrl)}
           title={`Generated at Chapter ${img.chapterNumber || 'Unknown'}\nPrompt: ${img.promptUsed}`} 
           role="button" 
+          aria-label={`Revert to image generated at Chapter ${img.chapterNumber || 'Unknown'}. Prompt: ${img.promptUsed}`}
           tabIndex={0} 
           onKeyDown={(e) => { 
             if (e.key === 'Enter' || e.key === ' ') { 
