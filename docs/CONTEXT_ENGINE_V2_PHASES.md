@@ -70,7 +70,7 @@ Rendering rules:
 
 ### 2.2 Wire into prompts
 
-In `storyRouter.ts`, where `rawMemoryObj.characters/factions/locations/artifacts` are built from `rankRelevantEntities(...)`: render each ranked entity with `renderEntityCard(entity, kind, 'full')` and place the joined card text into the prompt where the entity JSON used to be, under a heading like `--- CODEX MEMORY CARDS ---`. The `memoryJsonStr` sent to `PROMPTS.chapter.userPrompt` keeps its non-entity fields (powerSystem, worldRules, threads…) as-is; only the four entity arrays change representation. Update `PROMPTS.chapter.system`/`userPrompt` wording if it references entity JSON structure.
+In `storyRouter.ts`, where `rawMemoryObj.characters/factions/locations/artifacts` are built from `rankRelevantEntities(...)`: render each ranked entity with `renderEntityCard(entity, kind, 'full')` and place the joined card text into the prompt where the entity JSON used to be, under a heading like `--- CODEX MEMORY CARDS ---`. The four entity arrays must be **completely removed** from `memoryJsonStr` on this path — the cards fully replace them; do not keep even a brief/name-only copy in the JSON, or the information is duplicated and the token savings evaporate. `memoryJsonStr` keeps only its non-entity fields (powerSystem, worldRules, threads…). Update `PROMPTS.chapter.system`/`userPrompt` wording if it references entity JSON structure.
 
 ### 2.3 Manifest
 
@@ -107,15 +107,23 @@ export interface ContextBlock {
 
 - `retrieveRelevantContext` in `src/lib/rag.ts` returns `ContextBlock[]` instead of `string[]` (keep its internal header strings OUT of block text — the kind field replaces them; keep exporting a legacy `string[]` adapter if other callers need it).
 - `buildChapterContext` passes blocks through; the continuation-anchor append becomes `{ kind: 'anchor', chapterNumber, text }`.
-- Request schema (`src/server/schemas.ts`): `pastSummaries` accepts the new shape; keep accepting `string[]` for backward compat (old clients / queued retries) and coerce strings to `{ kind: 'recent-summary', text }` after running the existing header-sniff (`classifyHistoryBlocks`) as fallback classifier.
+- Request schema (`src/server/schemas.ts`): `pastSummaries` accepts the new shape in **every schema that carries it** — `chapterGenerationSchema`, `generateNextDirectionsSchema`, AND `steerArcSchema` (grep for `pastSummaries` to confirm the full set). Updating only the chapter schema would make next-directions/steer-arc requests from updated clients fail Zod validation. Define the block shape once and reuse it across all three. Keep accepting `string[]` for backward compat (old clients / queued retries) and coerce strings to `{ kind: 'recent-summary', text }` after running the existing header-sniff (`classifyHistoryBlocks`) as fallback classifier.
 - Client-side reduction: change `retrieveRelevantContext` defaults to `recentNCount: 3` but assemble as — chapter −1 full text; chapter −2 trimmed to its final ~40% of blocks (or `episodicSummary` if longer than ~8,000 chars); chapter −3 summary only. Lower `maxContextChars` default from 120,000 to 60,000. **These reductions apply only when the story runs engine v2 (Phase 5 flag) — thread the flag through `buildChapterContext`.**
 
 ### 3.2 New module `src/server/contextBudgeter.ts`
 
 ```ts
+export interface SectionOutcome {
+  key: ContextManifestSectionKey;
+  includedItems: string[];   // labels, e.g. "Character: Mei Lian (full)"
+  demotedItems: string[];    // full -> brief demotions
+  omittedItems: string[];
+  estimatedTokens: number;
+  omissionReason?: ContextManifestSection['omissionReason'];
+}
 export interface BudgetedContext {
   promptSections: { key: ContextManifestSectionKey; text: string }[];
-  manifestInput: /* everything buildContextManifest needs */;
+  outcomes: SectionOutcome[]; // the budgeter's exact decisions, fed straight to the manifest
 }
 export function assembleContext(input: {
   blocks: ContextBlock[];
@@ -141,7 +149,9 @@ Fill order and per-section caps (defaults; export as a constant so tests pin the
 | 6 | `rag` blocks | 2,000 | drop lowest (they arrive relevance-ordered) |
 | 7 | `arc-summary` blocks | 1,000 | drop oldest first |
 
-Rules: greedy fill in order; a section may use leftover budget from earlier sections but never exceed the total; every demotion/drop must be recorded so the manifest's `omittedItems`/`omissionReason` reflect it (add omission reasons `demoted_to_brief` and `budget_drop` to the `ContextManifestSection` union). Pure function, no I/O.
+Rules: greedy fill in order; a section may use leftover budget from earlier sections but never exceed the total; every demotion/drop must be recorded in `outcomes` (add omission reasons `demoted_to_brief` and `budget_drop` to the `ContextManifestSection` union). Pure function, no I/O.
+
+**Manifest contract on the v2 path:** the budgeter performs fine-grained, non-contiguous decisions (demote one card, drop one RAG block, trim the front of chapter −1), which the current `buildContextManifest` cannot reconstruct from `droppedPastSummariesCount` + re-reading raw memory — it would silently report wrong numbers. Add a v2 entry point (e.g. `buildContextManifestFromOutcomes(outcomes, ...)` or an `outcomes` field on the existing input) that consumes the budgeter's `SectionOutcome[]` directly instead of re-deriving inclusion. The existing derivation path remains for v1. A manifest test must assert v2 section metrics equal the budgeter's outcomes exactly.
 
 ### 3.3 Route integration
 
@@ -164,7 +174,8 @@ In each `storyRouter.ts` generation route (v2 path only — see Phase 5): replac
 **Goal:** entities physically present in the immediately-preceding scene reliably win the budget race.
 
 - Extend `rankRelevantEntities` (`src/server/helpers.ts`) with an optional `anchorText?: string` argument. Name/alias hit in anchor text ⇒ forced (score floor 600, between last-summary 500 and pinned 900). Token-overlap hits in anchor weigh 2× premise-token hits.
-- Call sites: pass the `anchor` block's text (available once Phase 3 lands; until then, locate the anchor by the existing header sniff).
+- **v2 only:** pass `anchorText` exclusively on the v2 path (this is why Phase 4 lands after Phase 5's flag). On v1 there is no brief tier or budgeter to absorb overflow — anchor-forcing extra entities there would inflate the pretty-printed JSON blob and evict other context, breaking the backward-compatibility guardrail. Omitting the argument must reproduce today's scoring byte-for-byte.
+- Call sites: pass the `anchor` block's text from the typed `ContextBlock[]` (Phase 3).
 - Also score `authorContextNote` text for keyword overlap the same way descriptions are scored today.
 - Tests: extend `helpers.test.ts` — entity absent from premise/summary but named (by alias) in anchor gets included; anchor forcing does not displace the MC or pinned entities.
 
