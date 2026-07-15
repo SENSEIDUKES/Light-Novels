@@ -37,7 +37,7 @@ describe('UserProfile', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /advanced tools/i }));
 
-    expect(screen.getByRole('button', { name: /harmony: automatic/i })).toBeDefined();
+    expect(screen.getByRole('button', { name: /harmony: press to sync/i })).toBeDefined();
     expect(screen.queryByRole('button', { name: /store only on this device|device-only storage/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /audit sync/i })).toBeNull();
     expect(screen.queryByText(/sync diagnostic/i)).toBeNull();

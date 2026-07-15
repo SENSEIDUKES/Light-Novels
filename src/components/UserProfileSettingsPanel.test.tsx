@@ -29,13 +29,13 @@ describe('UserProfileSettingsPanel harmony control', () => {
     vi.clearAllMocks();
   });
 
-  it('runs a manual sync from the single automatic Harmony control', () => {
+  it('runs a full manual sync from the single Harmony control', () => {
     renderPanel('synced');
 
-    const harmonyButton = screen.getByRole('button', { name: 'Harmony: Automatic' });
+    const harmonyButton = screen.getByRole('button', { name: 'Harmony: Press to sync' });
     fireEvent.click(harmonyButton);
 
-    expect(storageMocks.performSync).toHaveBeenCalledTimes(1);
+    expect(storageMocks.performSync).toHaveBeenCalledWith({ deep: true });
     expect(screen.getAllByText('Harmony')).toHaveLength(1);
     expect(screen.queryByText(/audit sync/i)).toBeNull();
     expect(screen.queryByText(/dao aligned/i)).toBeNull();

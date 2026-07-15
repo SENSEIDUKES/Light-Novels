@@ -178,7 +178,9 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
         }
         await storyStorage.saveStory(resolvedStory);
       }
-      await storyStorage.performSync();
+      // The chosen record is already in the durable outbox. Seal only that
+      // queued work; resolving one conflict must not audit the whole library.
+      await storyStorage.performSync({ catalog: false, deep: false });
 
     } catch (err: any) {
       console.error("Failed to resolve sync conflict:", err);
