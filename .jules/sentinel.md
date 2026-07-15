@@ -1,12 +1,4 @@
-## 2025-03-09 - [Logging Custom Headers Data Exposure]
-**Vulnerability:** pino-http logger exposed sensitive BYOK (Bring Your Own Key) credentials (e.g. x-gemini-key, x-openrouter-key, x-deepinfra-key) and authorization headers in plaintext.
-**Learning:** Default pino-http logs all `req.headers`. In this application, API keys are passed dynamically from the client in specific headers. These custom headers bypass standard security filters since they are not just standard 'authorization' cookies or bearer tokens.
-**Prevention:** Explicitly use pino's `redact` feature array to target and redact any custom sensitive headers that the application accepts.
-## 2025-03-09 - [Insecure Math.random Fallback for UUIDs and IDs]
-**Vulnerability:** Insecure `Math.random` fallback mechanism used to generate UUIDs and IDs (`src/lib/id.ts`) if `crypto.getRandomValues` was unavailable.
-**Learning:** While cryptographically secure PRNGs are standard in Node and modern browsers, fallback mechanisms meant for legacy support can act as a security downgrade attack vector if an environment accidentally lacks the API or it gets mocked poorly.
-**Prevention:** Explicitly enforce the availability of cryptographic PRNGs. Rather than providing an insecure `Math.random` fallback, the application should throw a hard error and fail securely if `crypto.getRandomValues` is not found.
-## 2026-07-12 - [XSS via Insecure URL in Download Fallback]
-**Vulnerability:** The `handleDownload` function in `src/utils/downloadUtils.ts` lacked URL protocol validation. If a malicious URL (like `javascript:alert(1)`) was passed and the CORS `fetch` failed, it would fall back to creating an anchor tag with the malicious URL and clicking it, resulting in XSS.
-**Learning:** Functions that accept URLs and use them in DOM elements (like `<a>` tags) or `fetch` calls must validate the protocol to prevent script execution. This is a common pattern in fallback mechanisms.
-**Prevention:** Always parse untrusted URLs using `new URL(url)` and validate that the `.protocol` is strictly in an allowed list (e.g., `http:`, `https:`, `blob:`, `data:`) before usage.
+## 2025-02-27 - Remove insecure PRNG usage for sync revisions
+**Vulnerability:** Found `Math.random().toString(36)` being used to generate revision IDs in `persistentStorageManager.ts` and `firebaseStorage.ts`, posing a security risk as `Math.random` is cryptographically insecure.
+**Learning:** Even though `Math.random` was used only as a fallback for missing `crypto.randomUUID`, falling back to an insecure algorithm provides a weak link. Modern browsers all have `crypto.getRandomValues`. The codebase already has robust fallback handling in `src/lib/id.ts`.
+**Prevention:** Always use the dedicated cryptographically secure utilities in `src/lib/id.ts` for any ID generation rather than implementing ad-hoc fallbacks.

@@ -13,6 +13,7 @@ import {
   setDoc,
   where,
 } from 'firebase/firestore';
+import { generateUUID } from './id';
 
 export interface CloudRevisionExpectation {
   exists: boolean;
@@ -67,10 +68,7 @@ export class FirebaseStorageAdapter implements StorageAdapter {
   }
 
   private createSyncRevision(): string {
-    if (typeof globalThis.crypto?.randomUUID === 'function') {
-      return globalThis.crypto.randomUUID();
-    }
-    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return `${Date.now()}-${generateUUID()}`;
   }
 
   async init(): Promise<void> {
