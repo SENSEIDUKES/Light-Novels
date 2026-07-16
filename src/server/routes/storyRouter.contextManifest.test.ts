@@ -44,6 +44,8 @@ const requestBody = {
       id: "moon-sword",
       name: "Moon Sword",
       description: "A silver blade",
+      imageHistory: [{ imageUrl: "data:image/png;base64,heavy-payload" }],
+      embedding: [0.1, 0.2, 0.3],
     }],
     unresolvedPlotThreads: ["Find the Moon Sword"],
     resolvedPlotThreads: [],
@@ -107,6 +109,7 @@ describe("storyRouter context manifest contract", () => {
     );
 
     const firstEvent = JSON.parse(writes[0].slice("data: ".length).trim());
+    expect(firstEvent.contextManifest.engine).toBe("v1");
     expect(firstEvent.contextManifest.sections).toHaveLength(8);
     expect(firstEvent.contextManifest.sections.map((section: any) => section.key)).toEqual([
       "pinnedRules",
@@ -121,6 +124,9 @@ describe("storyRouter context manifest contract", () => {
     expect(writes[1]).toContain("generated prose");
 
     const loggedManifest = mocks.loggerInfo.mock.calls[0][0].contextManifest;
+    const legacyPrompt = mocks.routeTextGenerationStream.mock.calls[0][2];
+    expect(legacyPrompt).toContain('"characters": [');
+    expect(legacyPrompt).not.toContain("CODEX MEMORY CARDS");
     expect(loggedManifest.sections).toHaveLength(8);
     expect(JSON.stringify(loggedManifest)).not.toContain("Moon Sword");
   });
@@ -137,6 +143,7 @@ describe("storyRouter context manifest contract", () => {
     expect(response.json).toHaveBeenCalledWith(expect.objectContaining({
       chapterText: "Generated chapter text",
       contextManifest: expect.objectContaining({
+        engine: "v1",
         route: "generate-chapter",
         chapterNumber: 2,
         sections: expect.arrayContaining([
@@ -144,5 +151,126 @@ describe("storyRouter context manifest contract", () => {
         ]),
       }),
     }));
+  });
+
+  it("renders typed v1 history byte-identically to the equivalent legacy strings", async () => {
+    const handler = getHandler("/api/generate-chapter");
+    const firstResponse = createResponse().response;
+    const secondResponse = createResponse().response;
+
+    await handler(
+      {
+        body: { ...requestBody, contextEngine: "v1" },
+        header: vi.fn(),
+      },
+      firstResponse,
+    );
+    await handler(
+      {
+        body: {
+          ...requestBody,
+          contextEngine: "v1",
+          pastSummaries: [
+            {
+              kind: "recent-full",
+              chapterNumber: 1,
+              text: "Chapter 1:\nLin reached the shrine.",
+            },
+            {
+              kind: "anchor",
+              chapterNumber: 1,
+              text: "The stone door opened.",
+            },
+          ],
+        },
+        header: vi.fn(),
+      },
+      secondResponse,
+    );
+
+    expect(mocks.routeTextGeneration.mock.calls[1][2])
+      .toBe(mocks.routeTextGeneration.mock.calls[0][2]);
+  });
+
+  it("uses cards, the unified budgeter, and truthful tier labels on v2", async () => {
+    const handler = getHandler("/api/generate-chapter-stream");
+    const { response, writes } = createResponse();
+
+    await handler(
+      {
+        body: {
+          ...requestBody,
+          contextEngine: "v2",
+        },
+        header: vi.fn(),
+      },
+      response,
+    );
+
+    const firstEvent = JSON.parse(writes[0].slice("data: ".length).trim());
+    const prompt = mocks.routeTextGenerationStream.mock.calls[0][2];
+    const entitySection = firstEvent.contextManifest.sections.find(
+      (section: any) => section.key === "entityCards",
+    );
+
+    expect(firstEvent.contextManifest.engine).toBe("v2");
+    expect(firstEvent.contextManifest.memoryAndHistoryBudgetTokens).toBe(24000);
+    expect(firstEvent.contextManifest.memoryAndHistoryEstimatedTokens)
+      .toBeLessThanOrEqual(24000);
+    expect(prompt).toContain("CODEX MEMORY CARDS");
+    expect(prompt).toContain("Moon Sword");
+    expect(prompt).not.toContain('"characters": [');
+    expect(prompt).not.toContain("imageHistory");
+    expect(prompt).not.toContain("heavy-payload");
+    expect(entitySection.includedItems).toEqual(expect.arrayContaining([
+      expect.stringMatching(/\((?:full|brief)\)$/),
+    ]));
+  });
+
+  it("uses v2 cards in non-stream chapter, next-directions, and steer-arc prompts", async () => {
+    const requests = [
+      {
+        path: "/api/generate-chapter",
+        body: { ...requestBody, contextEngine: "v2" },
+      },
+      {
+        path: "/api/generate-next-directions",
+        body: {
+          ...requestBody,
+          currentChapter: undefined,
+          contextEngine: "v2",
+        },
+      },
+      {
+        path: "/api/steer-arc",
+        body: {
+          ...requestBody,
+          currentChapter: undefined,
+          steerDirection: "continue",
+          userCustomDirections: "Follow the opened stone door.",
+          contextEngine: "v2",
+        },
+      },
+    ];
+
+    for (const request of requests) {
+      vi.clearAllMocks();
+      mocks.routeTextGeneration.mockResolvedValue({
+        chapterText: "Generated chapter text",
+        summary: "Summary",
+      });
+      const handler = getHandler(request.path);
+      const { response } = createResponse();
+
+      await handler(
+        { body: request.body, header: vi.fn() },
+        response,
+      );
+
+      const prompt = mocks.routeTextGeneration.mock.calls[0][2];
+      expect(prompt, request.path).toContain("CODEX MEMORY CARDS");
+      expect(prompt, request.path).not.toContain('"characters": [');
+      expect(prompt, request.path).not.toContain("imageHistory");
+    }
   });
 });

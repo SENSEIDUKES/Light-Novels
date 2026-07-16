@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { Request, Response, NextFunction } from "express";
+import { ContextBlock, ContextBlockKind } from "../types";
+import { classifyHistoryBlocks } from "./contextManifest";
 
 export const routeConfigSchema = z.object({
   provider: z.string().optional(),
@@ -16,6 +18,60 @@ export const routingConfigSchema = z.object({
   temperature: z.number().optional(),
   maxOutputTokens: z.number().optional(),
 }).passthrough().optional();
+
+export const contextBlockSchema = z.object({
+  kind: z.enum(["anchor", "recent-full", "recent-summary", "rag", "arc-summary"]),
+  chapterNumber: z.number().optional(),
+  text: z.string(),
+  summaryText: z.string().optional(),
+});
+
+const legacyHistoryHeaderPattern =
+  /^---\s*(?:IMMEDIATE CONTINUATION ANCHOR(?:\s*\([^)]*\))?|COARSE HISTORY \(ARC SUMMARIES\)|RECOVERED RELEVANT MEMORIES \(OLDER CHAPTERS\)|SLIDING WINDOW OF RECENT NARRATIVE BLOCKS\/DIALOGUE)\s*---\s*(?:\r?\n)?/i;
+
+const legacyHistoryKind = (
+  key: ReturnType<typeof classifyHistoryBlocks>[number]["key"],
+  text: string,
+): ContextBlockKind => {
+  if (key === "anchor") return "anchor";
+  if (key === "rag") return "rag";
+  if (key === "arcSummaries") return "arc-summary";
+
+  const looksLikeFullChapter =
+    /^Chapter\s+\d+(?:\s+\(ARCHIVED BLOCKS\))?:\s*(?:\r?\n)/i.test(text)
+    && !/^Chapter\s+\d+\s+(?:Pruned\s+)?Summary:/i.test(text);
+  return looksLikeFullChapter ? "recent-full" : "recent-summary";
+};
+
+const coerceHistoryBlocks = (
+  values: Array<string | z.infer<typeof contextBlockSchema>>,
+): ContextBlock[] => {
+  const classifiedLegacy = classifyHistoryBlocks(
+    values.filter((value): value is string => typeof value === "string"),
+  );
+  let legacyIndex = 0;
+
+  return values.flatMap(value => {
+    if (typeof value !== "string") return [value];
+
+    const classified = classifiedLegacy[legacyIndex++];
+    const text = value.replace(legacyHistoryHeaderPattern, "").trim();
+    if (!text) return [];
+
+    const chapterMatch = value.match(/Chapter\s+(\d+)/i);
+    return [{
+      kind: legacyHistoryKind(classified.key, text),
+      chapterNumber: chapterMatch ? Number(chapterMatch[1]) : undefined,
+      text,
+    }];
+  });
+};
+
+export const pastSummariesSchema = z
+  .array(z.union([z.string(), contextBlockSchema]))
+  .transform(coerceHistoryBlocks);
+
+export const contextEngineSchema = z.enum(["v1", "v2"]);
 
 const memoryProvenanceSchema = z.object({
   sourceChapterNumber: z.number().optional(),
@@ -270,7 +326,7 @@ export const chapterGenerationSchema = z.object({
   genre: z.string().optional(),
   customPremise: z.string().optional(),
   memory: storyMemorySchema,
-  pastSummaries: z.array(z.string()).optional(),
+  pastSummaries: pastSummariesSchema.optional(),
   currentChapter: z.object({
     number: z.number().optional(),
     title: z.string().optional(),
@@ -285,6 +341,7 @@ export const chapterGenerationSchema = z.object({
     .transform((val) => (Array.isArray(val) ? val.join("\n") : val))
     .optional(),
   storyTags: z.array(z.string()).optional(),
+  contextEngine: contextEngineSchema.optional(),
 });
 
 export const extractMetadataSchema = z.object({
@@ -312,11 +369,12 @@ export const generateNextDirectionsSchema = z.object({
   genre: z.string().optional(),
   customPremise: z.string().optional(),
   memory: storyMemorySchema,
-  pastSummaries: z.array(z.string()).optional(),
+  pastSummaries: pastSummariesSchema.optional(),
   routingConfig: routingConfigSchema,
   destinedEnding: z.string().optional(),
   currentArcCount: z.union([z.string(), z.number()]).optional(),
   estimatedArcs: z.number().optional(),
+  contextEngine: contextEngineSchema.optional(),
 });
 
 export const suggestTagsSchema = z.object({
@@ -330,11 +388,12 @@ export const steerArcSchema = z.object({
   genre: z.string().optional(),
   customPremise: z.string().optional(),
   memory: storyMemorySchema,
-  pastSummaries: z.array(z.string()).optional(),
+  pastSummaries: pastSummariesSchema.optional(),
   currentArcCount: z.union([z.string(), z.number()]).optional(),
   steerDirection: z.string(),
   userCustomDirections: z.string().optional(),
   routingConfig: routingConfigSchema,
+  contextEngine: contextEngineSchema.optional(),
 });
 
 export const generateCardImageSchema = z.object({

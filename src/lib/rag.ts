@@ -1,7 +1,19 @@
-import { Chapter, StoryWorld, ChapterContent } from '../types';
+import { ContextBlock, StoryWorld, ChapterContent } from '../types';
 import { storyStorage } from './storage';
 import { isUsableSummary } from './summaryIntegrity';
-
+import {
+  ARC_HISTORY_HEADER,
+  CONTEXT_CHAR_LIMITS,
+  ContextEngine,
+  contextBlocksToLegacyStrings,
+  RAG_HISTORY_HEADER,
+  SECOND_RECENT_BLOCK_FRACTION,
+  SECOND_RECENT_EPISODIC_SUMMARY_THRESHOLD,
+} from './contextBlocks';
+export {
+  CONTEXT_CHAR_LIMITS,
+  contextBlocksToLegacyStrings,
+} from './contextBlocks';
 export function cosineSimilarity(vecA: number[], vecB: number[]): number {
   if (vecA.length !== vecB.length) return 0;
   let dotProduct = 0;
@@ -35,9 +47,130 @@ export async function generateEmbedding(text: string, apiHeaders: Record<string,
   }
 }
 
+const chapterSummaryText = (
+  chapterNumber: number,
+  summary: string,
+  label: 'Summary' | 'Pruned Summary' = 'Summary',
+) => `Chapter ${chapterNumber} ${label}: ${isUsableSummary(summary) ? summary : label === 'Pruned Summary' ? 'Archived' : 'No past summary'}`;
+
+const getNarrativeBlockTexts = (content: ChapterContent): string[] => {
+  const sourceBlocks = content.blocks?.length
+    ? content.blocks
+    : content.archivedBlocks?.length
+      ? content.archivedBlocks
+      : [];
+  const blockTexts = sourceBlocks
+    .map(block => block.text?.trim())
+    .filter((text): text is string => Boolean(text));
+  if (blockTexts.length > 0) return blockTexts;
+
+  return (content.generatedContent || '')
+    .split(/\n{2,}/)
+    .map(paragraph => paragraph.trim())
+    .filter(Boolean);
+};
+
+const fullRecentBlock = (
+  chapterNumber: number,
+  summary: string,
+  content: ChapterContent | null,
+): ContextBlock => {
+  const summaryText = isUsableSummary(content?.episodicSummary)
+    ? content?.episodicSummary
+    : isUsableSummary(summary)
+      ? summary
+      : undefined;
+  if (content?.archivedBlocks?.length) {
+    return {
+      kind: 'recent-full',
+      chapterNumber,
+      text: `Chapter ${chapterNumber} (ARCHIVED BLOCKS):\n${content.archivedBlocks.map(block => block.text).join('\n')}`,
+      summaryText,
+    };
+  }
+  if (content?.generatedContent) {
+    return {
+      kind: 'recent-full',
+      chapterNumber,
+      text: `Chapter ${chapterNumber}:\n${content.generatedContent}`,
+      summaryText,
+    };
+  }
+  if (content?.episodicSummary) {
+    return {
+      kind: 'recent-summary',
+      chapterNumber,
+      text: `Chapter ${chapterNumber} Summary:\n${content?.episodicSummary}`,
+    };
+  }
+  return {
+    kind: 'recent-summary',
+    chapterNumber,
+    text: chapterSummaryText(chapterNumber, summary),
+  };
+};
+
+const reducedRecentBlock = (
+  chapterNumber: number,
+  summary: string,
+  content: ChapterContent | null,
+  distanceFromTarget: number,
+): ContextBlock => {
+  if (distanceFromTarget === 0) {
+    return fullRecentBlock(chapterNumber, summary, content);
+  }
+
+  if (distanceFromTarget >= 2) {
+    const summaryText = isUsableSummary(content?.episodicSummary)
+      ? content?.episodicSummary || ''
+      : summary;
+    return {
+      kind: 'recent-summary',
+      chapterNumber,
+      text: chapterSummaryText(chapterNumber, summaryText),
+    };
+  }
+
+  const narrativeBlocks = content ? getNarrativeBlockTexts(content) : [];
+  const narrativeTextLength = narrativeBlocks.join('\n\n').length;
+  if (
+    narrativeTextLength > SECOND_RECENT_EPISODIC_SUMMARY_THRESHOLD
+    && isUsableSummary(content?.episodicSummary)
+  ) {
+    return {
+      kind: 'recent-summary',
+      chapterNumber,
+      text: `Chapter ${chapterNumber} Summary:\n${content?.episodicSummary}`,
+    };
+  }
+
+  if (narrativeBlocks.length > 0) {
+    const retainedBlockCount = Math.max(
+      1,
+      Math.ceil(narrativeBlocks.length * SECOND_RECENT_BLOCK_FRACTION),
+    );
+    return {
+      kind: 'recent-full',
+      chapterNumber,
+      text: `Chapter ${chapterNumber}:\n${narrativeBlocks.slice(-retainedBlockCount).join('\n\n')}`,
+      summaryText: isUsableSummary(content?.episodicSummary)
+        ? content?.episodicSummary
+        : isUsableSummary(summary)
+          ? summary
+          : undefined,
+    };
+  }
+
+  return {
+    kind: 'recent-summary',
+    chapterNumber,
+    text: chapterSummaryText(chapterNumber, summary),
+  };
+};
+
 /**
  * Executes a local Vector Search (RAG) substituting Server-side Firebase Vector Extensions.
- * It uses a rolling/hierarchical summary approach: per-arc summary + last-N detailed chapter summaries,
+ * It uses a rolling/hierarchical summary approach: per-arc summary + recent chapter blocks,
  * and falls back/adds older vector-searched chapters to maintain deep long-context continuity.
  */
 export async function retrieveRelevantContext(
@@ -46,10 +179,12 @@ export async function retrieveRelevantContext(
   story: StoryWorld,
   apiHeaders: Record<string, string> = {},
   topK: number = 3,
-  maxContextChars: number = 120000,
-  recentNCount: number = 3
-): Promise<string[]> {
-  const contextBlocks: string[] = [];
+  maxContextChars?: number,
+  recentNCount: number = 3,
+  contextEngine: ContextEngine = 'v1',
+): Promise<ContextBlock[]> {
+  const contextBlocks: ContextBlock[] = [];
+  const effectiveMaxContextChars = maxContextChars ?? CONTEXT_CHAR_LIMITS[contextEngine];
   let currentTotalChars = 0;
 
   // We want to fetch the real narrative blocks of the most recent chapters (sliding window).
@@ -83,8 +218,7 @@ export async function retrieveRelevantContext(
 
   // 1. Recovered Relevant Memories: Vector search over older chapters
   const oldCandidateChapters = allPastChapters.filter(c => !c.isRecent);
-  const oldRecoveredContexts: string[] = [];
-  const recoveredChapterNumbers = new Set<number>();
+  const oldRecoveredContexts: ContextBlock[] = [];
   
   if (oldCandidateChapters.length > 0 && currentPremise) {
     const queryText = `Premise: ${currentPremise}. Unresolved: ${story.memory.unresolvedPlotThreads.join(', ')}`;
@@ -106,54 +240,52 @@ export async function retrieveRelevantContext(
       if (candidates.length > 0) {
         candidates.sort((a, b) => b.score - a.score);
         const topVectorMatches = candidates.slice(0, topK);
-        topVectorMatches.sort((a, b) => a.chapterNumber - b.chapterNumber); // chronological
+        if (contextEngine === 'v1') {
+          topVectorMatches.sort((a, b) => a.chapterNumber - b.chapterNumber);
+        }
         
-        oldRecoveredContexts.push("--- RECOVERED RELEVANT MEMORIES (OLDER CHAPTERS) ---");
         topVectorMatches.forEach(c => {
-          recoveredChapterNumbers.add(c.chapterNumber);
-          oldRecoveredContexts.push(`Chapter ${c.chapterNumber}: ${c.summary}`);
+          oldRecoveredContexts.push({
+            kind: 'rag',
+            chapterNumber: c.chapterNumber,
+            text: `Chapter ${c.chapterNumber}: ${c.summary}`,
+          });
         });
       }
     }
   }
 
-  // 2. Recent N Chapters (Full Text)
-  const recentContextBlocks: string[] = [];
+  // 2. Recent chapters. v1 retains the full-text behavior; v2 uses
+  // one full chapter, one final-40%-or-summary chapter, and one summary.
+  const recentContextBlocks: ContextBlock[] = [];
   const recentCandidateChapters = allPastChapters.filter(c => c.isRecent);
   
   for (let i = recentCandidateChapters.length - 1; i >= 0; i--) {
     const ch = recentCandidateChapters[i];
-    let chText = "";
+    let content: ChapterContent | null = null;
     
     // Attempt to load full text
     if (ch.contentPromise) {
       try {
-        const content = await ch.contentPromise;
+        content = await ch.contentPromise;
         if (content) {
           if (!isUsableSummary(ch.summary) && isUsableSummary(content.summary)) ch.summary = content.summary;
-          
-          if (content.archivedBlocks && content.archivedBlocks.length > 0) {
-             chText = `Chapter ${ch.chapterNumber} (ARCHIVED BLOCKS):\n` + content.archivedBlocks.map(b => b.text).join('\n');
-          } else if (content.generatedContent) {
-             chText = `Chapter ${ch.chapterNumber}:\n${content.generatedContent}`;
-          } else if (content.episodicSummary) {
-             chText = `Chapter ${ch.chapterNumber} Summary:\n${content.episodicSummary}`;
-          }
         }
       } catch (e) {
         console.warn(`Could not load full content for ch ${ch.chapterNumber}`, e);
       }
     }
 
-    if (!chText) {
-      chText = `Chapter ${ch.chapterNumber} Summary: ${isUsableSummary(ch.summary) ? ch.summary : "No past summary"}`;
-    }
-
-    recentContextBlocks.unshift(chText);
+    const distanceFromTarget = recentCandidateChapters.length - 1 - i;
+    recentContextBlocks.unshift(
+      contextEngine === 'v2'
+        ? reducedRecentBlock(ch.chapterNumber, ch.summary, content, distanceFromTarget)
+        : fullRecentBlock(ch.chapterNumber, ch.summary, content),
+    );
   }
 
   // 3. Coarse History: Arc Summaries
-  const arcSummaries: string[] = [];
+  const arcHistoryBlocks: ContextBlock[] = [];
   story.arcs.forEach(arc => {
     const hasPastChapters = arc.chapters.some(c => c.number < targetChapterNumber);
     if (hasPastChapters) {
@@ -161,14 +293,12 @@ export async function retrieveRelevantContext(
        if (arc.episodicSummaries && arc.episodicSummaries.length > 0) {
            arcSum += `\nEpisodic Log: ${arc.episodicSummaries.join(' | ')}`;
        }
-       arcSummaries.push(arcSum);
+       arcHistoryBlocks.push({
+         kind: 'arc-summary',
+         text: arcSum,
+       });
     }
   });
-
-  const arcHistoryBlocks: string[] = [];
-  if (arcSummaries.length > 0) {
-     arcHistoryBlocks.push("--- COARSE HISTORY (ARC SUMMARIES) ---\n" + arcSummaries.join('\n'));
-  }
 
   // Assemble context blocks within budget
   // We prioritize recent full-text chapters FIRST to ensure they fit,
@@ -176,49 +306,74 @@ export async function retrieveRelevantContext(
   // then coarse history summaries.
   
   let recentTotalChars = 0;
-  const finalRecentBlocks: string[] = [];
+  const finalRecentBlocks: ContextBlock[] = [];
   for (let i = recentContextBlocks.length - 1; i >= 0; i--) {
     const block = recentContextBlocks[i];
-    if (recentTotalChars + block.length <= maxContextChars) {
+    if (recentTotalChars + block.text.length <= effectiveMaxContextChars) {
       finalRecentBlocks.unshift(block);
-      recentTotalChars += block.length;
+      recentTotalChars += block.text.length;
     } else {
       // Approach token limit: prune to episodic summary or standard summary
-      const shortText = `Chapter ${recentCandidateChapters[i].chapterNumber} Pruned Summary: ${isUsableSummary(recentCandidateChapters[i].summary) ? recentCandidateChapters[i].summary : "Archived"}`;
-      if (recentTotalChars + shortText.length <= maxContextChars) {
-        finalRecentBlocks.unshift(shortText);
-        recentTotalChars += shortText.length;
+      const shortBlock: ContextBlock = {
+        kind: 'recent-summary',
+        chapterNumber: recentCandidateChapters[i].chapterNumber,
+        text: chapterSummaryText(
+          recentCandidateChapters[i].chapterNumber,
+          recentCandidateChapters[i].summary,
+          'Pruned Summary',
+        ),
+      };
+      if (recentTotalChars + shortBlock.text.length <= effectiveMaxContextChars) {
+        finalRecentBlocks.unshift(shortBlock);
+        recentTotalChars += shortBlock.text.length;
       }
     }
   }
 
   currentTotalChars += recentTotalChars;
 
-  const finalRecoveredBlocks: string[] = [];
+  const finalRecoveredBlocks: ContextBlock[] = [];
   if (oldRecoveredContexts.length > 0) {
-     const header = oldRecoveredContexts[0];
-     let recChars = header.length;
-     finalRecoveredBlocks.push(header);
-     for (let i = 1; i < oldRecoveredContexts.length; i++) {
-        const block = oldRecoveredContexts[i];
-        if (currentTotalChars + recChars + block.length <= maxContextChars) {
+     let recChars = contextEngine === 'v1' ? RAG_HISTORY_HEADER.length : 0;
+     for (const block of oldRecoveredContexts) {
+        if (currentTotalChars + recChars + block.text.length <= effectiveMaxContextChars) {
            finalRecoveredBlocks.push(block);
-           recChars += block.length;
+           recChars += block.text.length;
         }
      }
-     if (finalRecoveredBlocks.length > 1) {
+     if (finalRecoveredBlocks.length > 0) {
         currentTotalChars += recChars;
-     } else {
-        finalRecoveredBlocks.length = 0; // empty if only header
      }
   }
 
-  const finalArcBlocks: string[] = [];
-  for (const block of arcHistoryBlocks) {
-     if (currentTotalChars + block.length <= maxContextChars) {
-        finalArcBlocks.push(block);
-        currentTotalChars += block.length;
-     }
+  const finalArcBlocks: ContextBlock[] = [];
+  if (contextEngine === 'v1') {
+    const combinedArcLength = ARC_HISTORY_HEADER.length
+      + 1
+      + arcHistoryBlocks.map(block => block.text).join('\n').length;
+    if (currentTotalChars + combinedArcLength <= effectiveMaxContextChars) {
+      finalArcBlocks.push(...arcHistoryBlocks);
+      currentTotalChars += combinedArcLength;
+    }
+  } else {
+    let arcChars = 0;
+    for (let index = arcHistoryBlocks.length - 1; index >= 0; index -= 1) {
+      const block = arcHistoryBlocks[index];
+      const separatorLength = finalArcBlocks.length > 0 ? 1 : 0;
+      if (
+        currentTotalChars
+        + arcChars
+        + separatorLength
+        + block.text.length
+        <= effectiveMaxContextChars
+      ) {
+        finalArcBlocks.unshift(block);
+        arcChars += separatorLength + block.text.length;
+      }
+    }
+    if (finalArcBlocks.length > 0) {
+      currentTotalChars += arcChars;
+    }
   }
 
   // Append in chronological order logically:
@@ -232,9 +387,31 @@ export async function retrieveRelevantContext(
   }
 
   if (finalRecentBlocks.length > 0) {
-     contextBlocks.push("--- SLIDING WINDOW OF RECENT NARRATIVE BLOCKS/DIALOGUE ---");
      contextBlocks.push(...finalRecentBlocks);
   }
 
   return contextBlocks;
+}
+
+export async function retrieveRelevantContextLegacy(
+  currentPremise: string,
+  targetChapterNumber: number,
+  story: StoryWorld,
+  apiHeaders: Record<string, string> = {},
+  topK: number = 3,
+  maxContextChars?: number,
+  recentNCount: number = 3,
+  contextEngine: ContextEngine = 'v1',
+): Promise<string[]> {
+  const blocks = await retrieveRelevantContext(
+    currentPremise,
+    targetChapterNumber,
+    story,
+    apiHeaders,
+    topK,
+    maxContextChars,
+    recentNCount,
+    contextEngine,
+  );
+  return contextBlocksToLegacyStrings(blocks);
 }

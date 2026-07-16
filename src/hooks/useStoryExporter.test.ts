@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useStoryExporter } from './useStoryExporter';
 import { Story } from '../types';
+import { storyStorage } from '../lib/storage';
 
 describe('useStoryExporter', () => {
   it('should clean novelty formatting properly before export', () => {
@@ -99,6 +100,65 @@ Suddenly!
     });
 
     expect(mockAnchor.setAttribute).toHaveBeenCalledWith('download', 'story_world_story_single_export.json');
+    createElementSpy.mockRestore();
+    appendSpy.mockRestore();
+  });
+
+  it('hydrates episodic and archived context fields in story JSON exports', async () => {
+    const { result } = renderHook(() => useStoryExporter());
+    const createElementSpy = vi.spyOn(document, 'createElement');
+    const mockAnchor = {
+      setAttribute: vi.fn(),
+      click: vi.fn(),
+      remove: vi.fn(),
+    };
+    // @ts-expect-error - mock anchor
+    createElementSpy.mockReturnValue(mockAnchor);
+    const appendSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => null);
+    const contentSpy = vi.spyOn(storyStorage, 'getChapterContent').mockResolvedValue({
+      storyId: '123',
+      chapterNumber: 1,
+      generatedContent: 'Hydrated prose',
+      archivedBlocks: [{ id: 'a1', type: 'paragraph', text: 'Archived prose' }],
+      episodicSummary: 'Hydrated episodic summary',
+    } as any);
+
+    await act(async () => {
+      await result.current.handleExportSingleStory({
+        id: '123',
+        title: 'Hydrated story',
+        genre: 'test',
+        mcName: 'test',
+        customPremise: 'test',
+        createdAt: '123',
+        updatedAt: '123',
+        currentChapterNumber: 1,
+        memory: {} as any,
+        arcs: [{
+          title: 'Arc',
+          isCompleted: false,
+          chapters: [{
+            number: 1,
+            title: 'Chapter',
+            premise: 'Premise',
+            status: 'read',
+            hasContent: true,
+          }],
+        }],
+      });
+    });
+
+    const href = mockAnchor.setAttribute.mock.calls.find(
+      ([name]) => name === 'href',
+    )?.[1] as string;
+    const exported = JSON.parse(decodeURIComponent(href.split(',', 2)[1]));
+    expect(exported.arcs[0].chapters[0]).toMatchObject({
+      generatedContent: 'Hydrated prose',
+      archivedBlocks: [{ text: 'Archived prose' }],
+      episodicSummary: 'Hydrated episodic summary',
+    });
+
+    contentSpy.mockRestore();
     createElementSpy.mockRestore();
     appendSpy.mockRestore();
   });

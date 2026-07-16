@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildContextManifest } from "./contextManifest";
+import {
+  buildContextManifest,
+  buildContextManifestFromOutcomes,
+} from "./contextManifest";
 import { estimateTokens } from "./helpers";
 
 describe("buildContextManifest", () => {
@@ -166,5 +169,57 @@ describe("buildContextManifest", () => {
       .toBe(0);
     expect(manifest.sections.find(section => section.key === "pinnedRules")?.includedItems)
       .toContain("First chapter fallback context");
+  });
+
+  it("uses v2 budget outcomes directly without re-deriving section decisions", () => {
+    const outcomes = [
+      {
+        key: "pinnedRules" as const,
+        includedItems: ["Main-character state"],
+        demotedItems: [],
+        omittedItems: [],
+        estimatedTokens: 30,
+        protectedOverflowTokens: 7,
+      },
+      {
+        key: "entityCards" as const,
+        includedItems: ["Character: Lin (brief)"],
+        demotedItems: ["Character: Lin (full) -> brief"],
+        omittedItems: ["Artifact: Moon Sword"],
+        estimatedTokens: 12,
+        omissionReason: "budget_drop" as const,
+      },
+    ];
+
+    const manifest = buildContextManifestFromOutcomes({
+      route: "generate-chapter-stream",
+      chapterNumber: 9,
+      systemInstruction: "system",
+      finalUserPrompt: "prompt",
+      outcomes,
+      memoryAndHistoryBudgetTokens: 100,
+    });
+
+    expect(manifest.engine).toBe("v2");
+    expect(manifest.memoryAndHistoryEstimatedTokens).toBe(42);
+    expect(manifest.totalEstimatedTokens).toBe(42);
+    expect(manifest.providerInputEstimatedTokens).toBe(
+      estimateTokens("system") + estimateTokens("prompt"),
+    );
+    expect(manifest.sections.find(section => section.key === "pinnedRules"))
+      .toMatchObject({
+        estimatedTokens: 30,
+        protectedOverflowTokens: 7,
+        includedItems: ["Main-character state"],
+        omittedItems: [],
+      });
+    expect(manifest.sections.find(section => section.key === "entityCards"))
+      .toMatchObject({
+        estimatedTokens: 12,
+        includedItems: ["Character: Lin (brief)"],
+        demotedItems: ["Character: Lin (full) -> brief"],
+        omittedItems: ["Artifact: Moon Sword"],
+        omissionReason: "budget_drop",
+      });
   });
 });

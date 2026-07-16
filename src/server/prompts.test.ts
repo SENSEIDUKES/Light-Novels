@@ -69,6 +69,29 @@ describe('Prompts', () => {
     expect(rendered).toContain('AUTHOR CONTEXT AUTHORITY');
     expect(rendered).not.toContain('"aliases": [');
   });
+
+  it('uses the v2 assembly as the single source of chapter premise context', () => {
+    const rendered = PROMPTS.chapter.userPrompt(
+      2,
+      'The Gate',
+      'UNIQUE_GOAL',
+      'Lin',
+      'Xianxia',
+      'UNIQUE_CORE',
+      '--- CURRENT CHAPTER PREMISE ---\nGoal: UNIQUE_GOAL\nCore premise: UNIQUE_CORE',
+      '',
+      true,
+      undefined,
+      undefined,
+      undefined,
+      'v2',
+    );
+
+    expect(rendered).toContain('CONTEXT ENGINE V2 ASSEMBLY');
+    expect(rendered).not.toContain('PAST SUMMARY CONTEXT');
+    expect(rendered.match(/UNIQUE_GOAL/g)).toHaveLength(1);
+    expect(rendered.match(/UNIQUE_CORE/g)).toHaveLength(1);
+  });
   
   describe('cross-genre system panels', () => {
     it('offers Celestial Library system panels to every genre in the streamed system prompt', () => {

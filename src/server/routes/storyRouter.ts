@@ -17,15 +17,58 @@ import {
   generateCultivatorPortraitSchema,
   generateCustomGlossarySchema,
   translateChapterSchema,
-  generateAudioSchema
+  generateAudioSchema,
+  pastSummariesSchema,
 } from "../schemas";
 import { routeTextGeneration, routeImageGeneration, routeTextGenerationStream, ROUTER_PRESETS } from "../../aiRouter";
-import { ensureString, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChapterResponse, filterRelevantEntities, formatAbilityLedgerForPrompt, rankRelevantEntities, truncateContextIfNeeded } from "../helpers";
+import { ensureString, cleanBlueprint, cleanInitialArc, cleanSteerArc, cleanChapterResponse, filterRelevantEntities, formatAbilityLedgerForPrompt } from "../helpers";
 import { retrieveGlossaryEntries, formatGlossaryForPrompt } from "../../lib/glossary";
 import { PROMPTS } from "../prompts";
-import { buildContextManifest, contextManifestLogPayload } from "../contextManifest";
+import {
+  buildContextManifest,
+  buildContextManifestFromOutcomes,
+  contextManifestLogPayload,
+} from "../contextManifest";
+import { contextBlocksToLegacyStrings } from "../../lib/contextBlocks";
+import {
+  anchorTextFromBlocks,
+  ContextEngine,
+  formatMainCharacterState,
+  latestHistoryText,
+  prepareGenerationContext,
+} from "../generationContext";
 import { logger } from "../logger";
 export const storyRouter = express.Router();
+
+const normalizeContextEngine = (value: unknown): ContextEngine =>
+  value === "v2" ? "v2" : "v1";
+
+const normalizeRequestHistory = (
+  value: unknown,
+  engine: ContextEngine,
+) => {
+  const rawHistory = Array.isArray(value) ? value : [];
+  const blocks = pastSummariesSchema.parse(rawHistory);
+  const legacyPastSummaries = engine === "v1"
+    && rawHistory.every(item => typeof item === "string")
+    ? rawHistory as string[]
+    : contextBlocksToLegacyStrings(blocks);
+  return { blocks, legacyPastSummaries };
+};
+
+const lastSummaryForRanking = (
+  engine: ContextEngine,
+  blocks: ReturnType<typeof pastSummariesSchema.parse>,
+  legacyPastSummaries: string[],
+) => engine === "v2"
+  ? latestHistoryText(blocks)
+  : legacyPastSummaries[legacyPastSummaries.length - 1];
+
+const promptThreadText = (thread: any) => {
+  if (typeof thread === "string") return thread;
+  if (thread?.description) return String(thread.description);
+  return String(thread);
+};
 
 const buildIntakeGlossarySourceText = (intake: any) =>
   [
@@ -168,8 +211,14 @@ storyRouter.post("/api/generate-chapter-stream", validateBody(chapterGenerationS
       pacingDirective,
       styleBible,
       tropeRules,
-      storyTags
+      storyTags,
+      contextEngine: requestedContextEngine,
     } = req.body;
+    const contextEngine = normalizeContextEngine(requestedContextEngine);
+    const {
+      blocks: contextBlocks,
+      legacyPastSummaries,
+    } = normalizeRequestHistory(pastSummaries, contextEngine);
 
     const activeFatePressure = fatePressure || (hardcoreFateMode ? 'Hardcore' : 'Balanced');
 
@@ -177,7 +226,11 @@ storyRouter.post("/api/generate-chapter-stream", validateBody(chapterGenerationS
       return res.status(400).json({ error: "Missing required fields for chapter generation" });
     }
 
-    const lastSummary = pastSummaries && pastSummaries.length > 0 ? pastSummaries[pastSummaries.length - 1] : undefined;
+    const lastSummary = lastSummaryForRanking(
+      contextEngine,
+      contextBlocks,
+      legacyPastSummaries,
+    );
 
     const currentChapterNum = currentChapter.number || 1;
     let rThreadsStream = memory.unresolvedPlotThreads || [];
@@ -199,23 +252,54 @@ storyRouter.post("/api/generate-chapter-stream", validateBody(chapterGenerationS
 
     const safeStr = (s: string|undefined, max: number = 3000) => (s && s.length > max) ? s.substring(0, max) + "..." : s;
 
-    const rawMemoryObj = {
+    const baseMemory = {
       powerSystem: safeStr(memory.powerSystem, 4000),
       currentPowerStage: safeStr(memory.currentPowerStage, 1000),
       worldRules: Array.isArray(memory.worldRules) ? memory.worldRules.slice(0, 20).map(r => safeStr(r, 1000)) : safeStr(memory.worldRules, 4000),
       abilities: formatAbilityLedgerForPrompt(memory.abilities),
       unresolvedPlotThreads: formattedThreads,
-      characters: rankRelevantEntities(memory.characters, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
-      factions: rankRelevantEntities(memory.factions, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
-      locations: rankRelevantEntities(memory.locations, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
-      artifacts: rankRelevantEntities(memory.artifacts, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise])
     };
-
+    const preparedContext = prepareGenerationContext({
+      engine: contextEngine,
+      memory,
+      baseMemory,
+      blocks: contextBlocks,
+      legacyPastSummaries,
+      fallbackSummary: "This is the very first chapter of the story arc! Set the scene dramatically.",
+      threads: formattedThreads,
+      worldRules: Array.isArray(baseMemory.worldRules)
+        ? baseMemory.worldRules.map(rule => String(rule))
+        : baseMemory.worldRules
+          ? [String(baseMemory.worldRules)]
+          : [],
+      pinned: {
+        premise: [
+          `Chapter ${currentChapterNum}: ${currentChapter.title || ""}`,
+          `Goal: ${currentChapter.premise || ""}`,
+          genre ? `Genre/style: ${genre}` : "",
+          customPremise ? `Core premise: ${customPremise}` : "",
+        ].filter(Boolean).join("\n"),
+        mcStateCard: formatMainCharacterState({
+          mcName,
+          powerSystem: baseMemory.powerSystem,
+          currentPowerStage: baseMemory.currentPowerStage,
+          abilities: memory.abilities,
+        }),
+      },
+      ranking: {
+        mcName,
+        lastSummary,
+        currentContext: currentChapter.premise || "",
+        bonusContexts: [memory.unresolvedPlotThreads?.join(" "), customPremise],
+        anchorText: anchorTextFromBlocks(contextBlocks),
+      },
+    });
     const {
+      rawMemoryObj,
       memoryJsonStr,
       pastSummariesStr,
       droppedPastSummariesCount,
-    } = truncateContextIfNeeded(rawMemoryObj, pastSummaries, 80000, "This is the very first chapter of the story arc! Set the scene dramatically.");
+    } = preparedContext;
 
     const systemInstruction = PROMPTS.chapter.system;
     const userPrompt = PROMPTS.chapter.userPrompt(
@@ -230,7 +314,8 @@ storyRouter.post("/api/generate-chapter-stream", validateBody(chapterGenerationS
       true,
       styleBible,
       tropeRules,
-      storyTags
+      storyTags,
+      contextEngine,
     );
 
     const glossaryEntries = retrieveGlossaryEntries({
@@ -338,29 +423,40 @@ PACING DIRECTIVE: Build real suspense and danger. Make sure characters face phys
 =========================================`;
     }
 
-    const contextManifest = buildContextManifest({
-      route: "generate-chapter-stream",
-      chapterNumber: currentChapterNum,
-      chapterTitle: currentChapter.title,
-      chapterPremise: currentChapter.premise,
-      mcName,
-      genre,
-      customPremise,
-      systemInstruction,
-      finalUserPrompt,
-      rawMemory: rawMemoryObj,
-      sourceMemory: memory,
-      memoryJsonStr,
-      pastSummariesStr,
-      pastSummaries,
-      droppedPastSummariesCount,
-      styleBible,
-      tropeRules,
-      storyTags,
-      glossaryRules,
-      pacingDirective,
-      fatePressure: activeFatePressure,
-    });
+    const contextManifest = preparedContext.budgetedContext
+      ? buildContextManifestFromOutcomes({
+          route: "generate-chapter-stream",
+          chapterNumber: currentChapterNum,
+          systemInstruction,
+          finalUserPrompt,
+          outcomes: preparedContext.budgetedContext.outcomes,
+          memoryAndHistoryBudgetTokens:
+            preparedContext.budgetedContext.totalBudgetTokens,
+        })
+      : buildContextManifest({
+          engine: "v1",
+          route: "generate-chapter-stream",
+          chapterNumber: currentChapterNum,
+          chapterTitle: currentChapter.title,
+          chapterPremise: currentChapter.premise,
+          mcName,
+          genre,
+          customPremise,
+          systemInstruction,
+          finalUserPrompt,
+          rawMemory: rawMemoryObj,
+          sourceMemory: memory,
+          memoryJsonStr,
+          pastSummariesStr,
+          pastSummaries: preparedContext.legacyPastSummaries,
+          droppedPastSummariesCount,
+          styleBible,
+          tropeRules,
+          storyTags,
+          glossaryRules,
+          pacingDirective,
+          fatePressure: activeFatePressure,
+        });
     logger.info(
       { event: "chapter_context_manifest", contextManifest: contextManifestLogPayload(contextManifest) },
       `Chapter ${currentChapterNum} context manifest`,
@@ -409,8 +505,14 @@ storyRouter.post("/api/generate-chapter", validateBody(chapterGenerationSchema),
       pacingDirective,
       styleBible,
       tropeRules,
-      storyTags
+      storyTags,
+      contextEngine: requestedContextEngine,
     } = req.body;
+    const contextEngine = normalizeContextEngine(requestedContextEngine);
+    const {
+      blocks: contextBlocks,
+      legacyPastSummaries,
+    } = normalizeRequestHistory(pastSummaries, contextEngine);
 
     const activeFatePressure = fatePressure || (hardcoreFateMode ? 'Hardcore' : 'Balanced');
 
@@ -418,7 +520,11 @@ storyRouter.post("/api/generate-chapter", validateBody(chapterGenerationSchema),
       return res.status(400).json({ error: "Missing required fields for chapter generation" });
     }
 
-    const lastSummary = pastSummaries && pastSummaries.length > 0 ? pastSummaries[pastSummaries.length - 1] : undefined;
+    const lastSummary = lastSummaryForRanking(
+      contextEngine,
+      contextBlocks,
+      legacyPastSummaries,
+    );
 
     const currentChapterNum = currentChapter.number || 1;
     let rThreadsStream = memory.unresolvedPlotThreads || [];
@@ -440,23 +546,54 @@ storyRouter.post("/api/generate-chapter", validateBody(chapterGenerationSchema),
 
     const safeStr = (s: string|undefined, max: number = 3000) => (s && s.length > max) ? s.substring(0, max) + "..." : s;
 
-    const rawMemoryObj = {
+    const baseMemory = {
       powerSystem: safeStr(memory.powerSystem, 4000),
       currentPowerStage: safeStr(memory.currentPowerStage, 1000),
       worldRules: Array.isArray(memory.worldRules) ? memory.worldRules.slice(0, 20).map(r => safeStr(r, 1000)) : safeStr(memory.worldRules, 4000),
       abilities: formatAbilityLedgerForPrompt(memory.abilities),
       unresolvedPlotThreads: formattedThreads,
-      characters: rankRelevantEntities(memory.characters, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
-      factions: rankRelevantEntities(memory.factions, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
-      locations: rankRelevantEntities(memory.locations, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise]),
-      artifacts: rankRelevantEntities(memory.artifacts, mcName, lastSummary, currentChapter.premise, [memory.unresolvedPlotThreads?.join(" "), customPremise])
     };
-
+    const preparedContext = prepareGenerationContext({
+      engine: contextEngine,
+      memory,
+      baseMemory,
+      blocks: contextBlocks,
+      legacyPastSummaries,
+      fallbackSummary: "This is the very first chapter of the story arc! Set the scene dramatically.",
+      threads: formattedThreads,
+      worldRules: Array.isArray(baseMemory.worldRules)
+        ? baseMemory.worldRules.map(rule => String(rule))
+        : baseMemory.worldRules
+          ? [String(baseMemory.worldRules)]
+          : [],
+      pinned: {
+        premise: [
+          `Chapter ${currentChapterNum}: ${currentChapter.title || ""}`,
+          `Goal: ${currentChapter.premise || ""}`,
+          genre ? `Genre/style: ${genre}` : "",
+          customPremise ? `Core premise: ${customPremise}` : "",
+        ].filter(Boolean).join("\n"),
+        mcStateCard: formatMainCharacterState({
+          mcName,
+          powerSystem: baseMemory.powerSystem,
+          currentPowerStage: baseMemory.currentPowerStage,
+          abilities: memory.abilities,
+        }),
+      },
+      ranking: {
+        mcName,
+        lastSummary,
+        currentContext: currentChapter.premise || "",
+        bonusContexts: [memory.unresolvedPlotThreads?.join(" "), customPremise],
+        anchorText: anchorTextFromBlocks(contextBlocks),
+      },
+    });
     const {
+      rawMemoryObj,
       memoryJsonStr,
       pastSummariesStr,
       droppedPastSummariesCount,
-    } = truncateContextIfNeeded(rawMemoryObj, pastSummaries, 80000, "This is the very first chapter of the story arc! Set the scene dramatically.");
+    } = preparedContext;
 
     const systemInstruction = PROMPTS.chapter.nonStreamSystem;
     const userPrompt = PROMPTS.chapter.userPrompt(
@@ -471,7 +608,8 @@ storyRouter.post("/api/generate-chapter", validateBody(chapterGenerationSchema),
       false,
       styleBible,
       tropeRules,
-      storyTags
+      storyTags,
+      contextEngine,
     );
 
     const glossaryEntries = retrieveGlossaryEntries({
@@ -579,29 +717,40 @@ PACING DIRECTIVE: Build real suspense and danger. Make sure characters face phys
 =========================================`;
     }
 
-    const contextManifest = buildContextManifest({
-      route: "generate-chapter",
-      chapterNumber: currentChapterNum,
-      chapterTitle: currentChapter.title,
-      chapterPremise: currentChapter.premise,
-      mcName,
-      genre,
-      customPremise,
-      systemInstruction,
-      finalUserPrompt,
-      rawMemory: rawMemoryObj,
-      sourceMemory: memory,
-      memoryJsonStr,
-      pastSummariesStr,
-      pastSummaries,
-      droppedPastSummariesCount,
-      styleBible,
-      tropeRules,
-      storyTags,
-      glossaryRules,
-      pacingDirective,
-      fatePressure: activeFatePressure,
-    });
+    const contextManifest = preparedContext.budgetedContext
+      ? buildContextManifestFromOutcomes({
+          route: "generate-chapter",
+          chapterNumber: currentChapterNum,
+          systemInstruction,
+          finalUserPrompt,
+          outcomes: preparedContext.budgetedContext.outcomes,
+          memoryAndHistoryBudgetTokens:
+            preparedContext.budgetedContext.totalBudgetTokens,
+        })
+      : buildContextManifest({
+          engine: "v1",
+          route: "generate-chapter",
+          chapterNumber: currentChapterNum,
+          chapterTitle: currentChapter.title,
+          chapterPremise: currentChapter.premise,
+          mcName,
+          genre,
+          customPremise,
+          systemInstruction,
+          finalUserPrompt,
+          rawMemory: rawMemoryObj,
+          sourceMemory: memory,
+          memoryJsonStr,
+          pastSummariesStr,
+          pastSummaries: preparedContext.legacyPastSummaries,
+          droppedPastSummariesCount,
+          styleBible,
+          tropeRules,
+          storyTags,
+          glossaryRules,
+          pacingDirective,
+          fatePressure: activeFatePressure,
+        });
     logger.info(
       { event: "chapter_context_manifest", contextManifest: contextManifestLogPayload(contextManifest) },
       `Chapter ${currentChapterNum} context manifest`,
@@ -850,7 +999,8 @@ storyRouter.post("/api/generate-next-directions", validateBody(generateNextDirec
     routingConfig,
     destinedEnding,
     currentArcCount,
-    estimatedArcs
+    estimatedArcs,
+    contextEngine: requestedContextEngine,
   } = req.body;
 
   try {
@@ -858,21 +1008,61 @@ storyRouter.post("/api/generate-next-directions", validateBody(generateNextDirec
       return res.status(400).json({ error: "Missing required fields for directions generation" });
     }
 
-    const lastSummary = pastSummaries && pastSummaries.length > 0 ? pastSummaries[pastSummaries.length - 1] : undefined;
-
-    const rawMemoryObj = {
+    const contextEngine = normalizeContextEngine(requestedContextEngine);
+    const {
+      blocks: contextBlocks,
+      legacyPastSummaries,
+    } = normalizeRequestHistory(pastSummaries, contextEngine);
+    const lastSummary = lastSummaryForRanking(
+      contextEngine,
+      contextBlocks,
+      legacyPastSummaries,
+    );
+    const baseMemory = {
       powerSystem: memory.powerSystem,
       currentPowerStage: memory.currentPowerStage,
       worldRules: memory.worldRules,
       destinedEnding: destinedEnding || memory.destinedEnding || undefined,
       unresolvedPlotThreads: memory.unresolvedPlotThreads,
-      characters: rankRelevantEntities(memory.characters, mcName, lastSummary, "", [memory.unresolvedPlotThreads?.join(" "), customPremise]),
-      factions: rankRelevantEntities(memory.factions, mcName, lastSummary, "", [memory.unresolvedPlotThreads?.join(" "), customPremise]),
-      locations: rankRelevantEntities(memory.locations, mcName, lastSummary, "", [memory.unresolvedPlotThreads?.join(" "), customPremise]),
-      artifacts: rankRelevantEntities(memory.artifacts, mcName, lastSummary, "", [memory.unresolvedPlotThreads?.join(" "), customPremise]),
     };
-
-    const { memoryJsonStr, pastSummariesStr } = truncateContextIfNeeded(rawMemoryObj, pastSummaries, 80000, "Starting fresh in the immortal matrix.");
+    const preparedContext = prepareGenerationContext({
+      engine: contextEngine,
+      memory,
+      baseMemory,
+      blocks: contextBlocks,
+      legacyPastSummaries,
+      fallbackSummary: "Starting fresh in the immortal matrix.",
+      threads: Array.isArray(memory.unresolvedPlotThreads)
+        ? memory.unresolvedPlotThreads.map(promptThreadText)
+        : [],
+      worldRules: Array.isArray(memory.worldRules)
+        ? memory.worldRules.map((rule: unknown) => String(rule))
+        : memory.worldRules
+          ? [String(memory.worldRules)]
+          : [],
+      pinned: {
+        premise: [
+          customPremise ? `Core premise: ${customPremise}` : "",
+          genre ? `Genre/style: ${genre}` : "",
+          `Plan the immediate next arc after arc ${currentArcCount || 1}.`,
+          estimatedArcs ? `Estimated total arcs: ${estimatedArcs}` : "",
+        ].filter(Boolean).join("\n"),
+        mcStateCard: formatMainCharacterState({
+          mcName,
+          powerSystem: memory.powerSystem,
+          currentPowerStage: memory.currentPowerStage,
+          destinedEnding: destinedEnding || memory.destinedEnding,
+        }),
+      },
+      ranking: {
+        mcName,
+        lastSummary,
+        currentContext: "",
+        bonusContexts: [memory.unresolvedPlotThreads?.join(" "), customPremise],
+        anchorText: anchorTextFromBlocks(contextBlocks),
+      },
+    });
+    const { memoryJsonStr, pastSummariesStr } = preparedContext;
 
     const systemInstruction = PROMPTS.directions.system;
     const userPrompt = PROMPTS.directions.userPrompt(
@@ -883,7 +1073,8 @@ storyRouter.post("/api/generate-next-directions", validateBody(generateNextDirec
       pastSummariesStr,
       destinedEnding || memory.destinedEnding,
       currentArcCount,
-      estimatedArcs
+      estimatedArcs,
+      contextEngine,
     );
 
     const data = await routeTextGeneration(
@@ -939,7 +1130,8 @@ storyRouter.post("/api/steer-arc", validateBody(steerArcSchema), async (req, res
       currentArcCount,
       steerDirection, // e.g. "darker", "romance", "action", "twist", "new location", "continue"
       userCustomDirections,
-      routingConfig
+      routingConfig,
+      contextEngine: requestedContextEngine,
     } = req.body;
 
     if (!mcName || !memory || !steerDirection) {
@@ -949,20 +1141,61 @@ storyRouter.post("/api/steer-arc", validateBody(steerArcSchema), async (req, res
     const count = 10; // Generate next 10 chapters max to maintain excellent quality and prevent drift
     const startNum = (parseInt(currentArcCount) || 10) + 1;
 
-    const lastSummary = pastSummaries && pastSummaries.length > 0 ? pastSummaries[pastSummaries.length - 1] : undefined;
-
-    const rawMemoryObj = {
+    const contextEngine = normalizeContextEngine(requestedContextEngine);
+    const {
+      blocks: contextBlocks,
+      legacyPastSummaries,
+    } = normalizeRequestHistory(pastSummaries, contextEngine);
+    const lastSummary = lastSummaryForRanking(
+      contextEngine,
+      contextBlocks,
+      legacyPastSummaries,
+    );
+    const baseMemory = {
       currentPowerStage: memory.currentPowerStage,
       powerSystem: memory.powerSystem,
       unresolvedPlotThreads: memory.unresolvedPlotThreads,
       resolvedPlotThreads: memory.resolvedPlotThreads,
-      characters: rankRelevantEntities(memory.characters, mcName, lastSummary, steerDirection, [userCustomDirections, memory.unresolvedPlotThreads?.join(" "), customPremise]),
-      factions: rankRelevantEntities(memory.factions, mcName, lastSummary, steerDirection, [userCustomDirections, memory.unresolvedPlotThreads?.join(" "), customPremise]),
-      locations: rankRelevantEntities(memory.locations, mcName, lastSummary, steerDirection, [userCustomDirections, memory.unresolvedPlotThreads?.join(" "), customPremise]),
-      artifacts: rankRelevantEntities(memory.artifacts, mcName, lastSummary, steerDirection, [userCustomDirections, memory.unresolvedPlotThreads?.join(" "), customPremise])
     };
-
-    const { memoryJsonStr, pastSummariesStr } = truncateContextIfNeeded(rawMemoryObj, pastSummaries, 80000, "No previous record. Use your creativity to extend smoothly.");
+    const preparedContext = prepareGenerationContext({
+      engine: contextEngine,
+      memory,
+      baseMemory,
+      blocks: contextBlocks,
+      legacyPastSummaries,
+      fallbackSummary: "No previous record. Use your creativity to extend smoothly.",
+      threads: Array.isArray(memory.unresolvedPlotThreads)
+        ? memory.unresolvedPlotThreads.map(promptThreadText)
+        : [],
+      worldRules: [],
+      pinned: {
+        premise: [
+          customPremise ? `Core premise: ${customPremise}` : "",
+          genre ? `Genre/style: ${genre}` : "",
+          `Next chapter number: ${startNum}`,
+          `Steering direction: ${steerDirection}`,
+          userCustomDirections ? `Author guidance: ${userCustomDirections}` : "",
+        ].filter(Boolean).join("\n"),
+        mcStateCard: formatMainCharacterState({
+          mcName,
+          powerSystem: memory.powerSystem,
+          currentPowerStage: memory.currentPowerStage,
+          resolvedPlotThreads: memory.resolvedPlotThreads,
+        }),
+      },
+      ranking: {
+        mcName,
+        lastSummary,
+        currentContext: steerDirection,
+        bonusContexts: [
+          userCustomDirections,
+          memory.unresolvedPlotThreads?.join(" "),
+          customPremise,
+        ],
+        anchorText: anchorTextFromBlocks(contextBlocks),
+      },
+    });
+    const { memoryJsonStr, pastSummariesStr } = preparedContext;
 
     const data = await routeTextGeneration(
       "storyMaker",
@@ -976,7 +1209,8 @@ storyRouter.post("/api/steer-arc", validateBody(steerArcSchema), async (req, res
         userCustomDirections,
         memoryJsonStr,
         pastSummariesStr,
-        count
+        count,
+        contextEngine,
       ),
       "steer-arc",
       routingConfig,

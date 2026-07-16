@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { vi } from 'vitest';
 import { ReaderControls } from './index';
 
@@ -36,6 +36,7 @@ describe('ReaderControls', () => {
       immersion: {},
       setImmersion: vi.fn(),
     };
+    const setContextEngine = vi.fn();
 
     const mockActions = {
       handleAlterFate: vi.fn(),
@@ -56,10 +57,22 @@ describe('ReaderControls', () => {
         playback={mockPlayback}
         audio={mockAudio}
         immersion={mockImmersion}
+        contextEngine={{
+          engine: 'v1',
+          setEngine: setContextEngine,
+        }}
         actions={mockActions}
       />
     );
 
     expect(container).toBeTruthy();
+    fireEvent.click(screen.getAllByLabelText('Immersion Settings')[0]);
+    const contextEngineToggle = screen.getByRole('switch', {
+      name: 'Context Engine v2 (experimental)',
+    });
+    expect(contextEngineToggle.getAttribute('aria-checked')).toBe('false');
+
+    fireEvent.click(contextEngineToggle);
+    expect(setContextEngine).toHaveBeenCalledWith('v2');
   });
 });

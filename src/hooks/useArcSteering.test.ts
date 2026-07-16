@@ -124,6 +124,8 @@ describe('useArcSteering - Steering action processing', () => {
       await result.current.handleSteerArc('Go to the mountains', '3');
     });
 
+    const requestBody = JSON.parse(String((global.fetch as any).mock.calls[0][1].body));
+    expect(requestBody.contextEngine).toBe('v1');
     expect(saveStoriesSpy).toHaveBeenCalled();
     const updated = saveStoriesSpy.mock.calls[0][0];
     expect(updated[0].arcs.length).toBe(1); // Should append to existing arc since it has < 100 chapters
@@ -198,6 +200,7 @@ describe('useArcSteering - Steering action processing', () => {
   });
 
   it('handleAlterFate forks story and steers successfully', async () => {
+    mockStore.stories[0].readerPreferences = { contextEngine: 'v2' };
     mockStore.stories[0].chapterGenerationBatch = {
       id: 'parent-batch',
       chapterNumbers: [1, 2, 3, 4, 5],
@@ -233,6 +236,8 @@ describe('useArcSteering - Steering action processing', () => {
       await result.current.handleAlterFate(1, 'Dark path', 'custom');
     });
 
+    const requestBody = JSON.parse(String((global.fetch as any).mock.calls[0][1].body));
+    expect(requestBody.contextEngine).toBe('v2');
     // First save: the fork creation
     expect(saveStoriesSpy).toHaveBeenCalledTimes(2);
     const forkedStories = saveStoriesSpy.mock.calls[0][0];

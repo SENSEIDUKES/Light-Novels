@@ -1,4 +1,5 @@
 import { retrieveRelevantContext } from '../../lib/rag';
+import { CONTEXT_CHAR_LIMITS } from '../../lib/contextBlocks';
 import { storyStorage } from '../../lib/storage';
 import { Story, Chapter, ChapterContent, StoryBlock } from '../../types';
 
@@ -33,12 +34,16 @@ export const buildChapterContext = async (
   targetChapter: Chapter,
   apiHeaders: any
 ) => {
+  const contextEngine = activeStory.readerPreferences?.contextEngine || 'v1';
   const pastSummaries = await retrieveRelevantContext(
     targetChapter.premise || activeStory.customPremise || '',
     targetChapter.number,
     activeStory,
     apiHeaders,
-    5
+    5,
+    CONTEXT_CHAR_LIMITS[contextEngine],
+    3,
+    contextEngine,
   );
 
   // Intelligent Tension Meter logic
@@ -59,10 +64,11 @@ export const buildChapterContext = async (
       if (prevContent) {
         const finalBlocks = extractFinalProseBlocks(prevContent, CONTINUATION_ANCHOR_BLOCK_COUNT);
         if (finalBlocks.length > 0) {
-          pastSummaries.push(
-            `--- IMMEDIATE CONTINUATION ANCHOR (FINAL MOMENTS OF CHAPTER ${previousChapter.number}) ---\n` +
-            finalBlocks.join('\n\n')
-          );
+          pastSummaries.push({
+            kind: 'anchor',
+            chapterNumber: previousChapter.number,
+            text: finalBlocks.join('\n\n'),
+          });
         }
       }
     } catch (e) {

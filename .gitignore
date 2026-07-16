@@ -6,6 +6,7 @@ server-bundle/index.js.map
 coverage/
 playwright-report/
 test-results/
+scratch/
 .DS_Store
 *.log
 .env*
