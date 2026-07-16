@@ -25,22 +25,22 @@ export function UserProfileSettingsPanel({
       ? 'Harmonizing…'
       : syncStatus === 'error'
         ? 'Needs attention'
-        : 'Automatic';
+        : 'Press to sync';
   const harmonyTitle = syncStatus === 'offline'
     ? LOCAL_ONLY_MODE
-      ? 'Harmony is in legacy device-only mode. Activate to reconnect automatic sync.'
-      : 'Harmony is offline. Activate to try syncing now.'
+      ? 'Harmony is in legacy device-only mode. Activate to reconnect cloud storage.'
+      : 'Harmony is offline. Reconnect, then activate it to reconcile your devices.'
     : isHarmonizing
       ? 'Harmony is synchronizing your library.'
       : syncStatus === 'error'
-        ? 'Harmony needs attention. Activate to retry syncing.'
-        : 'Harmony sync is automatic. Activate to sync now.';
+        ? 'Harmony needs attention. Activate it to reconcile queued and remote changes.'
+        : 'Activate Harmony to reconcile every story and chapter across your devices.';
   const activateHarmony = () => {
     if (LOCAL_ONLY_MODE) {
       setLocalOnlyMode(false);
       return;
     }
-    void storyStorage.performSync();
+    void storyStorage.performSync({ deep: true });
   };
 
   return (
@@ -91,7 +91,7 @@ export function UserProfileSettingsPanel({
               {isHarmonizing ? (
                 <span className="sr-only">Library synchronization is in progress.</span>
               ) : (
-                <span className="sr-only">Activate to synchronize now.</span>
+                <span className="sr-only">Activate to reconcile every story and chapter now.</span>
               )}
             </button>
             {lastSavedTime && (
