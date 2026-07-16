@@ -213,6 +213,53 @@ describe('RAG', () => {
       expect(combined).toContain('Summary 2');
     });
 
+    it('charges legacy formatting headers only to the v1 character budget', async () => {
+      const mockStory = createMockStory([{
+        title: 'Arc 1',
+        summary: 'Arc memory',
+        chapters: [
+          { number: 1, summary: 'Recovered', hasContent: false, embedding: [1, 0] },
+          { number: 2, summary: 'Recent', hasContent: false },
+        ],
+      } as any]);
+      (global.fetch as any).mockResolvedValue({
+        ok: true,
+        json: async () => ({ embedding: [1, 0] }),
+      });
+      const recentText = 'Chapter 2 Summary: Recent';
+      const ragText = 'Chapter 1: Recovered';
+      const arcText = "Volume 'Arc 1' Summary: Arc memory";
+      const contentOnlyBudget = recentText.length + ragText.length + arcText.length;
+
+      const v2Blocks = await retrieveRelevantContext(
+        'Premise',
+        3,
+        mockStory,
+        {},
+        3,
+        contentOnlyBudget,
+        1,
+        'v2',
+      );
+      const v1Blocks = await retrieveRelevantContext(
+        'Premise',
+        3,
+        mockStory,
+        {},
+        3,
+        contentOnlyBudget,
+        1,
+        'v1',
+      );
+
+      expect(v2Blocks.map(block => block.kind)).toEqual([
+        'arc-summary',
+        'rag',
+        'recent-summary',
+      ]);
+      expect(v1Blocks.some(block => block.kind === 'rag')).toBe(false);
+    });
+
     it('handles episodic summary in chapter content', async () => {
       const mockStory = createMockStory([
         {

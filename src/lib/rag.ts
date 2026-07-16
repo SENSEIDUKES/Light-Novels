@@ -7,14 +7,13 @@ import {
   ContextEngine,
   contextBlocksToLegacyStrings,
   RAG_HISTORY_HEADER,
+  SECOND_RECENT_BLOCK_FRACTION,
+  SECOND_RECENT_EPISODIC_SUMMARY_THRESHOLD,
 } from './contextBlocks';
 export {
   CONTEXT_CHAR_LIMITS,
   contextBlocksToLegacyStrings,
 } from './contextBlocks';
-const SECOND_RECENT_EPISODIC_SUMMARY_THRESHOLD = 8000;
-const SECOND_RECENT_BLOCK_FRACTION = 0.4;
-
 export function cosineSimilarity(vecA: number[], vecB: number[]): number {
   if (vecA.length !== vecB.length) return 0;
   let dotProduct = 0;
@@ -335,7 +334,7 @@ export async function retrieveRelevantContext(
 
   const finalRecoveredBlocks: ContextBlock[] = [];
   if (oldRecoveredContexts.length > 0) {
-     let recChars = RAG_HISTORY_HEADER.length;
+     let recChars = contextEngine === 'v1' ? RAG_HISTORY_HEADER.length : 0;
      for (const block of oldRecoveredContexts) {
         if (currentTotalChars + recChars + block.text.length <= effectiveMaxContextChars) {
            finalRecoveredBlocks.push(block);
@@ -363,8 +362,6 @@ export async function retrieveRelevantContext(
       const separatorLength = finalArcBlocks.length > 0 ? 1 : 0;
       if (
         currentTotalChars
-        + ARC_HISTORY_HEADER.length
-        + 1
         + arcChars
         + separatorLength
         + block.text.length
@@ -375,7 +372,7 @@ export async function retrieveRelevantContext(
       }
     }
     if (finalArcBlocks.length > 0) {
-      currentTotalChars += ARC_HISTORY_HEADER.length + 1 + arcChars;
+      currentTotalChars += arcChars;
     }
   }
 

@@ -2,7 +2,11 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Chapter, ContextBlock, Story, StoryBlock } from "../src/types";
-import { contextBlocksToLegacyStrings } from "../src/lib/contextBlocks";
+import {
+  contextBlocksToLegacyStrings,
+  SECOND_RECENT_BLOCK_FRACTION,
+  SECOND_RECENT_EPISODIC_SUMMARY_THRESHOLD,
+} from "../src/lib/contextBlocks";
 import {
   anchorTextFromBlocks,
   formatMainCharacterState,
@@ -116,7 +120,10 @@ export function buildOfflineContextBlocks(
     if (index === recent.length - 2) {
       const narrative = proseBlocks(chapter);
       const narrativeLength = narrative.join("\n\n").length;
-      if (narrativeLength > 8000 && chapter.episodicSummary) {
+      if (
+        narrativeLength > SECOND_RECENT_EPISODIC_SUMMARY_THRESHOLD
+        && chapter.episodicSummary
+      ) {
         blocks.push({
           kind: "recent-summary",
           chapterNumber: chapter.number,
@@ -125,7 +132,10 @@ export function buildOfflineContextBlocks(
         return;
       }
       if (narrative.length > 0) {
-        const keep = Math.max(1, Math.ceil(narrative.length * 0.4));
+        const keep = Math.max(
+          1,
+          Math.ceil(narrative.length * SECOND_RECENT_BLOCK_FRACTION),
+        );
         blocks.push({
           kind: "recent-full",
           chapterNumber: chapter.number,
