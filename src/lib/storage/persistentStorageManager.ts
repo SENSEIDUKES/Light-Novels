@@ -1922,12 +1922,16 @@ export class PersistentStorageManager implements StorageAdapter {
       try {
         while (this.isCloudAvailable && this.syncRequested) {
           const syncCatalog = this.catalogSyncRequested;
-          const deep = this.deepSyncRequested;
-          const deepStoryIds = new Set(this.deepStoryIdsRequested);
+          const deep = syncCatalog && this.deepSyncRequested;
+          const deepStoryIds = syncCatalog
+            ? new Set(this.deepStoryIdsRequested)
+            : new Set<string>();
           this.syncRequested = false;
-          this.catalogSyncRequested = false;
-          this.deepSyncRequested = false;
-          this.deepStoryIdsRequested.clear();
+          if (syncCatalog) {
+            this.catalogSyncRequested = false;
+            this.deepSyncRequested = false;
+            this.deepStoryIdsRequested.clear();
+          }
           if (syncCatalog) {
             await this.performSyncPass(deep, deepStoryIds);
           } else {

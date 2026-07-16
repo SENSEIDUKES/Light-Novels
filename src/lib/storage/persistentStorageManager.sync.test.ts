@@ -176,6 +176,38 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     manager.dispose();
   });
 
+  it('preserves targeted deep-story requests across outbox-only passes', async () => {
+    const manager = new PersistentStorageManager();
+    const performOutboxPass = vi
+      .spyOn(manager as any, 'performOutboxPass')
+      .mockResolvedValue(undefined);
+    const performSyncPass = vi
+      .spyOn(manager as any, 'performSyncPass')
+      .mockResolvedValue(undefined);
+    (manager as any).isCloudAvailable = true;
+
+    await manager.performSync({
+      catalog: false,
+      deep: false,
+      deepStoryIds: ['requested-story'],
+    });
+
+    expect(performOutboxPass).toHaveBeenCalledTimes(1);
+    expect(performSyncPass).not.toHaveBeenCalled();
+    expect((manager as any).deepStoryIdsRequested).toEqual(
+      new Set(['requested-story']),
+    );
+
+    await manager.performSync({ catalog: true, deep: false });
+
+    expect(performSyncPass).toHaveBeenCalledWith(
+      false,
+      new Set(['requested-story']),
+    );
+    expect((manager as any).deepStoryIdsRequested).toEqual(new Set());
+    manager.dispose();
+  });
+
   it('waits for a physical Harmony request before pulling a restored account', async () => {
     mocks.auth.currentUser = { uid: 'restored-reader' };
     let releaseCloud!: (stories: any[]) => void;
