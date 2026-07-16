@@ -11,3 +11,6 @@
 ## 2024-07-24 - Missing ARIA Labels on Icon Buttons
 **Learning:** Many interactive icon-only buttons across the app (like `Trash2` remove buttons in editing interfaces) lack proper `aria-label` and `title` attributes. This breaks accessibility for screen reader users and reduces discoverability for sighted users who rely on hover tooltips.
 **Action:** When working on form or list editing components, always check inline icon-only buttons (like delete, edit, or add buttons) for explicit accessibility text and hover hints.
+## 2026-07-16 - Keyboard Focus in DestinyChoicePanel
+**Learning:** Adding consistent focus-visible rings is important for keyboard navigation and improves a11y for interactive elements that are custom components (like clickable images) rather than standard links/buttons.
+**Action:** Always add focus-visible styles when implementing custom clickable UI elements.

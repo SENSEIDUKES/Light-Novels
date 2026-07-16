@@ -66,7 +66,7 @@ export const DestinyChoicePanel: React.FC<DestinyChoicePanelProps> = ({
                     }
                   }}
                   aria-label={`Select form ${index + 1}`}
-                  className={`relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer transition-all duration-300 border-2 group ${
+                  className={`relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer transition-all duration-300 border-2 group focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2 focus-visible:ring-offset-black ${
                     isSelected ? 'border-portal shadow-[0_0_20px_rgba(4,172,255,0.3)] scale-105 z-10' : 'border-neutral-800 hover:border-neutral-700 opacity-70 hover:opacity-100'
                   }`}
                 >
@@ -83,7 +83,7 @@ export const DestinyChoicePanel: React.FC<DestinyChoicePanelProps> = ({
                       e.stopPropagation();
                       handleDownload(url, `sei_house_form_${['I', 'II', 'III'][index] || index + 1}.png`);
                     }}
-                    className="absolute top-2 left-2 z-20 bg-black/85 hover:bg-portal hover:text-void border border-neutral-900 hover:border-portal text-neutral-300 p-1.5 rounded-md transition-all duration-200 shadow-md backdrop-blur opacity-80 hover:opacity-100 flex items-center justify-center"
+                    className="absolute top-2 left-2 z-20 bg-black/85 hover:bg-portal hover:text-void border border-neutral-900 hover:border-portal text-neutral-300 p-1.5 rounded-md transition-all duration-200 shadow-md backdrop-blur opacity-80 hover:opacity-100 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-portal outline-none"
                     title="Download Form Draft"
                     aria-label="Download Form Draft"
                   >
@@ -109,13 +109,13 @@ export const DestinyChoicePanel: React.FC<DestinyChoicePanelProps> = ({
           <div className="p-4 border-t border-neutral-900 bg-void flex justify-between gap-4">
             <button 
                tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={onDiscard}
-              className="px-6 py-2.5 rounded font-mono text-[11px] uppercase tracking-wider bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-signal transition-colors border border-neutral-800"
+              className="px-6 py-2.5 rounded font-mono text-[11px] uppercase tracking-wider bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-signal transition-colors border border-neutral-800 focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2 focus-visible:ring-offset-black"
             >
               Discard Traces
             </button>
             <button 
               onClick={onApply}
-              className="flex-1 px-6 py-2.5 rounded font-mono text-[11px] uppercase font-bold tracking-wider bg-portal text-void hover:bg-portal/90 transition-all shadow-[0_0_15px_rgba(4,172,255,0.3)]"
+              className="flex-1 px-6 py-2.5 rounded font-mono text-[11px] uppercase font-bold tracking-wider bg-portal text-void hover:bg-portal/90 transition-all shadow-[0_0_15px_rgba(4,172,255,0.3)] focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2 focus-visible:ring-offset-black"
             >
               Seal Form into Codex
             </button>
