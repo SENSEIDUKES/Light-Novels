@@ -166,6 +166,7 @@ export default function AILoadingVeil() {
                       setShowDetails(false);
                     }}
                     title="Expand Visual Chamber"
+                    aria-label="Expand Visual Chamber"
                     className={`p-1 rounded text-zinc-400 ${isVersa ? 'hover:text-amber-500' : 'hover:text-portal'} hover:bg-zinc-900/50 transition-all cursor-pointer`}
                   >
                     <Maximize2 size={13} />
@@ -205,6 +206,7 @@ export default function AILoadingVeil() {
             onClick={() => setShowDetails(prev => !prev)}
             onMouseEnter={() => setShowDetails(true)}
             onMouseLeave={() => setShowDetails(false)}
+            aria-label={showDetails ? "Hide generation details" : "Show generation details"}
             className={`relative w-14 h-14 rounded-full bg-zinc-950/90 border ${isVersa ? 'border-amber-500/40 hover:border-amber-500/80' : 'border-portal/40 hover:border-portal/80'} flex items-center justify-center cursor-pointer pointer-events-auto transition-all duration-300 outline-none`}
             animate={{
               scale: [1, 1.04, 1],

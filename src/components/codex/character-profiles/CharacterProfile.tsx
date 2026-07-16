@@ -47,6 +47,7 @@ export const CharacterProfile: React.FC<CharacterProfileProps> = ({
             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setSelectedNodeChar(char)}
             className="text-neutral-500 hover:text-portal transition-colors border border-transparent hover:border-portal/30 rounded p-1"
             title="View Context Matrix"
+            aria-label="View Context Matrix"
           >
             <Eye size={12} />
           </button>
@@ -67,6 +68,14 @@ export const CharacterProfile: React.FC<CharacterProfileProps> = ({
             }`}
             disabled={!canGenerate || isGenerating}
             title={
+              !hasAppeared ? "Must encounter in story first" :
+              isFreeUserOnHubStory ? "Visual manifestation locked for mortal users in demo hub. Register or use own keys to manifest visuals." :
+              char.evolutionReady && hasImage ? "Evolution milestone reached! Regenerate to reveal new visual stage." :
+              canGenerate && hasImage ? "Regenerate visual representation." :
+              canGenerate ? "Manifest Visual Aura" :
+              "Not enough context yet to visualize"
+            }
+            aria-label={
               !hasAppeared ? "Must encounter in story first" :
               isFreeUserOnHubStory ? "Visual manifestation locked for mortal users in demo hub. Register or use own keys to manifest visuals." :
               char.evolutionReady && hasImage ? "Evolution milestone reached! Regenerate to reveal new visual stage." :

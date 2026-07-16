@@ -48,4 +48,30 @@ describe('LivingCodexImageGallery', () => {
     fireEvent.click(buttons[1]);
     expect(handleRevertImage).toHaveBeenCalledWith('char-1', 'character', 'url2');
   });
+
+  it('uses human-readable chapter and prompt fallbacks', () => {
+    const mockContext = {
+      handleRevertImage: vi.fn(),
+    } as any;
+
+    const { getByRole } = render(
+      <CodexProvider value={mockContext}>
+        <LivingCodexImageGallery
+          entityId="char-1"
+          type="character"
+          imageHistory={[
+            { id: 'img1', imageUrl: 'url1', promptUsed: 'prompt1' },
+            { id: 'img2', imageUrl: 'url2' },
+          ]}
+        />
+      </CodexProvider>
+    );
+
+    const fallbackButton = getByRole('button', {
+      name: 'Revert to image generated at Chapter Unknown. Prompt unavailable',
+    });
+    expect(fallbackButton.getAttribute('title')).toBe(
+      'Generated at Chapter Unknown\nPrompt unavailable',
+    );
+  });
 });
