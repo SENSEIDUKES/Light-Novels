@@ -38,4 +38,19 @@ describe('AILoadingVeil', () => {
     fireEvent.click(getByText('Minimize to Background'));
     expect(useAppStore.getState().isVeilMinimized).toBe(true);
   });
+
+  it('describes whether the compact details toggle will show or hide details', () => {
+    useAppStore.setState({
+      isGenerating: true,
+      isVeilMinimized: true,
+    });
+    const { getByRole } = render(<AILoadingVeil />);
+
+    const toggle = getByRole('button', { name: 'Show generation details' });
+    fireEvent.click(toggle);
+
+    expect(
+      getByRole('button', { name: 'Hide generation details' }),
+    ).toBeDefined();
+  });
 });

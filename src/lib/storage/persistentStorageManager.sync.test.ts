@@ -3,8 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   auth: { currentUser: null as null | { uid: string } },
   authCallback: null as null | ((user: null | { uid: string }) => void),
-  cloudChange: null as null | ((storyIds: string[]) => void),
-  cloudUnsubscribe: vi.fn(),
   idb: {
     init: vi.fn(),
     setAccountScope: vi.fn(),
@@ -89,13 +87,14 @@ function makeStory(overrides: Record<string, unknown> = {}) {
   };
 }
 
-describe('PersistentStorageManager automatic inbound sync', () => {
+describe('PersistentStorageManager interaction-gated inbound sync', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    // Reset queued one-shot implementations too; account-transition tests
+    // intentionally leave different cloud responses for different users.
+    vi.resetAllMocks();
     localStorage.clear();
     mocks.auth.currentUser = null;
     mocks.authCallback = null;
-    mocks.cloudChange = null;
     mocks.idb.init.mockResolvedValue(undefined);
     mocks.idb.setAccountScope.mockReturnValue(undefined);
     mocks.idb.getStories.mockResolvedValue([]);
@@ -119,46 +118,97 @@ describe('PersistentStorageManager automatic inbound sync', () => {
       mocks.authCallback = callback;
       return vi.fn();
     });
-    mocks.cloud.subscribeToStories.mockImplementation((onChange) => {
-      mocks.cloudChange = onChange;
-      return mocks.cloudUnsubscribe;
-    });
   });
 
-  it('pulls on sign-in, remote snapshots, reconnect, and focus without an audit click', async () => {
+  it('does not scan the cloud on sign-in, reconnect, focus, or visibility changes', async () => {
     const manager = new PersistentStorageManager();
     await manager.init();
 
     const user = { uid: 'reader' };
     mocks.auth.currentUser = user;
     mocks.authCallback?.(user);
-    await vi.waitFor(() => expect(mocks.cloud.getStories).toHaveBeenCalled());
-    expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('reader');
-    expect(mocks.cloud.subscribeToStories).toHaveBeenCalledTimes(1);
-
-    let previousCalls = mocks.cloud.getStories.mock.calls.length;
-    mocks.cloudChange?.(['remote-story']);
     await vi.waitFor(() => {
-      expect(mocks.cloud.getStories.mock.calls.length).toBeGreaterThan(previousCalls);
+      expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('reader');
+      expect((manager as any).activeSyncPromise).toBeNull();
     });
 
-    previousCalls = mocks.cloud.getStories.mock.calls.length;
     window.dispatchEvent(new Event('online'));
     await vi.waitFor(() => {
-      expect(mocks.cloud.getStories.mock.calls.length).toBeGreaterThan(previousCalls);
+      expect((manager as any).activeSyncPromise).toBeNull();
     });
-
-    previousCalls = mocks.cloud.getStories.mock.calls.length;
     window.dispatchEvent(new Event('focus'));
-    await vi.waitFor(() => {
-      expect(mocks.cloud.getStories.mock.calls.length).toBeGreaterThan(previousCalls);
-    });
+    document.dispatchEvent(new Event('visibilitychange'));
+    await Promise.resolve();
 
+    expect(mocks.cloud.getStories).not.toHaveBeenCalled();
+    expect(mocks.cloud.getChapterContent).not.toHaveBeenCalled();
+    expect(mocks.cloud.subscribeToStories).not.toHaveBeenCalled();
     manager.dispose();
-    expect(mocks.cloudUnsubscribe).toHaveBeenCalledTimes(1);
   });
 
-  it('completes the first cloud pull before initialization returns for a restored session', async () => {
+  it('reconnect flushes queued edits with targeted reads instead of listing the library', async () => {
+    let storedStory: any = null;
+    mocks.idb.getStories.mockImplementation(async () => storedStory ? [storedStory] : []);
+    mocks.idb.getStory.mockImplementation(async () => storedStory);
+    mocks.idb.saveStory.mockImplementation(async (story) => {
+      storedStory = JSON.parse(JSON.stringify(story));
+    });
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    const user = { uid: 'reader' };
+    mocks.auth.currentUser = user;
+    mocks.authCallback?.(user);
+    await vi.waitFor(() => {
+      expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('reader');
+      expect((manager as any).activeSyncPromise).toBeNull();
+    });
+
+    await manager.saveStory(makeStory() as any);
+    window.dispatchEvent(new Event('online'));
+
+    await vi.waitFor(() => {
+      expect(mocks.cloud.getStory).toHaveBeenCalledWith('shared-story');
+      expect(mocks.cloud.saveStoryIfUnchanged).toHaveBeenCalledTimes(1);
+      expect((manager as any).activeSyncPromise).toBeNull();
+    });
+    expect(mocks.cloud.getStories).not.toHaveBeenCalled();
+    expect(mocks.cloud.getChapterContent).not.toHaveBeenCalled();
+    manager.dispose();
+  });
+
+  it('preserves targeted deep-story requests across outbox-only passes', async () => {
+    const manager = new PersistentStorageManager();
+    const performOutboxPass = vi
+      .spyOn(manager as any, 'performOutboxPass')
+      .mockResolvedValue(undefined);
+    const performSyncPass = vi
+      .spyOn(manager as any, 'performSyncPass')
+      .mockResolvedValue(undefined);
+    (manager as any).isCloudAvailable = true;
+
+    await manager.performSync({
+      catalog: false,
+      deep: false,
+      deepStoryIds: ['requested-story'],
+    });
+
+    expect(performOutboxPass).toHaveBeenCalledTimes(1);
+    expect(performSyncPass).not.toHaveBeenCalled();
+    expect((manager as any).deepStoryIdsRequested).toEqual(
+      new Set(['requested-story']),
+    );
+
+    await manager.performSync({ catalog: true, deep: false });
+
+    expect(performSyncPass).toHaveBeenCalledWith(
+      false,
+      new Set(['requested-story']),
+    );
+    expect((manager as any).deepStoryIdsRequested).toEqual(new Set());
+    manager.dispose();
+  });
+
+  it('waits for a physical Harmony request before pulling a restored account', async () => {
     mocks.auth.currentUser = { uid: 'restored-reader' };
     let releaseCloud!: (stories: any[]) => void;
     mocks.cloud.getStories.mockReturnValueOnce(new Promise<any[]>((resolve) => {
@@ -166,17 +216,20 @@ describe('PersistentStorageManager automatic inbound sync', () => {
     }));
     const manager = new PersistentStorageManager();
 
-    let initialized = false;
-    const initialization = manager.init().then(() => {
-      initialized = true;
+    await manager.init();
+    expect(mocks.cloud.getStories).not.toHaveBeenCalled();
+
+    let harmonized = false;
+    const harmony = manager.performSync({ deep: true }).then(() => {
+      harmonized = true;
     });
     await vi.waitFor(() => expect(mocks.cloud.getStories).toHaveBeenCalledTimes(1));
-    expect(initialized).toBe(false);
+    expect(harmonized).toBe(false);
     releaseCloud([]);
-    await initialization;
+    await harmony;
 
     expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('restored-reader');
-    expect(initialized).toBe(true);
+    expect(harmonized).toBe(true);
     manager.dispose();
   });
 
@@ -191,6 +244,7 @@ describe('PersistentStorageManager automatic inbound sync', () => {
     const unsubscribe = manager.subscribeToSyncProgress((update) => progress.push(update));
 
     await manager.init();
+    await manager.performSync({ deep: true });
 
     expect(progress).toContainEqual({
       phase: 'downloading',
@@ -223,6 +277,7 @@ describe('PersistentStorageManager automatic inbound sync', () => {
     const unsubscribe = manager.subscribeToSyncProgress((update) => progress.push(update));
 
     await manager.init();
+    await manager.performSync({ deep: true });
 
     expect(progress).toContainEqual({
       phase: 'cataloguing',
@@ -305,6 +360,11 @@ describe('PersistentStorageManager automatic inbound sync', () => {
     const accountA = { uid: 'account-a' };
     mocks.auth.currentUser = accountA;
     mocks.authCallback?.(accountA);
+    await vi.waitFor(() => {
+      expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('account-a');
+      expect((manager as any).activeSyncPromise).toBeNull();
+    });
+    const accountASync = manager.performSync({ deep: true });
     await vi.waitFor(() => expect(mocks.cloud.getStories).toHaveBeenCalledTimes(1));
 
     const accountB = { uid: 'account-b' };
@@ -313,10 +373,12 @@ describe('PersistentStorageManager automatic inbound sync', () => {
     expect(mocks.idb.setAccountScope).not.toHaveBeenCalledWith('account-b');
 
     releaseAccountA([]);
+    await accountASync;
     await vi.waitFor(() => {
       expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('account-b');
-      expect(mocks.cloud.getStories).toHaveBeenCalledTimes(2);
     });
+    await (manager as any).accountTransitionPromise;
+    expect(mocks.cloud.getStories).toHaveBeenCalledTimes(1);
     manager.dispose();
   });
 
@@ -348,16 +410,23 @@ describe('PersistentStorageManager automatic inbound sync', () => {
     const accountA = { uid: 'account-a' };
     mocks.auth.currentUser = accountA;
     mocks.authCallback?.(accountA);
+    await vi.waitFor(() => {
+      expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('account-a');
+      expect((manager as any).activeSyncPromise).toBeNull();
+    });
+    const accountASync = manager.performSync({ deep: true });
     await vi.waitFor(() => expect(mocks.idb.getStory).toHaveBeenCalledTimes(2));
 
     const accountB = { uid: 'account-b' };
     mocks.auth.currentUser = accountB;
     mocks.authCallback?.(accountB);
     releaseReconcileRead(localStory);
+    await accountASync;
 
     await vi.waitFor(() => {
       expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('account-b');
     });
+    await (manager as any).accountTransitionPromise;
     expect(conflictHandler).not.toHaveBeenCalled();
     manager.dispose();
   });
@@ -393,6 +462,11 @@ describe('PersistentStorageManager automatic inbound sync', () => {
     const accountA = { uid: 'account-a' };
     mocks.auth.currentUser = accountA;
     mocks.authCallback?.(accountA);
+    await vi.waitFor(() => {
+      expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('account-a');
+      expect((manager as any).activeSyncPromise).toBeNull();
+    });
+    const accountASync = manager.performSync({ deep: true });
     await vi.waitFor(() => expect(mocks.cloud.getStories).toHaveBeenCalledTimes(1));
 
     const accountB = { uid: 'account-b' };
@@ -407,7 +481,7 @@ describe('PersistentStorageManager automatic inbound sync', () => {
     expect(saved).toEqual([]);
 
     releaseAccountA([]);
-    await saveForB;
+    await Promise.all([accountASync, saveForB]);
 
     expect(saved).toEqual([
       expect.objectContaining({
@@ -446,9 +520,9 @@ describe('PersistentStorageManager automatic inbound sync', () => {
     const accountB = { uid: 'account-b' };
     mocks.auth.currentUser = accountB;
     mocks.authCallback?.(accountB);
-    await vi.waitFor(() => expect(mocks.cloud.getStories).toHaveBeenCalled());
     await vi.waitFor(() => expect((manager as any).activeSyncPromise).toBeNull());
 
+    expect(mocks.cloud.getStories).not.toHaveBeenCalled();
     expect(mocks.cloud.deleteStory).not.toHaveBeenCalled();
     expect((manager as any).syncQueue).toEqual([
       expect.objectContaining({
@@ -494,7 +568,7 @@ describe('PersistentStorageManager automatic inbound sync', () => {
     manager.dispose();
   });
 
-  it('uses changed story ids to deep-check chapter bodies on already-open devices', async () => {
+  it('deep-checks existing chapter bodies only after Harmony is activated', async () => {
     const story = {
       id: 'shared-story',
       userId: 'reader',
@@ -546,18 +620,18 @@ describe('PersistentStorageManager automatic inbound sync', () => {
     const user = { uid: 'reader' };
     mocks.auth.currentUser = user;
     mocks.authCallback?.(user);
-    await vi.waitFor(() => expect(mocks.cloud.getChapterContent).toHaveBeenCalled());
-    mocks.cloud.getChapterContent.mockClear();
-    mocks.idb.saveChapterContent.mockClear();
-
-    mocks.cloudChange?.([story.id]);
-
     await vi.waitFor(() => {
-      expect(mocks.cloud.getChapterContent).toHaveBeenCalledWith(story.id, 1);
-      expect(mocks.idb.saveChapterContent).toHaveBeenCalledWith(
-        expect.objectContaining({ generatedContent: 'New body from tablet' }),
-      );
+      expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('reader');
+      expect((manager as any).activeSyncPromise).toBeNull();
     });
+    expect(mocks.cloud.getChapterContent).not.toHaveBeenCalled();
+
+    await manager.performSync({ deep: true });
+
+    expect(mocks.cloud.getChapterContent).toHaveBeenCalledWith(story.id, 1);
+    expect(mocks.idb.saveChapterContent).toHaveBeenCalledWith(
+      expect.objectContaining({ generatedContent: 'New body from tablet' }),
+    );
     manager.dispose();
   });
 
@@ -636,7 +710,10 @@ describe('PersistentStorageManager automatic inbound sync', () => {
     const user = { uid: 'reader' };
     mocks.auth.currentUser = user;
     mocks.authCallback?.(user);
-    await vi.waitFor(() => expect(mocks.cloud.getStories).toHaveBeenCalled());
+    await vi.waitFor(() => {
+      expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('reader');
+      expect((manager as any).activeSyncPromise).toBeNull();
+    });
 
     const cloudRead = manager.getChapterContent('shared-story', 1);
     await vi.waitFor(() => {
@@ -678,7 +755,10 @@ describe('PersistentStorageManager automatic inbound sync', () => {
     const user = { uid: 'reader' };
     mocks.auth.currentUser = user;
     mocks.authCallback?.(user);
-    await vi.waitFor(() => expect(mocks.cloud.getStories).toHaveBeenCalled());
+    await vi.waitFor(() => {
+      expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('reader');
+      expect((manager as any).activeSyncPromise).toBeNull();
+    });
     mocks.idb.saveChapterContent.mockClear();
 
     const read = manager.getChapterContent('shared-story', 1);
@@ -717,7 +797,10 @@ describe('PersistentStorageManager automatic inbound sync', () => {
     const user = { uid: 'reader' };
     mocks.auth.currentUser = user;
     mocks.authCallback?.(user);
-    await vi.waitFor(() => expect(mocks.cloud.getStories).toHaveBeenCalled());
+    await vi.waitFor(() => {
+      expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('reader');
+      expect((manager as any).activeSyncPromise).toBeNull();
+    });
     mocks.idb.saveChapterContent.mockClear();
 
     const read = manager.getChapterContent('shared-story', 1);

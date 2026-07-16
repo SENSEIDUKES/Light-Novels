@@ -14,3 +14,8 @@
 ## 2026-07-16 - Keyboard Focus in DestinyChoicePanel
 **Learning:** Adding consistent focus-visible rings is important for keyboard navigation and improves a11y for interactive elements that are custom components (like clickable images) rather than standard links/buttons.
 **Action:** Always add focus-visible styles when implementing custom clickable UI elements.
+
+## 2025-02-12 - Ensure screen-reader accessibility for icon-only buttons
+
+**Learning:** Found several components using icon-only buttons that relied solely on `title` attributes (or lacked descriptions altogether). While `title` gives hover text for mouse users, it is not consistently exposed to screen readers unless explicitly bound via ARIA.
+**Action:** When creating or updating icon-only interactive elements (like `button` or `[role="button"]`), always explicitly assign an `aria-label` describing the action, matching the `title` attribute's intent where possible.

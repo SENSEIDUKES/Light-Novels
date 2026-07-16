@@ -11,11 +11,12 @@ import { onAuthStateChanged } from "firebase/auth";
 import { IndexedDBStorageAdapter } from "./indexedDBAdapter";
 import { InMemoryFallbackAdapter } from "./inMemoryAdapter";
 import { LOCAL_ONLY_MODE } from "../firebase";
+import { generateUUID } from "../id";
 
 /**
  * Universal Storage Manager utilizing IndexedDB for high storage capacity
  * with dynamic and silent fallback to local storage under secure sandboxed contexts.
- * Also handles seamless Firebase Cloud Syncing and merging when authenticated.
+ * Also handles a durable Firebase outbox plus user-triggered cross-device reconciliation.
  */
 export class PersistentStorageManager implements StorageAdapter {
   name = "PersistentStorageManager";
@@ -44,10 +45,10 @@ export class PersistentStorageManager implements StorageAdapter {
   private activeSyncPromise: Promise<void> | null = null;
   private activeSyncUserId: string | null = null;
   private syncRequested = false;
+  private catalogSyncRequested = false;
   private deepSyncRequested = false;
   private deepStoryIdsRequested = new Set<string>();
   private recordLocks = new Map<string, Promise<void>>();
-  private cloudStoriesUnsubscribe: (() => void) | null = null;
   private authUnsubscribe: (() => void) | null = null;
   private authTransitionVersion = 0;
   private localAccountScope: string | null | undefined;
@@ -75,7 +76,6 @@ export class PersistentStorageManager implements StorageAdapter {
   private beforeUnloadListener: (() => void) | null = null;
   private visibilityChangeListener: (() => void) | null = null;
   private onlineListener: (() => void) | null = null;
-  private focusListener: (() => void) | null = null;
 
   constructor() {
     this.localAdapter = new LocalStorageFallbackAdapter();
@@ -95,8 +95,6 @@ export class PersistentStorageManager implements StorageAdapter {
         if (typeof document === "undefined") return;
         if (document.visibilityState === "hidden") {
           this.saveQueue();
-        } else if (document.visibilityState === "visible") {
-          void this.performSync({ deep: false });
         }
       };
       window.addEventListener(
@@ -104,13 +102,11 @@ export class PersistentStorageManager implements StorageAdapter {
         this.visibilityChangeListener,
       );
       this.onlineListener = () => {
-        void this.performSync({ deep: true });
+        // Reconnect only retries the durable outbox. A whole-library read is an
+        // explicit Harmony action so a browser event cannot spend the read budget.
+        void this.performSync({ catalog: false, deep: false });
       };
       window.addEventListener("online", this.onlineListener);
-      this.focusListener = () => {
-        void this.performSync({ deep: false });
-      };
-      window.addEventListener("focus", this.focusListener);
     }
   }
 
@@ -128,15 +124,10 @@ export class PersistentStorageManager implements StorageAdapter {
         );
       if (this.onlineListener)
         window.removeEventListener("online", this.onlineListener);
-      if (this.focusListener)
-        window.removeEventListener("focus", this.focusListener);
     }
     this.beforeUnloadListener = null;
     this.visibilityChangeListener = null;
     this.onlineListener = null;
-    this.focusListener = null;
-    this.cloudStoriesUnsubscribe?.();
-    this.cloudStoriesUnsubscribe = null;
     this.authUnsubscribe?.();
     this.authUnsubscribe = null;
     this.cancelScheduledFlush();
@@ -221,10 +212,7 @@ export class PersistentStorageManager implements StorageAdapter {
   }
 
   private createSyncRevision(): string {
-    if (typeof globalThis.crypto?.randomUUID === "function") {
-      return globalThis.crypto.randomUUID();
-    }
-    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return generateUUID();
   }
 
   private async withRecordLock<T>(
@@ -421,7 +409,9 @@ export class PersistentStorageManager implements StorageAdapter {
     if (this.flushTimer) return; // a flush is already scheduled within the window
     this.flushTimer = setTimeout(() => {
       this.flushTimer = null;
-      void this.performSync({ deep: false });
+      // Normal saves only need their queued story/chapter checked and sealed.
+      // Catalog reconciliation is reserved for a deliberate Harmony activation.
+      void this.performSync({ catalog: false, deep: false });
     }, this.FLUSH_DEBOUNCE_MS);
   }
 
@@ -569,6 +559,7 @@ export class PersistentStorageManager implements StorageAdapter {
 
   private requestCloudReread(storyId: string, deep = false): void {
     this.syncRequested = true;
+    this.catalogSyncRequested = true;
     if (!deep) return;
     this.deepSyncRequested = true;
     this.deepStoryIdsRequested.add(storyId);
@@ -938,24 +929,6 @@ export class PersistentStorageManager implements StorageAdapter {
     this.progressSubscribers.forEach((cb) => cb(progress));
   }
 
-  private stopCloudStorySubscription() {
-    this.cloudStoriesUnsubscribe?.();
-    this.cloudStoriesUnsubscribe = null;
-  }
-
-  private startCloudStorySubscription() {
-    this.stopCloudStorySubscription();
-    this.cloudStoriesUnsubscribe = this.cloudAdapter.subscribeToStories(
-      (storyIds) => {
-        void this.performSync({ deep: false, deepStoryIds: storyIds });
-      },
-      (error) => {
-        console.warn("Cloud story subscription failed:", error);
-        this.setStatus("error");
-      },
-    );
-  }
-
   private async transitionAccountScope(userId: string | null): Promise<void> {
     if (
       this.localAccountScope === userId &&
@@ -964,7 +937,6 @@ export class PersistentStorageManager implements StorageAdapter {
       return;
     }
     const transitionVersion = ++this.authTransitionVersion;
-    this.stopCloudStorySubscription();
     this.isCloudAvailable = false;
     this.cancelScheduledFlush();
     this.activeTransaction = null;
@@ -1001,8 +973,10 @@ export class PersistentStorageManager implements StorageAdapter {
     }
 
     this.isCloudAvailable = true;
-    this.startCloudStorySubscription();
-    await this.performSync({ deep: true });
+    this.setStatus("idle");
+    // Authentication only restores the account namespace and retries edits
+    // already queued on this device. Pulling the remote catalog is manual.
+    await this.performSync({ catalog: false, deep: false });
   }
 
   async init(): Promise<void> {
@@ -1146,12 +1120,13 @@ export class PersistentStorageManager implements StorageAdapter {
       this.localAccountScope = auth.currentUser?.uid ?? null;
       await this.cloudAdapter.init();
 
-      // If Firebase has already restored a session, finish the first cloud read
-      // before initStorage decides that this device has an empty library.
+      // If Firebase has already restored a session, retry only this device's
+      // durable outbox. The user controls remote catalog/chapter reconciliation
+      // through the Harmony button.
       if (auth.currentUser) {
         this.isCloudAvailable = true;
-        this.startCloudStorySubscription();
-        await this.performSync({ deep: true });
+        this.setStatus("idle");
+        await this.performSync({ catalog: false, deep: false });
       }
 
       this.authUnsubscribe?.();
@@ -1879,13 +1854,63 @@ export class PersistentStorageManager implements StorageAdapter {
     }
   }
 
+  /**
+   * Seal only records already present in this device's durable outbox.
+   * Each task performs its own revision-checked cloud read, so normal saving and
+   * reconnect recovery stay safe without listing every story or chapter.
+   */
+  private async performOutboxPass(): Promise<void> {
+    let userId: string | undefined;
+    try {
+      userId = this.getCurrentUserId();
+      if (!userId) {
+        this.setStatus("offline");
+        return;
+      }
+      this.assertCurrentAccount(userId);
+      if (this.localAccountScope !== userId) {
+        throw this.accountChangedError();
+      }
+      if (!this.hasPendingTasksFor(userId)) {
+        this.setStatus("idle");
+        this.setSyncProgress({ phase: "complete", completed: 0, total: 0 });
+        return;
+      }
+
+      this.activeSyncUserId = userId;
+      const completed = await this.flushSyncQueue();
+      if (!this.syncRequested) {
+        this.setSyncProgress({
+          phase: completed ? "complete" : "error",
+          completed: 0,
+          total: 0,
+        });
+      }
+    } catch (error) {
+      if ((error as { code?: string })?.code === "auth/account-changed") return;
+      console.error("Cloud outbox flush failed:", error);
+      this.setStatus("error");
+      this.setSyncProgress({ phase: "error", completed: 0, total: 0 });
+    } finally {
+      if (this.activeSyncUserId === userId) this.activeSyncUserId = null;
+    }
+  }
+
   public performSync(
-    options: { deep?: boolean; deepStoryIds?: Iterable<string> } = {},
+    options: {
+      /** Read and reconcile the remote story catalog. Defaults to true for manual callers. */
+      catalog?: boolean;
+      /** Audit every referenced chapter body during a catalog sync. */
+      deep?: boolean;
+      deepStoryIds?: Iterable<string>;
+    } = {},
   ): Promise<void> {
     if (!this.isCloudAvailable) return Promise.resolve();
 
+    const catalog = options.catalog ?? true;
     this.syncRequested = true;
-    if (options.deep ?? true) this.deepSyncRequested = true;
+    if (catalog) this.catalogSyncRequested = true;
+    if (catalog && (options.deep ?? true)) this.deepSyncRequested = true;
     for (const storyId of options.deepStoryIds ?? []) {
       this.deepStoryIdsRequested.add(storyId);
     }
@@ -1894,12 +1919,22 @@ export class PersistentStorageManager implements StorageAdapter {
     this.activeSyncPromise = (async () => {
       try {
         while (this.isCloudAvailable && this.syncRequested) {
-          const deep = this.deepSyncRequested;
-          const deepStoryIds = new Set(this.deepStoryIdsRequested);
+          const syncCatalog = this.catalogSyncRequested;
+          const deep = syncCatalog && this.deepSyncRequested;
+          const deepStoryIds = syncCatalog
+            ? new Set(this.deepStoryIdsRequested)
+            : new Set<string>();
           this.syncRequested = false;
-          this.deepSyncRequested = false;
-          this.deepStoryIdsRequested.clear();
-          await this.performSyncPass(deep, deepStoryIds);
+          if (syncCatalog) {
+            this.catalogSyncRequested = false;
+            this.deepSyncRequested = false;
+            this.deepStoryIdsRequested.clear();
+          }
+          if (syncCatalog) {
+            await this.performSyncPass(deep, deepStoryIds);
+          } else {
+            await this.performOutboxPass();
+          }
         }
       } finally {
         this.activeSyncPromise = null;

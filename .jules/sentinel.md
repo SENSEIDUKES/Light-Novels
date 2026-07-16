@@ -10,3 +10,7 @@
 **Vulnerability:** The `handleDownload` function in `src/utils/downloadUtils.ts` lacked URL protocol validation. If a malicious URL (like `javascript:alert(1)`) was passed and the CORS `fetch` failed, it would fall back to creating an anchor tag with the malicious URL and clicking it, resulting in XSS.
 **Learning:** Functions that accept URLs and use them in DOM elements (like `<a>` tags) or `fetch` calls must validate the protocol to prevent script execution. This is a common pattern in fallback mechanisms.
 **Prevention:** Always parse untrusted URLs using `new URL(url)` and validate that the `.protocol` is strictly in an allowed list (e.g., `http:`, `https:`, `blob:`, `data:`) before usage.
+## 2024-11-20 - [Fix weak RNG in sync revision generation]
+**Vulnerability:** Found `Math.random().toString(36)` being used as a fallback for generating synchronization revisions (`syncRevision`) across local and firebase storage managers when `crypto.randomUUID` was unavailable.
+**Learning:** `Math.random()` should never be used for generating sensitive/unique IDs even as a fallback, as it is predictable and can lead to collision vulnerabilities or state tracking issues during cloud synchronization.
+**Prevention:** Always rely on a central, secure utility like `generateUUID` in `src/lib/id.ts` that enforces Cryptographically Secure Pseudo-Random Number Generators (CSPRNG) via `crypto.randomUUID` or `crypto.getRandomValues`, and fails safely if they are completely unavailable.
