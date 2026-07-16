@@ -11,6 +11,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { IndexedDBStorageAdapter } from "./indexedDBAdapter";
 import { InMemoryFallbackAdapter } from "./inMemoryAdapter";
 import { LOCAL_ONLY_MODE } from "../firebase";
+import { generateUUID } from "../id";
 
 /**
  * Universal Storage Manager utilizing IndexedDB for high storage capacity
@@ -221,10 +222,7 @@ export class PersistentStorageManager implements StorageAdapter {
   }
 
   private createSyncRevision(): string {
-    if (typeof globalThis.crypto?.randomUUID === "function") {
-      return globalThis.crypto.randomUUID();
-    }
-    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return generateUUID();
   }
 
   private async withRecordLock<T>(
