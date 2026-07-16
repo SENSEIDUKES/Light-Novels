@@ -11,6 +11,8 @@
 ## 2024-07-24 - Missing ARIA Labels on Icon Buttons
 **Learning:** Many interactive icon-only buttons across the app (like `Trash2` remove buttons in editing interfaces) lack proper `aria-label` and `title` attributes. This breaks accessibility for screen reader users and reduces discoverability for sighted users who rely on hover tooltips.
 **Action:** When working on form or list editing components, always check inline icon-only buttons (like delete, edit, or add buttons) for explicit accessibility text and hover hints.
+
 ## 2025-02-12 - Ensure screen-reader accessibility for icon-only buttons
+
 **Learning:** Found several components using icon-only buttons that relied solely on `title` attributes (or lacked descriptions altogether). While `title` gives hover text for mouse users, it is not consistently exposed to screen readers unless explicitly bound via ARIA.
 **Action:** When creating or updating icon-only interactive elements (like `button` or `[role="button"]`), always explicitly assign an `aria-label` describing the action, matching the `title` attribute's intent where possible.
