@@ -187,14 +187,24 @@ export function formatAbilityLedgerForPrompt(abilities: unknown): unknown[] {
     });
 }
 
-export function rankRelevantEntities(
+export interface RankedRelevantEntity {
+  entity: Record<string, unknown>;
+  score: number;
+  isForced: boolean;
+  contextPriority: number;
+  recency: number;
+  index: number;
+}
+
+export function rankRelevantEntityCandidates(
   entities: any[] | undefined,
   mcName: string,
   lastChapterSummary: string | undefined,
   currentContext: string,
   bonusContexts: (string | undefined | null)[],
-  maxFeatures: number = 8
-) {
+  maxFeatures: number = 8,
+  anchorText?: string,
+): RankedRelevantEntity[] {
   if (!entities || !Array.isArray(entities)) return [];
 
   const STOP_WORDS = new Set(["the", "and", "for", "with", "from", "that", "this", "they", "them", "their", "his", "hers", "there", "what", "where", "when", "why", "how", "then"]);
@@ -204,10 +214,12 @@ export function rankRelevantEntities(
   const premiseText = (currentContext || "").toLowerCase();
   const lastSummaryText = (lastChapterSummary || "").toLowerCase();
   const bonusText = bonusContexts.filter(Boolean).join(" ").toLowerCase();
+  const anchorContextText = (anchorText || "").toLowerCase();
 
   const premiseTokens = tokenize(premiseText);
   const lastSummaryTokens = tokenize(lastSummaryText);
   const bonusTokens = tokenize(bonusText);
+  const anchorTokens = tokenize(anchorContextText);
 
   const entityRecords = entities.map(entity => (
     entity && typeof entity === 'object' ? entity as Record<string, any> : {}
@@ -263,6 +275,13 @@ export function rankRelevantEntities(
        score = Math.max(score, 500);
     }
 
+    const mentionedInAnchor = surfaceAppearsInText(canonicalName, anchorContextText)
+      || aliases.some(alias => surfaceAppearsInText(alias, anchorContextText));
+    if (mentionedInAnchor) {
+       isForced = true;
+       score = Math.max(score, 600);
+    }
+
     if (entity.evolutionReady) {
        isForced = true;
        score = Math.max(score, 500);
@@ -302,6 +321,10 @@ export function rankRelevantEntities(
         if (nameTokens.includes(pt)) score += 10;
         else if (entitySet.has(pt)) score += 2;
       }
+      for (const at of anchorTokens) {
+        if (nameTokens.includes(at)) score += 20;
+        else if (entitySet.has(at)) score += 4;
+      }
       for (const st of lastSummaryTokens) {
         if (nameTokens.includes(st)) score += 5;
         else if (entitySet.has(st)) score += 1;
@@ -331,7 +354,34 @@ export function rankRelevantEntities(
     ...scoredEntities.filter(e => !e.isForced && e.score > 0).sort(compareRank).slice(0, remainingSlots)
   ].sort(compareRank);
 
-  return ranked.map(e => renderEntityForContext(e.entity, e.aliases));
+  return ranked.map(e => ({
+    entity: renderEntityForContext(e.entity, e.aliases),
+    score: e.score,
+    isForced: e.isForced,
+    contextPriority: e.contextPriority,
+    recency: e.recency,
+    index: e.index,
+  }));
+}
+
+export function rankRelevantEntities(
+  entities: any[] | undefined,
+  mcName: string,
+  lastChapterSummary: string | undefined,
+  currentContext: string,
+  bonusContexts: (string | undefined | null)[],
+  maxFeatures: number = 8,
+  anchorText?: string,
+) {
+  return rankRelevantEntityCandidates(
+    entities,
+    mcName,
+    lastChapterSummary,
+    currentContext,
+    bonusContexts,
+    maxFeatures,
+    anchorText,
+  ).map(candidate => candidate.entity);
 }
 
 export function filterRelevantEntities(entities: any[] | undefined, ...contexts: (string|undefined|null)[]) {

@@ -566,6 +566,20 @@ export interface ChapterContent {
   contextManifest?: ContextManifest;
 }
 
+export type ContextBlockKind =
+  | "anchor"
+  | "recent-full"
+  | "recent-summary"
+  | "rag"
+  | "arc-summary";
+
+export interface ContextBlock {
+  kind: ContextBlockKind;
+  chapterNumber?: number;
+  text: string;
+  summaryText?: string;
+}
+
 export type ContextManifestSectionKey =
   | "pinnedRules"
   | "premise"
@@ -583,17 +597,26 @@ export interface ContextManifestSection {
   includedItemCount: number;
   availableItemCount: number;
   includedItems: string[];
+  demotedItems?: string[];
   omittedItems: string[];
+  protectedOverflowTokens?: number;
   truncated: boolean;
-  omissionReason?: "relevance_or_cap" | "token_budget" | "selection_or_token_budget";
+  omissionReason?:
+    | "relevance_or_cap"
+    | "token_budget"
+    | "selection_or_token_budget"
+    | "demoted_to_brief"
+    | "budget_drop";
 }
 
 export interface ContextManifest {
   version: 1;
+  engine?: "v1" | "v2";
   route: "generate-chapter-stream" | "generate-chapter";
   generatedAt: string;
   chapterNumber: number;
   totalEstimatedTokens: number;
+  providerInputEstimatedTokens?: number;
   memoryAndHistoryBudgetTokens: number;
   memoryAndHistoryEstimatedTokens: number;
   memoryAndHistoryBudgetExceeded: boolean;
@@ -662,6 +685,7 @@ export interface ReaderPreferences {
   fontFamily: "serif" | "sans" | "mono";
   lineHeight: "snug" | "normal" | "relaxed" | "loose";
   paragraphSpacing: "normal" | "wide" | "double";
+  contextEngine?: "v1" | "v2";
   themeOverride?: "void" | "crimson" | "abyss" | "sepia" | "emerald";
   colorPaletteId?: "default" | "protanopia" | "deuteranopia" | "tritanopia" | "high_contrast_dark";
   highlightStyle?: "full" | "underline" | "tint";

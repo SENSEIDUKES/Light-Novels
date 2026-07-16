@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { cosineSimilarity, generateEmbedding, retrieveRelevantContext } from './rag';
+import {
+  CONTEXT_CHAR_LIMITS,
+  contextBlocksToLegacyStrings,
+  cosineSimilarity,
+  generateEmbedding,
+  retrieveRelevantContext,
+} from './rag';
 import { StoryWorld } from '../types';
 import { storyStorage } from './storage';
 
@@ -135,12 +141,13 @@ describe('RAG', () => {
 
       const maxChars = 2000;
       const contextBlocks = await retrieveRelevantContext('Premise', 31, mockStory, {}, 3, maxChars, 3);
-      const combinedContext = contextBlocks.join('\n');
+      const combinedContext = contextBlocksToLegacyStrings(contextBlocks).join('\n');
       expect(combinedContext).toContain('COARSE HISTORY');
       expect(combinedContext).toContain('Arc 1 summary');
       expect(combinedContext).toContain('SLIDING WINDOW');
       expect(combinedContext).toMatch(/Chapter 30.*(Pruned Summary:|Very long)/i);
       expect(combinedContext).toContain('RECOVERED RELEVANT MEMORIES');
+      expect(contextBlocks.every(block => !block.text.includes('---'))).toBe(true);
     });
 
     it('handles different content types and budget edge cases', async () => {
@@ -171,7 +178,7 @@ describe('RAG', () => {
       });
 
       const contextBlocks = await retrieveRelevantContext('Premise', 4, mockStory, {}, 3, 10000, 2);
-      const combined = contextBlocks.join('\n');
+      const combined = contextBlocksToLegacyStrings(contextBlocks).join('\n');
 
       expect(combined).toContain('Archived block');
       expect(combined).toContain('Summary 2');
@@ -201,7 +208,7 @@ describe('RAG', () => {
 
       const maxChars = 99;
       const contextBlocks = await retrieveRelevantContext('Premise', 3, mockStory, {}, 3, maxChars, 1);
-      const combined = contextBlocks.join('\n');
+      const combined = contextBlocksToLegacyStrings(contextBlocks).join('\n');
       expect(combined).not.toContain('RECOVERED RELEVANT MEMORIES');
       expect(combined).toContain('Summary 2');
     });
@@ -222,7 +229,7 @@ describe('RAG', () => {
       } as any);
 
       const contextBlocks = await retrieveRelevantContext('Premise', 2, mockStory, {}, 3, 10000, 1);
-      const combined = contextBlocks.join('\n');
+      const combined = contextBlocksToLegacyStrings(contextBlocks).join('\n');
       expect(combined).toContain('Detailed episodic summary');
     });
 
@@ -243,7 +250,7 @@ describe('RAG', () => {
 
       const maxChars = 100;
       const contextBlocks = await retrieveRelevantContext('Premise', 2, mockStory, {}, 3, maxChars, 1);
-      const combined = contextBlocks.join('\n');
+      const combined = contextBlocksToLegacyStrings(contextBlocks).join('\n');
       expect(combined).toContain('Pruned Summary: Short summary');
       expect(combined).not.toContain('Very long content');
     });
@@ -268,11 +275,115 @@ describe('RAG', () => {
       } as any);
 
       const contextBlocks = await retrieveRelevantContext('Premise', 5, mockStory, {}, 3, 10000, 1);
-      const combined = contextBlocks.join('\n');
+      const combined = contextBlocksToLegacyStrings(contextBlocks).join('\n');
 
       expect(combined).toContain('Newly generated content');
       expect(combined).toContain('Chapter 1:');
       expect(combined).not.toContain('arc2');
+    });
+
+    it('uses the v2 one-full, one-trimmed, one-summary recent window', async () => {
+      const mockStory = createMockStory([{
+        title: 'Arc 1',
+        chapters: [
+          { number: 1, summary: 'Oldest summary', hasContent: true },
+          { number: 2, summary: 'Middle summary', hasContent: true },
+          { number: 3, summary: 'Latest summary', hasContent: true },
+        ],
+      } as any]);
+
+      vi.spyOn(storyStorage, 'getChapterContent').mockImplementation(async (_id: string, chapterNumber: number) => {
+        if (chapterNumber === 1) {
+          return { generatedContent: 'Oldest full prose that v2 must not retain.' } as any;
+        }
+        if (chapterNumber === 2) {
+          return {
+            blocks: Array.from({ length: 10 }, (_, index) => ({
+              id: `block-${index + 1}`,
+              type: 'narration',
+              text: `Middle block ${index + 1}`,
+            })),
+          } as any;
+        }
+        return { generatedContent: 'Latest chapter full prose.' } as any;
+      });
+
+      const contextBlocks = await retrieveRelevantContext(
+        'Premise',
+        4,
+        mockStory,
+        {},
+        3,
+        CONTEXT_CHAR_LIMITS.v2,
+        3,
+        'v2',
+      );
+      const oldest = contextBlocks.find(block => block.chapterNumber === 1);
+      const middle = contextBlocks.find(block => block.chapterNumber === 2);
+      const latest = contextBlocks.find(block => block.chapterNumber === 3);
+
+      expect(oldest).toMatchObject({ kind: 'recent-summary', chapterNumber: 1 });
+      expect(oldest?.text).toContain('Oldest summary');
+      expect(oldest?.text).not.toContain('Oldest full prose');
+      expect(middle).toMatchObject({ kind: 'recent-full', chapterNumber: 2 });
+      expect(middle?.text).not.toContain('Middle block 6');
+      expect(middle?.text).toContain('Middle block 7');
+      expect(middle?.text).toContain('Middle block 10');
+      expect(latest).toMatchObject({ kind: 'recent-full', chapterNumber: 3 });
+      expect(latest?.text).toContain('Latest chapter full prose');
+      expect(contextBlocks.every(block => !block.text.includes('---'))).toBe(true);
+    });
+
+    it('uses the chapter -2 episodic summary when its prose exceeds the v2 threshold', async () => {
+      const mockStory = createMockStory([{
+        title: 'Arc 1',
+        chapters: [
+          { number: 1, summary: 'Oldest summary', hasContent: true },
+          { number: 2, summary: 'Middle summary', hasContent: true },
+          { number: 3, summary: 'Latest summary', hasContent: true },
+        ],
+      } as any]);
+
+      vi.spyOn(storyStorage, 'getChapterContent').mockImplementation(async (_id: string, chapterNumber: number) => ({
+        generatedContent: chapterNumber === 2 ? 'x'.repeat(8001) : `Full prose ${chapterNumber}`,
+        episodicSummary: chapterNumber === 2 ? 'Condensed middle chapter.' : undefined,
+      } as any));
+
+      const contextBlocks = await retrieveRelevantContext(
+        'Premise',
+        4,
+        mockStory,
+        {},
+        3,
+        CONTEXT_CHAR_LIMITS.v2,
+        3,
+        'v2',
+      );
+      const middle = contextBlocks.find(block => block.chapterNumber === 2);
+
+      expect(middle).toEqual({
+        kind: 'recent-summary',
+        chapterNumber: 2,
+        text: 'Chapter 2 Summary:\nCondensed middle chapter.',
+      });
+    });
+
+    it('renders typed blocks into the exact legacy section shape', () => {
+      expect(contextBlocksToLegacyStrings([
+        { kind: 'arc-summary', text: "Volume 'One' Summary: Dawn" },
+        { kind: 'rag', chapterNumber: 2, text: 'Chapter 2: A recovered beat' },
+        { kind: 'recent-summary', chapterNumber: 4, text: 'Chapter 4 Summary: A bridge' },
+        { kind: 'recent-full', chapterNumber: 5, text: 'Chapter 5:\nFull prose' },
+        { kind: 'anchor', chapterNumber: 5, text: 'The final line.' },
+      ])).toEqual([
+        "--- COARSE HISTORY (ARC SUMMARIES) ---\nVolume 'One' Summary: Dawn",
+        '--- RECOVERED RELEVANT MEMORIES (OLDER CHAPTERS) ---',
+        'Chapter 2: A recovered beat',
+        '--- SLIDING WINDOW OF RECENT NARRATIVE BLOCKS/DIALOGUE ---',
+        'Chapter 4 Summary: A bridge',
+        'Chapter 5:\nFull prose',
+        '--- IMMEDIATE CONTINUATION ANCHOR (FINAL MOMENTS OF CHAPTER 5) ---\nThe final line.',
+      ]);
     });
   });
 });

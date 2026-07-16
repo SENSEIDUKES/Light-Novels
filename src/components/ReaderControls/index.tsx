@@ -11,6 +11,7 @@ export function ReaderControls({
   playback,
   audio,
   immersion,
+  contextEngine,
   actions
 }: ReaderControlsProps) {
   const { onSwitchTab } = navigation;
@@ -23,7 +24,13 @@ export function ReaderControls({
         <div className="flex sm:hidden items-center justify-between w-full">
            {/* Left: Settings & Codex */}
            <div className="flex items-center gap-2">
-              <ImmersionSettings audio={audio} immersion={immersion} actions={actions} isMobile />
+              <ImmersionSettings
+                audio={audio}
+                immersion={immersion}
+                contextEngine={contextEngine}
+                actions={actions}
+                isMobile
+              />
               <button
                 onClick={() => onSwitchTab && onSwitchTab("codex")}
                 aria-label="Open Codex"
@@ -71,7 +78,12 @@ export function ReaderControls({
 
             {/* Settings Toggle */}
             <div className="relative ml-2">
-              <ImmersionSettings audio={audio} immersion={immersion} actions={actions} />
+              <ImmersionSettings
+                audio={audio}
+                immersion={immersion}
+                contextEngine={contextEngine}
+                actions={actions}
+              />
             </div>
           </div>
 

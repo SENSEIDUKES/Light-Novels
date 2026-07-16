@@ -118,7 +118,10 @@ export default function SteerPortal({
         nextChapterNumber,
         activeStory,
         apiHeaders,
-        8 // Evaluate top 8 historical narrative beats
+        8, // Evaluate top 8 historical narrative beats
+        undefined,
+        3,
+        activeStory.readerPreferences?.contextEngine ?? 'v1',
       );
 
       const response = await fetch('/api/generate-next-directions', {
@@ -130,6 +133,7 @@ export default function SteerPortal({
           customPremise: activeStory.customPremise,
           memory: slimMemoryForRequest(activeStory.memory),
           pastSummaries,
+          contextEngine: activeStory.readerPreferences?.contextEngine ?? 'v1',
           currentArcCount: activeStory.arcs.length,
           estimatedArcs: activeStory.blueprint?.estimatedArcs,
           destinedEnding: activeStory.blueprint?.destinedEnding,

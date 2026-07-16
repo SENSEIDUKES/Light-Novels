@@ -101,6 +101,87 @@ describe('Server Helpers', () => {
       expect(rendered).not.toHaveProperty('pinned');
       expect(entity.description).toBe('Generated public description');
     });
+
+    it('forces an entity mentioned only by alias in the continuation anchor', () => {
+      const entity = {
+        name: 'Mei Lian',
+        aliases: ['Sister Mei'],
+        description: 'Keeper of the eastern pavilion',
+      };
+
+      expect(rankRelevantEntities(
+        [entity],
+        '',
+        '',
+        '',
+        [],
+        0,
+        'Sister Mei barred the door behind the protagonist.',
+      )).toEqual([entity]);
+    });
+
+    it('does not let anchor-forced entities displace the MC or pinned entities', () => {
+      const entities = [
+        { name: 'Lan Wei', role: 'Protagonist' },
+        {
+          name: 'Old Master Ren',
+          provenance: { isUserPinned: true },
+        },
+        {
+          name: 'Mei Lian',
+          aliases: ['Sister Mei'],
+        },
+      ];
+
+      const ranked = rankRelevantEntities(
+        entities,
+        'Lan Wei',
+        '',
+        '',
+        [],
+        1,
+        'Sister Mei waits beside the gate.',
+      );
+
+      expect(ranked.map(entity => entity.name)).toEqual([
+        'Lan Wei',
+        'Old Master Ren',
+        'Mei Lian',
+      ]);
+    });
+
+    it('weights anchor token overlap at twice the premise-token weight', () => {
+      const ranked = rankRelevantEntities([
+        { name: 'Azure Keeper', description: 'Guards the moonlit threshold' },
+        { name: 'Crimson Keeper', description: 'Guards the ember threshold' },
+      ], '', '', 'ember', [], 1, 'moonlit');
+
+      expect(ranked.map(entity => entity.name)).toEqual(['Azure Keeper']);
+    });
+
+    it('keeps omitted-anchor calls identical to an explicit undefined anchor', () => {
+      const entities = [
+        { name: 'Azure Hall', description: 'A mountain sect' },
+        { name: 'Crimson Hall', description: 'A river sect' },
+      ];
+
+      expect(rankRelevantEntities(
+        entities,
+        '',
+        '',
+        'Azure Hall gathers',
+        [],
+        1,
+      )).toEqual(rankRelevantEntities(
+        entities,
+        '',
+        '',
+        'Azure Hall gathers',
+        [],
+        1,
+        undefined,
+      ));
+    });
   });
 
   describe('filterRelevantEntities', () => {

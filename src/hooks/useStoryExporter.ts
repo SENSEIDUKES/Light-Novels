@@ -37,15 +37,17 @@ export const useStoryExporter = () => {
       if (exportData.arcs) {
         for (const arc of exportData.arcs) {
           for (const chapter of arc.chapters) {
-            if (chapter.hasContent && (!chapter.generatedContent && (!chapter.blocks || chapter.blocks.length === 0))) {
-               const content = await storyStorage.getChapterContent(story.id, chapter.number);
-               if (content) {
-                 chapter.generatedContent = content.generatedContent;
-                 chapter.blocks = content.blocks;
-                 chapter.summary = content.summary;
-                 chapter.statsChangeMessage = content.statsChangeMessage;
-                 chapter.cuePayload = content.cuePayload;
-               }
+            if (chapter.hasContent) {
+              const content = await storyStorage.getChapterContent(story.id, chapter.number);
+              if (content) {
+                chapter.generatedContent ||= content.generatedContent;
+                if (!chapter.blocks?.length) chapter.blocks = content.blocks;
+                chapter.archivedBlocks = content.archivedBlocks;
+                chapter.summary ||= content.summary;
+                chapter.episodicSummary = content.episodicSummary;
+                chapter.statsChangeMessage ||= content.statsChangeMessage;
+                chapter.cuePayload ||= content.cuePayload;
+              }
             }
           }
         }

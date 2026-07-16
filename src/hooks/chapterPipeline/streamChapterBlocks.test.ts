@@ -125,4 +125,33 @@ describe("streamChapterBlocks", () => {
     expect(result.contextManifest).toBeUndefined();
     expect(result.accumulatedRaw).toBe("Legacy prose");
   });
+
+  it.each([
+    ["v1 when the story preference is absent", story, "v1"],
+    [
+      "v2 when the story preference enables it",
+      {
+        ...story,
+        readerPreferences: { contextEngine: "v2" },
+      } as Story,
+      "v2",
+    ],
+  ])("sends contextEngine as %s", async (_label, activeStory, expectedEngine) => {
+    mockStream(["data: [DONE]\n\n"]);
+
+    await streamChapterBlocks(
+      activeStory,
+      chapter,
+      [],
+      "",
+      {},
+      {},
+      vi.fn(),
+    );
+
+    const requestBody = JSON.parse(
+      String(vi.mocked(fetch).mock.calls[0][1]?.body),
+    );
+    expect(requestBody.contextEngine).toBe(expectedEngine);
+  });
 });

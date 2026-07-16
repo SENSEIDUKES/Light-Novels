@@ -220,9 +220,14 @@ Output strictly JSON matching the specified format.`,
       withCue: boolean,
       styleBible?: string,
       tropeRules?: string,
-      storyTags?: string[]
+      storyTags?: string[],
+      contextEngine: "v1" | "v2" = "v1",
     ) => {
-      let prompt = `Write the full chapter text for Chapter ${chapterNumber}: "${title}".
+      let prompt = contextEngine === "v2"
+        ? `Write the full chapter text using the Context Engine v2 assembly below.
+
+`
+        : `Write the full chapter text for Chapter ${chapterNumber}: "${title}".
 Goal of this chapter: ${premise}
 
 STORY BACKGROUND DETAILS:
@@ -244,7 +249,18 @@ ${tropeRules ? `- Trope Rules:\n${tropeRules}` : ''}
 =========================================\n\n`;
       }
 
-      prompt += `CURRENT STORY MEMORY (Ensure complete consistency with these):
+      prompt += contextEngine === "v2"
+        ? `CONTEXT ENGINE V2 ASSEMBLY (obey the section order and included tiers):
+${memoryJson}
+
+AUTHOR CONTEXT AUTHORITY:
+Any authorContextNote in the Codex memory cards is a direct author instruction. Obey it over conflicting generated descriptions or summaries. Aliases are recognition keys only; do not treat them as permission to invent additional names or titles.
+
+IMMEDIATE CONTINUATION RULE:
+Continue from the latest concrete action, conversation, and physical position. Do not restart by broadly re-establishing the novel's setting, central hardship, protagonist, or core premise. Do not replay introductions, discoveries, or conversations that already occurred. Preserve recurring atmosphere when it naturally fits the immediate scene, but do not use it as a default chapter reset.
+
+`
+        : `CURRENT STORY MEMORY (Ensure complete consistency with these):
 ${memoryJson}
 
 AUTHOR CONTEXT AUTHORITY:
@@ -256,7 +272,9 @@ ${pastSummariesJson}
 IMMEDIATE CONTINUATION RULE:
 Continue from the latest concrete action, conversation, and physical position. Do not restart by broadly re-establishing the novel's setting, central hardship, protagonist, or core premise. Do not replay introductions, discoveries, or conversations that already occurred. Preserve recurring atmosphere when it naturally fits the immediate scene, but do not use it as a default chapter reset.
 
-CHAPTER LENGTH & EXPANSION DIRECTIVES:
+`;
+
+      prompt += `CHAPTER LENGTH & EXPANSION DIRECTIVES:
 - Default Target Length: 2,500 words.
 - Absolute Minimum: 2,000 words.
 - CRITICAL: Do NOT write a short 400-word summary. You MUST write out every single scene in extreme real-time detail.
@@ -511,9 +529,10 @@ Do not add any text before or after the JSON. Ensure the JSON is well-formed.`
     system: `You are a visionary series consultant and master of fate for bestselling serialized Chinese web-novels. 
 Your task is to analyze the current state of a light novel's lore, characters, power levels, and history, and generate 4 to 6 highly creative and compelling next-step plot direction options for the upcoming Volume/Arc. 
 You must output strictly raw JSON matching the requested structure. Keep proposals immersive, keeping true to the tropes of light novels — level progressions, face-slapping, spiritual bond cultivation, romantic tension, or adult-only double cultivation politics, or glowing system holographic screens.`,
-    userPrompt: (mcName: string, genre: string, customPremise: string, memoryJson: string, pastSummariesJson: string, destinedEnding?: string, currentArcCount?: number, estimatedArcs?: number) => `Analyze the current state of the light novel and write exactly 4 to 6 potential sequential plot directions.
+    userPrompt: (mcName: string, genre: string, customPremise: string, memoryJson: string, pastSummariesJson: string, destinedEnding?: string, currentArcCount?: number, estimatedArcs?: number, contextEngine: "v1" | "v2" = "v1") => `Analyze the current state of the light novel and write exactly 4 to 6 potential sequential plot directions.
 
-STORY PROGRESS DETAILS:
+${contextEngine === "v2" ? `CONTEXT ENGINE V2 ASSEMBLY (obey the section order and included tiers):
+${memoryJson}` : `STORY PROGRESS DETAILS:
 - MC Name: ${mcName}
 - Genre/Style: ${genre}
 - Core Premise: ${customPremise}
@@ -524,7 +543,7 @@ CURRENT STORY MEMORY (You must ensure deep lore continuity with these):
 ${memoryJson}
 
 CHRONOLOGY / PAST STORY CONTEXT SUMMARY:
-${pastSummariesJson}
+${pastSummariesJson}`}
 
 Create exactly 4 to 6 potential direction options. Each option must have:
 1. "title": A poetic, high-energy light novel style volume/arc title.
@@ -639,7 +658,10 @@ CONTENT AND AGE SAFETY PROTOCOLS:
 4. ADULT INTIMACY: Physical intimacy and highly suggestive themes require ALL involved characters to be clearly 18 years or older. Avoid graphic erotica or pornography under all circumstances. Keep intimacy of adult characters clean and focus on emotional narrative progression.
 
 Output strictly raw JSON matching the requested structure.`,
-    userPrompt: (startNum: number, mcName: string, genre: string, customPremise: string, steerDirection: string, userCustomDirections: string, memoryJson: string, pastSummariesJson: string, count: number) => `Create the next ${count} sequential chapters starting from chapter ${startNum} for:
+    userPrompt: (startNum: number, mcName: string, genre: string, customPremise: string, steerDirection: string, userCustomDirections: string, memoryJson: string, pastSummariesJson: string, count: number, contextEngine: "v1" | "v2" = "v1") => `${contextEngine === "v2" ? `Create the next ${count} sequential chapters starting from chapter ${startNum}.
+
+CONTEXT ENGINE V2 ASSEMBLY (obey the section order and included tiers):
+${memoryJson}` : `Create the next ${count} sequential chapters starting from chapter ${startNum} for:
 Main Character: ${mcName}
 Genre Category: ${genre}
 Original Premise: ${customPremise}
@@ -652,7 +674,7 @@ CURRENT COMPREHENSIVE STORY MEMORY:
 ${memoryJson}
 
 BRIEF CHRONOLOGY OF PREVIOUS CHAPTERS:
-${pastSummariesJson}
+${pastSummariesJson}`}
 
 You must return a JSON object containing the new sequential chapter lists (Chapters ${startNum} to ${startNum + count - 1}), introducing dramatic twists, new realms, or romantic complications based on the chosen steer direction.
 

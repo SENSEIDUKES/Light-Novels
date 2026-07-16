@@ -92,7 +92,10 @@ export const useArcSteering = () => {
         nextChapterNumber,
         activeStory,
         apiHeaders,
-        10 
+        10,
+        undefined,
+        3,
+        activeStory.readerPreferences?.contextEngine ?? 'v1',
       );
 
       store_setActiveAgentId('versa');
@@ -105,6 +108,7 @@ export const useArcSteering = () => {
           customPremise: activeStory.customPremise,
           memory: slimMemoryForRequest(activeStory.memory),
           pastSummaries,
+          contextEngine: activeStory.readerPreferences?.contextEngine ?? 'v1',
           currentArcCount: totalPreviousChapters,
           steerDirection: direction,
           userCustomDirections: customPrompt,
@@ -270,7 +274,10 @@ export const useArcSteering = () => {
         nextChapterNumber,
         newStory,
         apiHeaders,
-        10 
+        10,
+        undefined,
+        3,
+        newStory.readerPreferences?.contextEngine ?? 'v1',
       );
 
       store_setActiveAgentId('versa');
@@ -283,6 +290,7 @@ export const useArcSteering = () => {
           customPremise: newStory.customPremise,
           memory: slimMemoryForRequest(newStory.memory),
           pastSummaries,
+          contextEngine: newStory.readerPreferences?.contextEngine ?? 'v1',
           currentArcCount: totalPreviousChapters,
           steerDirection: direction,
           userCustomDirections: customPrompt,

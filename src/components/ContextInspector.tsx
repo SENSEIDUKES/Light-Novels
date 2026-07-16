@@ -8,10 +8,15 @@ interface ContextInspectorProps {
 export function ContextInspector({ manifest }: ContextInspectorProps) {
   if (!manifest) return null;
 
+  const engine = manifest.engine ?? "v1";
+  const providerInputEstimatedTokens =
+    manifest.providerInputEstimatedTokens ?? manifest.totalEstimatedTokens;
   const omissionLabels: Record<string, string> = {
     relevance_or_cap: "relevance/cap",
     token_budget: "token budget",
     selection_or_token_budget: "selection/budget",
+    demoted_to_brief: "demoted to brief",
+    budget_drop: "budget drop",
   };
 
   return (
@@ -23,9 +28,12 @@ export function ContextInspector({ manifest }: ContextInspectorProps) {
           <span className="truncate font-mono normal-case tracking-normal text-neutral-500">
             Chapter {manifest.chapterNumber}
           </span>
+          <span className="rounded border border-portal/20 bg-portal/5 px-1.5 py-0.5 font-mono text-[8px] normal-case tracking-normal text-portal/80">
+            Engine {engine}
+          </span>
         </span>
         <span className="flex shrink-0 items-center gap-2 font-mono normal-case tracking-normal text-neutral-300">
-          ~{manifest.totalEstimatedTokens.toLocaleString()} tokens
+          ~{providerInputEstimatedTokens.toLocaleString()} provider tokens
           <ChevronDown size={13} className="transition-transform group-open:rotate-180" />
         </span>
       </summary>
@@ -35,6 +43,9 @@ export function ContextInspector({ manifest }: ContextInspectorProps) {
           <span>
             Memory + history: ~{manifest.memoryAndHistoryEstimatedTokens.toLocaleString()}
             {" / "}{manifest.memoryAndHistoryBudgetTokens.toLocaleString()}
+          </span>
+          <span>
+            Budgeted sections: ~{manifest.totalEstimatedTokens.toLocaleString()}
           </span>
           {manifest.memoryAndHistoryBudgetExceeded ? (
             <span className="text-amber-400">Budget exceeded</span>
@@ -71,6 +82,18 @@ export function ContextInspector({ manifest }: ContextInspectorProps) {
                   <p className="mt-1.5 break-words text-[10px] leading-relaxed text-neutral-400">
                     <span className="text-jade-accent/80">In:</span>{" "}
                     {section.includedItems.join(", ")}
+                  </p>
+                ) : null}
+                {section.demotedItems?.length ? (
+                  <p className="mt-1 break-words text-[10px] leading-relaxed text-sky-300/80">
+                    <span className="font-semibold">Demoted:</span>{" "}
+                    {section.demotedItems.join(", ")}
+                  </p>
+                ) : null}
+                {section.protectedOverflowTokens ? (
+                  <p className="mt-1 break-words text-[10px] leading-relaxed text-violet-300/80">
+                    <span className="font-semibold">Protected overflow:</span>{" "}
+                    ~{section.protectedOverflowTokens.toLocaleString()} tokens retained
                   </p>
                 ) : null}
                 {section.omittedItems.length > 0 ? (
