@@ -3,3 +3,6 @@ Recording learnings... Added exhaustive-deps rule enforcement and fixed App.tsx.
 ## 2024-05-15 - Optimize character categorization in LivingCodexFactions
 **Learning:** Found a component performing 6 O(N) array traversals (3 `.some`, 3 `.filter`) during render just to split one array into 3 categories. The same string methods (`.toLowerCase`) were being unnecessarily called on every iteration.
 **Action:** Replaced sequential `.filter()` calls with a single `for` loop pass that categorizes items into sub-arrays simultaneously. This eliminates redundant iterations and reduces intermediate allocations.
+## 2025-10-24 - Optimize categorization in LivingCodex component
+**Learning:** `LivingCodex.tsx` was doing repeated `.filter()` calls to split memory characters, locations, factions, and artifacts into `dormant` and `renderTo` variables. This repeated O(N) array traversals which could be optimized using a `categorizeEntries` helper that categorizes them in a single O(N) pass.
+**Action:** Replaced sequential `.filter()` calls with a single `for` loop helper function to minimize intermediate allocations and redundant array traversals.

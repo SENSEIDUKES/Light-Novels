@@ -203,21 +203,35 @@ export default function LivingCodex({
     || entry.relevanceState === 'warm'
     || entry.relevanceState === 'reactivated';
 
+  // ⚡ Bolt Optimization: Single-pass categorization.
+  // Replaces 2 separate O(N) .filter() passes per array with a single O(N) loop to categorize into dormant and renderable.
+  // Reduces total array iterations for memory entities from 8 to 4 during render.
+  const categorizeEntries = <T extends { relevanceState?: string; provenance?: { isUserPinned?: boolean } }>(entries: T[]) => {
+    const dormant: T[] = [];
+    const renderable: T[] = [];
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      if (entry.relevanceState === 'dormant' || entry.relevanceState === 'archived') {
+        dormant.push(entry);
+      }
+      if (showDeepMemory || isVisibleInCurrentMemory(entry)) {
+        renderable.push(entry);
+      }
+    }
+    return { dormant, renderable };
+  };
+
   const allChars = memory.characters || [];
-  const dormantChars = allChars.filter(c => c.relevanceState === 'dormant' || c.relevanceState === 'archived');
-  const charsToRender = showDeepMemory ? allChars : allChars.filter(isVisibleInCurrentMemory);
+  const { dormant: dormantChars, renderable: charsToRender } = categorizeEntries(allChars);
 
   const allLocs = memory.locations || [];
-  const dormantLocs = allLocs.filter(l => l.relevanceState === 'dormant' || l.relevanceState === 'archived');
-  const locationsToRender = showDeepMemory ? allLocs : allLocs.filter(isVisibleInCurrentMemory);
+  const { dormant: dormantLocs, renderable: locationsToRender } = categorizeEntries(allLocs);
 
   const allFactions = memory.factions || [];
-  const dormantFactions = allFactions.filter(f => f.relevanceState === 'dormant' || f.relevanceState === 'archived');
-  const factionsToRender = showDeepMemory ? allFactions : allFactions.filter(isVisibleInCurrentMemory);
+  const { dormant: dormantFactions, renderable: factionsToRender } = categorizeEntries(allFactions);
 
   const allArtifacts = memory.artifacts || [];
-  const dormantArtifacts = allArtifacts.filter(a => a.relevanceState === 'dormant' || a.relevanceState === 'archived');
-  const artifactsToRender = showDeepMemory ? allArtifacts : allArtifacts.filter(isVisibleInCurrentMemory);
+  const { dormant: dormantArtifacts, renderable: artifactsToRender } = categorizeEntries(allArtifacts);
 
   const hasDormantState = dormantChars.length > 0 || dormantLocs.length > 0 || dormantFactions.length > 0 || dormantArtifacts.length > 0;
 

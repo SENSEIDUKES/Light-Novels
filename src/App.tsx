@@ -362,8 +362,16 @@ function App() {
   }, [
     store_initStorage,
     store_migrateOrDiscardDemoStories,
+    store_setActiveStoryId,
+    store_setAppError,
+    store_setCurrentScreen,
     store_setCurrentUser,
+    store_setDraftRecoverySession,
+    store_setIsCodexSheetOpen,
+    store_setIsSettingsOpen,
+    store_setIsShortcutsOpen,
     store_setStories,
+    store_setStoryToDelete,
     store_setSyncStatus,
     store_setUserProfile
   ]);
