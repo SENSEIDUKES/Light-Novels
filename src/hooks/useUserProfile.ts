@@ -123,16 +123,24 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
   const currentPowerStage = activeStory?.memory?.currentPowerStage || '';
   const equippedArtifact = profile?.cosmicInventory?.find(a => a.id === profile?.equippedArtifactId);
 
-  const handleContextEngineChange = (contextEngine: 'v1' | 'v2') => {
+  const handleContextEngineChange = async (contextEngine: 'v1' | 'v2') => {
     if (!activeStory) return;
 
-    return updateStory(activeStory.id, {
-      readerPreferences: {
-        ...DEFAULT_READER_PREFERENCES,
-        ...activeStory.readerPreferences,
-        contextEngine,
-      },
-    });
+    try {
+      await updateStory(activeStory.id, {
+        readerPreferences: {
+          ...DEFAULT_READER_PREFERENCES,
+          ...activeStory.readerPreferences,
+          contextEngine,
+        },
+      });
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : 'Failed to update context engine preference',
+      );
+    }
   };
 
   // Cultivator Portrait Builder states
