@@ -14,3 +14,7 @@
 **Vulnerability:** Found `Math.random().toString(36)` being used as a fallback for generating synchronization revisions (`syncRevision`) across local and firebase storage managers when `crypto.randomUUID` was unavailable.
 **Learning:** `Math.random()` should never be used for generating sensitive/unique IDs even as a fallback, as it is predictable and can lead to collision vulnerabilities or state tracking issues during cloud synchronization.
 **Prevention:** Always rely on a central, secure utility like `generateUUID` in `src/lib/id.ts` that enforces Cryptographically Secure Pseudo-Random Number Generators (CSPRNG) via `crypto.randomUUID` or `crypto.getRandomValues`, and fails safely if they are completely unavailable.
+## 2025-03-09 - [Rate Limiting Sensitive API Endpoints]
+**Vulnerability:** Lack of rate limiting on sensitive API endpoints, leaving the application exposed to brute-force and Denial of Service (DoS) attacks.
+**Learning:** API routes in Node.js backends should always be protected against high-frequency requests, particularly those that perform resource-intensive tasks, such as generating text or interacting with external LLMs, or authentication endpoints.
+**Prevention:** Always implement a rate-limiting middleware (like `express-rate-limit`) on critical API routes to enforce request limits per IP address within a specific time window.

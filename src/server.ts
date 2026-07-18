@@ -4,6 +4,7 @@ import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { z } from "zod";
 import pinoHttp from "pino-http";
+import rateLimit from "express-rate-limit";
 import { logger } from "./server/logger";
 import {
   validateBody,
@@ -99,6 +100,16 @@ app.use(express.json({ limit: "20mb" }));
 // 5. Generate Story-Specific Glossary terms and lore definitions
 // 6. Translate Chapter
 // 7. Generate Audio (TTS) for the Voice Edition
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: { error: "Too many requests from this IP, please try again after 15 minutes" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use("/api", apiLimiter);
 
 app.use(apiRouter);
 
