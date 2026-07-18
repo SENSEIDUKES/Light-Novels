@@ -99,7 +99,7 @@ describe("storyRouter context manifest contract", () => {
     })());
   });
 
-  it("writes the stream manifest before the first prose chunk and logs numeric breakdowns", async () => {
+  it("uses v2 by default and writes its manifest before the first prose chunk", async () => {
     const handler = getHandler("/api/generate-chapter-stream");
     const { response, writes } = createResponse();
 
@@ -109,7 +109,7 @@ describe("storyRouter context manifest contract", () => {
     );
 
     const firstEvent = JSON.parse(writes[0].slice("data: ".length).trim());
-    expect(firstEvent.contextManifest.engine).toBe("v1");
+    expect(firstEvent.contextManifest.engine).toBe("v2");
     expect(firstEvent.contextManifest.sections).toHaveLength(8);
     expect(firstEvent.contextManifest.sections.map((section: any) => section.key)).toEqual([
       "pinnedRules",
@@ -124,9 +124,9 @@ describe("storyRouter context manifest contract", () => {
     expect(writes[1]).toContain("generated prose");
 
     const loggedManifest = mocks.loggerInfo.mock.calls[0][0].contextManifest;
-    const legacyPrompt = mocks.routeTextGenerationStream.mock.calls[0][2];
-    expect(legacyPrompt).toContain('"characters": [');
-    expect(legacyPrompt).not.toContain("CODEX MEMORY CARDS");
+    const prompt = mocks.routeTextGenerationStream.mock.calls[0][2];
+    expect(prompt).toContain("CODEX MEMORY CARDS");
+    expect(prompt).not.toContain('"characters": [');
     expect(loggedManifest.sections).toHaveLength(8);
     expect(JSON.stringify(loggedManifest)).not.toContain("Moon Sword");
   });
@@ -143,7 +143,7 @@ describe("storyRouter context manifest contract", () => {
     expect(response.json).toHaveBeenCalledWith(expect.objectContaining({
       chapterText: "Generated chapter text",
       contextManifest: expect.objectContaining({
-        engine: "v1",
+        engine: "v2",
         route: "generate-chapter",
         chapterNumber: 2,
         sections: expect.arrayContaining([
@@ -153,7 +153,7 @@ describe("storyRouter context manifest contract", () => {
     }));
   });
 
-  it("renders typed v1 history byte-identically to the equivalent legacy strings", async () => {
+  it("keeps v2 active for legacy v1 requests and string history", async () => {
     const handler = getHandler("/api/generate-chapter");
     const firstResponse = createResponse().response;
     const secondResponse = createResponse().response;
@@ -190,6 +190,8 @@ describe("storyRouter context manifest contract", () => {
 
     expect(mocks.routeTextGeneration.mock.calls[1][2])
       .toBe(mocks.routeTextGeneration.mock.calls[0][2]);
+    expect(mocks.routeTextGeneration.mock.calls[0][2])
+      .toContain("CONTEXT ENGINE V2 ASSEMBLY");
   });
 
   it("uses cards, the unified budgeter, and truthful tier labels on v2", async () => {

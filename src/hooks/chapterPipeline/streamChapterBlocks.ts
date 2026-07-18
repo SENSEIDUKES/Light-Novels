@@ -1,6 +1,7 @@
 import { Story, Chapter, ContextBlock, ContextManifest } from '../../types';
 import { extractJsonBlocks } from '../storyEngineHelpers';
 import { slimMemoryForRequest } from '../../lib/slimMemoryForRequest';
+import { ACTIVE_CONTEXT_ENGINE } from '../../lib/contextBlocks';
 
 export const streamChapterBlocks = async (
   activeStory: Story,
@@ -22,7 +23,7 @@ export const streamChapterBlocks = async (
       // ~4.5 MB request cap — the prompt is text-only. (Fixes HTTP 413 on generation.)
       memory: slimMemoryForRequest(activeStory.memory),
       pastSummaries,
-      contextEngine: activeStory.readerPreferences?.contextEngine ?? "v1",
+      contextEngine: ACTIVE_CONTEXT_ENGINE,
       hardcoreFateMode: activeStory.hardcoreFateMode,
       fatePressure: activeStory.fatePressure,
       pacingDirective,

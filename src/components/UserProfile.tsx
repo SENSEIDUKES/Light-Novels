@@ -34,8 +34,6 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     handleImportLibrary,
     storageType,
     activeStoryId,
-    activeStory,
-    handleContextEngineChange,
     routingConfig,
     profile,
     isEditing,
@@ -105,7 +103,6 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     generationStep,
   } = useUserProfile({ currentUser, stories, onLogout, onNavigateHome });
   const attunedArtifact = (profile?.cosmicInventory || []).find(a => a.id === profile?.equippedArtifactId);
-  const isContextEngineV2 = activeStory?.readerPreferences?.contextEngine === 'v2';
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-8">
@@ -245,41 +242,8 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                     {showAdvanced && (
                       <div className="mt-3 p-4 bg-[#030303] border border-neutral-900 rounded-xl space-y-3 animate-fadeIn text-left w-64 max-w-xs absolute left-1/2 -translate-x-1/2 md:left-4 md:translate-x-0 z-20 shadow-[0_10px_30px_rgba(0,0,0,0.8)]">
                         <p className="text-[9px] font-sans text-neutral-500 leading-normal">
-                          Configure story context, model presets, routing overrides, or API credential endpoints.
+                          Configure custom model presets, routing overrides, or API credential endpoints.
                         </p>
-                        <div className="flex items-center justify-between gap-3 bg-neutral-950/85 p-2 rounded-lg border border-portal/20">
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-[10px] font-medium text-[#FAFAFA] font-sans">
-                              Context Engine v2 (experimental)
-                            </span>
-                            <span className="text-[9px] text-neutral-500 font-sans leading-normal">
-                              {activeStory
-                                ? `Use relevance-ranked context for ${activeStory.title}.`
-                                : 'Select a story to enable the experimental engine.'}
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleContextEngineChange(isContextEngineV2 ? 'v1' : 'v2')}
-                            role="switch"
-                            aria-checked={isContextEngineV2}
-                            aria-label="Context Engine v2 (experimental)"
-                            disabled={!activeStory}
-                            className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-portal focus-visible:ring-offset-2 focus-visible:ring-offset-black ${
-                              isContextEngineV2
-                                ? 'bg-portal/80 shadow-[0_0_8px_rgba(4,172,255,0.4)]'
-                                : 'bg-neutral-850'
-                            } ${activeStory ? 'cursor-pointer' : 'cursor-not-allowed opacity-40'}`}
-                          >
-                            <span
-                              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-void shadow transition duration-200 ease-in-out ${
-                                isContextEngineV2
-                                  ? 'translate-x-4 bg-signal'
-                                  : 'translate-x-0 bg-neutral-500'
-                              }`}
-                            />
-                          </button>
-                        </div>
                         <div className="flex flex-col gap-2">
                           <button
                             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setIsSettingsOpen(true)}

@@ -125,7 +125,7 @@ describe('useArcSteering - Steering action processing', () => {
     });
 
     const requestBody = JSON.parse(String((global.fetch as any).mock.calls[0][1].body));
-    expect(requestBody.contextEngine).toBe('v1');
+    expect(requestBody.contextEngine).toBe('v2');
     expect(saveStoriesSpy).toHaveBeenCalled();
     const updated = saveStoriesSpy.mock.calls[0][0];
     expect(updated[0].arcs.length).toBe(1); // Should append to existing arc since it has < 100 chapters
@@ -200,7 +200,7 @@ describe('useArcSteering - Steering action processing', () => {
   });
 
   it('handleAlterFate forks story and steers successfully', async () => {
-    mockStore.stories[0].readerPreferences = { contextEngine: 'v2' };
+    mockStore.stories[0].readerPreferences = { contextEngine: 'v1' };
     mockStore.stories[0].chapterGenerationBatch = {
       id: 'parent-batch',
       chapterNumbers: [1, 2, 3, 4, 5],

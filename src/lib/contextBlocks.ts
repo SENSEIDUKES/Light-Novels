@@ -2,6 +2,8 @@ import type { ContextBlock } from "../types";
 
 export type ContextEngine = "v1" | "v2";
 
+export const ACTIVE_CONTEXT_ENGINE: ContextEngine = "v2";
+
 export const CONTEXT_CHAR_LIMITS: Record<ContextEngine, number> = {
   v1: 120000,
   v2: 60000,

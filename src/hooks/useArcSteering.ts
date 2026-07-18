@@ -8,6 +8,7 @@ import { awardQi } from '../lib/qi';
 import { getApiHeaders } from './storyEngineHelpers';
 import { getFateLockMessage } from './chapterPipeline/chapterBatch';
 import { stripAuthorControlledCodexFields } from '../lib/codexContext';
+import { ACTIVE_CONTEXT_ENGINE } from '../lib/contextBlocks';
 
 const PROVIDER_CHARACTER_STATUSES = new Set<Character['status']>([
   'alive',
@@ -95,7 +96,7 @@ export const useArcSteering = () => {
         10,
         undefined,
         3,
-        activeStory.readerPreferences?.contextEngine ?? 'v1',
+        ACTIVE_CONTEXT_ENGINE,
       );
 
       store_setActiveAgentId('versa');
@@ -108,7 +109,7 @@ export const useArcSteering = () => {
           customPremise: activeStory.customPremise,
           memory: slimMemoryForRequest(activeStory.memory),
           pastSummaries,
-          contextEngine: activeStory.readerPreferences?.contextEngine ?? 'v1',
+          contextEngine: ACTIVE_CONTEXT_ENGINE,
           currentArcCount: totalPreviousChapters,
           steerDirection: direction,
           userCustomDirections: customPrompt,
@@ -277,7 +278,7 @@ export const useArcSteering = () => {
         10,
         undefined,
         3,
-        newStory.readerPreferences?.contextEngine ?? 'v1',
+        ACTIVE_CONTEXT_ENGINE,
       );
 
       store_setActiveAgentId('versa');
@@ -290,7 +291,7 @@ export const useArcSteering = () => {
           customPremise: newStory.customPremise,
           memory: slimMemoryForRequest(newStory.memory),
           pastSummaries,
-          contextEngine: newStory.readerPreferences?.contextEngine ?? 'v1',
+          contextEngine: ACTIVE_CONTEXT_ENGINE,
           currentArcCount: totalPreviousChapters,
           steerDirection: direction,
           userCustomDirections: customPrompt,
