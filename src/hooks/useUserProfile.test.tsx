@@ -34,6 +34,7 @@ const storeMocks = vi.hoisted(() => {
     setIsSettingsOpen: vi.fn(),
     handleExportLibrary: vi.fn(),
     handleImportLibrary: vi.fn(),
+    updateStory: vi.fn().mockResolvedValue(undefined),
     setUserProfile: vi.fn((profile) => {
       state.userProfile = profile;
     }),

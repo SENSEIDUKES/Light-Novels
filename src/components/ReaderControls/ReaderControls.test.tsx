@@ -4,7 +4,7 @@ import { vi } from 'vitest';
 import { ReaderControls } from './index';
 
 describe('ReaderControls', () => {
-  it('renders without crashing', () => {
+  it('does not render Context Engine controls in Immersion Settings', () => {
     const mockNavigation = {
       selectedChapterNum: 1,
       maxChapterNum: 10,
@@ -36,7 +36,6 @@ describe('ReaderControls', () => {
       immersion: {},
       setImmersion: vi.fn(),
     };
-    const setContextEngine = vi.fn();
 
     const mockActions = {
       handleAlterFate: vi.fn(),
@@ -47,7 +46,7 @@ describe('ReaderControls', () => {
     const mockChapter = {
       content: '',
       title: 'Test Chapter',
-      generatedContent: 'Test Generated Content'
+      generatedContent: 'Test Generated Content',
     };
 
     const { container } = render(
@@ -57,22 +56,14 @@ describe('ReaderControls', () => {
         playback={mockPlayback}
         audio={mockAudio}
         immersion={mockImmersion}
-        contextEngine={{
-          engine: 'v1',
-          setEngine: setContextEngine,
-        }}
         actions={mockActions}
       />
     );
 
     expect(container).toBeTruthy();
     fireEvent.click(screen.getAllByLabelText('Immersion Settings')[0]);
-    const contextEngineToggle = screen.getByRole('switch', {
+    expect(screen.queryByRole('switch', {
       name: 'Context Engine v2 (experimental)',
-    });
-    expect(contextEngineToggle.getAttribute('aria-checked')).toBe('false');
-
-    fireEvent.click(contextEngineToggle);
-    expect(setContextEngine).toHaveBeenCalledWith('v2');
+    })).toBeNull();
   });
 });

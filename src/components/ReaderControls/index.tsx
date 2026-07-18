@@ -11,7 +11,6 @@ export function ReaderControls({
   playback,
   audio,
   immersion,
-  contextEngine,
   actions
 }: ReaderControlsProps) {
   const { onSwitchTab } = navigation;
@@ -27,7 +26,6 @@ export function ReaderControls({
               <ImmersionSettings
                 audio={audio}
                 immersion={immersion}
-                contextEngine={contextEngine}
                 actions={actions}
                 isMobile
               />
@@ -81,7 +79,6 @@ export function ReaderControls({
               <ImmersionSettings
                 audio={audio}
                 immersion={immersion}
-                contextEngine={contextEngine}
                 actions={actions}
               />
             </div>
