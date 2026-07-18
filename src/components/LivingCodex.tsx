@@ -204,20 +204,40 @@ export default function LivingCodex({
     || entry.relevanceState === 'reactivated';
 
   const allChars = memory.characters || [];
-  const dormantChars = allChars.filter(c => c.relevanceState === 'dormant' || c.relevanceState === 'archived');
-  const charsToRender = showDeepMemory ? allChars : allChars.filter(isVisibleInCurrentMemory);
+  const dormantChars = [];
+  const charsToRender = [];
+  for (let i = 0; i < allChars.length; i++) {
+    const c = allChars[i];
+    if (c.relevanceState === 'dormant' || c.relevanceState === 'archived') dormantChars.push(c);
+    if (showDeepMemory || isVisibleInCurrentMemory(c)) charsToRender.push(c);
+  }
 
   const allLocs = memory.locations || [];
-  const dormantLocs = allLocs.filter(l => l.relevanceState === 'dormant' || l.relevanceState === 'archived');
-  const locationsToRender = showDeepMemory ? allLocs : allLocs.filter(isVisibleInCurrentMemory);
+  const dormantLocs = [];
+  const locationsToRender = [];
+  for (let i = 0; i < allLocs.length; i++) {
+    const l = allLocs[i];
+    if (l.relevanceState === 'dormant' || l.relevanceState === 'archived') dormantLocs.push(l);
+    if (showDeepMemory || isVisibleInCurrentMemory(l)) locationsToRender.push(l);
+  }
 
   const allFactions = memory.factions || [];
-  const dormantFactions = allFactions.filter(f => f.relevanceState === 'dormant' || f.relevanceState === 'archived');
-  const factionsToRender = showDeepMemory ? allFactions : allFactions.filter(isVisibleInCurrentMemory);
+  const dormantFactions = [];
+  const factionsToRender = [];
+  for (let i = 0; i < allFactions.length; i++) {
+    const f = allFactions[i];
+    if (f.relevanceState === 'dormant' || f.relevanceState === 'archived') dormantFactions.push(f);
+    if (showDeepMemory || isVisibleInCurrentMemory(f)) factionsToRender.push(f);
+  }
 
   const allArtifacts = memory.artifacts || [];
-  const dormantArtifacts = allArtifacts.filter(a => a.relevanceState === 'dormant' || a.relevanceState === 'archived');
-  const artifactsToRender = showDeepMemory ? allArtifacts : allArtifacts.filter(isVisibleInCurrentMemory);
+  const dormantArtifacts = [];
+  const artifactsToRender = [];
+  for (let i = 0; i < allArtifacts.length; i++) {
+    const a = allArtifacts[i];
+    if (a.relevanceState === 'dormant' || a.relevanceState === 'archived') dormantArtifacts.push(a);
+    if (showDeepMemory || isVisibleInCurrentMemory(a)) artifactsToRender.push(a);
+  }
 
   const hasDormantState = dormantChars.length > 0 || dormantLocs.length > 0 || dormantFactions.length > 0 || dormantArtifacts.length > 0;
 

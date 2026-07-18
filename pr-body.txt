@@ -1,5 +1,0 @@
-💡 **What:** The `compressDataUrls` function in `src/lib/storage/persistentStorageManager.ts` was refactored to process all dataURL compressions concurrently using an array of promises and `Promise.all` rather than sequentially `await`ing each individual compression.
-
-🎯 **Why:** To drastically reduce the runtime overhead associated with saving stories and memory sync operations involving lots of embedded base64 assets. The previous sequential iterations created unnecessary bottlenecks, blocking storage events over large image galleries.
-
-📊 **Measured Improvement:** We ran a simulated sequential vs parallel benchmark of the logic containing stories, characters, and multiple image histories. The execution time dropped dramatically from ~3614ms down to ~101ms (a >30x improvement!).
