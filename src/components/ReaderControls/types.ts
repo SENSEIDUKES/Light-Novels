@@ -32,11 +32,6 @@ export interface ImmersionPreferences {
   setImmersion: (settings: any) => void;
 }
 
-export interface ContextEngineSettings {
-  engine: "v1" | "v2";
-  setEngine: (engine: "v1" | "v2") => void;
-}
-
 export interface FateActions {
   handleAlterFate?: (chapterNum: number, direction: string, customPrompt?: string) => Promise<void>;
   setIsAlterFateOpen: (isOpen: boolean) => void;
@@ -50,6 +45,5 @@ export interface ReaderControlsProps {
   playback: PlaybackState;
   audio: AudioSettings;
   immersion: ImmersionPreferences;
-  contextEngine: ContextEngineSettings;
   actions: FateActions;
 }

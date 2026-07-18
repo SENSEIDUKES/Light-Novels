@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Settings } from 'lucide-react';
 import {
   AudioSettings,
-  ContextEngineSettings,
   ImmersionPreferences,
   FateActions,
 } from './types';
@@ -10,7 +9,6 @@ import {
 interface Props {
   audio: AudioSettings;
   immersion: ImmersionPreferences;
-  contextEngine: ContextEngineSettings;
   actions: FateActions;
   isMobile?: boolean;
 }
@@ -18,13 +16,11 @@ interface Props {
 export function ImmersionSettings({
   audio,
   immersion: { immersion, setImmersion },
-  contextEngine,
   actions: { handleExportText },
   isMobile = false,
 }: Props) {
   const [showImmersionPopover, setShowImmersionPopover] = useState<boolean>(false);
   const [showVoiceDetail, setShowVoiceDetail] = useState<boolean>(false);
-  const isContextEngineV2 = contextEngine.engine === "v2";
 
   const renderSettingsPopover = (isMobile: boolean) => (
     <div className={isMobile
@@ -62,36 +58,6 @@ export function ImmersionSettings({
             <span
               className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-void shadow transition duration-200 ease-in-out ${
                 immersion.master ? "translate-x-4 bg-signal" : "translate-x-0 bg-neutral-500"
-              }`}
-            />
-          </button>
-        </div>
-
-        <div className="flex items-center justify-between bg-neutral-950/85 p-2 rounded-lg border border-portal/20">
-          <div className="flex flex-col pr-3">
-            <span className="text-[11px] font-medium text-[#FAFAFA] font-sans">
-              Context Engine v2 (experimental)
-            </span>
-            <span className="text-[9px] text-neutral-500 font-sans">
-              Uses relevance-ranked Codex memory and a fixed context budget.
-            </span>
-          </div>
-          <button
-            onClick={() => contextEngine.setEngine(isContextEngineV2 ? "v1" : "v2")}
-            role="switch"
-            aria-checked={isContextEngineV2}
-            aria-label="Context Engine v2 (experimental)"
-            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-portal focus-visible:ring-offset-2 focus-visible:ring-offset-black ${
-              isContextEngineV2
-                ? "bg-portal/80 shadow-[0_0_8px_rgba(4,172,255,0.4)]"
-                : "bg-neutral-850"
-            }`}
-          >
-            <span
-              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-void shadow transition duration-200 ease-in-out ${
-                isContextEngineV2
-                  ? "translate-x-4 bg-signal"
-                  : "translate-x-0 bg-neutral-500"
               }`}
             />
           </button>

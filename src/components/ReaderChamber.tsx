@@ -1028,10 +1028,6 @@ export default function ReaderChamber({
           immersion,
           setImmersion,
         }}
-        contextEngine={{
-          engine: currentPrefs.contextEngine ?? "v1",
-          setEngine: (engine) => handleUpdatePreference("contextEngine", engine),
-        }}
         actions={{
           handleAlterFate,
           setIsAlterFateOpen,

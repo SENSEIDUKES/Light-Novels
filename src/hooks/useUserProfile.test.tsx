@@ -34,6 +34,7 @@ const storeMocks = vi.hoisted(() => {
     setIsSettingsOpen: vi.fn(),
     handleExportLibrary: vi.fn(),
     handleImportLibrary: vi.fn(),
+    updateStory: vi.fn().mockResolvedValue(undefined),
     setUserProfile: vi.fn((profile) => {
       state.userProfile = profile;
     }),
@@ -128,6 +129,8 @@ describe('useUserProfile account switching', () => {
     vi.clearAllMocks();
     firestoreMocks.subscriptions.length = 0;
     storeMocks.state.userProfile = null;
+    storeMocks.state.activeStoryId = null;
+    storeMocks.state.updateStory.mockResolvedValue(undefined);
     localStorage.clear();
     firestoreMocks.onSnapshot.mockImplementation((ref, next, error) => {
       const unsubscribe = vi.fn();
@@ -193,6 +196,23 @@ describe('useUserProfile account switching', () => {
     expect(result.current.isEditing).toBe(false);
     expect(result.current.error).toBe('');
     expect(firestoreMocks.subscriptions[0].unsubscribe).toHaveBeenCalledOnce();
+  });
+
+  it('shows a save error when the Context Engine preference cannot be persisted', async () => {
+    storeMocks.state.activeStoryId = 'story-1';
+    storeMocks.state.updateStory.mockRejectedValueOnce(new Error('Preference sync failed'));
+    const { result } = renderHook(() => useUserProfile({
+      currentUser: null,
+      stories: [{ id: 'story-1', title: 'Engine Test Story' } as any],
+      onLogout: vi.fn(),
+      onNavigateHome: vi.fn(),
+    }));
+
+    await act(async () => {
+      await result.current.handleContextEngineChange('v2');
+    });
+
+    expect(result.current.error).toBe('Preference sync failed');
   });
 
   it('ignores cancelled snapshots and does not start their default-profile writes', () => {
