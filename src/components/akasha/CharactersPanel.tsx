@@ -166,6 +166,7 @@ export const CharactersPanel: React.FC<CharactersPanelProps> = ({ memory, onUpda
                     onClick={() => setDeletePrompt({ id: char.id, type: 'character', name: char.name })}
                     className="text-neutral-600 hover:text-red-500 p-0.5 transition-colors"
                     title="Purge Spirit"
+                    aria-label="Purge Spirit"
                   >
                     <Trash2 size={12} />
                   </button>

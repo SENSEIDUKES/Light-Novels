@@ -860,6 +860,7 @@ export function ReaderViewport({
                                       }
                                       className="text-neutral-550 hover:text-red-500 p-1 opacity-40 md:opacity-0 group-hover:opacity-100 transition-opacity"
                                       title="Release Anchor"
+                                      aria-label="Release Anchor"
                                     >
                                       <Trash2 size={11} />
                                     </button>
