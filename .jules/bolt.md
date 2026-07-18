@@ -3,3 +3,6 @@ Recording learnings... Added exhaustive-deps rule enforcement and fixed App.tsx.
 ## 2024-05-15 - Optimize character categorization in LivingCodexFactions
 **Learning:** Found a component performing 6 O(N) array traversals (3 `.some`, 3 `.filter`) during render just to split one array into 3 categories. The same string methods (`.toLowerCase`) were being unnecessarily called on every iteration.
 **Action:** Replaced sequential `.filter()` calls with a single `for` loop pass that categorizes items into sub-arrays simultaneously. This eliminates redundant iterations and reduces intermediate allocations.
+## 2024-05-15 - Do not manually fuse filters in React render functions without useMemo
+**Learning:** Found sequential `.filter()` and inline arrays being computed for dormant vs renderable lists in `LivingCodex.tsx`. A naive optimization replaced `.filter()` with a `for` loop, allocating new arrays on each render. This degraded performance by breaking reference stability, triggering unnecessary child re-renders.
+**Action:** When deriving or filtering arrays in React components, wrap the logic in a `useMemo` hook to ensure the derived lists retain their reference identity across renders when dependencies haven't changed.

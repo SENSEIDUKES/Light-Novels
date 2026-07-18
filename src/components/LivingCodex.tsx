@@ -194,32 +194,56 @@ export default function LivingCodex({
     setContextEditorTarget(null);
   };
 
-  // Memory Temperature Filtering. A user pin is the existing force-include
-  // contract, so pinned dormant entries stay inspectable without Deep Memory.
-  const isVisibleInCurrentMemory = (entry: { relevanceState?: string; provenance?: { isUserPinned?: boolean } }) =>
-    entry.provenance?.isUserPinned === true
-    || !entry.relevanceState
-    || entry.relevanceState === 'active'
-    || entry.relevanceState === 'warm'
-    || entry.relevanceState === 'reactivated';
+  const {
+    dormantChars, charsToRender,
+    dormantLocs, locationsToRender,
+    dormantFactions, factionsToRender,
+    dormantArtifacts, artifactsToRender,
+    hasDormantState,
+    allChars,
+    allLocs,
+    allFactions,
+    allArtifacts
+  } = useMemo(() => {
+    // Memory Temperature Filtering. A user pin is the existing force-include
+    // contract, so pinned dormant entries stay inspectable without Deep Memory.
+    const isVisibleInCurrentMemory = (entry: { relevanceState?: string; provenance?: { isUserPinned?: boolean } }) =>
+      entry.provenance?.isUserPinned === true
+      || !entry.relevanceState
+      || entry.relevanceState === 'active'
+      || entry.relevanceState === 'warm'
+      || entry.relevanceState === 'reactivated';
 
-  const allChars = memory.characters || [];
-  const dormantChars = allChars.filter(c => c.relevanceState === 'dormant' || c.relevanceState === 'archived');
-  const charsToRender = showDeepMemory ? allChars : allChars.filter(isVisibleInCurrentMemory);
+    const allChars = memory.characters || [];
+    const dormantChars = allChars.filter(c => c.relevanceState === 'dormant' || c.relevanceState === 'archived');
+    const charsToRender = showDeepMemory ? allChars : allChars.filter(isVisibleInCurrentMemory);
 
-  const allLocs = memory.locations || [];
-  const dormantLocs = allLocs.filter(l => l.relevanceState === 'dormant' || l.relevanceState === 'archived');
-  const locationsToRender = showDeepMemory ? allLocs : allLocs.filter(isVisibleInCurrentMemory);
+    const allLocs = memory.locations || [];
+    const dormantLocs = allLocs.filter(l => l.relevanceState === 'dormant' || l.relevanceState === 'archived');
+    const locationsToRender = showDeepMemory ? allLocs : allLocs.filter(isVisibleInCurrentMemory);
 
-  const allFactions = memory.factions || [];
-  const dormantFactions = allFactions.filter(f => f.relevanceState === 'dormant' || f.relevanceState === 'archived');
-  const factionsToRender = showDeepMemory ? allFactions : allFactions.filter(isVisibleInCurrentMemory);
+    const allFactions = memory.factions || [];
+    const dormantFactions = allFactions.filter(f => f.relevanceState === 'dormant' || f.relevanceState === 'archived');
+    const factionsToRender = showDeepMemory ? allFactions : allFactions.filter(isVisibleInCurrentMemory);
 
-  const allArtifacts = memory.artifacts || [];
-  const dormantArtifacts = allArtifacts.filter(a => a.relevanceState === 'dormant' || a.relevanceState === 'archived');
-  const artifactsToRender = showDeepMemory ? allArtifacts : allArtifacts.filter(isVisibleInCurrentMemory);
+    const allArtifacts = memory.artifacts || [];
+    const dormantArtifacts = allArtifacts.filter(a => a.relevanceState === 'dormant' || a.relevanceState === 'archived');
+    const artifactsToRender = showDeepMemory ? allArtifacts : allArtifacts.filter(isVisibleInCurrentMemory);
 
-  const hasDormantState = dormantChars.length > 0 || dormantLocs.length > 0 || dormantFactions.length > 0 || dormantArtifacts.length > 0;
+    const hasDormantState = dormantChars.length > 0 || dormantLocs.length > 0 || dormantFactions.length > 0 || dormantArtifacts.length > 0;
+
+    return {
+      dormantChars, charsToRender,
+      dormantLocs, locationsToRender,
+      dormantFactions, factionsToRender,
+      dormantArtifacts, artifactsToRender,
+      hasDormantState,
+      allChars,
+      allLocs,
+      allFactions,
+      allArtifacts
+    };
+  }, [memory, showDeepMemory]);
 
   return (
     <CodexProvider value={{     memory,
