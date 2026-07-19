@@ -224,10 +224,13 @@ export const renderChapterContractLines = (
     );
   }
 
-  const doNotRepeatLines = contract.doNotRepeat.length > 0
+  // Defensive: the wire payload is only zod-validated, and the schema allows
+  // doNotRepeat to be omitted — never trust the TS type here.
+  const doNotRepeat = contract.doNotRepeat ?? [];
+  const doNotRepeatLines = doNotRepeat.length > 0
     ? [
         'ALREADY HAPPENED — canon, never re-narrate or replay as new events:',
-        ...contract.doNotRepeat.map(line => `- ${line}`),
+        ...doNotRepeat.map(line => `- ${line}`),
       ]
     : [];
 

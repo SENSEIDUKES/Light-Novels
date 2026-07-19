@@ -512,6 +512,7 @@ storyRouter.post("/api/generate-chapter", validateBody(chapterGenerationSchema),
       tropeRules,
       storyTags,
       contextEngine: requestedContextEngine,
+      chapterContract,
     } = req.body;
     const contextEngine = normalizeContextEngine(requestedContextEngine);
     const {
@@ -585,6 +586,7 @@ storyRouter.post("/api/generate-chapter", validateBody(chapterGenerationSchema),
           abilities: memory.abilities,
         }),
       },
+      chapterContract,
       ranking: {
         mcName,
         lastSummary,

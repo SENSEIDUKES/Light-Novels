@@ -65,6 +65,15 @@ describe('validateChapterHandoff — duplicate scenes', () => {
     expect(result.warnings).toHaveLength(1);
   });
 
+  it('downgrades to soft when neither side has a location — no evidence, no hard fault', () => {
+    const result = validateChapterHandoff(baseInput({
+      handoff: handoffWith([duelFp({ chapterNumber: 10, location: undefined })]),
+      priorFingerprints: [duelFp({ chapterNumber: 9, location: undefined })],
+    }));
+    expect(result.hardFaults).toEqual([]);
+    expect(result.warnings).toHaveLength(1);
+  });
+
   it('downgrades to soft when the match is older than the previous chapter', () => {
     const result = validateChapterHandoff(baseInput({
       handoff: handoffWith([duelFp({ chapterNumber: 10 })]),

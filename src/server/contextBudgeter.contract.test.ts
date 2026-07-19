@@ -44,6 +44,19 @@ describe("assembleContext — chapter contract section", () => {
     expect(section.text).not.toContain("undefined");
   });
 
+  it("tolerates a wire payload that omits doNotRepeat entirely", () => {
+    const wireContract = {
+      version: 1,
+      chapterNumber: 10,
+      objective: "Escape the sect before dawn",
+    } as unknown as ChapterContract;
+
+    const result = assembleContext({ ...baseInput(), chapterContract: wireContract });
+    const section = result.promptSections.find(s => s.key === "chapterContract")!;
+    expect(section.text).toContain("Objective of this chapter: Escape the sect before dawn");
+    expect(section.text).not.toContain("ALREADY HAPPENED");
+  });
+
   it("emits no contract section when no contract is supplied", () => {
     const result = assembleContext(baseInput());
     expect(result.promptSections.some(s => s.key === "chapterContract")).toBe(false);

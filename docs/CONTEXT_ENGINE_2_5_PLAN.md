@@ -86,7 +86,7 @@ A fingerprint is a normalized tuple: **action type** (small closed enum: `battle
 Two uses, both deterministic:
 
 1. **Prompt-side prevention** — `doNotRepeat` lines derived from recent fingerprints/completed events go into the contract.
-2. **Post-generation detection** — the new chapter's fingerprints are compared against the previous N chapters'. A *duplicate candidate* requires all of: same `actionType`, participant-set Jaccard overlap ≥ 0.6, same canonical location (or either unknown), and matching outcome category. This multi-key AND is what keeps rematches legal: a second duel with the same rival in a new location, or with a different outcome, does not match (see §4).
+2. **Post-generation detection** — the new chapter's fingerprints are compared against the previous N chapters'. A *duplicate candidate* requires all of: same `actionType`, participant-set Jaccard overlap ≥ 0.6, and a location verdict — a **hard** candidate requires both locations extracted and equal; if either location is unknown the match carries no location evidence and can only ever be a soft warning. Known-and-different locations never match at all. This multi-key AND is what keeps rematches legal: a second duel with the same rival in a new location, or with a different outcome, does not match (see §4).
 
 No embeddings, no similarity models — string normalization plus the existing `entityResolver`.
 

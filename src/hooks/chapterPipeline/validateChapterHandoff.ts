@@ -60,16 +60,15 @@ const participantJaccard = (a: string[], b: string[]): number => {
 type LocationMatch = 'strong' | 'weak' | 'none';
 
 /**
- * Location rule: both known-and-equal or both unknown → strong; exactly one
- * unknown → weak (an unextracted location must not match ANY location, so a
- * weak match can only ever produce a soft warning); known-and-different → no
- * match at all — a rematch in a new place is a new scene.
+ * Location rule: strong only when both locations were extracted and are equal;
+ * known-and-different → no match at all (a rematch in a new place is a new
+ * scene); any unknown side → weak. An unextracted location carries no
+ * evidence, so it can only ever support a soft warning — never a hard fault.
  */
 const matchLocations = (a?: string, b?: string): LocationMatch => {
   const locA = a?.trim().toLowerCase();
   const locB = b?.trim().toLowerCase();
   if (locA && locB) return locA === locB ? 'strong' : 'none';
-  if (!locA && !locB) return 'strong';
   return 'weak';
 };
 
