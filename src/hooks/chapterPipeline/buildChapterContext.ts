@@ -1,5 +1,5 @@
 import { retrieveRelevantContext } from '../../lib/rag';
-import { CONTEXT_CHAR_LIMITS } from '../../lib/contextBlocks';
+import { ACTIVE_CONTEXT_ENGINE, CONTEXT_CHAR_LIMITS } from '../../lib/contextBlocks';
 import { storyStorage } from '../../lib/storage';
 import { Story, Chapter, ChapterContent, StoryBlock } from '../../types';
 
@@ -34,7 +34,7 @@ export const buildChapterContext = async (
   targetChapter: Chapter,
   apiHeaders: any
 ) => {
-  const contextEngine = activeStory.readerPreferences?.contextEngine || 'v1';
+  const contextEngine = ACTIVE_CONTEXT_ENGINE;
   const pastSummaries = await retrieveRelevantContext(
     targetChapter.premise || activeStory.customPremise || '',
     targetChapter.number,

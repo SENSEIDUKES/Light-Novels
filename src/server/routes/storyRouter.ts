@@ -29,7 +29,10 @@ import {
   buildContextManifestFromOutcomes,
   contextManifestLogPayload,
 } from "../contextManifest";
-import { contextBlocksToLegacyStrings } from "../../lib/contextBlocks";
+import {
+  ACTIVE_CONTEXT_ENGINE,
+  contextBlocksToLegacyStrings,
+} from "../../lib/contextBlocks";
 import {
   anchorTextFromBlocks,
   ContextEngine,
@@ -40,8 +43,8 @@ import {
 import { logger } from "../logger";
 export const storyRouter = express.Router();
 
-const normalizeContextEngine = (value: unknown): ContextEngine =>
-  value === "v2" ? "v2" : "v1";
+const normalizeContextEngine = (_value: unknown): ContextEngine =>
+  ACTIVE_CONTEXT_ENGINE;
 
 const normalizeRequestHistory = (
   value: unknown,

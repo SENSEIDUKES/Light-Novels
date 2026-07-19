@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { UserProfile as UserProfileType, Story, AppUser, ReaderPreferences } from '../types';
+import { UserProfile as UserProfileType, Story, AppUser } from '../types';
 import { db, auth, LOCAL_ONLY_MODE } from '../lib/firebase';
 import { doc, setDoc, onSnapshot, collection, getDoc, getDocs, deleteDoc } from 'firebase/firestore';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
@@ -22,14 +22,6 @@ interface UseUserProfileProps {
   onNavigateHome: () => void;
 }
 
-const DEFAULT_READER_PREFERENCES: ReaderPreferences = {
-  fontSize: 'lg',
-  fontFamily: 'serif',
-  lineHeight: 'relaxed',
-  paragraphSpacing: 'normal',
-  themeOverride: 'void',
-};
-
 export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome }: UseUserProfileProps) {
   const syncStatus = useAppStore(state => state.syncStatus);
   const setIsShortcutsOpen = useAppStore(state => state.setIsShortcutsOpen);
@@ -40,7 +32,6 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
   const storageType = useAppStore(state => state.storageType);
   const activeStoryId = useAppStore(state => state.activeStoryId);
   const routingConfig = useAppStore(state => state.routingConfig);
-  const updateStory = useAppStore(state => state.updateStory);
 
   const activeProfileUid = currentUser?.uid ?? null;
   const activeProfileUidRef = useRef<string | null>(activeProfileUid);
@@ -122,26 +113,6 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
   const activeStory = stories.find(s => s.id === activeStoryId);
   const currentPowerStage = activeStory?.memory?.currentPowerStage || '';
   const equippedArtifact = profile?.cosmicInventory?.find(a => a.id === profile?.equippedArtifactId);
-
-  const handleContextEngineChange = async (contextEngine: 'v1' | 'v2') => {
-    if (!activeStory) return;
-
-    try {
-      await updateStory(activeStory.id, {
-        readerPreferences: {
-          ...DEFAULT_READER_PREFERENCES,
-          ...activeStory.readerPreferences,
-          contextEngine,
-        },
-      });
-    } catch (err) {
-      setError(
-        err instanceof Error && err.message
-          ? err.message
-          : 'Failed to update context engine preference',
-      );
-    }
-  };
 
   // Cultivator Portrait Builder states
   const [showPortraitModal, setShowPortraitModal] = useState(false);
@@ -1027,8 +998,6 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
     handleImportLibrary,
     storageType,
     activeStoryId,
-    activeStory,
-    handleContextEngineChange,
     routingConfig,
     profile,
     setProfile,

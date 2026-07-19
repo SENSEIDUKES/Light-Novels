@@ -62,7 +62,7 @@ describe('buildChapterContext', () => {
     vi.mocked(storyStorage.getChapterContent).mockResolvedValue(null);
   });
 
-  it('keeps v1 limits and appends a typed continuation anchor', async () => {
+  it('uses v2 automatically and appends a typed continuation anchor', async () => {
     const story = makeStory();
     const targetChapter = story.arcs[0].chapters[1];
     vi.mocked(storyStorage.getChapterContent).mockResolvedValue({
@@ -84,9 +84,9 @@ describe('buildChapterContext', () => {
       story,
       { Authorization: 'test' },
       5,
-      CONTEXT_CHAR_LIMITS.v1,
+      CONTEXT_CHAR_LIMITS.v2,
       3,
-      'v1',
+      'v2',
     );
     expect(result.pastSummaries).toEqual([{
       kind: 'anchor',
@@ -95,8 +95,8 @@ describe('buildChapterContext', () => {
     }]);
   });
 
-  it('threads the v2 flag and 60k character limit into retrieval', async () => {
-    const story = makeStory('v2');
+  it('ignores a stored v1 preference and keeps v2 active', async () => {
+    const story = makeStory('v1');
     const targetChapter = story.arcs[0].chapters[1];
 
     await buildChapterContext(story, targetChapter, {});

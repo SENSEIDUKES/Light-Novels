@@ -127,16 +127,15 @@ describe("streamChapterBlocks", () => {
   });
 
   it.each([
-    ["v1 when the story preference is absent", story, "v1"],
+    ["v2 when the story preference is absent", story],
     [
-      "v2 when the story preference enables it",
+      "v2 when the story still has a stored v1 preference",
       {
         ...story,
-        readerPreferences: { contextEngine: "v2" },
+        readerPreferences: { contextEngine: "v1" },
       } as Story,
-      "v2",
     ],
-  ])("sends contextEngine as %s", async (_label, activeStory, expectedEngine) => {
+  ])("sends contextEngine as %s", async (_label, activeStory) => {
     mockStream(["data: [DONE]\n\n"]);
 
     await streamChapterBlocks(
@@ -152,6 +151,6 @@ describe("streamChapterBlocks", () => {
     const requestBody = JSON.parse(
       String(vi.mocked(fetch).mock.calls[0][1]?.body),
     );
-    expect(requestBody.contextEngine).toBe(expectedEngine);
+    expect(requestBody.contextEngine).toBe("v2");
   });
 });

@@ -63,7 +63,7 @@ describe('SteerPortal', () => {
     expect(container).toBeDefined();
   });
 
-  it('sends the story context engine with direction requests', async () => {
+  it('uses v2 for direction requests despite a stored v1 preference', async () => {
     const mockStory = {
       id: 'test-story',
       title: 'Test',
@@ -71,7 +71,7 @@ describe('SteerPortal', () => {
       genre: 'Xianxia',
       customPremise: 'A journey',
       arcs: [],
-      readerPreferences: { contextEngine: 'v2' },
+      readerPreferences: { contextEngine: 'v1' },
       memory: {
         powerSystem: 'Ranks',
         currentPowerStage: 'First',

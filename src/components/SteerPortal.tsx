@@ -1,5 +1,6 @@
 import { generateId } from '../lib/id';
 import { slimMemoryForRequest } from '../lib/slimMemoryForRequest';
+import { ACTIVE_CONTEXT_ENGINE } from '../lib/contextBlocks';
 import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, ShieldAlert, ArrowRight, Zap, 
@@ -121,7 +122,7 @@ export default function SteerPortal({
         8, // Evaluate top 8 historical narrative beats
         undefined,
         3,
-        activeStory.readerPreferences?.contextEngine ?? 'v1',
+        ACTIVE_CONTEXT_ENGINE,
       );
 
       const response = await fetch('/api/generate-next-directions', {
@@ -133,7 +134,7 @@ export default function SteerPortal({
           customPremise: activeStory.customPremise,
           memory: slimMemoryForRequest(activeStory.memory),
           pastSummaries,
-          contextEngine: activeStory.readerPreferences?.contextEngine ?? 'v1',
+          contextEngine: ACTIVE_CONTEXT_ENGINE,
           currentArcCount: activeStory.arcs.length,
           estimatedArcs: activeStory.blueprint?.estimatedArcs,
           destinedEnding: activeStory.blueprint?.destinedEnding,
