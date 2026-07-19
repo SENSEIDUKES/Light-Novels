@@ -1,8 +1,10 @@
 import {
+  ChapterContract,
   ContextBlock,
   ContextManifestSection,
   ContextManifestSectionKey,
 } from "../types";
+import { renderChapterContractLines } from "../lib/chapterHandoff";
 import { estimateTokens } from "./helpers";
 import { RenderedEntityCard } from "./entityCards";
 
@@ -10,6 +12,7 @@ export const CONTEXT_BUDGET_DEFAULTS = {
   totalBudgetTokens: 24000,
   sectionCaps: {
     premiseAndMcState: 1500,
+    chapterContract: 500,
     anchor: 2000,
     recentFull: 6000,
     pinnedEntities: 2000,
@@ -53,6 +56,7 @@ type SelectedCard = {
 const OUTCOME_ORDER: ContextManifestSectionKey[] = [
   "pinnedRules",
   "premise",
+  "chapterContract",
   "anchor",
   "recentChapters",
   "entityCards",
@@ -243,6 +247,7 @@ export function assembleContext(input: {
   threads: string[];
   pinned: { premise: string; mcStateCard: string };
   worldRules: string[];
+  chapterContract?: ChapterContract;
   totalBudgetTokens?: number;
 }): BudgetedContext {
   const totalBudgetTokens = input.totalBudgetTokens
@@ -365,6 +370,58 @@ export function assembleContext(input: {
     premiseAndStateAllocation,
     pinnedRuleTokens + premiseTokens,
   );
+
+  // Chapter contract (Context Engine 2.5): compact canonical opening state,
+  // objective, and do-not-repeat lines. Core lines are always kept; when the
+  // section cap is tight, do-not-repeat lines drop from the end (oldest first —
+  // they are ordered newest-first).
+  if (input.chapterContract) {
+    const contractHeading = "CHAPTER CONTRACT";
+    const contractAllocation = allocateSection(caps.chapterContract);
+    const contractLimit = bodyTokensForAllocation(contractAllocation, contractHeading);
+    const { coreLines, doNotRepeatLines } = renderChapterContractLines(
+      input.chapterContract,
+    );
+    let contractBody = coreLines.join("\n");
+    const includedContractItems: string[] = coreLines.length > 0
+      ? ["Contract core"]
+      : [];
+    const omittedContractItems: string[] = [];
+    if (doNotRepeatLines.length > 0) {
+      // First entry is the section's own header line; the rest are droppable.
+      const [dnrHeader, ...dnrEntries] = doNotRepeatLines;
+      let keptEntries = dnrEntries.length;
+      const renderWith = (count: number) => [
+        contractBody,
+        count > 0 ? [dnrHeader, ...dnrEntries.slice(0, count)].join("\n") : "",
+      ].filter(Boolean).join("\n");
+      while (keptEntries > 0 && estimateTokens(renderWith(keptEntries)) > contractLimit) {
+        keptEntries -= 1;
+      }
+      contractBody = renderWith(keptEntries);
+      includedContractItems.push(
+        ...dnrEntries.slice(0, keptEntries).map(threadLabel),
+      );
+      omittedContractItems.push(
+        ...dnrEntries.slice(keptEntries).map(threadLabel),
+      );
+    }
+    const contractTokens = recordSection(
+      "chapterContract",
+      contractHeading,
+      contractBody,
+      {
+        includedItems: includedContractItems,
+        demotedItems: [],
+        omittedItems: omittedContractItems,
+        omissionReason: omittedContractItems.length > 0 ? "budget_drop" : undefined,
+      },
+    );
+    recordProtectedOverflow("chapterContract", contractAllocation, contractTokens);
+    finishAllocation(contractAllocation, contractTokens);
+  } else {
+    finishAllocation(allocateSection(caps.chapterContract), 0);
+  }
 
   const anchorBlocks = input.blocks.filter(block => block.kind === "anchor");
   const anchorAllocation = allocateSection(caps.anchor);

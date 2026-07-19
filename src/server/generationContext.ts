@@ -1,4 +1,4 @@
-import type { ContextBlock } from "../types";
+import type { ChapterContract, ContextBlock } from "../types";
 import { contextBlocksToLegacyStrings } from "../lib/contextBlocks";
 import { assembleContext, BudgetedContext } from "./contextBudgeter";
 import {
@@ -47,6 +47,7 @@ export interface PrepareGenerationContextInput {
     premise: string;
     mcStateCard: string;
   };
+  chapterContract?: ChapterContract;
   ranking: {
     mcName: string;
     lastSummary?: string;
@@ -240,6 +241,7 @@ export function prepareGenerationContext(
     threads: input.threads,
     pinned: input.pinned,
     worldRules: input.worldRules,
+    chapterContract: input.chapterContract,
     totalBudgetTokens: input.totalBudgetTokens,
   });
 

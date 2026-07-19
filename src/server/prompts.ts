@@ -339,14 +339,24 @@ Do not add any text before or after the JSON.` : `Output strictly the NDJSON blo
     system: `You are an elite fantasy web-novel editor. Your task is to analyze the just-written chapter text and extract structured metadata and story memory updates.
 You must output strictly JSON matching the specified schema format. Do NOT generate chapter text. Focus entirely on analyzing the provided chapter to produce accurate memory updates.
 Aliases, authorContextNote, contextPriority, and provenance are author-controlled Codex metadata. Never create or return those fields.`,
-    userPrompt: (chapterNumber: number, title: string, chapterText: string) => `Analyze the following chapter text.
+    userPrompt: (chapterNumber: number, title: string, chapterText: string, contractJson?: string) => `Analyze the following chapter text.
 
 Chapter ${chapterNumber}: "${title}"
 
 Chapter Text:
 ${chapterText}
-
+${contractJson ? `
+CHAPTER CONTRACT (this chapter's intended purpose and opening expectations):
+${contractJson}
+` : ''}
 Extract updates for the permanent story memory so we can track newly met characters, dead characters, relationship updates, unresolved issues, or potential MC advancement. Also, provide an extremely short summary of events (1-3 sentences MAX), and an arc summary.
+
+CANONICAL CHAPTER HANDOFF: You MUST also extract a "handoff" object — the authoritative machine-readable end state of THIS chapter, used to anchor the next chapter:
+- "endState": where and when the chapter ends (location, short timeMarker like "dusk, same day", charactersPresent physically on stage in the final scene, mcCondition, openTension — the live hook the chapter ends on).
+- "completedEvents": 2 to 6 one-line canonical, irreversible facts established in this chapter (e.g. "Li Wei defeated Elder Kang in the arena"). These prevent future chapters from replaying them.
+- "nextImmediateAction": the single immediate beat the next chapter should open on or continue past.
+- "fingerprints": one compact descriptor per major scene: "actionType" MUST be exactly one of "battle", "duel", "breakthrough", "acquisition", "discovery", "death", "travel-arrival", "social", "training", "ritual", "escape", "revelation", "other"; "participants" are the named entities involved; "location" where it happened; "outcome" a one-line result.
+${contractJson ? `CONTRACT REPORT: Also return a "contractReport" object judging THIS chapter against the CHAPTER CONTRACT above: "objectiveFulfilled" (did the chapter visibly advance or fulfill the contract objective?), "evidence" (one line), and "openingMatched" (did the chapter open consistent with the contract's opening state / required opening?).` : ''}
 
 IMPORTANT STATE PERSISTENCE: You MUST scan the Chapter Text for any System Alerts or Fate Events (e.g., bracketed text like "[Death Flag Detected: ...]", "[Fortuitous Encounter: ...]" OR JSON objects like {"system": {"title": "Death Flag Detected...", ...}}). If any such events or alerts occurred in the text, you MUST automatically inject their core message/threat into the "newUnresolvedPlotThreads" array so the system remembers to honor them in future chapters.
 
@@ -519,8 +529,34 @@ You must return a JSON object with the following fields:
         "lastUsedChapter": "Number of this chapter if they actively used it."
       }
     ]
+  },
+  "handoff": {
+    "endState": {
+      "location": "Where the final scene takes place",
+      "timeMarker": "e.g. 'dusk, same day' or 'three days later'",
+      "charactersPresent": ["Names physically present in the final scene"],
+      "mcCondition": "Physical/emotional MC condition at chapter end",
+      "openTension": "The live hook or unresolved tension the chapter ends on"
+    },
+    "completedEvents": ["2-6 one-line canonical irreversible facts from this chapter"],
+    "nextImmediateAction": "The single immediate beat the next chapter opens on",
+    "fingerprints": [
+      {
+        "actionType": "battle",
+        "participants": ["Named entities involved"],
+        "location": "Where the scene happened",
+        "outcome": "One-line result of the scene"
+      }
+    ]
+  },
+  "contractReport": {
+    "objectiveFulfilled": true,
+    "evidence": "One-line evidence of how the chapter fulfilled its objective",
+    "openingMatched": true
   }
 }
+
+Note on "artifactUpdates": each entry may also include "newCondition" (one of "intact", "damaged", "destroyed", "consumed", "lost") when an artifact's physical state changed, and "newLocation" (where the artifact physically is now, if it moved or its holder moved).
 
 Do not add any text before or after the JSON. Ensure the JSON is well-formed.`
   },
@@ -573,14 +609,19 @@ Do not add any text before or after the JSON.`
 
   consistencyGuard: {
     system: `You are an elite fantasy web-novel editor. Your task is to act as a consistency guard and contradiction detector. Analyze the newly drafted chapter against the existing story memory (Codex). Return strictly JSON.`,
-    userPrompt: (chapterText: string, memoryJson: string) => `Analyze this newly drafted chapter text and compare it against the established Story Memory/Codex.
+    userPrompt: (chapterText: string, memoryJson: string, handoffContext?: string) => `Analyze this newly drafted chapter text and compare it against the established Story Memory/Codex.
 
 Chapter Text:
 ${chapterText}
 
 Story Memory (Codex):
 ${memoryJson}
+${handoffContext ? `
+AUTHORITATIVE PREVIOUS-CHAPTER END STATE (canon — these events already happened):
+${handoffContext}
 
+REPLAY CHECK: If this chapter re-narrates one of the completed events above as happening again for the FIRST time in the present scene (not a memory, recap, mourning, flashback, or dialogue reference), report it as a warning starting with 'Replay:'. References, grief, and discussion of past events are NEVER replays.
+` : ''}
 YOUR DEFAULT ANSWER IS "NO ISSUES". The "warnings" array must be EMPTY unless the chapter contains a literal, hard physical impossibility that would confuse a normal reader about what is physically happening in the scene. This is a very high bar. When in doubt, it is NOT a warning — put it in "silentLogs" or omit it entirely.
 
 WORLD-BUILDING IS NOT DRIFT (CRITICAL — this is the #1 source of false positives):

@@ -8,6 +8,7 @@ import { streamChapterBlocks } from './chapterPipeline/streamChapterBlocks';
 import { parseChapterStream } from './chapterPipeline/parseChapterStream';
 import { runContinuityPass } from './chapterPipeline/runContinuityPass';
 import { extractChapterMetadata } from './chapterPipeline/extractChapterMetadata';
+import { validateChapterHandoff } from './chapterPipeline/validateChapterHandoff';
 import { persistGeneratedChapter } from './chapterPipeline/persistGeneratedChapter';
 import {
   getNextFiveUngeneratedChapters,
@@ -67,7 +68,12 @@ export const useChapterGeneration = () => {
 
     store_setActiveAgentId('scout');
     const apiHeaders = await getApiHeaders();
-    const { pastSummaries, pacingDirective } = await buildChapterContext(activeStory, targetChapter, apiHeaders);
+    const {
+      pastSummaries,
+      pacingDirective,
+      chapterContract,
+      previousHandoff,
+    } = await buildChapterContext(activeStory, targetChapter, apiHeaders);
 
     store_setActiveAgentId('versa');
     setProgress('VERSA is weaving the chapter into being...');
@@ -85,6 +91,7 @@ export const useChapterGeneration = () => {
           blocks: blocksData,
         });
       },
+      chapterContract,
     );
 
     let { data, finalRawBlocksStr } = parseChapterStream(accumulatedRaw);
@@ -98,6 +105,7 @@ export const useChapterGeneration = () => {
           ? 'Reconciling the timeline — mending continuity threads...'
           : 'Verifying continuity against the Codex...',
       ),
+      { targetChapterNumber: chapterNumber, previousHandoff },
     );
 
     if (continuityResult.finalRawBlocksStr !== finalRawBlocksStr) {
@@ -109,8 +117,39 @@ export const useChapterGeneration = () => {
     data.hasContinuityFaults = continuityResult.hasContinuityFaults;
     data.continuityWarnings = continuityResult.continuityWarnings;
     data.continuitySoftNotes = continuityResult.continuitySoftNotes;
-    data = await extractChapterMetadata(targetChapter, finalRawBlocksStr, store_routingConfig.storyMaker, apiHeaders, data);
+    data = await extractChapterMetadata(targetChapter, finalRawBlocksStr, store_routingConfig.storyMaker, apiHeaders, data, chapterContract);
     data.contextManifest = contextManifest;
+    data.contract = chapterContract;
+
+    // Stage B (Context Engine 2.5): deterministic handoff-vs-contract checks.
+    // Prose is final here, so this stage only annotates — it never repairs.
+    const priorFingerprints = activeStory.arcs
+      .flatMap(arc => arc.chapters)
+      .filter(chapter => chapter.number < chapterNumber)
+      .flatMap(chapter => chapter.sceneFingerprints || []);
+    const handoffValidation = validateChapterHandoff({
+      chapterNumber,
+      handoff: data.handoff,
+      contract: chapterContract,
+      contractReport: data.contractReport,
+      memoryUpdates: data.memoryUpdates,
+      memory: activeStory.memory,
+      priorFingerprints,
+      premise: targetChapter.premise,
+    });
+    if (handoffValidation.hardFaults.length > 0) {
+      data.hasContinuityFaults = true;
+      data.continuityWarnings = [
+        ...(data.continuityWarnings || []),
+        ...handoffValidation.hardFaults,
+      ];
+    }
+    if (handoffValidation.warnings.length > 0) {
+      data.continuitySoftNotes = [
+        ...(data.continuitySoftNotes || []),
+        ...handoffValidation.warnings,
+      ];
+    }
 
     const updatedStories = await persistGeneratedChapter(activeStory, chapterNumber, selectedArcIndex, data, apiHeaders);
     await store_saveStories(updatedStories);

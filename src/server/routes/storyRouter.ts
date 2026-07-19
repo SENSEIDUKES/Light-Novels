@@ -216,6 +216,7 @@ storyRouter.post("/api/generate-chapter-stream", validateBody(chapterGenerationS
       tropeRules,
       storyTags,
       contextEngine: requestedContextEngine,
+      chapterContract,
     } = req.body;
     const contextEngine = normalizeContextEngine(requestedContextEngine);
     const {
@@ -289,6 +290,7 @@ storyRouter.post("/api/generate-chapter-stream", validateBody(chapterGenerationS
           abilities: memory.abilities,
         }),
       },
+      chapterContract,
       ranking: {
         mcName,
         lastSummary,
@@ -510,6 +512,7 @@ storyRouter.post("/api/generate-chapter", validateBody(chapterGenerationSchema),
       tropeRules,
       storyTags,
       contextEngine: requestedContextEngine,
+      chapterContract,
     } = req.body;
     const contextEngine = normalizeContextEngine(requestedContextEngine);
     const {
@@ -583,6 +586,7 @@ storyRouter.post("/api/generate-chapter", validateBody(chapterGenerationSchema),
           abilities: memory.abilities,
         }),
       },
+      chapterContract,
       ranking: {
         mcName,
         lastSummary,
@@ -778,14 +782,19 @@ PACING DIRECTIVE: Build real suspense and danger. Make sure characters face phys
 });
 storyRouter.post("/api/extract-chapter-metadata", validateBody(extractMetadataSchema), async (req, res) => {
   try {
-    const { chapterNumber, title, chapterText, routingConfig } = req.body;
-    
+    const { chapterNumber, title, chapterText, routingConfig, contract } = req.body;
+
     if (!chapterText) {
       return res.status(400).json({ error: "Missing chapter text" });
     }
 
     const systemInstruction = PROMPTS.extractMetadata.system;
-    const userPrompt = PROMPTS.extractMetadata.userPrompt(chapterNumber, title || "Unknown", chapterText);
+    const userPrompt = PROMPTS.extractMetadata.userPrompt(
+      chapterNumber,
+      title || "Unknown",
+      chapterText,
+      contract ? JSON.stringify(contract, null, 2) : undefined,
+    );
 
     const metadataSchema = {
       type: "OBJECT",
@@ -860,7 +869,7 @@ storyRouter.post("/api/extract-chapter-metadata", validateBody(extractMetadataSc
             newLocations: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, description: { type: "STRING"}, realm: { type: "STRING"}, safetyLevel: { type: "STRING"} } } },
             locationUpdates: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, safetyLevelOverride: { type: "STRING"}, descriptionAppend: { type: "STRING"} } } },
             newArtifacts: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, description: { type: "STRING"}, tier: { type: "STRING"}, currentOwner: { type: "STRING"} } } },
-            artifactUpdates: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, newOwner: { type: "STRING"}, descriptionAppend: { type: "STRING"} } } },
+            artifactUpdates: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, newOwner: { type: "STRING"}, newCondition: { type: "STRING"}, newLocation: { type: "STRING"}, descriptionAppend: { type: "STRING"} } } },
             newMCAbilities: { 
               type: "ARRAY", 
               items: { 
@@ -887,6 +896,43 @@ storyRouter.post("/api/extract-chapter-metadata", validateBody(extractMetadataSc
                 }
               }
             }
+          }
+        },
+        handoff: {
+          type: "OBJECT",
+          properties: {
+            endState: {
+              type: "OBJECT",
+              properties: {
+                location: { type: "STRING" },
+                timeMarker: { type: "STRING" },
+                charactersPresent: { type: "ARRAY", items: { type: "STRING" } },
+                mcCondition: { type: "STRING" },
+                openTension: { type: "STRING" }
+              }
+            },
+            completedEvents: { type: "ARRAY", items: { type: "STRING" } },
+            nextImmediateAction: { type: "STRING" },
+            fingerprints: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: {
+                  actionType: { type: "STRING" },
+                  participants: { type: "ARRAY", items: { type: "STRING" } },
+                  location: { type: "STRING" },
+                  outcome: { type: "STRING" }
+                }
+              }
+            }
+          }
+        },
+        contractReport: {
+          type: "OBJECT",
+          properties: {
+            objectiveFulfilled: { type: "BOOLEAN" },
+            evidence: { type: "STRING" },
+            openingMatched: { type: "BOOLEAN" }
           }
         }
       },
@@ -950,7 +996,7 @@ storyRouter.post("/api/repair-chapter-stream", validateBody(repairChapterSchema)
 });
 storyRouter.post("/api/check-consistency", validateBody(checkConsistencySchema), async (req, res) => {
   try {
-    const { chapterText, memory, routingConfig } = req.body;
+    const { chapterText, memory, routingConfig, handoffContext } = req.body;
     if (!chapterText || !memory) {
       return res.status(400).json({ error: "Missing chapterText or memory payload" });
     }
@@ -959,7 +1005,7 @@ storyRouter.post("/api/check-consistency", validateBody(checkConsistencySchema),
     const memoryStr = JSON.stringify(memory, null, 2);
 
     const systemInstruction = PROMPTS.consistencyGuard.system;
-    const userPrompt = PROMPTS.consistencyGuard.userPrompt(chapterText, memoryStr);
+    const userPrompt = PROMPTS.consistencyGuard.userPrompt(chapterText, memoryStr, handoffContext);
 
     const schema = {
       type: "OBJECT",

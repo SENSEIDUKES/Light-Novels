@@ -1,4 +1,9 @@
 import { isPlaceholderSummary } from '../../lib/summaryIntegrity';
+import {
+  sanitizeChapterHandoff,
+  sanitizeContractReport,
+} from '../../lib/chapterHandoff';
+import { ChapterContract } from '../../types';
 
 const buildChapterTextFallbackSummary = (chapterText: string | undefined | null) => {
   if (!chapterText) return "";
@@ -14,7 +19,8 @@ export const extractChapterMetadata = async (
   finalRawBlocksStr: string,
   routingConfig: any,
   apiHeaders: any,
-  data: any
+  data: any,
+  contract?: ChapterContract,
 ) => {
   let finalData = { ...data };
 
@@ -26,7 +32,8 @@ export const extractChapterMetadata = async (
         chapterNumber: targetChapter.number,
         title: targetChapter.title,
         chapterText: finalRawBlocksStr,
-        routingConfig
+        routingConfig,
+        contract,
       })
     });
 
@@ -47,6 +54,11 @@ export const extractChapterMetadata = async (
   if (isPlaceholderSummary(finalData.summary)) {
     finalData.summary = buildChapterTextFallbackSummary(data.chapterText);
   }
+
+  // Canonical handoff (Context Engine 2.5): clamp LLM output to the typed
+  // shape; a malformed or absent handoff degrades to plain V2 behavior.
+  finalData.handoff = sanitizeChapterHandoff(finalData.handoff, targetChapter.number);
+  finalData.contractReport = sanitizeContractReport(finalData.contractReport);
 
   return finalData;
 };

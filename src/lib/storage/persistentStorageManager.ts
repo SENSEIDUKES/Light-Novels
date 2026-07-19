@@ -2244,6 +2244,8 @@ export class PersistentStorageManager implements StorageAdapter {
                   statsChangeMessage: chapter.statsChangeMessage,
                   cuePayload: chapter.cuePayload,
                   contextManifest: chapter.contextManifest,
+                  handoff: chapter.handoff,
+                  contract: chapter.contract,
                 };
                 await this.saveChapterContentUnderStoryLock(
                   content,
@@ -2253,7 +2255,9 @@ export class PersistentStorageManager implements StorageAdapter {
                 );
               }
 
-              // Strip from the Story document to save space
+              // Strip from the Story document to save space. sceneFingerprints
+              // and contractReport intentionally stay on the scaffold — they are
+              // compact and power contract building without content loads.
               chapter.hasContent = true;
               delete chapter.generatedContent;
               delete chapter.blocks;
@@ -2261,6 +2265,8 @@ export class PersistentStorageManager implements StorageAdapter {
               delete chapter.statsChangeMessage;
               delete chapter.cuePayload;
               delete chapter.contextManifest;
+              delete chapter.handoff;
+              delete chapter.contract;
               delete chapter._isNewContent;
             }
           }
