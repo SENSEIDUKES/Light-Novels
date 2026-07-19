@@ -154,6 +154,29 @@ describe('ReaderViewport', () => {
     expect(screen.queryByText('Context Inspector')).toBeNull();
   });
 
+  it('uses language-aware reader prose instead of forced justification', () => {
+    render(<ReaderViewport {...makeProps({
+      preferredLang: 'ar',
+      activeTranslationContent: 'نص مترجم.',
+      currentPrefs: {
+        fontSize: 'base',
+        fontFamily: 'serif',
+        lineHeight: 'normal',
+        paragraphSpacing: 'normal',
+        textAlignment: 'start',
+        wordSpacing: 0,
+        readingWidth: 58,
+      },
+    })} />);
+
+    const prose = screen.getByText('نص مترجم.').closest('.reader-prose');
+    expect(prose?.getAttribute('lang')).toBe('ar');
+    expect(prose?.getAttribute('dir')).toBe('rtl');
+    expect(prose?.getAttribute('style')).toContain('text-align: start');
+    expect(prose?.getAttribute('style')).toContain('max-inline-size: 58ch');
+    expect(screen.getByText('نص مترجم.').closest('.reader-paragraph')).toBeTruthy();
+  });
+
   it('renders the chapter context manifest as one collapsed inspector list', () => {
     const sectionKeys = [
       ['pinnedRules', 'Pinned rules'],

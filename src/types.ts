@@ -802,6 +802,13 @@ export interface ReaderPreferences {
   fontFamily: "serif" | "sans" | "mono";
   lineHeight: "snug" | "normal" | "relaxed" | "loose";
   paragraphSpacing: "normal" | "wide" | "double";
+  /** Fine-grained reader typography. These remain optional for saved legacy stories. */
+  lineHeightScale?: number;
+  paragraphSpacingScale?: number;
+  letterSpacing?: number;
+  wordSpacing?: number;
+  readingWidth?: number;
+  textAlignment?: "start" | "justify";
   contextEngine?: "v1" | "v2";
   themeOverride?: "void" | "crimson" | "abyss" | "sepia" | "emerald";
   colorPaletteId?: "default" | "protanopia" | "deuteranopia" | "tritanopia" | "high_contrast_dark";

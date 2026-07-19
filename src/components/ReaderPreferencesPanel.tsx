@@ -4,6 +4,7 @@ import { Check, Sliders, VolumeX, Volume2, Music } from 'lucide-react';
 import { ReaderPreferences } from '../types';
 import { TRACK_LIBRARY } from '../lib/audio/musicResolver';
 import { BGM_MAX_LEVEL, BGM_DEFAULT_LEVEL } from "../hooks/audio/useAtmosphericAudio";
+import { getReaderTypography } from '../lib/readerTypography';
 
 // Group the Celestial Library by its CDN folder (ADVENTURE, AMBIENT, ...)
 // for the score-picker optgroups.
@@ -19,6 +20,7 @@ const formatTrackName = (id: string) =>
 interface ReaderPreferencesPanelProps {
   currentPrefs: ReaderPreferences;
   handleUpdatePreference: <K extends keyof ReaderPreferences>(key: K, value: ReaderPreferences[K]) => void;
+  onResetTypography: () => void;
   isMuted: boolean;
   handleMuteToggle: (muted: boolean) => void;
   atmosphere: string;
@@ -32,6 +34,7 @@ interface ReaderPreferencesPanelProps {
 export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
   currentPrefs,
   handleUpdatePreference,
+  onResetTypography,
   isMuted,
   handleMuteToggle,
   atmosphere,
@@ -41,6 +44,7 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
   showLegend,
   onToggleLegend
 }) => {
+  const typography = getReaderTypography(currentPrefs);
   // Scene-score controls talk to AtmosphericAudio over the audio event bus
   // (same pattern as mute/atmosphere/volume) so no extra prop drilling.
   const [bgmVolume, setBgmVolume] = useState(() => {
@@ -80,7 +84,7 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
       exit={{ height: 0, opacity: 0 }}
       className="bg-neutral-950 border-b border-neutral-900 overflow-hidden px-4 py-4 space-y-4"
     >
-      <div className="max-w-2xl mx-auto grid grid-cols-2 sm:grid-cols-6 gap-4">
+      <div className="max-w-4xl mx-auto grid grid-cols-2 sm:grid-cols-6 gap-4">
         <div className="space-y-1">
           <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">
             Aura Font
@@ -131,53 +135,31 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
           </div>
         </div>
 
-        <div className="space-y-1">
-          <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">
-            Line Spacing
-          </span>
-          <div className="flex flex-col gap-1">
-            {(["snug", "normal", "relaxed", "loose"] as const).map(
-              (l) => (
-                <button
-                  key={l}
-                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleUpdatePreference("lineHeight", l)}
-                  className={`px-2 py-1 text-[10px] rounded border text-left flex items-center justify-between transition-all capitalize ${
-                    currentPrefs.lineHeight === l
-                      ? "bg-portal/10 border-portal text-portal font-bold"
-                      : "bg-void border-neutral-800 text-neutral-400 hover:border-neutral-700"
-                  }`}
-                >
-                  <span>{l}</span>
-                  {currentPrefs.lineHeight === l && <Check size={8} />}
-                </button>
-              ),
-            )}
+        <div className="space-y-3 col-span-2 sm:col-span-4 rounded border border-neutral-800 bg-black/20 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">Aethereal Typesetting</span>
+            <button type="button" onClick={onResetTypography} className="text-[9px] font-mono uppercase tracking-wider text-neutral-400 hover:text-portal transition-colors">Reset</button>
           </div>
-        </div>
-
-        <div className="space-y-1">
-          <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">
-            Break Spacing
-          </span>
-          <div className="flex flex-col gap-1">
-            {(["normal", "wide", "double"] as const).map((p) => (
-              <button
-                key={p}
-                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() =>
-                  handleUpdatePreference("paragraphSpacing", p)
-                }
-                className={`px-2 py-1 text-[10px] rounded border text-left flex items-center justify-between transition-all capitalize ${
-                  currentPrefs.paragraphSpacing === p
-                    ? "bg-portal/10 border-portal text-portal font-bold"
-                    : "bg-void border-neutral-800 text-neutral-400 hover:border-neutral-700"
-                }`}
-              >
-                <span>{p}</span>
-                {currentPrefs.paragraphSpacing === p && (
-                  <Check size={8} />
-                )}
-              </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2">
+            {[
+              ['Line height', 'lineHeightScale', 1.45, 1.9, 0.01, typography.lineHeightScale, typography.lineHeightScale.toFixed(2)],
+              ['Paragraph gap', 'paragraphSpacingScale', 0.5, 2.5, 0.05, typography.paragraphSpacingScale, `${typography.paragraphSpacingScale.toFixed(2)}em`],
+              ['Letter spacing', 'letterSpacing', -0.03, 0.08, 0.005, typography.letterSpacing, `${typography.letterSpacing.toFixed(3)}em`],
+              ['Word spacing', 'wordSpacing', -0.04, 0.08, 0.005, typography.wordSpacing, `${typography.wordSpacing.toFixed(3)}em`],
+              ['Reading width', 'readingWidth', 44, 76, 1, typography.readingWidth, `${typography.readingWidth}ch`],
+            ].map(([label, key, min, max, step, value, display]) => (
+              <label key={key as string} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-[9px] font-mono text-neutral-400">
+                <span>{label}</span>
+                <input type="range" min={min as number} max={max as number} step={step as number} value={value as number} aria-label={label as string} onChange={(event) => handleUpdatePreference(key as keyof ReaderPreferences, Number(event.target.value) as never)} className="min-w-0 w-full accent-portal" />
+                <output className="w-10 text-right text-neutral-500">{display as string}</output>
+              </label>
             ))}
+            <div className="flex items-center gap-2 text-[9px] font-mono text-neutral-400">
+              <span>Alignment</span>
+              {(['start', 'justify'] as const).map((alignment) => (
+                <button key={alignment} type="button" onClick={() => handleUpdatePreference('textAlignment', alignment)} className={`rounded border px-2 py-1 uppercase transition-colors ${typography.textAlignment === alignment ? 'border-portal text-portal bg-portal/10' : 'border-neutral-800 text-neutral-500 hover:text-neutral-300'}`}>{alignment}</button>
+              ))}
+            </div>
           </div>
         </div>
 
