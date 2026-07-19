@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ReaderPreferencesPanel } from './ReaderPreferencesPanel';
 
 describe('ReaderPreferencesPanel', () => {
@@ -72,5 +72,34 @@ describe('ReaderPreferencesPanel', () => {
     expect(screen.getByLabelText('Atmosphere volume')).toBeDefined();
     expect(screen.getByLabelText('Scene score track')).toBeDefined();
     expect(screen.getByLabelText('Music volume')).toBeDefined();
+  });
+
+  it('minimizes and restores each visual preference block independently', async () => {
+    render(
+      <ReaderPreferencesPanel
+        currentPrefs={{ fontFamily: 'serif', fontSize: 'lg', lineHeight: 'relaxed', paragraphSpacing: 'normal', themeOverride: 'void' }}
+        handleUpdatePreference={vi.fn()}
+        onResetTypography={vi.fn()}
+        isMuted={false}
+        handleMuteToggle={vi.fn()}
+        atmosphere="none"
+        handleAtmosphereChange={vi.fn()}
+        volume={0.5}
+        handleVolumeChange={vi.fn()}
+      />,
+    );
+
+    const fontToggle = screen.getByRole('button', { name: /Aura Font/i });
+    expect(fontToggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Rubik (Sans)' })).toBeDefined();
+
+    fireEvent.click(fontToggle);
+    expect(fontToggle.getAttribute('aria-expanded')).toBe('false');
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Rubik (Sans)' })).toBeNull());
+    expect(fontToggle.textContent).toContain('Literata (Serif)');
+
+    fireEvent.click(fontToggle);
+    expect(fontToggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Rubik (Sans)' })).toBeDefined();
   });
 });
