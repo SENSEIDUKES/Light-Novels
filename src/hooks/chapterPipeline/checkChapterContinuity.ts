@@ -13,7 +13,8 @@ export const checkChapterContinuity = async (
   memory: StoryMemory,
   slimMemory: StoryMemory,
   routingConfig: any,
-  apiHeaders: any
+  apiHeaders: any,
+  handoffContext?: string,
 ): Promise<ChapterContinuityCheck> => {
   // Only the reader-facing prose is sent to the guard — world-card/image/codex
   // metadata is stripped so it can never be mistaken for lore drift.
@@ -28,6 +29,7 @@ export const checkChapterContinuity = async (
         chapterText: prose,
         memory: slimMemory,
         routingConfig,
+        handoffContext,
       }),
     });
     if (!response.ok) {

@@ -1,6 +1,6 @@
 # Context Engine 2.5 — Implementation Plan
 
-**Status:** Planning document — no code changes yet.
+**Status:** IMPLEMENTED in this PR (all five phases). This document is the design record; see the diff for the code. Review feedback incorporated: conditional contract rendering (no `undefined` in prompts), dialogue/retrospective-aware replay scan, mastery-downgrade protection on ability merges, legacy string-ability normalization, and strict location matching in duplicate detection (one-side-unknown is soft-only).
 **Baseline:** Context Engine V2 as currently shipped (`ACTIVE_CONTEXT_ENGINE = "v2"` in `src/lib/contextBlocks.ts`).
 **Goal:** Make every generated chapter a single canonical causal step, and make the next chapter reliably continue from exactly that state — without rebuilding V2.
 

@@ -1,8 +1,34 @@
-import { Story, Chapter } from '../../types';
+import { Story, Chapter, ChapterHandoff, SceneFingerprint } from '../../types';
 import { generateEmbedding } from '../../lib/rag';
 import { storyStorage } from '../../lib/storage';
+import { resolveEntity } from '../../lib/entityResolver';
 import { applyMemoryPatch } from './applyMemoryPatch';
 import { isPlaceholderSummary } from '../../lib/summaryIntegrity';
+
+/**
+ * Fingerprint participants are canonicalized through the entity resolver so
+ * duplicate detection compares Codex identities, not surface spellings.
+ * Unresolved names are kept as written.
+ */
+const canonicalizeFingerprints = (
+  handoff: ChapterHandoff,
+  story: Story,
+): ChapterHandoff => {
+  const characters = story.memory?.characters || [];
+  if (characters.length === 0) return handoff;
+
+  const canonicalize = (name: string): string => {
+    const resolved = resolveEntity(name, characters, 'fingerprintParticipant');
+    const match = characters.find(c => c.id === resolved.resolvedEntityId);
+    return match?.name || name;
+  };
+
+  const fingerprints: SceneFingerprint[] = handoff.fingerprints.map(fp => ({
+    ...fp,
+    participants: Array.from(new Set(fp.participants.map(canonicalize))),
+  }));
+  return { ...handoff, fingerprints };
+};
 
 export const persistGeneratedChapter = async (
   activeStory: Story,
@@ -20,12 +46,16 @@ export const persistGeneratedChapter = async (
     newChapterEmbedding = await generateEmbedding(persistedSummary, apiHeaders);
   }
 
+  const handoff: ChapterHandoff | undefined = data.handoff
+    ? canonicalizeFingerprints(data.handoff, activeStory)
+    : undefined;
+
   const freshStories = await storyStorage.getStories();
   const updatedStories = freshStories.map((s: Story) => {
     if (s.id !== activeStory.id) return s;
 
     const cloned = { ...s };
-    
+
     cloned.arcs = cloned.arcs.map((arc, aIdx) => {
       if (aIdx !== selectedArcIndex) return arc;
       return {
@@ -47,6 +77,14 @@ export const persistGeneratedChapter = async (
             continuityWarnings: data.continuityWarnings || [],
             continuitySoftNotes: data.continuitySoftNotes || [],
             contextManifest: data.contextManifest,
+            // Context Engine 2.5: the full handoff/contract ride the chapter
+            // transiently and move to ChapterContent at save time (like
+            // contextManifest); fingerprints and the contract report stay on
+            // the always-loaded scaffold.
+            handoff,
+            contract: data.contract,
+            sceneFingerprints: handoff?.fingerprints,
+            contractReport: data.contractReport,
           };
         })
       };

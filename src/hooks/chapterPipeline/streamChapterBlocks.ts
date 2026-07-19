@@ -1,4 +1,4 @@
-import { Story, Chapter, ContextBlock, ContextManifest } from '../../types';
+import { Story, Chapter, ChapterContract, ContextBlock, ContextManifest } from '../../types';
 import { extractJsonBlocks } from '../storyEngineHelpers';
 import { slimMemoryForRequest } from '../../lib/slimMemoryForRequest';
 import { ACTIVE_CONTEXT_ENGINE } from '../../lib/contextBlocks';
@@ -10,7 +10,8 @@ export const streamChapterBlocks = async (
   pacingDirective: string,
   routingConfig: any,
   apiHeaders: any,
-  onStreamProgress: (currentChapterText: string, blocksData: any[], accumulatedRaw: string) => void
+  onStreamProgress: (currentChapterText: string, blocksData: any[], accumulatedRaw: string) => void,
+  chapterContract?: ChapterContract,
 ) => {
   const response = await fetch('/api/generate-chapter-stream', {
     method: 'POST',
@@ -24,6 +25,7 @@ export const streamChapterBlocks = async (
       memory: slimMemoryForRequest(activeStory.memory),
       pastSummaries,
       contextEngine: ACTIVE_CONTEXT_ENGINE,
+      chapterContract,
       hardcoreFateMode: activeStory.hardcoreFateMode,
       fatePressure: activeStory.fatePressure,
       pacingDirective,

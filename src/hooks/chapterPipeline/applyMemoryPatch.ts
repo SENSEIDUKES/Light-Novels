@@ -1,5 +1,5 @@
 import { generateId } from '../../lib/id';
-import { Story, StoryMemory } from '../../types';
+import { Ability, Story, StoryMemory } from '../../types';
 import { runMemoryLinter } from '../storyEngineHelpers';
 import { resolveEntity } from '../../lib/entityResolver';
 import { stripAuthorControlledCodexFields } from '../../lib/codexContext';
@@ -11,6 +11,45 @@ const stripGeneratedAbilityContext = (ability: any) => {
 
 const sanitizeGeneratedAbilities = (value: unknown): any[] | undefined =>
   Array.isArray(value) ? value.map(stripGeneratedAbilityContext) : undefined;
+
+// Known mastery ladder for downgrade protection. Comparison is only attempted
+// when BOTH levels are on the ladder; unknown labels are never ranked.
+const MASTERY_ORDER = [
+  'novice', 'beginner', 'initial', 'basic', 'intermediate', 'adept',
+  'advanced', 'proficient', 'expert', 'perfected', 'master', 'grandmaster',
+  'transcendent',
+];
+
+const masteryRank = (level: string | undefined): number => {
+  if (!level) return -1;
+  return MASTERY_ORDER.indexOf(level.trim().toLowerCase());
+};
+
+/** True when applying `next` over `current` would be a comparable downgrade. */
+const isMasteryDowngrade = (current?: string, next?: string): boolean => {
+  const currentRank = masteryRank(current);
+  const nextRank = masteryRank(next);
+  return currentRank >= 0 && nextRank >= 0 && nextRank < currentRank;
+};
+
+/**
+ * Legacy ledgers may hold plain-string abilities. Any progression update or
+ * duplicate-acquisition merge normalizes the target into a full Ability object
+ * first so mastery history has somewhere to live.
+ */
+const normalizeAbilityEntry = (
+  entry: string | Ability,
+  chapterNumber: number,
+): Ability =>
+  typeof entry === 'string'
+    ? {
+        id: `abil-${generateId(9)}`,
+        name: entry,
+        description: '',
+        acquiredChapter: chapterNumber,
+        relevanceState: 'active',
+      }
+    : entry;
 
 export const applyMemoryPatch = (
   cloned: Story,
@@ -161,12 +200,23 @@ export const applyMemoryPatch = (
           newDesc = newDesc ? `${newDesc} ${rule.descriptionAppend}` : rule.descriptionAppend;
         }
         const ownerChanged = rule.newOwner && rule.newOwner !== a.currentOwner;
-        const pendingEvolution = ownerChanged || a.pendingEvolution || false;
-        const evolutionReason = ownerChanged ? "New Artifact Master" : a.evolutionReason;
+        const conditionChanged = rule.newCondition && rule.newCondition !== a.condition;
+        const locationChanged = rule.newLocation && rule.newLocation !== a.holderLocation;
+        const pendingEvolution = ownerChanged || conditionChanged || a.pendingEvolution || false;
+        const evolutionReason = ownerChanged
+          ? "New Artifact Master"
+          : conditionChanged
+            ? "Artifact State Change"
+            : a.evolutionReason;
         return {
           ...a,
           description: newDesc,
           currentOwner: rule.newOwner || a.currentOwner,
+          condition: rule.newCondition || a.condition,
+          holderLocation: rule.newLocation || a.holderLocation,
+          lastStateChapter: (ownerChanged || conditionChanged || locationChanged)
+            ? chapterNumber
+            : a.lastStateChapter,
           relevanceState: rule.relevanceState || a.relevanceState,
           currentRelevance: rule.currentRelevance || a.currentRelevance,
           pendingEvolution,
@@ -278,8 +328,10 @@ export const applyMemoryPatch = (
     nextMemory.artifacts = [...currentArtifacts, ...filteredAdded];
   }
 
+  const abilityLedgerWarnings: string[] = [];
+
   if (memoryUpdates.newMCAbilities && memoryUpdates.newMCAbilities.length > 0) {
-    const currentAbilities = nextMemory.abilities || [];
+    let currentAbilities = nextMemory.abilities || [];
     const added = memoryUpdates.newMCAbilities.map((ab: any) => {
       if (typeof ab === 'string') {
         return {
@@ -307,33 +359,92 @@ export const applyMemoryPatch = (
       };
     });
     const currentAbilitiesObjects = currentAbilities.map(a => typeof a === 'string' ? { id: a, name: a } : { id: a.id || a.name, name: a.name, aliases: a.aliases });
-    const filteredAbilities = added.filter((newAb: any) => {
-       const res = resolveEntity(newAb.name, currentAbilitiesObjects, "newAbilityCheck");
-       return res.resolvedEntityId === null;
-    });
-    nextMemory.abilities = [...currentAbilities, ...filteredAbilities];
+
+    // Duplicate acquisitions are MERGED into the existing ledger entry as a
+    // progression event instead of being silently dropped (Context Engine 2.5).
+    // A duplicate never downgrades a comparable higher mastery level.
+    const genuinelyNew: any[] = [];
+    for (const newAb of added) {
+      const res = resolveEntity(newAb.name, currentAbilitiesObjects, "newAbilityCheck");
+      if (res.resolvedEntityId === null) {
+        genuinelyNew.push(newAb);
+        continue;
+      }
+      currentAbilities = currentAbilities.map(entry => {
+        const entryId = typeof entry === 'string' ? entry : (entry.id || entry.name);
+        if (entryId !== res.resolvedEntityId) return entry;
+        const ability = normalizeAbilityEntry(entry, chapterNumber);
+        const incomingMastery = typeof newAb.masteryLevel === 'string' ? newAb.masteryLevel : undefined;
+        const applyMastery = incomingMastery
+          && !isMasteryDowngrade(ability.masteryLevel, incomingMastery)
+          && incomingMastery !== ability.masteryLevel;
+        return {
+          ...ability,
+          masteryLevel: applyMastery ? incomingMastery : ability.masteryLevel,
+          lastUsedChapter: chapterNumber,
+          progression: [
+            ...(ability.progression || []),
+            {
+              chapter: chapterNumber,
+              fromMastery: ability.masteryLevel,
+              toMastery: applyMastery ? incomingMastery : ability.masteryLevel,
+              note: 'duplicate acquisition merged',
+            },
+          ],
+        };
+      });
+      abilityLedgerWarnings.push(
+        `Ability "${newAb.name}" was re-acquired in chapter ${chapterNumber}; merged into the existing ledger entry as a progression event.`
+      );
+    }
+    nextMemory.abilities = [...currentAbilities, ...genuinelyNew];
   }
 
   if (memoryUpdates.mcAbilityUpdates && memoryUpdates.mcAbilityUpdates.length > 0) {
     const currentAbilities = nextMemory.abilities || [];
     const currentAbilitiesObjects = currentAbilities.map(a => typeof a === 'string' ? { id: a, name: a } : { id: a.id || a.name, name: a.name, aliases: a.aliases });
-    
+
+    let updatedAbilities = [...currentAbilities];
     memoryUpdates.mcAbilityUpdates.forEach((update: any) => {
        const res = resolveEntity(update.name || "", currentAbilitiesObjects, "abilityUpdate");
-       if (res.resolvedEntityId) {
-         const abilityIndex = currentAbilities.findIndex((ca: any) => 
-           (typeof ca === 'string' ? ca : (ca.id || ca.name)) === res.resolvedEntityId
-         );
-         
-         if (abilityIndex >= 0) {
-            const ability = currentAbilities[abilityIndex];
-            if (typeof ability !== 'string') {
-              if (update.newMasteryLevel) ability.masteryLevel = update.newMasteryLevel;
-             if (update.lastUsedChapter) ability.lastUsedChapter = update.lastUsedChapter;
-           }
+       if (!res.resolvedEntityId) return;
+
+       updatedAbilities = updatedAbilities.map(entry => {
+         const entryId = typeof entry === 'string' ? entry : (entry.id || entry.name);
+         if (entryId !== res.resolvedEntityId) return entry;
+
+         // Legacy string-form abilities are normalized to full objects before
+         // any progression is recorded.
+         const ability = normalizeAbilityEntry(entry, chapterNumber);
+         const masteryChanged = update.newMasteryLevel
+           && update.newMasteryLevel !== ability.masteryLevel;
+         if (masteryChanged && isMasteryDowngrade(ability.masteryLevel, update.newMasteryLevel)) {
+           abilityLedgerWarnings.push(
+             `Ability "${ability.name}" mastery downgrade from "${ability.masteryLevel}" to "${update.newMasteryLevel}" in chapter ${chapterNumber} was ignored.`
+           );
+           return {
+             ...ability,
+             lastUsedChapter: update.lastUsedChapter || ability.lastUsedChapter,
+           };
          }
-       }
+         return {
+           ...ability,
+           masteryLevel: masteryChanged ? update.newMasteryLevel : ability.masteryLevel,
+           lastUsedChapter: update.lastUsedChapter || ability.lastUsedChapter,
+           progression: masteryChanged
+             ? [
+                 ...(ability.progression || []),
+                 {
+                   chapter: chapterNumber,
+                   fromMastery: ability.masteryLevel,
+                   toMastery: update.newMasteryLevel,
+                 },
+               ]
+             : ability.progression,
+         };
+       });
     });
+    nextMemory.abilities = updatedAbilities;
   }
 
   if (memoryUpdates.relationshipUpdates && memoryUpdates.relationshipUpdates.length > 0) {
@@ -391,7 +502,7 @@ export const applyMemoryPatch = (
   }
 
   const linterWarnings = runMemoryLinter(cloned.memory, nextMemory, data.chapterText);
-  const allWarnings = [...violationWarnings, ...linterWarnings];
+  const allWarnings = [...violationWarnings, ...abilityLedgerWarnings, ...linterWarnings];
   
   if (allWarnings.length > 0) {
     nextMemory.memoryWarnings = [...(nextMemory.memoryWarnings || []), ...allWarnings];

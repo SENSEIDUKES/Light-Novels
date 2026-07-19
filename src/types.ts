@@ -217,6 +217,14 @@ export interface PlotThread {
   originChapter?: number;
 }
 
+export interface AbilityProgressionEvent {
+  chapter: number;
+  fromMastery?: string;
+  toMastery?: string;
+  /** e.g. "duplicate acquisition merged", "breakthrough during duel" */
+  note?: string;
+}
+
 export interface Ability extends BaseCodexEntry {
   id: string;
   name: string;
@@ -229,6 +237,8 @@ export interface Ability extends BaseCodexEntry {
   masteryLevel?: string;
   lastUsedChapter?: number;
   canonStatus?: 'confirmed' | 'rumored' | 'forbidden' | 'lost';
+  /** Append-only mastery history (Context Engine 2.5). */
+  progression?: AbilityProgressionEvent[];
 }
 
 export interface BaseCodexEntry {
@@ -292,12 +302,26 @@ export interface Location extends BaseCodexEntry {
   availableVisualUpdate?: boolean;
 }
 
+export type ArtifactCondition =
+  | "intact"
+  | "damaged"
+  | "destroyed"
+  | "consumed"
+  | "lost"
+  | string;
+
 export interface Artifact extends BaseCodexEntry {
   id: string;
   name: string;
   description: string;
   tier?: "Mortal" | "Earth" | "Heaven" | "Primordial" | string;
   currentOwner?: string;
+  /** Physical state (Context Engine 2.5). Absent = intact (legacy default). */
+  condition?: ArtifactCondition;
+  /** Where the artifact physically is, when known. */
+  holderLocation?: string;
+  /** Last chapter that changed owner/condition/location. */
+  lastStateChapter?: number;
   imageUrl?: string;
   imageHistory?: GeneratedImage[];
   lastImageChapter?: number;
@@ -564,6 +588,85 @@ export interface ChapterContent {
   syncRevision?: string;
   updatedAt?: string;
   contextManifest?: ContextManifest;
+  /** Canonical end state of this chapter (Context Engine 2.5). */
+  handoff?: ChapterHandoff;
+  /** The contract this chapter was generated against (debug/inspection). */
+  contract?: ChapterContract;
+}
+
+// ── Context Engine 2.5: canonical chapter handoff & contract ────────────────
+
+export type SceneActionType =
+  | "battle"
+  | "duel"
+  | "breakthrough"
+  | "acquisition"
+  | "discovery"
+  | "death"
+  | "travel-arrival"
+  | "social"
+  | "training"
+  | "ritual"
+  | "escape"
+  | "revelation"
+  | "other";
+
+export interface SceneFingerprint {
+  /** Closed-enum action class; unknown model output maps to "other". */
+  actionType: SceneActionType;
+  /** Canonical entity names (resolved through entityResolver at persist time). */
+  participants: string[];
+  location?: string;
+  /** One-line outcome, e.g. "Li Wei wins, Elder Kang crippled". */
+  outcome: string;
+  chapterNumber: number;
+}
+
+export interface ChapterEndState {
+  location?: string;
+  /** Freeform but short: "dusk, same day", "three days later". */
+  timeMarker?: string;
+  charactersPresent?: string[];
+  /** Physical/emotional MC condition: "exhausted, qi depleted". */
+  mcCondition?: string;
+  /** The live tension the chapter ends on (hook), one line. */
+  openTension?: string;
+}
+
+/** Authoritative machine-readable end state of a generated chapter. */
+export interface ChapterHandoff {
+  version: 1;
+  chapterNumber: number;
+  endState: ChapterEndState;
+  /** 2–6 one-line canonical, irreversible facts established this chapter. */
+  completedEvents: string[];
+  /** The single immediate beat the next chapter opens on. */
+  nextImmediateAction?: string;
+  fingerprints: SceneFingerprint[];
+}
+
+/** What the next chapter must accomplish; built deterministically client-side. */
+export interface ChapterContract {
+  version: 1;
+  chapterNumber: number;
+  /** Copied from the previous handoff's endState; absent for chapter 1 / gaps. */
+  startingState?: ChapterEndState;
+  /** Copied from the previous handoff's nextImmediateAction. */
+  requiredOpening?: string;
+  /** The chapter premise, verbatim. */
+  objective: string;
+  /** Completed-event lines from recent handoffs/fingerprints, newest first. */
+  doNotRepeat: string[];
+  completionCriteria?: string[];
+}
+
+/** Self-report from the metadata extraction pass about contract fulfillment. */
+export interface ContractReport {
+  objectiveFulfilled: boolean;
+  /** One-line evidence quote/paraphrase when fulfilled. */
+  evidence?: string;
+  /** Whether the chapter opened consistent with requiredOpening/startingState. */
+  openingMatched?: boolean;
 }
 
 export type ContextBlockKind =
@@ -583,6 +686,7 @@ export interface ContextBlock {
 export type ContextManifestSectionKey =
   | "pinnedRules"
   | "premise"
+  | "chapterContract"
   | "anchor"
   | "recentChapters"
   | "entityCards"
@@ -658,6 +762,19 @@ export interface Chapter {
   continuitySoftNotes?: string[];
   /** Debug record of the exact context classes available to this generation. */
   contextManifest?: ContextManifest;
+  /**
+   * Transient carrier for the full handoff/contract between generation and
+   * persistence; moved onto ChapterContent (like contextManifest) at save time.
+   */
+  handoff?: ChapterHandoff;
+  contract?: ChapterContract;
+  /**
+   * Compact scene fingerprints kept on the always-loaded chapter scaffold so
+   * contract building and duplicate detection never require content loads.
+   */
+  sceneFingerprints?: SceneFingerprint[];
+  /** Contract fulfillment self-report, surfaced next to continuity notes. */
+  contractReport?: ContractReport;
 }
 
 export interface StoryArc {

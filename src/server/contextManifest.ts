@@ -9,6 +9,7 @@ import type { SectionOutcome } from "./contextBudgeter";
 const SECTION_LABELS: Record<ContextManifestSectionKey, string> = {
   pinnedRules: "Pinned rules",
   premise: "Premise",
+  chapterContract: "Chapter contract",
   anchor: "Anchor",
   recentChapters: "Recent chapters",
   entityCards: "Entity cards",
@@ -20,6 +21,7 @@ const SECTION_LABELS: Record<ContextManifestSectionKey, string> = {
 const OUTCOME_SECTION_ORDER: ContextManifestSectionKey[] = [
   "pinnedRules",
   "premise",
+  "chapterContract",
   "anchor",
   "recentChapters",
   "entityCards",

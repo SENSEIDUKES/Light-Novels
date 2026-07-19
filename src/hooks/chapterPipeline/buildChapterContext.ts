@@ -1,7 +1,16 @@
 import { retrieveRelevantContext } from '../../lib/rag';
 import { ACTIVE_CONTEXT_ENGINE, CONTEXT_CHAR_LIMITS } from '../../lib/contextBlocks';
+import { buildChapterContract } from '../../lib/chapterHandoff';
 import { storyStorage } from '../../lib/storage';
-import { Story, Chapter, ChapterContent, StoryBlock } from '../../types';
+import {
+  Story,
+  Chapter,
+  ChapterContent,
+  ChapterContract,
+  ChapterHandoff,
+  SceneFingerprint,
+  StoryBlock,
+} from '../../types';
 
 const progressionSignalPattern = /\b(breakthroughs?|levels?|ranks?|rewards?|skills?|abilit(y|ies)|powers?)\b/i;
 const progressionSummaryPattern = /\b(breakthroughs?|advanced|new abilit(y|ies)|treasures?|rewards?|cultivation gains?|realms?|ranks?|level-ups?)\b/i;
@@ -57,11 +66,15 @@ export const buildChapterContext = async (
   // previous chapter so the model resumes from the exact last scene instead
   // of re-establishing the premise. Appended last so context truncation
   // (which drops from the front) never removes it.
+  // The same content load also supplies the previous chapter's canonical
+  // handoff (Context Engine 2.5) — the structured twin of the prose anchor.
   const previousChapter = recentChapters[0];
+  let previousHandoff: ChapterHandoff | undefined;
   if (previousChapter) {
     try {
       const prevContent = await storyStorage.getChapterContent(activeStory.id, previousChapter.number);
       if (prevContent) {
+        previousHandoff = prevContent.handoff;
         const finalBlocks = extractFinalProseBlocks(prevContent, CONTINUATION_ANCHOR_BLOCK_COUNT);
         if (finalBlocks.length > 0) {
           pastSummaries.push({
@@ -74,6 +87,22 @@ export const buildChapterContext = async (
     } catch (e) {
       console.warn(`Could not build continuation anchor from chapter ${previousChapter.number}`, e);
     }
+  }
+
+  // Chapter contract: deterministic, zero LLM calls. Fingerprints live on the
+  // always-loaded chapter scaffold, so no extra content loads are needed.
+  const recentFingerprints: SceneFingerprint[] = recentChapters
+    .flatMap(chapter => chapter.sceneFingerprints || []);
+  let chapterContract: ChapterContract | undefined;
+  try {
+    chapterContract = buildChapterContract({
+      chapterNumber: targetChapter.number,
+      premise: targetChapter.premise || '',
+      previousHandoff,
+      recentFingerprints,
+    });
+  } catch (e) {
+    console.warn('Could not build chapter contract; generation degrades to plain V2 context.', e);
   }
 
   let pacingDirective = '';
@@ -135,5 +164,5 @@ export const buildChapterContext = async (
     }
   }
   
-  return { pastSummaries, pacingDirective };
+  return { pastSummaries, pacingDirective, chapterContract, previousHandoff };
 };

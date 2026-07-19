@@ -110,10 +110,11 @@ describe("storyRouter context manifest contract", () => {
 
     const firstEvent = JSON.parse(writes[0].slice("data: ".length).trim());
     expect(firstEvent.contextManifest.engine).toBe("v2");
-    expect(firstEvent.contextManifest.sections).toHaveLength(8);
+    expect(firstEvent.contextManifest.sections).toHaveLength(9);
     expect(firstEvent.contextManifest.sections.map((section: any) => section.key)).toEqual([
       "pinnedRules",
       "premise",
+      "chapterContract",
       "anchor",
       "recentChapters",
       "entityCards",
@@ -127,7 +128,7 @@ describe("storyRouter context manifest contract", () => {
     const prompt = mocks.routeTextGenerationStream.mock.calls[0][2];
     expect(prompt).toContain("CODEX MEMORY CARDS");
     expect(prompt).not.toContain('"characters": [');
-    expect(loggedManifest.sections).toHaveLength(8);
+    expect(loggedManifest.sections).toHaveLength(9);
     expect(JSON.stringify(loggedManifest)).not.toContain("Moon Sword");
   });
 

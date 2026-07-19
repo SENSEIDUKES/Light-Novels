@@ -73,6 +73,24 @@ export const pastSummariesSchema = z
 
 export const contextEngineSchema = z.enum(["v1", "v2"]);
 
+const chapterEndStateSchema = z.object({
+  location: z.string().optional(),
+  timeMarker: z.string().optional(),
+  charactersPresent: z.array(z.string()).optional(),
+  mcCondition: z.string().optional(),
+  openTension: z.string().optional(),
+}).passthrough();
+
+export const chapterContractSchema = z.object({
+  version: z.number().optional(),
+  chapterNumber: z.number().optional(),
+  startingState: chapterEndStateSchema.optional(),
+  requiredOpening: z.string().optional(),
+  objective: z.string(),
+  doNotRepeat: z.array(z.string()).optional(),
+  completionCriteria: z.array(z.string()).optional(),
+}).passthrough();
+
 const memoryProvenanceSchema = z.object({
   sourceChapterNumber: z.number().optional(),
   sourceBlockId: z.string().optional(),
@@ -342,6 +360,7 @@ export const chapterGenerationSchema = z.object({
     .optional(),
   storyTags: z.array(z.string()).optional(),
   contextEngine: contextEngineSchema.optional(),
+  chapterContract: chapterContractSchema.optional(),
 });
 
 export const extractMetadataSchema = z.object({
@@ -349,12 +368,14 @@ export const extractMetadataSchema = z.object({
   title: z.string().optional(),
   chapterText: z.string(),
   routingConfig: routingConfigSchema,
+  contract: chapterContractSchema.optional(),
 });
 
 export const checkConsistencySchema = z.object({
   chapterText: z.string(),
   memory: storyMemorySchema,
   routingConfig: routingConfigSchema,
+  handoffContext: z.string().optional(),
 });
 
 export const repairChapterSchema = z.object({

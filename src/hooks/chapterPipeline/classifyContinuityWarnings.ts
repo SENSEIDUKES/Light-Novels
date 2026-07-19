@@ -56,7 +56,9 @@ export interface ClassifiedWarnings {
 
 /**
  * Whole-word, case-insensitive matchers for every Codex entity currently marked
- * deceased/destroyed.
+ * deceased/destroyed — including artifacts whose physical condition is
+ * destroyed/consumed (Context Engine 2.5). Same verification gate for all:
+ * the entity must be named in both the proposed warning and the prose.
  */
 const collectDeadEntityMatchers = (memory: StoryMemory): RegExp[] => {
   const names: string[] = [];
@@ -65,6 +67,11 @@ const collectDeadEntityMatchers = (memory: StoryMemory): RegExp[] => {
   }
   for (const f of memory?.factions || []) {
     if (f?.status === 'Destroyed' && f?.name) names.push(f.name);
+  }
+  for (const a of memory?.artifacts || []) {
+    if ((a?.condition === 'destroyed' || a?.condition === 'consumed') && a?.name) {
+      names.push(a.name);
+    }
   }
   return names
     .filter((n) => n.trim().length > 1)
