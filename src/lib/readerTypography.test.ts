@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getReaderTypography, getReadingDirection } from './readerTypography';
+import { DEFAULT_READER_TYPOGRAPHY, getReaderTypography, getReadingDirection } from './readerTypography';
 
 describe('reader typography', () => {
   it('gives legacy preferences a book-like, start-aligned baseline', () => {
@@ -35,6 +35,15 @@ describe('reader typography', () => {
       letterSpacing: 0.08,
       wordSpacing: -0.04,
       readingWidth: 76,
+    });
+  });
+
+  it('falls back safely for partial or malformed saved preferences', () => {
+    expect(getReaderTypography({})).toMatchObject(DEFAULT_READER_TYPOGRAPHY);
+    expect(getReaderTypography(null)).toMatchObject(DEFAULT_READER_TYPOGRAPHY);
+    expect(getReaderTypography({ lineHeightScale: Number.NaN, readingWidth: Number.POSITIVE_INFINITY })).toMatchObject({
+      lineHeightScale: DEFAULT_READER_TYPOGRAPHY.lineHeightScale,
+      readingWidth: DEFAULT_READER_TYPOGRAPHY.readingWidth,
     });
   });
 

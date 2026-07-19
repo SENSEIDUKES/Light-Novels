@@ -90,7 +90,6 @@ html, body {
   letter-spacing: var(--reader-letter-spacing, 0);
   word-spacing: var(--reader-word-spacing, normal);
   text-align: start;
-  text-indent: 1.25em;
   overflow-wrap: normal;
   word-break: normal;
   line-break: auto;
@@ -100,9 +99,6 @@ html, body {
 
 .reader-prose .reader-paragraph {
   margin-block: 0 var(--reader-paragraph-spacing, 1.15em);
-}
-
-.reader-prose[dir="rtl"] {
   text-indent: 1.25em;
 }
 

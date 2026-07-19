@@ -22,29 +22,39 @@ const LEGACY_PARAGRAPH_SPACING: Record<ReaderPreferences['paragraphSpacing'], nu
   double: 2,
 };
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(max, Math.max(min, value));
+const clamp = (value: unknown, min: number, max: number, fallback: number) =>
+  typeof value === 'number' && Number.isFinite(value)
+    ? Math.min(max, Math.max(min, value))
+    : fallback;
 
 /**
  * Normalizes saved reader settings so old stories gain the new book-like
  * defaults without requiring a data migration.
  */
-export function getReaderTypography(preferences: ReaderPreferences) {
+export function getReaderTypography(preferences?: Partial<ReaderPreferences> | null) {
+  const prefs = preferences ?? {};
+  const legacyLineHeight = prefs.lineHeight ? LEGACY_LINE_HEIGHT[prefs.lineHeight] : undefined;
+  const legacyParagraphSpacing = prefs.paragraphSpacing
+    ? LEGACY_PARAGRAPH_SPACING[prefs.paragraphSpacing]
+    : undefined;
+
   return {
     lineHeightScale: clamp(
-      preferences.lineHeightScale ?? LEGACY_LINE_HEIGHT[preferences.lineHeight],
+      prefs.lineHeightScale ?? legacyLineHeight,
       1.45,
       1.9,
+      DEFAULT_READER_TYPOGRAPHY.lineHeightScale,
     ),
     paragraphSpacingScale: clamp(
-      preferences.paragraphSpacingScale ?? LEGACY_PARAGRAPH_SPACING[preferences.paragraphSpacing],
+      prefs.paragraphSpacingScale ?? legacyParagraphSpacing,
       0.5,
       2.5,
+      DEFAULT_READER_TYPOGRAPHY.paragraphSpacingScale,
     ),
-    letterSpacing: clamp(preferences.letterSpacing ?? DEFAULT_READER_TYPOGRAPHY.letterSpacing, -0.03, 0.08),
-    wordSpacing: clamp(preferences.wordSpacing ?? DEFAULT_READER_TYPOGRAPHY.wordSpacing, -0.04, 0.08),
-    readingWidth: clamp(preferences.readingWidth ?? DEFAULT_READER_TYPOGRAPHY.readingWidth, 44, 76),
-    textAlignment: preferences.textAlignment ?? DEFAULT_READER_TYPOGRAPHY.textAlignment,
+    letterSpacing: clamp(prefs.letterSpacing, -0.03, 0.08, DEFAULT_READER_TYPOGRAPHY.letterSpacing),
+    wordSpacing: clamp(prefs.wordSpacing, -0.04, 0.08, DEFAULT_READER_TYPOGRAPHY.wordSpacing),
+    readingWidth: clamp(prefs.readingWidth, 44, 76, DEFAULT_READER_TYPOGRAPHY.readingWidth),
+    textAlignment: prefs.textAlignment === 'justify' ? 'justify' : DEFAULT_READER_TYPOGRAPHY.textAlignment,
   };
 }
 
