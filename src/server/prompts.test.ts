@@ -172,4 +172,24 @@ describe('Prompts', () => {
     expect(PROMPTS.extractMetadata.system).toBeDefined();
     expect(typeof PROMPTS.extractMetadata.userPrompt).toBe('function');
   });
+
+  it('requires catalog-driven atmosphere metadata for chapter openings and clear scene blocks', () => {
+    const categories = '"wind", "crowd", "waves", "rain", "combat", or "noise"';
+    const streamed = PROMPTS.chapter.userPrompt(1, 'T', 'P', 'MC', 'Fantasy', 'CP', '{}', '[]', true);
+    const legacy = PROMPTS.chapter.userPrompt(1, 'T', 'P', 'MC', 'Fantasy', 'CP', '{}', '[]', false);
+    const extracted = PROMPTS.extractMetadata.userPrompt(1, 'T', 'Chapter text');
+
+    expect(PROMPTS.chapter.system).toContain('ATMOSPHERIC AUDIO METADATA');
+    expect(PROMPTS.chapter.system).toContain('"atmosphereCategory"');
+    expect(PROMPTS.chapter.system).toContain(categories);
+    expect(PROMPTS.chapter.system).toContain('"environment" and "atmosphereTags" arrays');
+    expect(PROMPTS.chapter.system).toContain('examples are not a fixed vocabulary or variation list');
+    expect(PROMPTS.chapter.system).toContain('Omit "atmosphereCategory" when the scene has no clear fit');
+    expect(streamed).toContain('its block metadata must include "atmosphereCategory"');
+    expect(legacy).toContain('In "cuePayload", describe the opening scene');
+    expect(extracted).toContain('also emit "atmosphereCategory"');
+    expect(extracted).toContain('omit the category when the opening has no clear fit');
+    expect(PROMPTS.repairChapter.userPrompt('blocks', '{}', ['warning']))
+      .toContain('Preserve valid block metadata while rewriting');
+  });
 });

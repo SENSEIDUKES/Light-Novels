@@ -8,6 +8,8 @@ import {
 
 const catalog: CuratedAtmosphereBed[] = [
   { id: 'wind.ridge', category: 'wind', tags: ['mountain', 'ridge'], url: 'wind.mp3' },
+  { id: 'crowd.market', category: 'crowd', tags: ['market', 'chatter'], url: 'market.mp3' },
+  { id: 'crowd.festival', category: 'crowd', tags: ['festival', 'cheering'], url: 'festival.mp3' },
   { id: 'waves.harbor', category: 'waves', tags: ['coast', 'harbor'], url: 'waves.mp3' },
   { id: 'rain.market', category: 'rain', tags: ['rain', 'market'], url: 'rain.mp3' },
   { id: 'noise.foundry', category: 'noise', tags: ['foundry', 'machinery'], url: 'noise.mp3' },
@@ -24,6 +26,18 @@ describe('ambience sound catalog', () => {
       { catalog },
     );
     expect(bed?.id).toBe('waves.harbor');
+  });
+
+  it('uses the explicit category to route while open-ended tags choose the variation', () => {
+    const bed = resolveAtmosphereBed(
+      {
+        atmosphereCategory: 'crowd',
+        environment: ['market', 'busy'],
+        atmosphereTags: ['chatter', 'vendors'],
+      },
+      { catalog },
+    );
+    expect(bed?.id).toBe('crowd.market');
   });
 
   it('does not treat travel as rain', () => {
@@ -45,7 +59,10 @@ describe('ambience sound catalog', () => {
   });
 
   it('keeps metadata extraction literal rather than deriving a sound from intensity', () => {
-    expect(atmosphereMetadataTags({ sceneType: 'travel', atmosphereTags: ['night-market'] }))
-      .toEqual(['travel', 'night', 'market']);
+    expect(atmosphereMetadataTags({
+      atmosphereCategory: 'crowd',
+      sceneType: 'travel',
+      atmosphereTags: ['night-market'],
+    })).toEqual(['crowd', 'travel', 'night', 'market']);
   });
 });

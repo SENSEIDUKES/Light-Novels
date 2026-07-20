@@ -38,6 +38,7 @@ export interface CuratedAtmosphereBed extends CuratedAmbienceAsset {
 export interface AtmosphereMetadata {
   sceneType?: string;
   environment?: string | readonly string[];
+  atmosphereCategory?: AtmosphereCategory;
   motion?: string;
   emotion?: string;
   element?: string;
@@ -73,6 +74,7 @@ const toTags = (value: unknown): string[] => {
 export function atmosphereMetadataTags(metadata?: AtmosphereMetadata | null): string[] {
   if (!metadata) return [];
   return [...new Set([
+    ...toTags(metadata.atmosphereCategory),
     ...toTags(metadata.sceneType),
     ...toTags(metadata.environment),
     ...toTags(metadata.motion),

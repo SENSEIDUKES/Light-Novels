@@ -351,6 +351,8 @@ export interface StoryMemory {
 export interface StoryBlockMetadata {
   sceneType?: string;
   environment?: string[];
+  /** Dominant looping bed family; omitted when the scene has no clear fit. */
+  atmosphereCategory?: "wind" | "crowd" | "waves" | "rain" | "combat" | "noise";
   /** Explicit scene terms used only to match curated atmosphere-bed tags. */
   atmosphereTags?: string[];
   theme?: string | string[];
@@ -535,6 +537,7 @@ export interface StoryCuePayload {
   /** Opening-scene context for the chapter's initial curated atmosphere bed. */
   sceneType?: string;
   environment?: string[];
+  atmosphereCategory?: "wind" | "crowd" | "waves" | "rain" | "combat" | "noise";
   atmosphereTags?: string[];
   theme?: string | string[];
   intensity?: number;

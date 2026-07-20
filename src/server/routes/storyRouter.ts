@@ -821,6 +821,10 @@ storyRouter.post("/api/extract-chapter-metadata", validateBody(extractMetadataSc
           properties: {
             sceneType: { type: "STRING" },
             environment: { type: "ARRAY", items: { type: "STRING" } },
+            atmosphereCategory: {
+              type: "STRING",
+              enum: ["wind", "crowd", "waves", "rain", "combat", "noise"],
+            },
             atmosphereTags: { type: "ARRAY", items: { type: "STRING" } },
             theme: { type: "STRING" },
             intensity: { type: "NUMBER" },
