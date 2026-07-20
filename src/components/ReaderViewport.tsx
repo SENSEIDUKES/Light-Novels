@@ -14,6 +14,7 @@ import { AetherialSystemLegend } from './AetherialSystemLegend';
 import { ManifestHeroImage } from './ManifestHeroImage';
 import { anchorAttributes } from '../lib/cinematicScroll/anchors';
 import { ContextInspector } from './ContextInspector';
+import { getReaderTypography, getReadingDirection } from '../lib/readerTypography';
 
 const FALLBACK_BACKDROPS = [
   "https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/images/LIBRARY%20BACKDROPS/LIBRARY_THUNDER.PNG",
@@ -153,6 +154,16 @@ export function ReaderViewport({
   hasSystemBlocks,
   chapters,
 }: ReaderViewportProps) {
+  const readingLanguage = activeTranslationContent ? preferredLang : 'en';
+  const typography = getReaderTypography(currentPrefs);
+  const readerProseStyle = {
+    '--reader-line-height': typography.lineHeightScale,
+    '--reader-letter-spacing': `${typography.letterSpacing}em`,
+    '--reader-word-spacing': typography.wordSpacing === 0 ? 'normal' : `${typography.wordSpacing}em`,
+    '--reader-paragraph-spacing': `${typography.paragraphSpacingScale}em`,
+    maxInlineSize: `${typography.readingWidth}ch`,
+    textAlign: typography.textAlignment,
+  } as React.CSSProperties;
   const { updateStory } = useAppStore();
   const isCompletedBatchEndpoint = activeStory.chapterGenerationBatch?.status === 'completed'
     && activeStory.chapterGenerationBatch.chapterNumbers.at(-1) === selectedChapter.number;
@@ -268,7 +279,7 @@ export function ReaderViewport({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
               transition={{ duration: 0.5, ease: "easeOut" }}
-              className="max-w-2xl mx-auto"
+              className="w-full max-w-5xl mx-auto"
             >
               <ReaderFateAlerts 
                 activeStory={activeStory}
@@ -382,16 +393,10 @@ export function ReaderViewport({
                     : currentPrefs.fontFamily === "sans"
                       ? "font-sans"
                       : "font-mono"
-                } ${
-                  currentPrefs.lineHeight === "snug"
-                    ? "leading-snug"
-                    : currentPrefs.lineHeight === "normal"
-                      ? "leading-normal"
-                      : currentPrefs.lineHeight === "relaxed"
-                        ? "leading-relaxed"
-                        : "leading-loose"
-                } max-w-2xl mx-auto select-text`}
-                dir="auto"
+                } reader-prose w-full mx-auto select-text`}
+                lang={readingLanguage}
+                dir={getReadingDirection(readingLanguage)}
+                style={readerProseStyle}
               >
                 {activeTranslationContent
                   ? activeTranslationContent
@@ -421,7 +426,7 @@ export function ReaderViewport({
                             key={index}
                             id={`para-${index}`}
                             {...anchorAttributes(selectedChapter.number, index, undefined, cleanText)}
-                            className="group relative transition-all duration-300 border border-transparent rounded-lg p-2.5 -mx-2.5 mb-2"
+                            className="group relative transition-all duration-300 border border-transparent rounded-lg p-2.5 -mx-2.5"
                           >
                             <div className="flex items-start">
                               <div className="flex-1 min-w-0">
@@ -438,7 +443,7 @@ export function ReaderViewport({
                                   />
                                 ))}
                                 <div
-                                  className={`text-justify indent-8 ${currentPrefs.paragraphSpacing === "normal" ? "mb-0" : currentPrefs.paragraphSpacing === "wide" ? "mb-2" : "mb-4"} ${getFocusClass(index)}`}
+                                  className={`reader-paragraph ${getFocusClass(index)}`}
                                 >
                                   {renderHighlightedText(cleanText, index)}
                                 </div>
@@ -633,7 +638,7 @@ export function ReaderViewport({
                                 : undefined
                             }
                             data-cue-once="true"
-                            className={`relative group paragraph-block transition-colors duration-200 mb-6 ${existingBookmark ? "custom-bookmark-bg" : ""} ${block.metadata ? "narrative-trigger metadata-block" : ""}`}
+                            className={`relative group paragraph-block transition-colors duration-200 ${existingBookmark ? "custom-bookmark-bg" : ""} ${block.metadata ? "narrative-trigger metadata-block" : ""}`}
                           >
                             {autoCueList.map((sfx, i) => (
                               <span
@@ -647,7 +652,7 @@ export function ReaderViewport({
                                 data-cue-once="true"
                               />
                             ))}
-                            <div className={`text-justify indent-8 relative ${getFocusClass(index)}`}>
+                            <div className={`reader-paragraph relative ${getFocusClass(index)}`}>
                               {renderHighlightedText(cleanText, index)}
                               <button
                                  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
@@ -771,7 +776,7 @@ export function ReaderViewport({
                               data-cue-type="narrative.paragraph.enter"
                               data-cue-id={`para-${selectedChapter.number}-${index}`}
                               data-cue-once="true"
-                              className="narrative-trigger group relative transition-all duration-300 border border-transparent hover:bg-neutral-900/5 hover:border-neutral-900/10 rounded-lg p-2.5 -mx-2.5 mb-2"
+                              className="narrative-trigger group relative transition-all duration-300 border border-transparent hover:bg-neutral-900/5 hover:border-neutral-900/10 rounded-lg p-2.5 -mx-2.5"
                             >
                               <div className="flex items-start">
                                 {/* Interactive Left Margin Anchor Rail */}
@@ -825,15 +830,7 @@ export function ReaderViewport({
                                     />
                                   ))}
                                   <div
-                                    className={`text-justify indent-8 ${
-                                      currentPrefs.paragraphSpacing ===
-                                      "normal"
-                                        ? "mb-0"
-                                        : currentPrefs.paragraphSpacing ===
-                                            "wide"
-                                          ? "mb-2"
-                                          : "mb-4"
-                                    }`}
+                                    className="reader-paragraph"
                                   >
                                     {renderHighlightedText(cleanText, index)}
                                   </div>

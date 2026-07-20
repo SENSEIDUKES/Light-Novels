@@ -78,10 +78,37 @@ html, body {
 .light-novel-reader {
   font-family: var(--font-serif);
   font-size: calc(1rem * var(--reader-font-size-scale, 1));
-  line-height: var(--reader-line-height-scale, 1.8);
-  letter-spacing: var(--reader-letter-spacing, 0.0125em);
+  line-height: var(--reader-line-height-scale, 1.62);
+  letter-spacing: var(--reader-letter-spacing, 0);
   color: #dfd8cf;
   background-color: #111111;
+}
+
+/* Reader prose is deliberately scoped so chamber UI keeps its cinematic layout. */
+.reader-prose {
+  line-height: var(--reader-line-height, 1.62);
+  letter-spacing: var(--reader-letter-spacing, 0);
+  word-spacing: var(--reader-word-spacing, normal);
+  text-align: start;
+  overflow-wrap: normal;
+  word-break: normal;
+  line-break: auto;
+  hyphens: auto;
+  hanging-punctuation: first last;
+}
+
+.reader-prose .reader-paragraph {
+  margin-block: 0 var(--reader-paragraph-spacing, 1.15em);
+  text-indent: 1.25em;
+}
+
+/* CJK does not use spaces between most words; preserve its native line-breaking rules. */
+.reader-prose:lang(zh),
+.reader-prose:lang(ja),
+.reader-prose:lang(ko) {
+  line-break: strict;
+  word-spacing: normal;
+  text-spacing: auto;
 }
 
 .ink-gradient {
@@ -261,8 +288,8 @@ html, body {
 :root {
   /* Default typography multipliers */
   --reader-font-size-scale: 1;
-  --reader-line-height-scale: 1.8;
-  --reader-letter-spacing: 0.0125em;
+  --reader-line-height-scale: 1.62;
+  --reader-letter-spacing: 0;
 
   /* Default semantic entity colors - all >= 4.5:1 contrast on dark novel bg (#111111) */
   --color-entity-mc: #60a5fa; /* Main Character - Blue (blue-400) */

@@ -1,24 +1,164 @@
-import React, { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
-import { Check, Sliders, VolumeX, Volume2, Music } from 'lucide-react';
+import React, { useEffect, useId, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import {
+  AudioLines,
+  Check,
+  ChevronDown,
+  Eye,
+  Music,
+  Palette,
+  RotateCcw,
+  Sliders,
+  Type,
+  Volume2,
+  VolumeX,
+} from 'lucide-react';
 import { ReaderPreferences } from '../types';
 import { TRACK_LIBRARY } from '../lib/audio/musicResolver';
-import { BGM_MAX_LEVEL, BGM_DEFAULT_LEVEL } from "../hooks/audio/useAtmosphericAudio";
+import { BGM_MAX_LEVEL, BGM_DEFAULT_LEVEL } from '../hooks/audio/useAtmosphericAudio';
+import { getReaderTypography } from '../lib/readerTypography';
 
-// Group the Celestial Library by its CDN folder (ADVENTURE, AMBIENT, ...)
-// for the score-picker optgroups.
 const SCORE_GROUPS = TRACK_LIBRARY.reduce<Record<string, typeof TRACK_LIBRARY>>((groups, track) => {
   const folder = track.url.split('/AUDIO/')[1]?.split('/')[0] || 'OTHER';
   (groups[folder] = groups[folder] || []).push(track);
   return groups;
 }, {});
 
+const FONT_OPTIONS = [
+  { value: 'serif', label: 'Literata (Serif)' },
+  { value: 'sans', label: 'Rubik (Sans)' },
+  { value: 'mono', label: 'System Mono' },
+] as const;
+
+const SIZE_OPTIONS = ['xs', 'sm', 'base', 'lg', 'xl'] as const;
+const THEME_OPTIONS = ['void', 'crimson', 'abyss', 'sepia', 'emerald'] as const;
+const HIGHLIGHT_OPTIONS = [
+  { value: 'full', label: 'Full Block' },
+  { value: 'underline', label: 'Underline' },
+  { value: 'tint', label: 'Soft Tint' },
+] as const;
+
+type NumericTypographyPreference =
+  | 'lineHeightScale'
+  | 'paragraphSpacingScale'
+  | 'letterSpacing'
+  | 'wordSpacing'
+  | 'readingWidth';
+
+const TYPOGRAPHY_CONTROLS: Array<{
+  key: NumericTypographyPreference;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  format: (value: number) => string;
+}> = [
+  { key: 'lineHeightScale', label: 'Line height', min: 1.45, max: 1.9, step: 0.01, format: value => value.toFixed(2) },
+  { key: 'paragraphSpacingScale', label: 'Paragraph gap', min: 0.5, max: 2.5, step: 0.05, format: value => `${value.toFixed(2)}em` },
+  { key: 'letterSpacing', label: 'Letter spacing', min: -0.03, max: 0.08, step: 0.005, format: value => `${value.toFixed(3)}em` },
+  { key: 'wordSpacing', label: 'Word spacing', min: -0.04, max: 0.08, step: 0.005, format: value => `${value.toFixed(3)}em` },
+  { key: 'readingWidth', label: 'Reading width', min: 44, max: 76, step: 1, format: value => `${value}ch` },
+];
+
 const formatTrackName = (id: string) =>
-  id.toLowerCase().split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  id.toLowerCase().split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+
+const choiceClass = (active: boolean) =>
+  `flex min-h-9 w-full items-center justify-between gap-3 rounded-md border px-3 py-2 text-left text-[10px] font-mono uppercase tracking-[0.12em] transition-all ${
+    active
+      ? 'border-portal bg-portal/10 text-portal shadow-[inset_0_0_18px_rgba(4,172,255,0.05)]'
+      : 'border-neutral-800 bg-black/25 text-neutral-400 hover:border-neutral-700 hover:text-neutral-200'
+  }`;
+
+const shouldExpandByDefault = () =>
+  typeof window === 'undefined'
+  || typeof window.matchMedia !== 'function'
+  || !window.matchMedia('(max-width: 767px)').matches;
+
+interface PreferenceGroupProps {
+  label: string;
+  icon: React.ReactNode;
+  summary?: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}
+
+function PreferenceGroup({ label, icon, summary, defaultOpen, children }: PreferenceGroupProps) {
+  const contentId = useId();
+  const [isOpen, setIsOpen] = useState(() => defaultOpen ?? shouldExpandByDefault());
+
+  return (
+    <section>
+      <button
+        type="button"
+        aria-expanded={isOpen}
+        aria-controls={contentId}
+        onClick={() => setIsOpen(open => !open)}
+        className="flex min-h-9 w-full items-center gap-2 rounded-md text-left text-[10px] font-sans font-medium uppercase tracking-[0.16em] text-neutral-400 transition-colors hover:text-neutral-100"
+      >
+        <span className="text-portal/80">{icon}</span>
+        <span>{label}</span>
+        {summary ? (
+          <span className="ml-auto max-w-[45%] truncate font-mono text-[9px] normal-case tracking-normal text-neutral-600">
+            {summary}
+          </span>
+        ) : <span className="ml-auto" />}
+        <ChevronDown size={14} className={`shrink-0 text-neutral-600 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      <AnimatePresence initial={false}>
+        {isOpen ? (
+          <motion.div
+            id={contentId}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="pt-2.5">{children}</div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </section>
+  );
+}
+
+interface TypographySliderProps {
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  displayValue: string;
+  onChange: (value: number) => void;
+}
+
+function TypographySlider({ label, min, max, step, value, displayValue, onChange }: TypographySliderProps) {
+  return (
+    <label className="grid gap-2 text-[10px] font-sans uppercase tracking-[0.14em] text-neutral-400">
+      <span>{label}</span>
+      <span className="grid grid-cols-[minmax(0,1fr)_4.5rem] items-center gap-4">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          aria-label={label}
+          onChange={event => onChange(Number(event.target.value))}
+          className="w-full min-w-0 cursor-pointer accent-portal"
+        />
+        <output className="text-right font-mono text-[10px] normal-case tracking-normal text-neutral-500">
+          {displayValue}
+        </output>
+      </span>
+    </label>
+  );
+}
 
 interface ReaderPreferencesPanelProps {
   currentPrefs: ReaderPreferences;
   handleUpdatePreference: <K extends keyof ReaderPreferences>(key: K, value: ReaderPreferences[K]) => void;
+  onResetTypography: () => void;
   isMuted: boolean;
   handleMuteToggle: (muted: boolean) => void;
   atmosphere: string;
@@ -32,6 +172,7 @@ interface ReaderPreferencesPanelProps {
 export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
   currentPrefs,
   handleUpdatePreference,
+  onResetTypography,
   isMuted,
   handleMuteToggle,
   atmosphere,
@@ -39,22 +180,23 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
   volume,
   handleVolumeChange,
   showLegend,
-  onToggleLegend
+  onToggleLegend,
 }) => {
-  // Scene-score controls talk to AtmosphericAudio over the audio event bus
-  // (same pattern as mute/atmosphere/volume) so no extra prop drilling.
+  const typography = getReaderTypography(currentPrefs);
+  const [showTypographySettings, setShowTypographySettings] = useState(shouldExpandByDefault);
+  const [showAudioSettings, setShowAudioSettings] = useState(false);
   const [bgmVolume, setBgmVolume] = useState(() => {
     const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('seihouse-bgm-volume') : null;
     const parsed = saved ? parseFloat(saved) : NaN;
     return Number.isFinite(parsed) ? Math.max(0, Math.min(parsed, BGM_MAX_LEVEL)) : BGM_DEFAULT_LEVEL;
   });
-  const [bgmTrackId, setBgmTrackId] = useState(() => {
-    return (typeof localStorage !== 'undefined' && localStorage.getItem('seihouse-bgm-track')) || 'auto';
-  });
+  const [bgmTrackId, setBgmTrackId] = useState(() =>
+    (typeof localStorage !== 'undefined' && localStorage.getItem('seihouse-bgm-track')) || 'auto',
+  );
 
   useEffect(() => {
-    const handleState = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
+    const handleState = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
       if (!detail) return;
       if (typeof detail.bgmVolume === 'number') setBgmVolume(detail.bgmVolume);
       if (typeof detail.bgmTrackId === 'string') setBgmTrackId(detail.bgmTrackId);
@@ -73,327 +215,243 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
     window.dispatchEvent(new CustomEvent('seihouse-audio-control', { detail: { bgmTrackId: id } }));
   };
 
+  const handleTypographyChange = (key: NumericTypographyPreference, value: number) => {
+    handleUpdatePreference(key, value);
+  };
+
   return (
     <motion.div
       initial={{ height: 0, opacity: 0 }}
-      animate={{ height: "auto", opacity: 1 }}
+      animate={{ height: 'auto', opacity: 1 }}
       exit={{ height: 0, opacity: 0 }}
-      className="bg-neutral-950 border-b border-neutral-900 overflow-hidden px-4 py-4 space-y-4"
+      className="relative overflow-hidden border-b border-neutral-800 bg-[#050709]/95 px-4 py-5 sm:px-6"
     >
-      <div className="max-w-2xl mx-auto grid grid-cols-2 sm:grid-cols-6 gap-4">
-        <div className="space-y-1">
-          <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">
-            Aura Font
-          </span>
-          <div className="flex flex-col gap-1">
-            {(["serif", "sans", "mono"] as const).map((f) => (
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_70%_0%,rgba(4,172,255,0.06),transparent_38%)]" />
+      <div className="relative mx-auto max-w-[1480px] space-y-4">
+        <div className="flex items-center gap-3 border-b border-neutral-800/80 pb-4">
+          <Sliders size={18} className="text-portal" />
+          <h3 className="font-sans text-sm font-medium uppercase tracking-[0.2em] text-neutral-100 sm:text-base">
+            Reader Chamber Controls
+          </h3>
+        </div>
+
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(190px,0.8fr)_minmax(190px,0.8fr)_minmax(0,2.6fr)]">
+          <section className="space-y-6 rounded-xl border border-neutral-800 bg-[#070a0d]/80 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.2)]">
+            <PreferenceGroup
+              label="Aura Font"
+              icon={<Type size={13} />}
+              summary={FONT_OPTIONS.find(option => option.value === currentPrefs.fontFamily)?.label}
+            >
+              <div className="grid gap-1.5">
+                {FONT_OPTIONS.map(option => (
+                  <button key={option.value} type="button" onClick={() => handleUpdatePreference('fontFamily', option.value)} className={choiceClass(currentPrefs.fontFamily === option.value)}>
+                    <span>{option.label}</span>
+                    {currentPrefs.fontFamily === option.value ? <Check size={12} /> : null}
+                  </button>
+                ))}
+              </div>
+            </PreferenceGroup>
+
+            <PreferenceGroup label="Atmospheric Hue" icon={<Palette size={13} />} summary={currentPrefs.themeOverride || 'void'}>
+              <div className="grid gap-1.5">
+                {THEME_OPTIONS.map(theme => (
+                  <button key={theme} type="button" onClick={() => handleUpdatePreference('themeOverride', theme)} className={choiceClass((currentPrefs.themeOverride || 'void') === theme)}>
+                    <span>{theme}</span>
+                    {(currentPrefs.themeOverride || 'void') === theme ? <Check size={12} /> : null}
+                  </button>
+                ))}
+              </div>
+            </PreferenceGroup>
+          </section>
+
+          <section className="space-y-6 rounded-xl border border-neutral-800 bg-[#070a0d]/80 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.2)]">
+            <PreferenceGroup label="Visual Scale" icon={<Sliders size={13} />} summary={currentPrefs.fontSize.toUpperCase()}>
+              <div className="grid gap-1.5">
+                {SIZE_OPTIONS.map(size => (
+                  <button key={size} type="button" onClick={() => handleUpdatePreference('fontSize', size)} className={choiceClass(currentPrefs.fontSize === size)}>
+                    <span>{size}</span>
+                    {currentPrefs.fontSize === size ? <Check size={12} /> : null}
+                  </button>
+                ))}
+              </div>
+            </PreferenceGroup>
+
+            <PreferenceGroup
+              label="Visual Highlights"
+              icon={<Eye size={13} />}
+              summary={HIGHLIGHT_OPTIONS.find(option => option.value === (currentPrefs.highlightStyle || 'full'))?.label}
+            >
+              <div className="grid gap-1.5">
+                {HIGHLIGHT_OPTIONS.map(option => (
+                  <button key={option.value} type="button" onClick={() => handleUpdatePreference('highlightStyle', option.value)} className={choiceClass((currentPrefs.highlightStyle || 'full') === option.value)}>
+                    <span>{option.label}</span>
+                    {(currentPrefs.highlightStyle || 'full') === option.value ? <Check size={12} /> : null}
+                  </button>
+                ))}
+              </div>
+            </PreferenceGroup>
+
+            {onToggleLegend ? (
+              <button type="button" onClick={onToggleLegend} className={choiceClass(Boolean(showLegend))}>
+                <span>System Color Legend</span>
+                <span>{showLegend ? 'On' : 'Off'}</span>
+              </button>
+            ) : null}
+          </section>
+
+          <section className="rounded-xl border border-neutral-700/80 bg-[#070a0d]/85 p-5 shadow-[0_12px_50px_rgba(0,0,0,0.24)] sm:p-6">
+            <div className={`flex items-center justify-between gap-4 ${showTypographySettings ? 'mb-7' : ''}`}>
               <button
-                key={f}
-                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleUpdatePreference("fontFamily", f)}
-                className={`px-2 py-1 text-[10px] rounded border text-left flex items-center justify-between transition-all capitalize ${
-                  currentPrefs.fontFamily === f
-                    ? "bg-portal/10 border-portal text-portal font-bold"
-                    : "bg-void border-neutral-800 text-neutral-400 hover:border-neutral-700"
-                }`}
+                type="button"
+                aria-expanded={showTypographySettings}
+                aria-controls="reader-typography-settings"
+                onClick={() => setShowTypographySettings(open => !open)}
+                className="flex min-h-9 min-w-0 flex-1 items-center gap-2.5 text-left text-portal"
               >
-                <span>
-                  {f === "serif"
-                    ? "Literata (Serif)"
-                    : f === "sans"
-                      ? "Rubik (Sans)"
-                      : "System Mono"}
+                <Eye size={16} />
+                <h4 className="font-sans text-[11px] font-semibold uppercase tracking-[0.17em]">Visual &amp; Text Settings</h4>
+                <span className="ml-auto hidden truncate font-mono text-[9px] normal-case tracking-normal text-neutral-600 sm:block">
+                  {typography.lineHeightScale.toFixed(2)} line · {typography.readingWidth}ch
                 </span>
-                {currentPrefs.fontFamily === f && <Check size={8} />}
+                <ChevronDown size={15} className={`shrink-0 text-neutral-600 transition-transform ${showTypographySettings ? 'rotate-180' : ''}`} />
               </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-1">
-          <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">
-            Sizing Index
-          </span>
-          <div className="flex flex-col gap-1">
-            {(["xs", "sm", "base", "lg", "xl"] as const).map((s) => (
-              <button
-                key={s}
-                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleUpdatePreference("fontSize", s)}
-                className={`px-2 py-1 text-[10px] rounded border text-left flex items-center justify-between transition-all uppercase ${
-                  currentPrefs.fontSize === s
-                    ? "bg-portal/10 border-portal text-portal font-bold"
-                    : "bg-void border-neutral-800 text-neutral-400 hover:border-neutral-700"
-                }`}
-              >
-                <span>{s}</span>
-                {currentPrefs.fontSize === s && <Check size={8} />}
+              <button type="button" onClick={onResetTypography} className="flex items-center gap-2 rounded-md border border-neutral-800 bg-neutral-900/50 px-3 py-2 text-[9px] font-mono uppercase tracking-[0.12em] text-neutral-400 transition-colors hover:border-neutral-700 hover:text-neutral-100">
+                <RotateCcw size={12} />
+                Reset Text
               </button>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        <div className="space-y-1">
-          <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">
-            Line Spacing
-          </span>
-          <div className="flex flex-col gap-1">
-            {(["snug", "normal", "relaxed", "loose"] as const).map(
-              (l) => (
-                <button
-                  key={l}
-                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleUpdatePreference("lineHeight", l)}
-                  className={`px-2 py-1 text-[10px] rounded border text-left flex items-center justify-between transition-all capitalize ${
-                    currentPrefs.lineHeight === l
-                      ? "bg-portal/10 border-portal text-portal font-bold"
-                      : "bg-void border-neutral-800 text-neutral-400 hover:border-neutral-700"
-                  }`}
+            <AnimatePresence initial={false}>
+              {showTypographySettings ? (
+                <motion.div
+                  id="reader-typography-settings"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
                 >
-                  <span>{l}</span>
-                  {currentPrefs.lineHeight === l && <Check size={8} />}
-                </button>
-              ),
-            )}
-          </div>
+                  <div className="grid gap-x-10 gap-y-6 sm:grid-cols-2">
+                    {TYPOGRAPHY_CONTROLS.map(control => {
+                      const value = typography[control.key];
+                      return (
+                        <TypographySlider
+                          key={control.key}
+                          label={control.label}
+                          min={control.min}
+                          max={control.max}
+                          step={control.step}
+                          value={value}
+                          displayValue={control.format(value)}
+                          onChange={nextValue => handleTypographyChange(control.key, nextValue)}
+                        />
+                      );
+                    })}
+
+                    <div className="grid gap-2 text-[10px] font-sans uppercase tracking-[0.14em] text-neutral-400">
+                      <span>Text alignment</span>
+                      <div className="grid max-w-xs grid-cols-2 gap-2">
+                        {(['start', 'justify'] as const).map(alignment => (
+                          <button key={alignment} type="button" onClick={() => handleUpdatePreference('textAlignment', alignment)} className={choiceClass(typography.textAlignment === alignment)}>
+                            <span>{alignment}</span>
+                            {typography.textAlignment === alignment ? <Check size={12} /> : null}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+          </section>
         </div>
 
-        <div className="space-y-1">
-          <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">
-            Break Spacing
-          </span>
-          <div className="flex flex-col gap-1">
-            {(["normal", "wide", "double"] as const).map((p) => (
-              <button
-                key={p}
-                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() =>
-                  handleUpdatePreference("paragraphSpacing", p)
-                }
-                className={`px-2 py-1 text-[10px] rounded border text-left flex items-center justify-between transition-all capitalize ${
-                  currentPrefs.paragraphSpacing === p
-                    ? "bg-portal/10 border-portal text-portal font-bold"
-                    : "bg-void border-neutral-800 text-neutral-400 hover:border-neutral-700"
-                }`}
-              >
-                <span>{p}</span>
-                {currentPrefs.paragraphSpacing === p && (
-                  <Check size={8} />
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-1 col-span-2 sm:col-span-1">
-          <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">
-            Ethereal Hue
-          </span>
-          <div className="flex flex-col gap-1">
-            {(
-              ["void", "crimson", "abyss", "sepia", "emerald"] as const
-            ).map((t) => (
-              <button
-                key={t}
-                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleUpdatePreference("themeOverride", t)}
-                className={`px-2 py-1 text-[10px] rounded border text-left flex items-center justify-between transition-all capitalize ${
-                  currentPrefs.themeOverride === t
-                    ? "bg-portal/10 border-portal text-portal font-bold"
-                    : "bg-void border-neutral-800 text-neutral-400 hover:border-neutral-700"
-                }`}
-              >
-                <span>{t}</span>
-                {currentPrefs.themeOverride === t && (
-                  <Check size={8} />
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-1 col-span-2 sm:col-span-1">
-          <span className="text-[9px] font-sc text-neutral-500 uppercase tracking-widest block">
-            Aura Highlights
-          </span>
-          <div className="flex flex-col gap-1">
-            {(
-              ["full", "underline", "tint"] as const
-            ).map((h) => (
-              <button
-                key={h}
-                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleUpdatePreference("highlightStyle", h)}
-                className={`px-2 py-1 text-[10px] rounded border text-left flex items-center justify-between transition-all capitalize ${
-                  (currentPrefs.highlightStyle || "full") === h
-                    ? "bg-portal/10 border-portal text-portal font-bold"
-                    : "bg-void border-neutral-800 text-neutral-400 hover:border-neutral-700"
-                }`}
-              >
-                <span>
-                  {h === "full" ? "Full Block" : h === "underline" ? "Underline" : "Soft Tint"}
-                </span>
-                {(currentPrefs.highlightStyle || "full") === h && (
-                  <Check size={8} />
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Atmospheric Synthesizer Controls */}
-      <div className="border-t border-neutral-900/60 mt-5 pt-4 max-w-2xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="text-center md:text-left">
-          <span className="text-[10px] font-sc text-portal uppercase tracking-wider font-bold flex items-center justify-center md:justify-start gap-1.5">
-            <Sliders size={11} className="text-portal" />
-            Atmospheric Synthesis
-          </span>
-          <p className="text-[9px] text-neutral-500 mt-0.5">
-            Generates generative background elements. Soundscapes evolve
-            dynamically to reflect dramatic narrative spikes.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          {/* Mute button */}
+        <section className="overflow-hidden rounded-xl border border-neutral-800 bg-[#070a0d]/80">
           <button
-             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleMuteToggle(!isMuted)}
-            className={`px-3 py-1.5 text-[10px] rounded border flex items-center gap-1.5 transition-all uppercase font-sc font-bold tracking-wider ${
-              isMuted
-                ? "bg-red-950/20 border-red-900/40 text-red-500 hover:bg-neutral-900"
-                : "bg-portal/10 border-portal text-portal hover:brightness-110"
-            }`}
-            title={
-              isMuted ? "Unmute sound synthesis" : "Mute sound synthesis"
-            }
+            type="button"
+            aria-expanded={showAudioSettings}
+            aria-controls="reader-audio-settings"
+            onClick={() => setShowAudioSettings(open => !open)}
+            className="flex w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-white/[0.02] sm:px-5"
           >
-            {isMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}
-            <span>{isMuted ? "Muted" : "Sound Active"}</span>
+            <AudioLines size={17} className="shrink-0 text-portal" />
+            <span className="font-sans text-[11px] font-semibold uppercase tracking-[0.17em] text-portal">Audio &amp; Atmosphere</span>
+            <span className="ml-auto hidden truncate font-mono text-[9px] uppercase tracking-[0.1em] text-neutral-500 sm:block">
+              {isMuted ? 'Muted' : `Sound active · ${atmosphere === 'none' ? 'Silence' : atmosphere} · ${bgmTrackId === 'auto' ? 'Auto score' : 'Pinned score'}`}
+            </span>
+            <ChevronDown size={16} className={`shrink-0 text-neutral-500 transition-transform ${showAudioSettings ? 'rotate-180' : ''}`} />
           </button>
 
-          {/* Atmosphere selection */}
-          <div className="flex items-center gap-1.5 bg-void border border-neutral-850 px-2 py-1 rounded">
-            <span className="text-[9px] font-mono text-neutral-500 uppercase">
-              Ambience:
-            </span>
-            <select
-              value={atmosphere}
-              disabled={isMuted}
-              onChange={(e) => handleAtmosphereChange(e.target.value)}
-              className="bg-transparent text-[10px] text-neutral-300 font-mono focus:outline-none focus:text-signal cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <option value="none" className="bg-void">
-                Silence
-              </option>
-              <option value="wind" className="bg-void">
-                Howling Wind
-              </option>
-              <option value="rain" className="bg-void">
-                Heavy Rain
-              </option>
-              <option value="ocean" className="bg-void">
-                Ocean Waves
-              </option>
-            </select>
-          </div>
+          <AnimatePresence initial={false}>
+            {showAudioSettings ? (
+              <motion.div
+                id="reader-audio-settings"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="grid gap-4 border-t border-neutral-800 p-4 sm:p-5 lg:grid-cols-2">
+                  <div className="rounded-lg border border-neutral-800 bg-black/20 p-4">
+                    <PreferenceGroup
+                      label="Atmospheric Synthesis"
+                      icon={<Sliders size={15} />}
+                      summary={isMuted ? 'Muted' : `${Math.round(volume * 100)}% · ${atmosphere === 'none' ? 'Silence' : atmosphere}`}
+                    >
+                      <p className="mb-4 text-[10px] leading-relaxed text-neutral-500">Generative soundscapes that follow the chapter mood.</p>
+                      <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)_minmax(150px,0.8fr)] sm:items-end">
+                        <button type="button" onClick={() => handleMuteToggle(!isMuted)} className={`flex min-h-10 items-center justify-center gap-2 rounded-md border px-3 text-[10px] font-mono font-semibold uppercase tracking-[0.12em] transition-all ${isMuted ? 'border-red-900/50 bg-red-950/20 text-red-400' : 'border-portal bg-portal/10 text-portal'}`}>
+                          {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                          {isMuted ? 'Muted' : 'Sound Active'}
+                        </button>
+                        <label className="grid gap-1.5 text-[9px] font-sans uppercase tracking-[0.13em] text-neutral-500">
+                          Ambience
+                          <select value={atmosphere} disabled={isMuted} onChange={event => handleAtmosphereChange(event.target.value)} className="min-h-10 rounded-md border border-neutral-800 bg-black/40 px-3 font-mono text-[10px] normal-case tracking-normal text-neutral-300 focus:border-portal focus:outline-none disabled:opacity-40">
+                            <option value="none">Silence</option>
+                            <option value="wind">Howling Wind</option>
+                            <option value="rain">Heavy Rain</option>
+                            <option value="ocean">Ocean Waves</option>
+                          </select>
+                        </label>
+                        <label className="grid gap-1.5 text-[9px] font-sans uppercase tracking-[0.13em] text-neutral-500">
+                          Volume · {isMuted ? '0' : Math.round(volume * 100)}%
+                          <input type="range" min="0.1" max="1" step="0.05" value={volume} disabled={isMuted} aria-label="Atmosphere volume" onChange={event => handleVolumeChange(Number(event.target.value))} className="min-h-10 w-full cursor-pointer accent-portal disabled:opacity-40" />
+                        </label>
+                      </div>
+                    </PreferenceGroup>
+                  </div>
 
-          {/* Volume slider */}
-          <div className="flex items-center gap-2 bg-void border border-neutral-850 px-2 py-1 rounded">
-            <span className="text-[9px] font-mono text-neutral-500 uppercase">
-              Vol:
-            </span>
-            <input
-              type="range"
-              min="0.1"
-              max="1.0"
-              step="0.05"
-              value={volume}
-              disabled={isMuted}
-              onChange={(e) =>
-                handleVolumeChange(parseFloat(e.target.value))
-              }
-              className="w-16 hover:cursor-grab disabled:opacity-40 disabled:cursor-not-allowed accent-portal text-portal"
-            />
-            <span className="text-[9px] font-mono text-neutral-400 w-7 text-right">
-              {isMuted ? "0%" : `${Math.round(volume * 100)}%`}
-            </span>
-          </div>
-        </div>
+                  <div className="rounded-lg border border-neutral-800 bg-black/20 p-4">
+                    <PreferenceGroup
+                      label="Scene Score"
+                      icon={<Music size={15} />}
+                      summary={`${isMuted ? 0 : Math.round(bgmVolume * 100)}% · ${bgmTrackId === 'auto' ? 'Auto' : 'Pinned'}`}
+                    >
+                      <p className="mb-4 text-[10px] leading-relaxed text-neutral-500">Automatically follows the narrative, or pins a track for this session.</p>
+                      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(150px,0.75fr)] sm:items-end">
+                        <label className="grid gap-1.5 text-[9px] font-sans uppercase tracking-[0.13em] text-neutral-500">
+                          Score
+                          <select value={bgmTrackId} disabled={isMuted} aria-label="Scene score track" onChange={event => handleBgmTrackChange(event.target.value)} className="min-h-10 rounded-md border border-neutral-800 bg-black/40 px-3 font-mono text-[10px] normal-case tracking-normal text-neutral-300 focus:border-portal focus:outline-none disabled:opacity-40">
+                            <option value="auto">Auto (Scene-Based)</option>
+                            {Object.entries(SCORE_GROUPS).map(([group, tracks]) => (
+                              <optgroup key={group} label={group.charAt(0) + group.slice(1).toLowerCase()}>
+                                {tracks.map(track => <option key={track.id} value={track.id}>{formatTrackName(track.id)}</option>)}
+                              </optgroup>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="grid gap-1.5 text-[9px] font-sans uppercase tracking-[0.13em] text-neutral-500">
+                          Music · {isMuted ? '0' : Math.round(bgmVolume * 100)}%
+                          <input type="range" min="0" max={BGM_MAX_LEVEL} step="0.01" value={bgmVolume} disabled={isMuted} aria-label="Music volume" onChange={event => handleBgmVolumeChange(Number(event.target.value))} className="min-h-10 w-full cursor-pointer accent-portal disabled:opacity-40" />
+                        </label>
+                      </div>
+                    </PreferenceGroup>
+                  </div>
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </section>
       </div>
-
-      {/* Scene Score (Celestial Library music) Controls */}
-      <div className="border-t border-neutral-900/60 mt-4 pt-4 max-w-2xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="text-center md:text-left">
-          <span className="text-[10px] font-sc text-portal uppercase tracking-wider font-bold flex items-center justify-center md:justify-start gap-1.5">
-            <Music size={11} className="text-portal" />
-            Scene Score
-          </span>
-          <p className="text-[9px] text-neutral-500 mt-0.5">
-            Celestial Library soundtrack. Auto follows the narrative; pick a
-            song to pin it for this session.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          {/* Score track selection */}
-          <div className="flex items-center gap-1.5 bg-void border border-neutral-850 px-2 py-1 rounded">
-            <span className="text-[9px] font-mono text-neutral-500 uppercase">
-              Score:
-            </span>
-            <select
-              value={bgmTrackId}
-              disabled={isMuted}
-              aria-label="Scene score track"
-              onChange={(e) => handleBgmTrackChange(e.target.value)}
-              className="bg-transparent text-[10px] text-neutral-300 font-mono focus:outline-none focus:text-signal cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed max-w-[160px]"
-            >
-              <option value="auto" className="bg-void">
-                Auto (Scene-Based)
-              </option>
-              {Object.entries(SCORE_GROUPS).map(([group, tracks]) => (
-                <optgroup key={group} label={group.charAt(0) + group.slice(1).toLowerCase()}>
-                  {tracks.map((t) => (
-                    <option key={t.id} value={t.id} className="bg-void">
-                      {formatTrackName(t.id)}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </div>
-
-          {/* Music volume slider (capped at 40%, defaults to 25%) */}
-          <div className="flex items-center gap-2 bg-void border border-neutral-850 px-2 py-1 rounded">
-            <span className="text-[9px] font-mono text-neutral-500 uppercase">
-              Music:
-            </span>
-            <input
-              type="range"
-              min="0"
-              max={BGM_MAX_LEVEL}
-              step="0.01"
-              value={bgmVolume}
-              disabled={isMuted}
-              aria-label="Music volume"
-              onChange={(e) => handleBgmVolumeChange(parseFloat(e.target.value))}
-              className="w-16 hover:cursor-grab disabled:opacity-40 disabled:cursor-not-allowed accent-portal text-portal"
-            />
-            <span className="text-[9px] font-mono text-neutral-400 w-7 text-right">
-              {isMuted ? "0%" : `${Math.round(bgmVolume * 100)}%`}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {onToggleLegend && (
-        <div className="border-t border-neutral-900/60 mt-4 pt-3 max-w-2xl mx-auto flex justify-end">
-          <button
-             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={onToggleLegend}
-            className={`px-3 py-1 text-[10px] rounded border flex items-center gap-1.5 transition-all uppercase font-mono tracking-wider cursor-pointer ${
-              showLegend
-                ? "bg-portal/10 border-portal text-portal hover:bg-portal/20"
-                : "bg-void border-neutral-800 text-neutral-400 hover:text-signal hover:border-neutral-700"
-            }`}
-          >
-            <span>✦ {showLegend ? "Hide System Colors Legend" : "Show System Colors Legend"}</span>
-          </button>
-        </div>
-      )}
     </motion.div>
   );
 };

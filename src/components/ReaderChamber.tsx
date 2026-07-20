@@ -30,6 +30,7 @@ import { useCinematicScroll } from "../hooks/useCinematicScroll";
 import { cinematicEffectGovernor } from "../lib/effects/cinematicEffectGovernor";
 import { useReadingPosition } from "../hooks/useReadingPosition";
 import { getFateLockMessage } from '../hooks/chapterPipeline/chapterBatch';
+import { DEFAULT_READER_TYPOGRAPHY } from '../lib/readerTypography';
 
 interface ReaderChamberProps {
   chapters: Chapter[];
@@ -288,9 +289,10 @@ export default function ReaderChamber({
     lineHeight: "relaxed",
     paragraphSpacing: "normal",
     themeOverride: "void",
+    ...DEFAULT_READER_TYPOGRAPHY,
   };
 
-  const currentPrefs = activeStory.readerPreferences || defaultPrefs;
+  const currentPrefs = { ...defaultPrefs, ...activeStory.readerPreferences };
   
   useEffect(() => {
     const root = document.documentElement;
@@ -316,6 +318,21 @@ export default function ReaderChamber({
         readerPreferences: updatedPrefs,
       });
     }
+  };
+
+  const handleResetTypography = () => {
+    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
+    if (!currentActiveStory) return;
+
+    onUpdateStory({
+      ...currentActiveStory,
+      readerPreferences: {
+        ...currentPrefs,
+        lineHeight: defaultPrefs.lineHeight,
+        paragraphSpacing: defaultPrefs.paragraphSpacing,
+        ...DEFAULT_READER_TYPOGRAPHY,
+      },
+    });
   };
 
   const isDeathOrCriticalHealthScene = useMemo(() => {
@@ -912,6 +929,7 @@ export default function ReaderChamber({
           <ReaderPreferencesPanel 
             currentPrefs={currentPrefs}
             handleUpdatePreference={handleUpdatePreference}
+            onResetTypography={handleResetTypography}
             isMuted={isMuted}
             handleMuteToggle={handleMuteToggle}
             atmosphere={atmosphere}
