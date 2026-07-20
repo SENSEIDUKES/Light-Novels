@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import {
@@ -71,6 +72,9 @@ describe("Cultivator portrait Storage Security Rules", () => {
     )));
     await assertFails(otherRef.delete());
     await assertFails(anonymousRef.getMetadata());
+
+    // Explicit cleanup
+    await assertSucceeds(ownerRef.delete());
   });
 
   it("should reject unsafe filenames and paths outside the portrait namespace", async (ctx) => {
@@ -95,9 +99,14 @@ describe("Cultivator portrait Storage Security Rules", () => {
     await assertFails(Promise.resolve(storage.ref(
       `users/${ownerUid}/portraits/portrait_1.png`,
     ).put(new Uint8Array([1]), { contentType: "image/jpeg" })));
-    await assertSucceeds(Promise.resolve(storage.ref(
-      `users/${ownerUid}/portraits/portrait_1.jpg`,
-    ).put(new Uint8Array([1]), { contentType: "image/jpeg" })));
+    const portraitJpgRef = storage.ref(`users/${ownerUid}/portraits/portrait_1.jpg`);
+    await assertSucceeds(Promise.resolve(portraitJpgRef.put(
+      new Uint8Array([1]),
+      { contentType: "image/jpeg" },
+    )));
+
+    // Explicit cleanup
+    await assertSucceeds(portraitJpgRef.delete());
   });
 
   it("should reject portraits larger than 10 MiB", async (ctx) => {
@@ -113,6 +122,7 @@ describe("Cultivator portrait Storage Security Rules", () => {
   it("should keep accepted portrait objects immutable", async (ctx) => {
     if (!emulatorReady) return ctx.skip();
     const portraitRef = testEnv.authenticatedContext(ownerUid).storage().ref(portraitPath);
+    
     await assertSucceeds(Promise.resolve(portraitRef.put(
       new Uint8Array([1, 2, 3]),
       { contentType: "image/webp" },
@@ -124,5 +134,8 @@ describe("Cultivator portrait Storage Security Rules", () => {
     )));
     await assertFails(portraitRef.updateMetadata({ contentType: "image/webp" }));
     await assertFails(portraitRef.updateMetadata({ contentType: "text/plain" }));
+
+    // Explicit cleanup
+    await assertSucceeds(portraitRef.delete());
   });
 });
