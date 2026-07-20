@@ -300,18 +300,24 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
     });
     mockReader.read.mockResolvedValueOnce({ done: true, value: undefined });
 
+    const manifestationImportance = {
+      narrativeWeight: 'major',
+      namedStatus: true,
+      recurrence: true,
+      plotRelevance: true,
+    } as const;
     const fullMemoryUpdates = {
       currentPowerStage: 'Ascendant',
-      newCharacters: [{ name: 'Elder Lin', role: 'Mentor' }],
+      newCharacters: [{ name: 'Elder Lin', role: 'Mentor', manifestationImportance }],
       characterStatusUpdates: [{ name: 'Elder Lin', newStatus: 'deceased', descriptionAppend: ' Died bravely.', newPowerLevel: 'God', newAbilities: ['Flight'] }],
       factionUpdates: [{ name: 'Sect', statusOverride: 'Destroyed', descriptionAppend: ' Reduced to ashes.' }],
       locationUpdates: [{ name: 'Cave', safetyLevelOverride: 'Dangerous', descriptionAppend: ' Collapsed.' }],
       artifactUpdates: [{ name: 'Sword', newOwner: 'MC', descriptionAppend: ' Glowing.' }],
       newUnresolvedPlotThreads: ['Defeat the demon lord'],
       resolvedPlotThreads: ['Find the hidden core'],
-      newFactions: [{ name: 'Different Clan', description: 'Old clan' }],
-      newLocations: [{ name: 'Dark Forest', description: 'Old forest' }],
-      newArtifacts: [{ name: 'Battle Axe', description: 'Sharp' }],
+      newFactions: [{ name: 'Different Clan', description: 'Old clan', manifestationImportance }],
+      newLocations: [{ name: 'Dark Forest', description: 'Old forest', manifestationImportance }],
+      newArtifacts: [{ name: 'Battle Axe', description: 'Sharp', manifestationImportance }],
       newMCAbilities: [{ name: 'Fireball', masteryLevel: 'Novice' }],
       mcAbilityUpdates: [{ name: 'Fireball', newMasteryLevel: 'Adept' }],
       relationshipUpdates: [{ sourceName: 'MC', targetName: 'Elder Lin', affinityDelta: 10, threatDelta: -5, reason: 'Helped' }],
