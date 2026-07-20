@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, act, waitFor } from '@testing-library/react';
 import { AtmosphericAudio } from './AtmosphericAudio';
+import { resetAudioMixCacheForTests, setAudioChannel } from '../lib/audio/audioMixSettings';
 
 const storeState = {
   currentScreen: 'reader',
-  immersion: { master: true, audioCues: true, imagePopups: true, sceneMusic: true, autoScroll: true },
+  immersion: { master: true, imagePopups: true, autoScroll: true },
 };
 
 vi.mock('../store/useAppStore', () => {
@@ -14,61 +15,52 @@ vi.mock('../store/useAppStore', () => {
   return { useAppStore };
 });
 
-const sceneMixEngine = {
+type EngineMock = {
+  setMuted: ReturnType<typeof vi.fn>;
+  setLevel: ReturnType<typeof vi.fn>;
+  crossfadeTo: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
+  dispose: ReturnType<typeof vi.fn>;
+};
+
+// The hook creates the score engine first, the atmosphere engine second.
+const engines: EngineMock[] = [];
+const makeEngine = (): EngineMock => ({
   setMuted: vi.fn(),
   setLevel: vi.fn(),
   crossfadeTo: vi.fn(),
+  stop: vi.fn(),
   dispose: vi.fn(),
-};
+});
 
 vi.mock('@seihouse/audio-player', () => ({
-  createSceneMixEngine: () => sceneMixEngine,
+  createSceneMixEngine: () => {
+    const engine = makeEngine();
+    engines.push(engine);
+    return engine;
+  },
 }));
 
-const makeParam = () => ({
-  value: 0,
-  setValueAtTime: vi.fn(),
-  linearRampToValueAtTime: vi.fn(),
-  exponentialRampToValueAtTime: vi.fn(),
-  setTargetAtTime: vi.fn(),
+const playCardSound = vi.fn((..._args: unknown[]) => Promise.resolve({} as HTMLAudioElement));
+vi.mock('../lib/audio/cardSoundPlayer', () => ({
+  playCardSound: (...args: unknown[]) => playCardSound(...args),
+}));
+
+// Curated catalog stand-in: real entries stay null until the R2 sound list
+// lands, so tests pin their own URLs to exercise the playback paths.
+vi.mock('../lib/audio/ambienceSoundCatalog', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../lib/audio/ambienceSoundCatalog')>();
+  return {
+    ...original,
+    resolveAtmosphereBed: (name: string) =>
+      name === 'rain' ? { id: 'atmosphere.rain', url: 'https://cdn.test/rain.mp3' } : null,
+    resolveNarrativeCueSound: (name: string) =>
+      name === 'system_alert' ? { id: 'cue.system_alert', url: 'https://cdn.test/alert.mp3' } : null,
+  };
 });
 
-const makeNode = () => ({
-  connect: vi.fn(),
-  disconnect: vi.fn(),
-  start: vi.fn(),
-  stop: vi.fn(),
-  type: '',
-  loop: false,
-  buffer: null as unknown,
-  frequency: makeParam(),
-  Q: makeParam(),
-  gain: makeParam(),
-});
-
-class MockAudioContext {
-  static created = 0;
-  static lastInstance: MockAudioContext | null = null;
-  currentTime = 0;
-  state = 'running';
-  sampleRate = 44100;
-  destination = {};
-  oscillatorsStarted = 0;
-  resume = vi.fn(() => Promise.resolve());
-  createGain = vi.fn(() => makeNode());
-  createBufferSource = vi.fn(() => makeNode());
-  createBiquadFilter = vi.fn(() => makeNode());
-  createBuffer = vi.fn(() => ({ getChannelData: () => new Float32Array(128) }));
-  createOscillator = vi.fn(() => {
-    const node = makeNode();
-    node.start = vi.fn(() => { this.oscillatorsStarted += 1; });
-    return node;
-  });
-  constructor() {
-    MockAudioContext.created += 1;
-    MockAudioContext.lastInstance = this;
-  }
-}
+const scoreEngine = () => engines[0];
+const atmoEngine = () => engines[1];
 
 const dispatchCue = (detail: Record<string, unknown>) => {
   act(() => {
@@ -78,20 +70,16 @@ const dispatchCue = (detail: Record<string, unknown>) => {
 
 beforeEach(() => {
   localStorage.clear();
-  MockAudioContext.created = 0;
-  MockAudioContext.lastInstance = null;
-  sceneMixEngine.crossfadeTo.mockClear();
-  vi.stubGlobal('AudioContext', MockAudioContext);
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
+  resetAudioMixCacheForTests();
+  engines.length = 0;
+  playCardSound.mockClear();
 });
 
 describe('AtmosphericAudio', () => {
-  it('renders without crashing', () => {
+  it('renders without crashing and creates the SAP engines', () => {
     const { container } = render(<AtmosphericAudio />);
     expect(container).toBeDefined();
+    expect(engines).toHaveLength(2);
   });
 
   it('no longer plays automatic footsteps or environment Foley cues', () => {
@@ -99,15 +87,39 @@ describe('AtmosphericAudio', () => {
     for (const legacy of ['footsteps', 'footsteps_snow', 'footsteps_wood', 'footsteps_stone', 'wind howling', 'territory ambience']) {
       dispatchCue({ id: `fx-${legacy}`, type: 'narrative.fx.play', value: legacy });
     }
-    // Suppressed cues never even open an AudioContext, let alone synthesize.
-    expect(MockAudioContext.created).toBe(0);
+    // Suppressed cues never reach the curated one-shot player.
+    expect(playCardSound).not.toHaveBeenCalled();
   });
 
-  it('still plays high-confidence one-shot cues', () => {
+  it('plays high-confidence one-shot cues from the curated catalog', () => {
     render(<AtmosphericAudio />);
     dispatchCue({ id: 'fx-alert', type: 'narrative.fx.play', value: 'system_alert' });
-    expect(MockAudioContext.created).toBe(1);
-    expect(MockAudioContext.lastInstance?.oscillatorsStarted).toBeGreaterThan(0);
+    expect(playCardSound).toHaveBeenCalledWith(
+      { id: 'cue.system_alert', url: 'https://cdn.test/alert.mp3' },
+      { volume: expect.any(Number) },
+    );
+  });
+
+  it('stays silent for cues without a curated asset', () => {
+    render(<AtmosphericAudio />);
+    // breakthrough is high-confidence but has no URL in the test catalog.
+    dispatchCue({ id: 'fx-surge', type: 'narrative.fx.play', value: 'breakthrough' });
+    expect(playCardSound).not.toHaveBeenCalled();
+  });
+
+  it('suppresses one-shot cues while Audio Cues (or Master Audio) is off', () => {
+    render(<AtmosphericAudio />);
+
+    act(() => { setAudioChannel('cues', { enabled: false }); });
+    dispatchCue({ id: 'fx-alert-1', type: 'narrative.fx.play', value: 'system_alert' });
+    expect(playCardSound).not.toHaveBeenCalled();
+
+    act(() => {
+      setAudioChannel('cues', { enabled: true });
+      setAudioChannel('master', { enabled: false });
+    });
+    dispatchCue({ id: 'fx-alert-2', type: 'narrative.fx.play', value: 'system_alert' });
+    expect(playCardSound).not.toHaveBeenCalled();
   });
 
   it('no longer fires one-shot effects from broad metadata signatures', () => {
@@ -117,7 +129,7 @@ describe('AtmosphericAudio', () => {
     // no governor budget. That path is gone.
     dispatchCue({ id: 'meta-1', type: 'narrative.metadata.signature', metadata: { powerShift: 0.9 } });
     dispatchCue({ id: 'meta-2', type: 'narrative.metadata.signature', metadata: { playChime: true } });
-    expect(MockAudioContext.created).toBe(0);
+    expect(playCardSound).not.toHaveBeenCalled();
   });
 
   it('keeps scene-score music driven by metadata signatures', async () => {
@@ -127,10 +139,10 @@ describe('AtmosphericAudio', () => {
       type: 'narrative.metadata.signature',
       metadata: { music: { mood: 'adventure' }, intensity: 0.5 },
     });
-    await waitFor(() => expect(sceneMixEngine.crossfadeTo).toHaveBeenCalled());
+    await waitFor(() => expect(scoreEngine().crossfadeTo).toHaveBeenCalled());
   });
 
-  it('keeps the atmosphere bed reacting to environment metadata', async () => {
+  it('crossfades the atmosphere bed to its curated asset from environment metadata', async () => {
     const states: Array<{ atmosphere?: string }> = [];
     const onState = (e: Event) => states.push((e as CustomEvent).detail);
     window.addEventListener('seihouse-audio-state', onState);
@@ -142,9 +154,33 @@ describe('AtmosphericAudio', () => {
       metadata: { environment: ['rain'] },
     });
 
-    await waitFor(() =>
-      expect(states.some((s) => s.atmosphere === 'rain')).toBe(true),
+    await waitFor(() => expect(states.some((s) => s.atmosphere === 'rain')).toBe(true));
+    expect(atmoEngine().crossfadeTo).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'atmosphere.rain', audioFile: 'https://cdn.test/rain.mp3' }),
     );
     window.removeEventListener('seihouse-audio-state', onState);
+  });
+
+  it('fades the atmosphere out for beds without a curated asset', async () => {
+    render(<AtmosphericAudio />);
+    // Start rain (has an asset), then switch to wind (no asset in catalog).
+    dispatchCue({ id: 'meta-rain', type: 'narrative.metadata.signature', metadata: { environment: ['rain'] } });
+    await waitFor(() => expect(atmoEngine().crossfadeTo).toHaveBeenCalled());
+
+    dispatchCue({ id: 'meta-wind', type: 'narrative.metadata.signature', metadata: { environment: ['mountain'] } });
+    await waitFor(() => expect(atmoEngine().stop).toHaveBeenCalled());
+  });
+
+  it('re-levels the engines from the audio mix without erasing settings', () => {
+    render(<AtmosphericAudio />);
+    act(() => { setAudioChannel('master', { enabled: false }); });
+    expect(scoreEngine().setMuted).toHaveBeenLastCalledWith(true);
+    expect(scoreEngine().setLevel).toHaveBeenLastCalledWith(0);
+    expect(atmoEngine().setMuted).toHaveBeenLastCalledWith(true);
+
+    act(() => { setAudioChannel('master', { enabled: true }); });
+    expect(scoreEngine().setMuted).toHaveBeenLastCalledWith(false);
+    const lastLevel = scoreEngine().setLevel.mock.calls.at(-1)?.[0] as number;
+    expect(lastLevel).toBeGreaterThan(0);
   });
 });

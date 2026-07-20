@@ -5,6 +5,7 @@ import {
   ImmersionPreferences,
   FateActions,
 } from './types';
+import { AudioMenu } from './AudioMenu';
 
 interface Props {
   audio: AudioSettings;
@@ -44,7 +45,7 @@ export function ImmersionSettings({
               Immersion Engine
             </span>
             <span className="text-[9px] text-neutral-500 font-sans">
-              Master on/off for all immersion effects below.
+              Master on/off for the reading effects below.
             </span>
           </div>
           <button onClick={() => setImmersion({ master: !immersion.master })}
@@ -93,33 +94,6 @@ export function ImmersionSettings({
             </button>
           </div>
 
-          {/* Audio cues */}
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-[10px] font-medium text-neutral-300">
-                Aetheric Sound Effects
-              </span>
-              <span className="text-[8px] text-neutral-500">
-                Plays sound effects triggered by story events.
-              </span>
-            </div>
-            <button onClick={() => immersion.master && setImmersion({ audioCues: !immersion.audioCues })}
-              disabled={!immersion.master}
-              role="switch"
-              aria-checked={immersion.audioCues}
-              aria-label="Toggle Audio Cues"
-              className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
-                immersion.audioCues ? "bg-portal/60" : "bg-neutral-850"
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-void shadow transition duration-150 ease-in-out ${
-                  immersion.audioCues ? "translate-x-4 bg-signal" : "translate-x-0 bg-neutral-500"
-                }`}
-              />
-            </button>
-          </div>
-
           {/* Image popups */}
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
@@ -147,33 +121,16 @@ export function ImmersionSettings({
             </button>
           </div>
 
-          {/* Scene music */}
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-[10px] font-medium text-neutral-300">
-                Scene Harmonics
-              </span>
-              <span className="text-[8px] text-neutral-500">
-                Background music that matches the scene mood.
-              </span>
-            </div>
-            <button onClick={() => immersion.master && setImmersion({ sceneMusic: !immersion.sceneMusic })}
-              disabled={!immersion.master}
-              role="switch"
-              aria-checked={immersion.sceneMusic}
-              aria-label="Toggle Scene Music"
-              className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-150 ease-in-out focus:outline-none ${
-                immersion.sceneMusic ? "bg-portal/60" : "bg-neutral-850"
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-void shadow transition duration-150 ease-in-out ${
-                  immersion.sceneMusic ? "translate-x-4 bg-signal" : "translate-x-0 bg-neutral-500"
-                }`}
-              />
-            </button>
-          </div>
+        </div>
 
+        {/* Unified audio controls: Master / Music / Atmosphere / Audio Cues.
+            Independent of the Immersion Engine switch above — sound has its
+            own master. */}
+        <div className="border-t border-neutral-900 pt-3 mt-1">
+          <h5 className="text-[9px] uppercase font-sc text-neutral-400 tracking-wider font-bold mb-2.5">
+            Audio
+          </h5>
+          <AudioMenu idSuffix={isMobile ? 'mobile' : 'desktop'} />
         </div>
 
         {/* Collapsible Voice Settings */}

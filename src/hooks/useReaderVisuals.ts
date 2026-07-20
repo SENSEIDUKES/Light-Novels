@@ -5,6 +5,7 @@ import { Chapter, StoryWorld } from '../types';
 import { dispatchNarrativeCue, NarrativeCueEventType } from '../lib/narrativeCues';
 import { cinematicEffectGovernor } from '../lib/effects/cinematicEffectGovernor';
 import { isHighConfidenceAutoCue } from '../lib/audio/autoCuePolicy';
+import { useAudioMix } from './audio/useAudioMix';
 
 export function useReaderVisuals({
   selectedChapter,
@@ -17,6 +18,7 @@ export function useReaderVisuals({
 }) {
   const [generatingRevealId, setGeneratingRevealId] = useState<string | null>(null);
   const immersion = useAppStore((state) => state.immersion);
+  const { mix: audioMix } = useAudioMix();
   const { manifestImage, manifestChapterHero, generatingIds } = useImageManifest();
 
   const isMomentousChapter = useMemo(() => {
@@ -130,12 +132,14 @@ export function useReaderVisuals({
                 } catch {}
               }
 
-              // Metadata cues feed both the visual popups AND the scene
-              // music engine, so they must flow if either feature is on;
-              // each consumer applies its own toggle. They are deliberately
-              // NOT governed — atmosphere and scene-score music keep working
-              // in every reader mode.
-              const metadataConsumersOff = !immersion.imagePopups && !immersion.sceneMusic;
+              // Metadata cues feed the visual popups AND the continuous
+              // audio layers (scene music, atmosphere bed), so they must
+              // flow if any of those is on; each consumer applies its own
+              // switch. They are deliberately NOT governed — atmosphere and
+              // scene-score music keep working in every reader mode.
+              const audioMetadataOn =
+                audioMix.master.enabled && (audioMix.music.enabled || audioMix.atmosphere.enabled);
+              const metadataConsumersOff = !immersion.imagePopups && !audioMetadataOn;
               if (type.startsWith("narrative.metadata") && metadataConsumersOff) return;
 
               // One-shot audio cues are cinematic punctuation: the governor
@@ -143,7 +147,7 @@ export function useReaderVisuals({
               // (never plain manual reading) and enforces the per-chapter
               // count / zone-spread / cooldown budget.
               if (type.startsWith("narrative.fx")) {
-                if (!immersion.audioCues) return;
+                if (!audioMix.master.enabled || !audioMix.cues.enabled) return;
                 // Only high-confidence canonical cues may spend governor
                 // budget; anything else (stale spans, legacy footsteps
                 // values) is suppressed before the request.
@@ -187,8 +191,7 @@ export function useReaderVisuals({
     selectedChapter?.blocks,
     readerMode,
     immersion.imagePopups,
-    immersion.audioCues,
-    immersion.sceneMusic,
+    audioMix,
   ]);
 
   // Codex terms memo for semantic highlighting

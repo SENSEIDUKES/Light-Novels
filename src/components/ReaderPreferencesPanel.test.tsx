@@ -5,16 +5,10 @@ import { ReaderPreferencesPanel } from './ReaderPreferencesPanel';
 describe('ReaderPreferencesPanel', () => {
   it('renders without crashing', () => {
     const { container } = render(
-      <ReaderPreferencesPanel 
+      <ReaderPreferencesPanel
         currentPrefs={{ fontFamily: 'serif', fontSize: 'lg', lineHeight: 'relaxed', paragraphSpacing: 'normal', themeOverride: 'void' }}
         handleUpdatePreference={vi.fn()}
         onResetTypography={vi.fn()}
-        isMuted={false}
-        handleMuteToggle={vi.fn()}
-        atmosphere="none"
-        handleAtmosphereChange={vi.fn()}
-        volume={0.5}
-        handleVolumeChange={vi.fn()}
       />
     );
     expect(container).toBeDefined();
@@ -28,12 +22,6 @@ describe('ReaderPreferencesPanel', () => {
         currentPrefs={{ fontFamily: 'serif', fontSize: 'lg', lineHeight: 'relaxed', paragraphSpacing: 'normal', themeOverride: 'void' }}
         handleUpdatePreference={handleUpdatePreference}
         onResetTypography={onResetTypography}
-        isMuted={false}
-        handleMuteToggle={vi.fn()}
-        atmosphere="none"
-        handleAtmosphereChange={vi.fn()}
-        volume={0.5}
-        handleVolumeChange={vi.fn()}
       />,
     );
 
@@ -46,32 +34,19 @@ describe('ReaderPreferencesPanel', () => {
     expect(onResetTypography).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps every audio control in a collapsed submenu', () => {
+  it('no longer hosts any audio controls — they live in the immersion Audio menu', () => {
     render(
       <ReaderPreferencesPanel
         currentPrefs={{ fontFamily: 'serif', fontSize: 'lg', lineHeight: 'relaxed', paragraphSpacing: 'normal', themeOverride: 'void' }}
         handleUpdatePreference={vi.fn()}
         onResetTypography={vi.fn()}
-        isMuted={false}
-        handleMuteToggle={vi.fn()}
-        atmosphere="none"
-        handleAtmosphereChange={vi.fn()}
-        volume={0.5}
-        handleVolumeChange={vi.fn()}
       />,
     );
 
-    const audioToggle = screen.getByRole('button', { name: /Audio & Atmosphere/i });
-    expect(audioToggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('button', { name: /Audio & Atmosphere/i })).toBeNull();
     expect(screen.queryByLabelText('Atmosphere volume')).toBeNull();
     expect(screen.queryByLabelText('Scene score track')).toBeNull();
-
-    fireEvent.click(audioToggle);
-
-    expect(audioToggle.getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByLabelText('Atmosphere volume')).toBeDefined();
-    expect(screen.getByLabelText('Scene score track')).toBeDefined();
-    expect(screen.getByLabelText('Music volume')).toBeDefined();
+    expect(screen.queryByLabelText('Music volume')).toBeNull();
   });
 
   it('minimizes and restores each visual preference block independently', async () => {
@@ -80,12 +55,6 @@ describe('ReaderPreferencesPanel', () => {
         currentPrefs={{ fontFamily: 'serif', fontSize: 'lg', lineHeight: 'relaxed', paragraphSpacing: 'normal', themeOverride: 'void' }}
         handleUpdatePreference={vi.fn()}
         onResetTypography={vi.fn()}
-        isMuted={false}
-        handleMuteToggle={vi.fn()}
-        atmosphere="none"
-        handleAtmosphereChange={vi.fn()}
-        volume={0.5}
-        handleVolumeChange={vi.fn()}
       />,
     );
 

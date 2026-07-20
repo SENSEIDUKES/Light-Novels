@@ -5,22 +5,13 @@ import { WorldEntityCard } from './WorldEntityCard';
 import { WorldCardEvent } from '../types';
 import { cinematicEffectGovernor } from '../lib/effects/cinematicEffectGovernor';
 import { resetCardSoundCacheForTests } from '../lib/audio/cardSoundPlayer';
+import { resetAudioMixCacheForTests, setAudioChannel } from '../lib/audio/audioMixSettings';
 
 vi.mock('motion/react', () => ({
   motion: {
     div: ({ children, className }: any) => <div className={className}>{children}</div>,
   }
 }));
-
-vi.mock('../store/useAppStore', () => {
-  const storeState = {
-    immersion: { master: true, audioCues: true, imagePopups: true, sceneMusic: true, autoScroll: true },
-  };
-  const useAppStore = (selector?: (state: typeof storeState) => unknown) =>
-    selector ? selector(storeState) : storeState;
-  useAppStore.getState = () => storeState;
-  return { useAppStore };
-});
 
 class MockAudio {
   static instances: MockAudio[] = [];
@@ -74,6 +65,7 @@ beforeEach(() => {
   vi.stubGlobal('SpeechSynthesisUtterance', MockUtterance);
   resetCardSoundCacheForTests();
   localStorage.clear();
+  resetAudioMixCacheForTests();
 });
 
 afterEach(() => {
@@ -119,16 +111,16 @@ describe('WorldEntityCard', () => {
     expect(element.play).toHaveBeenCalledTimes(2);
   });
 
-  it('applies the reader cue-volume control to card playback', async () => {
-    localStorage.setItem('seihouse-audio-volume', '0.3');
+  it('applies the Audio Cues volume to card playback', async () => {
+    setAudioChannel('cues', { volume: 0.3 });
     const { getByText } = render(<WorldEntityCard card={beastCard} />);
     fireEvent.click(getByText('Tap to Listen'));
     await waitFor(() => expect(MockAudio.instances).toHaveLength(1));
     expect(MockAudio.instances[0].volume).toBe(0.3);
   });
 
-  it('does not play while the cue audio is muted', async () => {
-    localStorage.setItem('seihouse-audio-muted', 'true');
+  it('does not play while Master Audio is off', async () => {
+    setAudioChannel('master', { enabled: false });
     const toasts: string[] = [];
     const onToast = (e: Event) => toasts.push((e as CustomEvent).detail?.message);
     window.addEventListener('seihouse-toast', onToast);

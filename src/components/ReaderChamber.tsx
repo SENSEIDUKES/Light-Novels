@@ -407,39 +407,6 @@ export default function ReaderChamber({
   const [showImmersionPopover, setShowImmersionPopover] = useState<boolean>(false);
   const [showVoiceDetail, setShowVoiceDetail] = useState<boolean>(false);
 
-  // --- Atmospheric Audio Sync States ---
-  const [isMuted, setIsMuted] = useState(() => {
-    return localStorage.getItem("seihouse-audio-muted") === "true";
-  });
-  const [atmosphere, setAtmosphere] = useState(() => {
-    return localStorage.getItem("seihouse-audio-atmosphere") || "none";
-  });
-  const [volume, setVolume] = useState(() => {
-    const saved = localStorage.getItem("seihouse-audio-volume");
-    return saved ? parseFloat(saved) : 0.5;
-  });
-
-  // Track state changes from the actual background audio engine
-  useEffect(() => {
-    const handleEvents = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      if (customEvent.detail) {
-        if (typeof customEvent.detail.isMuted === "boolean") {
-          setIsMuted(customEvent.detail.isMuted);
-        }
-        if (customEvent.detail.atmosphere) {
-          setAtmosphere(customEvent.detail.atmosphere);
-        }
-        if (typeof customEvent.detail.volume === "number") {
-          setVolume(customEvent.detail.volume);
-        }
-      }
-    };
-    window.addEventListener("seihouse-audio-state", handleEvents);
-    return () =>
-      window.removeEventListener("seihouse-audio-state", handleEvents);
-  }, []);
-
   // --- Climax Screen Shake State ---
   const [isShaking, setIsShaking] = useState(false);
 
@@ -492,36 +459,6 @@ export default function ReaderChamber({
     window.addEventListener('narrative-cue', handleCue);
     return () => window.removeEventListener('narrative-cue', handleCue);
   }, [selectedChapterNum]);
-
-  const handleMuteToggle = (mutedVal: boolean) => {
-    setIsMuted(mutedVal);
-    localStorage.setItem("seihouse-audio-muted", String(mutedVal));
-    window.dispatchEvent(
-      new CustomEvent("seihouse-audio-control", {
-        detail: { isMuted: mutedVal },
-      }),
-    );
-  };
-
-  const handleAtmosphereChange = (atmosVal: string) => {
-    setAtmosphere(atmosVal);
-    localStorage.setItem("seihouse-audio-atmosphere", atmosVal);
-    window.dispatchEvent(
-      new CustomEvent("seihouse-audio-control", {
-        detail: { atmosphere: atmosVal },
-      }),
-    );
-  };
-
-  const handleVolumeChange = (volVal: number) => {
-    setVolume(volVal);
-    localStorage.setItem("seihouse-audio-volume", String(volVal));
-    window.dispatchEvent(
-      new CustomEvent("seihouse-audio-control", {
-        detail: { volume: volVal },
-      }),
-    );
-  };
 
   // --- Cosmic Bookmarking System States & Handlers ---
   const [showBookmarksPanel, setShowBookmarksPanel] = useState(false);
@@ -930,12 +867,6 @@ export default function ReaderChamber({
             currentPrefs={currentPrefs}
             handleUpdatePreference={handleUpdatePreference}
             onResetTypography={handleResetTypography}
-            isMuted={isMuted}
-            handleMuteToggle={handleMuteToggle}
-            atmosphere={atmosphere}
-            handleAtmosphereChange={handleAtmosphereChange}
-            volume={volume}
-            handleVolumeChange={handleVolumeChange}
             showLegend={showLegend}
             onToggleLegend={() => {
               const nextState = !showLegend;

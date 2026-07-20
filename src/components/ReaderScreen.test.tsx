@@ -21,7 +21,7 @@ vi.mock('../store/useAppStore', () => ({
       streamingChapter: null,
       isReaderFullscreen: false,
       currentUser: { uid: '123' },
-      immersion: { imagePopups: true, audioCues: true, defaultVoices: {} },
+      immersion: { imagePopups: true, defaultVoices: {} },
       updateStory: vi.fn()
     };
     return selector ? selector(state) : state;
