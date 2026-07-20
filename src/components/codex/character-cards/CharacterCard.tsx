@@ -69,7 +69,8 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
                 handleDownload(displayedImage, `${char.name.toLowerCase().replace(/\s+/g, '_')}_portrait.png`);
               }}
               className="absolute bottom-2 right-2 z-20 bg-black/85 hover:bg-portal hover:text-void border border-neutral-900 hover:border-portal text-neutral-300 p-1.5 rounded-md transition-all duration-200 opacity-0 group-hover:opacity-100 flex items-center gap-1 font-mono text-[8px] uppercase tracking-wider backdrop-blur cursor-pointer shadow-md"
-              title="Download Portrait"
+              title={`Download ${char.name} portrait`}
+              aria-label={`Download ${char.name} portrait`}
             >
               <Download size={10} />
               <span>Get</span>
@@ -152,6 +153,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
             {char.voiceClipUrl ? (
               <button
                 onClick={() => playingVoiceId === char.id ? handleStopVoice() : handlePlayVoice(char.voiceClipUrl!, char.id)}
+                aria-label={playingVoiceId === char.id ? `Stop voice for ${char.name}` : `Play voice for ${char.name}`}
                 className="flex items-center gap-1.5 self-start text-[9px] text-portal uppercase tracking-wider font-mono hover:text-portal/80 transition-colors"
               >
                 {playingVoiceId === char.id ? <Square size={10} fill="currentColor" /> : <Play size={10} fill="currentColor" />}
@@ -161,6 +163,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
               <button
                 onClick={() => handleGenerateVoiceCard(char)}
                 disabled={generatingVoiceId === char.id}
+                aria-label={generatingVoiceId === char.id ? `Manifesting voice for ${char.name}` : `Generate voice for ${char.name}`}
                 className="flex items-center gap-1.5 self-start text-[9px] text-human uppercase tracking-wider font-mono hover:text-human/80 transition-colors disabled:opacity-50"
               >
                 {generatingVoiceId === char.id ? <Loader2 size={10} className="animate-spin" /> : <Volume2 size={10} />}
@@ -181,6 +184,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
           <button
              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleAwakenCardImage(char.id, char.isBeast ? 'beast' : 'character', char)}
             disabled={isGenerating || !canGenerate}
+            aria-label={`Manifest visual for ${char.name}`}
             className={`w-full py-1.5 rounded text-[9px] uppercase font-mono tracking-widest flex items-center justify-center space-x-1 border font-bold transition-all ${
               isGenerating
                 ? 'bg-neutral-900 border-neutral-800 text-neutral-500 cursor-wait'
