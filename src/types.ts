@@ -351,6 +351,9 @@ export interface StoryMemory {
 export interface StoryBlockMetadata {
   sceneType?: string;
   environment?: string[];
+  /** Explicit scene terms used only to match curated atmosphere-bed tags. */
+  atmosphereTags?: string[];
+  theme?: string | string[];
   motion?: string;
   emotion?: string;
   intensity?: number;
@@ -529,6 +532,11 @@ export interface StoryBlock {
 }
 
 export interface StoryCuePayload {
+  /** Opening-scene context for the chapter's initial curated atmosphere bed. */
+  sceneType?: string;
+  environment?: string[];
+  atmosphereTags?: string[];
+  theme?: string | string[];
   intensity?: number;
   tension?: number;
   powerShift?: number;
@@ -538,6 +546,7 @@ export interface StoryCuePayload {
   mysticism?: number;
   element?: string;
   signature?: string;
+  music?: StoryBlockMetadata['music'];
   beastEvent?: {
     type:
       | "reveal"

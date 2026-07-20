@@ -819,6 +819,10 @@ storyRouter.post("/api/extract-chapter-metadata", validateBody(extractMetadataSc
         cuePayload: {
           type: "OBJECT",
           properties: {
+            sceneType: { type: "STRING" },
+            environment: { type: "ARRAY", items: { type: "STRING" } },
+            atmosphereTags: { type: "ARRAY", items: { type: "STRING" } },
+            theme: { type: "STRING" },
             intensity: { type: "NUMBER" },
             tension: { type: "NUMBER" },
             powerShift: { type: "NUMBER" },

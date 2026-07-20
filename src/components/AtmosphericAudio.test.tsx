@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, act, waitFor } from '@testing-library/react';
 import { AtmosphericAudio } from './AtmosphericAudio';
 import { resetAudioMixCacheForTests, setAudioChannel } from '../lib/audio/audioMixSettings';
+import { dispatchNarration } from '../lib/narrativeCues';
 
 const storeState = {
   currentScreen: 'reader',
@@ -46,14 +47,24 @@ vi.mock('../lib/audio/cardSoundPlayer', () => ({
   playCardSound: (...args: unknown[]) => playCardSound(...args),
 }));
 
-// Curated catalog stand-in: real entries stay null until the R2 sound list
-// lands, so tests pin their own URLs to exercise the playback paths.
+// Curated catalog stand-in: tests provide a few tagged catalog entries without
+// making production ship a fixed variation list.
 vi.mock('../lib/audio/ambienceSoundCatalog', async (importOriginal) => {
   const original = await importOriginal<typeof import('../lib/audio/ambienceSoundCatalog')>();
   return {
     ...original,
-    resolveAtmosphereBed: (name: string) =>
-      name === 'rain' ? { id: 'atmosphere.rain', url: 'https://cdn.test/rain.mp3' } : null,
+    resolveAtmosphereBed: (metadata?: { environment?: string[]; sceneType?: string }) => {
+      if (metadata?.environment?.includes('rain')) {
+        return { id: 'atmosphere.rain.steady', category: 'rain', tags: ['rain'], url: 'https://cdn.test/rain.mp3' };
+      }
+      if (metadata?.environment?.some(tag => ['coast', 'sea', 'ocean'].includes(tag))) {
+        return { id: 'atmosphere.waves.coast', category: 'waves', tags: ['coast'], url: 'https://cdn.test/waves.mp3' };
+      }
+      if (metadata?.environment?.includes('mountain')) {
+        return { id: 'atmosphere.wind.mountain', category: 'wind', tags: ['mountain'], url: 'https://cdn.test/wind.mp3' };
+      }
+      return null;
+    },
     resolveNarrativeCueSound: (name: string) =>
       name === 'system_alert' ? { id: 'cue.system_alert', url: 'https://cdn.test/alert.mp3' } : null,
   };
@@ -142,33 +153,61 @@ describe('AtmosphericAudio', () => {
     await waitFor(() => expect(scoreEngine().crossfadeTo).toHaveBeenCalled());
   });
 
-  it('crossfades the atmosphere bed to its curated asset from environment metadata', async () => {
+  it('selects the chapter opening atmosphere from tagged metadata', async () => {
     const states: Array<{ atmosphere?: string }> = [];
     const onState = (e: Event) => states.push((e as CustomEvent).detail);
     window.addEventListener('seihouse-audio-state', onState);
 
     render(<AtmosphericAudio />);
     dispatchCue({
-      id: 'meta-rain',
-      type: 'narrative.metadata.signature',
-      metadata: { environment: ['rain'] },
+      id: 'chapter-rain',
+      type: 'narrative.chapter.enter',
+      value: { environment: ['rain'] },
     });
 
     await waitFor(() => expect(states.some((s) => s.atmosphere === 'rain')).toBe(true));
     expect(atmoEngine().crossfadeTo).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'atmosphere.rain', audioFile: 'https://cdn.test/rain.mp3' }),
+      expect.objectContaining({ id: 'atmosphere.rain.steady', audioFile: 'https://cdn.test/rain.mp3' }),
     );
     window.removeEventListener('seihouse-audio-state', onState);
   });
 
-  it('fades the atmosphere out for beds without a curated asset', async () => {
+  it('does not change the chapter atmosphere while manually reading', async () => {
     render(<AtmosphericAudio />);
-    // Start rain (has an asset), then switch to wind (no asset in catalog).
-    dispatchCue({ id: 'meta-rain', type: 'narrative.metadata.signature', metadata: { environment: ['rain'] } });
+    dispatchCue({ id: 'chapter-rain', type: 'narrative.chapter.enter', value: { environment: ['rain'] } });
     await waitFor(() => expect(atmoEngine().crossfadeTo).toHaveBeenCalled());
+    atmoEngine().crossfadeTo.mockClear();
 
-    dispatchCue({ id: 'meta-wind', type: 'narrative.metadata.signature', metadata: { environment: ['mountain'] } });
-    await waitFor(() => expect(atmoEngine().stop).toHaveBeenCalled());
+    dispatchCue({ id: 'meta-mountain', type: 'narrative.metadata.signature', metadata: { environment: ['mountain'] } });
+    expect(atmoEngine().crossfadeTo).not.toHaveBeenCalled();
+  });
+
+  it('crossfades to a stronger tagged scene match while narration is playing', async () => {
+    render(<AtmosphericAudio />);
+    dispatchCue({ id: 'chapter-rain', type: 'narrative.chapter.enter', value: { environment: ['rain'] } });
+    await waitFor(() => expect(atmoEngine().crossfadeTo).toHaveBeenCalled());
+    atmoEngine().crossfadeTo.mockClear();
+
+    act(() => { dispatchNarration({ status: 'start' }); });
+    dispatchCue({ id: 'meta-coast', type: 'narrative.metadata.signature', metadata: { environment: ['coast', 'sea'] } });
+
+    await waitFor(() => expect(atmoEngine().crossfadeTo).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'atmosphere.waves.coast', audioFile: 'https://cdn.test/waves.mp3' }),
+    ));
+    act(() => { dispatchNarration({ status: 'end' }); });
+  });
+
+  it('does not turn travel into rain without matching environment tags', async () => {
+    render(<AtmosphericAudio />);
+    dispatchCue({
+      id: 'chapter-travel-coast',
+      type: 'narrative.chapter.enter',
+      value: { sceneType: 'travel', environment: ['coast'] },
+    });
+
+    await waitFor(() => expect(atmoEngine().crossfadeTo).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'atmosphere.waves.coast', audioFile: 'https://cdn.test/waves.mp3' }),
+    ));
   });
 
   it('re-levels the engines from the audio mix without erasing settings', () => {
