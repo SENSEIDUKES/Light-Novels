@@ -9,8 +9,6 @@ import {
 } from "@firebase/rules-unit-testing";
 import { describe, it, beforeAll, afterAll, beforeEach, expect } from "vitest";
 
-process.env.GCLOUD_PROJECT = "demo-firestore-rules-test";
-
 let testEnv: RulesTestEnvironment;
 let emulatorReady = false;
 
