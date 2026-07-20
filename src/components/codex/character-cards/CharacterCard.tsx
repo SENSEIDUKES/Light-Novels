@@ -42,6 +42,19 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
 }) => {
   const displayedImage = activePreview ? activePreview.urls[activePreview.selectedIndex] : char.imageUrl;
   const hasImage = !!char.imageUrl;
+  const visualActionLabel = isGenerating
+    ? `VERSA is working on visual for ${char.name}`
+    : !hasAppeared
+    ? `Undiscovered visual for ${char.name}`
+    : isFreeUserOnHubStory
+    ? hasImage
+      ? `Portrait active for ${char.name}`
+      : `Portrait locked for ${char.name} (Free)`
+    : char.evolutionReady
+    ? `Awaken evolution for ${char.name}`
+    : hasImage
+    ? `Progression required for ${char.name} visual`
+    : `Awaken portrait for ${char.name}`;
 
   return (
     <div
@@ -184,7 +197,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
           <button
              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleAwakenCardImage(char.id, char.isBeast ? 'beast' : 'character', char)}
             disabled={isGenerating || !canGenerate}
-            aria-label={`Manifest visual for ${char.name}`}
+            aria-label={visualActionLabel}
             className={`w-full py-1.5 rounded text-[9px] uppercase font-mono tracking-widest flex items-center justify-center space-x-1 border font-bold transition-all ${
               isGenerating
                 ? 'bg-neutral-900 border-neutral-800 text-neutral-500 cursor-wait'
