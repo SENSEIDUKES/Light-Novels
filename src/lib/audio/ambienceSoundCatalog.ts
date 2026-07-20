@@ -31,7 +31,7 @@ export type AtmosphereCategory = typeof ATMOSPHERE_CATEGORIES[number];
 export interface CuratedAtmosphereBed extends CuratedAmbienceAsset {
   /** One of the six broad reader atmosphere layers. */
   category: AtmosphereCategory;
-  /** Concrete scene descriptors supplied by chapter/block metadata. */
+  /** Lowercase concrete scene descriptors supplied by chapter/block metadata. */
   tags: readonly string[];
 }
 
@@ -107,8 +107,10 @@ export function resolveAtmosphereBed(
   let selectedScore = -1;
   let equallyMatched = false;
   for (const bed of candidates) {
-    const matchingTags = new Set(toTags(bed.tags));
-    const matchingScore = [...matchingTags].filter(tag => sourceTags.has(tag)).length;
+    let matchingScore = 0;
+    for (const tag of bed.tags) {
+      if (sourceTags.has(tag)) matchingScore++;
+    }
     // The category itself is an explicit metadata tag when the author emits
     // it (for example `environment: ["rain"]`), not a hidden shortcut.
     const categoryMatch = sourceTags.has(bed.category) ? 2 : 0;

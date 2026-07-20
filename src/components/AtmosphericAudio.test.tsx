@@ -53,6 +53,9 @@ vi.mock('../lib/audio/ambienceSoundCatalog', async (importOriginal) => {
   const original = await importOriginal<typeof import('../lib/audio/ambienceSoundCatalog')>();
   return {
     ...original,
+    ATMOSPHERE_BED_CATALOG: [
+      { id: 'atmosphere.rain.steady', category: 'rain', tags: ['rain'], url: 'https://cdn.test/rain.mp3' },
+    ],
     resolveAtmosphereBed: (metadata?: { environment?: string[]; sceneType?: string }) => {
       if (metadata?.environment?.includes('rain')) {
         return { id: 'atmosphere.rain.steady', category: 'rain', tags: ['rain'], url: 'https://cdn.test/rain.mp3' };
@@ -91,6 +94,15 @@ describe('AtmosphericAudio', () => {
     const { container } = render(<AtmosphericAudio />);
     expect(container).toBeDefined();
     expect(engines).toHaveLength(2);
+  });
+
+  it('restores a persisted curated atmosphere asset after reload', async () => {
+    localStorage.setItem('seihouse-audio-atmosphere', 'atmosphere.rain.steady');
+    render(<AtmosphericAudio />);
+
+    await waitFor(() => expect(atmoEngine().crossfadeTo).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'atmosphere.rain.steady', audioFile: 'https://cdn.test/rain.mp3' }),
+    ));
   });
 
   it('no longer plays automatic footsteps or environment Foley cues', () => {
@@ -180,6 +192,18 @@ describe('AtmosphericAudio', () => {
 
     dispatchCue({ id: 'meta-mountain', type: 'narrative.metadata.signature', metadata: { environment: ['mountain'] } });
     expect(atmoEngine().crossfadeTo).not.toHaveBeenCalled();
+  });
+
+  it('honors a manual choice to silence the atmosphere', async () => {
+    render(<AtmosphericAudio />);
+    dispatchCue({ id: 'chapter-rain', type: 'narrative.chapter.enter', value: { environment: ['rain'] } });
+    await waitFor(() => expect(atmoEngine().crossfadeTo).toHaveBeenCalled());
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent('seihouse-audio-control', { detail: { atmosphere: 'none' } }));
+    });
+
+    await waitFor(() => expect(atmoEngine().stop).toHaveBeenCalled());
   });
 
   it('crossfades to a stronger tagged scene match while narration is playing', async () => {

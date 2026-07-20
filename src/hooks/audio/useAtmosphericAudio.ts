@@ -8,6 +8,7 @@ import {
   getAudioMixSettings,
 } from '../../lib/audio/audioMixSettings';
 import {
+  ATMOSPHERE_BED_CATALOG,
   resolveAtmosphereBed,
   resolveNarrativeCueSound,
   type AtmosphereCategory,
@@ -53,7 +54,14 @@ export function useAtmosphericAudio() {
   // Atmosphere is a selected catalog asset rather than a fixed variation
   // name. Chapter metadata selects the initial asset; only active narration
   // can replace it as the scene changes.
-  const atmosphereRef = useRef<CuratedAtmosphereBed | null>(null);
+  const atmosphereRef = useRef<CuratedAtmosphereBed | null>(
+    (() => {
+      if (typeof localStorage === 'undefined') return null;
+      const saved = localStorage.getItem('seihouse-audio-atmosphere');
+      if (!saved || saved === 'none') return null;
+      return ATMOSPHERE_BED_CATALOG.find(bed => bed.id === saved) || null;
+    })(),
+  );
 
   const bgmTrackIdRef = useRef<string>(
     (() => {
@@ -244,7 +252,10 @@ export function useAtmosphericAudio() {
     const handleControl = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       if (!detail) return;
-      if (detail.atmosphere) {
+      if (detail.atmosphere === 'none') {
+        manualAtmosphereRef.current = true;
+        setAtmosphere(null, 'manual');
+      } else if (detail.atmosphere) {
         const selected = resolveAtmosphereBed(undefined, {
           preferredCategory: detail.atmosphere as AtmosphereCategory,
         });
