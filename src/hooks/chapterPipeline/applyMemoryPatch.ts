@@ -3,7 +3,7 @@ import { Ability, Story, StoryMemory } from '../../types';
 import { runMemoryLinter } from '../storyEngineHelpers';
 import { resolveEntity } from '../../lib/entityResolver';
 import { stripAuthorControlledCodexFields } from '../../lib/codexContext';
-import { isManifestationEligible, type ManifestationCandidate } from '../../lib/manifestationEligibility';
+import { isManifestationEligible } from '../../lib/manifestationEligibility';
 
 const stripGeneratedAbilityContext = (ability: any) => {
   if (!ability || typeof ability !== 'object') return ability;
@@ -12,10 +12,6 @@ const stripGeneratedAbilityContext = (ability: any) => {
 
 const sanitizeGeneratedAbilities = (value: unknown): any[] | undefined =>
   Array.isArray(value) ? value.map(stripGeneratedAbilityContext) : undefined;
-
-const eligibleCodexAdditions = <T extends ManifestationCandidate>(
-  entries: T[],
-): T[] => entries.filter(isManifestationEligible);
 
 // Known mastery ladder for downgrade protection. Comparison is only attempted
 // when BOTH levels are on the ladder; unknown labels are never ranked.
@@ -92,7 +88,7 @@ export const applyMemoryPatch = (
     }));
     nextMemory.characters = [
       ...(nextMemory.characters || []),
-      ...eligibleCodexAdditions(added),
+      ...added.filter((entry: any) => isManifestationEligible(entry)),
     ];
   }
 

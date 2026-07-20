@@ -16,7 +16,7 @@ export interface ManifestationImportance {
   futureRelevance?: boolean;
 }
 
-export interface ManifestationCandidate {
+interface ManifestationCandidate {
   imageUrl?: string;
   manifestationImportance?: ManifestationImportance;
 }
