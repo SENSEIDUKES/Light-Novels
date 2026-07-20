@@ -3,6 +3,7 @@ import { Ability, Story, StoryMemory } from '../../types';
 import { runMemoryLinter } from '../storyEngineHelpers';
 import { resolveEntity } from '../../lib/entityResolver';
 import { stripAuthorControlledCodexFields } from '../../lib/codexContext';
+import { isManifestationEligible, type ManifestationEntityType } from '../../lib/manifestationEligibility';
 
 const stripGeneratedAbilityContext = (ability: any) => {
   if (!ability || typeof ability !== 'object') return ability;
@@ -11,6 +12,11 @@ const stripGeneratedAbilityContext = (ability: any) => {
 
 const sanitizeGeneratedAbilities = (value: unknown): any[] | undefined =>
   Array.isArray(value) ? value.map(stripGeneratedAbilityContext) : undefined;
+
+const eligibleCodexAdditions = <T>(
+  entries: T[],
+  type: ManifestationEntityType,
+): T[] => entries.filter(entry => isManifestationEligible(entry as any, type));
 
 // Known mastery ladder for downgrade protection. Comparison is only attempted
 // when BOTH levels are on the ladder; unknown labels are never ranked.
@@ -80,11 +86,15 @@ export const applyMemoryPatch = (
       faction: c.faction || undefined,
       relevanceState: c.relevanceState || 'active',
       currentRelevance: c.currentRelevance || undefined,
+      manifestationImportance: c.manifestationImportance,
       toneMemory: c.toneMemory || undefined,
       firstAppeared: c.firstAppeared || chapterNumber,
       lastMajorInvolvement: c.lastMajorInvolvement || chapterNumber
     }));
-    nextMemory.characters = [...(nextMemory.characters || []), ...added];
+    nextMemory.characters = [
+      ...(nextMemory.characters || []),
+      ...eligibleCodexAdditions(added, 'character'),
+    ];
   }
 
   if (memoryUpdates.characterStatusUpdates && memoryUpdates.characterStatusUpdates.length > 0) {
@@ -281,9 +291,10 @@ export const applyMemoryPatch = (
       status: f.status || 'Active',
       relevanceState: f.relevanceState || 'active',
       currentRelevance: f.currentRelevance || undefined,
+      manifestationImportance: f.manifestationImportance,
       firstAppeared: chapterNumber
     }));
-    const filteredAdded = added.filter((af: any) => {
+    const filteredAdded = eligibleCodexAdditions(added, 'faction').filter((af: any) => {
       const res = resolveEntity(af.name, currentFactions, "newFactionCheck");
       return res.resolvedEntityId === null;
     });
@@ -300,9 +311,10 @@ export const applyMemoryPatch = (
       safetyLevel: l.safetyLevel || 'Safe',
       relevanceState: l.relevanceState || 'active',
       currentRelevance: l.currentRelevance || undefined,
+      manifestationImportance: l.manifestationImportance,
       firstAppeared: chapterNumber
     }));
-    const filteredAdded = added.filter((al: any) => {
+    const filteredAdded = eligibleCodexAdditions(added, 'location').filter((al: any) => {
       const res = resolveEntity(al.name, currentLocations, "newLocationCheck");
       return res.resolvedEntityId === null;
     });
@@ -319,9 +331,10 @@ export const applyMemoryPatch = (
       currentOwner: a.currentOwner || 'Unknown',
       relevanceState: a.relevanceState || 'active',
       currentRelevance: a.currentRelevance || undefined,
+      manifestationImportance: a.manifestationImportance,
       firstAppeared: chapterNumber
     }));
-    const filteredAdded = added.filter((aa: any) => {
+    const filteredAdded = eligibleCodexAdditions(added, 'artifact').filter((aa: any) => {
       const res = resolveEntity(aa.name, currentArtifacts, "newArtifactCheck");
       return res.resolvedEntityId === null;
     });

@@ -47,7 +47,14 @@ describe('applyMemoryPatch', () => {
     const data = {
       memoryUpdates: {
         newCharacters: [
-          { name: 'John', role: 'Warrior' }
+          {
+            name: 'John',
+            role: 'Warrior',
+            manifestationImportance: {
+              narrativeWeight: 'major', namedStatus: true,
+              recurrence: true, plotRelevance: true,
+            },
+          }
         ]
       },
       chapterText: "Long text here that doesn't trigger length check but provides some words."
@@ -57,6 +64,29 @@ describe('applyMemoryPatch', () => {
     expect(nextMemory.characters?.[0].name).toBe('John');
     expect(nextMemory.characters?.[0].role).toBe('Warrior');
     expect(nextMemory.characters?.[0].firstAppeared).toBe(1);
+  });
+
+  it('keeps incidental entities in the chapter summary instead of the Codex', () => {
+    const nextMemory = applyMemoryPatch(mockStory, {
+      memoryUpdates: {
+        newArtifacts: [{
+          name: 'Wooden Sword',
+          description: 'A practice sword used once.',
+          manifestationImportance: {
+            narrativeWeight: 'minor', namedStatus: true, ownership: true,
+          },
+        }],
+        newLocations: [{
+          name: 'East Guest Room',
+          manifestationImportance: {
+            narrativeWeight: 'supporting', namedStatus: true, recurrence: true,
+          },
+        }],
+      },
+    }, 1, false, 0);
+
+    expect(nextMemory.artifacts).toEqual([]);
+    expect(nextMemory.locations).toEqual([]);
   });
 
   it('uses trusted aliases for resolution but ignores model-proposed aliases', () => {
@@ -75,7 +105,11 @@ describe('applyMemoryPatch', () => {
         newCharacters: [{
           name: 'Lan Wei',
           aliases: ['Little Lan'],
-          role: 'Disciple'
+          role: 'Disciple',
+          manifestationImportance: {
+            narrativeWeight: 'major', namedStatus: true,
+            recurrence: true, plotRelevance: true,
+          },
         }],
         characterStatusUpdates: [{
           name: 'Sister Mei',

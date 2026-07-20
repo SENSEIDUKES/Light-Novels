@@ -6,6 +6,7 @@ import { dispatchNarrativeCue, NarrativeCueEventType } from '../lib/narrativeCue
 import { cinematicEffectGovernor } from '../lib/effects/cinematicEffectGovernor';
 import { isHighConfidenceAutoCue } from '../lib/audio/autoCuePolicy';
 import { useAudioMix } from './audio/useAudioMix';
+import { isManifestationEligible } from '../lib/manifestationEligibility';
 
 export function useReaderVisuals({
   selectedChapter,
@@ -199,16 +200,16 @@ export function useReaderVisuals({
     const terms: Array<{ term: string; type: 'character'|'faction'|'artifact'|'location'; entry: any }> = [];
     if (!activeStory?.memory) return terms;
     activeStory.memory.characters?.forEach(c => {
-      if (c.name && c.name.length > 2) terms.push({ term: c.name, type: 'character', entry: c });
+      if (c.name && c.name.length > 2 && isManifestationEligible(c, 'character')) terms.push({ term: c.name, type: 'character', entry: c });
     });
     activeStory.memory.factions?.forEach(f => {
-      if (f.name && f.name.length > 2) terms.push({ term: f.name, type: 'faction', entry: f });
+      if (f.name && f.name.length > 2 && isManifestationEligible(f, 'faction')) terms.push({ term: f.name, type: 'faction', entry: f });
     });
     activeStory.memory.artifacts?.forEach(a => {
-      if (a.name && a.name.length > 2) terms.push({ term: a.name, type: 'artifact', entry: a });
+      if (a.name && a.name.length > 2 && isManifestationEligible(a, 'artifact')) terms.push({ term: a.name, type: 'artifact', entry: a });
     });
     activeStory.memory.locations?.forEach(l => {
-      if (l.name && l.name.length > 2) terms.push({ term: l.name, type: 'location', entry: l });
+      if (l.name && l.name.length > 2 && isManifestationEligible(l, 'location')) terms.push({ term: l.name, type: 'location', entry: l });
     });
     return terms.sort((a, b) => b.term.length - a.term.length);
   }, [activeStory.memory]);
