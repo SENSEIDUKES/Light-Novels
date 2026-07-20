@@ -3,6 +3,7 @@ import { Ability, Story, StoryMemory } from '../../types';
 import { runMemoryLinter } from '../storyEngineHelpers';
 import { resolveEntity } from '../../lib/entityResolver';
 import { stripAuthorControlledCodexFields } from '../../lib/codexContext';
+import { isManifestationEligible } from '../../lib/manifestationEligibility';
 
 const stripGeneratedAbilityContext = (ability: any) => {
   if (!ability || typeof ability !== 'object') return ability;
@@ -80,11 +81,15 @@ export const applyMemoryPatch = (
       faction: c.faction || undefined,
       relevanceState: c.relevanceState || 'active',
       currentRelevance: c.currentRelevance || undefined,
+      manifestationImportance: c.manifestationImportance,
       toneMemory: c.toneMemory || undefined,
       firstAppeared: c.firstAppeared || chapterNumber,
       lastMajorInvolvement: c.lastMajorInvolvement || chapterNumber
     }));
-    nextMemory.characters = [...(nextMemory.characters || []), ...added];
+    nextMemory.characters = [
+      ...(nextMemory.characters || []),
+      ...added.filter((entry: any) => isManifestationEligible(entry)),
+    ];
   }
 
   if (memoryUpdates.characterStatusUpdates && memoryUpdates.characterStatusUpdates.length > 0) {
@@ -281,9 +286,11 @@ export const applyMemoryPatch = (
       status: f.status || 'Active',
       relevanceState: f.relevanceState || 'active',
       currentRelevance: f.currentRelevance || undefined,
+      manifestationImportance: f.manifestationImportance,
       firstAppeared: chapterNumber
     }));
     const filteredAdded = added.filter((af: any) => {
+      if (!isManifestationEligible(af)) return false;
       const res = resolveEntity(af.name, currentFactions, "newFactionCheck");
       return res.resolvedEntityId === null;
     });
@@ -300,9 +307,11 @@ export const applyMemoryPatch = (
       safetyLevel: l.safetyLevel || 'Safe',
       relevanceState: l.relevanceState || 'active',
       currentRelevance: l.currentRelevance || undefined,
+      manifestationImportance: l.manifestationImportance,
       firstAppeared: chapterNumber
     }));
     const filteredAdded = added.filter((al: any) => {
+      if (!isManifestationEligible(al)) return false;
       const res = resolveEntity(al.name, currentLocations, "newLocationCheck");
       return res.resolvedEntityId === null;
     });
@@ -319,9 +328,11 @@ export const applyMemoryPatch = (
       currentOwner: a.currentOwner || 'Unknown',
       relevanceState: a.relevanceState || 'active',
       currentRelevance: a.currentRelevance || undefined,
+      manifestationImportance: a.manifestationImportance,
       firstAppeared: chapterNumber
     }));
     const filteredAdded = added.filter((aa: any) => {
+      if (!isManifestationEligible(aa)) return false;
       const res = resolveEntity(aa.name, currentArtifacts, "newArtifactCheck");
       return res.resolvedEntityId === null;
     });

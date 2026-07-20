@@ -796,6 +796,20 @@ storyRouter.post("/api/extract-chapter-metadata", validateBody(extractMetadataSc
       contract ? JSON.stringify(contract, null, 2) : undefined,
     );
 
+    const manifestationImportanceSchema = {
+      type: "OBJECT",
+      properties: {
+        narrativeWeight: { type: "STRING" },
+        recurrence: { type: "BOOLEAN" },
+        ownership: { type: "BOOLEAN" },
+        plotRelevance: { type: "BOOLEAN" },
+        namedStatus: { type: "BOOLEAN" },
+        emotionalSignificance: { type: "BOOLEAN" },
+        powerSignificance: { type: "BOOLEAN" },
+        futureRelevance: { type: "BOOLEAN" },
+      },
+    };
+
     const metadataSchema = {
       type: "OBJECT",
       properties: {
@@ -859,16 +873,16 @@ storyRouter.post("/api/extract-chapter-metadata", validateBody(extractMetadataSc
           type: "OBJECT",
           properties: {
             currentPowerStage: { type: "STRING" },
-            newCharacters: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, role: { type: "STRING"}, description: { type: "STRING"}, relationshipToMC: { type: "STRING"}, status: { type: "STRING"}, powerLevel: { type: "STRING"}, faction: { type: "STRING"} } } },
+            newCharacters: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, role: { type: "STRING"}, description: { type: "STRING"}, relationshipToMC: { type: "STRING"}, status: { type: "STRING"}, powerLevel: { type: "STRING"}, faction: { type: "STRING"}, manifestationImportance: manifestationImportanceSchema } } },
             characterStatusUpdates: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, newStatus: { type: "STRING"}, newRelationship: { type: "STRING"}, newPowerLevel: { type: "STRING"}, descriptionAppend: { type: "STRING"} } } },
             relationshipUpdates: { type: "ARRAY", items: { type: "OBJECT", properties: { sourceName: { type: "STRING" }, targetName: { type: "STRING" }, affinityDelta: { type: "NUMBER" }, threatDelta: { type: "NUMBER" }, reason: { type: "STRING" } } } },
             newUnresolvedPlotThreads: { type: "ARRAY", items: { type: "STRING" } },
             resolvedPlotThreads: { type: "ARRAY", items: { type: "STRING" } },
-            newFactions: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, description: { type: "STRING"}, alignment: { type: "STRING"}, headquarters: { type: "STRING"}, status: { type: "STRING"} } } },
+            newFactions: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, description: { type: "STRING"}, alignment: { type: "STRING"}, headquarters: { type: "STRING"}, status: { type: "STRING"}, manifestationImportance: manifestationImportanceSchema } } },
             factionUpdates: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, statusOverride: { type: "STRING"}, descriptionAppend: { type: "STRING"} } } },
-            newLocations: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, description: { type: "STRING"}, realm: { type: "STRING"}, safetyLevel: { type: "STRING"} } } },
+            newLocations: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, description: { type: "STRING"}, realm: { type: "STRING"}, safetyLevel: { type: "STRING"}, manifestationImportance: manifestationImportanceSchema } } },
             locationUpdates: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, safetyLevelOverride: { type: "STRING"}, descriptionAppend: { type: "STRING"} } } },
-            newArtifacts: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, description: { type: "STRING"}, tier: { type: "STRING"}, currentOwner: { type: "STRING"} } } },
+            newArtifacts: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, description: { type: "STRING"}, tier: { type: "STRING"}, currentOwner: { type: "STRING"}, manifestationImportance: manifestationImportanceSchema } } },
             artifactUpdates: { type: "ARRAY", items: { type: "OBJECT", properties: { name: { type: "STRING"}, newOwner: { type: "STRING"}, newCondition: { type: "STRING"}, newLocation: { type: "STRING"}, descriptionAppend: { type: "STRING"} } } },
             newMCAbilities: { 
               type: "ARRAY", 

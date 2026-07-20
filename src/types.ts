@@ -252,6 +252,8 @@ export interface BaseCodexEntry {
   currentRelevance?: string;
   toneMemory?: string;
   provenance?: MemoryProvenance;
+  /** Editorial evidence that this entity warrants automatic visual manifestation. */
+  manifestationImportance?: import('./lib/manifestationEligibility').ManifestationImportance;
   pendingEvolution?: boolean;
   arcAccumulation?: string;
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { CodexHovercard } from './CodexHovercard';
 
 vi.mock('../hooks/useImageManifest', () => ({
@@ -17,5 +17,8 @@ describe('CodexHovercard', () => {
       </CodexHovercard>
     );
     expect(container).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Hover me' }));
+    expect(screen.getByRole('button', { name: 'Manifest portrait for Test' }).getAttribute('aria-label'))
+      .toBe('Manifest portrait for Test');
   });
 });

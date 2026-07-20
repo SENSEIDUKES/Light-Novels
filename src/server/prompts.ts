@@ -159,7 +159,7 @@ OUTPUT FORMAT TARGET:
 You MUST output strictly the chapter text structured as NDJSON (Newline Delimited JSON). Start it with ---CHAPTER_BLOCKS--- on a new line. Each paragraph of your chapter should be a single JSON object on one line containing an "id" (unique string), "type" (either "paragraph" or "dialogue"), "text" (the paragraph content), and optional "metadata" for audio narrative cues.
 For dialogue blocks, the "metadata" must contain "speakerName" (the name of the character speaking), "mode": "dialogue", and "speakerRole" (e.g. villain, main_character, face_slap, friend). DO NOT output direct voice IDs.
 You can include a "beastEvent" object inside the block "metadata" when encountering significant beast moments (reveals, major strikes, deaths, power surges). A beastEvent needs a "type" ("reveal", "power-up", "technique", "injury", "turning-point", "death", "breakthrough") and a "profile" (containing size, bodyType, element, movement, intelligence, threatTier, signatureSound matching the predefined schema). Use this sparingly and only on significant narrative beats.
-You can include a "worldCard" object on the block (parallel to "metadata") if a new character, creature, artifact, or major location makes a grand first appearance, or a very significant sensory event occurs. The "worldCard" must contain: "entityType" ("character"|"creature"|"artifact"|"location"|"system"|"fate_event"), "entityName" (the name of the entity), "displayTitle" (e.g., "Mei Lian — The Crimson Lotus Disciple"), "quote" (a badass line or lore snippet), "audioText" (the dialogue text to synthesize or a description of the sound for display), and "audioType" ("tts_line"|"roar"|"ambience"|"chime").
+You can include a "worldCard" object on the block (parallel to "metadata") only when a named character, creature, artifact, or major location makes a grand first appearance AND it has clear lasting narrative weight (major/central role plus at least two of recurrence, ownership, plot relevance, emotional significance, power significance, or future relevance). A worldCard is a rare visual event, never a default response to a new noun. Do not create one for temporary rooms, ordinary weapons, incidental shopkeepers/guards, passing disciples, or one-scene objects. The "worldCard" must contain: "entityType" ("character"|"creature"|"artifact"|"location"|"system"|"fate_event"), "entityName" (the name of the entity), "displayTitle" (e.g., "Mei Lian — The Crimson Lotus Disciple"), "quote" (a badass line or lore snippet), "audioText" (the dialogue text to synthesize or a description of the sound for display), and "audioType" ("tts_line"|"roar"|"ambience"|"chime").
 For any Celestial Library system moment (in ANY genre, per the CELESTIAL LIBRARY SYSTEM PANELS directive above), you MUST include a "system" object on the block (parallel to "metadata") to render a holographic status panel. The "system" object must contain "kind" (one of "status", "skill_acquired", "level_up", "quest", "appraisal", "fate_result"), a REQUIRED "promptType" string (one of "neutral", "codex_update", "friendly_scan", "enemy_scan", "warning", "critical_danger", "progression", "breakthrough", "reward", "romance", "karmic_bond", "mystery", "fate_event", "corruption", "death_event", "quest_update", "choice_consequence", "system_error"), a string "title", an optional array of "rows" (each with "label" and "value" strings), and an optional string "rarity". ALWAYS set "promptType" — it determines the panel color in the UI; pick the closest semantic category rather than omitting it. Use this structured object instead of plain text brackets like [System Alert].
 If the chapter resolves a major Fate Deadline or Doom Deadline, you MUST emit a "fate_result" system block. For "fate_result", you MUST also include a "fateResult" object with fields "outcome" (must be exactly 'FATE AVERTED' or 'FATE SCARRED' or 'DOOM MANIFESTED'), "timelineScar", "permanentCosts" (array of strings), "newStoryState", "newActiveStats" (array of strings), and "genreShift". This introduces permanent consequences or "Fate scars".
 For each block, list all notable codex entities referenced in the 'entities' array inside "metadata". Each entity in the array must have the shape: { "name": string, "type": "character"|"artifact"|"location"|"beast"|"faction", "mention": "reveal"|"reference" }. Set mention to "reveal" ONLY value for a first dramatic appearance of the entity in the story, otherwise use "reference".
@@ -351,6 +351,8 @@ ${contractJson}
 ` : ''}
 Extract updates for the permanent story memory so we can track newly met characters, dead characters, relationship updates, unresolved issues, or potential MC advancement. Also, provide an extremely short summary of events (1-3 sentences MAX), and an arc summary.
 
+CODEX / MANIFESTATION ELIGIBILITY: The Codex is a durable visual canon, not a record of every noun in the chapter. Put a new character, faction, location, or artifact in a new* array ONLY when it is clearly story-significant and can justify a future manifestation. Every new* entry MUST include manifestationImportance. Qualify only an explicitly named entity with a major/central narrative role and at least two durable signals (recurrence, ownership, plot relevance, emotional significance, power significance, future relevance), or a supporting entity with at least four. Do NOT add one-scene props or generic weapons (wooden sword, random pike), temporary rooms/inns, unnamed guards, tavern owners, passing disciples, or minor characters merely because they appeared. Keep incidental details in the chapter text and concise chapter summary when they matter for continuity; do not turn them into Codex entries. Existing Codex entries remain valid and must not be removed just because they are quiet this chapter.
+
 CANONICAL CHAPTER HANDOFF: You MUST also extract a "handoff" object — the authoritative machine-readable end state of THIS chapter, used to anchor the next chapter:
 - "endState": where and when the chapter ends (location, short timeMarker like "dusk, same day", charactersPresent physically on stage in the final scene, mcCondition, openTension — the live hook the chapter ends on).
 - "completedEvents": 2 to 6 one-line canonical, irreversible facts established in this chapter (e.g. "Li Wei defeated Elder Kang in the arena"). These prevent future chapters from replaying them.
@@ -418,6 +420,7 @@ You must return a JSON object with the following fields:
         "faction": "Optional. Name of the faction they associate with",
         "relevanceState": "active / warm / dormant / archived / reactivated based on importance",
         "currentRelevance": "Why they matter right now",
+        "manifestationImportance": { "narrativeWeight": "central|major|supporting", "recurrence": true, "ownership": false, "plotRelevance": true, "namedStatus": true, "emotionalSignificance": false, "powerSignificance": false, "futureRelevance": true },
         "toneMemory": "Their vibe or disposition (e.g. bitter, cautious)",
         "firstAppeared": 1,
         "lastMajorInvolvement": 1
@@ -461,7 +464,8 @@ You must return a JSON object with the following fields:
         "headquarters": "Primary location or temple",
         "status": "Active / Destroyed / Fractured",
         "relevanceState": "active / warm / dormant",
-        "currentRelevance": "Why they matter right now"
+        "currentRelevance": "Why they matter right now",
+        "manifestationImportance": { "narrativeWeight": "central|major|supporting", "recurrence": true, "ownership": false, "plotRelevance": true, "namedStatus": true, "emotionalSignificance": false, "powerSignificance": false, "futureRelevance": true }
       }
     ],
     "factionUpdates": [
@@ -480,7 +484,8 @@ You must return a JSON object with the following fields:
         "realm": "The broader realm (e.g. Mortal Realm, Celestial Domain)",
         "safetyLevel": "Safe / Dangerous / Lethal",
         "relevanceState": "active / warm / dormant",
-        "currentRelevance": "Why it matters right now"
+        "currentRelevance": "Why it matters right now",
+        "manifestationImportance": { "narrativeWeight": "central|major|supporting", "recurrence": true, "ownership": false, "plotRelevance": true, "namedStatus": true, "emotionalSignificance": false, "powerSignificance": false, "futureRelevance": true }
       }
     ],
     "locationUpdates": [
@@ -499,7 +504,8 @@ You must return a JSON object with the following fields:
         "tier": "Mortal / Earth / Heaven / Primordial",
         "currentOwner": "Who holds this artifact now (e.g. MC, Elder Zhao)",
         "relevanceState": "active / warm / dormant",
-        "currentRelevance": "Why it matters right now"
+        "currentRelevance": "Why it matters right now",
+        "manifestationImportance": { "narrativeWeight": "central|major|supporting", "recurrence": true, "ownership": true, "plotRelevance": true, "namedStatus": true, "emotionalSignificance": false, "powerSignificance": false, "futureRelevance": true }
       }
     ],
     "artifactUpdates": [

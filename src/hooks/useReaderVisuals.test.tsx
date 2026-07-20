@@ -53,7 +53,20 @@ describe('useReaderVisuals', () => {
         currentPowerStage: "Foundation",
         worldRules: [],
         characters: [
-          { id: "char-1", name: "Master Xiao", role: "Mentor", description: "Elder mentor", relationshipToMC: "Friendly", status: "alive" as const }
+          {
+            id: "char-1",
+            name: "Master Xiao",
+            role: "Mentor",
+            description: "Elder mentor",
+            relationshipToMC: "Friendly",
+            status: "alive" as const,
+            manifestationImportance: {
+              narrativeWeight: "major" as const,
+              namedStatus: true,
+              recurrence: true,
+              plotRelevance: true,
+            },
+          }
         ],
         unresolvedPlotThreads: [],
         resolvedPlotThreads: []
