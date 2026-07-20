@@ -1,18 +1,21 @@
 import { CuratedSoundAsset } from './cardSoundCatalog';
 
 /**
- * Playback for curated World Card sounds.
+ * Playback for curated one-shot sounds (World Card sounds and the narrative
+ * cue one-shots from the curated ambience catalog).
  *
- * Runs on plain HTMLAudioElements created inside the user's tap (the gesture
- * browsers require on desktop and mobile), cached per asset so repeated taps
- * replay the same fetched media instead of re-downloading.
+ * Runs on plain HTMLAudioElements created at trigger time, cached per asset
+ * so repeated plays reuse the same fetched media instead of re-downloading.
  *
- * Deliberately disconnected from every other audio system: no
+ * Deliberately disconnected from the continuous engines: no
  * cinematicEffectGovernor budget, no narrative-cue dispatch, no
- * speechSynthesis calls, no atmosphere/scene-mix engines. A card tap can
+ * speechSynthesis calls, no scene-mix decks. Playing a one-shot can
  * therefore never spend a chapter's automatic cue budget or interrupt
  * narration.
  */
+
+/** The only fields playback needs — any curated catalog entry qualifies. */
+export type PlayableSoundAsset = Pick<CuratedSoundAsset, 'id' | 'url'>;
 
 const cache = new Map<string, HTMLAudioElement>();
 
@@ -27,7 +30,7 @@ export interface CardSoundPlayOptions {
  * rejection so the card can show a visible failure state.
  */
 export async function playCardSound(
-  asset: CuratedSoundAsset,
+  asset: PlayableSoundAsset,
   options: CardSoundPlayOptions = {},
 ): Promise<HTMLAudioElement> {
   let element = cache.get(asset.id);

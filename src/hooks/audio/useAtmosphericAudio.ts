@@ -1,11 +1,5 @@
 import { useEffect, useRef } from 'react';
-import {
-  createSceneMixEngine,
-  createAudioSpriteEngine,
-  type SceneMixEngine,
-  type AudioSpriteEngine,
-  type AudioSpriteInstanceId,
-} from '@seihouse/audio-player';
+import { createSceneMixEngine, type SceneMixEngine } from '@seihouse/audio-player';
 import { SceneScoreEngine, TRACK_LIBRARY } from '../../lib/audio/musicResolver';
 import { normalizeAutoCue } from '../../lib/audio/autoCuePolicy';
 import {
@@ -13,12 +7,19 @@ import {
   effectiveChannelVolume,
   getAudioMixSettings,
 } from '../../lib/audio/audioMixSettings';
-import { ensureProceduralAudioPack } from '../../lib/audio/proceduralAudioPack';
+import {
+  resolveAtmosphereBed,
+  resolveNarrativeCueSound,
+} from '../../lib/audio/ambienceSoundCatalog';
+import { playCardSound } from '../../lib/audio/cardSoundPlayer';
 import { useAudioMix } from './useAudioMix';
 import { useAppStore } from '../../store/useAppStore';
 import { vibrate } from '../../lib/vibration';
 
 type AtmosphereType = 'none' | 'wind' | 'rain' | 'ocean' | 'crowd' | 'combat';
+
+/** Crossfade length for switching atmosphere beds. */
+const ATMOSPHERE_FADE_MS = 1500;
 
 /** Haptic pattern for each one-shot cue, matching the old trigger functions. */
 const CUE_VIBRATIONS: Record<string, Parameters<typeof vibrate>[0]> = {
@@ -31,16 +32,18 @@ const CUE_VIBRATIONS: Record<string, Parameters<typeof vibrate>[0]> = {
 };
 
 /**
- * The reader's audio conductor. Every layer plays through the SEIHouse Audio
- * Player (SAP):
+ * The reader's audio conductor. Nothing here is synthesized or generated —
+ * every sound is a curated asset, and playback is centralized:
  *
- *  - Scene-score music → SAP `SceneMixEngine` (two-deck equal-power fades).
- *  - Atmosphere beds (rain, wind, …) and one-shot story cues → SAP
- *    `AudioSpriteEngine` instances playing the procedurally rendered sprite
- *    pack. One engine per channel so each keeps its own volume/mute.
+ *  - Scene-score music → SAP `SceneMixEngine` over the curated TRACK_LIBRARY.
+ *  - Atmosphere beds (rain, wind, …) → a second SAP `SceneMixEngine`
+ *    (looping decks, equal-power crossfades) over the curated ambience
+ *    catalog. Beds without a curated URL yet simply stay silent.
+ *  - One-shot story cues → the shared curated one-shot player, same as
+ *    World Card sounds.
  *
  * User levels come from the central audio mix (Master / Music / Atmosphere /
- * Audio Cues). This hook only decides *what* plays; SAP owns *how*.
+ * Audio Cues). This hook only decides *what* plays; the engines own *how*.
  */
 export function useAtmosphericAudio() {
   const currentScreen = useAppStore(state => state.currentScreen);
@@ -75,14 +78,11 @@ export function useAtmosphericAudio() {
   // back to 'auto' can restore the chapter-appropriate bed.
   const chapterTagsRef = useRef<string[]>([]);
 
-  // Atmosphere + cue playback: SAP sprite engines over the rendered pack.
-  const atmoEngineRef = useRef<AudioSpriteEngine | null>(null);
-  const cueEngineRef = useRef<AudioSpriteEngine | null>(null);
-  const atmoLoopRef = useRef<{ id: AudioSpriteInstanceId; clip: AtmosphereType } | null>(null);
-  const combatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Monotonic token so overlapping syncAtmosphere calls (pack still loading)
-  // can't each start a bed — only the newest call proceeds after its await.
-  const atmoSyncTokenRef = useRef(0);
+  // Atmosphere beds: a second scene-mix engine, so the layer gets the same
+  // deck management/crossfades as the score without touching its levels.
+  const atmoMixRef = useRef<SceneMixEngine | null>(null);
+  // The bed the atmosphere engine is currently playing (null = stopped).
+  const activeBedRef = useRef<AtmosphereType | null>(null);
 
   const currentScreenRef = useRef(currentScreen);
   useEffect(() => { currentScreenRef.current = currentScreen; }, [currentScreen]);
@@ -104,76 +104,40 @@ export function useAtmosphericAudio() {
     engine.setLevel(muted ? 0 : musicLevel());
   };
 
-  const ensureSpriteEngine = async (
-    ref: React.MutableRefObject<AudioSpriteEngine | null>,
-  ): Promise<AudioSpriteEngine | null> => {
-    try {
-      if (!ref.current) {
-        ref.current = createAudioSpriteEngine();
-        const manifest = await ensureProceduralAudioPack();
-        await ref.current.load(manifest);
-      } else {
-        await ref.current.ready();
-      }
-      return ref.current;
-    } catch (err) {
-      console.warn('SAP sprite pack unavailable (audio disabled):', err);
-      return null;
-    }
-  };
-
-  const stopAtmosphereLoop = () => {
-    if (combatIntervalRef.current) {
-      clearInterval(combatIntervalRef.current);
-      combatIntervalRef.current = null;
-    }
-    if (atmoLoopRef.current && atmoEngineRef.current) {
-      atmoEngineRef.current.fadeOut(atmoLoopRef.current.id, 400);
-    }
-    atmoLoopRef.current = null;
-  };
-
   /**
-   * Reconcile the atmosphere layer with the selected bed and the current mix.
-   * Level changes retarget the running loop; bed changes crossfade via the
-   * sprite engine; muted/off states release everything.
+   * Reconcile the atmosphere layer with the selected bed and the current
+   * mix. Level changes retarget the running deck live; bed changes crossfade
+   * to the curated asset (or fade out when the bed has no curated URL yet,
+   * the bed is 'none', or the channel/master is off).
    */
-  const syncAtmosphere = async () => {
-    const token = ++atmoSyncTokenRef.current;
+  const syncAtmosphere = () => {
+    const engine = atmoMixRef.current;
+    if (!engine) return;
+
     const atmosphere = atmosphereRef.current;
     const level = effectiveChannelVolume('atmosphere');
     const audible = currentScreenRef.current === 'reader' && atmosphere !== 'none' && level > 0;
+    const bed = audible ? resolveAtmosphereBed(atmosphere) : null;
 
-    if (!audible) {
-      stopAtmosphereLoop();
+    engine.setMuted(!audible);
+    engine.setLevel(audible ? level : 0);
+
+    if (!bed) {
+      if (activeBedRef.current !== null) {
+        engine.stop(ATMOSPHERE_FADE_MS);
+        activeBedRef.current = null;
+      }
       return;
     }
 
-    const engine = await ensureSpriteEngine(atmoEngineRef);
-    if (!engine) return;
-
-    // Re-check after the async load — a newer sync call, a bed change or a
-    // mix change may have superseded this one.
-    if (token !== atmoSyncTokenRef.current
-      || atmosphereRef.current !== atmosphere
-      || effectiveChannelVolume('atmosphere') <= 0
-      || currentScreenRef.current !== 'reader') return;
-
-    engine.setMasterVolume(level);
-
-    if (atmoLoopRef.current?.clip !== atmosphere) {
-      stopAtmosphereLoop();
-      const id = engine.play(atmosphere, { loop: true });
-      atmoLoopRef.current = id ? { id, clip: atmosphere } : null;
-
-      // Combat keeps its randomized percussion hits on top of the bed.
-      if (atmosphere === 'combat' && atmoLoopRef.current) {
-        combatIntervalRef.current = setInterval(() => {
-          if (Math.random() > 0.6) {
-            atmoEngineRef.current?.play('major_impact');
-          }
-        }, 2500);
-      }
+    if (activeBedRef.current !== atmosphere) {
+      engine.crossfadeTo({
+        id: bed.id,
+        title: bed.id,
+        artist: 'SEIHouse',
+        audioFile: bed.url,
+      });
+      activeBedRef.current = atmosphere;
     }
   };
 
@@ -186,20 +150,23 @@ export function useAtmosphericAudio() {
     window.dispatchEvent(new CustomEvent('seihouse-audio-state', {
       detail: { atmosphere: next, bgmTrackId: bgmTrackIdRef.current },
     }));
-    void syncAtmosphere();
+    syncAtmosphere();
   };
 
-  const playCue = async (fxType: string) => {
+  const playCue = (fxType: string) => {
     if (!cuesAllowed()) return;
     const pattern = CUE_VIBRATIONS[fxType];
     if (pattern) vibrate(pattern);
-    const engine = await ensureSpriteEngine(cueEngineRef);
-    if (!engine || !cuesAllowed()) return;
-    engine.setMasterVolume(effectiveChannelVolume('cues'));
-    engine.play(fxType);
+    // Curated asset or nothing: a cue without an approved sound stays a
+    // haptic-only beat, it never synthesizes a replacement.
+    const asset = resolveNarrativeCueSound(fxType);
+    if (!asset) return;
+    playCardSound(asset, { volume: effectiveChannelVolume('cues') }).catch((err) => {
+      console.warn('Narrative cue sound unavailable:', err);
+    });
   };
 
-  // Engine lifecycle: one scene mix + (lazily) two sprite engines per mount.
+  // Engine lifecycle: one scene-mix engine each for score and atmosphere.
   useEffect(() => {
     if (!sceneMixRef.current) {
       const engine = createSceneMixEngine({ loop: true });
@@ -225,24 +192,28 @@ export function useAtmosphericAudio() {
         }
       }
     }
+    if (!atmoMixRef.current) {
+      const engine = createSceneMixEngine({ loop: true, fadeMs: ATMOSPHERE_FADE_MS });
+      engine.setMuted(true);
+      engine.setLevel(0);
+      atmoMixRef.current = engine;
+    }
     return () => {
       sceneMixRef.current?.dispose();
       sceneMixRef.current = null;
-      stopAtmosphereLoop();
-      atmoEngineRef.current?.dispose();
-      atmoEngineRef.current = null;
-      cueEngineRef.current?.dispose();
-      cueEngineRef.current = null;
+      atmoMixRef.current?.dispose();
+      atmoMixRef.current = null;
+      activeBedRef.current = null;
     };
+     
   }, []);
 
-  // Re-level every SAP layer whenever the user mix or the screen changes.
+  // Re-level every layer whenever the user mix or the screen changes.
   // Master off collapses all effective levels to 0 without touching the
   // stored per-channel settings, so unmuting restores the exact same mix.
   useEffect(() => {
     syncBgmVolumes();
-    cueEngineRef.current?.setMasterVolume(effectiveChannelVolume('cues', mix));
-    void syncAtmosphere();
+    syncAtmosphere();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mix, currentScreen]);
 
@@ -421,11 +392,10 @@ export function useAtmosphericAudio() {
           // Final gate: even a cue that slipped past the dispatch sites is
           // re-validated here. Footsteps / territory Foley / broad
           // environment tags normalize to null and play nothing — suppress,
-          // never guess. The sprite engine is touched only for a cue that
-          // will actually sound.
+          // never guess. Only a curated cue sound can play.
           const fxType = normalizeAutoCue(typeof cue.value === 'string' ? cue.value : '');
           if (!fxType) return;
-          void playCue(fxType);
+          playCue(fxType);
         }
       } catch (err) {
         console.warn('Audio system error during cue handling (safely caught):', err);
