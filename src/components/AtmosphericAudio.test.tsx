@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, act, waitFor } from '@testing-library/react';
 import { AtmosphericAudio } from './AtmosphericAudio';
+import { resetAudioMixCacheForTests, setAudioChannel } from '../lib/audio/audioMixSettings';
 
 const storeState = {
   currentScreen: 'reader',
-  immersion: { master: true, audioCues: true, imagePopups: true, sceneMusic: true, autoScroll: true },
+  immersion: { master: true, imagePopups: true, autoScroll: true },
 };
 
 vi.mock('../store/useAppStore', () => {
@@ -21,54 +22,31 @@ const sceneMixEngine = {
   dispose: vi.fn(),
 };
 
+const spriteEngine = {
+  load: vi.fn(() => Promise.resolve()),
+  ready: vi.fn(() => Promise.resolve()),
+  play: vi.fn(() => 'instance-1'),
+  stop: vi.fn(),
+  fade: vi.fn(),
+  fadeOut: vi.fn(),
+  stopAll: vi.fn(),
+  setMasterVolume: vi.fn(),
+  getMasterVolume: vi.fn(() => 1),
+  dispose: vi.fn(),
+};
+
 vi.mock('@seihouse/audio-player', () => ({
   createSceneMixEngine: () => sceneMixEngine,
+  createAudioSpriteEngine: () => spriteEngine,
 }));
 
-const makeParam = () => ({
-  value: 0,
-  setValueAtTime: vi.fn(),
-  linearRampToValueAtTime: vi.fn(),
-  exponentialRampToValueAtTime: vi.fn(),
-  setTargetAtTime: vi.fn(),
-});
-
-const makeNode = () => ({
-  connect: vi.fn(),
-  disconnect: vi.fn(),
-  start: vi.fn(),
-  stop: vi.fn(),
-  type: '',
-  loop: false,
-  buffer: null as unknown,
-  frequency: makeParam(),
-  Q: makeParam(),
-  gain: makeParam(),
-});
-
-class MockAudioContext {
-  static created = 0;
-  static lastInstance: MockAudioContext | null = null;
-  currentTime = 0;
-  state = 'running';
-  sampleRate = 44100;
-  destination = {};
-  oscillatorsStarted = 0;
-  resume = vi.fn(() => Promise.resolve());
-  createGain = vi.fn(() => makeNode());
-  createBufferSource = vi.fn(() => makeNode());
-  createBiquadFilter = vi.fn(() => makeNode());
-  createBuffer = vi.fn(() => ({ getChannelData: () => new Float32Array(128) }));
-  createOscillator = vi.fn(() => {
-    const node = makeNode();
-    node.start = vi.fn(() => { this.oscillatorsStarted += 1; });
-    return node;
-  });
-  constructor() {
-    MockAudioContext.created += 1;
-    MockAudioContext.lastInstance = this;
-  }
-}
+// The pack is rendered through OfflineAudioContext, which jsdom lacks; the
+// engines above are mocks anyway, so a stub manifest is all that's needed.
+vi.mock('../lib/audio/proceduralAudioPack', () => ({
+  ensureProceduralAudioPack: vi.fn(() =>
+    Promise.resolve({ src: 'blob:pack', clips: {} }),
+  ),
+}));
 
 const dispatchCue = (detail: Record<string, unknown>) => {
   act(() => {
@@ -76,16 +54,23 @@ const dispatchCue = (detail: Record<string, unknown>) => {
   });
 };
 
+const flushAsync = async () => {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+};
+
 beforeEach(() => {
   localStorage.clear();
-  MockAudioContext.created = 0;
-  MockAudioContext.lastInstance = null;
+  resetAudioMixCacheForTests();
   sceneMixEngine.crossfadeTo.mockClear();
-  vi.stubGlobal('AudioContext', MockAudioContext);
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
+  sceneMixEngine.setLevel.mockClear();
+  sceneMixEngine.setMuted.mockClear();
+  spriteEngine.play.mockClear();
+  spriteEngine.load.mockClear();
+  spriteEngine.setMasterVolume.mockClear();
+  spriteEngine.fadeOut.mockClear();
 });
 
 describe('AtmosphericAudio', () => {
@@ -94,30 +79,48 @@ describe('AtmosphericAudio', () => {
     expect(container).toBeDefined();
   });
 
-  it('no longer plays automatic footsteps or environment Foley cues', () => {
+  it('no longer plays automatic footsteps or environment Foley cues', async () => {
     render(<AtmosphericAudio />);
     for (const legacy of ['footsteps', 'footsteps_snow', 'footsteps_wood', 'footsteps_stone', 'wind howling', 'territory ambience']) {
       dispatchCue({ id: `fx-${legacy}`, type: 'narrative.fx.play', value: legacy });
     }
-    // Suppressed cues never even open an AudioContext, let alone synthesize.
-    expect(MockAudioContext.created).toBe(0);
+    await flushAsync();
+    // Suppressed cues never even touch the SAP sprite engine.
+    expect(spriteEngine.play).not.toHaveBeenCalled();
   });
 
-  it('still plays high-confidence one-shot cues', () => {
+  it('plays high-confidence one-shot cues through the SAP sprite engine', async () => {
     render(<AtmosphericAudio />);
     dispatchCue({ id: 'fx-alert', type: 'narrative.fx.play', value: 'system_alert' });
-    expect(MockAudioContext.created).toBe(1);
-    expect(MockAudioContext.lastInstance?.oscillatorsStarted).toBeGreaterThan(0);
+    await waitFor(() => expect(spriteEngine.play).toHaveBeenCalledWith('system_alert'));
   });
 
-  it('no longer fires one-shot effects from broad metadata signatures', () => {
+  it('suppresses one-shot cues while Audio Cues (or Master Audio) is off', async () => {
+    render(<AtmosphericAudio />);
+
+    act(() => { setAudioChannel('cues', { enabled: false }); });
+    dispatchCue({ id: 'fx-alert-1', type: 'narrative.fx.play', value: 'system_alert' });
+    await flushAsync();
+    expect(spriteEngine.play).not.toHaveBeenCalled();
+
+    act(() => {
+      setAudioChannel('cues', { enabled: true });
+      setAudioChannel('master', { enabled: false });
+    });
+    dispatchCue({ id: 'fx-alert-2', type: 'narrative.fx.play', value: 'system_alert' });
+    await flushAsync();
+    expect(spriteEngine.play).not.toHaveBeenCalled();
+  });
+
+  it('no longer fires one-shot effects from broad metadata signatures', async () => {
     render(<AtmosphericAudio />);
     // These payloads used to trigger qi-surge / major-hit / fate-shift /
     // chime one-shots straight from metadata, in every reader mode and with
     // no governor budget. That path is gone.
     dispatchCue({ id: 'meta-1', type: 'narrative.metadata.signature', metadata: { powerShift: 0.9 } });
     dispatchCue({ id: 'meta-2', type: 'narrative.metadata.signature', metadata: { playChime: true } });
-    expect(MockAudioContext.created).toBe(0);
+    await flushAsync();
+    expect(spriteEngine.play).not.toHaveBeenCalled();
   });
 
   it('keeps scene-score music driven by metadata signatures', async () => {
@@ -130,7 +133,7 @@ describe('AtmosphericAudio', () => {
     await waitFor(() => expect(sceneMixEngine.crossfadeTo).toHaveBeenCalled());
   });
 
-  it('keeps the atmosphere bed reacting to environment metadata', async () => {
+  it('starts the atmosphere bed loop on the SAP sprite engine from environment metadata', async () => {
     const states: Array<{ atmosphere?: string }> = [];
     const onState = (e: Event) => states.push((e as CustomEvent).detail);
     window.addEventListener('seihouse-audio-state', onState);
@@ -142,9 +145,20 @@ describe('AtmosphericAudio', () => {
       metadata: { environment: ['rain'] },
     });
 
-    await waitFor(() =>
-      expect(states.some((s) => s.atmosphere === 'rain')).toBe(true),
-    );
+    await waitFor(() => expect(states.some((s) => s.atmosphere === 'rain')).toBe(true));
+    await waitFor(() => expect(spriteEngine.play).toHaveBeenCalledWith('rain', { loop: true }));
     window.removeEventListener('seihouse-audio-state', onState);
+  });
+
+  it('re-levels the music engine from the audio mix without erasing settings', () => {
+    render(<AtmosphericAudio />);
+    act(() => { setAudioChannel('master', { enabled: false }); });
+    expect(sceneMixEngine.setMuted).toHaveBeenLastCalledWith(true);
+    expect(sceneMixEngine.setLevel).toHaveBeenLastCalledWith(0);
+
+    act(() => { setAudioChannel('master', { enabled: true }); });
+    expect(sceneMixEngine.setMuted).toHaveBeenLastCalledWith(false);
+    const lastLevel = sceneMixEngine.setLevel.mock.calls.at(-1)?.[0] as number;
+    expect(lastLevel).toBeGreaterThan(0);
   });
 });

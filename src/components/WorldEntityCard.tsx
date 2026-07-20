@@ -2,30 +2,18 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { Play, Loader2, Volume2, VolumeX, User, Ghost, Swords, MapPin, Zap } from 'lucide-react';
 import { WorldCardEvent } from '../types';
-import { useAppStore } from '../store/useAppStore';
 import { resolveCardSound } from '../lib/audio/cardSoundCatalog';
 import { playCardSound, stopCardSound } from '../lib/audio/cardSoundPlayer';
+import { effectiveChannelVolume, isChannelAudible } from '../lib/audio/audioMixSettings';
 
 interface WorldEntityCardProps {
   card: WorldCardEvent;
 }
 
-// The reader's cue-volume + mute controls, shared with the atmosphere layer.
-const readCueVolume = () => {
-  if (typeof localStorage === 'undefined') return 0.5;
-  const saved = parseFloat(localStorage.getItem('seihouse-audio-volume') ?? '');
-  return Number.isFinite(saved) ? Math.max(0, Math.min(1, saved)) : 0.5;
-};
-
-const isCueAudioMuted = () =>
-  typeof localStorage !== 'undefined' &&
-  localStorage.getItem('seihouse-audio-muted') === 'true';
-
 export const WorldEntityCard: React.FC<WorldEntityCardProps> = React.memo(({ card }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [playbackFailed, setPlaybackFailed] = useState(false);
-  const immersionMaster = useAppStore((state) => state.immersion.master);
 
   const isSfxCard = card.audioType !== 'tts_line';
 
@@ -78,7 +66,9 @@ export const WorldEntityCard: React.FC<WorldEntityCardProps> = React.memo(({ car
       return;
     }
 
-    if (isCueAudioMuted() || !immersionMaster) {
+    // Entity sounds are Audio Cues: both the master switch and the Audio
+    // Cues switch (and their volumes) apply.
+    if (!isChannelAudible('cues')) {
       addToast('Audio is muted — unmute in immersion settings to hear this echo.', 'info');
       return;
     }
@@ -86,7 +76,7 @@ export const WorldEntityCard: React.FC<WorldEntityCardProps> = React.memo(({ car
     setIsLoading(true);
     try {
       // Repeated taps replay the same cached element for this asset id.
-      const element = await playCardSound(soundAsset, { volume: readCueVolume() });
+      const element = await playCardSound(soundAsset, { volume: effectiveChannelVolume('cues') });
       setIsLoading(false);
       setIsPlaying(true);
       element.onended = () => setIsPlaying(false);

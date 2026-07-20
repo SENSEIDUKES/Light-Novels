@@ -19,9 +19,7 @@ export interface UISlice {
   readerMode: 'teleprompter' | 'sen' | 'basic-tts';
   immersion: {
     master: boolean;
-    audioCues: boolean;
     imagePopups: boolean;
-    sceneMusic: boolean;
     autoScroll: boolean;
   };
   streamingChapter: StreamingChapter | null;
@@ -43,7 +41,7 @@ export interface UISlice {
   setIsVeilMinimized: (minimized: boolean) => void;
   setRoutingConfig: (config: MultiModelRouting) => void;
   setReaderMode: (mode: 'teleprompter' | 'sen' | 'basic-tts') => void;
-  setImmersion: (immersion: Partial<{ master: boolean; audioCues: boolean; imagePopups: boolean; sceneMusic: boolean; autoScroll: boolean }>) => void;
+  setImmersion: (immersion: Partial<{ master: boolean; imagePopups: boolean; autoScroll: boolean }>) => void;
   setStreamingChapter: (data: StreamingChapter | null) => void;
   setAutoPlayNarration: (autoPlay: boolean) => void;
 }
@@ -68,9 +66,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => (
   readerMode: 'teleprompter',
   immersion: {
     master: true,
-    audioCues: true,
     imagePopups: true,
-    sceneMusic: true,
     autoScroll: true,
   },
   streamingChapter: null,

@@ -7,7 +7,8 @@ import { collectBlockAutoCues } from "../lib/audio/autoCuePolicy";
 import { storyStorage } from "../lib/storage";
 import { buildSpeechChunks, estimateChunkDurationMs, SpeechChunk } from "../lib/voice/webSpeechCast";
 import { makeNarrationProgress, NarrationProgress } from "../lib/narration/progress";
-import { useAudioSettings } from "./audio/useAudioSettings";
+import { getAudioMixSettings } from "../lib/audio/audioMixSettings";
+import { useAudioMix } from "./audio/useAudioMix";
 import { useVoicePreferences } from "./audio/useVoicePreferences";
 
 export const extractSFXCues = (text: string) => {
@@ -54,14 +55,10 @@ export function useReaderPlayback({
   const [isPlayingText, setIsPlayingText] = useState(false);
   const [isPausedText, setIsPausedText] = useState(false);
 
-  const {
-    isMuted,
-    handleMuteToggle,
-    atmosphere,
-    handleAtmosphereChange,
-    volume,
-    handleVolumeChange,
-  } = useAudioSettings();
+  // Master Audio mutes voice-clip narration too (it mutes everything), but
+  // narration keeps its own level from the voice settings.
+  const { mix: audioMix } = useAudioMix();
+  const masterAudioOn = audioMix.master.enabled;
 
   const {
     speechRate,
@@ -160,9 +157,17 @@ export function useReaderPlayback({
       lastFiredParagraphIndexRef.current = blockIndex;
       const block = selectedChapterRef.current?.blocks?.[blockIndex];
       const { immersion } = useAppStore.getState();
-      
-      if (block && immersion.master) {
-        if (immersion.audioCues) {
+      const audioMix = getAudioMixSettings();
+      // Audio gating now lives in the Audio menu: cues fire when Master Audio
+      // and Audio Cues are on; metadata flows for image popups (still under
+      // the Immersion Engine) or for any audio consumer (music/atmosphere).
+      const cuesOn = audioMix.master.enabled && audioMix.cues.enabled;
+      const metadataConsumersOn =
+        (immersion.master && immersion.imagePopups) ||
+        (audioMix.master.enabled && (audioMix.music.enabled || audioMix.atmosphere.enabled));
+
+      if (block) {
+        if (cuesOn) {
           const chapterNumber = selectedChapterRef.current?.number ?? 0;
           const totalBlocks = selectedChapterRef.current?.blocks?.length ?? 0;
           const { sfxList } = extractSFXCues(block.text);
@@ -186,7 +191,7 @@ export function useReaderPlayback({
             });
           });
         }
-        if ((immersion.imagePopups || immersion.sceneMusic) && block.metadata) {
+        if (metadataConsumersOn && block.metadata) {
           dispatchNarrativeCue({
              id: block.id || `para-${selectedChapterRef.current?.number}-${blockIndex}`,
              type: "narrative.metadata.signature",
@@ -641,14 +646,14 @@ export function useReaderPlayback({
     if (!isPlayingText || isPausedText) return;
     if (activeAudioRef.current) {
       activeAudioRef.current.playbackRate = speechRate;
-      activeAudioRef.current.volume = isMuted ? 0 : speechVolume;
+      activeAudioRef.current.volume = masterAudioOn ? speechVolume : 0;
       return;
     }
     const timer = setTimeout(() => {
       speakChunk(currentChunkIndexRef.current);
     }, 450);
     return () => clearTimeout(timer);
-  }, [speechRate, speechPitch, selectedVoiceURI, selectedDialogueVoiceURI, selectedSideVoiceURI, speechVolume, isPlayingText, isPausedText, speakChunk, isMuted]);
+  }, [speechRate, speechPitch, selectedVoiceURI, selectedDialogueVoiceURI, selectedSideVoiceURI, speechVolume, isPlayingText, isPausedText, speakChunk, masterAudioOn]);
 
   return {
     isPlayingText,
@@ -664,9 +669,6 @@ export function useReaderPlayback({
     currentNarratedBlockIndex,
     activeChunks,
     currentChunkIndex,
-    isMuted, handleMuteToggle,
-    atmosphere, handleAtmosphereChange,
-    volume, handleVolumeChange,
     handleTogglePlayback,
     handleStopSpeaking,
   };

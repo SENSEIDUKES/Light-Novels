@@ -5,7 +5,7 @@ import { useReaderVisuals } from './useReaderVisuals';
 vi.mock('../store/useAppStore', () => ({
   useAppStore: vi.fn((selector) => {
     const mockState = {
-      immersion: { imagePopups: true, audioCues: true }
+      immersion: { imagePopups: true }
     };
     return selector(mockState);
   })

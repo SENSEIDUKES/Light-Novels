@@ -1,86 +1,214 @@
-import { useState, useEffect, useRef } from 'react';
-import { createSceneMixEngine, type SceneMixEngine } from '@seihouse/audio-player';
+import { useEffect, useRef } from 'react';
+import {
+  createSceneMixEngine,
+  createAudioSpriteEngine,
+  type SceneMixEngine,
+  type AudioSpriteEngine,
+  type AudioSpriteInstanceId,
+} from '@seihouse/audio-player';
 import { SceneScoreEngine, TRACK_LIBRARY } from '../../lib/audio/musicResolver';
 import { normalizeAutoCue } from '../../lib/audio/autoCuePolicy';
+import {
+  MUSIC_LEVEL_CAP,
+  effectiveChannelVolume,
+  getAudioMixSettings,
+} from '../../lib/audio/audioMixSettings';
+import { ensureProceduralAudioPack } from '../../lib/audio/proceduralAudioPack';
+import { useAudioMix } from './useAudioMix';
 import { useAppStore } from '../../store/useAppStore';
 import { vibrate } from '../../lib/vibration';
 
-// Scene-score BGM sits under the narration: it has its own volume control
-// (default 25%) hard-capped at 40%, independent of the synth master slider.
-// Narrative intensity can only duck the level below the user's setting.
-export const BGM_MAX_LEVEL = 0.4;
-export const BGM_DEFAULT_LEVEL = 0.25;
-
-const bgmLevelFor = (bgmVolume: number, intensity: number) =>
-  Math.max(0, Math.min(bgmVolume, BGM_MAX_LEVEL)) * intensity;
-
 type AtmosphereType = 'none' | 'wind' | 'rain' | 'ocean' | 'crowd' | 'combat';
 
+/** Haptic pattern for each one-shot cue, matching the old trigger functions. */
+const CUE_VIBRATIONS: Record<string, Parameters<typeof vibrate>[0]> = {
+  system_alert: 'softTap',
+  breakthrough: 'surge',
+  artifact_activation: 'chime',
+  beast_reveal: 'heavyTap',
+  fate_shift: 'shift',
+  major_impact: 'combatHit',
+};
 
+/**
+ * The reader's audio conductor. Every layer plays through the SEIHouse Audio
+ * Player (SAP):
+ *
+ *  - Scene-score music → SAP `SceneMixEngine` (two-deck equal-power fades).
+ *  - Atmosphere beds (rain, wind, …) and one-shot story cues → SAP
+ *    `AudioSpriteEngine` instances playing the procedurally rendered sprite
+ *    pack. One engine per channel so each keeps its own volume/mute.
+ *
+ * User levels come from the central audio mix (Master / Music / Atmosphere /
+ * Audio Cues). This hook only decides *what* plays; SAP owns *how*.
+ */
 export function useAtmosphericAudio() {
-
   const currentScreen = useAppStore(state => state.currentScreen);
-  const immersionMaster = useAppStore(state => state.immersion.master);
-  const sceneMusicEnabled = useAppStore(state => state.immersion.sceneMusic);
-  const [isMuted, setIsMuted] = useState(() => {
-    if (typeof localStorage === 'undefined') return false;
-    return localStorage.getItem('seihouse-audio-muted') === 'true';
-  });
-  const [atmosphere, setAtmosphere] = useState<AtmosphereType>(() => {
-    if (typeof localStorage === 'undefined') return 'none';
-    return (localStorage.getItem('seihouse-audio-atmosphere') as AtmosphereType) || 'none';
-  });
-  const [volume, setVolume] = useState(() => {
-    if (typeof localStorage === 'undefined') return 0.5;
-    const saved = localStorage.getItem('seihouse-audio-volume');
-    return saved ? parseFloat(saved) : 0.5;
-  });
+  const { mix } = useAudioMix();
 
-  // Scene-score controls: dedicated music volume (0..BGM_MAX_LEVEL) and an
-  // optional pinned track. 'auto' means the narrative cues pick the score.
-  const [bgmVolume, setBgmVolume] = useState(() => {
-    if (typeof localStorage === 'undefined') return BGM_DEFAULT_LEVEL;
-    const saved = localStorage.getItem('seihouse-bgm-volume');
-    const parsed = saved ? parseFloat(saved) : NaN;
-    return Number.isFinite(parsed) ? Math.max(0, Math.min(parsed, BGM_MAX_LEVEL)) : BGM_DEFAULT_LEVEL;
-  });
-  const [bgmTrackId, setBgmTrackId] = useState(() => {
-    if (typeof localStorage === 'undefined') return 'auto';
-    const saved = localStorage.getItem('seihouse-bgm-track') || 'auto';
-    // A stale id (e.g. a track later removed from the library) falls back
-    // to auto so the narrative cues aren't gated off by a dead pin.
-    return saved === 'auto' || TRACK_LIBRARY.some(t => t.id === saved) ? saved : 'auto';
-  });
+  // Which bed is playing is narrative-driven state, not a user setting: cues
+  // pick rain/wind/… from chapter metadata. Persisted so a reload resumes
+  // the same bed.
+  const atmosphereRef = useRef<AtmosphereType>(
+    typeof localStorage !== 'undefined'
+      ? ((localStorage.getItem('seihouse-audio-atmosphere') as AtmosphereType) || 'none')
+      : 'none',
+  );
 
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const activeSourcesRef = useRef<AudioScheduledSourceNode[]>([]);
-  const activeIntervalsRef = useRef<NodeJS.Timeout[]>([]);
-  const masterGainRef = useRef<GainNode | null>(null);
+  const bgmTrackIdRef = useRef<string>(
+    (() => {
+      if (typeof localStorage === 'undefined') return 'auto';
+      const saved = localStorage.getItem('seihouse-bgm-track') || 'auto';
+      // A stale id (e.g. a track later removed from the library) falls back
+      // to auto so the narrative cues aren't gated off by a dead pin.
+      return saved === 'auto' || TRACK_LIBRARY.some(t => t.id === saved) ? saved : 'auto';
+    })(),
+  );
 
-  // BGM: the SEIHouse Audio Player scene-mix engine owns the decks and the
-  // equal-power crossfades; this component only tells it what to play.
+  // BGM: the SAP scene-mix engine owns the decks and the equal-power
+  // crossfades; this hook only tells it what to play.
   const sceneMixRef = useRef<SceneMixEngine | null>(null);
   const scoreEngineRef = useRef(new SceneScoreEngine());
   const bgmIntensityRef = useRef<number>(1.0);
-  const bgmVolumeRef = useRef(bgmVolume);
-  const bgmTrackIdRef = useRef(bgmTrackId);
   const lastChapterCueIdRef = useRef<string | null>(null);
   // Current chapter's environment/theme tags, kept so switching the score
   // back to 'auto' can restore the chapter-appropriate bed.
   const chapterTagsRef = useRef<string[]>([]);
 
-  useEffect(() => { bgmVolumeRef.current = bgmVolume; }, [bgmVolume]);
-  useEffect(() => { bgmTrackIdRef.current = bgmTrackId; }, [bgmTrackId]);
+  // Atmosphere + cue playback: SAP sprite engines over the rendered pack.
+  const atmoEngineRef = useRef<AudioSpriteEngine | null>(null);
+  const cueEngineRef = useRef<AudioSpriteEngine | null>(null);
+  const atmoLoopRef = useRef<{ id: AudioSpriteInstanceId; clip: AtmosphereType } | null>(null);
+  const combatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Monotonic token so overlapping syncAtmosphere calls (pack still loading)
+  // can't each start a bed — only the newest call proceeds after its await.
+  const atmoSyncTokenRef = useRef(0);
 
+  const currentScreenRef = useRef(currentScreen);
+  useEffect(() => { currentScreenRef.current = currentScreen; }, [currentScreen]);
+
+  const musicLevel = () =>
+    effectiveChannelVolume('music') * MUSIC_LEVEL_CAP * bgmIntensityRef.current;
+
+  const musicAllowed = () =>
+    currentScreenRef.current === 'reader' && effectiveChannelVolume('music') > 0;
+
+  const cuesAllowed = () =>
+    currentScreenRef.current === 'reader' && effectiveChannelVolume('cues') > 0;
+
+  const syncBgmVolumes = () => {
+    const engine = sceneMixRef.current;
+    if (!engine) return;
+    const muted = !musicAllowed();
+    engine.setMuted(muted);
+    engine.setLevel(muted ? 0 : musicLevel());
+  };
+
+  const ensureSpriteEngine = async (
+    ref: React.MutableRefObject<AudioSpriteEngine | null>,
+  ): Promise<AudioSpriteEngine | null> => {
+    try {
+      if (!ref.current) {
+        ref.current = createAudioSpriteEngine();
+        const manifest = await ensureProceduralAudioPack();
+        await ref.current.load(manifest);
+      } else {
+        await ref.current.ready();
+      }
+      return ref.current;
+    } catch (err) {
+      console.warn('SAP sprite pack unavailable (audio disabled):', err);
+      return null;
+    }
+  };
+
+  const stopAtmosphereLoop = () => {
+    if (combatIntervalRef.current) {
+      clearInterval(combatIntervalRef.current);
+      combatIntervalRef.current = null;
+    }
+    if (atmoLoopRef.current && atmoEngineRef.current) {
+      atmoEngineRef.current.fadeOut(atmoLoopRef.current.id, 400);
+    }
+    atmoLoopRef.current = null;
+  };
+
+  /**
+   * Reconcile the atmosphere layer with the selected bed and the current mix.
+   * Level changes retarget the running loop; bed changes crossfade via the
+   * sprite engine; muted/off states release everything.
+   */
+  const syncAtmosphere = async () => {
+    const token = ++atmoSyncTokenRef.current;
+    const atmosphere = atmosphereRef.current;
+    const level = effectiveChannelVolume('atmosphere');
+    const audible = currentScreenRef.current === 'reader' && atmosphere !== 'none' && level > 0;
+
+    if (!audible) {
+      stopAtmosphereLoop();
+      return;
+    }
+
+    const engine = await ensureSpriteEngine(atmoEngineRef);
+    if (!engine) return;
+
+    // Re-check after the async load — a newer sync call, a bed change or a
+    // mix change may have superseded this one.
+    if (token !== atmoSyncTokenRef.current
+      || atmosphereRef.current !== atmosphere
+      || effectiveChannelVolume('atmosphere') <= 0
+      || currentScreenRef.current !== 'reader') return;
+
+    engine.setMasterVolume(level);
+
+    if (atmoLoopRef.current?.clip !== atmosphere) {
+      stopAtmosphereLoop();
+      const id = engine.play(atmosphere, { loop: true });
+      atmoLoopRef.current = id ? { id, clip: atmosphere } : null;
+
+      // Combat keeps its randomized percussion hits on top of the bed.
+      if (atmosphere === 'combat' && atmoLoopRef.current) {
+        combatIntervalRef.current = setInterval(() => {
+          if (Math.random() > 0.6) {
+            atmoEngineRef.current?.play('major_impact');
+          }
+        }, 2500);
+      }
+    }
+  };
+
+  const setAtmosphere = (next: AtmosphereType) => {
+    if (atmosphereRef.current === next) return;
+    atmosphereRef.current = next;
+    try {
+      localStorage.setItem('seihouse-audio-atmosphere', next);
+    } catch {}
+    window.dispatchEvent(new CustomEvent('seihouse-audio-state', {
+      detail: { atmosphere: next, bgmTrackId: bgmTrackIdRef.current },
+    }));
+    void syncAtmosphere();
+  };
+
+  const playCue = async (fxType: string) => {
+    if (!cuesAllowed()) return;
+    const pattern = CUE_VIBRATIONS[fxType];
+    if (pattern) vibrate(pattern);
+    const engine = await ensureSpriteEngine(cueEngineRef);
+    if (!engine || !cuesAllowed()) return;
+    engine.setMasterVolume(effectiveChannelVolume('cues'));
+    engine.play(fxType);
+  };
+
+  // Engine lifecycle: one scene mix + (lazily) two sprite engines per mount.
   useEffect(() => {
     if (!sceneMixRef.current) {
-      const mix = createSceneMixEngine({ loop: true });
-      // Apply the saved volume/mute state before anything can play, so the
+      const engine = createSceneMixEngine({ loop: true });
+      // Apply the saved level/mute state before anything can play, so the
       // first crossfade never bursts in at the engine's default level.
-      const isActuallyMuted = isMuted || currentScreen !== 'reader' || !immersionMaster || !sceneMusicEnabled;
-      mix.setMuted(isActuallyMuted);
-      mix.setLevel(isActuallyMuted ? 0 : bgmLevelFor(bgmVolumeRef.current, bgmIntensityRef.current));
-      sceneMixRef.current = mix;
+      const muted = !musicAllowed();
+      engine.setMuted(muted);
+      engine.setLevel(muted ? 0 : musicLevel());
+      sceneMixRef.current = engine;
 
       // Restore a persisted pin after reload: the cue paths are gated off
       // while a track is pinned, so without this the scene stays silent
@@ -88,7 +216,7 @@ export function useAtmosphericAudio() {
       if (bgmTrackIdRef.current !== 'auto') {
         const savedTrack = TRACK_LIBRARY.find(t => t.id === bgmTrackIdRef.current);
         if (savedTrack && savedTrack.url) {
-          mix.crossfadeTo({
+          engine.crossfadeTo({
             id: savedTrack.id,
             title: savedTrack.id,
             artist: 'SEIHouse',
@@ -100,99 +228,66 @@ export function useAtmosphericAudio() {
     return () => {
       sceneMixRef.current?.dispose();
       sceneMixRef.current = null;
+      stopAtmosphereLoop();
+      atmoEngineRef.current?.dispose();
+      atmoEngineRef.current = null;
+      cueEngineRef.current?.dispose();
+      cueEngineRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const syncBgmVolumes = () => {
-    const mix = sceneMixRef.current;
-    if (!mix) return;
-    // Scene Harmonics (immersion.sceneMusic) is the user's on/off switch
-    // for the score tracks; when it's off the BGM decks stay silent.
-    // Read the toggles from the store so calls from long-lived event
-    // listeners never act on stale closure values.
-    const { master, sceneMusic } = useAppStore.getState().immersion;
-    const isActuallyMuted = isMuted || currentScreen !== 'reader' || !master || !sceneMusic;
-    mix.setMuted(isActuallyMuted);
-    mix.setLevel(isActuallyMuted ? 0 : bgmLevelFor(bgmVolumeRef.current, bgmIntensityRef.current));
-  };
-
-  // Sync state changes with localStorage and dispatch state event to UI
+  // Re-level every SAP layer whenever the user mix or the screen changes.
+  // Master off collapses all effective levels to 0 without touching the
+  // stored per-channel settings, so unmuting restores the exact same mix.
   useEffect(() => {
-    localStorage.setItem('seihouse-audio-muted', String(isMuted));
-    localStorage.setItem('seihouse-audio-atmosphere', atmosphere);
-    localStorage.setItem('seihouse-audio-volume', String(volume));
-    localStorage.setItem('seihouse-bgm-volume', String(bgmVolume));
-    localStorage.setItem('seihouse-bgm-track', bgmTrackId);
-
     syncBgmVolumes();
-
-    // Dispatch the state update event to other listening components (like ReaderChamber preferences tab)
-    window.dispatchEvent(new CustomEvent('seihouse-audio-state', {
-      detail: { isMuted, atmosphere, volume, bgmVolume, bgmTrackId }
-    }));
+    cueEngineRef.current?.setMasterVolume(effectiveChannelVolume('cues', mix));
+    void syncAtmosphere();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMuted, atmosphere, volume, bgmVolume, bgmTrackId, currentScreen, immersionMaster, sceneMusicEnabled]);
+  }, [mix, currentScreen]);
 
-  // Handle incoming control events from UI
+  // Control events from the Audio menu (track pin) and any legacy callers.
   useEffect(() => {
     const handleControl = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      if (customEvent.detail) {
-        if (typeof customEvent.detail.isMuted === 'boolean') {
-          setIsMuted(customEvent.detail.isMuted);
-          if (!customEvent.detail.isMuted) {
-            try {
-              // Try to initialize/resume the AudioContext synchronously during user interaction
-              // This is crucial for Safari and mobile browsers
-              const ctx = initAudioCtx();
-              if (ctx.state === 'suspended') {
-                 ctx.resume().catch(console.warn);
-              }
-            } catch {}
-          }
-        }
-        if (customEvent.detail.atmosphere) {
-          setAtmosphere(customEvent.detail.atmosphere as AtmosphereType);
-        }
-        if (typeof customEvent.detail.volume === 'number') {
-          setVolume(customEvent.detail.volume);
-        }
-        if (typeof customEvent.detail.bgmVolume === 'number') {
-          const clamped = Math.max(0, Math.min(customEvent.detail.bgmVolume, BGM_MAX_LEVEL));
-          bgmVolumeRef.current = clamped;
-          setBgmVolume(clamped);
-        }
-        if (typeof customEvent.detail.bgmTrackId === 'string') {
-          const requestedId = customEvent.detail.bgmTrackId;
-          bgmTrackIdRef.current = requestedId;
-          setBgmTrackId(requestedId);
-          // This runs synchronously inside the user's click, which doubles
-          // as the gesture browsers require before audio may start.
-          if (sceneMixRef.current) {
-            if (requestedId === 'auto') {
-              // Hand control back to the narrative: restart the calm bed
-              // (matched to the current chapter's tags) so the next cue can
-              // take over from a known state.
-              const bedTrack = scoreEngineRef.current.resolveChapterDefault(chapterTagsRef.current);
-              if (bedTrack && bedTrack.url) {
-                sceneMixRef.current.crossfadeTo({
-                  id: bedTrack.id,
-                  title: bedTrack.id,
-                  artist: 'SEIHouse',
-                  audioFile: bedTrack.url,
-                });
-              }
-            } else {
-              const track = TRACK_LIBRARY.find(t => t.id === requestedId);
-              if (track && track.url) {
-                sceneMixRef.current.crossfadeTo({
-                  id: track.id,
-                  title: track.id,
-                  artist: 'SEIHouse',
-                  audioFile: track.url,
-                });
-              }
+      const detail = (e as CustomEvent).detail;
+      if (!detail) return;
+      if (detail.atmosphere) {
+        setAtmosphere(detail.atmosphere as AtmosphereType);
+      }
+      if (typeof detail.bgmTrackId === 'string') {
+        const requestedId = detail.bgmTrackId;
+        bgmTrackIdRef.current = requestedId;
+        try {
+          localStorage.setItem('seihouse-bgm-track', requestedId);
+        } catch {}
+        window.dispatchEvent(new CustomEvent('seihouse-audio-state', {
+          detail: { atmosphere: atmosphereRef.current, bgmTrackId: requestedId },
+        }));
+        // This runs synchronously inside the user's click, which doubles
+        // as the gesture browsers require before audio may start.
+        if (sceneMixRef.current) {
+          if (requestedId === 'auto') {
+            // Hand control back to the narrative: restart the calm bed
+            // (matched to the current chapter's tags) so the next cue can
+            // take over from a known state.
+            const bedTrack = scoreEngineRef.current.resolveChapterDefault(chapterTagsRef.current);
+            if (bedTrack && bedTrack.url) {
+              sceneMixRef.current.crossfadeTo({
+                id: bedTrack.id,
+                title: bedTrack.id,
+                artist: 'SEIHouse',
+                audioFile: bedTrack.url,
+              });
+            }
+          } else {
+            const track = TRACK_LIBRARY.find(t => t.id === requestedId);
+            if (track && track.url) {
+              sceneMixRef.current.crossfadeTo({
+                id: track.id,
+                title: track.id,
+                artist: 'SEIHouse',
+                audioFile: track.url,
+              });
             }
           }
         }
@@ -200,418 +295,20 @@ export function useAtmosphericAudio() {
     };
     window.addEventListener('seihouse-audio-control', handleControl);
     return () => window.removeEventListener('seihouse-audio-control', handleControl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const getDestination = (ctx: AudioContext) => {
-    if (!masterGainRef.current) {
-      masterGainRef.current = ctx.createGain();
-      masterGainRef.current.connect(ctx.destination);
-    }
-    return masterGainRef.current;
-  };
-
-  // Keep master gain synced with user volume slider
+  // Narrative cue routing: metadata drives the continuous layers (score +
+  // atmosphere bed), narrative.fx.play drives budgeted one-shots.
   useEffect(() => {
-    if (audioCtxRef.current && masterGainRef.current) {
-      const targetGain = (isMuted || currentScreen !== 'reader') ? 0 : volume;
-      masterGainRef.current.gain.setTargetAtTime(targetGain, audioCtxRef.current.currentTime, 0.1);
-    }
-  }, [volume, isMuted, currentScreen]);
-
-  // Main background synthesizer loop
-  useEffect(() => {
-    // If user has muted, or if atmosphere is set to none, stop sound synthesis
-    if (isMuted || atmosphere === 'none' || currentScreen !== 'reader') {
-      stopAll();
-      return;
-    }
-
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-    const ctx = audioCtxRef.current;
-
-    // Ensure master gain acts immediately when resuming
-    if (!masterGainRef.current) {
-      getDestination(ctx);
-    }
-    if (masterGainRef.current) {
-       masterGainRef.current.gain.value = volume;
-    }
-
-    if (ctx.state === 'suspended') {
-      ctx.resume();
-    }
-
-    stopAll();
-
-    if (atmosphere === 'wind') {
-      playWind(ctx);
-    } else if (atmosphere === 'rain') {
-      playRain(ctx);
-    } else if (atmosphere === 'ocean') {
-      playOceanWaves(ctx);
-    } else if (atmosphere === 'crowd') {
-      playCrowd(ctx);
-    } else if (atmosphere === 'combat') {
-      playCombatAmbience(ctx);
-    }
-
-    return () => {
-      stopAll();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMuted, atmosphere, currentScreen]);
-
-  function stopAll() {
-    activeSourcesRef.current.forEach(source => {
+    const handleCue = (e: Event) => {
       try {
-        source.stop();
-        source.disconnect();
-      } catch {}
-    });
-    activeSourcesRef.current = [];
-
-    activeIntervalsRef.current.forEach(interval => clearInterval(interval));
-    activeIntervalsRef.current = [];
-  };
-
-  const registerSource = (source: AudioScheduledSourceNode) => {
-    activeSourcesRef.current.push(source);
-  };
-
-  const registerInterval = (interval: NodeJS.Timeout) => {
-    activeIntervalsRef.current.push(interval);
-  };
-
-  const createNoiseBuffer = (ctx: AudioContext, _type: 'white' | 'pink') => {
-    const bufferSize = ctx.sampleRate * 2; // 2 seconds
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const output = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-        output[i] = Math.random() * 2 - 1;
-    }
-    return buffer;
-  };
-
-  function playWind(ctx: AudioContext) {
-    const buffer = createNoiseBuffer(ctx, 'white');
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 400;
-
-    // Modulate filter frequency to simulate wind howling
-    const lfo = ctx.createOscillator();
-    lfo.type = 'sine';
-    lfo.frequency.value = 0.1; // Slow variation
-
-    const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 300;
-
-    lfo.connect(lfoGain);
-    lfoGain.connect(filter.frequency);
-    lfo.start();
-
-    const masterGain = ctx.createGain();
-    masterGain.gain.value = 0.3; // Wind is soft
-
-    source.connect(filter);
-    filter.connect(masterGain);
-    masterGain.connect(getDestination(ctx));
-
-    source.start();
-    registerSource(source);
-    registerSource(lfo);
-  };
-
-  function playRain(ctx: AudioContext) {
-    const buffer = createNoiseBuffer(ctx, 'pink');
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 1200;
-
-    const masterGain = ctx.createGain();
-    masterGain.gain.value = 0.4;
-
-    source.connect(filter);
-    filter.connect(masterGain);
-    masterGain.connect(getDestination(ctx));
-
-    source.start();
-    registerSource(source);
-  };
-
-  function playCrowd(ctx: AudioContext) {
-    const buffer = createNoiseBuffer(ctx, 'pink');
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.value = 500;
-    filter.Q.value = 0.5;
-
-    const lfo = ctx.createOscillator();
-    lfo.type = 'sine';
-    lfo.frequency.value = 1.5;
-
-    const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 100;
-    lfo.connect(lfoGain);
-    lfoGain.connect(filter.frequency);
-    lfo.start();
-
-    const masterGain = ctx.createGain();
-    masterGain.gain.value = 0.2;
-
-    source.connect(filter);
-    filter.connect(masterGain);
-    masterGain.connect(getDestination(ctx));
-
-    source.start();
-    registerSource(source);
-    registerSource(lfo);
-  };
-
-  function playCombatAmbience(ctx: AudioContext) {
-    const buffer = createNoiseBuffer(ctx, 'pink');
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 300;
-
-    const masterGain = ctx.createGain();
-    masterGain.gain.value = 0.2;
-
-    source.connect(filter);
-    filter.connect(masterGain);
-    masterGain.connect(getDestination(ctx));
-
-    source.start();
-    registerSource(source);
-
-    const intv = setInterval(() => {
-      if (Math.random() > 0.6) {
-        triggerCombatHit(ctx);
-      }
-    }, 2500);
-    registerInterval(intv);
-  };
-
-  function playOceanWaves(ctx: AudioContext) {
-    const buffer = createNoiseBuffer(ctx, 'pink');
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 400;
-
-    // Wave crashing simulation
-    const lfo = ctx.createOscillator();
-    lfo.type = 'sine';
-    lfo.frequency.value = 0.08; // Slow ocean roll
-
-    const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 600;
-
-    lfo.connect(lfoGain);
-    lfoGain.connect(filter.frequency);
-    lfo.start();
-
-    // Volume swells
-    const volLfo = ctx.createOscillator();
-    volLfo.type = 'sine';
-    volLfo.frequency.value = 0.08;
-
-    const volLfoGain = ctx.createGain();
-    volLfoGain.gain.value = 0.2;
-
-    const masterGain = ctx.createGain();
-    masterGain.gain.value = 0.25;
-
-    volLfo.connect(volLfoGain);
-    volLfoGain.connect(masterGain.gain);
-    volLfo.start();
-
-    source.connect(filter);
-    filter.connect(masterGain);
-    masterGain.connect(getDestination(ctx));
-
-    source.start();
-    registerSource(source);
-    registerSource(lfo);
-    registerSource(volLfo);
-  };
-
-  const triggerChime = (ctx: AudioContext) => {
-    vibrate('chime');
-    const osc = ctx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(880, ctx.currentTime);
-
-    const gainNode = ctx.createGain();
-    gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.05);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5);
-
-    osc.connect(gainNode);
-    gainNode.connect(getDestination(ctx));
-
-    osc.start();
-    osc.stop(ctx.currentTime + 1.5);
-  };
-
-  const triggerSystemAlert = (ctx: AudioContext) => {
-    vibrate('softTap');
-    const osc = ctx.createOscillator();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(800, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
-
-    const gainNode = ctx.createGain();
-    gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.05);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-
-    osc.connect(gainNode);
-    gainNode.connect(getDestination(ctx));
-
-    osc.start();
-    osc.stop(ctx.currentTime + 0.5);
-  };
-
-  const triggerCombatHit = (ctx: AudioContext) => {
-    vibrate('combatHit');
-    const osc = ctx.createOscillator();
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(300, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.3);
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.value = 1000;
-
-    const gainNode = ctx.createGain();
-    gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.02);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-
-    osc.connect(filter);
-    filter.connect(gainNode);
-    gainNode.connect(getDestination(ctx));
-
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.3);
-  };
-
-  const triggerQiSurge = (ctx: AudioContext) => {
-    vibrate('surge');
-    const osc = ctx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(50, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 1.5);
-
-    const gainNode = ctx.createGain();
-    gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(0.6, ctx.currentTime + 1.0);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5);
-
-    osc.connect(gainNode);
-    gainNode.connect(getDestination(ctx));
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 1.5);
-  };
-
-  const triggerMajorHit = (ctx: AudioContext) => {
-    vibrate('heavyTap');
-    const osc = ctx.createOscillator();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(100, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(20, ctx.currentTime + 0.5);
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(400, ctx.currentTime);
-    filter.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.5);
-
-    const gainNode = ctx.createGain();
-    gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(0.8, ctx.currentTime + 0.01);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-
-    osc.connect(filter);
-    filter.connect(gainNode);
-    gainNode.connect(getDestination(ctx));
-
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.5);
-  };
-
-  const triggerFateShift = (ctx: AudioContext) => {
-    vibrate('shift');
-    const osc = ctx.createOscillator();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(800, ctx.currentTime);
-    osc.frequency.linearRampToValueAtTime(750, ctx.currentTime + 2.0);
-
-    const lfo = ctx.createOscillator();
-    lfo.type = 'sine';
-    lfo.frequency.value = 8; // fast wobble
-    const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 50;
-    lfo.connect(lfoGain);
-    lfoGain.connect(osc.frequency);
-
-    const gainNode = ctx.createGain();
-    gainNode.gain.setValueAtTime(0, ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 1.0);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 2.0);
-
-    osc.connect(gainNode);
-    gainNode.connect(getDestination(ctx));
-
-    try {
-      lfo.start(ctx.currentTime);
-      osc.start(ctx.currentTime);
-      lfo.stop(ctx.currentTime + 2.0);
-      osc.stop(ctx.currentTime + 2.0);
-    } catch (e) {
-      console.error("Audio API warning on fate shift", e);
-    }
-  };
-
-  function initAudioCtx() {
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-    if (audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume();
-    }
-    return audioCtxRef.current;
-  };
-
-  // Listen to narrative scale triggers and adjust atmosphere/volume dynamically
-  useEffect(() => {
-    const handleCue = (e: any) => {
-      try {
-        // If manually muted by user, or not in reader, absolutely do not play or change state!
-        if (isMuted || currentScreen !== 'reader') return;
-
-        const cue = e.detail;
+        // With master audio off, or outside the reader, neither play nor
+        // change any audio state.
+        if (!getAudioMixSettings().master.enabled) return;
+        if (currentScreenRef.current !== 'reader') return;
+
+        const cue = (e as CustomEvent).detail;
 
         if (cue.type === 'narrative.metadata.signature') {
           // Metadata signatures feed the CONTINUOUS systems only — scene-score
@@ -622,43 +319,42 @@ export function useAtmosphericAudio() {
           const meta = cue.metadata || cue.value;
 
           if (meta) {
-             const { master, sceneMusic } = useAppStore.getState().immersion;
-             // A manually pinned track always wins over narrative cues.
-             if (meta.music && master && sceneMusic && bgmTrackIdRef.current === 'auto') {
-               const newTrack = scoreEngineRef.current.evaluateSceneContext(
-                 meta.music,
-                 meta.environment || [],
-                 { danger: meta.danger, tension: meta.tension, intensity: meta.intensity }
-               );
-               if (newTrack && newTrack.url && sceneMixRef.current) {
-                 // The engine no-ops on the already-active track, parks the
-                 // incoming deck past leading silence, and runs an
-                 // equal-power crossfade between the scores.
-                 sceneMixRef.current.crossfadeTo({
-                   id: newTrack.id,
-                   title: newTrack.id,
-                   artist: 'SEIHouse',
-                   audioFile: newTrack.url,
-                 });
-               }
-             }
+            // A manually pinned track always wins over narrative cues.
+            if (meta.music && musicAllowed() && bgmTrackIdRef.current === 'auto') {
+              const newTrack = scoreEngineRef.current.evaluateSceneContext(
+                meta.music,
+                meta.environment || [],
+                { danger: meta.danger, tension: meta.tension, intensity: meta.intensity },
+              );
+              if (newTrack && newTrack.url && sceneMixRef.current) {
+                // The engine no-ops on the already-active track, parks the
+                // incoming deck past leading silence, and runs an
+                // equal-power crossfade between the scores.
+                sceneMixRef.current.crossfadeTo({
+                  id: newTrack.id,
+                  title: newTrack.id,
+                  artist: 'SEIHouse',
+                  audioFile: newTrack.url,
+                });
+              }
+            }
 
-             if (typeof meta.intensity === 'number') {
-               bgmIntensityRef.current = Math.max(0.1, Math.min(1.0, meta.intensity));
-               syncBgmVolumes();
-             }
+            if (typeof meta.intensity === 'number') {
+              bgmIntensityRef.current = Math.max(0.1, Math.min(1.0, meta.intensity));
+              syncBgmVolumes();
+            }
 
-             if (meta.environment?.includes('rain') || meta.sceneType === 'travel') {
-               setAtmosphere('rain');
-             } else if (meta.environment?.includes('ocean') || meta.environment?.includes('sea') || meta.environment?.includes('water')) {
-               setAtmosphere('ocean');
-             } else if (meta.mysticism && meta.mysticism > 0.5) {
-               setAtmosphere('wind');
-             } else if (meta.danger && meta.danger > 0.5) {
-               setAtmosphere('wind');
-             } else if (meta.environment?.includes('mountain')) {
-               setAtmosphere('wind');
-             }
+            if (meta.environment?.includes('rain') || meta.sceneType === 'travel') {
+              setAtmosphere('rain');
+            } else if (meta.environment?.includes('ocean') || meta.environment?.includes('sea') || meta.environment?.includes('water')) {
+              setAtmosphere('ocean');
+            } else if (meta.mysticism && meta.mysticism > 0.5) {
+              setAtmosphere('wind');
+            } else if (meta.danger && meta.danger > 0.5) {
+              setAtmosphere('wind');
+            } else if (meta.environment?.includes('mountain')) {
+              setAtmosphere('wind');
+            }
           }
         } else if (cue.type === 'narrative.chapter.enter') {
           // The header re-fires this cue whenever the observer re-attaches
@@ -685,8 +381,7 @@ export function useAtmosphericAudio() {
           // chapters without a cue payload so there is always a bed.
           chapterTagsRef.current = [meta?.environment, meta?.theme].flat().filter(Boolean);
 
-          const { master, sceneMusic } = useAppStore.getState().immersion;
-          if (master && sceneMusic && bgmTrackIdRef.current === 'auto') {
+          if (musicAllowed() && bgmTrackIdRef.current === 'auto') {
             const bedTrack = scoreEngineRef.current.resolveChapterDefault(chapterTagsRef.current);
             if (bedTrack && bedTrack.url && sceneMixRef.current) {
               sceneMixRef.current.crossfadeTo({
@@ -699,7 +394,6 @@ export function useAtmosphericAudio() {
           }
 
           if (meta) {
-
             if (typeof meta.intensity === 'number') {
               bgmIntensityRef.current = Math.max(0.2, Math.min(1.0, meta.intensity));
               syncBgmVolumes();
@@ -724,38 +418,24 @@ export function useAtmosphericAudio() {
             }
           }
         } else if (cue.type === 'narrative.fx.play') {
-            // Final gate: even a cue that slipped past the dispatch sites is
-            // re-validated here. Footsteps / territory Foley / broad
-            // environment tags normalize to null and play nothing — suppress,
-            // never guess. The AudioContext is created only for a cue that
-            // will actually sound.
-            const fxType = normalizeAutoCue(typeof cue.value === 'string' ? cue.value : '');
-            if (!fxType) return;
-            const ctx = initAudioCtx();
-            if (fxType === 'system_alert') {
-                triggerSystemAlert(ctx);
-            } else if (fxType === 'breakthrough') {
-                triggerQiSurge(ctx);
-            } else if (fxType === 'artifact_activation') {
-                triggerChime(ctx);
-            } else if (fxType === 'beast_reveal') {
-                triggerMajorHit(ctx);
-            } else if (fxType === 'fate_shift') {
-                triggerFateShift(ctx);
-            } else if (fxType === 'major_impact') {
-                triggerCombatHit(ctx);
-            }
+          // Final gate: even a cue that slipped past the dispatch sites is
+          // re-validated here. Footsteps / territory Foley / broad
+          // environment tags normalize to null and play nothing — suppress,
+          // never guess. The sprite engine is touched only for a cue that
+          // will actually sound.
+          const fxType = normalizeAutoCue(typeof cue.value === 'string' ? cue.value : '');
+          if (!fxType) return;
+          void playCue(fxType);
         }
       } catch (err) {
-        console.warn("Audio system error during cue handling (safely caught):", err);
+        console.warn('Audio system error during cue handling (safely caught):', err);
       }
     };
 
     window.addEventListener('narrative-cue', handleCue);
     return () => window.removeEventListener('narrative-cue', handleCue);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMuted, currentScreen]); // Observe changes to Mute preference directly
+  }, []);
 
-  // Headless rendering to prevent blocking menu options
-
+  // Headless: renders nothing, so it can never block menu options.
 }
