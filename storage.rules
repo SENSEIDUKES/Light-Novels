@@ -33,7 +33,8 @@ service firebase.storage {
         && hasValidPortraitFileName(fileName)
         && request.resource.size > 0
         && request.resource.size <= 10 * 1024 * 1024
-        && hasMatchingPortraitContentType(fileName);
+        && hasMatchingPortraitContentType(fileName)
+        && resource == null;
 
       allow delete: if isPortraitOwner(userId)
         && hasValidPortraitFileName(fileName);
