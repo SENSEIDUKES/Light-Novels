@@ -1,5 +1,3 @@
-export type ManifestationEntityType = 'character' | 'faction' | 'artifact' | 'location';
-
 export type NarrativeWeight = 'central' | 'major' | 'supporting' | 'minor';
 
 /**
@@ -18,10 +16,13 @@ export interface ManifestationImportance {
   futureRelevance?: boolean;
 }
 
-type ManifestationCandidate = {
+export interface ManifestationCandidate {
   imageUrl?: string;
   manifestationImportance?: ManifestationImportance;
-};
+}
+
+const MIN_SIGNALS_FOR_MAJOR_ENTITY = 2;
+const MIN_SIGNALS_FOR_SUPPORTING_ENTITY = 4;
 
 const relevanceSignals = (importance: ManifestationImportance) => [
   importance.recurrence,
@@ -40,7 +41,6 @@ const relevanceSignals = (importance: ManifestationImportance) => [
  */
 export const isManifestationEligible = (
   entry: ManifestationCandidate | null | undefined,
-  _type?: ManifestationEntityType,
 ): boolean => {
   if (!entry) return false;
   if (entry.imageUrl) return true;
@@ -53,7 +53,7 @@ export const isManifestationEligible = (
   const signals = relevanceSignals(importance);
   return (
     (importance.narrativeWeight === 'central' || importance.narrativeWeight === 'major')
-      ? signals >= 2
-      : importance.narrativeWeight === 'supporting' && signals >= 4
+      ? signals >= MIN_SIGNALS_FOR_MAJOR_ENTITY
+      : importance.narrativeWeight === 'supporting' && signals >= MIN_SIGNALS_FOR_SUPPORTING_ENTITY
   );
 };

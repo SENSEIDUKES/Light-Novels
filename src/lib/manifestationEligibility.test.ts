@@ -5,10 +5,10 @@ describe('isManifestationEligible', () => {
   it('rejects incidental named props and one-scene locations', () => {
     expect(isManifestationEligible({
       manifestationImportance: { narrativeWeight: 'minor', namedStatus: true, ownership: true },
-    }, 'artifact')).toBe(false);
+    })).toBe(false);
     expect(isManifestationEligible({
       manifestationImportance: { narrativeWeight: 'supporting', namedStatus: true, recurrence: true },
-    }, 'location')).toBe(false);
+    })).toBe(false);
   });
 
   it('admits only strong, durable story entities', () => {
@@ -17,10 +17,10 @@ describe('isManifestationEligible', () => {
         narrativeWeight: 'major', namedStatus: true, recurrence: true,
         plotRelevance: true, futureRelevance: true,
       },
-    }, 'character')).toBe(true);
+    })).toBe(true);
   });
 
   it('keeps an already manifested entry visible regardless of legacy metadata', () => {
-    expect(isManifestationEligible({ imageUrl: 'https://example.com/existing.png' }, 'artifact')).toBe(true);
+    expect(isManifestationEligible({ imageUrl: 'https://example.com/existing.png' })).toBe(true);
   });
 });

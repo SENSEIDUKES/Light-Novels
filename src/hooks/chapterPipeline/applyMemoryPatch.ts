@@ -3,7 +3,7 @@ import { Ability, Story, StoryMemory } from '../../types';
 import { runMemoryLinter } from '../storyEngineHelpers';
 import { resolveEntity } from '../../lib/entityResolver';
 import { stripAuthorControlledCodexFields } from '../../lib/codexContext';
-import { isManifestationEligible, type ManifestationEntityType } from '../../lib/manifestationEligibility';
+import { isManifestationEligible, type ManifestationCandidate } from '../../lib/manifestationEligibility';
 
 const stripGeneratedAbilityContext = (ability: any) => {
   if (!ability || typeof ability !== 'object') return ability;
@@ -13,10 +13,9 @@ const stripGeneratedAbilityContext = (ability: any) => {
 const sanitizeGeneratedAbilities = (value: unknown): any[] | undefined =>
   Array.isArray(value) ? value.map(stripGeneratedAbilityContext) : undefined;
 
-const eligibleCodexAdditions = <T>(
+const eligibleCodexAdditions = <T extends ManifestationCandidate>(
   entries: T[],
-  type: ManifestationEntityType,
-): T[] => entries.filter(entry => isManifestationEligible(entry as any, type));
+): T[] => entries.filter(isManifestationEligible);
 
 // Known mastery ladder for downgrade protection. Comparison is only attempted
 // when BOTH levels are on the ladder; unknown labels are never ranked.
@@ -93,7 +92,7 @@ export const applyMemoryPatch = (
     }));
     nextMemory.characters = [
       ...(nextMemory.characters || []),
-      ...eligibleCodexAdditions(added, 'character'),
+      ...eligibleCodexAdditions(added),
     ];
   }
 
@@ -294,7 +293,8 @@ export const applyMemoryPatch = (
       manifestationImportance: f.manifestationImportance,
       firstAppeared: chapterNumber
     }));
-    const filteredAdded = eligibleCodexAdditions(added, 'faction').filter((af: any) => {
+    const filteredAdded = added.filter((af: any) => {
+      if (!isManifestationEligible(af)) return false;
       const res = resolveEntity(af.name, currentFactions, "newFactionCheck");
       return res.resolvedEntityId === null;
     });
@@ -314,7 +314,8 @@ export const applyMemoryPatch = (
       manifestationImportance: l.manifestationImportance,
       firstAppeared: chapterNumber
     }));
-    const filteredAdded = eligibleCodexAdditions(added, 'location').filter((al: any) => {
+    const filteredAdded = added.filter((al: any) => {
+      if (!isManifestationEligible(al)) return false;
       const res = resolveEntity(al.name, currentLocations, "newLocationCheck");
       return res.resolvedEntityId === null;
     });
@@ -334,7 +335,8 @@ export const applyMemoryPatch = (
       manifestationImportance: a.manifestationImportance,
       firstAppeared: chapterNumber
     }));
-    const filteredAdded = eligibleCodexAdditions(added, 'artifact').filter((aa: any) => {
+    const filteredAdded = added.filter((aa: any) => {
+      if (!isManifestationEligible(aa)) return false;
       const res = resolveEntity(aa.name, currentArtifacts, "newArtifactCheck");
       return res.resolvedEntityId === null;
     });

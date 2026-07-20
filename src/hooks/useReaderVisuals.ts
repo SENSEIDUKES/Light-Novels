@@ -199,18 +199,19 @@ export function useReaderVisuals({
   const codexTerms = useMemo(() => {
     const terms: Array<{ term: string; type: 'character'|'faction'|'artifact'|'location'; entry: any }> = [];
     if (!activeStory?.memory) return terms;
-    activeStory.memory.characters?.forEach(c => {
-      if (c.name && c.name.length > 2 && isManifestationEligible(c, 'character')) terms.push({ term: c.name, type: 'character', entry: c });
-    });
-    activeStory.memory.factions?.forEach(f => {
-      if (f.name && f.name.length > 2 && isManifestationEligible(f, 'faction')) terms.push({ term: f.name, type: 'faction', entry: f });
-    });
-    activeStory.memory.artifacts?.forEach(a => {
-      if (a.name && a.name.length > 2 && isManifestationEligible(a, 'artifact')) terms.push({ term: a.name, type: 'artifact', entry: a });
-    });
-    activeStory.memory.locations?.forEach(l => {
-      if (l.name && l.name.length > 2 && isManifestationEligible(l, 'location')) terms.push({ term: l.name, type: 'location', entry: l });
-    });
+    const codexEntityGroups = [
+      { entries: activeStory.memory.characters, type: 'character' },
+      { entries: activeStory.memory.factions, type: 'faction' },
+      { entries: activeStory.memory.artifacts, type: 'artifact' },
+      { entries: activeStory.memory.locations, type: 'location' },
+    ] as const;
+    for (const { entries, type } of codexEntityGroups) {
+      entries?.forEach(entry => {
+        if (entry.name && entry.name.length > 2 && isManifestationEligible(entry)) {
+          terms.push({ term: entry.name, type, entry });
+        }
+      });
+    }
     return terms.sort((a, b) => b.term.length - a.term.length);
   }, [activeStory.memory]);
 
