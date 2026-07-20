@@ -11,3 +11,8 @@ scratch/
 *.log
 .env*
 !.env.example
+
+# Agent skills
+.agents/
+skills-lock.json
+
