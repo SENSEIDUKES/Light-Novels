@@ -94,6 +94,13 @@ describe('Prompts', () => {
   });
   
   describe('cross-genre system panels', () => {
+    it('limits only World Card TTS audio text to a natural 60-character line', () => {
+      expect(PROMPTS.chapter.system).toContain('"audioText"');
+      expect(PROMPTS.chapter.system).toContain('sound description; maximum 60 written characters');
+      expect(PROMPTS.chapter.system).toContain('naturally rewrite it to preserve its main meaning and tone');
+      expect(PROMPTS.chapter.system).toContain('never cut it off mid-word or mid-sentence');
+    });
+
     it('offers Celestial Library system panels to every genre in the streamed system prompt', () => {
       expect(PROMPTS.chapter.system).toContain('CELESTIAL LIBRARY SYSTEM PANELS (ALL GENRES)');
       expect(PROMPTS.chapter.system).toContain('not just System/LitRPG stories');
