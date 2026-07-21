@@ -43,11 +43,12 @@ const seed = {
   createdAt: '2026-07-21T12:00:00.000Z',
   updatedAt: '2026-07-21T12:00:00.000Z',
 };
+const legacySeed = { ...seed, updatedAt: undefined } as any;
 
 describe('UserProfileStoriesPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.listStorySeeds.mockResolvedValue([seed]);
+    mocks.listStorySeeds.mockResolvedValue([legacySeed]);
     mocks.downloadStorySeed.mockResolvedValue(undefined);
     mocks.downloadStorySeedCollection.mockResolvedValue(undefined);
   });
@@ -57,20 +58,27 @@ describe('UserProfileStoriesPanel', () => {
       <UserProfileStoriesPanel
         profile={{ inactiveStories: ['story-sealed'] } as any}
         currentUser={{ uid: 'reader-1' } as any}
-        stories={[{ id: 'story-1', userId: 'reader-1', title: 'Active Realm' } as any]}
+        stories={[
+          { id: 'story-1', userId: 'reader-1', title: 'Active Realm' } as any,
+          { id: 'story-deleted', userId: 'reader-1', title: 'Deleted Realm', deleted: true } as any,
+        ]}
       />,
     );
 
     expect(await screen.findByText('The Jade Gate')).toBeDefined();
     expect(screen.getByText('Story Seeds')).toBeDefined();
     expect(screen.queryByText('Sealed Flows')).toBeNull();
+    expect(screen.getByText('Active Realm')).toBeDefined();
+    expect(screen.queryByText('Deleted Realm')).toBeNull();
     expect(screen.getByText(/deleting a story does not delete its seed/i)).toBeDefined();
+    expect(screen.getByText(`Updated ${new Date(seed.createdAt).toLocaleDateString()}`)).toBeDefined();
+    expect(screen.queryByText(/Invalid Date/i)).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Export The Jade Gate seed' }));
-    expect(mocks.downloadStorySeed).toHaveBeenCalledWith(seed);
+    expect(mocks.downloadStorySeed).toHaveBeenCalledWith(legacySeed);
 
     fireEvent.click(screen.getByRole('button', { name: 'Export All Seed JSON' }));
-    expect(mocks.downloadStorySeedCollection).toHaveBeenCalledWith([seed]);
+    expect(mocks.downloadStorySeedCollection).toHaveBeenCalledWith([legacySeed]);
   });
 
   it('keeps the profile usable when the seed index cannot be loaded', async () => {

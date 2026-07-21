@@ -12,7 +12,7 @@ interface UserProfileStoriesPanelProps {
 
 export function UserProfileStoriesPanel({ profile, currentUser, stories }: UserProfileStoriesPanelProps) {
   const inactiveFlowIds = profile?.inactiveStories || [];
-  const userStories = stories.filter(s => s.userId === currentUser?.uid || (!s.userId));
+  const userStories = stories.filter(s => !s.deleted && (s.userId === currentUser?.uid || !s.userId));
   const activeFlows = userStories.filter(s => !inactiveFlowIds.includes(s.id));
   const [seeds, setSeeds] = useState<StorySeed[]>([]);
   const [isLoadingSeeds, setIsLoadingSeeds] = useState(false);
@@ -64,6 +64,11 @@ export function UserProfileStoriesPanel({ profile, currentUser, stories }: UserP
       console.error('Failed to export profile story seeds:', error);
       setSeedError('Your story seeds could not be exported. Please try again.');
     });
+  };
+
+  const formatSeedDate = (seed: StorySeed): string => {
+    const date = new Date(seed.updatedAt || seed.createdAt);
+    return Number.isNaN(date.getTime()) ? 'Date unavailable' : date.toLocaleDateString();
   };
 
   return (
@@ -125,7 +130,7 @@ export function UserProfileStoriesPanel({ profile, currentUser, stories }: UserP
                     <div className="min-w-0">
                       <div className="truncate text-[12px] text-neutral-300 font-sans">{seed.title}</div>
                       <div className="mt-0.5 text-[9px] uppercase tracking-wider text-neutral-600 font-mono">
-                        Updated {new Date(seed.updatedAt).toLocaleDateString()}
+                        Updated {formatSeedDate(seed)}
                       </div>
                     </div>
                     <button
