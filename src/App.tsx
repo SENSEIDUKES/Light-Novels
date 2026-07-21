@@ -242,7 +242,7 @@ function App() {
       }
       if (failed) {
         useAppStore.getState().setAppError(
-          'Some existing story seeds could not be copied to your account. Their stories were left unchanged.',
+          'Some legacy story seeds are still stored inside their stories and are not in your account seed index yet. No story data was changed.',
         );
       }
     }).catch(error => {
@@ -253,7 +253,7 @@ function App() {
         && useAppStore.getState().currentUser?.uid === expectedUid
       ) {
         useAppStore.getState().setAppError(
-          'Some existing story seeds could not be copied to your account. Their stories were left unchanged.',
+          'Some legacy story seeds are still stored inside their stories and are not in your account seed index yet. No story data was changed.',
         );
       }
     }).finally(() => {
