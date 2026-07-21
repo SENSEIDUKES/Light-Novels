@@ -57,19 +57,27 @@ export function useAtmosphericAudio() {
   const atmosphereRef = useRef<CuratedAtmosphereBed | null>(
     (() => {
       if (typeof localStorage === 'undefined') return null;
-      const saved = localStorage.getItem('seihouse-audio-atmosphere');
-      if (!saved || saved === 'none') return null;
-      return ATMOSPHERE_BED_CATALOG.find(bed => bed.id === saved) || null;
+      try {
+        const saved = localStorage.getItem('seihouse-audio-atmosphere');
+        if (!saved || saved === 'none') return null;
+        return ATMOSPHERE_BED_CATALOG.find(bed => bed.id === saved) || null;
+      } catch {
+        return null;
+      }
     })(),
   );
 
   const bgmTrackIdRef = useRef<string>(
     (() => {
       if (typeof localStorage === 'undefined') return 'auto';
-      const saved = localStorage.getItem('seihouse-bgm-track') || 'auto';
-      // A stale id (e.g. a track later removed from the library) falls back
-      // to auto so the narrative cues aren't gated off by a dead pin.
-      return saved === 'auto' || TRACK_LIBRARY.some(t => t.id === saved) ? saved : 'auto';
+      try {
+        const saved = localStorage.getItem('seihouse-bgm-track') || 'auto';
+        // A stale id (e.g. a track later removed from the library) falls back
+        // to auto so the narrative cues aren't gated off by a dead pin.
+        return saved === 'auto' || TRACK_LIBRARY.some(t => t.id === saved) ? saved : 'auto';
+      } catch {
+        return 'auto';
+      }
     })(),
   );
 
@@ -155,7 +163,7 @@ export function useAtmosphericAudio() {
     } catch {}
     window.dispatchEvent(new CustomEvent('seihouse-audio-state', {
       detail: {
-        atmosphere: next?.category || 'none',
+        atmosphere: next?.variation || 'none',
         atmosphereId: next?.id || null,
         atmosphereSource: source,
         bgmTrackId: bgmTrackIdRef.current,
@@ -272,7 +280,7 @@ export function useAtmosphericAudio() {
         } catch {}
         window.dispatchEvent(new CustomEvent('seihouse-audio-state', {
           detail: {
-            atmosphere: atmosphereRef.current?.category || 'none',
+            atmosphere: atmosphereRef.current?.variation || 'none',
             atmosphereId: atmosphereRef.current?.id || null,
             bgmTrackId: requestedId,
           },

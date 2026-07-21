@@ -4,7 +4,7 @@
  * Four channels, each with an independent on/off switch and volume:
  *  - master:     gates and scales everything below
  *  - music:      scene-score BGM (SAP SceneMixEngine)
- *  - atmosphere: looping ambient beds — rain, wind, ocean… (SAP sprite engine)
+ *  - atmosphere: looping ambient beds — rain, wind, waves… (SAP sprite engine)
  *  - cues:       one-shot story sound effects + World Card sounds
  *
  * Turning master (or any channel) off never touches the other stored values,

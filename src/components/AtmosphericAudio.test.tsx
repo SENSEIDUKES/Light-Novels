@@ -47,24 +47,23 @@ vi.mock('../lib/audio/cardSoundPlayer', () => ({
   playCardSound: (...args: unknown[]) => playCardSound(...args),
 }));
 
-// Curated catalog stand-in: tests provide a few tagged catalog entries without
-// making production ship a fixed variation list.
+// Curated catalog stand-in: keep these tests focused on playback behavior.
 vi.mock('../lib/audio/ambienceSoundCatalog', async (importOriginal) => {
   const original = await importOriginal<typeof import('../lib/audio/ambienceSoundCatalog')>();
   return {
     ...original,
     ATMOSPHERE_BED_CATALOG: [
-      { id: 'atmosphere.rain.steady', category: 'rain', tags: ['rain'], url: 'https://cdn.test/rain.mp3' },
+      { id: 'atmosphere.rain.steady', category: 'atmosphere', variation: 'rain', tags: ['rain'], url: 'https://cdn.test/rain.mp3' },
     ],
     resolveAtmosphereBed: (metadata?: { environment?: string[]; sceneType?: string }) => {
       if (metadata?.environment?.includes('rain')) {
-        return { id: 'atmosphere.rain.steady', category: 'rain', tags: ['rain'], url: 'https://cdn.test/rain.mp3' };
+        return { id: 'atmosphere.rain.steady', category: 'atmosphere', variation: 'rain', tags: ['rain'], url: 'https://cdn.test/rain.mp3' };
       }
       if (metadata?.environment?.some(tag => ['coast', 'sea', 'ocean'].includes(tag))) {
-        return { id: 'atmosphere.waves.coast', category: 'waves', tags: ['coast'], url: 'https://cdn.test/waves.mp3' };
+        return { id: 'atmosphere.waves.coast', category: 'atmosphere', variation: 'waves', tags: ['coast'], url: 'https://cdn.test/waves.mp3' };
       }
       if (metadata?.environment?.includes('mountain')) {
-        return { id: 'atmosphere.wind.mountain', category: 'wind', tags: ['mountain'], url: 'https://cdn.test/wind.mp3' };
+        return { id: 'atmosphere.wind.mountain', category: 'atmosphere', variation: 'wind', tags: ['mountain'], url: 'https://cdn.test/wind.mp3' };
       }
       return null;
     },
@@ -94,6 +93,16 @@ describe('AtmosphericAudio', () => {
     const { container } = render(<AtmosphericAudio />);
     expect(container).toBeDefined();
     expect(engines).toHaveLength(2);
+  });
+
+  it('falls back safely when browser storage reads are blocked', () => {
+    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('Storage access denied', 'SecurityError');
+    });
+
+    expect(() => render(<AtmosphericAudio />)).not.toThrow();
+    expect(engines).toHaveLength(2);
+    getItem.mockRestore();
   });
 
   it('restores a persisted curated atmosphere asset after reload', async () => {
