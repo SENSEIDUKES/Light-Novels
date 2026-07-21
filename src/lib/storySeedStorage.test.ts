@@ -6,6 +6,10 @@ const mocks = vi.hoisted(() => ({
   setDoc: vi.fn(),
   getDoc: vi.fn(),
   getDocs: vi.fn(),
+  writeBatch: vi.fn(),
+  batchSet: vi.fn(),
+  batchCommit: vi.fn(),
+  handleFirestoreError: vi.fn(),
   generateUUID: vi.fn(),
 }));
 
@@ -15,13 +19,14 @@ vi.mock('firebase/firestore', () => ({
   getDoc: mocks.getDoc,
   getDocs: mocks.getDocs,
   setDoc: mocks.setDoc,
+  writeBatch: mocks.writeBatch,
 }));
 
 vi.mock('./firebase', () => ({
   auth: mocks.auth,
   db: {},
   OperationType: { WRITE: 'write', GET: 'get', LIST: 'list' },
-  handleFirestoreError: (error: unknown) => { throw error; },
+  handleFirestoreError: mocks.handleFirestoreError,
 }));
 
 vi.mock('./id', () => ({
@@ -32,6 +37,7 @@ vi.mock('./id', () => ({
 import {
   createStorySeed,
   ensureAccountSeedForStory,
+  getStorySeed,
   importStorySeeds,
   listStorySeeds,
 } from './storySeedStorage';
@@ -63,6 +69,10 @@ describe('storySeedStorage', () => {
     mocks.auth.currentUser = { uid: 'reader-1' };
     mocks.setDoc.mockResolvedValue(undefined);
     mocks.generateUUID.mockReturnValue('new-id');
+    mocks.batchSet.mockReset();
+    mocks.batchCommit.mockReset().mockResolvedValue(undefined);
+    mocks.writeBatch.mockReturnValue({ set: mocks.batchSet, commit: mocks.batchCommit });
+    mocks.handleFirestoreError.mockReset();
   });
 
   it('creates a private account seed under the signed-in user', async () => {
@@ -89,7 +99,10 @@ describe('storySeedStorage', () => {
     ]);
 
     expect(imported.map(seed => seed.id)).toEqual(['seed-import-1', 'seed-import-2']);
-    expect(mocks.setDoc).toHaveBeenCalledTimes(2);
+    expect(mocks.writeBatch).toHaveBeenCalledOnce();
+    expect(mocks.batchSet).toHaveBeenCalledTimes(2);
+    expect(mocks.batchCommit).toHaveBeenCalledOnce();
+    expect(mocks.setDoc).not.toHaveBeenCalled();
   });
 
   it('backfills a legacy embedded seed with an idempotent ID independent of story deletion', async () => {
@@ -121,5 +134,38 @@ describe('storySeedStorage', () => {
     });
 
     await expect(listStorySeeds()).resolves.toMatchObject([{ id: 'newer' }, { id: 'older' }]);
+  });
+
+  it('does not write part of an import when the atomic batch fails', async () => {
+    const error = new Error('batch unavailable');
+    mocks.batchCommit.mockRejectedValue(error);
+
+    await expect(importStorySeeds([payload])).rejects.toBe(error);
+
+    expect(mocks.batchSet).toHaveBeenCalledOnce();
+    expect(mocks.batchCommit).toHaveBeenCalledOnce();
+    expect(mocks.setDoc).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized imports before creating a batch', async () => {
+    await expect(importStorySeeds(Array.from({ length: 501 }, () => payload))).rejects.toThrow('at most 500');
+
+    expect(mocks.writeBatch).not.toHaveBeenCalled();
+  });
+
+  it('propagates write, read, and list failures even if the error reporter returns', async () => {
+    const writeError = new Error('write denied');
+    mocks.setDoc.mockRejectedValue(writeError);
+    await expect(createStorySeed(payload)).rejects.toBe(writeError);
+
+    const readError = new Error('read denied');
+    mocks.getDoc.mockRejectedValue(readError);
+    await expect(getStorySeed('seed-1')).rejects.toBe(readError);
+
+    const listError = new Error('list denied');
+    mocks.getDocs.mockRejectedValue(listError);
+    await expect(listStorySeeds()).rejects.toBe(listError);
+
+    expect(mocks.handleFirestoreError).toHaveBeenCalledTimes(3);
   });
 });

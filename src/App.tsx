@@ -80,6 +80,7 @@ function App() {
 
   const [isInitializing, setIsInitializing] = useState(true);
   const seedBackfillInFlightRef = useRef(new Set<string>());
+  const seedBackfillFailedRef = useRef(new Set<string>());
   const [syncProgress, setSyncProgress] = useState<SyncProgress>({
     phase: 'initializing',
     completed: 0,
@@ -201,7 +202,8 @@ function App() {
       && !story.sourceSeedId
       && story.intake
       && story.blueprint
-      && !seedBackfillInFlightRef.current.has(story.id),
+      && !seedBackfillInFlightRef.current.has(story.id)
+      && !seedBackfillFailedRef.current.has(story.id),
     );
     if (candidates.length === 0) return;
 
@@ -217,12 +219,14 @@ function App() {
 
       const migrated = new Map<string, string>();
       let failed = false;
-      results.forEach(result => {
+      results.forEach((result, index) => {
+        const storyId = candidates[index].id;
         if (result.status === 'fulfilled') {
-          migrated.set(result.value.storyId, result.value.seed.id);
+          migrated.set(storyId, result.value.seed.id);
         } else {
           failed = true;
-          console.error('Failed to preserve an embedded story seed:', result.reason);
+          seedBackfillFailedRef.current.add(storyId);
+          console.error(`Failed to preserve an embedded story seed for story ${storyId}:`, result.reason);
         }
       });
 
@@ -242,7 +246,16 @@ function App() {
         );
       }
     }).catch(error => {
+      candidates.forEach(story => seedBackfillFailedRef.current.add(story.id));
       console.error('Failed to backfill account story seeds:', error);
+      if (
+        auth.currentUser?.uid === expectedUid
+        && useAppStore.getState().currentUser?.uid === expectedUid
+      ) {
+        useAppStore.getState().setAppError(
+          'Some existing story seeds could not be copied to your account. Their stories were left unchanged.',
+        );
+      }
     }).finally(() => {
       candidates.forEach(story => seedBackfillInFlightRef.current.delete(story.id));
     });

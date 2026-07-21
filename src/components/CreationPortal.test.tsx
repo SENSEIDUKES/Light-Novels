@@ -83,6 +83,8 @@ describe('CreationPortal', () => {
     mocks.createStorySeed.mockResolvedValue(savedSeed);
     mocks.updateStorySeed.mockResolvedValue(savedSeed);
     mocks.importStorySeeds.mockResolvedValue([savedSeed]);
+    mocks.downloadStorySeed.mockResolvedValue(undefined);
+    mocks.downloadStorySeedCollection.mockResolvedValue(undefined);
   });
 
   it('renders the account seed library without adding a major navigation surface', async () => {

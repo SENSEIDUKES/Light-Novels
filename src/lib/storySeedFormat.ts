@@ -274,28 +274,60 @@ export const parseStorySeedJson = (input: string): StorySeedPayload[] => {
 const safeFilenamePart = (title: string): string =>
   title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80) || 'untitled';
 
-export const downloadJsonFile = (value: unknown, filename: string): void => {
-  const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' });
+const triggerBrowserDownload = (blob: Blob, filename: string): void => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
+  link.rel = 'noopener';
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
 };
 
-export const downloadStorySeed = (payload: StorySeedPayload): void => {
+/**
+ * Uses the native share sheet for file-capable mobile browsers (including
+ * iOS Safari's Save to Files flow), then falls back to a normal browser
+ * download for desktop and unsupported browsers.
+ */
+export const downloadJsonFile = async (value: unknown, filename: string): Promise<void> => {
+  const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' });
+  if (typeof File !== 'undefined' && typeof navigator !== 'undefined') {
+    const file = new File([blob], filename, { type: blob.type });
+    const shareNavigator = navigator as Navigator & {
+      share?: (data: ShareData) => Promise<void>;
+      canShare?: (data: ShareData) => boolean;
+    };
+    const shareData: ShareData = { files: [file], title: filename };
+    const canShareFiles = typeof shareNavigator.share === 'function'
+      && (typeof shareNavigator.canShare !== 'function' || shareNavigator.canShare(shareData));
+
+    if (canShareFiles) {
+      try {
+        await shareNavigator.share!(shareData);
+        return;
+      } catch (error) {
+        // Closing the native share sheet is an intentional cancellation, not a
+        // failed export that should unexpectedly open a second download UI.
+        if (error instanceof Error && error.name === 'AbortError') return;
+      }
+    }
+  }
+
+  triggerBrowserDownload(blob, filename);
+};
+
+export const downloadStorySeed = (payload: StorySeedPayload): Promise<void> => {
   const normalized = normalizeStorySeedPayload(payload);
-  downloadJsonFile(
+  return downloadJsonFile(
     createStorySeedExport(normalized),
     `seihouse_story_seed_${safeFilenamePart(normalized.blueprint.title)}.json`,
   );
 };
 
-export const downloadStorySeedCollection = (payloads: StorySeedPayload[]): void => {
-  downloadJsonFile(
+export const downloadStorySeedCollection = (payloads: StorySeedPayload[]): Promise<void> => {
+  return downloadJsonFile(
     createStorySeedCollectionExport(payloads),
     `seihouse_story_seeds_${new Date().toISOString().slice(0, 10)}.json`,
   );

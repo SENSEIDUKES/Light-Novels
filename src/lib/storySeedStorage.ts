@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from './firebase';
 import { generateUUID } from './id';
 import { normalizeStorySeedPayload } from './storySeedFormat';
@@ -45,6 +45,7 @@ const writeSeed = async (seed: StorySeed): Promise<StorySeed> => {
     return seed;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `${seedCollectionPath(seed.userId)}/${seed.id}`);
+    throw error;
   }
 };
 
@@ -83,6 +84,7 @@ export const getStorySeed = async (seedId: string): Promise<StorySeed | null> =>
     return seed.userId === userId ? seed : null;
   } catch (error) {
     handleFirestoreError(error, OperationType.GET, `${seedCollectionPath(userId)}/${seedId}`);
+    throw error;
   }
 };
 
@@ -100,11 +102,32 @@ export const listStorySeeds = async (): Promise<StorySeed[]> => {
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, seedCollectionPath(userId));
+    throw error;
   }
 };
 
-export const importStorySeeds = async (payloads: StorySeedPayload[]): Promise<StorySeed[]> =>
-  Promise.all(payloads.map(payload => createStorySeed(payload)));
+export const importStorySeeds = async (payloads: StorySeedPayload[]): Promise<StorySeed[]> => {
+  if (payloads.length > 500) {
+    throw new Error('A seed import can contain at most 500 seeds at a time.');
+  }
+  if (payloads.length === 0) return [];
+
+  const userId = getAuthenticatedUid();
+  const batch = writeBatch(db);
+  const seeds = payloads.map(payload => buildSeed(userId, `seed-${generateUUID()}`, payload));
+  for (const seed of seeds) {
+    batch.set(doc(db, seedCollectionPath(userId), seed.id), seed);
+  }
+
+  try {
+    await batch.commit();
+    assertCurrentAccount(userId);
+    return seeds;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, seedCollectionPath(userId));
+    throw error;
+  }
+};
 
 /**
  * Moves a legacy story's embedded seed inputs into durable account storage.

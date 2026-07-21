@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createStorySeedCollectionExport,
   createStorySeedExport,
+  downloadJsonFile,
   parseStorySeedJson,
 } from './storySeedFormat';
 import type { StorySeedPayload } from '../types';
@@ -36,6 +37,12 @@ const payload: StorySeedPayload = {
 };
 
 describe('story seed JSON format', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: undefined });
+  });
+
   it('exports only portable seed inputs without account, story, or nested internal IDs', () => {
     const exported = createStorySeedExport({
       ...payload,
@@ -116,5 +123,37 @@ describe('story seed JSON format', () => {
       memory: { characters: [] },
       arcs: [{ chapters: [] }],
     }))).toThrow('generated story package');
+  });
+
+  it('uses the native share sheet with a JSON file when file sharing is supported', async () => {
+    const share = vi.fn().mockResolvedValue(undefined);
+    const canShare = vi.fn().mockReturnValue(true);
+    Object.defineProperty(navigator, 'share', { configurable: true, value: share });
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: canShare });
+
+    await downloadJsonFile({ seed: 'portable' }, 'portable-seed.json');
+
+    expect(canShare).toHaveBeenCalledWith(expect.objectContaining({ files: [expect.any(File)] }));
+    expect(share).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'portable-seed.json',
+      files: [expect.objectContaining({ name: 'portable-seed.json', type: 'application/json' })],
+    }));
+  });
+
+  it('falls back to a browser download when native file sharing is unavailable', async () => {
+    const createObjectURL = vi.fn().mockReturnValue('blob:seed');
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.useFakeTimers();
+
+    await downloadJsonFile({ seed: 'portable' }, 'portable-seed.json');
+
+    expect(createObjectURL).toHaveBeenCalledOnce();
+    expect(click).toHaveBeenCalledOnce();
+    vi.advanceTimersByTime(1_000);
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:seed');
+    vi.useRealTimers();
   });
 });

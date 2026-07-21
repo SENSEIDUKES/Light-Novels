@@ -228,17 +228,34 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
     }
   };
 
-  const handleExportCurrentSeed = async () => {
+  const handleExportCurrentSeed = () => {
     if (!blueprint) return;
-    try {
-      const payload = { intake, blueprint };
-      await persistSeed(payload);
-      downloadStorySeed(payload);
-      setSeedError(null);
-    } catch (seedSaveError) {
-      console.error('Failed to save seed before export:', seedSaveError);
-      setSeedError('The seed could not be saved and exported.');
-    }
+    const payload = { intake, blueprint };
+    // Start sharing immediately so iOS Safari retains the user gesture needed
+    // to present Save to Files. Persistence can finish independently.
+    setSeedError(null);
+    void downloadStorySeed(payload).catch(downloadError => {
+      console.error('Failed to export story seed:', downloadError);
+      setSeedError('The seed could not be exported. Please try again.');
+    });
+    void persistSeed(payload).catch(seedSaveError => {
+      console.error('Failed to save seed while exporting:', seedSaveError);
+      setSeedError('The seed was exported, but its account copy could not be saved.');
+    });
+  };
+
+  const handleExportSavedSeed = (seed: StorySeed) => {
+    void downloadStorySeed(seed).catch(downloadError => {
+      console.error('Failed to export saved story seed:', downloadError);
+      setSeedError('The seed could not be exported. Please try again.');
+    });
+  };
+
+  const handleExportAllSeeds = () => {
+    void downloadStorySeedCollection(savedSeeds).catch(downloadError => {
+      console.error('Failed to export account story seeds:', downloadError);
+      setSeedError('Your seeds could not be exported. Please try again.');
+    });
   };
 
   if (!currentUser && !LOCAL_ONLY_MODE) {
@@ -317,8 +334,8 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
           seeds={savedSeeds}
           isLoading={isLoadingSeeds}
           onUse={handleUseSeed}
-          onExport={seed => downloadStorySeed(seed)}
-          onExportAll={() => downloadStorySeedCollection(savedSeeds)}
+          onExport={handleExportSavedSeed}
+          onExportAll={handleExportAllSeeds}
         />
       )}
 
