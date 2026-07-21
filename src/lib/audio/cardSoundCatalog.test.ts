@@ -32,14 +32,18 @@ describe('CARD_SOUND_LIBRARY', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('uses the source public_url, category, variation, and tags', () => {
+  it('preserves DEFAULT paths and real catalog metadata while adding path words to tags', () => {
     for (const asset of CARD_SOUND_LIBRARY) {
       const source = sourceCatalog.find((entry) => entry.file_path === asset.id);
       expect(source).toBeDefined();
       expect(asset.url).toBe(source?.public_url);
       expect(asset.category).toBe(source?.metadata.main_category.toLowerCase());
       expect(asset.variation).toBe(source?.metadata.broad_variation.toLowerCase());
-      expect(asset.tags).toEqual(source?.metadata.soft_tags.map((tag) => tag.toLowerCase()));
+      expect(asset.tags).toEqual(expect.arrayContaining(
+        source?.metadata.soft_tags.map((tag) => tag.toLowerCase()) ?? [],
+      ));
+      expect(asset.id).toMatch(/^DEFAULT\//);
+      expect(asset.url).toContain('/DEFAULT/');
       expect(() => new URL(asset.url)).not.toThrow();
       expect(asset.url).toMatch(/^https:\/\//);
       expect(asset.url).toMatch(/\.(mp3|wav|ogg)$/);
@@ -64,9 +68,32 @@ describe('CARD_SOUND_LIBRARY', () => {
       id: 'valid-roar.mp3',
       category: 'beasts',
       variation: 'roar',
-      tags: ['ferocious'],
+      tags: ['ferocious', 'valid', 'roar'],
       url: 'https://cdn.test/roar.mp3',
     })]);
+  });
+
+  it('adds filename and folder words without rewriting the catalog id or URL', () => {
+    const asset = buildCardSoundLibrary([{
+      file_path: 'DEFAULT/Locations/Signatures/Temple_Bell_1.mp3',
+      public_url: 'https://cdn.test/DEFAULT/Locations/Signatures/Temple_Bell_1.mp3',
+      metadata: {
+        main_category: 'locations',
+        broad_variation: 'signatures',
+        soft_tags: ['metallic'],
+      },
+    }])[0];
+
+    expect(asset.id).toBe('DEFAULT/Locations/Signatures/Temple_Bell_1.mp3');
+    expect(asset.url).toBe('https://cdn.test/DEFAULT/Locations/Signatures/Temple_Bell_1.mp3');
+    expect(asset.tags).toEqual([
+      'metallic',
+      'default',
+      'locations',
+      'signatures',
+      'temple',
+      'bell',
+    ]);
   });
 });
 
@@ -148,6 +175,19 @@ describe('resolveCardSound — semantic matching', () => {
     expect(asset?.id).toBe('DEFAULT/Locations/Signatures/Sect_Gong_2.mp3');
   });
 
+  it.each([
+    ['creature', 'Giant Beast', 'roar', /Giant_Beast_Roar/],
+    ['location', 'Imperial Palace', 'signature', /Imperial_Hit/],
+    ['location', 'Temple Bell', 'signature', /Temple_Bell/],
+    ['faction', 'Demonic Cult', 'chant', /Demonic_Chant/],
+  ] as const)(
+    'uses filename semantics to match %s card "%s"',
+    (entityType, entityName, audioType, expectedPath) => {
+      const asset = resolveCardSound(makeCard({ entityType, entityName, audioType }));
+      expect(asset?.id).toMatch(expectedPath);
+    },
+  );
+
   it('keeps location and faction World Card roles exclusive', () => {
     const locationRoles = CARD_SOUND_LIBRARY
       .filter((asset) => asset.entityTypes.includes('location'))
@@ -217,6 +257,8 @@ describe('resolveCardSound — semantic matching', () => {
     expect(resolveCardSoundRole('growl')).toBe('roar');
     expect(resolveCardSoundRole('ring')).toBe('metallic_ring');
     expect(resolveCardSoundRole('ambient')).toBeNull();
+    expect(resolveCardSoundRole('swing')).toBeNull();
+    expect(resolveCardSoundRole('impact')).toBeNull();
   });
 });
 
@@ -244,11 +286,20 @@ describe('resolveCardSound — graceful failure', () => {
     expect(listener).toHaveBeenCalledWith(card, 'unknown-role');
   });
 
-  it('keeps supported roles unavailable when the real catalog has no matching asset', () => {
+  it('rejects removed weapon roles instead of treating them as catalog roles', () => {
     const listener = vi.fn();
     setUnresolvedCardSoundListener(listener);
-    const card = makeCard({ entityType: 'artifact', audioType: 'swing' });
-    expect(resolveCardSound(card)).toBeNull();
-    expect(listener).toHaveBeenCalledWith(card, 'no-catalog-match');
+    const swingCard = makeCard({
+      entityType: 'artifact',
+      audioType: 'swing' as WorldCardEvent['audioType'],
+    });
+    const impactCard = makeCard({
+      entityType: 'artifact',
+      audioType: 'impact' as WorldCardEvent['audioType'],
+    });
+    expect(resolveCardSound(swingCard)).toBeNull();
+    expect(resolveCardSound(impactCard)).toBeNull();
+    expect(listener).toHaveBeenCalledWith(swingCard, 'unknown-role');
+    expect(listener).toHaveBeenCalledWith(impactCard, 'unknown-role');
   });
 });

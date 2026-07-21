@@ -463,8 +463,6 @@ export type WorldCardSoundRole =
   // Weapon
   | "unsheathe"
   | "metallic_ring"
-  | "swing"
-  | "impact"
   | "activation_hum"
   // Artifact / relic
   | "resonance"

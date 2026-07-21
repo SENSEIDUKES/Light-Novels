@@ -30,8 +30,12 @@ export interface CuratedSoundAsset {
   /** Source catalog category and variation used during candidate matching. */
   category: string;
   variation: string;
-  /** Source catalog soft_tags used for semantic scoring. */
+  /** Source soft_tags plus filename/folder words used for semantic scoring. */
   tags: string[];
+  /** Original source soft_tags, retained so their stronger weight is preserved. */
+  sourceTags: string[];
+  /** Words derived from the exact catalog file_path. */
+  pathTags: string[];
   /** Exact public_url supplied by the catalog. */
   url: string;
 }
@@ -68,6 +72,14 @@ function normalizedTags(value: unknown): string[] {
       return normalized ? [normalized] : [];
     })
     : [];
+}
+
+function normalizedPathTags(filePath: string): string[] {
+  const withoutExtension = filePath.replace(/\.[^./\\]+$/, '');
+  return withoutExtension
+    .split(/[^a-z0-9]+/i)
+    .map((tag) => tag.toLowerCase())
+    .filter((tag) => tag && !/^\d+$/.test(tag));
 }
 
 function catalogRole(entry: CelestialLibraryCatalogEntry): WorldCardSoundRole | null {
@@ -113,6 +125,8 @@ export function buildCardSoundLibrary(
     const entityTypes = category ? ENTITY_TYPES_BY_CATEGORY[category] : undefined;
     const role = catalogRole(entry);
     if (!category || !variation || !id || !url || !entityTypes || !role) return [];
+    const sourceTags = normalizedTags(entry.metadata?.soft_tags);
+    const pathTags = normalizedPathTags(id);
 
     return [{
       id,
@@ -120,7 +134,9 @@ export function buildCardSoundLibrary(
       role,
       category,
       variation,
-      tags: normalizedTags(entry.metadata?.soft_tags),
+      tags: [...new Set([...sourceTags, ...pathTags])],
+      sourceTags,
+      pathTags,
       url,
     }];
   });
@@ -149,8 +165,6 @@ const WORLD_CARD_SOUND_ROLES: WorldCardSoundRole[] = [
   'wingbeat',
   'unsheathe',
   'metallic_ring',
-  'swing',
-  'impact',
   'activation_hum',
   'resonance',
   'awakening',
@@ -295,11 +309,14 @@ export function resolveCardSound(card: WorldCardEvent): CuratedSoundAsset | null
   for (const asset of candidates) {
     let score = 0;
     const catalogTerms = new Set<string>();
-    const tagTerms = new Set<string>();
+    const sourceTagTerms = new Set<string>();
+    const pathTagTerms = new Set<string>();
     addTokens(catalogTerms, [asset.category, asset.variation]);
-    addTokens(tagTerms, asset.tags);
+    addTokens(sourceTagTerms, asset.sourceTags);
+    addTokens(pathTagTerms, asset.pathTags);
     for (const term of catalogTerms) if (tokens.has(term)) score += 1;
-    for (const term of tagTerms) if (tokens.has(term)) score += 2;
+    for (const term of sourceTagTerms) if (tokens.has(term)) score += 2;
+    for (const term of pathTagTerms) if (tokens.has(term)) score += 2;
     // Strict '>' keeps source JSON order as the deterministic tiebreaker.
     if (score > bestScore) {
       bestScore = score;

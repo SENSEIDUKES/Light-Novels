@@ -31,6 +31,8 @@ const asset: CuratedSoundAsset = {
   category: 'beasts',
   variation: 'roar',
   tags: [],
+  sourceTags: [],
+  pathTags: [],
   url: 'https://celestialaudio.seihouse.org/DEFAULT/Beasts/Roar/Giant_Beast_Roar_1.mp3',
 };
 

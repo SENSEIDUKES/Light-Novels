@@ -29,6 +29,8 @@ describe('ATMOSPHERE_BED_CATALOG', () => {
       expect(asset.variation).toBe(source?.metadata.broad_variation);
       expect(asset.tags).toEqual(source?.metadata.soft_tags);
       expect(asset.url).toBe(source?.public_url);
+      expect(asset.id).toMatch(/^DEFAULT\//);
+      expect(asset.url).toContain('/DEFAULT/');
     }
   });
 
