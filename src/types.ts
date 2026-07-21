@@ -968,9 +968,27 @@ export interface WorldBlueprint {
   unresolvedPlotThreads: string[];
 }
 
+/** The complete, reusable inputs required to generate a story from a seed. */
+export interface StorySeedPayload {
+  intake: IntakeData;
+  blueprint: WorldBlueprint;
+}
+
+/** Private account-owned seed metadata. Internal fields are never exported. */
+export interface StorySeed extends StorySeedPayload {
+  schemaVersion: 1;
+  id: string;
+  userId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface StoryWorld {
   userId?: string;
   id: string;
+  /** Account-owned seed used to create this story. */
+  sourceSeedId?: string;
   parentStoryId?: string;
   forkChapterNumber?: number;
   title: string;

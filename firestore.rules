@@ -160,6 +160,108 @@ service cloud.firestore {
         && isValidPortraitCustomization(data.customization);
     }
 
+    function isOptionalSeedText(data, fieldName, maxLength) {
+      return !(fieldName in data)
+        || (data[fieldName] is string && data[fieldName].size() <= maxLength);
+    }
+
+    function isValidSeedStringList(value, maxItems) {
+      return value is list && value.size() <= maxItems;
+    }
+
+    function isValidSeedIntake(data) {
+      return data is map
+        && data.keys().hasOnly([
+          'novelTitle', 'mcName', 'genrePath', 'corePremise', 'desiredPlotDirection',
+          'storyTags', 'destinedEnding', 'estimatedArcs', 'worldType', 'startingLocation',
+          'societyStructure', 'dangerLevel', 'generalAtmosphere', 'startingIdentity',
+          'personality', 'mainFlaw', 'secretAdvantage', 'startingWeakness', 'moralAlignment',
+          'mcBio', 'customCharacters', 'customFactions', 'startingPowerConcept', 'powerFlavor',
+          'powerPace', 'knownRanks', 'uniquePath', 'longTermGoal', 'firstMajorConflict',
+          'mainAntagonistPressure', 'romanceLevel', 'faceSlappingLevel', 'comedyLevel',
+          'tournamentArcPreference', 'haremPreference', 'betrayalLevel', 'thingsToAvoid',
+          'mustIncludeElements', 'hardcoreFateMode', 'fatePressure', 'makeItWorkInstruction'
+        ])
+        // Firestore limits a rule evaluation to 1,000 expressions. Validate
+        // the core generation-bearing text fields here; the exact key whitelist
+        // above and client normalizer keep the remaining private guidance fields
+        // data-only without weakening an authorization boundary.
+        && isOptionalSeedText(data, 'novelTitle', 500)
+        && isOptionalSeedText(data, 'mcName', 500)
+        && isOptionalSeedText(data, 'genrePath', 500)
+        && isOptionalSeedText(data, 'corePremise', 50000)
+        && isOptionalSeedText(data, 'desiredPlotDirection', 50000)
+        && isOptionalSeedText(data, 'startingPowerConcept', 50000)
+        && isOptionalSeedText(data, 'makeItWorkInstruction', 50000)
+        && (!('storyTags' in data) || isValidSeedStringList(data.storyTags, 100))
+        && (!('customCharacters' in data) || (data.customCharacters is list && data.customCharacters.size() <= 100))
+        && (!('customFactions' in data) || (data.customFactions is list && data.customFactions.size() <= 100))
+        && (!('estimatedArcs' in data) || (data.estimatedArcs is int && data.estimatedArcs > 0 && data.estimatedArcs <= 1000))
+        && (!('hardcoreFateMode' in data) || data.hardcoreFateMode is bool)
+        && (!('fatePressure' in data) || (
+          data.fatePressure == 'Relaxed'
+          || data.fatePressure == 'Balanced'
+          || data.fatePressure == 'Hardcore'
+          || data.fatePressure == 'Dao Master'
+        ));
+    }
+
+    function isValidSeedBlueprint(data) {
+      return data is map
+        && data.keys().hasAll([
+          'title', 'logline', 'worldOverview', 'startingLocation', 'societyStructure',
+          'powerSystemOutline', 'mcProfile', 'majorFactions', 'initialCharacters',
+          'majorMysteries', 'firstArcPromise', 'tropeRules', 'styleBible',
+          'estimatedArcs', 'unresolvedPlotThreads'
+        ])
+        && data.keys().hasOnly([
+          'title', 'logline', 'worldOverview', 'startingLocation', 'societyStructure',
+          'powerSystemOutline', 'mcProfile', 'majorFactions', 'initialCharacters',
+          'majorMysteries', 'firstArcPromise', 'tropeRules', 'styleBible',
+          'destinedEnding', 'estimatedArcs', 'unresolvedPlotThreads'
+        ])
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 500
+        && data.logline is string && data.logline.size() <= 50000
+        && data.worldOverview is string && data.worldOverview.size() <= 50000
+        && data.startingLocation is string && data.startingLocation.size() <= 50000
+        && data.societyStructure is string && data.societyStructure.size() <= 50000
+        && data.powerSystemOutline is string && data.powerSystemOutline.size() <= 50000
+        && data.mcProfile is string && data.mcProfile.size() <= 50000
+        && data.firstArcPromise is string && data.firstArcPromise.size() <= 50000
+        && data.tropeRules is string && data.tropeRules.size() <= 50000
+        && data.styleBible is string && data.styleBible.size() <= 50000
+        && isOptionalSeedText(data, 'destinedEnding', 50000)
+        && isValidSeedStringList(data.majorFactions, 100)
+        && isValidSeedStringList(data.initialCharacters, 100)
+        && isValidSeedStringList(data.majorMysteries, 100)
+        && isValidSeedStringList(data.unresolvedPlotThreads, 100)
+        && data.estimatedArcs is int && data.estimatedArcs > 0 && data.estimatedArcs <= 1000;
+    }
+
+    function isValidStorySeed(data, userId, seedId) {
+      return data.keys().hasAll([
+          'schemaVersion', 'id', 'userId', 'title', 'intake', 'blueprint', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'schemaVersion', 'id', 'userId', 'title', 'intake', 'blueprint', 'createdAt', 'updatedAt'
+        ])
+        && data.schemaVersion is int && data.schemaVersion == 1
+        && data.id == seedId && isValidId(data.id)
+        && data.userId == userId && isValidId(data.userId)
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 500
+        && data.createdAt is string && data.createdAt.size() > 0 && data.createdAt.size() <= 40
+        && data.updatedAt is string && data.updatedAt.size() > 0 && data.updatedAt.size() <= 40
+        && isValidSeedIntake(data.intake)
+        && isValidSeedBlueprint(data.blueprint);
+    }
+
+    function storySourceSeedExists(data) {
+      return !('sourceSeedId' in data) || (
+        isValidId(data.sourceSeedId)
+        && exists(/databases/$(database)/documents/users/$(data.userId)/seeds/$(data.sourceSeedId))
+      );
+    }
+
     function isValidDaoXpEvent(data) {
       return data.keys().hasAll(['user_id', 'event_type', 'xp_amount', 'created_at'])
         && data.user_id is string && data.user_id.size() <= 128
@@ -182,6 +284,7 @@ service cloud.firestore {
         && (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 40))
         && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 40))
         && (!('syncRevision' in data) || (data.syncRevision is string && data.syncRevision.size() <= 128))
+        && (!('sourceSeedId' in data) || isValidId(data.sourceSeedId))
         && (!('conflictResolvedAt' in data) || (data.conflictResolvedAt is string && data.conflictResolvedAt.size() <= 40))
         && (!('currentChapterNumber' in data) || data.currentChapterNumber is number)
         && (!('isEdited' in data) || data.isEdited is bool)
@@ -280,6 +383,30 @@ service cloud.firestore {
           && userId == request.auth.uid
           && existing().get('userId', '') == request.auth.uid;
       }
+
+      match /seeds/{seedId} {
+        allow read: if isSignedIn() && userId == request.auth.uid;
+
+        allow create: if isSignedIn()
+          && userId == request.auth.uid
+          && isValidId(seedId)
+          && isValidStorySeed(incoming(), userId, seedId);
+
+        allow update: if isSignedIn()
+          && userId == request.auth.uid
+          && existing().get('userId', '') == request.auth.uid
+          && isValidId(seedId)
+          && isValidStorySeed(incoming(), userId, seedId)
+          && incoming().get('schemaVersion', 0) == existing().get('schemaVersion', 0)
+          && incoming().get('id', '') == existing().get('id', '')
+          && incoming().get('userId', '') == existing().get('userId', '')
+          && incoming().get('createdAt', '') == existing().get('createdAt', '')
+          && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'intake', 'blueprint', 'updatedAt']);
+
+        allow delete: if isSignedIn()
+          && userId == request.auth.uid
+          && existing().get('userId', '') == request.auth.uid;
+      }
     }
 
     match /dao_xp_events/{eventId} {
@@ -294,7 +421,8 @@ service cloud.firestore {
       allow create: if isSignedIn() 
         && isValidId(storyId) 
         && incoming().id == storyId
-        && isValidStoryWorld(incoming());
+        && isValidStoryWorld(incoming())
+        && storySourceSeedExists(incoming());
         
       allow update: if isSignedIn()
         && isValidId(storyId)
@@ -314,7 +442,7 @@ service cloud.firestore {
             isValidStoryWorld(incoming())
             && incoming().diff(existing()).affectedKeys().hasOnly([
               'title', 'genre', 'mcName', 'customPremise', 'updatedAt', 'syncRevision', 'currentChapterNumber',
-              'imageUrl', 'intake', 'blueprint', 'relationships', 'karmaNodes', 'readerPreferences',
+              'imageUrl', 'intake', 'blueprint', 'sourceSeedId', 'relationships', 'karmaNodes', 'readerPreferences',
               'bookmarks', 'memory', 'arcs', 'parentStoryId', 'forkChapterNumber', 'imageHistory',
               'lastImageChapter', 'evolutionReady', 'evolutionReason', 'availableVisualUpdate',
               'isEdited', 'userId', 'hardcoreFateMode', 'fatePressure', 'lastReadChapter',
@@ -324,6 +452,10 @@ service cloud.firestore {
             ])
             && (!('title' in incoming().diff(existing()).affectedKeys()) || (incoming().title is string && incoming().title.size() <= 500))
             && (!('updatedAt' in incoming().diff(existing()).affectedKeys()) || (incoming().updatedAt is string && incoming().updatedAt.size() <= 40))
+            && (
+              !incoming().diff(existing()).affectedKeys().hasAny(['sourceSeedId'])
+              || (!('sourceSeedId' in existing()) && storySourceSeedExists(incoming()))
+            )
           )
         );
 

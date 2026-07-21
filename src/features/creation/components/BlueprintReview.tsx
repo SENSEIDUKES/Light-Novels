@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { MapPin, Layers, Zap, Users, Target, Wand2, FileText, HelpCircle, GitBranch, ArrowRight, Check, Copy } from 'lucide-react';
+import { MapPin, Layers, Zap, Users, Target, Wand2, FileText, HelpCircle, GitBranch, ArrowRight, Check, Copy, Download } from 'lucide-react';
 import { WorldBlueprint } from '../../../types';
 import { useAppStore } from '../../../store/useAppStore';
 import { AGENTS } from '../../../lib/agents';
@@ -10,13 +10,13 @@ interface BlueprintReviewProps {
   setBlueprint: (blueprint: WorldBlueprint) => void;
   onBack: () => void;
   onStartStory: () => void;
+  onExportSeed: () => void;
   isGenerating: boolean;
 }
 
-export const BlueprintReview = ({ blueprint, setBlueprint, onBack, onStartStory, isGenerating }: BlueprintReviewProps) => {
+export const BlueprintReview = ({ blueprint, setBlueprint, onBack, onStartStory, onExportSeed, isGenerating }: BlueprintReviewProps) => {
   const activeAgentId = useAppStore(state => state.activeAgentId);
   const [copied, setCopied] = useState(false);
-  const [copiedJson, setCopiedJson] = useState(false);
 
   const handleCopyBlueprint = () => {
     const textToCopy = `
@@ -44,14 +44,6 @@ ${blueprint.firstArcPromise || ''}
     navigator.clipboard.writeText(textToCopy).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
-  const handleCopyBlueprintJson = () => {
-    const textToCopy = JSON.stringify(blueprint, null, 2);
-    navigator.clipboard.writeText(textToCopy).then(() => {
-      setCopiedJson(true);
-      setTimeout(() => setCopiedJson(false), 2000);
     });
   };
 
@@ -389,21 +381,12 @@ ${blueprint.firstArcPromise || ''}
 
             <button
               type="button"
-               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleCopyBlueprintJson}
-              className="w-full sm:w-auto font-sc px-5 py-3 rounded text-sm uppercase tracking-widest font-bold flex items-center justify-center space-x-2 bg-neutral-950 text-neutral-400 border border-neutral-850 hover:border-neutral-700 hover:text-signal transition-all cursor-pointer"
-            >
-              {copiedJson ? (
-                <>
-                  <Check size={16} />
-                  <span>Copied JSON</span>
-                </>
-              ) : (
-                <>
-                  <Copy size={16} />
-                  <span>Copy JSON</span>
-                </>
-              )}
-            </button>
+               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={onExportSeed}
+               className="w-full sm:w-auto font-sc px-5 py-3 rounded text-sm uppercase tracking-widest font-bold flex items-center justify-center space-x-2 bg-neutral-950 text-neutral-400 border border-neutral-850 hover:border-neutral-700 hover:text-signal transition-all cursor-pointer"
+             >
+               <Download size={16} />
+               <span>Export Seed JSON</span>
+             </button>
           </div>
         </div>
       </div>
