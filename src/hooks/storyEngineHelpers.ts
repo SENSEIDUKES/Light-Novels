@@ -32,11 +32,13 @@ const GENERATED_SOUND_HINT_FIELDS = [
   'artifactCategory',
 ] as const;
 
-const isSemanticHint = (value: unknown): value is string =>
-  typeof value === 'string'
-  && value.trim().length > 0
-  && !/[\\/]/.test(value)
-  && !/\.(?:mp3|wav|ogg)$/i.test(value);
+const isSemanticHint = (value: unknown): value is string => {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  return trimmed.length > 0
+    && !/[\\/]/.test(trimmed)
+    && !/\\.(?:mp3|wav|ogg)$/i.test(trimmed);
+};
 
 // Generated World Cards choose by meaning, never by catalog identity. Pins
 // remain available to authored cards elsewhere in the app, but model output
