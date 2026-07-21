@@ -90,7 +90,7 @@ describe('WorldEntityCard', () => {
     await waitFor(() => expect(getByText('Resonating...')).toBeDefined());
     expect(MockAudio.instances).toHaveLength(1);
     expect(MockAudio.instances[0].src).toBe(
-      'https://celestialaudio.seihouse.org/AUDIO/SFX/BEAST/GENERIC_ROAR.mp3',
+      'https://celestialaudio.seihouse.org/DEFAULT/Beasts/Roar/Medium_Beast_Roar_4.mp3',
     );
   });
 

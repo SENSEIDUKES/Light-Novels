@@ -46,14 +46,10 @@ vi.mock('../lib/audio/cardSoundPlayer', () => ({
   playCardSound: (...args: unknown[]) => playCardSound(...args),
 }));
 
-// Curated catalog stand-in: real entries stay null until the R2 sound list
-// lands, so tests pin their own URLs to exercise the playback paths.
 vi.mock('../lib/audio/ambienceSoundCatalog', async (importOriginal) => {
   const original = await importOriginal<typeof import('../lib/audio/ambienceSoundCatalog')>();
   return {
     ...original,
-    resolveAtmosphereBed: (name: string) =>
-      name === 'rain' ? { id: 'atmosphere.rain', url: 'https://cdn.test/rain.mp3' } : null,
     resolveNarrativeCueSound: (name: string) =>
       name === 'system_alert' ? { id: 'cue.system_alert', url: 'https://cdn.test/alert.mp3' } : null,
   };
@@ -80,6 +76,16 @@ describe('AtmosphericAudio', () => {
     const { container } = render(<AtmosphericAudio />);
     expect(container).toBeDefined();
     expect(engines).toHaveLength(2);
+  });
+
+  it('falls back safely when browser storage reads are blocked', () => {
+    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('Storage access denied', 'SecurityError');
+    });
+
+    expect(() => render(<AtmosphericAudio />)).not.toThrow();
+    expect(engines).toHaveLength(2);
+    getItem.mockRestore();
   });
 
   it('no longer plays automatic footsteps or environment Foley cues', () => {
@@ -156,18 +162,42 @@ describe('AtmosphericAudio', () => {
 
     await waitFor(() => expect(states.some((s) => s.atmosphere === 'rain')).toBe(true));
     expect(atmoEngine().crossfadeTo).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'atmosphere.rain', audioFile: 'https://cdn.test/rain.mp3' }),
+      expect.objectContaining({
+        id: 'DEFAULT/atmosphere/Rain/Gentle_Rain_1.mp3',
+        audioFile: 'https://celestialaudio.seihouse.org/DEFAULT/atmosphere/Rain/Gentle_Rain_1.mp3',
+      }),
     );
     window.removeEventListener('seihouse-audio-state', onState);
   });
 
-  it('fades the atmosphere out for beds without a curated asset', async () => {
+  it('uses changing scene tags to select another track within the same variation', async () => {
     render(<AtmosphericAudio />);
-    // Start rain (has an asset), then switch to wind (no asset in catalog).
+    dispatchCue({
+      id: 'meta-gentle-rain',
+      type: 'narrative.metadata.signature',
+      metadata: { environment: ['rain', 'gentle-rain', 'calm'] },
+    });
+    await waitFor(() => expect(atmoEngine().crossfadeTo).toHaveBeenCalled());
+
+    dispatchCue({
+      id: 'meta-heavy-rain',
+      type: 'narrative.metadata.signature',
+      metadata: { environment: ['rain', 'heavy', 'storm', 'thunder'] },
+    });
+    await waitFor(() => expect(atmoEngine().crossfadeTo).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        id: 'DEFAULT/atmosphere/Rain/Heavy_Rainstorm_2.mp3',
+        audioFile: 'https://celestialaudio.seihouse.org/DEFAULT/atmosphere/Rain/Heavy_Rainstorm_2.mp3',
+      }),
+    ));
+  });
+
+  it('fades the atmosphere out when scene metadata no longer selects a bed', async () => {
+    render(<AtmosphericAudio />);
     dispatchCue({ id: 'meta-rain', type: 'narrative.metadata.signature', metadata: { environment: ['rain'] } });
     await waitFor(() => expect(atmoEngine().crossfadeTo).toHaveBeenCalled());
 
-    dispatchCue({ id: 'meta-wind', type: 'narrative.metadata.signature', metadata: { environment: ['mountain'] } });
+    dispatchCue({ id: 'meta-clear', type: 'narrative.metadata.signature', metadata: {} });
     await waitFor(() => expect(atmoEngine().stop).toHaveBeenCalled());
   });
 
