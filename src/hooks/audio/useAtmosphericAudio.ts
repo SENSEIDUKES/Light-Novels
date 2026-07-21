@@ -110,20 +110,27 @@ export function useAtmosphericAudio() {
   // Which bed is playing is narrative-driven state, not a user setting: cues
   // pick rain/wind/… from chapter metadata. Persisted so a reload resumes
   // the same bed.
-  const atmosphereRef = useRef<AtmosphereType>(
-    typeof localStorage !== 'undefined'
-      ? normalizePersistedAtmosphere(localStorage.getItem('seihouse-audio-atmosphere'))
-      : 'none',
-  );
+  const atmosphereRef = useRef<AtmosphereType>((() => {
+    if (typeof localStorage === 'undefined') return 'none';
+    try {
+      return normalizePersistedAtmosphere(localStorage.getItem('seihouse-audio-atmosphere'));
+    } catch {
+      return 'none';
+    }
+  })());
   const atmosphereTagsRef = useRef<string[]>([]);
 
   const bgmTrackIdRef = useRef<string>(
     (() => {
       if (typeof localStorage === 'undefined') return 'auto';
-      const saved = localStorage.getItem('seihouse-bgm-track') || 'auto';
-      // A stale id (e.g. a track later removed from the library) falls back
-      // to auto so the narrative cues aren't gated off by a dead pin.
-      return saved === 'auto' || TRACK_LIBRARY.some(t => t.id === saved) ? saved : 'auto';
+      try {
+        const saved = localStorage.getItem('seihouse-bgm-track') || 'auto';
+        // A stale id (e.g. a track later removed from the library) falls back
+        // to auto so the narrative cues aren't gated off by a dead pin.
+        return saved === 'auto' || TRACK_LIBRARY.some(t => t.id === saved) ? saved : 'auto';
+      } catch {
+        return 'auto';
+      }
     })(),
   );
 

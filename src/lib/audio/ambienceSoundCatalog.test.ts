@@ -3,6 +3,7 @@ import sourceCatalog from './celestial_library_catalog_cleaned.json';
 import {
   ATMOSPHERE_BED_CATALOG,
   ATMOSPHERE_CATEGORIES,
+  buildAtmosphereBedCatalog,
   resolveAtmosphereBed,
 } from './ambienceSoundCatalog';
 
@@ -29,6 +30,28 @@ describe('ATMOSPHERE_BED_CATALOG', () => {
       expect(asset.tags).toEqual(source?.metadata.soft_tags);
       expect(asset.url).toBe(source?.public_url);
     }
+  });
+
+  it('skips malformed entries and safely normalizes valid tags', () => {
+    expect(buildAtmosphereBedCatalog([
+      {},
+      { file_path: 'missing-metadata.mp3', public_url: 'https://cdn.test/missing.mp3' },
+      {
+        file_path: 'valid-rain.mp3',
+        public_url: 'https://cdn.test/rain.mp3',
+        metadata: {
+          main_category: 'ATMOSPHERE',
+          broad_variation: 'RAIN',
+          soft_tags: ['STORM', null, 42],
+        },
+      },
+    ])).toEqual([expect.objectContaining({
+      id: 'valid-rain.mp3',
+      category: 'atmosphere',
+      variation: 'rain',
+      tags: ['storm'],
+      url: 'https://cdn.test/rain.mp3',
+    })]);
   });
 });
 

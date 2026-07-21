@@ -78,6 +78,16 @@ describe('AtmosphericAudio', () => {
     expect(engines).toHaveLength(2);
   });
 
+  it('falls back safely when browser storage reads are blocked', () => {
+    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('Storage access denied', 'SecurityError');
+    });
+
+    expect(() => render(<AtmosphericAudio />)).not.toThrow();
+    expect(engines).toHaveLength(2);
+    getItem.mockRestore();
+  });
+
   it('no longer plays automatic footsteps or environment Foley cues', () => {
     render(<AtmosphericAudio />);
     for (const legacy of ['footsteps', 'footsteps_snow', 'footsteps_wood', 'footsteps_stone', 'wind howling', 'territory ambience']) {

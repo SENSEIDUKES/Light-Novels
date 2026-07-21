@@ -36,14 +36,14 @@ export interface CuratedSoundAsset {
   url: string;
 }
 
-interface CelestialLibraryCatalogEntry {
-  file_path: string;
-  public_url: string;
-  metadata: {
-    main_category: string;
-    broad_variation: string;
-    soft_tags: string[];
-  };
+export interface CelestialLibraryCatalogEntry {
+  file_path?: unknown;
+  public_url?: unknown;
+  metadata?: {
+    main_category?: unknown;
+    broad_variation?: unknown;
+    soft_tags?: unknown;
+  } | null;
 }
 
 const ENTITY_TYPES_BY_CATEGORY: Record<string, WorldCardEvent['entityType'][]> = {
@@ -55,9 +55,25 @@ const ENTITY_TYPES_BY_CATEGORY: Record<string, WorldCardEvent['entityType'][]> =
   system: ['system', 'fate_event'],
 };
 
+function normalizedString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim()
+    ? value.toLowerCase()
+    : null;
+}
+
+function normalizedTags(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.flatMap((tag) => {
+      const normalized = normalizedString(tag);
+      return normalized ? [normalized] : [];
+    })
+    : [];
+}
+
 function catalogRole(entry: CelestialLibraryCatalogEntry): WorldCardSoundRole | null {
-  const category = entry.metadata.main_category.toLowerCase();
-  const variation = entry.metadata.broad_variation.toLowerCase();
+  const category = normalizedString(entry.metadata?.main_category);
+  const variation = normalizedString(entry.metadata?.broad_variation);
+  if (!category || !variation) return null;
 
   if (category === 'beasts') {
     if (variation === 'growl') return 'roar';
@@ -75,7 +91,9 @@ function catalogRole(entry: CelestialLibraryCatalogEntry): WorldCardSoundRole | 
     if (variation === 'activation') return 'magical_activation';
     if (variation === 'upgrade') return 'awakening';
     if (variation === 'relics') {
-      return entry.file_path.toLowerCase().includes('/pulse/') ? 'pulse' : 'resonance';
+      return typeof entry.file_path === 'string' && entry.file_path.toLowerCase().includes('/pulse/')
+        ? 'pulse'
+        : 'resonance';
     }
   }
   if (category === 'locations' && variation === 'signatures') return 'signature';
@@ -84,24 +102,33 @@ function catalogRole(entry: CelestialLibraryCatalogEntry): WorldCardSoundRole | 
   return null;
 }
 
-export const CARD_SOUND_LIBRARY: CuratedSoundAsset[] = (
-  celestialLibraryCatalog as CelestialLibraryCatalogEntry[]
-).flatMap((entry) => {
-  const category = entry.metadata.main_category.toLowerCase();
-  const entityTypes = ENTITY_TYPES_BY_CATEGORY[category];
-  const role = catalogRole(entry);
-  if (!entityTypes || !role) return [];
+export function buildCardSoundLibrary(
+  entries: readonly CelestialLibraryCatalogEntry[],
+): CuratedSoundAsset[] {
+  return entries.flatMap((entry) => {
+    const category = normalizedString(entry.metadata?.main_category);
+    const variation = normalizedString(entry.metadata?.broad_variation);
+    const id = typeof entry.file_path === 'string' ? entry.file_path : null;
+    const url = typeof entry.public_url === 'string' ? entry.public_url : null;
+    const entityTypes = category ? ENTITY_TYPES_BY_CATEGORY[category] : undefined;
+    const role = catalogRole(entry);
+    if (!category || !variation || !id || !url || !entityTypes || !role) return [];
 
-  return [{
-    id: entry.file_path,
-    entityTypes,
-    role,
-    category,
-    variation: entry.metadata.broad_variation.toLowerCase(),
-    tags: entry.metadata.soft_tags.map((tag) => tag.toLowerCase()),
-    url: entry.public_url,
-  }];
-});
+    return [{
+      id,
+      entityTypes,
+      role,
+      category,
+      variation,
+      tags: normalizedTags(entry.metadata?.soft_tags),
+      url,
+    }];
+  });
+}
+
+export const CARD_SOUND_LIBRARY = buildCardSoundLibrary(
+  celestialLibraryCatalog as CelestialLibraryCatalogEntry[],
+);
 
 // Near-synonym audioType values older content or the LLM may emit.
 const ROLE_ALIASES: Record<string, WorldCardSoundRole> = {

@@ -37,14 +37,14 @@ export interface CuratedAtmosphereBed extends CuratedAmbienceAsset {
   tags: string[];
 }
 
-interface CelestialLibraryCatalogEntry {
-  file_path: string;
-  public_url: string;
-  metadata: {
-    main_category: string;
-    broad_variation: string;
-    soft_tags: string[];
-  };
+export interface CelestialLibraryCatalogEntry {
+  file_path?: unknown;
+  public_url?: unknown;
+  metadata?: {
+    main_category?: unknown;
+    broad_variation?: unknown;
+    soft_tags?: unknown;
+  } | null;
 }
 
 export type NarrativeCueName =
@@ -55,27 +55,54 @@ export type NarrativeCueName =
   | 'fate_shift'
   | 'major_impact';
 
-/** All atmosphere entries from the shared catalog; World Cards exclude them. */
-export const ATMOSPHERE_BED_CATALOG: CuratedAtmosphereBed[] = (
-  celestialLibraryCatalog as CelestialLibraryCatalogEntry[]
-).flatMap((entry) => {
-  const category = entry.metadata.main_category.toLowerCase();
-  const variation = entry.metadata.broad_variation.toLowerCase();
-  if (
-    category !== 'atmosphere' ||
-    !ATMOSPHERE_CATEGORIES.includes(variation as AtmosphereBedName)
-  ) {
-    return [];
-  }
+function normalizedString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim()
+    ? value.toLowerCase()
+    : null;
+}
 
-  return [{
-    id: entry.file_path,
-    category: 'atmosphere' as const,
-    variation: variation as AtmosphereBedName,
-    tags: entry.metadata.soft_tags.map((tag) => tag.toLowerCase()),
-    url: entry.public_url,
-  }];
-});
+function normalizedTags(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.flatMap((tag) => {
+      const normalized = normalizedString(tag);
+      return normalized ? [normalized] : [];
+    })
+    : [];
+}
+
+export function buildAtmosphereBedCatalog(
+  entries: readonly CelestialLibraryCatalogEntry[],
+): CuratedAtmosphereBed[] {
+  return entries.flatMap((entry) => {
+    const category = normalizedString(entry.metadata?.main_category);
+    const variation = normalizedString(entry.metadata?.broad_variation);
+    const id = typeof entry.file_path === 'string' ? entry.file_path : null;
+    const url = typeof entry.public_url === 'string' ? entry.public_url : null;
+    if (
+      !category ||
+      !variation ||
+      !id ||
+      !url ||
+      category !== 'atmosphere' ||
+      !ATMOSPHERE_CATEGORIES.includes(variation as AtmosphereBedName)
+    ) {
+      return [];
+    }
+
+    return [{
+      id,
+      category: 'atmosphere' as const,
+      variation: variation as AtmosphereBedName,
+      tags: normalizedTags(entry.metadata?.soft_tags),
+      url,
+    }];
+  });
+}
+
+/** All atmosphere entries from the shared catalog; World Cards exclude them. */
+export const ATMOSPHERE_BED_CATALOG = buildAtmosphereBedCatalog(
+  celestialLibraryCatalog as CelestialLibraryCatalogEntry[],
+);
 
 /**
  * One-shot story cues (narrative.fx.play), played through the shared curated

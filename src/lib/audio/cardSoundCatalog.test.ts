@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   CARD_SOUND_LIBRARY,
+  buildCardSoundLibrary,
   resolveCardSound,
   resolveCardSoundRole,
   setUnresolvedCardSoundListener,
@@ -44,6 +45,28 @@ describe('CARD_SOUND_LIBRARY', () => {
       expect(asset.url).toMatch(/\.(mp3|wav|ogg)$/);
       expect(asset.url).not.toContain('/AUDIO/SFX/');
     }
+  });
+
+  it('skips malformed entries and safely normalizes valid tags', () => {
+    expect(buildCardSoundLibrary([
+      {},
+      { file_path: 'missing-metadata.mp3', public_url: 'https://cdn.test/missing.mp3' },
+      {
+        file_path: 'valid-roar.mp3',
+        public_url: 'https://cdn.test/roar.mp3',
+        metadata: {
+          main_category: 'BEASTS',
+          broad_variation: 'ROAR',
+          soft_tags: ['FEROCIOUS', null, 42],
+        },
+      },
+    ])).toEqual([expect.objectContaining({
+      id: 'valid-roar.mp3',
+      category: 'beasts',
+      variation: 'roar',
+      tags: ['ferocious'],
+      url: 'https://cdn.test/roar.mp3',
+    })]);
   });
 });
 
