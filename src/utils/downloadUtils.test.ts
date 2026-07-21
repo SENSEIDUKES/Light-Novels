@@ -37,7 +37,7 @@ describe('handleDownload', () => {
     await handleDownload('https://cdn.example/chapter.mp3', 'chapter.mp3');
 
     expect(link).toMatchObject({
-      href: 'https://cdn.example/chapter.mp3', target: '_blank', download: 'chapter.mp3',
+      href: 'https://cdn.example/chapter.mp3', target: '_blank', download: 'chapter.mp3', rel: 'noopener noreferrer'
     });
     expect(link.click).toHaveBeenCalledOnce();
   });
