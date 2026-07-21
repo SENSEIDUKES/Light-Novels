@@ -165,9 +165,11 @@ If the chapter resolves a major Fate Deadline or Doom Deadline, you MUST emit a 
 For each block, list all notable codex entities referenced in the 'entities' array inside "metadata". Each entity in the array must have the shape: { "name": string, "type": "character"|"artifact"|"location"|"beast"|"faction", "mention": "reveal"|"reference" }. Set mention to "reveal" ONLY value for a first dramatic appearance of the entity in the story, otherwise use "reference".
 Additionally, emit a per-scene 'music' object inside "metadata" when the scene's backing soundtrack can be described or changes: { "mood": "war"|"duel"|"serenity"|"romance"|"dread"|"mystery"|"triumph"|"tribulation"|"travel"|"tragedy"|"fighting"|"adventure"|"ambient"|"boss-fight"|"tension"|"sad"|"mystical"|"excitement"|"tired"|"horror", "region": "chinese"|"japanese"|"western" (optional), "intensity": number (optional, 0 to 1) }.
 
+ATMOSPHERIC AUDIO METADATA: When a block's scene clearly has a dominant looping background, set "atmosphereCategory" to exactly one of "wind", "crowd", "waves", "rain", "combat", or "noise". Also emit flexible "environment" and "atmosphereTags" arrays with concrete, audible scene descriptors that a curated catalog can match. A busy marketplace could use category "crowd" with tags such as "market", "busy", and "chatter"; a cyberpunk factory could use "noise" with tags such as "machinery", "electrical-hum", and "industrial". These examples are not a fixed vocabulary or variation list. Never emit an asset name or ID. Omit "atmosphereCategory" when the scene has no clear fit, and never infer rain merely because characters are travelling.
+
 Example:
 ---CHAPTER_BLOCKS---
-{"id": "c1-p1", "type": "paragraph", "text": "Rain crawled down the black stones as Kael climbed higher into the mountain pass...", "metadata": {"mode": "narration", "sceneType": "travel", "environment": ["mountain", "rain", "night"], "motion": "walking", "emotion": "determined", "intensity": 0.35, "tension": 0.25, "danger": 0.15, "mysticism": 0.4, "audioSignature": "rainy-mountain-walk", "entities": [{"name": "Kael", "type": "character", "mention": "reference"}], "music": {"mood": "travel", "region": "western", "intensity": 0.3}}}
+{"id": "c1-p1", "type": "paragraph", "text": "Rain crawled down the black stones as Kael climbed higher into the mountain pass...", "metadata": {"mode": "narration", "sceneType": "travel", "environment": ["mountain", "rain", "night"], "atmosphereCategory": "rain", "atmosphereTags": ["mountain-pass", "steady-rain", "night"], "motion": "walking", "emotion": "determined", "intensity": 0.35, "tension": 0.25, "danger": 0.15, "mysticism": 0.4, "audioSignature": "rainy-mountain-walk", "entities": [{"name": "Kael", "type": "character", "mention": "reference"}], "music": {"mood": "travel", "region": "western", "intensity": 0.3}}}
 {"id": "c1-p2", "type": "dialogue", "text": "\\"Who dares disturb my slumber?\\" Overseer Chen bellowed.", "metadata": {"mode": "dialogue", "speakerName": "Overseer Chen", "speakerRole": "villain", "emotion": "cruel", "intensity": 0.85, "tension": 0.9}}
 {"id": "c1-p3", "type": "paragraph", "text": "Suddenly, the sky tore open. The Thunder Roc emerged, completely blotting out the moon.", "metadata": {"mode": "narration", "tension": 0.9, "beastEvent": {"type": "reveal", "profile": {"size": "giant", "bodyType": "bird", "element": "lightning", "movement": "flying", "intelligence": "ancient", "threatTier": "mythic", "signatureSound": "screech"}}}}
 {"id": "c1-p4", "type": "paragraph", "text": "A holographic chime rang out in his mind.", "system": {"kind": "level_up", "promptType": "breakthrough", "title": "Breakthrough Achieved", "rarity": "Mythic", "rows": [{"label": "Realm", "value": "Core Formation"}]}}`,
@@ -285,7 +287,7 @@ Continue from the latest concrete action, conversation, and physical position. D
 Write a fully fleshed-out chapter following the length directives. Split it into multiple beautiful paragraphs with plenty of dialogue, combat choreography or cultivation breakthroughs where descriptive details make it feel real. 
 ${withCue ? 'Celestial Library system panels are available in EVERY genre: when a moment earns visible UI treatment (technique/skill learned, ability or artifact discovered, breakthrough, important Codex info, karma/relationship/choice consequence, warning, revelation, prophecy, Fate event, or major world change), emit a structured "system" object (with its "promptType" set) on its own NDJSON block. Use them frequently and mechanically in explicit System/LitRPG stories, selectively in cultivation/fantasy/progression genres, and rarely-but-meaningfully in grounded genres. Never use plain-text brackets in narration or dialogue, and never force an empty panel just to have one.' : 'Celestial Library system panels are available in EVERY genre: when a moment earns visible UI treatment (technique/skill learned, ability or artifact discovered, breakthrough, important Codex info, karma/relationship/choice consequence, warning, revelation, prophecy, Fate event, or major world change), write it as a single standalone bracketed system line on its own paragraph in chapterText, styled to the world. Use them frequently in explicit System/LitRPG stories, selectively in cultivation/fantasy/progression genres, and rarely-but-meaningfully in grounded genres. Never embed bracketed alerts or control labels inside narration or dialogue sentences, and never force an empty panel just to have one.'}
 
-${withCue ? `Also allow narrative cue payloads to carry normalized story metadata. Do not directly convert this data into complex Web Audio synthesis yet. Keep the structured payloads clean so SAP can later interpret them as part of a proper meaning-to-score audio system. DO NOT generate summary or memory updates, only generate the chapter text blocks.` : `Also, analyze the events of this chapter and provide list updates/modifications to the permanent story memory so we can track newly met characters, dead characters, relationship updates, unresolved issues, or potential MC advancement.`}
+${withCue ? `Also allow narrative cue payloads to carry normalized story metadata. When a scene clearly fits, its block metadata must include "atmosphereCategory" as exactly "wind", "crowd", "waves", "rain", "combat", or "noise", plus open-ended "environment" and "atmosphereTags" descriptors. Omit the category when unclear. Do not directly convert this data into complex Web Audio synthesis yet. Keep the structured payloads clean so SAP can later interpret them as part of a proper meaning-to-score audio system. DO NOT generate summary or memory updates, only generate the chapter text blocks.` : `Also, analyze the events of this chapter and provide list updates/modifications to the permanent story memory so we can track newly met characters, dead characters, relationship updates, unresolved issues, or potential MC advancement. In "cuePayload", describe the opening scene with an optional "atmosphereCategory" of exactly "wind", "crowd", "waves", "rain", "combat", or "noise" when clearly supported, plus open-ended "environment" and "atmosphereTags" arrays. Omit the category when unclear.`}
 
 ${!withCue ? `You must return a JSON object with the following fields:
 {
@@ -293,7 +295,7 @@ ${!withCue ? `You must return a JSON object with the following fields:
   "summary": "A highly concise summary of the physical events that transpired in this chapter. This summary MUST be strictly 1 to 3 sentences max.",
   "arcSummary": "A rolling 2-3 sentence highly concise overview of the ENTIRE current arc up to (and including) this chapter's events. Acts as a coarse history block.",
   "statsChangeMessage": "A short status upgrade notification (e.g. '[System Breakthrough: Qi Condensation Rank 2 reached. Meridians purified!]', or 'None')",
-  "cuePayload": { "intensity": 0.8, "tension": 0.5, "powerShift": 1, "emotion": "awe", "danger": 0.2, "mysticism": 0.9, "element": "void", "relationshipShift": 0, "signature": "celestial_chime" },
+  "cuePayload": { "sceneType": "social", "environment": ["market", "busy", "open-air"], "atmosphereCategory": "crowd", "atmosphereTags": ["market", "busy", "chatter"], "intensity": 0.8, "tension": 0.5, "powerShift": 1, "emotion": "awe", "danger": 0.2, "mysticism": 0.9, "element": "void", "relationshipShift": 0, "signature": "celestial_chime" },
   "memoryUpdates": {
     "currentPowerStage": "Updated MC power level if they broke through, otherwise the same as before.",
     "newCharacters": [],
@@ -365,6 +367,7 @@ IMPORTANT STATE PERSISTENCE: You MUST scan the Chapter Text for any System Alert
 Within the "cuePayload" object:
 1. List all notable codex entities referenced in the 'entities' array. Each entity must have the shape: { "name": string, "type": "character"|"artifact"|"location"|"beast"|"faction", "mention": "reveal"|"reference" }. Set mention to "reveal" ONLY for the first dramatic appearance of the entity in the story, otherwise use "reference".
 2. Emit a backing 'music' object: { "mood": "war"|"duel"|"serenity"|"romance"|"dread"|"mystery"|"triumph"|"tribulation"|"travel"|"tragedy"|"fighting"|"adventure"|"ambient"|"boss-fight"|"tension"|"sad"|"mystical"|"excitement"|"tired"|"horror", "region": "chinese"|"japanese"|"western" (optional), "intensity": number (optional, 0 to 1) }.
+3. Describe the opening scene with "sceneType", "environment" (array), and "atmosphereTags" (array) using concrete, audible setting terms. When the opening clearly fits, also emit "atmosphereCategory" as exactly one of "wind", "crowd", "waves", "rain", "combat", or "noise". A busy marketplace can use "crowd" with open-ended tags such as "market", "busy", and "chatter"; a cyberpunk factory can use "noise" with tags such as "machinery", "electrical-hum", and "industrial". These examples are not a fixed vocabulary or variation list. Never name an asset, never assume rain because the chapter involves travel, and omit the category when the opening has no clear fit.
 
 You must return a JSON object with the following fields:
 {
@@ -372,6 +375,10 @@ You must return a JSON object with the following fields:
   "arcSummary": "A rolling 2-3 sentence highly concise overview of the ENTIRE current arc up to (and including) this chapter's events. Acts as a coarse history block.",
   "statsChangeMessage": "A short status upgrade notification (e.g. '[System Breakthrough: Qi Condensation Rank 2 reached. Meridians purified!]', or 'None')",
   "cuePayload": {
+    "sceneType": "social",
+    "environment": ["market", "busy", "open-air"],
+    "atmosphereCategory": "crowd",
+    "atmosphereTags": ["market", "busy", "chatter"],
     "intensity": 0.8,
     "tension": 0.5,
     "powerShift": 1,
@@ -680,6 +687,7 @@ ORIGINAL CHAPTER TEXT BLOCKS:
 ${chapterText}
 
 Rewrite the ENTIRE chapter to fix ALL the warnings. Maintain the exact same style, formatting, pacing, and length. Do not introduce new continuity errors or reader-surface control language.
+Preserve valid block metadata while rewriting. For every corrected scene that clearly has a dominant looping background, keep or emit "atmosphereCategory" as exactly "wind", "crowd", "waves", "rain", "combat", or "noise", together with open-ended "environment" and "atmosphereTags" descriptors. Omit the category when the corrected scene has no clear fit; never invent an atmosphere or asset ID.
 Output strictly the full set of corrected NDJSON blocks for the entire chapter starting with ---CHAPTER_BLOCKS---.`
   },
 
