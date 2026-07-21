@@ -463,6 +463,8 @@ export type WorldCardSoundRole =
   // Weapon
   | "unsheathe"
   | "metallic_ring"
+  | "swing"
+  | "impact"
   | "activation_hum"
   // Artifact / relic
   | "resonance"
@@ -470,9 +472,13 @@ export type WorldCardSoundRole =
   | "pulse"
   | "magical_activation"
   // Location
+  | "ambience"
   | "signature"
   // Faction / ritual
   | "chant"
+  | "horn"
+  | "bell"
+  | "ceremony"
   // System
   | "chime";
 

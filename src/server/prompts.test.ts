@@ -101,12 +101,6 @@ describe('Prompts', () => {
       expect(PROMPTS.chapter.system).toContain('never cut it off mid-word or mid-sentence');
     });
 
-    it('restricts World Card location and faction sound roles', () => {
-      expect(PROMPTS.chapter.system).toContain('location exactly "signature"');
-      expect(PROMPTS.chapter.system).toContain('faction exactly "chant"');
-      expect(PROMPTS.chapter.system).toContain('Never use location "ambience" or faction "horn", "bell", or "ceremony"');
-    });
-
     it('offers Celestial Library system panels to every genre in the streamed system prompt', () => {
       expect(PROMPTS.chapter.system).toContain('CELESTIAL LIBRARY SYSTEM PANELS (ALL GENRES)');
       expect(PROMPTS.chapter.system).toContain('not just System/LitRPG stories');
