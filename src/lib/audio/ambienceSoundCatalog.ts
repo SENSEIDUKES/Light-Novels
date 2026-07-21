@@ -81,9 +81,11 @@ const normalizedTags = (value: unknown): string[] => Array.isArray(value)
   : [];
 
 export function buildAtmosphereBedCatalog(
-  entries: readonly CelestialLibraryCatalogEntry[],
+  entries: readonly unknown[],
 ): CuratedAtmosphereBed[] {
-  return entries.flatMap((entry) => {
+  return entries.flatMap((rawEntry) => {
+    if (!rawEntry || typeof rawEntry !== 'object' || Array.isArray(rawEntry)) return [];
+    const entry = rawEntry as CelestialLibraryCatalogEntry;
     const category = normalizedString(entry.metadata?.main_category);
     const variation = normalizedString(entry.metadata?.broad_variation);
     const id = typeof entry.file_path === 'string' ? entry.file_path : null;
@@ -110,7 +112,7 @@ export function buildAtmosphereBedCatalog(
 
 /** All 50 scene-atmosphere loops from the shared catalog, kept out of World Cards. */
 export const ATMOSPHERE_BED_CATALOG: readonly CuratedAtmosphereBed[] =
-  buildAtmosphereBedCatalog(celestialLibraryCatalog as CelestialLibraryCatalogEntry[]);
+  buildAtmosphereBedCatalog(celestialLibraryCatalog);
 
 const toTags = (value: unknown): string[] => {
   const values = Array.isArray(value) ? value : [value];

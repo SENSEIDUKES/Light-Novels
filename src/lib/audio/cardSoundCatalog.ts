@@ -115,9 +115,11 @@ function catalogRole(entry: CelestialLibraryCatalogEntry): WorldCardSoundRole | 
 }
 
 export function buildCardSoundLibrary(
-  entries: readonly CelestialLibraryCatalogEntry[],
+  entries: readonly unknown[],
 ): CuratedSoundAsset[] {
-  return entries.flatMap((entry) => {
+  return entries.flatMap((rawEntry) => {
+    if (!rawEntry || typeof rawEntry !== 'object' || Array.isArray(rawEntry)) return [];
+    const entry = rawEntry as CelestialLibraryCatalogEntry;
     const category = normalizedString(entry.metadata?.main_category);
     const variation = normalizedString(entry.metadata?.broad_variation);
     const id = typeof entry.file_path === 'string' ? entry.file_path : null;
@@ -143,7 +145,7 @@ export function buildCardSoundLibrary(
 }
 
 export const CARD_SOUND_LIBRARY = buildCardSoundLibrary(
-  celestialLibraryCatalog as CelestialLibraryCatalogEntry[],
+  celestialLibraryCatalog,
 );
 
 // Near-synonym audioType values older content or the LLM may emit.
@@ -220,7 +222,9 @@ function addTokens(tokens: Set<string>, values: Array<string | undefined>) {
     tokens.add(token);
     // Catalog categories/variations are plural while model hints are often
     // singular (artifact/artifacts, signature/signatures, etc.).
-    if (token.length > 3 && token.endsWith('s')) tokens.add(token.slice(0, -1));
+    if (token.length > 3 && token.endsWith('s') && !token.endsWith('ss')) {
+      tokens.add(token.slice(0, -1));
+    }
     for (const expanded of TOKEN_EXPANSIONS[token] ?? []) tokens.add(expanded);
   }
 }

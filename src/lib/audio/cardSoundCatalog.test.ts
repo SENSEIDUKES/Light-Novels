@@ -53,6 +53,9 @@ describe('CARD_SOUND_LIBRARY', () => {
 
   it('skips malformed entries and safely normalizes valid tags', () => {
     expect(buildCardSoundLibrary([
+      null,
+      42,
+      [],
       {},
       { file_path: 'missing-metadata.mp3', public_url: 'https://cdn.test/missing.mp3' },
       {

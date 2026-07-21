@@ -45,6 +45,9 @@ describe('ambience sound catalog', () => {
 
   it('skips malformed catalog entries and safely normalizes valid metadata', () => {
     expect(buildAtmosphereBedCatalog([
+      null,
+      42,
+      [],
       {},
       { file_path: 'missing-metadata.mp3', public_url: 'https://cdn.test/missing.mp3' },
       {
