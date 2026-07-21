@@ -1,4 +1,8 @@
-import { WorldCardEvent, WorldCardSoundRole } from '../../types';
+import {
+  WorldCardArtifactAssetFamily,
+  WorldCardEvent,
+  WorldCardSoundRole,
+} from '../../types';
 import { isDevBuild } from '../env';
 import celestialLibraryCatalog from './celestial_library_catalog_cleaned.json';
 
@@ -27,6 +31,8 @@ export interface CuratedSoundAsset {
   /** Which card entity types this asset can serve. */
   entityTypes: WorldCardEvent['entityType'][];
   role: WorldCardSoundRole;
+  /** Artifact source family; omitted for entity types that have only one pool. */
+  assetFamily?: WorldCardArtifactAssetFamily;
   /** Source catalog category and variation used during candidate matching. */
   category: string;
   variation: string;
@@ -57,6 +63,11 @@ const ENTITY_TYPES_BY_CATEGORY: Record<string, WorldCardEvent['entityType'][]> =
   locations: ['location'],
   factions: ['faction'],
   system: ['system', 'fate_event'],
+};
+
+const ARTIFACT_ASSET_FAMILY_BY_CATEGORY: Record<string, WorldCardArtifactAssetFamily> = {
+  weapons: 'weapon',
+  artifacts: 'relic',
 };
 
 function normalizedString(value: unknown): string | null {
@@ -97,7 +108,7 @@ function catalogRole(entry: CelestialLibraryCatalogEntry): WorldCardSoundRole | 
     if (variation === 'unsheathe') return 'unsheathe';
     if (variation === 'electric') return 'activation_hum';
     if (variation === 'magic') return 'magical_activation';
-    if (variation === 'reload') return 'metallic_ring';
+    if (variation === 'reload') return 'reload';
   }
   if (category === 'artifacts') {
     if (variation === 'activation') return 'magical_activation';
@@ -125,6 +136,7 @@ export function buildCardSoundLibrary(
     const id = typeof entry.file_path === 'string' ? entry.file_path : null;
     const url = typeof entry.public_url === 'string' ? entry.public_url : null;
     const entityTypes = category ? ENTITY_TYPES_BY_CATEGORY[category] : undefined;
+    const assetFamily = category ? ARTIFACT_ASSET_FAMILY_BY_CATEGORY[category] : undefined;
     const role = catalogRole(entry);
     if (!category || !variation || !id || !url || !entityTypes || !role) return [];
     const sourceTags = normalizedTags(entry.metadata?.soft_tags);
@@ -134,6 +146,7 @@ export function buildCardSoundLibrary(
       id,
       entityTypes,
       role,
+      assetFamily,
       category,
       variation,
       tags: [...new Set([...sourceTags, ...pathTags])],
@@ -167,6 +180,7 @@ const WORLD_CARD_SOUND_ROLES: WorldCardSoundRole[] = [
   'wingbeat',
   'unsheathe',
   'metallic_ring',
+  'reload',
   'activation_hum',
   'resonance',
   'awakening',
@@ -177,12 +191,23 @@ const WORLD_CARD_SOUND_ROLES: WorldCardSoundRole[] = [
   'chime',
 ];
 
-export function resolveCardSoundRole(audioType: string): WorldCardSoundRole | null {
-  if (audioType === 'tts_line') return null;
-  if (WORLD_CARD_SOUND_ROLES.includes(audioType as WorldCardSoundRole)) {
-    return audioType as WorldCardSoundRole;
+const LEGACY_ROLE_ALIASES_BY_ENTITY: Partial<Record<WorldCardEvent['entityType'], Record<string, WorldCardSoundRole>>> = {
+  // These old World Card roles resolve to a one-shot signature. They never
+  // enter the automatic atmosphere resolver or its looping candidate pool.
+  location: { ambient: 'signature', ambience: 'signature' },
+  faction: { horn: 'chant', bell: 'chant', ceremony: 'chant', ceremonial: 'chant' },
+};
+
+export function resolveCardSoundRole(
+  audioType: string,
+  entityType?: WorldCardEvent['entityType'],
+): WorldCardSoundRole | null {
+  const normalizedType = audioType.trim().toLowerCase();
+  if (normalizedType === 'tts_line') return null;
+  if (WORLD_CARD_SOUND_ROLES.includes(normalizedType as WorldCardSoundRole)) {
+    return normalizedType as WorldCardSoundRole;
   }
-  return ROLE_ALIASES[audioType] ?? null;
+  return ROLE_ALIASES[normalizedType] ?? LEGACY_ROLE_ALIASES_BY_ENTITY[entityType ?? 'character']?.[normalizedType] ?? null;
 }
 
 // Descriptor words expanded into the tag vocabulary so entity names like
@@ -268,13 +293,42 @@ function reportUnresolved(card: WorldCardEvent, reason: 'unknown-role' | 'no-cat
   }
 }
 
+const ARTIFACT_FAMILY_BY_ROLE: Partial<Record<WorldCardSoundRole, WorldCardArtifactAssetFamily>> = {
+  unsheathe: 'weapon',
+  metallic_ring: 'weapon',
+  reload: 'weapon',
+  activation_hum: 'weapon',
+  resonance: 'relic',
+  awakening: 'relic',
+  pulse: 'relic',
+};
+
+function artifactAssetFamily(
+  card: WorldCardEvent,
+  role: WorldCardSoundRole,
+): WorldCardArtifactAssetFamily | null {
+  if (card.entityType !== 'artifact') return null;
+
+  // Most artifact roles already name their family. magical_activation is the
+  // deliberate exception: the generated semantic hint chooses its pool.
+  const roleFamily = ARTIFACT_FAMILY_BY_ROLE[role];
+  if (roleFamily) return roleFamily;
+  if (card.sound?.assetFamily === 'weapon' || card.sound?.assetFamily === 'relic') {
+    return card.sound.assetFamily;
+  }
+  // Older cards did not have assetFamily. weaponType was already a semantic
+  // field, so retain that intent; otherwise prefer the relic pool rather than
+  // letting two unrelated families compete.
+  return card.sound?.weaponType ? 'weapon' : 'relic';
+}
+
 /**
  * Resolve a World Card to its curated sound asset, or null when no approved
  * asset exists. Never guesses outside the catalog and never generates —
  * a null result must surface as a visible "unavailable" state on the card.
  */
 export function resolveCardSound(card: WorldCardEvent): CuratedSoundAsset | null {
-  const role = resolveCardSoundRole(card.audioType);
+  const role = resolveCardSoundRole(card.audioType, card.entityType);
   if (!role) {
     if (card.audioType !== 'tts_line') reportUnresolved(card, 'unknown-role');
     return null;
@@ -299,8 +353,11 @@ export function resolveCardSound(card: WorldCardEvent): CuratedSoundAsset | null
     if (pinned) return pinned;
   }
 
+  const assetFamily = artifactAssetFamily(card, role);
   const candidates = CARD_SOUND_LIBRARY.filter(
-    (a) => a.role === role && a.entityTypes.includes(card.entityType),
+    (a) => a.role === role
+      && a.entityTypes.includes(card.entityType)
+      && (assetFamily === null || a.assetFamily === assetFamily),
   );
   if (candidates.length === 0) {
     reportUnresolved(card, 'no-catalog-match');

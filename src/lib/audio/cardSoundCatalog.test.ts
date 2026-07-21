@@ -110,7 +110,7 @@ describe('resolveCardSound — role coverage', () => {
     ['screech', 'creature'],
     ['wingbeat', 'creature'],
     ['unsheathe', 'artifact'],
-    ['metallic_ring', 'artifact'],
+    ['reload', 'artifact'],
     ['activation_hum', 'artifact'],
     ['resonance', 'artifact'],
     ['awakening', 'artifact'],
@@ -166,6 +166,47 @@ describe('resolveCardSound — semantic matching', () => {
     expect(asset?.id).toBe('DEFAULT/Artifacts/Upgrade/Upgrade_1.mp3');
   });
 
+  it('keeps weapon and relic assets in separate artifact candidate pools', () => {
+    const weapon = resolveCardSound(
+      makeCard({
+        entityType: 'artifact',
+        entityName: 'Stormblade',
+        audioType: 'magical_activation',
+        sound: { assetFamily: 'weapon', element: 'wind', weaponType: 'sword' },
+      }),
+    );
+    const relic = resolveCardSound(
+      makeCard({
+        entityType: 'artifact',
+        entityName: 'Stormblade',
+        audioType: 'magical_activation',
+        sound: { assetFamily: 'relic', artifactCategory: 'relic', tags: ['ding'] },
+      }),
+    );
+
+    expect(weapon).toMatchObject({ category: 'weapons', assetFamily: 'weapon' });
+    expect(relic).toMatchObject({ category: 'artifacts', assetFamily: 'relic' });
+  });
+
+  it('maps reload to its matching catalog role instead of metallic_ring', () => {
+    const asset = resolveCardSound(
+      makeCard({
+        entityType: 'artifact',
+        entityName: 'Old Gun',
+        audioType: 'reload',
+        sound: { assetFamily: 'weapon', weaponType: 'gun' },
+      }),
+    );
+
+    expect(asset).toMatchObject({
+      role: 'reload',
+      category: 'weapons',
+      variation: 'reload',
+      assetFamily: 'weapon',
+    });
+    expect(asset?.id).toContain('/Reload/');
+  });
+
   it('matches a sect location using the catalog gong tags', () => {
     const asset = resolveCardSound(
       makeCard({
@@ -203,9 +244,7 @@ describe('resolveCardSound — semantic matching', () => {
     expect(new Set(factionRoles)).toEqual(new Set(['chant']));
   });
 
-  it('does not resolve removed location or faction roles, including through a pin', () => {
-    const listener = vi.fn();
-    setUnresolvedCardSoundListener(listener);
+  it('normalizes legacy location and faction roles without using atmosphere audio', () => {
     const legacyLocation = makeCard({
       entityType: 'location',
       audioType: 'ambience' as WorldCardEvent['audioType'],
@@ -217,10 +256,15 @@ describe('resolveCardSound — semantic matching', () => {
       sound: { assetId: 'DEFAULT/Factions/Tribal_Chant_1.mp3' },
     });
 
-    expect(resolveCardSound(legacyLocation)).toBeNull();
-    expect(resolveCardSound(legacyFaction)).toBeNull();
-    expect(listener).toHaveBeenCalledWith(legacyLocation, 'unknown-role');
-    expect(listener).toHaveBeenCalledWith(legacyFaction, 'unknown-role');
+    expect(resolveCardSound(legacyLocation)).toMatchObject({
+      role: 'signature',
+      category: 'locations',
+    });
+    expect(resolveCardSound(legacyLocation)?.category).not.toBe('atmosphere');
+    expect(resolveCardSound(legacyFaction)).toMatchObject({
+      role: 'chant',
+      category: 'factions',
+    });
   });
 
   it('expands descriptor synonyms into the catalog tag vocabulary', () => {
@@ -262,6 +306,13 @@ describe('resolveCardSound — semantic matching', () => {
     expect(resolveCardSoundRole('ambient')).toBeNull();
     expect(resolveCardSoundRole('swing')).toBeNull();
     expect(resolveCardSoundRole('impact')).toBeNull();
+    expect(resolveCardSoundRole('ambience')).toBeNull();
+    expect(resolveCardSoundRole('ambience', 'location')).toBe('signature');
+    expect(resolveCardSoundRole('ambient', 'location')).toBe('signature');
+    for (const legacyFactionRole of ['horn', 'bell', 'ceremony']) {
+      expect(resolveCardSoundRole(legacyFactionRole, 'faction')).toBe('chant');
+    }
+    expect(resolveCardSoundRole('ceremonial', 'faction')).toBe('chant');
   });
 });
 
@@ -304,5 +355,18 @@ describe('resolveCardSound — graceful failure', () => {
     expect(resolveCardSound(impactCard)).toBeNull();
     expect(listener).toHaveBeenCalledWith(swingCard, 'unknown-role');
     expect(listener).toHaveBeenCalledWith(impactCard, 'unknown-role');
+  });
+
+  it('does not substitute reload assets for metallic_ring', () => {
+    const listener = vi.fn();
+    setUnresolvedCardSoundListener(listener);
+    const card = makeCard({
+      entityType: 'artifact',
+      audioType: 'metallic_ring',
+      sound: { assetFamily: 'weapon' },
+    });
+
+    expect(resolveCardSound(card)).toBeNull();
+    expect(listener).toHaveBeenCalledWith(card, 'no-catalog-match');
   });
 });
