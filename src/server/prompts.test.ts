@@ -107,6 +107,14 @@ describe('Prompts', () => {
       expect(PROMPTS.chapter.system).toContain('Never use location "ambience" or faction "horn", "bell", or "ceremony"');
     });
 
+    it('requires generated World Cards to provide semantic sound hints without catalog references', () => {
+      expect(PROMPTS.chapter.system).toContain('include a semantic "sound" object');
+      expect(PROMPTS.chapter.system).toContain('"assetFamily" (artifact only: exactly "weapon" or "relic")');
+      expect(PROMPTS.chapter.system).toContain('always set "assetFamily" so weapon and relic sounds remain separate');
+      expect(PROMPTS.chapter.system).toContain('Never output an asset ID, file path, URL, "assetId", or any catalog filename');
+      expect(PROMPTS.chapter.system).toContain('artifact "unsheathe", "reload", "activation_hum"');
+    });
+
     it('offers Celestial Library system panels to every genre in the streamed system prompt', () => {
       expect(PROMPTS.chapter.system).toContain('CELESTIAL LIBRARY SYSTEM PANELS (ALL GENRES)');
       expect(PROMPTS.chapter.system).toContain('not just System/LitRPG stories');

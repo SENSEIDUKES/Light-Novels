@@ -24,8 +24,49 @@ const isRenderableBlock = (obj: any): boolean =>
     (obj.worldCard && typeof obj.worldCard === 'object')
   );
 
+const GENERATED_SOUND_HINT_FIELDS = [
+  'element',
+  'size',
+  'threatTier',
+  'weaponType',
+  'artifactCategory',
+] as const;
+
+const isSemanticHint = (value: unknown): value is string =>
+  typeof value === 'string'
+  && value.trim().length > 0
+  && !/[\\/]/.test(value)
+  && !/\.(?:mp3|wav|ogg)$/i.test(value);
+
+// Generated World Cards choose by meaning, never by catalog identity. Pins
+// remain available to authored cards elsewhere in the app, but model output
+// is reduced to the semantic portion of the contract at the parse boundary.
+const normalizeGeneratedWorldCard = (worldCard: any) => {
+  if (!worldCard || typeof worldCard !== 'object' || Array.isArray(worldCard) || !('sound' in worldCard)) {
+    return worldCard;
+  }
+
+  const { sound: rawSound, ...card } = worldCard;
+  if (!rawSound || typeof rawSound !== 'object' || Array.isArray(rawSound)) return card;
+
+  const sound: Record<string, string | string[]> = {};
+  for (const field of GENERATED_SOUND_HINT_FIELDS) {
+    if (isSemanticHint(rawSound[field])) sound[field] = rawSound[field].trim();
+  }
+  if (rawSound.assetFamily === 'weapon' || rawSound.assetFamily === 'relic') {
+    sound.assetFamily = rawSound.assetFamily;
+  }
+  if (Array.isArray(rawSound.tags)) {
+    const tags = rawSound.tags.filter(isSemanticHint).map((tag: string) => tag.trim());
+    if (tags.length > 0) sound.tags = tags;
+  }
+
+  return Object.keys(sound).length > 0 ? { ...card, sound } : card;
+};
+
 const normalizeBlockText = (b: any) => ({
   ...b,
+  ...(b.worldCard ? { worldCard: normalizeGeneratedWorldCard(b.worldCard) } : {}),
   text: typeof b.text === 'string' && b.text ? b.text : (typeof b.content === 'string' ? b.content : (b.text ?? '')),
 });
 

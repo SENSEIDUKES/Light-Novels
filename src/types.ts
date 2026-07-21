@@ -468,6 +468,7 @@ export type WorldCardSoundRole =
   // Weapon
   | "unsheathe"
   | "metallic_ring"
+  | "reload"
   | "activation_hum"
   // Artifact / relic
   | "resonance"
@@ -482,16 +483,24 @@ export type WorldCardSoundRole =
   | "chime";
 
 /**
+ * The two catalog families that can back an artifact World Card. Keeping this
+ * explicit prevents a weapon effect from competing with a relic effect when
+ * their roles happen to overlap (for example, magical_activation).
+ */
+export type WorldCardArtifactAssetFamily = "weapon" | "relic";
+
+/**
  * Optional semantic hints for curated sound resolution. All fields reuse
  * vocabulary that already exists elsewhere in the model (BeastSonicProfile
  * sizes/tiers, element names) so generation doesn't need a new taxonomy.
  */
 export interface WorldCardSoundHints {
-  /** Pin a specific curated catalog entry, bypassing semantic matching. */
+  /** Author-only pin for a specific curated catalog entry. Generated cards never retain this. */
   assetId?: string;
   element?: string;
   size?: BeastSonicProfile["size"];
   threatTier?: BeastSonicProfile["threatTier"];
+  assetFamily?: WorldCardArtifactAssetFamily;
   weaponType?: string;
   artifactCategory?: string;
   tags?: string[];

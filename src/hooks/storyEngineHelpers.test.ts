@@ -60,6 +60,36 @@ some random text
       expect(result[0].text).toBe('');
     });
 
+    it('keeps generated World Card sound hints but strips catalog identities and URLs', () => {
+      const raw = JSON.stringify({
+        id: 'c1-p5',
+        worldCard: {
+          entityType: 'artifact',
+          entityName: 'Stormblade',
+          sound: {
+            assetFamily: 'weapon',
+            weaponType: 'sword',
+            element: 'lightning',
+            tags: ['storm', 'https://example.test/asset.mp3', 'DEFAULT/Weapons/Reload/Tech_Reload_1.mp3'],
+            assetId: 'DEFAULT/Weapons/Magic/Wind_Magic_1.mp3',
+            url: 'https://example.test/asset.mp3',
+            file_path: 'DEFAULT/Weapons/Magic/Wind_Magic_1.mp3',
+          },
+        },
+      });
+
+      const [block] = extractJsonBlocks(raw);
+      expect(block.worldCard.sound).toEqual({
+        assetFamily: 'weapon',
+        weaponType: 'sword',
+        element: 'lightning',
+        tags: ['storm'],
+      });
+      expect(block.worldCard.sound).not.toHaveProperty('assetId');
+      expect(block.worldCard.sound).not.toHaveProperty('url');
+      expect(block.worldCard.sound).not.toHaveProperty('file_path');
+    });
+
     it('preserves system metadata fields through parsing without dropping them', () => {
       const raw = `{ "id": "c1-p4", "type": "paragraph", "text": "A chime rang out.", "system": { "kind": "level_up", "promptType": "breakthrough", "title": "Breakthrough Achieved", "rarity": "Mythic", "rows": [{ "label": "Realm", "value": "Core Formation" }] } }`;
       const result = extractJsonBlocks(raw);
