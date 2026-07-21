@@ -126,7 +126,12 @@ export const useStoryGeneration = () => {
     }
   };
 
-  const handleStartStory = async (intake: IntakeData, blueprint: WorldBlueprint, chapterCount: number) => {
+  const handleStartStory = async (
+    intake: IntakeData,
+    blueprint: WorldBlueprint,
+    chapterCount: number,
+    sourceSeedId?: string,
+  ) => {
     const currentStoreState = useAppStore.getState();
     const initiatingUserId = auth.currentUser?.uid ?? null;
     const accountIsCurrent = () =>
@@ -177,6 +182,7 @@ export const useStoryGeneration = () => {
       const newStory: Story = {
         id: `story-${generateUUID()}`,
         userId: initiatingUserId || undefined,
+        sourceSeedId,
         title: responseData.title || blueprint.title || 'The Ascension Chronicles',
         genre: intake.genrePath || 'Xianxia',
         mcName: intake.mcName || 'Unknown',

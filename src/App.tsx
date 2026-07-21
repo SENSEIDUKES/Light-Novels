@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth, db, LOCAL_ONLY_MODE } from './lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -26,6 +26,7 @@ import {
 } from './appSessionGuards';
 import { cacheAccountProfile, createAccountProfileFallback } from './lib/userProfileCache';
 import { retryPendingCultivatorPortraits } from './services/cultivatorPortraitPersistence';
+import { ensureAccountSeedForStory } from './lib/storySeedStorage';
 
 // Types
 import { UserProfile as UserProfileType } from './types';
@@ -78,6 +79,7 @@ function App() {
   const storyExporter = useStoryExporter();
 
   const [isInitializing, setIsInitializing] = useState(true);
+  const seedBackfillInFlightRef = useRef(new Set<string>());
   const [syncProgress, setSyncProgress] = useState<SyncProgress>({
     phase: 'initializing',
     completed: 0,
@@ -186,6 +188,65 @@ function App() {
       state.saveStories(pausedStories).catch(error => console.error('Failed to pause interrupted chapter batch:', error));
     }
   }, [isInitializing]);
+
+  // Preserve legacy embedded seeds as independent account objects. The
+  // deterministic seed IDs make this safe to retry if saving the story
+  // reference is interrupted after the seed write succeeds.
+  useEffect(() => {
+    if (isInitializing || LOCAL_ONLY_MODE || !store_currentUser) return;
+    const expectedUid = store_currentUser.uid;
+    const candidates = store_stories.filter(story =>
+      story.userId === expectedUid
+      && !story.deleted
+      && !story.sourceSeedId
+      && story.intake
+      && story.blueprint
+      && !seedBackfillInFlightRef.current.has(story.id),
+    );
+    if (candidates.length === 0) return;
+
+    candidates.forEach(story => seedBackfillInFlightRef.current.add(story.id));
+    void Promise.allSettled(candidates.map(async story => ({
+      storyId: story.id,
+      seed: await ensureAccountSeedForStory(story),
+    }))).then(async results => {
+      if (
+        auth.currentUser?.uid !== expectedUid
+        || useAppStore.getState().currentUser?.uid !== expectedUid
+      ) return;
+
+      const migrated = new Map<string, string>();
+      let failed = false;
+      results.forEach(result => {
+        if (result.status === 'fulfilled') {
+          migrated.set(result.value.storyId, result.value.seed.id);
+        } else {
+          failed = true;
+          console.error('Failed to preserve an embedded story seed:', result.reason);
+        }
+      });
+
+      if (migrated.size > 0) {
+        const latestState = useAppStore.getState();
+        const updatedStories = latestState.stories.map(story => {
+          const sourceSeedId = migrated.get(story.id);
+          return sourceSeedId && !story.sourceSeedId ? { ...story, sourceSeedId } : story;
+        });
+        if (updatedStories.some((story, index) => story !== latestState.stories[index])) {
+          await latestState.saveStories(updatedStories);
+        }
+      }
+      if (failed) {
+        useAppStore.getState().setAppError(
+          'Some existing story seeds could not be copied to your account. Their stories were left unchanged.',
+        );
+      }
+    }).catch(error => {
+      console.error('Failed to backfill account story seeds:', error);
+    }).finally(() => {
+      candidates.forEach(story => seedBackfillInFlightRef.current.delete(story.id));
+    });
+  }, [isInitializing, store_currentUser, store_stories]);
 
   // Initialize Data Persistence
   useEffect(() => {

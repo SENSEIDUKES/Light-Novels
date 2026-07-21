@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Copy, Cloud, ArrowRight } from 'lucide-react';
-import { IntakeData, WorldBlueprint } from '../types';
+import { IntakeData, StorySeed, StorySeedPayload, WorldBlueprint } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { auth, LOCAL_ONLY_MODE } from '../lib/firebase';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
@@ -19,11 +19,19 @@ import { PlotControlForm } from '../features/creation/components/PlotControlForm
 import { MakeItWorkForm } from '../features/creation/components/MakeItWorkForm';
 import { ImportPanel } from '../features/creation/components/ImportPanel';
 import { BlueprintReview } from '../features/creation/components/BlueprintReview';
+import { SeedLibraryPanel } from '../features/creation/components/SeedLibraryPanel';
+import {
+  createStorySeed,
+  importStorySeeds,
+  listStorySeeds,
+  updateStorySeed,
+} from '../lib/storySeedStorage';
+import { downloadStorySeed, downloadStorySeedCollection } from '../lib/storySeedFormat';
 
 import { PREMISE_SUGGESTIONS } from '../features/creation/constants';
 
 interface CreationPortalProps {
-  onStartStory: (intake: IntakeData, blueprint: WorldBlueprint, chapterCount: number) => Promise<void>;
+  onStartStory: (intake: IntakeData, blueprint: WorldBlueprint, chapterCount: number, sourceSeedId?: string) => Promise<void>;
   onGenerateBlueprint: (intake: IntakeData) => Promise<WorldBlueprint>;
   isGenerating: boolean;
   error: string | null;
@@ -34,57 +42,94 @@ const getRandomName = () => {
   return names[Math.floor(Math.random() * names.length)];
 };
 
+const createDefaultIntake = (): IntakeData => ({
+  novelTitle: '',
+  mcName: getRandomName(),
+  genrePath: 'Fate Survival',
+  corePremise: PREMISE_SUGGESTIONS[0],
+  desiredPlotDirection: '',
+  storyTags: [],
+  worldType: '',
+  startingLocation: '',
+  societyStructure: '',
+  dangerLevel: '',
+  generalAtmosphere: '',
+  startingIdentity: '',
+  personality: '',
+  mainFlaw: '',
+  secretAdvantage: '',
+  startingWeakness: '',
+  moralAlignment: '',
+  mcBio: '',
+  customCharacters: [],
+  customFactions: [],
+  startingPowerConcept: '',
+  powerFlavor: '',
+  powerPace: '',
+  knownRanks: '',
+  uniquePath: '',
+  longTermGoal: '',
+  firstMajorConflict: '',
+  mainAntagonistPressure: '',
+  romanceLevel: '',
+  faceSlappingLevel: '',
+  comedyLevel: '',
+  tournamentArcPreference: '',
+  haremPreference: '',
+  betrayalLevel: '',
+  thingsToAvoid: '',
+  mustIncludeElements: '',
+  fatePressure: 'Balanced',
+  makeItWorkInstruction: '',
+});
+
 export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGenerating: isGeneratingProp, error }: CreationPortalProps) {
   const storeIsGenerating = useAppStore(state => state.isGenerating);
     const activeAgentId = useAppStore(state => state.activeAgentId);
     const currentUser = useAppStore(state => state.currentUser);
+  const seedReferenceSignature = useAppStore(state => state.stories
+    .map(story => `${story.id}:${story.sourceSeedId || ''}`)
+    .join('|'));
   const isGenerating = isGeneratingProp || storeIsGenerating;
   const [stage, setStage] = useState<'intake' | 'blueprint'>('intake');
   const [showImportPanel, setShowImportPanel] = useState(false);
   const [blueprint, setBlueprint] = useState<WorldBlueprint | null>(null);
+  const [currentSeed, setCurrentSeed] = useState<StorySeed | null>(null);
+  const [savedSeeds, setSavedSeeds] = useState<StorySeed[]>([]);
+  const [isLoadingSeeds, setIsLoadingSeeds] = useState(false);
+  const [seedError, setSeedError] = useState<string | null>(null);
   const [chapterCount] = useState(10);
   const [activeSection, setActiveSection] = useState<FormSectionId>('core');
 
-  const [intake, setIntake] = useState<IntakeData>(() => ({
-    novelTitle: '',
-    mcName: getRandomName(),
-    genrePath: 'Fate Survival',
-    corePremise: PREMISE_SUGGESTIONS[0],
-    desiredPlotDirection: '',
-    storyTags: [],
-    worldType: '',
-    startingLocation: '',
-    societyStructure: '',
-    dangerLevel: '',
-    generalAtmosphere: '',
-    startingIdentity: '',
-    personality: '',
-    mainFlaw: '',
-    secretAdvantage: '',
-    startingWeakness: '',
-    moralAlignment: '',
-    mcBio: '',
-    customCharacters: [],
-    customFactions: [],
-    startingPowerConcept: '',
-    powerFlavor: '',
-    powerPace: '',
-    knownRanks: '',
-    uniquePath: '',
-    longTermGoal: '',
-    firstMajorConflict: '',
-    mainAntagonistPressure: '',
-    romanceLevel: '',
-    faceSlappingLevel: '',
-    comedyLevel: '',
-    tournamentArcPreference: '',
-    haremPreference: '',
-    betrayalLevel: '',
-    thingsToAvoid: '',
-    mustIncludeElements: '',
-    fatePressure: 'Balanced',
-    makeItWorkInstruction: '',
-  }));
+  const [intake, setIntake] = useState<IntakeData>(createDefaultIntake);
+
+  useEffect(() => {
+    if (LOCAL_ONLY_MODE || !currentUser) {
+      setSavedSeeds([]);
+      setCurrentSeed(null);
+      return;
+    }
+    const expectedUid = currentUser.uid;
+    let cancelled = false;
+    setIsLoadingSeeds(true);
+    setSeedError(null);
+    listStorySeeds()
+      .then(seeds => {
+        if (!cancelled && auth.currentUser?.uid === expectedUid) setSavedSeeds(seeds);
+      })
+      .catch(error => {
+        if (!cancelled && auth.currentUser?.uid === expectedUid) {
+          console.error('Failed to load account story seeds:', error);
+          setSeedError('Your saved story seeds could not be loaded.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled && auth.currentUser?.uid === expectedUid) setIsLoadingSeeds(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser, seedReferenceSignature]);
 
   const updateIntake = (field: keyof IntakeData, value: any) => {
     setIntake(prev => ({ ...prev, [field]: value }));
@@ -99,10 +144,47 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
     }
   };
 
-  const handleImport = (parsedBlueprint: WorldBlueprint) => {
-    setBlueprint(parsedBlueprint);
+  const rememberSeed = (seed: StorySeed) => {
+    setCurrentSeed(seed);
+    setSavedSeeds(previous => [seed, ...previous.filter(item => item.id !== seed.id)]);
+  };
+
+  const persistSeed = async (payload: StorySeedPayload): Promise<StorySeed | null> => {
+    if (LOCAL_ONLY_MODE) return null;
+    if (!currentUser) throw new Error('Sign in to save this story seed to your account.');
+    const saved = currentSeed
+      ? await updateStorySeed(currentSeed, payload)
+      : await createStorySeed(payload);
+    rememberSeed(saved);
+    return saved;
+  };
+
+  const handleImport = async (payloads: StorySeedPayload[]) => {
+    if (payloads.length === 0) return;
+    const imported = LOCAL_ONLY_MODE ? [] : await importStorySeeds(payloads);
+    if (imported.length > 0) {
+      setSavedSeeds(previous => [
+        ...imported,
+        ...previous.filter(seed => !imported.some(item => item.id === seed.id)),
+      ]);
+      setCurrentSeed(imported[0]);
+    } else {
+      setCurrentSeed(null);
+    }
+    const selected = imported[0] || payloads[0];
+    setIntake({ ...createDefaultIntake(), ...selected.intake });
+    setBlueprint(selected.blueprint);
     setStage('blueprint');
     setShowImportPanel(false);
+    setSeedError(null);
+  };
+
+  const handleUseSeed = (seed: StorySeed) => {
+    setCurrentSeed(seed);
+    setIntake({ ...createDefaultIntake(), ...seed.intake });
+    setBlueprint(seed.blueprint);
+    setStage('blueprint');
+    setSeedError(null);
   };
 
   const handleGenerateBlueprintClick = async (e: React.FormEvent) => {
@@ -113,6 +195,13 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
       const bp = await onGenerateBlueprint(intake);
       setBlueprint(bp);
       setStage('blueprint');
+      try {
+        await persistSeed({ intake, blueprint: bp });
+        setSeedError(null);
+      } catch (seedSaveError) {
+        console.error('Failed to save generated story seed:', seedSaveError);
+        setSeedError('The blueprint was generated, but its account seed was not saved. Retry before starting the story.');
+      }
     } catch (err) {
       // Error handled in parent
     }
@@ -128,7 +217,28 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
       majorMysteries: (blueprint.majorMysteries || []).map(f => f.trim()).filter(Boolean),
       unresolvedPlotThreads: (blueprint.unresolvedPlotThreads || []).map(f => f.trim()).filter(Boolean),
     };
-    await onStartStory(intake, cleanBlueprint, chapterCount);
+    try {
+      const savedSeed = await persistSeed({ intake, blueprint: cleanBlueprint });
+      if (!LOCAL_ONLY_MODE && !savedSeed) return;
+      setSeedError(null);
+      await onStartStory(intake, cleanBlueprint, chapterCount, savedSeed?.id);
+    } catch (seedSaveError) {
+      console.error('Failed to persist source story seed:', seedSaveError);
+      setSeedError('The story was not started because its source seed could not be saved to your account.');
+    }
+  };
+
+  const handleExportCurrentSeed = async () => {
+    if (!blueprint) return;
+    try {
+      const payload = { intake, blueprint };
+      await persistSeed(payload);
+      downloadStorySeed(payload);
+      setSeedError(null);
+    } catch (seedSaveError) {
+      console.error('Failed to save seed before export:', seedSaveError);
+      setSeedError('The seed could not be saved and exported.');
+    }
   };
 
   if (!currentUser && !LOCAL_ONLY_MODE) {
@@ -153,13 +263,21 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
 
   if (stage === 'blueprint' && blueprint) {
     return (
-      <BlueprintReview
-        blueprint={blueprint}
-        setBlueprint={setBlueprint}
-        onBack={() => setStage('intake')}
-        onStartStory={handleStartStoryClick}
-        isGenerating={isGenerating}
-      />
+      <>
+        {seedError && (
+          <div className="mx-auto mb-5 max-w-4xl rounded border border-red-900 bg-red-950/30 p-3 text-center font-sans text-xs text-red-200" role="alert">
+            {seedError}
+          </div>
+        )}
+        <BlueprintReview
+          blueprint={blueprint}
+          setBlueprint={setBlueprint}
+          onBack={() => setStage('intake')}
+          onStartStory={handleStartStoryClick}
+          onExportSeed={handleExportCurrentSeed}
+          isGenerating={isGenerating}
+        />
+      </>
     );
   }
 
@@ -193,6 +311,22 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
         onClose={() => setShowImportPanel(false)} 
         onImport={handleImport} 
       />
+
+      {!LOCAL_ONLY_MODE && currentUser && (
+        <SeedLibraryPanel
+          seeds={savedSeeds}
+          isLoading={isLoadingSeeds}
+          onUse={handleUseSeed}
+          onExport={seed => downloadStorySeed(seed)}
+          onExportAll={() => downloadStorySeedCollection(savedSeeds)}
+        />
+      )}
+
+      {seedError && (
+        <div className="mb-6 rounded border border-red-900 bg-red-950/30 p-3 text-center font-sans text-xs text-red-200" role="alert">
+          {seedError}
+        </div>
+      )}
 
       <form onSubmit={handleGenerateBlueprintClick} className="space-y-4">
         <CoreSeedForm intake={intake} updateIntake={updateIntake} activeSection={activeSection} setActiveSection={setActiveSection} />

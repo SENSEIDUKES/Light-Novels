@@ -88,7 +88,7 @@ describe('useStoryGeneration', () => {
     const { result } = renderHook(() => useStoryGeneration());
 
     await act(async () => {
-      await result.current.handleStartStory(intake, blueprint as any, 3);
+      await result.current.handleStartStory(intake, blueprint as any, 3, 'seed-source-1');
     });
 
     expect(storyApi.generateInitialArc).toHaveBeenCalledWith(
@@ -101,6 +101,7 @@ describe('useStoryGeneration', () => {
     const created = savedStories[0];
     expect(created).toMatchObject({
       userId: 'reader-1',
+      sourceSeedId: 'seed-source-1',
       title: 'The Jade Gate',
       genre: 'Xianxia',
       mcName: 'Lin',

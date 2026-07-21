@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Layers } from 'lucide-react';
-import { WorldBlueprint } from '../../../types';
+import { Layers, Upload } from 'lucide-react';
+import { StorySeedPayload, WorldBlueprint } from '../../../types';
+import { parseStorySeedJson } from '../../../lib/storySeedFormat';
 
 interface ImportPanelProps {
   show: boolean;
   onClose: () => void;
-  onImport: (blueprint: WorldBlueprint) => void;
+  onImport: (payloads: StorySeedPayload[]) => Promise<void>;
 }
 
 const parseBlueprintData = (inputText: string): WorldBlueprint | null => {
@@ -166,20 +167,53 @@ const parseBlueprintData = (inputText: string): WorldBlueprint | null => {
 export const ImportPanel = ({ show, onClose, onImport }: ImportPanelProps) => {
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
-  const handleImportSubmit = () => {
+  const completeImport = async (payloads: StorySeedPayload[]) => {
+    setIsImporting(true);
+    setImportError(null);
+    try {
+      await onImport(payloads);
+      setImportText('');
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : 'The seed could not be added to your account.');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleImportSubmit = async () => {
     if (!importText.trim()) {
       setImportError('Please paste some seed data first.');
       return;
     }
 
-    const parsed = parseBlueprintData(importText);
-    if (parsed) {
-      onImport(parsed);
-      setImportText('');
-      setImportError(null);
-    } else {
-      setImportError('Unable to align past records. Ensure headings match the copied blueprint format, or standard JSON representation.');
+    const trimmed = importText.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        await completeImport(parseStorySeedJson(trimmed));
+      } catch (error) {
+        setImportError(error instanceof Error ? error.message : 'The pasted seed JSON is invalid.');
+      }
+      return;
+    }
+
+    const parsedBlueprint = parseBlueprintData(importText);
+    if (!parsedBlueprint) {
+      setImportError('Unable to align past records. Use a story seed JSON file or the copied blueprint Markdown format.');
+      return;
+    }
+    await completeImport([{ intake: {}, blueprint: parsedBlueprint }]);
+  };
+
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      await completeImport(parseStorySeedJson(await file.text()));
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : 'The selected seed file is invalid.');
     }
   };
 
@@ -207,8 +241,26 @@ export const ImportPanel = ({ show, onClose, onImport }: ImportPanelProps) => {
           </div>
           
           <p className="text-neutral-400 font-sans text-xs leading-relaxed">
-            Paste your copied World Blueprint Markdown (copied via "Copy Blueprint") or the raw JSON config below. We will parse the fields and load you directly into the blueprint stage.
+            Import a portable seed JSON file, or paste copied World Blueprint Markdown. Imported seeds receive new private IDs in your account.
           </p>
+
+          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-portal/40 bg-portal/5 px-4 py-3 font-sc text-[10px] font-bold uppercase tracking-widest text-portal transition-colors hover:border-portal hover:bg-portal/10">
+            <Upload size={14} />
+            Choose Seed JSON File
+            <input
+              type="file"
+              accept="application/json,.json"
+              onChange={handleFileImport}
+              disabled={isImporting}
+              className="sr-only"
+            />
+          </label>
+
+          <div className="flex items-center gap-3 text-[9px] uppercase tracking-widest text-neutral-700">
+            <span className="h-px flex-1 bg-neutral-900" />
+            Or paste legacy blueprint data
+            <span className="h-px flex-1 bg-neutral-900" />
+          </div>
 
           <textarea
             value={importText}
@@ -217,7 +269,7 @@ export const ImportPanel = ({ show, onClose, onImport }: ImportPanelProps) => {
               setImportError(null);
             }}
             rows={6}
-            placeholder={`Paste copied World Blueprint details (Markdown) or JSON here...\n\ne.g.\n# Great Immortal Temple\n**Logline**: A regression tale...`}
+            placeholder={`Paste portable seed JSON or copied World Blueprint Markdown here...\n\ne.g.\n# Great Immortal Temple\n**Logline**: A regression tale...`}
             className="w-full bg-void border border-neutral-900 focus:border-portal text-neutral-300 font-sans text-xs rounded-md p-3 focus:outline-none focus:ring-1 focus:ring-portal/20 transition-all"
           />
 
@@ -229,9 +281,10 @@ export const ImportPanel = ({ show, onClose, onImport }: ImportPanelProps) => {
             <button
               type="button"
                tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleImportSubmit}
+              disabled={isImporting}
               className="font-sc px-5 py-2 rounded text-xs uppercase tracking-widest font-bold bg-human text-[#FAFAFA] hover:bg-neutral-900 hover:text-human border border-human transition-colors cursor-pointer"
             >
-              Activate Seed
+              {isImporting ? 'Saving Seed…' : 'Activate Seed'}
             </button>
           </div>
         </motion.div>

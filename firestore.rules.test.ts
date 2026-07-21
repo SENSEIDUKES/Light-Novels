@@ -98,6 +98,43 @@ describe("Firestore Security Rules", () => {
     },
   };
 
+  const validSeed = {
+    schemaVersion: 1,
+    id: "seed_1",
+    userId: ownerUid,
+    title: "The Jade Gate",
+    intake: {
+      novelTitle: "The Jade Gate",
+      mcName: "Lin",
+      genrePath: "Xianxia",
+      corePremise: "A sealed gate awakens.",
+      storyTags: ["cultivation", "mystery"],
+      customCharacters: [],
+      customFactions: [],
+      fatePressure: "Balanced",
+    },
+    blueprint: {
+      title: "The Jade Gate",
+      logline: "A sealed gate awakens.",
+      worldOverview: "A mountain cultivation realm.",
+      startingLocation: "Cloud Sect",
+      societyStructure: "Sects and clans",
+      powerSystemOutline: "Nine cultivation realms",
+      mcProfile: "A patient outer disciple",
+      majorFactions: ["Cloud Sect"],
+      initialCharacters: ["Lin"],
+      majorMysteries: ["Who sealed the gate?"],
+      firstArcPromise: "Open the first seal",
+      tropeRules: "Earn every breakthrough",
+      styleBible: "Close third person",
+      destinedEnding: "Ascension",
+      estimatedArcs: 5,
+      unresolvedPlotThreads: ["The missing elder"],
+    },
+    createdAt: "2026-07-21T12:00:00.000Z",
+    updatedAt: "2026-07-21T12:00:00.000Z",
+  };
+
   describe("users collection", () => {
     it("should allow a user to create their own profile", async (ctx) => {
       if (!emulatorReady) return ctx.skip();
@@ -237,11 +274,115 @@ describe("Firestore Security Rules", () => {
     });
   });
 
+  describe("users/{userId}/seeds subcollection", () => {
+    it("allows the account owner to create, list, read, update, and delete a seed", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      const seeds = testEnv.authenticatedContext(ownerUid).firestore()
+        .collection("users").doc(ownerUid).collection("seeds");
+      const seedRef = seeds.doc("seed_1");
+
+      await assertSucceeds(seedRef.set(validSeed));
+      await assertSucceeds(seedRef.get());
+      await assertSucceeds(seeds.get());
+      await assertSucceeds(seedRef.update({
+        title: "The Jade Gate Revised",
+        "blueprint.title": "The Jade Gate Revised",
+        updatedAt: "2026-07-21T12:01:00.000Z",
+      }));
+      await assertSucceeds(seedRef.delete());
+    });
+
+    it("keeps seeds private from other users, anonymous clients, and admins", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      await testEnv.withSecurityRulesDisabled(async context => {
+        const db = context.firestore();
+        await db.collection("users").doc(adminUid).set({
+          uid: adminUid,
+          username: "admin",
+          role: "admin",
+        });
+        await db.collection("users").doc(ownerUid).collection("seeds").doc("seed_1").set(validSeed);
+      });
+
+      const otherSeeds = testEnv.authenticatedContext(otherUid).firestore()
+        .collection("users").doc(ownerUid).collection("seeds");
+      const adminSeed = testEnv.authenticatedContext(adminUid).firestore()
+        .collection("users").doc(ownerUid).collection("seeds").doc("seed_1");
+      const anonymousSeed = testEnv.unauthenticatedContext().firestore()
+        .collection("users").doc(ownerUid).collection("seeds").doc("seed_1");
+
+      await assertFails(otherSeeds.get());
+      await assertFails(otherSeeds.doc("seed_1").get());
+      await assertFails(otherSeeds.doc("seed_1").update({ title: "Stolen" }));
+      await assertFails(adminSeed.get());
+      await assertFails(adminSeed.delete());
+      await assertFails(anonymousSeed.get());
+    });
+
+    it("rejects cross-account, malformed, and immutable seed changes", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      const seedRef = testEnv.authenticatedContext(ownerUid).firestore()
+        .collection("users").doc(ownerUid).collection("seeds").doc("seed_1");
+
+      await assertFails(seedRef.set({ ...validSeed, userId: otherUid }));
+      await assertFails(seedRef.set({ ...validSeed, unexpectedGeneratedContent: "chapter prose" }));
+      await assertFails(seedRef.set({
+        ...validSeed,
+        blueprint: { ...validSeed.blueprint, estimatedArcs: 0 },
+      }));
+
+      await testEnv.withSecurityRulesDisabled(async context => {
+        await context.firestore().collection("users").doc(ownerUid)
+          .collection("seeds").doc("seed_1").set(validSeed);
+      });
+      await assertFails(seedRef.update({ id: "seed_2" }));
+      await assertFails(seedRef.update({ createdAt: "2026-07-22T00:00:00.000Z" }));
+      await assertFails(seedRef.update({ schemaVersion: 2 }));
+    });
+  });
+
   describe("stories collection", () => {
     it("should allow a user to create a story", async (ctx) => {
       if (!emulatorReady) return ctx.skip();
       const db = testEnv.authenticatedContext(ownerUid).firestore();
       await assertSucceeds(db.collection("stories").doc("story_1").set(validStory));
+    });
+
+    it("allows an owned seed reference and preserves the seed when the story is tombstoned", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      const db = testEnv.authenticatedContext(ownerUid).firestore();
+      const seedRef = db.collection("users").doc(ownerUid).collection("seeds").doc("seed_1");
+      await assertSucceeds(seedRef.set(validSeed));
+      await assertSucceeds(db.collection("stories").doc("story_1").set({
+        ...validStory,
+        sourceSeedId: "seed_1",
+      }));
+
+      await assertSucceeds(db.collection("stories").doc("story_1").set({
+        id: "story_1",
+        userId: ownerUid,
+        deleted: true,
+        updatedAt: "2026-07-21T12:02:00.000Z",
+      }));
+      await assertSucceeds(seedRef.get());
+    });
+
+    it("rejects missing or cross-account source seed references", async (ctx) => {
+      if (!emulatorReady) return ctx.skip();
+      const ownerDb = testEnv.authenticatedContext(ownerUid).firestore();
+      await assertFails(ownerDb.collection("stories").doc("story_1").set({
+        ...validStory,
+        sourceSeedId: "missing_seed",
+      }));
+
+      await testEnv.withSecurityRulesDisabled(async context => {
+        await context.firestore().collection("users").doc(otherUid)
+          .collection("seeds").doc("seed_1").set({ ...validSeed, userId: otherUid });
+      });
+      await assertFails(ownerDb.collection("stories").doc("story_1").set({
+        ...validStory,
+        sourceSeedId: "seed_1",
+      }));
     });
 
     it("should deny updating an immutable field (e.g. createdAt)", async (ctx) => {
