@@ -472,13 +472,9 @@ export type WorldCardSoundRole =
   | "pulse"
   | "magical_activation"
   // Location
-  | "ambience"
   | "signature"
   // Faction / ritual
   | "chant"
-  | "horn"
-  | "bell"
-  | "ceremony"
   // System
   | "chime";
 

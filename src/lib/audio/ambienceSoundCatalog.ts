@@ -2,25 +2,50 @@
  * Curated atmosphere-bed and narrative-cue sound catalog.
  *
  * Nothing in the reader's ambient layer is generated: every atmosphere bed
- * (rain, wind, …) and every one-shot story cue maps to a manually curated
- * asset URL, exactly like the World Card catalog. The R2-hosted URLs are
- * dropped into the maps below as the curated library is finalized — an entry
- * that is still `null` simply plays nothing (the layer stays silent), so
- * shipping ahead of the full sound list is safe.
+ * (rain, wind, …) maps to an entry in the Celestial Library catalog. This is
+ * deliberately separate from World Card audio even though both systems read
+ * the same source file.
  *
  * Future user-generated world sounds plug in as extra catalog entries /
  * per-story overrides; the resolver contract (name in, asset-or-null out)
  * stays the same.
  */
 
+import celestialLibraryCatalog from './celestial_library_catalog_cleaned.json';
+
 export interface CuratedAmbienceAsset {
-  /** Stable semantic key, host-independent. */
+  /** Stable catalog key taken directly from the JSON file_path. */
   id: string;
-  /** Curated asset URL (Cloudflare R2 / Celestial Library CDN). */
+  /** Exact public_url supplied by the catalog. */
   url: string;
 }
 
-export type AtmosphereBedName = 'wind' | 'rain' | 'ocean' | 'crowd' | 'combat';
+export const ATMOSPHERE_CATEGORIES = [
+  'wind',
+  'crowd',
+  'waves',
+  'rain',
+  'combat',
+  'noise',
+] as const;
+
+export type AtmosphereBedName = (typeof ATMOSPHERE_CATEGORIES)[number];
+
+export interface CuratedAtmosphereBed extends CuratedAmbienceAsset {
+  category: 'atmosphere';
+  variation: AtmosphereBedName;
+  tags: string[];
+}
+
+interface CelestialLibraryCatalogEntry {
+  file_path: string;
+  public_url: string;
+  metadata: {
+    main_category: string;
+    broad_variation: string;
+    soft_tags: string[];
+  };
+}
 
 export type NarrativeCueName =
   | 'system_alert'
@@ -30,17 +55,27 @@ export type NarrativeCueName =
   | 'fate_shift'
   | 'major_impact';
 
-/**
- * Looping atmosphere beds, played through the SAP scene-mix engine.
- * URL slots are filled from the curated R2 sound list.
- */
-export const ATMOSPHERE_BED_CATALOG: Record<AtmosphereBedName, string | null> = {
-  wind: null,
-  rain: null,
-  ocean: null,
-  crowd: null,
-  combat: null,
-};
+/** All atmosphere entries from the shared catalog; World Cards exclude them. */
+export const ATMOSPHERE_BED_CATALOG: CuratedAtmosphereBed[] = (
+  celestialLibraryCatalog as CelestialLibraryCatalogEntry[]
+).flatMap((entry) => {
+  const category = entry.metadata.main_category.toLowerCase();
+  const variation = entry.metadata.broad_variation.toLowerCase();
+  if (
+    category !== 'atmosphere' ||
+    !ATMOSPHERE_CATEGORIES.includes(variation as AtmosphereBedName)
+  ) {
+    return [];
+  }
+
+  return [{
+    id: entry.file_path,
+    category: 'atmosphere' as const,
+    variation: variation as AtmosphereBedName,
+    tags: entry.metadata.soft_tags.map((tag) => tag.toLowerCase()),
+    url: entry.public_url,
+  }];
+});
 
 /**
  * One-shot story cues (narrative.fx.play), played through the shared curated
@@ -55,9 +90,55 @@ export const NARRATIVE_CUE_CATALOG: Record<NarrativeCueName, string | null> = {
   major_impact: null,
 };
 
-export function resolveAtmosphereBed(name: string): CuratedAmbienceAsset | null {
-  const url = ATMOSPHERE_BED_CATALOG[name as AtmosphereBedName];
-  return url ? { id: `atmosphere.${name}`, url } : null;
+const ATMOSPHERE_ALIASES: Record<string, AtmosphereBedName> = {
+  ocean: 'waves',
+  sea: 'waves',
+  water: 'waves',
+};
+
+function addTokens(tokens: Set<string>, values: string[]) {
+  for (const value of values) {
+    for (const token of value.toLowerCase().split(/[^a-z0-9-]+/).filter(Boolean)) {
+      tokens.add(token);
+      for (const part of token.split('-')) if (part) tokens.add(part);
+    }
+  }
+}
+
+/**
+ * Resolve a scene atmosphere category and semantic tags to one real catalog
+ * track. Category + variation select the candidate set; soft_tags rank it.
+ */
+export function resolveAtmosphereBed(
+  name: string,
+  semanticTags: string[] = [],
+): CuratedAtmosphereBed | null {
+  const normalizedName = name.toLowerCase();
+  const variation = ATMOSPHERE_ALIASES[normalizedName] ?? normalizedName;
+  if (!ATMOSPHERE_CATEGORIES.includes(variation as AtmosphereBedName)) return null;
+
+  const candidates = ATMOSPHERE_BED_CATALOG.filter(
+    (asset) => asset.category === 'atmosphere' && asset.variation === variation,
+  );
+  if (candidates.length === 0) return null;
+
+  const sceneTokens = new Set<string>();
+  addTokens(sceneTokens, [normalizedName, variation, ...semanticTags]);
+
+  let best = candidates[0];
+  let bestScore = -1;
+  for (const asset of candidates) {
+    const assetTokens = new Set<string>();
+    addTokens(assetTokens, [asset.category, asset.variation, ...asset.tags]);
+    let score = 0;
+    for (const token of assetTokens) if (sceneTokens.has(token)) score += 1;
+    // Strict '>' preserves source JSON order as a deterministic tiebreaker.
+    if (score > bestScore) {
+      bestScore = score;
+      best = asset;
+    }
+  }
+  return best;
 }
 
 export function resolveNarrativeCueSound(name: string): CuratedAmbienceAsset | null {

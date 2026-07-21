@@ -10,13 +10,71 @@ import {
 import {
   resolveAtmosphereBed,
   resolveNarrativeCueSound,
+  type AtmosphereBedName,
 } from '../../lib/audio/ambienceSoundCatalog';
 import { playCardSound } from '../../lib/audio/cardSoundPlayer';
 import { useAudioMix } from './useAudioMix';
 import { useAppStore } from '../../store/useAppStore';
 import { vibrate } from '../../lib/vibration';
 
-type AtmosphereType = 'none' | 'wind' | 'rain' | 'ocean' | 'crowd' | 'combat';
+type AtmosphereType = 'none' | AtmosphereBedName;
+
+function normalizePersistedAtmosphere(value: string | null): AtmosphereType {
+  if (value === 'ocean') return 'waves';
+  if (['wind', 'crowd', 'waves', 'rain', 'combat', 'noise'].includes(value ?? '')) {
+    return value as AtmosphereBedName;
+  }
+  return 'none';
+}
+
+function sceneAtmosphereTags(meta: Record<string, unknown>): string[] {
+  const environment = Array.isArray(meta.environment)
+    ? meta.environment
+    : typeof meta.environment === 'string'
+      ? [meta.environment]
+      : [];
+  return [
+    ...environment,
+    meta.sceneType,
+    meta.theme,
+    meta.element,
+    meta.emotion,
+    meta.audioSignature,
+  ]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .map((value) => value.toLowerCase());
+}
+
+function selectAtmosphere(
+  meta: Record<string, unknown>,
+  tags: string[],
+): AtmosphereType {
+  const tagSet = new Set<string>();
+  for (const tag of tags) {
+    for (const token of tag.split(/[^a-z0-9-]+/).filter(Boolean)) {
+      tagSet.add(token);
+      for (const part of token.split('-')) if (part) tagSet.add(part);
+    }
+  }
+  const hasAny = (...values: string[]) => values.some((value) => tagSet.has(value));
+
+  if (hasAny('rain', 'rainstorm', 'drizzle', 'downpour')) return 'rain';
+  if (hasAny('waves', 'ocean', 'sea', 'coast', 'shore', 'seashore')) return 'waves';
+  if (
+    hasAny('combat', 'battle', 'war', 'fighting', 'martial-arts') ||
+    (typeof meta.danger === 'number' && meta.danger > 0.8) ||
+    (typeof meta.tension === 'number' && meta.tension > 0.8)
+  ) return 'combat';
+  if (hasAny('crowd', 'festival', 'market', 'cheering', 'chatter', 'public-space')) {
+    return 'crowd';
+  }
+  if (hasAny('wind', 'mountain', 'gust', 'gusts', 'breeze')) return 'wind';
+  if (
+    hasAny('noise', 'cave', 'cavern', 'forest', 'horror', 'village', 'city', 'cyberpunk', 'underwater')
+  ) return 'noise';
+  if (typeof meta.mysticism === 'number' && meta.mysticism > 0.7) return 'wind';
+  return 'none';
+}
 
 /** Crossfade length for switching atmosphere beds. */
 const ATMOSPHERE_FADE_MS = 1500;
@@ -54,9 +112,10 @@ export function useAtmosphericAudio() {
   // the same bed.
   const atmosphereRef = useRef<AtmosphereType>(
     typeof localStorage !== 'undefined'
-      ? ((localStorage.getItem('seihouse-audio-atmosphere') as AtmosphereType) || 'none')
+      ? normalizePersistedAtmosphere(localStorage.getItem('seihouse-audio-atmosphere'))
       : 'none',
   );
+  const atmosphereTagsRef = useRef<string[]>([]);
 
   const bgmTrackIdRef = useRef<string>(
     (() => {
@@ -82,7 +141,7 @@ export function useAtmosphericAudio() {
   // deck management/crossfades as the score without touching its levels.
   const atmoMixRef = useRef<SceneMixEngine | null>(null);
   // The bed the atmosphere engine is currently playing (null = stopped).
-  const activeBedRef = useRef<AtmosphereType | null>(null);
+  const activeBedRef = useRef<string | null>(null);
 
   const currentScreenRef = useRef(currentScreen);
   useEffect(() => { currentScreenRef.current = currentScreen; }, [currentScreen]);
@@ -117,7 +176,9 @@ export function useAtmosphericAudio() {
     const atmosphere = atmosphereRef.current;
     const level = effectiveChannelVolume('atmosphere');
     const audible = currentScreenRef.current === 'reader' && atmosphere !== 'none' && level > 0;
-    const bed = audible ? resolveAtmosphereBed(atmosphere) : null;
+    const bed = audible
+      ? resolveAtmosphereBed(atmosphere, atmosphereTagsRef.current)
+      : null;
 
     engine.setMuted(!audible);
     engine.setLevel(audible ? level : 0);
@@ -130,20 +191,25 @@ export function useAtmosphericAudio() {
       return;
     }
 
-    if (activeBedRef.current !== atmosphere) {
+    if (activeBedRef.current !== bed.id) {
       engine.crossfadeTo({
         id: bed.id,
         title: bed.id,
         artist: 'SEIHouse',
         audioFile: bed.url,
       });
-      activeBedRef.current = atmosphere;
+      activeBedRef.current = bed.id;
     }
   };
 
-  const setAtmosphere = (next: AtmosphereType) => {
-    if (atmosphereRef.current === next) return;
+  const setAtmosphere = (next: AtmosphereType, semanticTags: string[] = []) => {
+    const categoryChanged = atmosphereRef.current !== next;
     atmosphereRef.current = next;
+    atmosphereTagsRef.current = semanticTags;
+    if (!categoryChanged) {
+      syncAtmosphere();
+      return;
+    }
     try {
       localStorage.setItem('seihouse-audio-atmosphere', next);
     } catch {}
@@ -223,7 +289,7 @@ export function useAtmosphericAudio() {
       const detail = (e as CustomEvent).detail;
       if (!detail) return;
       if (detail.atmosphere) {
-        setAtmosphere(detail.atmosphere as AtmosphereType);
+        setAtmosphere(normalizePersistedAtmosphere(String(detail.atmosphere)));
       }
       if (typeof detail.bgmTrackId === 'string') {
         const requestedId = detail.bgmTrackId;
@@ -315,17 +381,8 @@ export function useAtmosphericAudio() {
               syncBgmVolumes();
             }
 
-            if (meta.environment?.includes('rain') || meta.sceneType === 'travel') {
-              setAtmosphere('rain');
-            } else if (meta.environment?.includes('ocean') || meta.environment?.includes('sea') || meta.environment?.includes('water')) {
-              setAtmosphere('ocean');
-            } else if (meta.mysticism && meta.mysticism > 0.5) {
-              setAtmosphere('wind');
-            } else if (meta.danger && meta.danger > 0.5) {
-              setAtmosphere('wind');
-            } else if (meta.environment?.includes('mountain')) {
-              setAtmosphere('wind');
-            }
+            const atmosphereTags = sceneAtmosphereTags(meta);
+            setAtmosphere(selectAtmosphere(meta, atmosphereTags), atmosphereTags);
           }
         } else if (cue.type === 'narrative.chapter.enter') {
           // The header re-fires this cue whenever the observer re-attaches
@@ -370,23 +427,8 @@ export function useAtmosphericAudio() {
               syncBgmVolumes();
             }
 
-            if (meta.element === 'water' && (meta.environment === 'sea' || meta.environment === 'ocean' || meta.environment === 'coast')) {
-              setAtmosphere('ocean');
-            } else if (meta.element === 'water' || meta.emotion === 'sorrow') {
-              setAtmosphere('rain');
-            } else if (meta.mysticism && meta.mysticism > 0.7) {
-              setAtmosphere('wind');
-            } else if (meta.danger && meta.danger > 0.6) {
-              setAtmosphere('wind');
-            } else if (meta.tension && meta.tension > 0.8) {
-              setAtmosphere('wind');
-            } else if (meta.theme === 'war' || meta.theme === 'combat' || meta.danger > 0.8) {
-              setAtmosphere('combat');
-            } else if (meta.theme === 'city' || meta.theme === 'festival' || meta.environment === 'city') {
-              setAtmosphere('crowd');
-            } else {
-              setAtmosphere('none');
-            }
+            const atmosphereTags = sceneAtmosphereTags(meta);
+            setAtmosphere(selectAtmosphere(meta, atmosphereTags), atmosphereTags);
           }
         } else if (cue.type === 'narrative.fx.play') {
           // Final gate: even a cue that slipped past the dispatch sites is
