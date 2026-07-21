@@ -41,6 +41,9 @@ describe('story seed JSON format', () => {
     vi.restoreAllMocks();
     Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
     Object.defineProperty(navigator, 'canShare', { configurable: true, value: undefined });
+    Object.defineProperty(navigator, 'userAgent', { configurable: true, value: 'jsdom' });
+    Object.defineProperty(navigator, 'platform', { configurable: true, value: 'MacIntel' });
+    Object.defineProperty(navigator, 'maxTouchPoints', { configurable: true, value: 0 });
   });
 
   it('exports only portable seed inputs without account, story, or nested internal IDs', () => {
@@ -125,11 +128,12 @@ describe('story seed JSON format', () => {
     }))).toThrow('generated story package');
   });
 
-  it('uses the native share sheet with a JSON file when file sharing is supported', async () => {
+  it('uses the native share sheet with a JSON file on a supported mobile device', async () => {
     const share = vi.fn().mockResolvedValue(undefined);
     const canShare = vi.fn().mockReturnValue(true);
     Object.defineProperty(navigator, 'share', { configurable: true, value: share });
     Object.defineProperty(navigator, 'canShare', { configurable: true, value: canShare });
+    Object.defineProperty(navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' });
 
     await downloadJsonFile({ seed: 'portable' }, 'portable-seed.json');
 
@@ -138,6 +142,24 @@ describe('story seed JSON format', () => {
       title: 'portable-seed.json',
       files: [expect.objectContaining({ name: 'portable-seed.json', type: 'application/json' })],
     }));
+  });
+
+  it('downloads directly on desktop even when native file sharing is available', async () => {
+    const share = vi.fn().mockResolvedValue(undefined);
+    const canShare = vi.fn().mockReturnValue(true);
+    const createObjectURL = vi.fn().mockReturnValue('blob:desktop-seed');
+    Object.defineProperty(navigator, 'share', { configurable: true, value: share });
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: canShare });
+    Object.defineProperty(navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' });
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    await downloadJsonFile({ seed: 'portable' }, 'portable-seed.json');
+
+    expect(share).not.toHaveBeenCalled();
+    expect(canShare).not.toHaveBeenCalled();
+    expect(createObjectURL).toHaveBeenCalledOnce();
+    expect(click).toHaveBeenCalledOnce();
   });
 
   it('falls back to a browser download when native file sharing is unavailable', async () => {

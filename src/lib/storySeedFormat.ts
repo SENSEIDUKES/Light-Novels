@@ -286,6 +286,17 @@ const triggerBrowserDownload = (blob: Blob, filename: string): void => {
   window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
 };
 
+const isMobileShareDevice = (): boolean => {
+  const shareNavigator = navigator as Navigator & {
+    userAgentData?: { mobile?: boolean };
+  };
+  if (shareNavigator.userAgentData?.mobile) return true;
+
+  return /Android|iPhone|iPad|iPod|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent)
+    // iPadOS can identify itself as macOS, but still exposes touch points.
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+};
+
 /**
  * Uses the native share sheet for file-capable mobile browsers (including
  * iOS Safari's Save to Files flow), then falls back to a normal browser
@@ -293,7 +304,7 @@ const triggerBrowserDownload = (blob: Blob, filename: string): void => {
  */
 export const downloadJsonFile = async (value: unknown, filename: string): Promise<void> => {
   const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' });
-  if (typeof File !== 'undefined' && typeof navigator !== 'undefined') {
+  if (typeof File !== 'undefined' && typeof navigator !== 'undefined' && isMobileShareDevice()) {
     const file = new File([blob], filename, { type: blob.type });
     const shareNavigator = navigator as Navigator & {
       share?: (data: ShareData) => Promise<void>;
