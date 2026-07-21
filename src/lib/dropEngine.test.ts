@@ -114,7 +114,7 @@ describe('Drop Engine', () => {
               entityType: 'location',
               entityName: 'Cloud Pillar Summit',
               displayTitle: 'Cloud Pillar Peak',
-              audioType: 'ambience'
+              audioType: 'signature'
             }
           }
         ]

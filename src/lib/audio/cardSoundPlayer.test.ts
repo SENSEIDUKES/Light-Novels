@@ -25,11 +25,15 @@ class MockAudio {
 }
 
 const asset: CuratedSoundAsset = {
-  id: 'beast.generic.roar',
+  id: 'DEFAULT/Beasts/Roar/Giant_Beast_Roar_1.mp3',
   entityTypes: ['creature'],
   role: 'roar',
+  category: 'beasts',
+  variation: 'roar',
   tags: [],
-  url: 'https://celestialaudio.seihouse.org/AUDIO/SFX/BEAST/GENERIC_ROAR.mp3',
+  sourceTags: [],
+  pathTags: [],
+  url: 'https://celestialaudio.seihouse.org/DEFAULT/Beasts/Roar/Giant_Beast_Roar_1.mp3',
 };
 
 beforeEach(() => {

@@ -5,10 +5,11 @@
  * sounds. They are looping scene layers selected only from this catalog;
  * World Cards keep using cardSoundCatalog and the one-shot player.
  *
- * Add each approved loop here with its semantic tags. The selector does not
- * contain a parallel list of variations: it matches chapter/block metadata to
- * these tags, so adding a variation never requires changing playback logic.
+ * Approved loops are loaded from the shared Celestial Library JSON, but this
+ * resolver and playback layer remain independent from World Card audio.
  */
+
+import celestialLibraryCatalog from './celestial_library_catalog_cleaned.json';
 
 export interface CuratedAmbienceAsset {
   /** Stable semantic key, host-independent. */
@@ -29,10 +30,22 @@ export const ATMOSPHERE_CATEGORIES = [
 export type AtmosphereCategory = typeof ATMOSPHERE_CATEGORIES[number];
 
 export interface CuratedAtmosphereBed extends CuratedAmbienceAsset {
-  /** One of the six broad reader atmosphere layers. */
-  category: AtmosphereCategory;
+  /** Exact source-catalog category. */
+  category: 'atmosphere';
+  /** One of the six broad reader atmosphere layers from broad_variation. */
+  variation: AtmosphereCategory;
   /** Lowercase concrete scene descriptors supplied by chapter/block metadata. */
   tags: readonly string[];
+}
+
+export interface CelestialLibraryCatalogEntry {
+  file_path?: unknown;
+  public_url?: unknown;
+  metadata?: {
+    main_category?: unknown;
+    broad_variation?: unknown;
+    soft_tags?: unknown;
+  } | null;
 }
 
 export interface AtmosphereMetadata {
@@ -57,11 +70,47 @@ export interface AtmosphereSelectionOptions {
   catalog?: readonly CuratedAtmosphereBed[];
 }
 
-/**
- * Populate with approved looping assets as the library grows. Do not add a
- * second resolver map for a variation; tags are its routing contract.
- */
-export const ATMOSPHERE_BED_CATALOG: readonly CuratedAtmosphereBed[] = [];
+const normalizedString = (value: unknown): string | null =>
+  typeof value === 'string' && value.trim() ? value.toLowerCase() : null;
+
+const normalizedTags = (value: unknown): string[] => Array.isArray(value)
+  ? value.flatMap((tag) => {
+    const normalized = normalizedString(tag);
+    return normalized ? [normalized] : [];
+  })
+  : [];
+
+export function buildAtmosphereBedCatalog(
+  entries: readonly CelestialLibraryCatalogEntry[],
+): CuratedAtmosphereBed[] {
+  return entries.flatMap((entry) => {
+    const category = normalizedString(entry.metadata?.main_category);
+    const variation = normalizedString(entry.metadata?.broad_variation);
+    const id = typeof entry.file_path === 'string' ? entry.file_path : null;
+    const url = typeof entry.public_url === 'string' ? entry.public_url : null;
+    if (
+      category !== 'atmosphere' ||
+      !variation ||
+      !ATMOSPHERE_CATEGORIES.includes(variation as AtmosphereCategory) ||
+      !id ||
+      !url
+    ) {
+      return [];
+    }
+
+    return [{
+      id,
+      url,
+      category: 'atmosphere' as const,
+      variation: variation as AtmosphereCategory,
+      tags: normalizedTags(entry.metadata?.soft_tags),
+    }];
+  });
+}
+
+/** All 50 scene-atmosphere loops from the shared catalog, kept out of World Cards. */
+export const ATMOSPHERE_BED_CATALOG: readonly CuratedAtmosphereBed[] =
+  buildAtmosphereBedCatalog(celestialLibraryCatalog as CelestialLibraryCatalogEntry[]);
 
 const toTags = (value: unknown): string[] => {
   const values = Array.isArray(value) ? value : [value];
@@ -102,7 +151,7 @@ export function resolveAtmosphereBed(
   const catalog = options.catalog ?? ATMOSPHERE_BED_CATALOG;
   const sourceTags = new Set(atmosphereMetadataTags(metadata));
   const candidates = options.preferredCategory
-    ? catalog.filter(bed => bed.category === options.preferredCategory)
+    ? catalog.filter(bed => bed.variation === options.preferredCategory)
     : catalog;
 
   let selected: CuratedAtmosphereBed | null = null;
@@ -115,7 +164,7 @@ export function resolveAtmosphereBed(
     }
     // The category itself is an explicit metadata tag when the author emits
     // it (for example `environment: ["rain"]`), not a hidden shortcut.
-    const categoryMatch = sourceTags.has(bed.category) ? 2 : 0;
+    const categoryMatch = sourceTags.has(bed.variation) ? 2 : 0;
     const score = matchingScore + categoryMatch;
     if (score > selectedScore) {
       selected = bed;
