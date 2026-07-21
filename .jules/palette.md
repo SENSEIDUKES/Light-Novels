@@ -19,3 +19,6 @@
 
 **Learning:** Found several components using icon-only buttons that relied solely on `title` attributes (or lacked descriptions altogether). While `title` gives hover text for mouse users, it is not consistently exposed to screen readers unless explicitly bound via ARIA.
 **Action:** When creating or updating icon-only interactive elements (like `button` or `[role="button"]`), always explicitly assign an `aria-label` describing the action, matching the `title` attribute's intent where possible.
+## 2026-07-21 - Adding Accessible ARIA Labels to Interactive Icons
+**Learning:** Found that multiple interactive icon buttons lacked readable text contexts for screen reader software within repeating card layouts.
+**Action:** Always include context-aware ARIA labels on dynamic icon actions so that users rely on screen readers receive descriptive input rather than unhelpful non-descript actions.

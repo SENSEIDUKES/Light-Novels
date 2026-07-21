@@ -83,6 +83,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
               }}
               className="absolute bottom-2 right-2 z-20 bg-black/85 hover:bg-portal hover:text-void border border-neutral-900 hover:border-portal text-neutral-300 p-1.5 rounded-md transition-all duration-200 opacity-0 group-hover:opacity-100 flex items-center gap-1 font-mono text-[8px] uppercase tracking-wider backdrop-blur cursor-pointer shadow-md"
               title="Download Portrait"
+              aria-label={`Download portrait for ${char.name}`}
             >
               <Download size={10} />
               <span>Get</span>
@@ -166,6 +167,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
               <button
                 onClick={() => playingVoiceId === char.id ? handleStopVoice() : handlePlayVoice(char.voiceClipUrl!, char.id)}
                 className="flex items-center gap-1.5 self-start text-[9px] text-portal uppercase tracking-wider font-mono hover:text-portal/80 transition-colors"
+                aria-label={playingVoiceId === char.id ? `Stop voice for ${char.name}` : `Play voice for ${char.name}`}
               >
                 {playingVoiceId === char.id ? <Square size={10} fill="currentColor" /> : <Play size={10} fill="currentColor" />}
                 <span>{playingVoiceId === char.id ? 'Stop Voice' : 'Play Voice'}</span>
@@ -175,6 +177,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
                 onClick={() => handleGenerateVoiceCard(char)}
                 disabled={generatingVoiceId === char.id}
                 className="flex items-center gap-1.5 self-start text-[9px] text-human uppercase tracking-wider font-mono hover:text-human/80 transition-colors disabled:opacity-50"
+                aria-label={`Generate voice for ${char.name}`}
               >
                 {generatingVoiceId === char.id ? <Loader2 size={10} className="animate-spin" /> : <Volume2 size={10} />}
                 <span>{generatingVoiceId === char.id ? 'Manifesting Voice...' : 'Generate Voice'}</span>
@@ -235,6 +238,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
           <button
              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => beginCharEdit(char)}
             className="text-neutral-500 hover:text-portal transition-colors font-sc uppercase"
+            aria-label={`Refine details for ${char.name}`}
           >
             Refine
           </button>
