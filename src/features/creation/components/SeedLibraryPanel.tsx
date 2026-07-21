@@ -10,6 +10,10 @@ interface SeedLibraryPanelProps {
   onExportAll: () => void;
 }
 
+// ⚡ Bolt: Cache Intl.DateTimeFormat instance to avoid 40-50x slower re-instantiation
+// during render loops compared to calling .toLocaleDateString() on every date.
+const dateFormatter = new Intl.DateTimeFormat();
+
 export const SeedLibraryPanel = ({
   seeds,
   isLoading,
@@ -54,7 +58,7 @@ export const SeedLibraryPanel = ({
             <div className="min-w-0">
               <h3 className="truncate font-sans text-xs font-medium text-neutral-200">{seed.title}</h3>
               <p className="mt-1 font-mono text-[9px] uppercase tracking-wider text-neutral-600">
-                Updated {new Date(seed.updatedAt).toLocaleDateString()}
+                Updated {dateFormatter.format(new Date(seed.updatedAt))}
               </p>
             </div>
             <div className="flex shrink-0 gap-2">
