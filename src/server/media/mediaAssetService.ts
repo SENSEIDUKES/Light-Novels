@@ -63,6 +63,17 @@ export interface MediaStorageReport {
   unusuallyLargeAssets: Array<{ id: string; byteSize: string; assetType: string; ownerUid: string }>;
 }
 
+const DEFAULT_MAX_USER_STORAGE_BYTES = 500n * 1024n * 1024n;
+const DEFAULT_MAX_USER_ASSET_COUNT = 5000;
+const DEFAULT_MAX_UPLOADS_PER_MINUTE = 30;
+const SYSTEM_OWNER_EMAILS = new Set(['amaurylindy@gmail.com', 'seihouseproductions@gmail.com']);
+
+function isPrivilegedOwner(owner: MediaOwner): boolean {
+  if (owner.role === 'owner' || owner.role === 'admin') return true;
+  if (owner.email && SYSTEM_OWNER_EMAILS.has(owner.email.toLowerCase())) return true;
+  return false;
+}
+
 export interface MediaAssetServiceOptions {
   inputPolicy?: MediaInputPolicy;
   now?: () => Date;
@@ -71,6 +82,9 @@ export interface MediaAssetServiceOptions {
   staleUploadAgeMs?: number;
   emergencyMarkerGraceMs?: number;
   largeAssetThresholdBytes?: bigint;
+  maxUserStorageBytes?: bigint;
+  maxUserAssetCount?: number;
+  maxUploadsPerMinute?: number;
 }
 
 function errorMessage(error: unknown): string {
@@ -168,6 +182,10 @@ export class MediaAssetService {
   private readonly staleUploadAgeMs: number;
   private readonly emergencyMarkerGraceMs: number;
   private readonly largeAssetThresholdBytes: bigint;
+  private readonly maxUserStorageBytes: bigint;
+  private readonly maxUserAssetCount: number;
+  private readonly maxUploadsPerMinute: number;
+  private readonly userUploadTimestamps = new Map<string, number[]>();
 
   constructor(
     private readonly repository: MediaAssetRepository,
@@ -180,12 +198,58 @@ export class MediaAssetService {
     this.staleUploadAgeMs = options.staleUploadAgeMs ?? DEFAULT_STALE_UPLOAD_AGE_MS;
     this.emergencyMarkerGraceMs = options.emergencyMarkerGraceMs ?? DEFAULT_EMERGENCY_MARKER_GRACE_MS;
     this.largeAssetThresholdBytes = options.largeAssetThresholdBytes ?? 100n * 1024n * 1024n;
+    this.maxUserStorageBytes = options.maxUserStorageBytes ?? DEFAULT_MAX_USER_STORAGE_BYTES;
+    this.maxUserAssetCount = options.maxUserAssetCount ?? DEFAULT_MAX_USER_ASSET_COUNT;
+    this.maxUploadsPerMinute = options.maxUploadsPerMinute ?? DEFAULT_MAX_UPLOADS_PER_MINUTE;
+  }
+
+  private assertUploadRateLimit(ownerUid: string): void {
+    const nowMs = this.now().getTime();
+    const windowMs = 60 * 1000;
+    const timestamps = (this.userUploadTimestamps.get(ownerUid) ?? []).filter(
+      (t) => nowMs - t < windowMs,
+    );
+    if (timestamps.length >= this.maxUploadsPerMinute) {
+      throw new MediaAssetServiceError(
+        `Media upload rate limit exceeded (${this.maxUploadsPerMinute} uploads per minute). Please wait before uploading more assets.`,
+        'rate_limit_exceeded',
+      );
+    }
+    timestamps.push(nowMs);
+    this.userUploadTimestamps.set(ownerUid, timestamps);
+  }
+
+  private async assertUserStorageQuota(ownerUid: string, incomingBytes: bigint): Promise<void> {
+    const rows = await this.repository.listStorageUsage();
+    const userRows = rows.filter((r) => r.ownerUid === ownerUid && r.status !== 'DELETED' && r.status !== 'FAILED');
+    const currentBytes = userRows.reduce((total, r) => total + BigInt(r.byteSize), 0n);
+    const currentCount = userRows.length;
+
+    if (currentBytes + incomingBytes > this.maxUserStorageBytes) {
+      throw new MediaAssetServiceError(
+        `User media storage quota exceeded. Current usage: ${currentBytes} bytes, Limit: ${this.maxUserStorageBytes} bytes.`,
+        'user_quota_exceeded',
+      );
+    }
+    if (currentCount + 1 > this.maxUserAssetCount) {
+      throw new MediaAssetServiceError(
+        `User media asset count quota exceeded. Current count: ${currentCount}, Limit: ${this.maxUserAssetCount}.`,
+        'user_quota_exceeded',
+      );
+    }
   }
 
   async save(owner: MediaOwner, request: SaveMediaAssetRequest): Promise<MediaAssetDescriptor> {
     validateOwner(owner);
     validateRequestMetadata(owner, request);
     const visibility = request.visibility ?? 'PRIVATE';
+    if (visibility === 'PUBLIC' && !isPrivilegedOwner(owner)) {
+      throw new MediaAssetServiceError(
+        'Ordinary users are not permitted to choose public media storage.',
+        'public_storage_prohibited',
+      );
+    }
+    this.assertUploadRateLimit(owner.uid);
     try {
       this.objectStore.assertDeliveryConfigured(visibility);
     } catch (error) {
@@ -216,6 +280,7 @@ export class MediaAssetService {
     }
 
     const normalized = await normalizeMediaInput(request.source, request.assetType, this.options.inputPolicy);
+    await this.assertUserStorageQuota(owner.uid, BigInt(normalized.byteSize));
     const id = this.createId();
     const version = previous ? previous.version + 1 : 1;
     const cacheControl = visibility === 'PUBLIC' ? IMMUTABLE_CACHE_CONTROL : PRIVATE_CACHE_CONTROL;

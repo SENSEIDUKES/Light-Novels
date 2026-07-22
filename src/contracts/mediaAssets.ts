@@ -38,6 +38,7 @@ export interface MediaOwner {
   uid: string;
   email?: string | null;
   displayName?: string | null;
+  role?: 'owner' | 'admin' | 'user';
 }
 
 export interface MediaAssociation {

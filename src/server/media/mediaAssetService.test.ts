@@ -12,7 +12,7 @@ import { buildMediaStorageReport, MediaAssetService, MediaAssetServiceError } fr
 import type { CleanupMarker, MediaObjectStore, PutMediaObjectInput, StoredObjectMetadata } from './r2ObjectStore';
 
 const PNG_1X1 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
-const OWNER: MediaOwner = { uid: 'owner-a', email: 'owner@example.com', displayName: 'Owner' };
+const OWNER: MediaOwner = { uid: 'owner-a', email: 'amaurylindy@gmail.com', displayName: 'Owner', role: 'owner' };
 
 class FakeRepository implements MediaAssetRepository {
   records = new Map<string, MediaAssetRecord>();
@@ -264,11 +264,12 @@ function readyRecord(id = 'old-asset'): MediaAssetRecord {
   };
 }
 
-function service(repo: FakeRepository, store: FakeObjectStore): MediaAssetService {
+function service(repo: FakeRepository, store: FakeObjectStore, extraOptions: MediaAssetServiceOptions = {}): MediaAssetService {
   return new MediaAssetService(repo, store, {
     createId: () => '22222222-2222-4222-8222-222222222222',
     now: () => new Date('2026-07-21T00:00:00.000Z'),
     emergencyMarkerGraceMs: 0,
+    ...extraOptions,
   });
 }
 
@@ -316,6 +317,41 @@ describe('MediaAssetService', () => {
     const record = repo.records.get(descriptor.id)!;
     expect(record.bucket).toBe('test-public-bucket');
     expect(record.objectKey).toMatch(/^user-media\/public\//);
+  });
+
+  it('rejects public media requests from ordinary non-admin users', async () => {
+    const repo = new FakeRepository();
+    const store = new FakeObjectStore();
+    const user: MediaOwner = { uid: 'ordinary-user', email: 'user@example.com', role: 'user' };
+
+    await expect(service(repo, store).save(user, { ...createRequest(), visibility: 'PUBLIC' })).rejects.toMatchObject({
+      code: 'public_storage_prohibited',
+    });
+  });
+
+  it('enforces media upload rate limits per user', async () => {
+    const repo = new FakeRepository();
+    const store = new FakeObjectStore();
+    const s = service(repo, store, { maxUploadsPerMinute: 2 });
+    const user: MediaOwner = { uid: 'rate-user', email: 'user@example.com', role: 'user' };
+
+    await s.save(user, createRequest());
+    await s.save(user, createRequest());
+
+    await expect(s.save(user, createRequest())).rejects.toMatchObject({
+      code: 'rate_limit_exceeded',
+    });
+  });
+
+  it('enforces user media storage byte and count quotas', async () => {
+    const repo = new FakeRepository();
+    const store = new FakeObjectStore();
+    const s = service(repo, store, { maxUserStorageBytes: 10n });
+    const user: MediaOwner = { uid: 'quota-user', email: 'user@example.com', role: 'user' };
+
+    await expect(s.save(user, createRequest())).rejects.toMatchObject({
+      code: 'user_quota_exceeded',
+    });
   });
 
   it('rejects malformed relational targets and generation jobs outside the owner scope', async () => {
