@@ -439,7 +439,15 @@ function App() {
     store_setCurrentUser,
     store_setStories,
     store_setSyncStatus,
-    store_setUserProfile
+    store_setUserProfile,
+    store_setActiveStoryId,
+    store_setAppError,
+    store_setCurrentScreen,
+    store_setDraftRecoverySession,
+    store_setIsCodexSheetOpen,
+    store_setIsSettingsOpen,
+    store_setIsShortcutsOpen,
+    store_setStoryToDelete
   ]);
 
   // Dynamically fetch missing content for active chapter
