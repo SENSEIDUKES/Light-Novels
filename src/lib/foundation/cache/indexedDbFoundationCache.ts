@@ -289,7 +289,7 @@ export class IndexedDbFoundationCache implements FoundationCache {
       null,
       (row) => {
         const leased = row.state === "IN_FLIGHT" && (row.leaseExpiresAt ?? 0) > now;
-        if (leased || row.nextAttemptAt > now) return { row, result: null };
+        if (leased || row.nextAttemptAt > now) return { result: null };
         const updated: FoundationOutboxItem = {
           ...row,
           state: "IN_FLIGHT",
@@ -519,6 +519,10 @@ export class IndexedDbFoundationCache implements FoundationCache {
   }
 
   close(): void {
+    if (this.pruneTimer) {
+      clearTimeout(this.pruneTimer);
+      this.pruneTimer = null;
+    }
     const pending = this.dbPromise;
     this.dbPromise = null;
     void pending?.then((db) => db.close()).catch(() => undefined);
@@ -528,8 +532,28 @@ export class IndexedDbFoundationCache implements FoundationCache {
     return requirePositive(ttlMs ?? this.defaultTtlMs, "ttlMs");
   }
 
+  private pruneTimer: ReturnType<typeof setTimeout> | null = null;
+  private writeCountSincePrune = 0;
+
   private async maybePrune(): Promise<void> {
-    if (this.autoPrune) await this.prune();
+    if (!this.autoPrune) return;
+    this.writeCountSincePrune++;
+    if (this.writeCountSincePrune >= 20) {
+      this.writeCountSincePrune = 0;
+      if (this.pruneTimer) {
+        clearTimeout(this.pruneTimer);
+        this.pruneTimer = null;
+      }
+      await this.prune();
+      return;
+    }
+    if (!this.pruneTimer) {
+      this.pruneTimer = setTimeout(() => {
+        this.pruneTimer = null;
+        this.writeCountSincePrune = 0;
+        void this.prune().catch(() => undefined);
+      }, 2000);
+    }
   }
 
   private getDb(): Promise<IDBDatabase> {

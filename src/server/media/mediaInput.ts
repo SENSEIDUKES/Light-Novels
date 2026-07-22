@@ -223,9 +223,14 @@ async function validateRemoteUrl(url: URL, policy: MediaInputPolicy): Promise<re
   if (allowedHosts.length === 0 || !hostMatchesAllowlist(hostname, allowedHosts)) {
     throw new MediaInputError('Remote media host is not on the configured provider allowlist.', 'remote_host_not_allowed');
   }
-  const addresses = isIP(hostname)
-    ? [hostname]
-    : await (policy.resolveHost ?? (async (host) => (await dnsLookup(host, { all: true, verbatim: true })).map((entry) => entry.address)))(hostname);
+  let addresses: readonly string[];
+  try {
+    addresses = isIP(hostname)
+      ? [hostname]
+      : await (policy.resolveHost ?? (async (host) => (await dnsLookup(host, { all: true, verbatim: true })).map((entry) => entry.address)))(hostname);
+  } catch (error) {
+    throw new MediaInputError('Remote media host DNS lookup failed: ' + (error instanceof Error ? error.message : String(error)), 'remote_host_not_found');
+  }
   if (addresses.length === 0 || addresses.some(isPrivateIp)) {
     throw new MediaInputError('Remote media host resolved to a private or reserved network.', 'unsafe_remote_address');
   }
@@ -314,11 +319,13 @@ export function createPinnedLookup(address: string): LookupFunction {
   const family = isIP(address);
   if (family !== 4 && family !== 6) throw new MediaInputError('Pinned media address is invalid.', 'unsafe_remote_address');
   return (_hostname, options, callback) => {
-    if (options.all) {
-      callback(null, [{ address, family }]);
+    const cb = typeof options === 'function' ? options : callback;
+    const opts = typeof options === 'object' && options !== null ? options : {};
+    if (opts.all) {
+      cb(null, [{ address, family }]);
       return;
     }
-    callback(null, address, family);
+    cb(null, address, family);
   };
 }
 
