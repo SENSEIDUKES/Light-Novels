@@ -56,6 +56,7 @@ export const LocationCard: React.FC<LocationCardProps> = ({
               }}
               className="absolute bottom-2 right-2 z-20 bg-black/85 hover:bg-portal hover:text-void border border-neutral-900 hover:border-portal text-neutral-300 p-1.5 rounded-md transition-all duration-200 opacity-0 group-hover:opacity-100 flex items-center gap-1 font-mono text-[8px] uppercase tracking-wider backdrop-blur cursor-pointer shadow-md"
               title="Download Scenery Vista"
+              aria-label={`Download scenery vista for ${loc.name}`}
             >
               <Download size={10} />
               <span>Get</span>
@@ -132,6 +133,7 @@ export const LocationCard: React.FC<LocationCardProps> = ({
                tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setSelectedNodeChar(loc as any)}
               className="text-neutral-500 hover:text-portal transition-colors border border-transparent hover:border-portal/30 rounded p-1"
               title="View Context Matrix"
+              aria-label={`View context matrix for ${loc.name}`}
             >
               <Eye size={12} />
             </button>
@@ -157,6 +159,13 @@ export const LocationCard: React.FC<LocationCardProps> = ({
                   canGenerate && hasImage ? "Regenerate visual representation." :
                   canGenerate ? "Manifest Visual Aura" :
                   "Not enough context yet to visualize"
+                }
+                aria-label={
+                  isGenerating ? `VERSA is working on visual for ${loc.name}` :
+                  loc.evolutionReady && hasImage ? `Regenerate visual for ${loc.name}` :
+                  canGenerate && hasImage ? `Regenerate visual for ${loc.name}` :
+                  canGenerate ? `Manifest visual aura for ${loc.name}` :
+                  `Visual manifestation locked for ${loc.name}`
                 }
               >
                 {isGenerating ? <Loader2 size={12} className="animate-spin" /> :
