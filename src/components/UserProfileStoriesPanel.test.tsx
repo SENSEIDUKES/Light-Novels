@@ -71,7 +71,7 @@ describe('UserProfileStoriesPanel', () => {
     expect(screen.getByText('Active Realm')).toBeDefined();
     expect(screen.queryByText('Deleted Realm')).toBeNull();
     expect(screen.getByText(/deleting a story does not delete its seed/i)).toBeDefined();
-    expect(screen.getByText(`Updated ${new Date(seed.createdAt).toLocaleDateString()}`)).toBeDefined();
+    expect(screen.getByText(`Updated ${new Intl.DateTimeFormat().format(new Date(seed.createdAt))}`)).toBeDefined();
     expect(screen.queryByText(/Invalid Date/i)).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Export The Jade Gate seed' }));
