@@ -1972,7 +1972,7 @@ The `data` property is an object of type `AdminListMediaCleanupTasksData`, which
 export interface AdminListMediaCleanupTasksData {
   mediaCleanupTasks: ({
     id: UUIDString;
-    assetId?: UUIDString | null;
+    assetId: UUIDString;
     ownerUid: string;
     bucket: string;
     objectKey: string;

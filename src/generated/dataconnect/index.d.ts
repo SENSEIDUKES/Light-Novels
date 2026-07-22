@@ -275,7 +275,7 @@ export interface AdminListMediaAssetsForStorageReportVariables {
 export interface AdminListMediaCleanupTasksData {
   mediaCleanupTasks: ({
     id: UUIDString;
-    assetId?: UUIDString | null;
+    assetId: UUIDString;
     ownerUid: string;
     bucket: string;
     objectKey: string;

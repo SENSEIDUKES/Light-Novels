@@ -122,7 +122,7 @@ type MediaDerivative @table @unique(fields: ["sourceAssetId", "variant"]) {
 
 type MediaCleanupTask @table @index(fields: ["status", "nextAttemptAt"]) {
   id: UUID! @default(expr: "uuidV4()")
-  asset: MediaAsset @ref(fields: "assetId", references: "id")
+  asset: MediaAsset! @ref(fields: "assetId", references: "id")
   assetId: UUID!
   ownerUid: String!
   bucket: String!
