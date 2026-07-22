@@ -1,0 +1,8 @@
+connectorId: "celestial-library"
+generate:
+  javascriptSdk:
+    outputDir: "../../src/generated/dataconnect"
+    package: "@seihouse/celestial-library-dataconnect"
+  adminNodeSdk:
+    outputDir: "../../src/generated/dataconnect-admin"
+    package: "@seihouse/celestial-library-dataconnect-admin"

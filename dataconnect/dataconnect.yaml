@@ -1,0 +1,13 @@
+specVersion: "v1"
+serviceId: "celestial-library"
+location: "us-west2"
+schema:
+  source: "./schema"
+  datasource:
+    postgresql:
+      database: "celestial_library"
+      cloudSql:
+        instanceId: "celestial-library-sql"
+        schemaValidation: "COMPATIBLE"
+connectorDirs:
+  - "./connector"

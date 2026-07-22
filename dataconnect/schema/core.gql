@@ -1,0 +1,494 @@
+# Celestial Library relational foundation.
+#
+# This schema intentionally does not mirror the legacy Firestore StoryWorld
+# snapshot. Chapters, Codex records, generation jobs, settings, and media are
+# independently addressable rows. Legacy identifiers are retained only as
+# optional migration keys for the phase-two cutover.
+
+enum AccountRole {
+  USER
+  ADMIN
+  OWNER
+}
+
+enum SubscriptionTier {
+  MORTAL
+  OUTER_SECT
+  INNER_SECT
+  SECT_MASTER
+  IMMORTAL
+}
+
+enum StoryStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+  DELETED
+}
+
+enum StoryVisibility {
+  PRIVATE
+  SHARED
+  PUBLIC
+}
+
+enum StoryMemberRole {
+  OWNER
+  EDITOR
+  READER
+}
+
+enum ArcStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum ChapterStatus {
+  LOCKED
+  UNLOCKED
+  GENERATING
+  UNREAD
+  READ
+  SEALED
+  FAILED
+  DELETED
+}
+
+enum GenerationJobKind {
+  STORY_BLUEPRINT
+  STORY_ARC
+  CHAPTER
+  CONTINUITY
+  TRANSLATION
+  IMAGE
+  AUDIO
+  VIDEO
+  EXPORT
+  OTHER
+}
+
+enum GenerationJobStatus {
+  QUEUED
+  RUNNING
+  PAUSED
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+type UserAccount @table(key: "uid") {
+  # Client operations set this from auth.uid explicitly. Keeping auth.uid as a
+  # schema default breaks trusted Admin SDK writes, which have no end-user auth
+  # context even when the operation supplies the owner UID.
+  uid: String!
+  email: String @unique
+  displayName: String
+  role: AccountRole! @default(value: USER)
+  createdAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type UserProfile @table(key: "userUid") {
+  user: UserAccount! @ref(fields: "userUid", references: "uid")
+  userUid: String!
+  username: String @unique
+  displayNameColor: String
+  preferredLanguage: String
+  defaultTranslationLanguage: String
+  subscriptionTier: SubscriptionTier! @default(value: MORTAL)
+  daoXp: Int64! @default(value: 0)
+  daoRank: String
+  heavenlyQi: Int64! @default(value: 0)
+  sectQi: Int64! @default(value: 0)
+  demonicQi: Int64! @default(value: 0)
+  writingStreak: Int! @default(value: 0)
+  lastReadAt: Timestamp
+  createdAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type UserPreference @table(key: "userUid") {
+  user: UserAccount! @ref(fields: "userUid", references: "uid")
+  userUid: String!
+  fontSize: String
+  fontFamily: String
+  lineHeightScale: Float
+  paragraphSpacingScale: Float
+  letterSpacing: Float
+  wordSpacing: Float
+  readingWidth: Int
+  textAlignment: String
+  contextEngine: String
+  theme: String
+  colorPaletteId: String
+  highlightStyle: String
+  audioMusicVolume: Float
+  audioAtmosphereVolume: Float
+  audioVoiceVolume: Float
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type UserProgressEvent @table @index(fields: ["userUid", "createdAt"], order: [ASC, DESC]) {
+  id: UUID! @default(expr: "uuidV4()")
+  user: UserAccount! @ref(fields: "userUid", references: "uid")
+  userUid: String!
+  eventType: String!
+  amount: Int64! @default(value: 0)
+  sourceType: String
+  sourceId: String
+  createdAt: Timestamp! @default(expr: "request.time")
+}
+
+type UserInventoryItem @table @index(fields: ["userUid", "status"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  user: UserAccount! @ref(fields: "userUid", references: "uid")
+  userUid: String!
+  catalogItemId: String
+  itemKind: String!
+  name: String!
+  description: String
+  rarity: String
+  status: String!
+  sourceStoryId: UUID
+  sourceMilestone: String
+  acquiredAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type StorySeed @table @unique(fields: ["ownerUid", "legacySeedId"]) @index(fields: ["ownerUid", "updatedAt"], order: [ASC, DESC]) {
+  id: UUID! @default(expr: "uuidV4()")
+  owner: UserAccount! @ref(fields: "ownerUid", references: "uid")
+  ownerUid: String!
+  legacySeedId: String
+  title: String!
+  schemaVersion: Int! @default(value: 1)
+  createdAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+# Intake and blueprint values remain independently addressable instead of being
+# persisted as one opaque seed document. Complex list values use repeated rows.
+type StorySeedField @table(key: ["seedId", "section", "fieldKey", "position"]) {
+  seed: StorySeed! @ref(fields: "seedId", references: "id")
+  seedId: UUID!
+  section: String!
+  fieldKey: String!
+  position: Int! @default(value: 0)
+  stringValue: String
+  numberValue: Float
+  booleanValue: Boolean
+}
+
+type Story @table @unique(fields: ["ownerUid", "legacyStoryId"]) @index(fields: ["ownerUid", "updatedAt"], order: [ASC, DESC]) {
+  id: UUID! @default(expr: "uuidV4()")
+  owner: UserAccount! @ref(fields: "ownerUid", references: "uid")
+  ownerUid: String!
+  sourceSeed: StorySeed @ref(fields: "sourceSeedId", references: "id")
+  sourceSeedId: UUID
+  parentStory: Story @ref(fields: "parentStoryId", references: "id")
+  parentStoryId: UUID
+  legacyStoryId: String
+  title: String!
+  genre: String!
+  mainCharacterName: String
+  premise: String
+  status: StoryStatus! @default(value: DRAFT)
+  visibility: StoryVisibility! @default(value: PRIVATE)
+  currentChapterNumber: Int! @default(value: 0)
+  forkChapterNumber: Int
+  syncRevision: String
+  conflictResolvedAt: Timestamp
+  deletedAt: Timestamp
+  createdAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type StoryMember @table(key: ["storyId", "userUid"]) @index(fields: ["userUid", "role"]) {
+  story: Story! @ref(fields: "storyId", references: "id")
+  storyId: UUID!
+  user: UserAccount! @ref(fields: "userUid", references: "uid")
+  userUid: String!
+  role: StoryMemberRole!
+  createdAt: Timestamp! @default(expr: "request.time")
+}
+
+type StoryPreference @table(key: "storyId") {
+  story: Story! @ref(fields: "storyId", references: "id")
+  storyId: UUID!
+  contextEngine: String
+  hardcoreFateMode: Boolean! @default(value: false)
+  fatePressure: String
+  motionCoverActive: Boolean! @default(value: false)
+  assignedRevealBackdropPolicy: String
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type StoryReaderPreference @table(key: ["storyId", "userUid"]) {
+  story: Story! @ref(fields: "storyId", references: "id")
+  storyId: UUID!
+  user: UserAccount! @ref(fields: "userUid", references: "uid")
+  userUid: String!
+  fontSize: String
+  fontFamily: String
+  lineHeightScale: Float
+  paragraphSpacingScale: Float
+  letterSpacing: Float
+  wordSpacing: Float
+  readingWidth: Int
+  textAlignment: String
+  themeOverride: String
+  colorPaletteId: String
+  highlightStyle: String
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type StoryMemoryState @table(key: "storyId") {
+  story: Story! @ref(fields: "storyId", references: "id")
+  storyId: UUID!
+  powerSystem: String
+  currentPowerStage: String
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type StoryMemoryWarning @table @index(fields: ["storyId", "createdAt"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  story: Story! @ref(fields: "storyId", references: "id")
+  storyId: UUID!
+  warning: String!
+  resolvedAt: Timestamp
+  createdAt: Timestamp! @default(expr: "request.time")
+}
+
+type StoryRule @table @unique(fields: ["storyId", "ruleKey"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  story: Story! @ref(fields: "storyId", references: "id")
+  storyId: UUID!
+  ruleKey: String!
+  ruleValue: String!
+  isPinned: Boolean! @default(value: false)
+  position: Int! @default(value: 0)
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type StoryArc @table @unique(fields: ["storyId", "arcNumber"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  story: Story! @ref(fields: "storyId", references: "id")
+  storyId: UUID!
+  arcNumber: Int!
+  title: String!
+  summary: String
+  status: ArcStatus! @default(value: PLANNED)
+  createdAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type Chapter @table @unique(fields: ["storyId", "chapterNumber"]) @unique(fields: ["storyId", "legacyChapterId"]) @index(fields: ["storyId", "updatedAt"], order: [ASC, DESC]) {
+  id: UUID! @default(expr: "uuidV4()")
+  story: Story! @ref(fields: "storyId", references: "id")
+  storyId: UUID!
+  arc: StoryArc @ref(fields: "arcId", references: "id")
+  arcId: UUID
+  legacyChapterId: String
+  chapterNumber: Int!
+  title: String!
+  premise: String
+  status: ChapterStatus! @default(value: UNLOCKED)
+  summary: String
+  episodicSummary: String
+  contentHash: String
+  versionId: String
+  syncRevision: String
+  isSealed: Boolean! @default(value: false)
+  sealedAt: Timestamp
+  hasContinuityFaults: Boolean! @default(value: false)
+  createdAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+# Kept one-to-one and queried separately so library and story-scaffold reads do
+# not hydrate full prose, contracts, and generation diagnostics.
+type ChapterContent @table(key: "chapterId") {
+  chapter: Chapter! @ref(fields: "chapterId", references: "id")
+  chapterId: UUID!
+  generatedContent: String!
+  statsChangeMessage: String
+  contextEngine: String
+  contextRoute: String
+  contextEstimatedTokens: Int
+  contextBudgetTokens: Int
+  contractObjective: String
+  contractRequiredOpening: String
+  handoffNextImmediateAction: String
+  handoffEndLocation: String
+  handoffEndTimeMarker: String
+  handoffMainCharacterCondition: String
+  handoffOpenTension: String
+  revisionId: String
+  syncRevision: String
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type ChapterSceneFingerprint @table @index(fields: ["storyId", "chapterNumber"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  story: Story! @ref(fields: "storyId", references: "id")
+  storyId: UUID!
+  chapter: Chapter! @ref(fields: "chapterId", references: "id")
+  chapterId: UUID!
+  chapterNumber: Int!
+  actionType: String!
+  location: String
+  outcome: String!
+  participants: [String!]!
+  createdAt: Timestamp! @default(expr: "request.time")
+}
+
+type ChapterBlock @table @unique(fields: ["chapterId", "position"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  chapter: Chapter! @ref(fields: "chapterId", references: "id")
+  chapterId: UUID!
+  legacyBlockId: String
+  position: Int!
+  blockType: String!
+  text: String!
+  speakerName: String
+  speakerRole: String
+  sceneType: String
+  environment: [String!]
+  atmosphereCategory: String
+  atmosphereTags: [String!]
+  theme: [String!]
+  motion: String
+  emotion: String
+  intensity: Float
+  tension: Float
+  danger: Float
+  mysticism: Float
+  audioSignature: String
+}
+
+type ChapterBlockAttribute @table(key: ["blockId", "attributeKey"]) {
+  block: ChapterBlock! @ref(fields: "blockId", references: "id")
+  blockId: UUID!
+  attributeKey: String!
+  stringValue: String
+  numberValue: Float
+  booleanValue: Boolean
+}
+
+type ChapterTranslation @table(key: ["chapterId", "languageCode"]) {
+  chapter: Chapter! @ref(fields: "chapterId", references: "id")
+  chapterId: UUID!
+  languageCode: String!
+  title: String!
+  content: String!
+  translatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type ChapterFact @table(key: "id") @index(fields: ["storyId", "chapterNumber"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  story: Story! @ref(fields: "storyId", references: "id")
+  storyId: UUID!
+  chapter: Chapter @ref(fields: "chapterId", references: "id")
+  chapterId: UUID
+  chapterNumber: Int!
+  factKind: String!
+  subjectKey: String
+  factText: String!
+  confidence: Float
+  isPinned: Boolean! @default(value: false)
+  createdAt: Timestamp! @default(expr: "request.time")
+}
+
+type ChapterFactSupersession @table(key: ["newerFactId", "olderFactId"]) {
+  newerFact: ChapterFact! @ref(fields: "newerFactId", references: "id")
+  newerFactId: UUID!
+  olderFact: ChapterFact! @ref(fields: "olderFactId", references: "id")
+  olderFactId: UUID!
+  createdAt: Timestamp! @default(expr: "request.time")
+}
+
+type Bookmark @table @index(fields: ["userUid", "storyId"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  user: UserAccount! @ref(fields: "userUid", references: "uid")
+  userUid: String!
+  story: Story! @ref(fields: "storyId", references: "id")
+  storyId: UUID!
+  chapter: Chapter @ref(fields: "chapterId", references: "id")
+  chapterId: UUID
+  paragraphIndex: Int!
+  paragraphExcerpt: String!
+  note: String
+  createdAt: Timestamp! @default(expr: "request.time")
+}
+
+type ReadingProgress @table(key: ["userUid", "storyId"]) {
+  user: UserAccount! @ref(fields: "userUid", references: "uid")
+  userUid: String!
+  story: Story! @ref(fields: "storyId", references: "id")
+  storyId: UUID!
+  chapterNumber: Int! @default(value: 1)
+  anchorBlockId: String
+  anchorText: String
+  anchorOffset: Int
+  totalReadingTimeMs: Int64! @default(value: 0)
+  lastReadAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type GlossaryTerm @table @unique(fields: ["storyId", "sourceText", "targetLanguage"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  story: Story! @ref(fields: "storyId", references: "id")
+  storyId: UUID!
+  sourceText: String!
+  targetText: String!
+  targetLanguage: String!
+  note: String
+  createdAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type GenerationJob @table @unique(fields: ["ownerUid", "idempotencyKey"]) @index(fields: ["ownerUid", "status", "createdAt"], order: [ASC, ASC, DESC]) {
+  id: UUID! @default(expr: "uuidV4()")
+  owner: UserAccount! @ref(fields: "ownerUid", references: "uid")
+  ownerUid: String!
+  story: Story @ref(fields: "storyId", references: "id")
+  storyId: UUID
+  chapter: Chapter @ref(fields: "chapterId", references: "id")
+  chapterId: UUID
+  kind: GenerationJobKind!
+  status: GenerationJobStatus! @default(value: QUEUED)
+  provider: String
+  model: String
+  inputHash: String
+  idempotencyKey: String
+  attemptCount: Int! @default(value: 0)
+  errorCode: String
+  errorMessage: String
+  startedAt: Timestamp
+  completedAt: Timestamp
+  createdAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type GenerationEvent @table @index(fields: ["jobId", "createdAt"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  job: GenerationJob! @ref(fields: "jobId", references: "id")
+  jobId: UUID!
+  eventType: String!
+  message: String
+  progress: Float
+  createdAt: Timestamp! @default(expr: "request.time")
+}
+
+# Small, isolated record used only by deployment health checks. It exercises
+# Firebase Auth identity propagation without coupling tests to product rows.
+type FoundationProbe @table @unique(fields: ["ownerUid"]) @index(fields: ["ownerUid", "createdAt"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  owner: UserAccount! @ref(fields: "ownerUid", references: "uid")
+  ownerUid: String!
+  label: String!
+  createdAt: Timestamp! @default(expr: "request.time")
+}

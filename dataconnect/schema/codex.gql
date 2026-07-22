@@ -1,0 +1,157 @@
+enum CodexEntityKind {
+  CHARACTER
+  BEAST
+  LOCATION
+  ARTIFACT
+  FACTION
+  ABILITY
+  MYSTERY
+  POWER
+  EVENT
+  GLOSSARY
+  OTHER
+}
+
+enum CodexRelevanceState {
+  ACTIVE
+  WARM
+  DORMANT
+  ARCHIVED
+  REACTIVATED
+}
+
+enum PlotThreadStatus {
+  ACTIVE
+  RESOLVED
+  ARCHIVED
+}
+
+type CodexEntity @table @unique(fields: ["storyId", "stableKey"]) @index(fields: ["storyId", "kind", "relevanceState"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  story: Story! @ref(fields: "storyId", references: "id")
+  storyId: UUID!
+  stableKey: String!
+  kind: CodexEntityKind!
+  name: String!
+  role: String
+  description: String
+  status: String
+  relationshipToMainCharacter: String
+  relevanceState: CodexRelevanceState! @default(value: ACTIVE)
+  contextPriority: Int
+  authorContextNote: String
+  firstAppearedChapter: Int
+  lastMajorInvolvementChapter: Int
+  currentRelevance: String
+  toneMemory: String
+  manifestationImportance: String
+  isUserPinned: Boolean! @default(value: false)
+  pendingEvolution: Boolean! @default(value: false)
+  evolutionReason: String
+  createdAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type CodexAlias @table(key: ["entityId", "normalizedAlias"]) {
+  entity: CodexEntity! @ref(fields: "entityId", references: "id")
+  entityId: UUID!
+  alias: String!
+  normalizedAlias: String!
+  isCanonical: Boolean! @default(value: false)
+}
+
+# Flexible subtype data is stored as typed attributes rather than one nested
+# Character/Location/Artifact JSON document. No binary or media body field is
+# present; media associations live in MediaAttachment.
+type CodexEntityAttribute @table(key: ["entityId", "attributeKey"]) {
+  entity: CodexEntity! @ref(fields: "entityId", references: "id")
+  entityId: UUID!
+  attributeKey: String!
+  stringValue: String
+  numberValue: Float
+  booleanValue: Boolean
+  stringListValue: [String!]
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type CodexRelationship @table @unique(fields: ["storyId", "sourceEntityId", "targetEntityId", "relationshipKind"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  story: Story! @ref(fields: "storyId", references: "id")
+  storyId: UUID!
+  sourceEntity: CodexEntity! @ref(fields: "sourceEntityId", references: "id")
+  sourceEntityId: UUID!
+  targetEntity: CodexEntity! @ref(fields: "targetEntityId", references: "id")
+  targetEntityId: UUID!
+  relationshipKind: String!
+  affinity: Int
+  threat: Int
+  description: String
+  status: String
+  createdAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type PlotThread @table @index(fields: ["storyId", "status"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  story: Story! @ref(fields: "storyId", references: "id")
+  storyId: UUID!
+  description: String!
+  status: PlotThreadStatus! @default(value: ACTIVE)
+  originChapterNumber: Int
+  resolvedChapterNumber: Int
+  confidence: Float
+  isUserPinned: Boolean! @default(value: false)
+  createdAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type KarmaNode @table @index(fields: ["storyId", "status"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  story: Story! @ref(fields: "storyId", references: "id")
+  storyId: UUID!
+  sourceEntity: CodexEntity @ref(fields: "sourceEntityId", references: "id")
+  sourceEntityId: UUID
+  targetEntity: CodexEntity @ref(fields: "targetEntityId", references: "id")
+  targetEntityId: UUID
+  sourceName: String!
+  targetName: String!
+  description: String!
+  severity: String!
+  nodeType: String!
+  status: String!
+  createdAt: Timestamp! @default(expr: "request.time")
+  resolvedAt: Timestamp
+}
+
+type TimelineEvent @table @index(fields: ["storyId", "chapterNumber"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  story: Story! @ref(fields: "storyId", references: "id")
+  storyId: UUID!
+  chapter: Chapter @ref(fields: "chapterId", references: "id")
+  chapterId: UUID
+  chapterNumber: Int
+  title: String!
+  description: String!
+  eventType: String
+  occurredAtLabel: String
+  createdAt: Timestamp! @default(expr: "request.time")
+}
+
+type AbilityProgressionEvent @table @index(fields: ["abilityEntityId", "chapterNumber"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  abilityEntity: CodexEntity! @ref(fields: "abilityEntityId", references: "id")
+  abilityEntityId: UUID!
+  chapterNumber: Int!
+  fromMastery: String
+  toMastery: String
+  note: String
+  createdAt: Timestamp! @default(expr: "request.time")
+}
+
+type CodexThreadLink @table(key: ["entityId", "threadId"]) {
+  entity: CodexEntity! @ref(fields: "entityId", references: "id")
+  entityId: UUID!
+  thread: PlotThread! @ref(fields: "threadId", references: "id")
+  threadId: UUID!
+  createdAt: Timestamp! @default(expr: "request.time")
+}

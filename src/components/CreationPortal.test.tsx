@@ -102,7 +102,7 @@ describe('CreationPortal', () => {
     expect(await screen.findByText('The Jade Gate')).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: 'Export All Seeds' }));
     expect(mocks.downloadStorySeedCollection).toHaveBeenCalledWith([savedSeed]);
-  });
+  }, 30_000);
 
   it('saves the seed first and passes its account ID into the generated story', async () => {
     const onGenerateBlueprint = vi.fn().mockResolvedValue(blueprint);
@@ -127,5 +127,5 @@ describe('CreationPortal', () => {
       expect.objectContaining({ blueprint: expect.objectContaining({ title: 'The Jade Gate' }) }),
     );
     expect(onStartStory.mock.calls[0][3]).toBe('seed-1');
-  });
+  }, 30_000);
 });

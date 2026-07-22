@@ -9,7 +9,7 @@ import globals from 'globals';
 
 export default [
   {
-    ignores: ['dist/**/*', 'node_modules/**/*', 'test_api.js', 'scripts/**/*', 'server-bundle/index.js']
+    ignores: ['dist/**/*', 'node_modules/**/*', 'src/generated/**/*', 'test_api.js', 'scripts/**/*', 'server-bundle/index.js']
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

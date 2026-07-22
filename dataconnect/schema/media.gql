@@ -1,0 +1,175 @@
+enum MediaAssetType {
+  IMAGE
+  AUDIO
+  VIDEO
+  MOTION_COVER
+  PDF
+  EPUB
+  MANGA_PAGE
+  EXPORT
+  OTHER
+}
+
+enum MediaAssetStatus {
+  GENERATING
+  PROCESSING
+  UPLOADING
+  READY
+  FAILED
+  ARCHIVED
+  DELETED
+  ORPHANED
+  PENDING_CLEANUP
+}
+
+enum MediaVisibility {
+  PRIVATE
+  PUBLIC
+}
+
+enum MediaCleanupStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+# Compact metadata only. There is deliberately no bytes, base64, blob,
+# provider-response, or permanent source-URL column on this table.
+type MediaAsset @table @index(fields: ["ownerUid", "status", "createdAt"], order: [ASC, ASC, DESC]) @index(fields: ["storyId", "assetType"]) @index(fields: ["status", "updatedAt"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  owner: UserAccount! @ref(fields: "ownerUid", references: "uid")
+  ownerUid: String!
+  story: Story @ref(fields: "storyId", references: "id")
+  storyId: UUID
+  generationJob: GenerationJob @ref(fields: "generationJobId", references: "id")
+  generationJobId: UUID
+  replacesAsset: MediaAsset @ref(fields: "replacesAssetId", references: "id")
+  replacesAssetId: UUID
+  assetType: MediaAssetType!
+  purpose: String!
+  visibility: MediaVisibility! @default(value: PRIVATE)
+  status: MediaAssetStatus! @default(value: PROCESSING)
+  bucket: String!
+  objectKey: String! @unique
+  originalFilename: String
+  mimeType: String!
+  extension: String!
+  byteSize: Int64!
+  checksumSha256: String!
+  etag: String
+  width: Int
+  height: Int
+  durationMs: Int64
+  version: Int! @default(value: 1)
+  cacheControl: String!
+  failureCode: String
+  failureMessage: String
+  createdAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp! @default(expr: "request.time")
+  readyAt: Timestamp
+  archivedAt: Timestamp
+  deletedAt: Timestamp
+  cleanupAfter: Timestamp
+}
+
+type MediaUploadAttempt @table @index(fields: ["assetId", "createdAt"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  asset: MediaAsset! @ref(fields: "assetId", references: "id")
+  assetId: UUID!
+  attemptNumber: Int!
+  sourceKind: String!
+  status: String!
+  provider: String
+  errorCode: String
+  errorMessage: String
+  startedAt: Timestamp! @default(expr: "request.time")
+  completedAt: Timestamp
+  createdAt: Timestamp! @default(expr: "request.time")
+}
+
+# One asset can be used by multiple product surfaces without duplicating its R2
+# object. targetKind/targetKey also cover future features that do not yet have a
+# first-class table; known story/chapter/entity relations remain real FKs.
+type MediaAttachment @table @unique(fields: ["assetId", "targetKind", "targetKey", "purpose"]) @index(fields: ["storyId", "purpose"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  asset: MediaAsset! @ref(fields: "assetId", references: "id")
+  assetId: UUID!
+  story: Story @ref(fields: "storyId", references: "id")
+  storyId: UUID
+  chapter: Chapter @ref(fields: "chapterId", references: "id")
+  chapterId: UUID
+  entity: CodexEntity @ref(fields: "entityId", references: "id")
+  entityId: UUID
+  targetKind: String!
+  targetKey: String!
+  purpose: String!
+  position: Int! @default(value: 0)
+  isCurrent: Boolean! @default(value: true)
+  createdAt: Timestamp! @default(expr: "request.time")
+  endedAt: Timestamp
+}
+
+type MediaDerivative @table @unique(fields: ["sourceAssetId", "variant"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  sourceAsset: MediaAsset! @ref(fields: "sourceAssetId", references: "id")
+  sourceAssetId: UUID!
+  derivedAsset: MediaAsset! @ref(fields: "derivedAssetId", references: "id")
+  derivedAssetId: UUID!
+  variant: String!
+  createdAt: Timestamp! @default(expr: "request.time")
+}
+
+type MediaCleanupTask @table @index(fields: ["status", "nextAttemptAt"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  asset: MediaAsset @ref(fields: "assetId", references: "id")
+  assetId: UUID
+  ownerUid: String!
+  bucket: String!
+  objectKey: String!
+  reason: String!
+  status: MediaCleanupStatus! @default(value: PENDING)
+  attemptCount: Int! @default(value: 0)
+  lastError: String
+  nextAttemptAt: Timestamp! @default(expr: "request.time")
+  createdAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp! @default(expr: "request.time")
+  completedAt: Timestamp
+}
+
+# Catalog entries are references to curated, system-managed R2 objects. Phase
+# one leaves the existing JSON catalogs authoritative; this table lets phase
+# two import them without mixing them into user-owned cleanup flows.
+type MediaCatalogEntry @table(key: "catalogId") @index(fields: ["assetType", "active"]) {
+  catalogId: String!
+  assetType: MediaAssetType!
+  category: String!
+  objectKey: String!
+  publicUrl: String!
+  mimeType: String
+  byteSize: Int64
+  tags: [String!]
+  active: Boolean! @default(value: true)
+  createdAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type UserPortrait @table(key: "assetId") @index(fields: ["userUid", "active"]) {
+  asset: MediaAsset! @ref(fields: "assetId", references: "id")
+  assetId: UUID!
+  user: UserAccount! @ref(fields: "userUid", references: "uid")
+  userUid: String!
+  prompt: String
+  description: String
+  daoRank: String
+  daoXp: Int64
+  powerStage: String
+  usedReferenceImage: Boolean! @default(value: false)
+  frameId: String
+  glowId: String
+  bannerId: String
+  effectIds: [String!]
+  active: Boolean! @default(value: false)
+  createdAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp! @default(expr: "request.time")
+}

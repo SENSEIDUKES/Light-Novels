@@ -1,0 +1,15 @@
+specVersion: "v1"
+serviceId: "celestial-library"
+location: "us-west2"
+schema:
+  source: "../dataconnect/schema"
+  datasource:
+    postgresql:
+      database: "celestial_library"
+      cloudSql:
+        instanceId: "celestial-library-sql"
+        # CI has no production credentials or database. STRICT validates the
+        # proposed schema locally; the production config remains COMPATIBLE.
+        schemaValidation: "STRICT"
+connectorDirs:
+  - "../dataconnect/connector"

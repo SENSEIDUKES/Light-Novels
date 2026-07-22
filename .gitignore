@@ -11,6 +11,8 @@ scratch/
 *.log
 .env*
 !.env.example
+dataconnect/.dataconnect/
+dataconnect-ci/.dataconnect/
 
 # Agent skills
 .agents/

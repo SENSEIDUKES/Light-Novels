@@ -28,11 +28,26 @@ jobs:
         distribution: 'temurin'
         java-version: '21'
 
+    - name: Compile Data Connect foundation
+      run: npm run dataconnect:compile
+
+    - name: Verify generated Data Connect SDKs are current
+      shell: bash
+      run: |
+        if [[ -n "$(git status --porcelain --untracked-files=all -- src/generated/dataconnect src/generated/dataconnect-admin)" ]]; then
+          git status --short --untracked-files=all -- src/generated/dataconnect src/generated/dataconnect-admin
+          git diff -- src/generated/dataconnect src/generated/dataconnect-admin
+          exit 1
+        fi
+
+    - name: Test Auth and Data Connect foundation
+      run: npm run test:foundation:e2e
+
     - name: Run linter
       run: npm run lint
 
     - name: Run tests with coverage
-      run: npx firebase-tools emulators:exec --only firestore "npm run test:coverage"
+      run: npx firebase-tools emulators:exec --only firestore,storage --project demo-seihouse-foundation "npm run test:coverage"
 
     - name: Build project
       run: npm run build

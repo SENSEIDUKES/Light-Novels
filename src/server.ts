@@ -32,6 +32,7 @@ import { PROMPTS } from "./server/prompts";
 
 import * as deepl from "deepl-node";
 import { apiRouter } from "./server/routes";
+import { mediaAssetRouter } from "./server/routes/mediaAssetRouter";
 
 dotenv.config();
 
@@ -72,6 +73,20 @@ function getCustomKeys(req: express.Request) {
 }
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  message: "Too many requests, please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use("/api", limiter);
+
+// The media foundation authenticates before its route-scoped body parsers.
+// This also keeps raw application/json exports available to express.raw().
+app.use(mediaAssetRouter);
+
 // Increase payload sizes
 app.use(express.json({ limit: "20mb" }));
 
@@ -100,15 +115,6 @@ app.use(express.json({ limit: "20mb" }));
 // 5. Generate Story-Specific Glossary terms and lore definitions
 // 6. Translate Chapter
 // 7. Generate Audio (TTS) for the Voice Edition
-
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
-  message: "Too many requests, please try again later.",
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use("/api", limiter);
 
 app.use(apiRouter);
 

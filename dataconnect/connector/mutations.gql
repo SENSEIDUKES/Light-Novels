@@ -1,0 +1,414 @@
+mutation UpsertMyAccount @auth(level: USER) {
+  userAccount_upsert(
+    data: {
+      uid_expr: "auth.uid"
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+mutation CreateFoundationProbe($label: String!) @auth(level: USER) @transaction {
+  userAccount_upsert(
+    data: {
+      uid_expr: "auth.uid"
+      updatedAt_expr: "request.time"
+    }
+  )
+  foundationProbe_insert(data: { ownerUid_expr: "auth.uid", label: $label })
+}
+
+mutation DeleteMyFoundationProbe($id: UUID!) @auth(level: USER) {
+  foundationProbe_delete(
+    first: { where: { id: { eq: $id }, ownerUid: { eq_expr: "auth.uid" } } }
+  )
+}
+
+mutation CreateStoryWithFirstChapter(
+  $title: String!
+  $genre: String!
+  $mainCharacterName: String
+  $premise: String
+  $chapterTitle: String!
+  $chapterPremise: String
+) @auth(level: USER) @transaction {
+  userAccount_upsert(
+    data: {
+      uid_expr: "auth.uid"
+      updatedAt_expr: "request.time"
+    }
+  )
+  story_insert(
+    data: {
+      ownerUid_expr: "auth.uid"
+      title: $title
+      genre: $genre
+      mainCharacterName: $mainCharacterName
+      premise: $premise
+      status: ACTIVE
+      currentChapterNumber: 1
+    }
+  )
+  storyMember_insert(
+    data: {
+      storyId_expr: "response.story_insert.id"
+      userUid_expr: "auth.uid"
+      role: OWNER
+    }
+  )
+  chapter_insert(
+    data: {
+      storyId_expr: "response.story_insert.id"
+      chapterNumber: 1
+      title: $chapterTitle
+      premise: $chapterPremise
+      status: UNLOCKED
+    }
+  )
+}
+
+mutation CreateMyChapter(
+  $storyId: UUID!
+  $chapterNumber: Int!
+  $title: String!
+  $premise: String
+) @auth(level: USER) @transaction {
+  query @redact {
+    story(
+      first: {
+        where: {
+          id: { eq: $storyId }
+          ownerUid: { eq_expr: "auth.uid" }
+          status: { ne: DELETED }
+        }
+      }
+    )
+      @check(expr: "this != null", message: "Story not found") {
+      id
+    }
+  }
+  chapter_insert(
+    data: {
+      storyId: $storyId
+      chapterNumber: $chapterNumber
+      title: $title
+      premise: $premise
+      status: UNLOCKED
+    }
+  )
+}
+
+mutation SoftDeleteMyStory($id: UUID!) @auth(level: USER) {
+  story_update(
+    first: { where: { id: { eq: $id }, ownerUid: { eq_expr: "auth.uid" } } }
+    data: { status: DELETED, deletedAt_expr: "request.time", updatedAt_expr: "request.time" }
+  )
+}
+
+# Test-only/admin cleanup. It is unavailable to all client SDK callers.
+mutation AdminPurgeFoundationProbe($id: UUID!) @auth(level: NO_ACCESS) {
+  foundationProbe_delete(id: $id)
+}
+
+mutation AdminPurgeFoundationStory($id: UUID!) @auth(level: NO_ACCESS) {
+  story_delete(id: $id)
+}
+
+mutation AdminReserveMediaAsset(
+  $id: UUID!
+  $ownerUid: String!
+  $ownerEmail: String
+  $ownerDisplayName: String
+  $storyId: UUID
+  $generationJobId: UUID
+  $replacesAssetId: UUID
+  $assetType: MediaAssetType!
+  $purpose: String!
+  $visibility: MediaVisibility!
+  $bucket: String!
+  $objectKey: String!
+  $originalFilename: String
+  $mimeType: String!
+  $extension: String!
+  $byteSize: Int64!
+  $checksumSha256: String!
+  $width: Int
+  $height: Int
+  $durationMs: Int64
+  $version: Int!
+  $cacheControl: String!
+  $sourceKind: String!
+) @auth(level: NO_ACCESS) @transaction {
+  userAccount_upsert(
+    data: {
+      uid: $ownerUid
+      email: $ownerEmail
+      displayName: $ownerDisplayName
+      updatedAt_expr: "request.time"
+    }
+  )
+  mediaAsset_insert(
+    data: {
+      id: $id
+      ownerUid: $ownerUid
+      storyId: $storyId
+      generationJobId: $generationJobId
+      replacesAssetId: $replacesAssetId
+      assetType: $assetType
+      purpose: $purpose
+      visibility: $visibility
+      status: UPLOADING
+      bucket: $bucket
+      objectKey: $objectKey
+      originalFilename: $originalFilename
+      mimeType: $mimeType
+      extension: $extension
+      byteSize: $byteSize
+      checksumSha256: $checksumSha256
+      width: $width
+      height: $height
+      durationMs: $durationMs
+      version: $version
+      cacheControl: $cacheControl
+    }
+  )
+  mediaUploadAttempt_insert(
+    data: {
+      assetId: $id
+      attemptNumber: 1
+      sourceKind: $sourceKind
+      status: "uploading"
+    }
+  )
+}
+
+mutation AdminCommitMediaAssetReady(
+  $id: UUID!
+  $ownerUid: String!
+  $etag: String
+  $targetKind: String!
+  $targetKey: String!
+  $purpose: String!
+  $storyId: UUID
+  $chapterId: UUID
+  $entityId: UUID
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    mediaAsset(first: { where: { id: { eq: $id }, ownerUid: { eq: $ownerUid } } })
+      @check(expr: "this != null", message: "Asset not found") {
+      status @check(expr: "this == 'UPLOADING'", message: "Asset is not uploading")
+    }
+  }
+  assetReady: mediaAsset_update(
+    id: $id
+    data: { status: READY, etag: $etag, readyAt_expr: "request.time", updatedAt_expr: "request.time" }
+  )
+  mediaAttachment_insert(
+    data: {
+      assetId: $id
+      storyId: $storyId
+      chapterId: $chapterId
+      entityId: $entityId
+      targetKind: $targetKind
+      targetKey: $targetKey
+      purpose: $purpose
+      isCurrent: true
+    }
+  )
+  mediaUploadAttempt_updateMany(
+    where: { assetId: { eq: $id }, status: { eq: "uploading" } }
+    data: { status: "succeeded", completedAt_expr: "request.time" }
+  )
+}
+
+mutation AdminCommitMediaAssetReplacement(
+  $id: UUID!
+  $ownerUid: String!
+  $replacesAssetId: UUID!
+  $replacesBucket: String!
+  $replacesObjectKey: String!
+  $etag: String
+  $targetKind: String!
+  $targetKey: String!
+  $purpose: String!
+  $storyId: UUID
+  $chapterId: UUID
+  $entityId: UUID
+  $cleanupAfter: Timestamp!
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    replacement: mediaAsset(first: { where: { id: { eq: $id }, ownerUid: { eq: $ownerUid } } })
+      @check(expr: "this != null", message: "Replacement asset not found") {
+      status @check(expr: "this == 'UPLOADING'", message: "Replacement is not uploading")
+    }
+    current: mediaAsset(first: { where: { id: { eq: $replacesAssetId }, ownerUid: { eq: $ownerUid } } })
+      @check(expr: "this != null", message: "Current asset not found") {
+      status @check(expr: "this == 'READY'", message: "Current asset is not ready")
+      bucket
+      objectKey
+    }
+  }
+  replacementReady: mediaAsset_update(
+    id: $id
+    data: { status: READY, etag: $etag, readyAt_expr: "request.time", updatedAt_expr: "request.time" }
+  )
+  mediaAttachment_updateMany(
+    where: {
+      assetId: { eq: $replacesAssetId }
+      targetKind: { eq: $targetKind }
+      targetKey: { eq: $targetKey }
+      purpose: { eq: $purpose }
+      isCurrent: { eq: true }
+    }
+    data: { isCurrent: false, endedAt_expr: "request.time" }
+  ) @check(expr: "this == 1", message: "Replacement attachment slot not found")
+  mediaAttachment_insert(
+    data: {
+      assetId: $id
+      storyId: $storyId
+      chapterId: $chapterId
+      entityId: $entityId
+      targetKind: $targetKind
+      targetKey: $targetKey
+      purpose: $purpose
+      isCurrent: true
+    }
+  )
+  archivedPrevious: mediaAsset_update(
+    id: $replacesAssetId
+    data: {
+      status: ARCHIVED
+      archivedAt_expr: "request.time"
+      cleanupAfter: $cleanupAfter
+      updatedAt_expr: "request.time"
+    }
+  )
+  mediaCleanupTask_insert(
+    data: {
+      assetId: $replacesAssetId
+      ownerUid: $ownerUid
+      bucket: $replacesBucket
+      objectKey: $replacesObjectKey
+      reason: "replacement-retention-expired"
+      nextAttemptAt: $cleanupAfter
+    }
+  )
+  mediaUploadAttempt_updateMany(
+    where: { assetId: { eq: $id }, status: { eq: "uploading" } }
+    data: { status: "succeeded", completedAt_expr: "request.time" }
+  )
+}
+
+mutation AdminMarkMediaAssetFailed(
+  $id: UUID!
+  $ownerUid: String!
+  $failureCode: String!
+  $failureMessage: String!
+) @auth(level: NO_ACCESS) @transaction {
+  mediaAsset_update(
+    first: {
+      where: {
+        id: { eq: $id }
+        ownerUid: { eq: $ownerUid }
+        status: { eq: UPLOADING }
+      }
+    }
+    data: {
+      status: FAILED
+      failureCode: $failureCode
+      failureMessage: $failureMessage
+      updatedAt_expr: "request.time"
+    }
+  ) @check(expr: "this != null", message: "Asset not found")
+  mediaUploadAttempt_updateMany(
+    where: { assetId: { eq: $id }, status: { eq: "uploading" } }
+    data: { status: "failed", errorCode: $failureCode, errorMessage: $failureMessage, completedAt_expr: "request.time" }
+  )
+}
+
+mutation AdminMarkMediaAssetPendingCleanup(
+  $id: UUID!
+  $ownerUid: String!
+  $bucket: String!
+  $objectKey: String!
+  $reason: String!
+  $failureMessage: String
+) @auth(level: NO_ACCESS) @transaction {
+  mediaAsset_update(
+    first: {
+      where: {
+        id: { eq: $id }
+        ownerUid: { eq: $ownerUid }
+        status: { eq: UPLOADING }
+      }
+    }
+    data: {
+      status: PENDING_CLEANUP
+      failureCode: "commit_failed_after_upload"
+      failureMessage: $failureMessage
+      cleanupAfter_expr: "request.time"
+      updatedAt_expr: "request.time"
+    }
+  ) @check(expr: "this != null", message: "Asset not found")
+  mediaCleanupTask_insert(
+    data: {
+      assetId: $id
+      ownerUid: $ownerUid
+      bucket: $bucket
+      objectKey: $objectKey
+      reason: $reason
+    }
+  )
+}
+
+mutation AdminRequestMediaAssetDeletion(
+  $id: UUID!
+  $ownerUid: String!
+  $bucket: String!
+  $objectKey: String!
+) @auth(level: NO_ACCESS) @transaction {
+  mediaAsset_update(
+    first: { where: { id: { eq: $id }, ownerUid: { eq: $ownerUid } } }
+    data: { status: PENDING_CLEANUP, cleanupAfter_expr: "request.time", updatedAt_expr: "request.time" }
+  ) @check(expr: "this != null", message: "Asset not found")
+  mediaAttachment_updateMany(
+    where: { assetId: { eq: $id }, isCurrent: { eq: true } }
+    data: { isCurrent: false, endedAt_expr: "request.time" }
+  )
+  mediaCleanupTask_insert(
+    data: {
+      assetId: $id
+      ownerUid: $ownerUid
+      bucket: $bucket
+      objectKey: $objectKey
+      reason: "user-delete"
+    }
+  )
+}
+
+mutation AdminCompleteMediaCleanup($taskId: UUID!, $assetId: UUID!) @auth(level: NO_ACCESS) @transaction {
+  mediaCleanupTask_update(
+    id: $taskId
+    data: { status: SUCCEEDED, completedAt_expr: "request.time", updatedAt_expr: "request.time" }
+  )
+  mediaAsset_update(
+    id: $assetId
+    data: { status: DELETED, deletedAt_expr: "request.time", updatedAt_expr: "request.time" }
+  )
+}
+
+mutation AdminFailMediaCleanup(
+  $taskId: UUID!
+  $lastError: String!
+  $nextAttemptAt: Timestamp!
+) @auth(level: NO_ACCESS) {
+  mediaCleanupTask_update(
+    id: $taskId
+    data: {
+      status: FAILED
+      attemptCount_update: { inc: 1 }
+      lastError: $lastError
+      nextAttemptAt: $nextAttemptAt
+      updatedAt_expr: "request.time"
+    }
+  )
+}
