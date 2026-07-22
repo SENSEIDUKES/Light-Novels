@@ -8,7 +8,7 @@ import type {
   StorageUsageRow,
 } from '../../contracts/mediaAssets';
 import type { MediaAssetRepository, MediaAssetReservation } from './mediaAssetRepository';
-import { buildMediaStorageReport, MediaAssetService, MediaAssetServiceError } from './mediaAssetService';
+import { buildMediaStorageReport, MediaAssetService, MediaAssetServiceError, type MediaAssetServiceOptions } from './mediaAssetService';
 import type { CleanupMarker, MediaObjectStore, PutMediaObjectInput, StoredObjectMetadata } from './r2ObjectStore';
 
 const PNG_1X1 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
