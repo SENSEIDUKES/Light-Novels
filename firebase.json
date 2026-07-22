@@ -1,4 +1,7 @@
 {
+  "dataconnect": {
+    "source": "dataconnect"
+  },
   "firestore": {
     "database": "ai-studio-87275c2a-1573-4f26-a081-16ff74db509e",
     "rules": "firestore.rules"
@@ -13,6 +16,12 @@
     },
     "storage": {
       "port": 9199
+    },
+    "auth": {
+      "port": 9099
+    },
+    "dataconnect": {
+      "port": 9399
     },
     "ui": {
       "enabled": false

@@ -1,0 +1,381 @@
+query GetMyAccount @auth(level: USER) {
+  userAccount(key: { uid_expr: "auth.uid" }) {
+    uid
+    email
+    displayName
+    role
+    createdAt
+    updatedAt
+  }
+}
+
+query ListMyFoundationProbes @auth(level: USER) {
+  foundationProbes(
+    where: { ownerUid: { eq_expr: "auth.uid" } }
+    orderBy: [{ createdAt: DESC }]
+  ) {
+    id
+    label
+    createdAt
+  }
+}
+
+query GetMyFoundationProbe($id: UUID!) @auth(level: USER) {
+  foundationProbe(
+    first: {
+      where: {
+        id: { eq: $id }
+        ownerUid: { eq_expr: "auth.uid" }
+      }
+    }
+  ) {
+    id
+    label
+    createdAt
+  }
+}
+
+query ListMyStories @auth(level: USER) {
+  stories(
+    where: {
+      ownerUid: { eq_expr: "auth.uid" }
+      status: { ne: DELETED }
+    }
+    orderBy: [{ updatedAt: DESC }]
+  ) {
+    id
+    legacyStoryId
+    title
+    genre
+    mainCharacterName
+    premise
+    status
+    visibility
+    currentChapterNumber
+    syncRevision
+    createdAt
+    updatedAt
+  }
+}
+
+query GetMyStory($id: UUID!) @auth(level: USER) {
+  story(
+    first: {
+      where: {
+        id: { eq: $id }
+        ownerUid: { eq_expr: "auth.uid" }
+        status: { ne: DELETED }
+      }
+    }
+  ) {
+    id
+    legacyStoryId
+    title
+    genre
+    mainCharacterName
+    premise
+    status
+    visibility
+    currentChapterNumber
+    syncRevision
+    createdAt
+    updatedAt
+    arcs: storyArcs_on_story(orderBy: [{ arcNumber: ASC }]) {
+      id
+      arcNumber
+      title
+      summary
+      status
+    }
+    chapters: chapters_on_story(orderBy: [{ chapterNumber: ASC }]) {
+      id
+      chapterNumber
+      title
+      premise
+      status
+      summary
+      contentHash
+      versionId
+      isSealed
+      updatedAt
+    }
+  }
+}
+
+query GetMyChapter($storyId: UUID!, $chapterNumber: Int!) @auth(level: USER) {
+  chapter(
+    first: {
+      where: {
+        storyId: { eq: $storyId }
+        chapterNumber: { eq: $chapterNumber }
+        story: {
+          ownerUid: { eq_expr: "auth.uid" }
+          status: { ne: DELETED }
+        }
+        status: { ne: DELETED }
+      }
+    }
+  ) {
+    id
+    chapterNumber
+    title
+    premise
+    status
+    summary
+    contentHash
+    versionId
+    isSealed
+    content: chapterContent_on_chapter {
+      generatedContent
+      statsChangeMessage
+      contextEngine
+      contractObjective
+      contractRequiredOpening
+      handoffNextImmediateAction
+      handoffEndLocation
+      handoffOpenTension
+      revisionId
+      syncRevision
+      updatedAt
+    }
+    blocks: chapterBlocks_on_chapter(orderBy: [{ position: ASC }]) {
+      id
+      legacyBlockId
+      position
+      blockType
+      text
+      speakerName
+      speakerRole
+      sceneType
+      environment
+      atmosphereCategory
+      atmosphereTags
+      theme
+      emotion
+      intensity
+    }
+  }
+}
+
+query GetMyMediaAsset($id: UUID!) @auth(level: USER) {
+  mediaAsset(
+    first: {
+      where: {
+        id: { eq: $id }
+        ownerUid: { eq_expr: "auth.uid" }
+        status: { nin: [DELETED, ORPHANED] }
+      }
+    }
+  ) {
+    id
+    storyId
+    assetType
+    purpose
+    visibility
+    status
+    bucket
+    objectKey
+    originalFilename
+    mimeType
+    extension
+    byteSize
+    checksumSha256
+    etag
+    width
+    height
+    durationMs
+    version
+    cacheControl
+    createdAt
+    updatedAt
+    readyAt
+  }
+}
+
+query ListMyMediaAssets($storyId: UUID, $status: MediaAssetStatus, $limit: Int = 100)
+  @auth(level: USER) {
+  mediaAssets(
+    where: {
+      ownerUid: { eq_expr: "auth.uid" }
+      storyId: { eq: $storyId }
+      status: { eq: $status }
+    }
+    orderBy: [{ createdAt: DESC }]
+    limit: $limit
+  ) {
+    id
+    storyId
+    assetType
+    purpose
+    visibility
+    status
+    bucket
+    objectKey
+    mimeType
+    byteSize
+    width
+    height
+    durationMs
+    createdAt
+    readyAt
+    cleanupAfter
+  }
+}
+
+# Trusted backend only. The media route derives ownerUid from a verified
+# Firebase ID token before invoking this operation.
+query AdminGetOwnedMediaAsset($ownerUid: String!, $id: UUID!) @auth(level: NO_ACCESS) {
+  mediaAsset(first: { where: { id: { eq: $id }, ownerUid: { eq: $ownerUid } } }) {
+    id
+    ownerUid
+    storyId
+    generationJobId
+    replacesAssetId
+    assetType
+    purpose
+    visibility
+    status
+    bucket
+    objectKey
+    originalFilename
+    mimeType
+    extension
+    byteSize
+    checksumSha256
+    etag
+    width
+    height
+    durationMs
+    version
+    cacheControl
+    failureCode
+    failureMessage
+    createdAt
+    updatedAt
+    readyAt
+    archivedAt
+    deletedAt
+    cleanupAfter
+  }
+}
+
+query AdminGetOwnedStoryScope($ownerUid: String!, $storyId: UUID!) @auth(level: NO_ACCESS) {
+  story(first: { where: { id: { eq: $storyId }, ownerUid: { eq: $ownerUid }, status: { ne: DELETED } } }) {
+    id
+    ownerUid
+  }
+}
+
+query AdminGetOwnedChapterScope($ownerUid: String!, $chapterId: UUID!) @auth(level: NO_ACCESS) {
+  chapter(first: { where: { id: { eq: $chapterId }, story: { ownerUid: { eq: $ownerUid } }, status: { ne: DELETED } } }) {
+    id
+    storyId
+  }
+}
+
+query AdminGetOwnedEntityScope($ownerUid: String!, $entityId: UUID!) @auth(level: NO_ACCESS) {
+  codexEntity(first: { where: { id: { eq: $entityId }, story: { ownerUid: { eq: $ownerUid } } } }) {
+    id
+    storyId
+  }
+}
+
+query AdminGetOwnedGenerationJobScope($ownerUid: String!, $generationJobId: UUID!) @auth(level: NO_ACCESS) {
+  generationJob(first: { where: { id: { eq: $generationJobId }, ownerUid: { eq: $ownerUid } } }) {
+    id
+    ownerUid
+    storyId
+  }
+}
+
+query AdminGetOwnedMediaReplacementScope($ownerUid: String!, $assetId: UUID!) @auth(level: NO_ACCESS) {
+  mediaAsset(first: { where: { id: { eq: $assetId }, ownerUid: { eq: $ownerUid }, status: { eq: READY } } }) {
+    id
+    currentAttachments: mediaAttachments_on_asset(where: { isCurrent: { eq: true } }) {
+      targetKind
+      targetKey
+      purpose
+      storyId
+      chapterId
+      entityId
+    }
+  }
+}
+
+query AdminListStaleMediaUploads($staleBefore: Timestamp!, $limit: Int = 100) @auth(level: NO_ACCESS) {
+  mediaAssets(
+    where: { status: { eq: UPLOADING }, updatedAt: { le: $staleBefore } }
+    orderBy: [{ updatedAt: ASC }]
+    limit: $limit
+  ) {
+    id
+    ownerUid
+    storyId
+    generationJobId
+    replacesAssetId
+    assetType
+    purpose
+    visibility
+    status
+    bucket
+    objectKey
+    originalFilename
+    mimeType
+    extension
+    byteSize
+    checksumSha256
+    etag
+    width
+    height
+    durationMs
+    version
+    cacheControl
+    failureCode
+    failureMessage
+    createdAt
+    updatedAt
+    readyAt
+    archivedAt
+    deletedAt
+    cleanupAfter
+  }
+}
+
+query AdminListMediaCleanupTasks($limit: Int = 100) @auth(level: NO_ACCESS) {
+  mediaCleanupTasks(
+    where: { status: { in: [PENDING, FAILED] }, nextAttemptAt: { le_expr: "request.time" } }
+    orderBy: [{ nextAttemptAt: ASC }]
+    limit: $limit
+  ) {
+    id
+    assetId
+    ownerUid
+    bucket
+    objectKey
+    reason
+    status
+    attemptCount
+    lastError
+    nextAttemptAt
+    createdAt
+  }
+}
+
+query AdminListMediaAssetsForStorageReport($limit: Int = 500, $offset: Int = 0) @auth(level: NO_ACCESS) {
+  mediaAssets(
+    where: { status: { nin: [DELETED] } }
+    orderBy: [{ createdAt: DESC }]
+    limit: $limit
+    offset: $offset
+  ) {
+    id
+    ownerUid
+    storyId
+    assetType
+    status
+    byteSize
+    mimeType
+    objectKey
+    createdAt
+  }
+}

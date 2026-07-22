@@ -1,0 +1,17 @@
+{
+  "dataconnect": {
+    "source": "dataconnect-ci"
+  },
+  "emulators": {
+    "singleProjectMode": false,
+    "auth": {
+      "port": 9198
+    },
+    "dataconnect": {
+      "port": 9499
+    },
+    "ui": {
+      "enabled": false
+    }
+  }
+}
