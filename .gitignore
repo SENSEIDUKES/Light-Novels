@@ -12,7 +12,9 @@ scratch/
 .env*
 !.env.example
 dataconnect/.dataconnect/
-dataconnect-ci/.dataconnect/
+# Firebase CLI temporary cache & emulator directory
+.firebase/
+
 
 # Agent skills
 .agents/
