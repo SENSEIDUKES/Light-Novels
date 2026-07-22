@@ -29,6 +29,10 @@ export const LocationCard: React.FC<LocationCardProps> = ({
   setSelectedNodeChar,
   openEntryContextEditor,
 }) => {
+  const entityImageHistory = React.useMemo(() => {
+    return activeStory.imageHistory?.filter(img => img.entityId === loc.id);
+  }, [activeStory.imageHistory, loc.id]);
+
   const displayedImage = activePreview ? activePreview.urls[activePreview.selectedIndex] : loc.imageUrl;
   const hasImage = !!loc.imageUrl;
 
@@ -39,7 +43,7 @@ export const LocationCard: React.FC<LocationCardProps> = ({
         <LivingCodexImageGallery
           entityId={loc.id}
           type="location"
-          imageHistory={activeStory.imageHistory?.filter(img => img.entityId === loc.id)}
+          imageHistory={entityImageHistory}
         />
         {displayedImage ? (
          <>

@@ -40,6 +40,10 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
   beginCharEdit,
   handleAwakenCardImage
 }) => {
+  const entityImageHistory = React.useMemo(() => {
+    return activeStory.imageHistory?.filter(img => img.entityId === char.id);
+  }, [activeStory.imageHistory, char.id]);
+
   const displayedImage = activePreview ? activePreview.urls[activePreview.selectedIndex] : char.imageUrl;
   const hasImage = !!char.imageUrl;
   const visualAriaLabel = isGenerating
@@ -66,7 +70,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
         <LivingCodexImageGallery
           entityId={char.id}
           type={char.isBeast ? 'beast' : 'character'}
-          imageHistory={activeStory.imageHistory?.filter(img => img.entityId === char.id)}
+          imageHistory={entityImageHistory}
         />
         {displayedImage ? (
           <>

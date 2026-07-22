@@ -33,6 +33,21 @@ export function LivingCodexArtifacts({
     activeStory.id.includes('demo-matrix-') || 
     activeStory.id.includes('challenge-')
   ) : false;
+
+  const imageHistoryMap = React.useMemo(() => {
+    const map = new Map<string, any[]>();
+    if (!activeStory.imageHistory) return map;
+
+    for (const img of activeStory.imageHistory) {
+      if (img.entityId) {
+        if (!map.has(img.entityId)) {
+          map.set(img.entityId, []);
+        }
+        map.get(img.entityId)!.push(img);
+      }
+    }
+    return map;
+  }, [activeStory.imageHistory]);
   const isFreeUser = !userProfile || !userProfile.premiumTier || userProfile.premiumTier === 'mortal';
   const isFreeUserOnHubStory = isFreeUser && isHubStory;
 
@@ -176,7 +191,7 @@ export function LivingCodexArtifacts({
                     <LivingCodexImageGallery 
                       entityId={art.id} 
                       type="artifact" 
-                      imageHistory={activeStory.imageHistory?.filter(img => img.entityId === art.id)} 
+                      imageHistory={imageHistoryMap.get(art.id)}
                     />
                     {displayedImage ? (
                       <div className="h-32 w-full border border-neutral-900 relative">
