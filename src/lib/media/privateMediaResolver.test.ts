@@ -58,7 +58,10 @@ describe("PrivateMediaResolver", () => {
     };
     const getDescriptor = vi.fn().mockResolvedValue(fresh);
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(new Blob(["cover"], { type: "image/png" }), { status: 200 }),
+      new Response("cover", {
+        status: 200,
+        headers: { "content-type": "image/png" },
+      }),
     );
     const resolver = new PrivateMediaResolver({
       ownerUid: "owner-a",
@@ -125,7 +128,10 @@ describe("PrivateMediaResolver", () => {
         deliveryUrlExpiresAt: "2026-07-23T01:00:00.000Z",
       }),
       fetch: vi.fn().mockResolvedValue(
-        new Response(new Blob(["v2"], { type: "image/png" }), { status: 200 }),
+        new Response("v2", {
+          status: 200,
+          headers: { "content-type": "image/png" },
+        }),
       ),
       now: () => Date.parse("2026-07-23T00:01:00.000Z"),
       createObjectUrl,
