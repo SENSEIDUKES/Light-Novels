@@ -57,9 +57,10 @@ export const useStoryEngine = () => {
   };
 
   const handleToggleRead = async (charNum: number) => {
-    const activeStory = store_stories.find(s => s.id === store_activeStoryId);
+    const state = useAppStore.getState();
+    const activeStory = state.stories.find(s => s.id === state.activeStoryId);
     if (!activeStory) return;
-    const updated = store_stories.map(s => {
+    const updated = state.stories.map(s => {
       if (s.id === activeStory.id) {
         return {
           ...s,
@@ -87,7 +88,7 @@ export const useStoryEngine = () => {
       }
       return s;
     });
-    await store_saveStories(updated);
+    await state.saveStories(updated);
   };
 
   return {

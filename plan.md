@@ -1,32 +1,5 @@
-# Karma Nodes Metrics Optimization Plan
-
-1. **Identify Performance Bottleneck**: The file `src/components/codex/LivingCodexDashboards.tsx` uses multiple `.filter(n => ...)` methods along with `.length` and `.reduce` internally (by iterating on arrays) inside a render loop to calculate Causal Web Metrics (Active Karma Contracts, Karmic Debts, Celestial Boons, Destinies & Enmities). This iterates over the `activeStory.karmaNodes` array multiple times, which is inefficient and creates O(N) operations inside a functional component that may be re-rendered often.
-
-2. **Implement Optimization**: Replace the multiple .filter iterations with a single pass over activeStory.karmaNodes wrapped in a useMemo hook. We'll initialize variables for the counts and array, and iterate exactly once. This preserves O(N) asymptotic complexity, reduces six traversals of activeStory.karmaNodes to one, eliminates intermediate filter-array allocations, and prevents recalculation on hover-induced re-renders.
-    - `src/components/codex/LivingCodexDashboards.tsx`: Lines 386-392
-
-    ```javascript
-    const activeNodes = [];
-    const resolvedNodes = [];
-    let debts = 0;
-    let boons = 0;
-    let enmities = 0;
-    let destinies = 0;
-
-    for (let i = 0; i < nodes.length; i++) {
-        const n = nodes[i];
-        if (n.status === 'active') activeNodes.push(n);
-        else if (n.status === 'resolved') resolvedNodes.push(n);
-
-        if (n.type === 'Debt') debts++;
-        else if (n.type === 'Boon') boons++;
-        else if (n.type === 'Enmity') enmities++;
-        else if (n.type === 'Destiny') destinies++;
-    }
-    ```
-
-3. **Measure Impact**: Add a comment indicating this optimization preserves O(N) asymptotic complexity while reducing six traversals of `activeStory.karmaNodes` to one and eliminating intermediate filter-array allocations.
-
-4. **Complete pre-commit steps**: Run linting, types check, and testing before committing.
-
-5. **Submit PR**: Commit using the title format `⚡ Bolt: [performance improvement]`.
+1. **Identify the bug**: In `src/hooks/useStoryEngine.ts`, `handleToggleRead` uses `store_stories` and `store_activeStoryId` from the hook's closure instead of `useAppStore.getState()`. When the toggle button is clicked rapidly, multiple invocations occur with the same stale state snapshot. This causes the chapter to repeatedly be marked from 'unread' to 'read', which repeatedly triggers `awardQi('chapter_finished')`, allowing infinite Qi gamification exploit and creating a race condition that could overwrite concurrent saves.
+2. **Impact**: Exploitable gamification system (infinite Qi), and data integrity stress (race conditions from stale closures overwriting state).
+3. **Fix**: In `src/hooks/useStoryEngine.ts`, modify `handleToggleRead` to read the freshest state synchronously using `const state = useAppStore.getState();` instead of relying on the closure variables from the top of the hook. This ensures that successive calls in the event loop will see the updated state immediately (since `store_saveStories` synchronously updates the local Zustand state before awaiting persistence).
+4. **Testing**: Write a test in `src/hooks/useStoryEngine.test.ts` to simulate rapid successive calls to `handleToggleRead` and verify that `awardQi` is only called once. Run `npm run test` and `npm run lint`.
+5. **Pre-commit**: Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.
