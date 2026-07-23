@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
 import { Character, StoryMemory } from '../types';
 import { resolveKokoroVoicePreset } from '../lib/voice/voiceResolver';
+import { useAppStore } from '../store/useAppStore';
+import { generateUUID } from '../lib/id';
+import {
+  MEDIA_PURPOSE,
+  MEDIA_TARGET_KIND,
+  requirePersistenceUuid,
+  saveMediaAsset,
+} from '../lib/media/mediaAssetClient';
 
 interface UseCodexVoiceCardsOptions {
   memory: StoryMemory;
@@ -74,7 +82,31 @@ export function useCodexVoiceCards({ memory, onUpdateMemory }: UseCodexVoiceCard
 
       if (!res.ok) throw new Error('Audio generation failed');
       const data = await res.json();
-      const voiceClipUrl = data.audioUrl || `data:audio/mp3;base64,${data.audioBase64}`;
+      const generatedAudio = data.audioUrl
+        || (typeof data.base64Audio === 'string' && data.base64Audio
+          ? `data:audio/mp3;base64,${data.base64Audio}`
+          : undefined);
+      if (!generatedAudio) throw new Error('Audio generation returned no playable media.');
+      const state = useAppStore.getState();
+      const activeStory = state.stories.find(story => story.id === state.activeStoryId);
+      if (!activeStory) throw new Error('Select a synchronized story before saving a voice card.');
+      const storyId = requirePersistenceUuid(activeStory.persistenceId ?? activeStory.id, 'Story');
+      const entityId = requirePersistenceUuid(char.persistenceId ?? char.id, 'Character');
+      const asset = await saveMediaAsset({
+        source: generatedAudio,
+        assetType: 'AUDIO',
+        purpose: MEDIA_PURPOSE.VOICE_CARD,
+        association: {
+          targetKind: MEDIA_TARGET_KIND.CHARACTER,
+          targetKey: char.id,
+          storyId,
+          entityId,
+          entityType: 'character',
+          label: char.signatureQuote,
+        },
+        idempotencyKey: generateUUID(),
+      });
+      const voiceClipUrl = asset.deliveryUrl;
 
       const updatedChars = memory.characters.map(c => {
         if (c.id === char.id) {
@@ -82,6 +114,7 @@ export function useCodexVoiceCards({ memory, onUpdateMemory }: UseCodexVoiceCard
             ...c,
             voicePresetId: preset.id,
             voiceClipUrl,
+            voiceAssetId: asset.id,
           };
         }
         return c;

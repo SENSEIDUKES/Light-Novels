@@ -1,7 +1,13 @@
 import { useAppStore } from '../store/useAppStore';
 import { GeneratedImage, StoryWorld } from '../types';
 import { storyApi } from '../services/api';
-import { generateId } from '../lib/id';
+import { generateId, generateUUID } from '../lib/id';
+import {
+  MEDIA_PURPOSE,
+  MEDIA_TARGET_KIND,
+  requirePersistenceUuid,
+  saveMediaAsset,
+} from '../lib/media/mediaAssetClient';
 
 export const useVisualAssets = () => {
   const store_stories = useAppStore(state => state.stories);
@@ -66,25 +72,52 @@ export const useVisualAssets = () => {
     const activeStory = store_stories.find(s => s.id === store_activeStoryId);
     if (!activeStory) return;
 
+    const legacyMediaId = generateId(8);
+    const storyId = requirePersistenceUuid(
+      activeStory.persistenceId ?? activeStory.id,
+      'Story',
+    );
+    const asset = await saveMediaAsset({
+      source: imageUrl,
+      assetType: 'IMAGE',
+      purpose: MEDIA_PURPOSE.STORY_COVER,
+      association: {
+        targetKind: MEDIA_TARGET_KIND.STORY,
+        targetKey: activeStory.id,
+        storyId,
+        legacyMediaId,
+        entityType: 'cover',
+        promptUsed,
+        chapterNumber: activeStory.currentChapterNumber,
+      },
+      idempotencyKey: generateUUID(),
+    });
+
     const imageRecord: GeneratedImage = {
-      id: generateId(8),
+      id: legacyMediaId,
+      assetId: asset.id,
+      assetVersion: asset.version,
+      checksumSha256: asset.checksumSha256,
+      deliveryUrlExpiresAt: asset.deliveryUrlExpiresAt ?? undefined,
       entityId: activeStory.id,
       entityType: 'cover',
-      imageUrl,
+      imageUrl: asset.deliveryUrl,
       promptUsed,
       createdAt: new Date().toISOString(),
       isCurrent: true,
       chapterNumber: activeStory.currentChapterNumber
     };
-    
+
     const currentHistory = activeStory.imageHistory || [];
-    const updatedHistory: GeneratedImage[] = currentHistory.map(img => 
+    const updatedHistory: GeneratedImage[] = currentHistory.map(img =>
       img.entityType === 'cover' ? { ...img, isCurrent: false } : img
     ).concat(imageRecord);
 
-    handleUpdateStoryDirect({ 
-      ...activeStory, 
-      imageUrl,
+    await handleUpdateStoryDirect({
+      ...activeStory,
+      persistenceId: storyId,
+      imageUrl: asset.deliveryUrl,
+      coverAssetId: asset.id,
       imageHistory: updatedHistory,
       evolutionReady: false,
       availableVisualUpdate: false,

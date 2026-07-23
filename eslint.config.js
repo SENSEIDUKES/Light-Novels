@@ -1,4 +1,3 @@
-import firebaseRulesPlugin from '@firebase/eslint-plugin-security-rules';
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import reactPlugin from 'eslint-plugin-react';
@@ -60,6 +59,5 @@ export default [
         version: 'detect'
       }
     }
-  },
-  firebaseRulesPlugin.configs['flat/recommended']
+  }
 ];

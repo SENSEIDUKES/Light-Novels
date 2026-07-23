@@ -2,15 +2,12 @@ import { describe, it, expect, vi } from 'vitest';
 import { getDaoRankData, DAO_RANKS, awardQi } from './qi';
 
 vi.mock('./firebase', () => ({
-  db: {},
   auth: { currentUser: { uid: '123' } },
   LOCAL_ONLY_MODE: false
 }));
 
-vi.mock('firebase/firestore', () => ({
-  doc: vi.fn(),
-  getDoc: vi.fn(),
-  setDoc: vi.fn()
+vi.mock('./persistence', () => ({
+  saveUserProfile: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe('Qi', () => {

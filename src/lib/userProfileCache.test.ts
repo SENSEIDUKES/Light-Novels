@@ -35,14 +35,14 @@ describe('account profile cache', () => {
     vi.restoreAllMocks();
   });
 
-  it('restores a previously selected account portrait during a cloud outage', () => {
+  it('retains the portrait asset identity without caching its expired delivery URL', () => {
     cacheAccountProfile(profile);
 
     expect(createAccountProfileFallback(user)).toMatchObject({
       uid: user.uid,
       username: 'reader',
       displayName: 'Cultivator Name',
-      avatarUrl: 'https://firebasestorage.example/portrait.webp',
+      avatarUrl: 'provider-photo.png',
       activePortraitId: 'portrait-1',
       preferredLanguage: 'Japanese',
     });

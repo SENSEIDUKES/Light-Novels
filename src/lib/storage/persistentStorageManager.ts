@@ -1,27 +1,159 @@
 import { StorageAdapter } from "./types";
 import { StoryWorld, ChapterContent } from "../../types";
-import { SyncProgress, SyncStatus, SyncTask } from "./types";
-import { LocalStorageFallbackAdapter } from "./localStorageAdapter";
 import {
-  FirebaseStorageAdapter,
   type CloudRevisionExpectation,
-} from "../firebaseStorage";
+  SyncProgress,
+  SyncStatus,
+  SyncTask,
+} from "./types";
+import { LocalStorageFallbackAdapter } from "./localStorageAdapter";
+import { DataConnectStorageAdapter } from "./dataConnectStorageAdapter";
 import { auth } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { IndexedDBStorageAdapter } from "./indexedDBAdapter";
 import { InMemoryFallbackAdapter } from "./inMemoryAdapter";
 import { LOCAL_ONLY_MODE } from "../firebase";
 import { generateUUID } from "../id";
+import { IndexedDbFoundationCache } from "../foundation/cache/indexedDbFoundationCache";
+import type {
+  EnqueueFoundationOutboxItem,
+  FoundationOutboxItem,
+} from "../foundation/cache/types";
+
+type DurableSyncTask = Omit<SyncTask, "attempts">;
+
+export interface SyncOutboxCache {
+  readonly ownerUid: string;
+  enqueueOutbox<T>(
+    input: EnqueueFoundationOutboxItem<T>,
+  ): Promise<FoundationOutboxItem<T>>;
+  listRecoverableOutbox(limit?: number): Promise<FoundationOutboxItem[]>;
+  claimOutbox(id: string, leaseMs: number): Promise<FoundationOutboxItem | null>;
+  failOutbox(id: string, error: string, nextAttemptAt: number): Promise<void>;
+  completeOutbox(id: string): Promise<void>;
+  close(): void;
+}
+
+export interface PersistentStorageManagerOptions {
+  /** Test/platform seam; production always uses the IndexedDB foundation cache. */
+  createOutboxCache?: (ownerUid: string) => SyncOutboxCache;
+}
+
+/**
+ * Last-resort queue for browsers that do not expose IndexedDB. It deliberately
+ * never falls back to localStorage: supported browsers use mutation_outbox,
+ * while unsupported browsers still keep the current tab safe and surface a
+ * warning that reload durability is unavailable.
+ */
+class VolatileSyncOutboxCache implements SyncOutboxCache {
+  readonly ownerUid: string;
+  private readonly rows = new Map<string, FoundationOutboxItem>();
+
+  constructor(ownerUid: string) {
+    this.ownerUid = ownerUid;
+  }
+
+  async enqueueOutbox<T>(
+    input: EnqueueFoundationOutboxItem<T>,
+  ): Promise<FoundationOutboxItem<T>> {
+    const id = input.id ?? input.idempotencyKey;
+    const existing = this.rows.get(id) as FoundationOutboxItem<T> | undefined;
+    if (existing) return existing;
+    const now = Date.now();
+    const row: FoundationOutboxItem<T> = {
+      storageKey: `${this.ownerUid}\u0000${id}`,
+      ownerUid: this.ownerUid,
+      id,
+      operation: input.operation,
+      payload: JSON.parse(JSON.stringify(input.payload)) as T,
+      idempotencyKey: input.idempotencyKey,
+      state: "PENDING",
+      attempts: 0,
+      createdAt: now,
+      updatedAt: now,
+      lastAccessedAt: now,
+      nextAttemptAt: input.nextAttemptAt ?? now,
+    };
+    this.rows.set(id, row);
+    return row;
+  }
+
+  async listRecoverableOutbox(limit = 100): Promise<FoundationOutboxItem[]> {
+    const now = Date.now();
+    return [...this.rows.values()]
+      .filter(
+        (row) =>
+          row.nextAttemptAt <= now &&
+          (row.state !== "IN_FLIGHT" || (row.leaseExpiresAt ?? 0) <= now),
+      )
+      .sort(
+        (left, right) =>
+          left.nextAttemptAt - right.nextAttemptAt ||
+          left.createdAt - right.createdAt,
+      )
+      .slice(0, limit);
+  }
+
+  async claimOutbox(
+    id: string,
+    leaseMs: number,
+  ): Promise<FoundationOutboxItem | null> {
+    const row = this.rows.get(id);
+    const now = Date.now();
+    if (
+      !row ||
+      row.nextAttemptAt > now ||
+      (row.state === "IN_FLIGHT" && (row.leaseExpiresAt ?? 0) > now)
+    ) {
+      return null;
+    }
+    const claimed: FoundationOutboxItem = {
+      ...row,
+      state: "IN_FLIGHT",
+      attempts: row.attempts + 1,
+      updatedAt: now,
+      lastAccessedAt: now,
+      leaseExpiresAt: now + leaseMs,
+    };
+    this.rows.set(id, claimed);
+    return claimed;
+  }
+
+  async failOutbox(
+    id: string,
+    error: string,
+    nextAttemptAt: number,
+  ): Promise<void> {
+    const row = this.rows.get(id);
+    if (!row) return;
+    const now = Date.now();
+    this.rows.set(id, {
+      ...row,
+      state: "FAILED",
+      updatedAt: now,
+      lastAccessedAt: now,
+      nextAttemptAt,
+      leaseExpiresAt: undefined,
+      lastError: error,
+    });
+  }
+
+  async completeOutbox(id: string): Promise<void> {
+    this.rows.delete(id);
+  }
+
+  close(): void {}
+}
 
 /**
  * Universal Storage Manager utilizing IndexedDB for high storage capacity
  * with dynamic and silent fallback to local storage under secure sandboxed contexts.
- * Also handles a durable Firebase outbox plus user-triggered cross-device reconciliation.
+ * Also handles a durable offline outbox plus PostgreSQL cross-device reconciliation.
  */
 export class PersistentStorageManager implements StorageAdapter {
   name = "PersistentStorageManager";
   private localAdapter: StorageAdapter;
-  private cloudAdapter: FirebaseStorageAdapter;
+  private cloudAdapter: DataConnectStorageAdapter;
   private isCloudAvailable = false;
   private syncStatus: SyncStatus = "idle";
   private subscribers: ((status: SyncStatus) => void)[] = [];
@@ -32,7 +164,12 @@ export class PersistentStorageManager implements StorageAdapter {
   };
   private progressSubscribers: ((progress: SyncProgress) => void)[] = [];
   private syncQueue: SyncTask[] = [];
-  private queueKey = "@seihouse/sync-queue";
+  private readonly legacyQueueKey = "@seihouse/sync-queue";
+  private readonly legacyQueueQuarantineKey = "@seihouse/sync-queue-invalid";
+  private readonly legacyOutboxOwner = "__seihouse_legacy_unowned__";
+  private readonly createOutboxCache: (ownerUid: string) => SyncOutboxCache;
+  private readonly outboxCaches = new Map<string, SyncOutboxCache>();
+  private warnedVolatileOutbox = false;
   private cloudRevisionsKey = "@seihouse/cloud-revisions";
   private knownCloudRevisions: Record<string, Record<string, string>> = {};
   private activeTransaction: {
@@ -66,7 +203,7 @@ export class PersistentStorageManager implements StorageAdapter {
   // A hard safety net: every cloud write is counted for the day. If the count ever exceeds
   // this cap we stop syncing to the cloud for the rest of the day (work still saves locally
   // and syncs later). This guarantees a runaway loop can never blow up the backend bill.
-  // Firestore's free tier is 20k writes/day for one user; this sits comfortably under it.
+  // Keep a client-side circuit breaker in addition to server-side quota controls.
   private writeCountKey = "@seihouse/cloud-write-count";
   private readonly DAILY_WRITE_CAP = 8000;
   private budgetTrippedLogged = false;
@@ -77,10 +214,12 @@ export class PersistentStorageManager implements StorageAdapter {
   private visibilityChangeListener: (() => void) | null = null;
   private onlineListener: (() => void) | null = null;
 
-  constructor() {
+  constructor(options: PersistentStorageManagerOptions = {}) {
     this.localAdapter = new LocalStorageFallbackAdapter();
-    this.cloudAdapter = new FirebaseStorageAdapter();
-    this.loadQueue();
+    this.cloudAdapter = new DataConnectStorageAdapter({ auth });
+    this.createOutboxCache =
+      options.createOutboxCache ??
+      ((ownerUid) => new IndexedDbFoundationCache({ ownerUid }));
     this.loadCloudRevisions();
 
     // The durable queue is the unload guarantee. Never fire a blind cloud write while
@@ -88,13 +227,13 @@ export class PersistentStorageManager implements StorageAdapter {
     // References are retained so dispose() can remove them (avoids leaks / test pollution).
     if (typeof window !== "undefined") {
       this.beforeUnloadListener = () => {
-        this.saveQueue();
+        void this.persistQueueSnapshot();
       };
       window.addEventListener("beforeunload", this.beforeUnloadListener);
       this.visibilityChangeListener = () => {
         if (typeof document === "undefined") return;
         if (document.visibilityState === "hidden") {
-          this.saveQueue();
+          void this.persistQueueSnapshot();
         }
       };
       window.addEventListener(
@@ -131,35 +270,240 @@ export class PersistentStorageManager implements StorageAdapter {
     this.authUnsubscribe?.();
     this.authUnsubscribe = null;
     this.cancelScheduledFlush();
+    for (const cache of this.outboxCaches.values()) cache.close();
+    this.outboxCaches.clear();
   }
 
   onConflict(handler: (conflict: any) => void) {
     this.conflictHandler = handler;
   }
 
-  private loadQueue() {
+  private outboxOwner(userId: string | null | undefined): string {
+    return userId || this.legacyOutboxOwner;
+  }
+
+  private getOutboxCache(userId: string | null | undefined): SyncOutboxCache {
+    const ownerUid = this.outboxOwner(userId);
+    const existing = this.outboxCaches.get(ownerUid);
+    if (existing) return existing;
+    let cache: SyncOutboxCache;
     try {
-      const q = localStorage.getItem(this.queueKey);
-      if (q) {
-        const parsed = JSON.parse(q);
-        if (Array.isArray(parsed)) {
-          this.syncQueue = parsed.map((task: SyncTask) => ({
-            ...task,
-            generation: task.generation ?? 1,
-          }));
+      cache = this.createOutboxCache(ownerUid);
+    } catch (error) {
+      cache = new VolatileSyncOutboxCache(ownerUid);
+      if (!this.warnedVolatileOutbox) {
+        this.warnedVolatileOutbox = true;
+        console.warn(
+          "IndexedDB mutation outbox is unavailable; pending sync work can only survive in this tab.",
+          error,
+        );
+      }
+    }
+    this.outboxCaches.set(ownerUid, cache);
+    return cache;
+  }
+
+  private isSyncTask(value: unknown): value is SyncTask {
+    if (!value || typeof value !== "object") return false;
+    const task = value as Partial<SyncTask>;
+    return (
+      (task.type === "story" ||
+        task.type === "chapter" ||
+        task.type === "delete_story") &&
+      typeof task.storyId === "string" &&
+      task.storyId.length > 0 &&
+      typeof task.timestamp === "number" &&
+      Number.isFinite(task.timestamp) &&
+      (task.type !== "chapter" ||
+        (typeof task.chapterNumber === "number" &&
+          Number.isFinite(task.chapterNumber))) &&
+      (task.userId === undefined || typeof task.userId === "string")
+    );
+  }
+
+  private legacyIdempotencyKey(task: SyncTask, index: number): string {
+    if (task.idempotencyKey) return task.idempotencyKey;
+    return [
+      "legacy-sync",
+      task.userId ?? "unowned",
+      task.type,
+      task.storyId,
+      task.chapterNumber ?? "story",
+      task.generation ?? 1,
+      task.timestamp,
+      index,
+    ].join(":");
+  }
+
+  private normalizeSyncTask(
+    task: SyncTask,
+    idempotencyKey = task.idempotencyKey ?? generateUUID(),
+  ): SyncTask {
+    return {
+      ...task,
+      generation: task.generation ?? 1,
+      attempts: task.attempts ?? 0,
+      idempotencyKey,
+    };
+  }
+
+  private durableTaskPayload(task: SyncTask): DurableSyncTask {
+    const { attempts: _attempts, ...payload } = task;
+    return payload;
+  }
+
+  private async persistTask(task: SyncTask): Promise<void> {
+    if (!task.idempotencyKey) {
+      throw new Error("Sync outbox task is missing its idempotency key.");
+    }
+    await this.getOutboxCache(task.userId).enqueueOutbox({
+      id: task.idempotencyKey,
+      operation: `storage.sync.${task.type}`,
+      payload: this.durableTaskPayload(task),
+      idempotencyKey: task.idempotencyKey,
+    });
+  }
+
+  private async completePersistedTask(task: SyncTask): Promise<void> {
+    if (!task.idempotencyKey) return;
+    await this.getOutboxCache(task.userId).completeOutbox(task.idempotencyKey);
+  }
+
+  private async persistQueueSnapshot(): Promise<void> {
+    try {
+      for (let index = 0; index < this.syncQueue.length; index += 1) {
+        const task = this.syncQueue[index];
+        if (!task.idempotencyKey) {
+          this.syncQueue[index] = this.normalizeSyncTask(task);
         }
       }
-    } catch {
-      console.warn("Failed to load sync queue");
+      await Promise.all(this.syncQueue.map((task) => this.persistTask(task)));
+    } catch (error) {
+      console.warn("Failed to persist the IndexedDB sync outbox.", error);
     }
   }
 
-  private saveQueue() {
+  private async migrateLegacyQueue(): Promise<void> {
+    if (typeof localStorage === "undefined") return;
+    const raw = localStorage.getItem(this.legacyQueueKey);
+    if (!raw) return;
+
+    let parsed: unknown;
     try {
-      localStorage.setItem(this.queueKey, JSON.stringify(this.syncQueue));
+      parsed = JSON.parse(raw);
     } catch {
-      console.warn("Failed to save sync queue");
+      localStorage.setItem(this.legacyQueueQuarantineKey, raw);
+      localStorage.removeItem(this.legacyQueueKey);
+      console.warn("Quarantined an unreadable legacy sync queue.");
+      return;
     }
+
+    if (!Array.isArray(parsed)) {
+      localStorage.setItem(this.legacyQueueQuarantineKey, raw);
+      localStorage.removeItem(this.legacyQueueKey);
+      console.warn("Quarantined a malformed legacy sync queue.");
+      return;
+    }
+
+    const valid: SyncTask[] = [];
+    const invalid: unknown[] = [];
+    parsed.forEach((value, index) => {
+      if (!this.isSyncTask(value)) {
+        invalid.push(value);
+        return;
+      }
+      valid.push(
+        this.normalizeSyncTask(value, this.legacyIdempotencyKey(value, index)),
+      );
+    });
+
+    try {
+      await Promise.all(valid.map((task) => this.persistTask(task)));
+    } catch (error) {
+      // The source stays intact, so a transient IndexedDB failure cannot strand
+      // work halfway through migration.
+      console.warn("Legacy sync queue migration will retry on the next launch.", error);
+      return;
+    }
+
+    if (invalid.length > 0) {
+      localStorage.setItem(
+        this.legacyQueueQuarantineKey,
+        JSON.stringify(invalid),
+      );
+      console.warn(`Quarantined ${invalid.length} invalid legacy sync task(s).`);
+    }
+    const usedVolatileCache = valid.some(
+      (task) => this.getOutboxCache(task.userId) instanceof VolatileSyncOutboxCache,
+    );
+    if (!usedVolatileCache) localStorage.removeItem(this.legacyQueueKey);
+  }
+
+  private taskLogicalKey(task: SyncTask): string {
+    return [
+      task.userId ?? "unowned",
+      task.type,
+      task.storyId,
+      task.chapterNumber ?? "story",
+    ].join("\u0000");
+  }
+
+  private async loadQueueForScope(userId: string | null): Promise<void> {
+    await this.migrateLegacyQueue();
+    const caches = [this.getOutboxCache(userId)];
+    if (userId) caches.push(this.getOutboxCache(null));
+    const rows = (
+      await Promise.all(
+        caches.map((cache) => cache.listRecoverableOutbox(10_000)),
+      )
+    ).flat();
+    const selected = new Map<
+      string,
+      { row: FoundationOutboxItem; task: SyncTask }
+    >();
+    const stale: FoundationOutboxItem[] = [];
+
+    for (const row of rows) {
+      if (!this.isSyncTask(row.payload)) {
+        stale.push(row);
+        continue;
+      }
+      const cacheOwnerIsLegacy = row.ownerUid === this.legacyOutboxOwner;
+      const task = this.normalizeSyncTask(
+        {
+          ...row.payload,
+          userId: cacheOwnerIsLegacy ? undefined : row.ownerUid,
+          attempts: row.attempts,
+        },
+        row.idempotencyKey,
+      );
+      const logicalKey = this.taskLogicalKey(task);
+      const current = selected.get(logicalKey);
+      const isNewer =
+        !current ||
+        (task.generation ?? 1) > (current.task.generation ?? 1) ||
+        ((task.generation ?? 1) === (current.task.generation ?? 1) &&
+          (task.timestamp > current.task.timestamp ||
+            (task.timestamp === current.task.timestamp &&
+              row.createdAt > current.row.createdAt)));
+      if (isNewer) {
+        if (current) stale.push(current.row);
+        selected.set(logicalKey, { row, task });
+      } else {
+        stale.push(row);
+      }
+    }
+
+    this.syncQueue = [...selected.values()]
+      .sort((left, right) => left.row.createdAt - right.row.createdAt)
+      .map(({ task }) => task);
+    await Promise.all(
+      stale.map((row) =>
+        this.getOutboxCache(
+          row.ownerUid === this.legacyOutboxOwner ? null : row.ownerUid,
+        ).completeOutbox(row.id),
+      ),
+    );
   }
 
   private getCurrentUserId(): string | undefined {
@@ -243,7 +587,7 @@ export class PersistentStorageManager implements StorageAdapter {
     return `chapter:${storyId}:${chapterNumber}`;
   }
 
-  private enqueueTask(task: SyncTask) {
+  private async enqueueTask(task: SyncTask): Promise<void> {
     const userId = task.userId ?? this.getCurrentUserId();
     const sameAccount = (candidate: SyncTask) =>
       (candidate.userId ?? userId) === userId;
@@ -262,22 +606,44 @@ export class PersistentStorageManager implements StorageAdapter {
         t.chapterNumber === task.chapterNumber &&
         sameAccount(t),
     );
-    if (existing) {
-      existing.timestamp = task.timestamp;
-      existing.attempts = 0;
-      existing.userId = userId;
-      existing.generation = (existing.generation ?? 1) + 1;
-      existing.requiresPostChapterHeartbeat ||=
-        task.requiresPostChapterHeartbeat || hasPendingChapter;
-    } else {
-      this.syncQueue.push({
-        ...task,
-        userId,
-        generation: 1,
-        requiresPostChapterHeartbeat:
-          task.requiresPostChapterHeartbeat || hasPendingChapter || undefined,
-      });
-    }
+    const queuedTask = this.normalizeSyncTask(
+      existing
+        ? {
+            ...existing,
+            timestamp: task.timestamp,
+            attempts: 0,
+            userId,
+            generation: (existing.generation ?? 1) + 1,
+            requiresPostChapterHeartbeat:
+              existing.requiresPostChapterHeartbeat ||
+              task.requiresPostChapterHeartbeat ||
+              hasPendingChapter ||
+              undefined,
+          }
+        : {
+            ...task,
+            userId,
+            generation: 1,
+            requiresPostChapterHeartbeat:
+              task.requiresPostChapterHeartbeat ||
+              hasPendingChapter ||
+              undefined,
+          },
+      generateUUID(),
+    );
+
+    // Add the new immutable generation before removing the previous one. If a
+    // tab crashes between those writes, reload deduplication keeps the newest
+    // generation and cleans up the older row.
+    await this.persistTask(queuedTask);
+    if (existing) await this.completePersistedTask(existing);
+    const existingIndex = existing
+      ? this.syncQueue.findIndex(
+          (candidate) => candidate.idempotencyKey === existing.idempotencyKey,
+        )
+      : -1;
+    if (existingIndex >= 0) this.syncQueue[existingIndex] = queuedTask;
+    else this.syncQueue.push(queuedTask);
 
     if (task.type === "chapter") {
       const pendingStory = this.syncQueue.find(
@@ -286,10 +652,25 @@ export class PersistentStorageManager implements StorageAdapter {
           candidate.storyId === task.storyId &&
           sameAccount(candidate),
       );
-      if (pendingStory) pendingStory.requiresPostChapterHeartbeat = true;
+      if (pendingStory && !pendingStory.requiresPostChapterHeartbeat) {
+        const heartbeatTask = this.normalizeSyncTask(
+          {
+            ...pendingStory,
+            generation: (pendingStory.generation ?? 1) + 1,
+            requiresPostChapterHeartbeat: true,
+          },
+          generateUUID(),
+        );
+        await this.persistTask(heartbeatTask);
+        await this.completePersistedTask(pendingStory);
+        const pendingIndex = this.syncQueue.findIndex(
+          (candidate) =>
+            candidate.idempotencyKey === pendingStory.idempotencyKey,
+        );
+        if (pendingIndex >= 0) this.syncQueue[pendingIndex] = heartbeatTask;
+      }
     }
 
-    this.saveQueue();
     if (this.isCloudAvailable) {
       if (this.activeSyncPromise) this.syncRequested = true;
       this.scheduleFlush();
@@ -328,7 +709,8 @@ export class PersistentStorageManager implements StorageAdapter {
     }
   }
 
-  private acknowledgeTask(receipt: SyncTask) {
+  private async acknowledgeTask(receipt: SyncTask): Promise<void> {
+    await this.completePersistedTask(receipt);
     const nextQueue = this.syncQueue.filter(
       (task) =>
         !(
@@ -341,33 +723,56 @@ export class PersistentStorageManager implements StorageAdapter {
     );
     if (nextQueue.length !== this.syncQueue.length) {
       this.syncQueue = nextQueue;
-      this.saveQueue();
     }
   }
 
-  private discardPendingMutationsForStory(
+  private async claimLegacyTask(
+    task: SyncTask,
+    userId: string,
+  ): Promise<void> {
+    if (task.userId) return;
+    const claimed = this.normalizeSyncTask(
+      {
+        ...task,
+        userId,
+        generation: (task.generation ?? 1) + 1,
+        attempts: 0,
+      },
+      generateUUID(),
+    );
+    await this.persistTask(claimed);
+    await this.completePersistedTask(task);
+    const index = this.syncQueue.findIndex(
+      (candidate) => candidate.idempotencyKey === task.idempotencyKey,
+    );
+    if (index >= 0) this.syncQueue[index] = claimed;
+  }
+
+  private async discardPendingMutationsForStory(
     storyId: string,
     userId = this.getCurrentUserId(),
-  ): boolean {
+  ): Promise<boolean> {
     let hadPendingChapter = false;
+    const removed: SyncTask[] = [];
     const nextQueue = this.syncQueue.filter((task) => {
       const belongsToStory =
         task.storyId === storyId &&
         (task.userId === userId || task.userId === undefined);
       if (!belongsToStory || task.type === "delete_story") return true;
       if (task.type === "chapter") hadPendingChapter = true;
+      removed.push(task);
       return false;
     });
     if (nextQueue.length !== this.syncQueue.length) {
+      await Promise.all(removed.map((task) => this.completePersistedTask(task)));
       this.syncQueue = nextQueue;
-      this.saveQueue();
     }
     return hadPendingChapter;
   }
 
   private async applyCloudTombstone(cloudStory: StoryWorld): Promise<void> {
     const userId = cloudStory.userId ?? this.getCurrentUserId();
-    const needsCloudChapterCleanup = this.discardPendingMutationsForStory(
+    const needsCloudChapterCleanup = await this.discardPendingMutationsForStory(
       cloudStory.id,
       userId,
     );
@@ -375,7 +780,7 @@ export class PersistentStorageManager implements StorageAdapter {
     await this.localAdapter.saveStory(cloudStory);
     this.rememberCloudRevision(cloudStory);
     if (needsCloudChapterCleanup) {
-      this.enqueueTask({
+      await this.enqueueTask({
         type: "delete_story",
         storyId: cloudStory.id,
         timestamp: Date.now(),
@@ -607,13 +1012,26 @@ export class PersistentStorageManager implements StorageAdapter {
     );
     if (pendingStory) {
       if (!pendingStory.requiresPostChapterHeartbeat) {
-        pendingStory.requiresPostChapterHeartbeat = true;
-        this.saveQueue();
+        const heartbeatTask = this.normalizeSyncTask(
+          {
+            ...pendingStory,
+            generation: (pendingStory.generation ?? 1) + 1,
+            requiresPostChapterHeartbeat: true,
+          },
+          generateUUID(),
+        );
+        await this.persistTask(heartbeatTask);
+        await this.completePersistedTask(pendingStory);
+        const pendingIndex = this.syncQueue.findIndex(
+          (candidate) =>
+            candidate.idempotencyKey === pendingStory.idempotencyKey,
+        );
+        if (pendingIndex >= 0) this.syncQueue[pendingIndex] = heartbeatTask;
       }
       return;
     }
 
-    this.enqueueTask({
+    await this.enqueueTask({
       type: "story",
       storyId,
       timestamp: Date.now(),
@@ -655,7 +1073,7 @@ export class PersistentStorageManager implements StorageAdapter {
         while (this.syncQueue.length > 0 && remainingThisPass > 0) {
           // Peek — only remove the task once it is acknowledged, so failures and a
           // circuit-breaker stop leave pending work safely queued for later.
-          const task = this.syncQueue[0];
+          let task = this.syncQueue[0];
           if (task.userId !== userId) {
             this.syncQueue.push(this.syncQueue.shift()!);
             remainingThisPass -= 1;
@@ -683,6 +1101,21 @@ export class PersistentStorageManager implements StorageAdapter {
             reportSealingProgress();
             continue;
           }
+          if (!task.idempotencyKey) {
+            task = this.normalizeSyncTask(task);
+            await this.persistTask(task);
+            this.syncQueue[0] = task;
+          }
+          const claimed = await this.getOutboxCache(task.userId).claimOutbox(
+            task.idempotencyKey!,
+            1,
+          );
+          if (!claimed) {
+            this.syncQueue.push(this.syncQueue.shift()!);
+            remainingThisPass -= 1;
+            continue;
+          }
+          task.attempts = claimed.attempts;
           const receipt = { ...task };
           let blocked = false;
 
@@ -721,8 +1154,7 @@ export class PersistentStorageManager implements StorageAdapter {
                     }
                     if (task.requiresPostChapterHeartbeat) {
                       // The parent may already have been bootstrapped earlier in
-                      // this pass so Firestore would otherwise see an identical
-                      // write and emit no snapshot after the chapter appeared.
+                      // this pass, so advance its revision after the chapter appears.
                       const heartbeat: StoryWorld = {
                         ...localStory,
                         updatedAt: this.nextRevisionTimestamp(
@@ -733,7 +1165,6 @@ export class PersistentStorageManager implements StorageAdapter {
                       };
                       await this.localAdapter.saveStory(heartbeat);
                       const cloudPayload = JSON.parse(JSON.stringify(heartbeat));
-                      await this.compressDataUrls(cloudPayload);
                       const wrote = await this.cloudWriteIfUnchanged(
                         () =>
                           this.cloudAdapter.saveStoryIfUnchanged(
@@ -752,7 +1183,6 @@ export class PersistentStorageManager implements StorageAdapter {
 
                   const preparedStory = await this.ensureStorySyncRevision(localStory);
                   const cloudPayload = JSON.parse(JSON.stringify(preparedStory));
-                  await this.compressDataUrls(cloudPayload);
                   const wrote = await this.cloudWriteIfUnchanged(
                     () =>
                       this.cloudAdapter.saveStoryIfUnchanged(
@@ -852,8 +1282,8 @@ export class PersistentStorageManager implements StorageAdapter {
                 candidate.userId === receipt.userId &&
                 (candidate.generation ?? 1) === (receipt.generation ?? 1),
             );
-            if (currentTask) currentTask.attempts = (currentTask.attempts || 0) + 1;
-            const attempts = currentTask?.attempts ?? receipt.attempts ?? 0;
+            if (currentTask) currentTask.attempts = claimed.attempts;
+            const attempts = currentTask?.attempts ?? claimed.attempts;
             const repeated = attempts >= this.MAX_TASK_ATTEMPTS;
             const permanent = this.isPermanentError(taskError);
             const log = repeated || permanent ? console.error : console.warn;
@@ -861,8 +1291,14 @@ export class PersistentStorageManager implements StorageAdapter {
               `Sync task failed (attempt ${attempts}); retaining it for retry:`,
               taskError,
             );
+            await this.getOutboxCache(receipt.userId).failOutbox(
+              receipt.idempotencyKey!,
+              taskError instanceof Error
+                ? taskError.message || taskError.name
+                : String(taskError) || "Cloud synchronization failed",
+              Date.now(),
+            );
             this.syncQueue.push(this.syncQueue.shift()!);
-            this.saveQueue();
             remainingThisPass -= 1;
             hadError = true;
             completedTasksForUser += 1;
@@ -873,11 +1309,16 @@ export class PersistentStorageManager implements StorageAdapter {
           if (blocked) {
             // Budget exhaustion or a newer cloud revision: keep the durable task.
             // Revision changes request a trailing pass above; the budget retries later.
+            await this.getOutboxCache(receipt.userId).failOutbox(
+              receipt.idempotencyKey!,
+              "Cloud write deferred for reconciliation or quota protection",
+              Date.now(),
+            );
             hadError = true;
             break;
           }
 
-          this.acknowledgeTask(receipt);
+          await this.acknowledgeTask(receipt);
           remainingThisPass -= 1;
           completedTasksForUser += 1;
           reportSealingProgress();
@@ -960,6 +1401,8 @@ export class PersistentStorageManager implements StorageAdapter {
     }
     if (transitionVersion !== this.authTransitionVersion) return;
 
+    await this.loadQueueForScope(userId);
+    if (transitionVersion !== this.authTransitionVersion) return;
     await this.localAdapter.setAccountScope?.(userId);
     this.localAccountScope = userId;
     if (
@@ -974,9 +1417,8 @@ export class PersistentStorageManager implements StorageAdapter {
 
     this.isCloudAvailable = true;
     this.setStatus("idle");
-    // Authentication only restores the account namespace and retries edits
-    // already queued on this device. Pulling the remote catalog is manual.
-    await this.performSync({ catalog: false, deep: false });
+    // A restored account must see its PostgreSQL library on a clean browser.
+    await this.performSync({ catalog: true, deep: true });
   }
 
   async init(): Promise<void> {
@@ -1112,21 +1554,29 @@ export class PersistentStorageManager implements StorageAdapter {
         // collapse every retained account namespace into one visible library.
         await this.localAdapter.setAccountScope?.(null);
         this.localAccountScope = null;
+        await this.loadQueueForScope(null);
         this.isCloudAvailable = false;
         this.setStatus("offline");
         return;
       }
-      await this.localAdapter.setAccountScope?.(auth.currentUser?.uid ?? null);
-      this.localAccountScope = auth.currentUser?.uid ?? null;
+      const initializationUserId = auth.currentUser?.uid ?? null;
+      await this.localAdapter.setAccountScope?.(initializationUserId);
+      this.localAccountScope = initializationUserId;
+      await this.loadQueueForScope(this.localAccountScope);
       await this.cloudAdapter.init();
 
-      // If Firebase has already restored a session, retry only this device's
-      // durable outbox. The user controls remote catalog/chapter reconciliation
-      // through the Harmony button.
-      if (auth.currentUser) {
+      // A restored Firebase identity immediately hydrates its PostgreSQL catalog
+      // and chapter bodies; IndexedDB remains a disposable offline replica.
+      const postInitializationUserId = auth.currentUser?.uid ?? null;
+      if (postInitializationUserId !== initializationUserId) {
+        // Auth changed while the cloud adapter was starting. Expose only the
+        // new owner's outbox, but let the auth listener perform the local
+        // namespace transition before any cloud read or write.
+        await this.loadQueueForScope(postInitializationUserId);
+      } else if (auth.currentUser) {
         this.isCloudAvailable = true;
         this.setStatus("idle");
-        await this.performSync({ catalog: false, deep: false });
+        await this.performSync({ catalog: true, deep: true });
       }
 
       this.authUnsubscribe?.();
@@ -1142,7 +1592,7 @@ export class PersistentStorageManager implements StorageAdapter {
       });
       if (!auth.currentUser) this.setStatus("offline");
     } catch (err) {
-      console.warn("Firebase init failed, running local only.", err);
+      console.warn("PostgreSQL persistence initialization failed; using the offline cache.", err);
       this.setStatus("offline");
     }
   }
@@ -1248,7 +1698,7 @@ export class PersistentStorageManager implements StorageAdapter {
     }
 
     if (localStory.deleted) {
-      this.discardPendingMutationsForStory(
+      await this.discardPendingMutationsForStory(
         localStory.id,
         localStory.userId ?? this.getCurrentUserId(),
       );
@@ -1264,7 +1714,7 @@ export class PersistentStorageManager implements StorageAdapter {
           undefined,
           localStory.userId ?? this.getCurrentUserId(),
         );
-        if (deleteReceipt) this.acknowledgeTask(deleteReceipt);
+        if (deleteReceipt) await this.acknowledgeTask(deleteReceipt);
       }
       return ok ? "ok" : "blocked";
     }
@@ -1273,7 +1723,6 @@ export class PersistentStorageManager implements StorageAdapter {
       // Exists locally but not in cloud. Push to cloud.
       const preparedStory = await this.ensureStorySyncRevision(localStory);
       const cloudPayload = JSON.parse(JSON.stringify(preparedStory));
-      await this.compressDataUrls(cloudPayload);
       const ok = await this.cloudWriteIfUnchanged(
         () =>
           this.cloudAdapter.saveStoryIfUnchanged(
@@ -1344,7 +1793,6 @@ export class PersistentStorageManager implements StorageAdapter {
       }
       const preparedStory = await this.ensureStorySyncRevision(localStory);
       const cloudPayload = JSON.parse(JSON.stringify(preparedStory));
-      await this.compressDataUrls(cloudPayload);
       const ok = await this.cloudWriteIfUnchanged(
         () =>
           this.cloudAdapter.saveStoryIfUnchanged(
@@ -1474,7 +1922,7 @@ export class PersistentStorageManager implements StorageAdapter {
         );
         if (uploaded) {
           await this.requirePostChapterHeartbeat(storyId);
-          if (pendingTask) this.acknowledgeTask(pendingTask);
+          if (pendingTask) await this.acknowledgeTask(pendingTask);
         }
         return uploaded;
       }
@@ -1496,7 +1944,7 @@ export class PersistentStorageManager implements StorageAdapter {
         );
         if (currentLocal?.updatedAt !== localContent.updatedAt) return false;
         await this.localAdapter.saveChapterContent(cloudContent);
-        if (pendingTask) this.acknowledgeTask(pendingTask);
+        if (pendingTask) await this.acknowledgeTask(pendingTask);
       } else if (
         Number.isFinite(localTime) &&
         (!Number.isFinite(cloudTime) || localTime > cloudTime)
@@ -1515,7 +1963,7 @@ export class PersistentStorageManager implements StorageAdapter {
         );
         if (!uploaded) return false;
         await this.requirePostChapterHeartbeat(storyId);
-        if (pendingTask) this.acknowledgeTask(pendingTask);
+        if (pendingTask) await this.acknowledgeTask(pendingTask);
       } else if (pendingTask) {
         // Legacy chapter records may not have timestamps. A pending durable task
         // is the best available evidence that the local copy still needs upload.
@@ -1553,7 +2001,7 @@ export class PersistentStorageManager implements StorageAdapter {
           if (!uploaded) return false;
           await this.requirePostChapterHeartbeat(storyId);
         }
-        this.acknowledgeTask(pendingTask);
+        await this.acknowledgeTask(pendingTask);
       }
 
       return true;
@@ -1679,7 +2127,6 @@ export class PersistentStorageManager implements StorageAdapter {
       // Local storage survives sign-out. Keep accounts isolated, while allowing
       // the first authenticated account to claim legacy/offline-created stories.
       const localStories: StoryWorld[] = [];
-      let claimedQueueTask = false;
       const storiesToCatalogue = allLocalStories.filter(
         (story) => !story.userId || story.userId === userId,
       );
@@ -1705,14 +2152,13 @@ export class PersistentStorageManager implements StorageAdapter {
             },
           );
           if (!claimedStory) continue;
-          for (const task of this.syncQueue) {
+          for (const task of [...this.syncQueue]) {
             if (
               task.type !== "delete_story" &&
               !task.userId &&
               task.storyId === story.id
             ) {
-              task.userId = userId;
-              claimedQueueTask = true;
+              await this.claimLegacyTask(task, userId);
             }
           }
           localStories.push(claimedStory);
@@ -1727,8 +2173,6 @@ export class PersistentStorageManager implements StorageAdapter {
           });
         }
       }
-      if (claimedQueueTask) this.saveQueue();
-
       const cloudMap = new Map(cloudStories.map((s) => [s.id, s]));
       const localMap = new Map(localStories.map((s) => [s.id, s]));
 
@@ -1768,7 +2212,7 @@ export class PersistentStorageManager implements StorageAdapter {
             ),
           ),
         );
-        results.forEach((result, index) => {
+        for (const [index, result] of results.entries()) {
           const storyId = batch[index].id;
           if (result.status === "rejected") {
             hadError = true;
@@ -1792,10 +2236,10 @@ export class PersistentStorageManager implements StorageAdapter {
               !hasPendingChapter &&
               !receipt.requiresPostChapterHeartbeat
             ) {
-              this.acknowledgeTask(receipt);
+              await this.acknowledgeTask(receipt);
             }
           }
-        });
+        }
         if (this.isWriteBudgetExceeded()) {
           hadError = true;
           break;
@@ -2039,141 +2483,6 @@ export class PersistentStorageManager implements StorageAdapter {
     return story;
   }
 
-  private async compressDataUrls(story: StoryWorld) {
-    const isDataUrl = (url?: string) => url && url.startsWith("data:image/");
-    const compress = async (dataUrl: string): Promise<string> => {
-      if (dataUrl.length < 60000) return dataUrl; // Skip if already small
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          const MAX_SIZE = 400;
-          let width = img.width;
-          let height = img.height;
-          if (width > MAX_SIZE || height > MAX_SIZE) {
-            if (width > height) {
-              height *= MAX_SIZE / width;
-              width = MAX_SIZE;
-            } else {
-              width *= MAX_SIZE / height;
-              height = MAX_SIZE;
-            }
-          }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          if (ctx) ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL("image/jpeg", 0.6));
-        };
-        img.onerror = () => resolve(dataUrl);
-        img.src = dataUrl;
-      });
-    };
-
-    const compressPromises: Promise<void>[] = [];
-
-    if (story.imageUrl && isDataUrl(story.imageUrl)) {
-      compressPromises.push(
-        compress(story.imageUrl).then((res) => {
-          story.imageUrl = res;
-        }),
-      );
-    }
-
-    if (story.imageHistory) {
-      for (let i = 0; i < story.imageHistory.length; i++) {
-        if (isDataUrl(story.imageHistory[i].imageUrl)) {
-          compressPromises.push(
-            compress(story.imageHistory[i].imageUrl).then((res) => {
-              story.imageHistory[i].imageUrl = res;
-            }),
-          );
-        }
-      }
-    }
-
-    if (story.memory) {
-      if (story.memory.characters) {
-        for (const c of story.memory.characters) {
-          if (c.imageUrl && isDataUrl(c.imageUrl)) {
-            compressPromises.push(
-              compress(c.imageUrl).then((res) => {
-                c.imageUrl = res;
-              }),
-            );
-          }
-          if (c.imageHistory) {
-            for (let i = 0; i < c.imageHistory.length; i++) {
-              if (isDataUrl(c.imageHistory[i].imageUrl)) {
-                compressPromises.push(
-                  compress(c.imageHistory[i].imageUrl).then((res) => {
-                    c.imageHistory[i].imageUrl = res;
-                  }),
-                );
-              }
-            }
-          }
-        }
-      }
-      if (story.memory.locations) {
-        for (const c of story.memory.locations) {
-          if (c.imageUrl && isDataUrl(c.imageUrl)) {
-            compressPromises.push(
-              compress(c.imageUrl).then((res) => {
-                c.imageUrl = res;
-              }),
-            );
-          }
-          if (c.imageHistory) {
-            for (let i = 0; i < c.imageHistory.length; i++) {
-              if (isDataUrl(c.imageHistory[i].imageUrl)) {
-                compressPromises.push(
-                  compress(c.imageHistory[i].imageUrl).then((res) => {
-                    c.imageHistory[i].imageUrl = res;
-                  }),
-                );
-              }
-            }
-          }
-        }
-      }
-      if (story.memory.artifacts) {
-        for (const c of story.memory.artifacts) {
-          if (c.imageUrl && isDataUrl(c.imageUrl)) {
-            compressPromises.push(
-              compress(c.imageUrl).then((res) => {
-                c.imageUrl = res;
-              }),
-            );
-          }
-          if (c.imageHistory) {
-            for (let i = 0; i < c.imageHistory.length; i++) {
-              if (isDataUrl(c.imageHistory[i].imageUrl)) {
-                compressPromises.push(
-                  compress(c.imageHistory[i].imageUrl).then((res) => {
-                    c.imageHistory[i].imageUrl = res;
-                  }),
-                );
-              }
-            }
-          }
-        }
-      }
-    }
-
-    await Promise.all(compressPromises);
-
-    if (story.arcs) {
-      story.arcs.forEach((arc) => {
-        arc.chapters.forEach((ch) => {
-          if (ch.assetManifest && isDataUrl(ch.assetManifest.heroImage)) {
-            delete ch.assetManifest.heroImage;
-          }
-        });
-      });
-    }
-  }
-
   async saveStory(story: StoryWorld): Promise<void> {
     const currentUserId = this.getCurrentUserId();
     await this.awaitAccountScope(currentUserId);
@@ -2280,7 +2589,7 @@ export class PersistentStorageManager implements StorageAdapter {
         throw e;
       }
 
-      this.enqueueTask({
+      await this.enqueueTask({
         type: "story",
         storyId: strippedStory.id,
         timestamp: Date.now(),
@@ -2322,11 +2631,11 @@ export class PersistentStorageManager implements StorageAdapter {
         throw e;
       }
 
-      this.discardPendingMutationsForStory(id, ownerId);
+      await this.discardPendingMutationsForStory(id, ownerId);
       // Deletions use the same durable outbox as writes. The cloud adapter keeps
       // a tombstone after removing chapter bodies, preventing stale devices from
       // treating an intentional deletion as a new local-only story.
-      this.enqueueTask({
+      await this.enqueueTask({
         type: "delete_story",
         storyId: id,
         timestamp: Date.now(),
@@ -2510,7 +2819,7 @@ export class PersistentStorageManager implements StorageAdapter {
           throw e;
         }
 
-        this.enqueueTask({
+        await this.enqueueTask({
           type: "chapter",
           storyId: stampedContent.storyId,
           chapterNumber: stampedContent.chapterNumber,
@@ -2535,7 +2844,7 @@ export class PersistentStorageManager implements StorageAdapter {
     };
     try {
       await this.localAdapter.saveStory(heartbeat);
-      this.enqueueTask({
+      await this.enqueueTask({
         type: "story",
         storyId: heartbeat.id,
         timestamp: Date.now(),

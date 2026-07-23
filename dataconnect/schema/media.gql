@@ -34,9 +34,23 @@ enum MediaCleanupStatus {
   FAILED
 }
 
+enum MediaDeletionIntentStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum StorageQuotaReservationStatus {
+  RESERVED
+  COMMITTED
+  RELEASED
+  EXPIRED
+}
+
 # Compact metadata only. There is deliberately no bytes, base64, blob,
 # provider-response, or permanent source-URL column on this table.
-type MediaAsset @table @index(fields: ["ownerUid", "status", "createdAt"], order: [ASC, ASC, DESC]) @index(fields: ["storyId", "assetType"]) @index(fields: ["status", "updatedAt"]) {
+type MediaAsset @table @unique(fields: ["ownerUid", "uploadOperationId"]) @index(fields: ["ownerUid", "status", "createdAt"], order: [ASC, ASC, DESC]) @index(fields: ["storyId", "assetType"]) @index(fields: ["status", "updatedAt"]) {
   id: UUID! @default(expr: "uuidV4()")
   owner: UserAccount! @ref(fields: "ownerUid", references: "uid")
   ownerUid: String!
@@ -46,6 +60,7 @@ type MediaAsset @table @index(fields: ["ownerUid", "status", "createdAt"], order
   generationJobId: UUID
   replacesAsset: MediaAsset @ref(fields: "replacesAssetId", references: "id")
   replacesAssetId: UUID
+  uploadOperationId: String
   assetType: MediaAssetType!
   purpose: String!
   visibility: MediaVisibility! @default(value: PRIVATE)
@@ -104,10 +119,50 @@ type MediaAttachment @table @unique(fields: ["assetId", "targetKind", "targetKey
   targetKind: String!
   targetKey: String!
   purpose: String!
+  # Preserves the legacy visual-history discriminator (for example character,
+  # location, cover) independently from the slot target used for selection.
+  historyEntityType: String
+  clientHistoryId: String
+  promptUsed: String
+  chapterNumber: Int
+  arcTitle: String
+  label: String
   position: Int! @default(value: 0)
   isCurrent: Boolean! @default(value: true)
   createdAt: Timestamp! @default(expr: "request.time")
   endedAt: Timestamp
+}
+
+# Exactly one current pointer exists per owner/target/purpose. Attachment rows
+# remain immutable history, while this compact slot is advanced transactionally.
+type MediaSlot @table(key: ["ownerUid", "targetKind", "targetKey", "purpose"]) @index(fields: ["storyId", "purpose"]) {
+  owner: UserAccount! @ref(fields: "ownerUid", references: "uid")
+  ownerUid: String!
+  story: Story @ref(fields: "storyId", references: "id")
+  storyId: UUID
+  chapter: Chapter @ref(fields: "chapterId", references: "id")
+  chapterId: UUID
+  entity: CodexEntity @ref(fields: "entityId", references: "id")
+  entityId: UUID
+  targetKind: String!
+  targetKey: String!
+  purpose: String!
+  currentAsset: MediaAsset! @ref(fields: "currentAssetId", references: "id")
+  currentAssetId: UUID!
+  version: Int64! @default(value: 1)
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type MediaUploadReceipt @table(key: ["ownerUid", "idempotencyKey"]) @index(fields: ["ownerUid", "createdAt"]) {
+  owner: UserAccount! @ref(fields: "ownerUid", references: "uid")
+  ownerUid: String!
+  idempotencyKey: String!
+  asset: MediaAsset! @ref(fields: "assetId", references: "id")
+  assetId: UUID!
+  requestHash: String!
+  status: String!
+  createdAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp! @default(expr: "request.time")
 }
 
 type MediaDerivative @table @unique(fields: ["sourceAssetId", "variant"]) {
@@ -120,7 +175,7 @@ type MediaDerivative @table @unique(fields: ["sourceAssetId", "variant"]) {
   createdAt: Timestamp! @default(expr: "request.time")
 }
 
-type MediaCleanupTask @table @index(fields: ["status", "nextAttemptAt"]) {
+type MediaCleanupTask @table @unique(fields: ["ownerUid", "idempotencyKey"]) @index(fields: ["status", "nextAttemptAt"]) {
   id: UUID! @default(expr: "uuidV4()")
   asset: MediaAsset! @ref(fields: "assetId", references: "id")
   assetId: UUID!
@@ -128,10 +183,67 @@ type MediaCleanupTask @table @index(fields: ["status", "nextAttemptAt"]) {
   bucket: String!
   objectKey: String!
   reason: String!
+  idempotencyKey: String
   status: MediaCleanupStatus! @default(value: PENDING)
   attemptCount: Int! @default(value: 0)
   lastError: String
   nextAttemptAt: Timestamp! @default(expr: "request.time")
+  leaseOwner: String
+  leaseExpiresAt: Timestamp
+  createdAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp! @default(expr: "request.time")
+  completedAt: Timestamp
+}
+
+type MediaDeletionIntent @table(key: ["ownerUid", "idempotencyKey"]) @index(fields: ["status", "updatedAt"]) {
+  owner: UserAccount! @ref(fields: "ownerUid", references: "uid")
+  ownerUid: String!
+  idempotencyKey: String!
+  asset: MediaAsset! @ref(fields: "assetId", references: "id")
+  assetId: UUID!
+  story: Story @ref(fields: "storyId", references: "id")
+  storyId: UUID
+  reason: String!
+  status: MediaDeletionIntentStatus! @default(value: PENDING)
+  createdAt: Timestamp! @default(expr: "request.time")
+  updatedAt: Timestamp! @default(expr: "request.time")
+  completedAt: Timestamp
+  lastError: String
+}
+
+type UserStorageUsage @table(key: "userUid") {
+  user: UserAccount! @ref(fields: "userUid", references: "uid")
+  userUid: String!
+  hardLimitBytes: Int64!
+  usedBytes: Int64! @default(value: 0)
+  reservedBytes: Int64! @default(value: 0)
+  assetCount: Int64! @default(value: 0)
+  revision: Int64! @default(value: 0)
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type StoryStorageUsage @table(key: "storyId") {
+  story: Story! @ref(fields: "storyId", references: "id")
+  storyId: UUID!
+  ownerUid: String!
+  usedBytes: Int64! @default(value: 0)
+  reservedBytes: Int64! @default(value: 0)
+  assetCount: Int64! @default(value: 0)
+  updatedAt: Timestamp! @default(expr: "request.time")
+}
+
+type StorageQuotaReservation @table @unique(fields: ["ownerUid", "idempotencyKey"]) @index(fields: ["status", "expiresAt"]) {
+  id: UUID! @default(expr: "uuidV4()")
+  owner: UserAccount! @ref(fields: "ownerUid", references: "uid")
+  ownerUid: String!
+  story: Story @ref(fields: "storyId", references: "id")
+  storyId: UUID
+  asset: MediaAsset @ref(fields: "assetId", references: "id")
+  assetId: UUID
+  idempotencyKey: String!
+  requestedBytes: Int64!
+  status: StorageQuotaReservationStatus! @default(value: RESERVED)
+  expiresAt: Timestamp!
   createdAt: Timestamp! @default(expr: "request.time")
   updatedAt: Timestamp! @default(expr: "request.time")
   completedAt: Timestamp
@@ -164,6 +276,8 @@ type UserPortrait @table(key: "assetId") @index(fields: ["userUid", "active"]) {
   daoRank: String
   daoXp: Int64
   powerStage: String
+  equippedInventoryItem: UserInventoryItem @ref(fields: "equippedInventoryItemId", references: "id")
+  equippedInventoryItemId: UUID
   usedReferenceImage: Boolean! @default(value: false)
   frameId: String
   glowId: String

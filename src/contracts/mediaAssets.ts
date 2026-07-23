@@ -48,6 +48,15 @@ export interface MediaAssociation {
   storyId?: string | null;
   chapterId?: string | null;
   entityId?: string | null;
+  /** Relational history metadata; never contains file bodies or source URLs. */
+  clientHistoryId?: string | null;
+  /** @deprecated Use clientHistoryId. Kept while local image history is migrated. */
+  legacyMediaId?: string | null;
+  entityType?: string | null;
+  promptUsed?: string | null;
+  chapterNumber?: number | null;
+  arcTitle?: string | null;
+  label?: string | null;
 }
 
 export interface MediaAssetRecord {
@@ -97,6 +106,8 @@ export interface MediaAssetDescriptor {
   durationMs?: string | null;
   version: number;
   deliveryUrl: string;
+  /** Private delivery URLs are transient and must be refreshed after this time. */
+  deliveryUrlExpiresAt?: string | null;
   createdAt: string;
   readyAt?: string | null;
 }
@@ -133,6 +144,12 @@ export interface SaveMediaAssetRequest {
   association: MediaAssociation;
   generationJobId?: string | null;
   replacesAssetId?: string | null;
+  /** Owner-scoped retry key. Required by the authenticated HTTP upload routes. */
+  idempotencyKey?: string;
+}
+
+export interface SelectMediaAssetRequest {
+  association: MediaAssociation;
 }
 
 export interface MediaCleanupTask {

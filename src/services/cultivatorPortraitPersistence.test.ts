@@ -1,39 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { MediaAssetDescriptor } from '../contracts/mediaAssets';
 import type { PersistCultivatorPortraitInput } from './cultivatorPortraitPersistence';
 
+const ASSET_ID = '11111111-1111-4111-8111-111111111111';
 const mocks = vi.hoisted(() => ({
-  db: { kind: 'firestore' },
-  firebaseStorage: { kind: 'storage' },
-  generateUUID: vi.fn(),
-  doc: vi.fn(),
-  writeBatch: vi.fn(),
-  batchSet: vi.fn(),
-  batchCommit: vi.fn(),
-  storageRef: vi.fn(),
-  uploadBytes: vi.fn(),
-  getDownloadURL: vi.fn(),
-  deleteObject: vi.fn(),
+  auth: {
+    currentUser: {
+      uid: 'user-123',
+      getIdToken: vi.fn(async () => 'firebase-token'),
+    } as { uid: string; getIdToken(): Promise<string> } | null,
+  },
+  generateUUID: vi.fn(() => 'request-key'),
+  saveMediaAsset: vi.fn(),
 }));
 
-vi.mock('../lib/firebase', () => ({
-  db: mocks.db,
-  firebaseStorage: mocks.firebaseStorage,
-}));
-
-vi.mock('../lib/id', () => ({
-  generateUUID: mocks.generateUUID,
-}));
-
-vi.mock('firebase/firestore', () => ({
-  doc: mocks.doc,
-  writeBatch: mocks.writeBatch,
-}));
-
-vi.mock('firebase/storage', () => ({
-  ref: mocks.storageRef,
-  uploadBytes: mocks.uploadBytes,
-  getDownloadURL: mocks.getDownloadURL,
-  deleteObject: mocks.deleteObject,
+vi.mock('../lib/firebase', () => ({ auth: mocks.auth }));
+vi.mock('../lib/id', () => ({ generateUUID: mocks.generateUUID }));
+vi.mock('../lib/media/mediaAssetClient', () => ({
+  MEDIA_PURPOSE: { CELESTIAL_PORTRAIT: 'CELESTIAL_PORTRAIT' },
+  MEDIA_TARGET_KIND: { PORTRAIT: 'PORTRAIT' },
+  saveMediaAsset: mocks.saveMediaAsset,
 }));
 
 import {
@@ -42,7 +28,22 @@ import {
   retryPendingCultivatorPortraits,
 } from './cultivatorPortraitPersistence';
 
-const DOWNLOAD_URL = 'https://storage.example.test/portrait-id.png';
+const descriptor = {
+  id: ASSET_ID,
+  ownerUid: 'user-123',
+  assetType: 'IMAGE',
+  purpose: 'CELESTIAL_PORTRAIT',
+  visibility: 'PRIVATE',
+  status: 'READY',
+  version: 1,
+  checksumSha256: 'abc123',
+  mimeType: 'image/png',
+  byteSize: '3',
+  deliveryUrl: 'https://media.example.test/signed-portrait',
+  deliveryUrlExpiresAt: '2026-07-22T01:00:00.000Z',
+  createdAt: '2026-07-22T00:00:00.000Z',
+  readyAt: '2026-07-22T00:00:01.000Z',
+} as MediaAssetDescriptor;
 
 function makeInput(
   overrides: Partial<PersistCultivatorPortraitInput> = {},
@@ -61,161 +62,63 @@ function makeInput(
   };
 }
 
-describe('persistCultivatorPortrait', () => {
+describe('cultivator portrait persistence', () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorage.clear();
-    fetchMock = vi.fn();
+    mocks.auth.currentUser = {
+      uid: 'user-123',
+      getIdToken: vi.fn(async () => 'firebase-token'),
+    };
+    mocks.saveMediaAsset.mockResolvedValue(descriptor);
+    fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
     vi.stubGlobal('fetch', fetchMock);
-
-    mocks.generateUUID.mockReturnValue('portrait-id');
-    mocks.doc.mockImplementation((_db, ...segments: string[]) => ({
-      kind: 'document',
-      path: segments.join('/'),
-    }));
-    mocks.storageRef.mockImplementation((_storage, path: string) => ({
-      kind: 'storage-reference',
-      path,
-    }));
-    mocks.writeBatch.mockReturnValue({
-      set: mocks.batchSet,
-      commit: mocks.batchCommit,
-    });
-    mocks.uploadBytes.mockResolvedValue({});
-    mocks.getDownloadURL.mockResolvedValue(DOWNLOAD_URL);
-    mocks.batchCommit.mockResolvedValue(undefined);
-    mocks.deleteObject.mockResolvedValue(undefined);
   });
 
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
+  afterEach(() => vi.unstubAllGlobals());
 
-  it('uploads a data URL and atomically stores durable portrait and profile records', async () => {
+  it('stores the generated source in R2 before selecting the PostgreSQL portrait', async () => {
     const portrait = await persistCultivatorPortrait(makeInput());
 
-    expect(mocks.storageRef).toHaveBeenCalledWith(
-      mocks.firebaseStorage,
-      'users/user-123/portraits/portrait-id.png',
-    );
-    const uploadedBlob = mocks.uploadBytes.mock.calls[0][1] as Blob;
-    expect(uploadedBlob).toBeInstanceOf(Blob);
-    expect(uploadedBlob.type).toBe('image/png');
-    expect(uploadedBlob.size).toBe(3);
-    expect(mocks.uploadBytes).toHaveBeenCalledWith(
-      { kind: 'storage-reference', path: 'users/user-123/portraits/portrait-id.png' },
-      uploadedBlob,
-      { contentType: 'image/png' },
-    );
-
+    expect(mocks.saveMediaAsset).toHaveBeenCalledWith(expect.objectContaining({
+      source: 'data:image/png;base64,AAEC',
+      assetType: 'IMAGE',
+      purpose: 'CELESTIAL_PORTRAIT',
+      association: expect.objectContaining({
+        targetKind: 'PORTRAIT',
+        targetKey: 'user-123',
+        entityType: 'portrait',
+      }),
+      idempotencyKey: 'request-key',
+    }));
     expect(portrait).toMatchObject({
-      schemaVersion: 1,
-      id: 'portrait-id',
+      id: ASSET_ID,
       userId: 'user-123',
-      imageUrl: DOWNLOAD_URL,
-      storagePath: 'users/user-123/portraits/portrait-id.png',
+      imageUrl: descriptor.deliveryUrl,
+      assetVersion: 1,
+      checksumSha256: 'abc123',
+      deliveryUrlExpiresAt: descriptor.deliveryUrlExpiresAt,
       mimeType: 'image/png',
       source: 'generated',
-      generation: {
-        prompt: 'A moonlit cultivator portrait',
-        description: 'Silver hair and azure robes',
-        daoRank: 'Dao Adept',
-        daoXp: 720,
-        powerStage: 'Core Formation',
-        equippedArtifactId: 'artifact-9',
-        usedReferenceImage: true,
-      },
-      customization: {
-        frameId: null,
-        glowId: null,
-        bannerId: null,
-        effectIds: [],
-      },
+      createdAt: descriptor.readyAt,
     });
-    expect(portrait.imageUrl).not.toContain('data:');
-    expect(portrait.createdAt).toBe(portrait.updatedAt);
-    expect(Number.isNaN(Date.parse(portrait.createdAt))).toBe(false);
-
-    expect(mocks.batchSet).toHaveBeenNthCalledWith(
-      1,
-      { kind: 'document', path: 'users/user-123/portraits/portrait-id' },
-      portrait,
-    );
-    expect(mocks.batchSet).toHaveBeenNthCalledWith(
-      2,
-      { kind: 'document', path: 'users/user-123' },
-      {
-        avatarUrl: DOWNLOAD_URL,
-        activePortraitId: 'portrait-id',
-        updatedAt: portrait.updatedAt,
+    expect(fetchMock).toHaveBeenCalledWith('/api/persistence/profile/portrait', {
+      method: 'PUT',
+      headers: {
+        Authorization: 'Bearer firebase-token',
+        'Content-Type': 'application/json',
       },
-      { merge: true },
-    );
-    expect(mocks.batchCommit).toHaveBeenCalledOnce();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it('fetches a remote image, validates its blob, and uses its MIME extension', async () => {
-    const remoteBlob = new Blob([new Uint8Array([4, 5, 6, 7])], {
-      type: 'image/webp',
+      body: expect.any(String),
     });
-    fetchMock.mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: new Headers(),
-      blob: async () => remoteBlob,
-    } as Response);
-
-    const portrait = await persistCultivatorPortrait(makeInput({
-      imageSource: 'https://images.example.test/generated/portrait',
-    }));
-
-    expect(fetchMock).toHaveBeenCalledWith('https://images.example.test/generated/portrait');
-    expect(mocks.uploadBytes).toHaveBeenCalledWith(
-      { kind: 'storage-reference', path: 'users/user-123/portraits/portrait-id.webp' },
-      remoteBlob,
-      { contentType: 'image/webp' },
-    );
-    expect(portrait).toMatchObject({
-      mimeType: 'image/webp',
-      storagePath: 'users/user-123/portraits/portrait-id.webp',
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      assetId: ASSET_ID,
+      usedReferenceImage: true,
+      idempotencyKey: 'request-key',
     });
   });
 
-  it('rejects unsupported data URL and remote blob image types before uploading', async () => {
-    await expect(persistCultivatorPortrait(makeInput({
-      imageSource: 'data:image/gif;base64,R0lGODlh',
-    }))).rejects.toThrow('Unsupported portrait image type: image/gif.');
-
-    fetchMock.mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: new Headers(),
-      blob: async () => new Blob(['gif'], { type: 'image/gif' }),
-    } as Response);
-
-    await expect(persistCultivatorPortrait(makeInput({
-      imageSource: 'https://images.example.test/portrait.gif',
-    }))).rejects.toThrow('Unsupported portrait image type: image/gif.');
-
-    expect(mocks.uploadBytes).not.toHaveBeenCalled();
-    expect(mocks.writeBatch).not.toHaveBeenCalled();
-  });
-
-  it('rejects invalid account IDs and empty images before uploading', async () => {
-    await expect(persistCultivatorPortrait(makeInput({
-      userId: '../another-account',
-    }))).rejects.toThrow('A valid user ID is required');
-    await expect(persistCultivatorPortrait(makeInput({
-      imageSource: 'data:image/png;base64,',
-    }))).rejects.toThrow('Portrait image is empty.');
-
-    expect(mocks.uploadBytes).not.toHaveBeenCalled();
-  });
-
-  it('bounds generation metadata to the Firestore portrait contract', async () => {
+  it('bounds generation metadata before committing profile state', async () => {
     const portrait = await persistCultivatorPortrait(makeInput({
       prompt: 'p'.repeat(5001),
       description: 'd'.repeat(2001),
@@ -225,108 +128,72 @@ describe('persistCultivatorPortrait', () => {
       equippedArtifactId: 'a'.repeat(129),
     }));
 
+    expect(portrait.generation).toMatchObject({ daoXp: 0 });
     expect(portrait.generation.prompt).toHaveLength(5000);
     expect(portrait.generation.description).toHaveLength(2000);
     expect(portrait.generation.daoRank).toHaveLength(100);
-    expect(portrait.generation.daoXp).toBe(0);
     expect(portrait.generation.powerStage).toHaveLength(200);
     expect(portrait.generation.equippedArtifactId).toHaveLength(128);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ daoXp: 0 });
   });
 
-  it('rejects images larger than 10 MiB before uploading', async () => {
-    const oversizedBlob = new Blob(
-      [new Uint8Array((10 * 1024 * 1024) + 1)],
-      { type: 'image/jpeg' },
-    );
+  it('rejects an unauthenticated or cross-account request before uploading', async () => {
+    mocks.auth.currentUser = null;
+    await expect(persistCultivatorPortrait(makeInput())).rejects.toThrow('does not own');
+
+    mocks.auth.currentUser = {
+      uid: 'another-user',
+      getIdToken: vi.fn(async () => 'other-token'),
+    };
+    await expect(persistCultivatorPortrait(makeInput())).rejects.toThrow('does not own');
+    expect(mocks.saveMediaAsset).not.toHaveBeenCalled();
+  });
+
+  it('returns the durable R2 asset in a deferred error when profile selection fails', async () => {
     fetchMock.mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: new Headers(),
-      blob: async () => oversizedBlob,
-    } as Response);
-
-    await expect(persistCultivatorPortrait(makeInput({
-      imageSource: 'https://images.example.test/oversized.jpg',
-    }))).rejects.toThrow('Portrait image exceeds the 10 MiB limit.');
-
-    expect(mocks.uploadBytes).not.toHaveBeenCalled();
-    expect(mocks.writeBatch).not.toHaveBeenCalled();
-  });
-
-  it('rejects an oversized remote image from Content-Length before reading its body', async () => {
-    const readBody = vi.fn();
-    fetchMock.mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: new Headers({
-        'content-length': String((10 * 1024 * 1024) + 1),
-      }),
-      blob: readBody,
-    } as unknown as Response);
-
-    await expect(persistCultivatorPortrait(makeInput({
-      imageSource: 'https://images.example.test/declared-oversized.jpg',
-    }))).rejects.toThrow('Portrait image exceeds the 10 MiB limit.');
-
-    expect(readBody).not.toHaveBeenCalled();
-    expect(mocks.uploadBytes).not.toHaveBeenCalled();
-    expect(mocks.writeBatch).not.toHaveBeenCalled();
-  });
-
-  it('surfaces remote fetch failures without creating storage or database records', async () => {
-    fetchMock.mockRejectedValueOnce(new Error('network offline'));
-
-    await expect(persistCultivatorPortrait(makeInput({
-      imageSource: 'https://images.example.test/unreachable.png',
-    }))).rejects.toThrow('Failed to fetch portrait image.');
-
-    fetchMock.mockResolvedValueOnce({ ok: false, status: 404 } as Response);
-    await expect(persistCultivatorPortrait(makeInput({
-      imageSource: 'https://images.example.test/missing.png',
-    }))).rejects.toThrow('Failed to fetch portrait image (HTTP 404).');
-
-    expect(mocks.uploadBytes).not.toHaveBeenCalled();
-    expect(mocks.writeBatch).not.toHaveBeenCalled();
-  });
-
-  it('best-effort deletes the uploaded object when the atomic batch fails', async () => {
-    const commitError = new Error('firestore unavailable');
-    mocks.batchCommit.mockRejectedValueOnce(commitError);
-    mocks.deleteObject.mockRejectedValueOnce(new Error('cleanup unavailable'));
-
-    await expect(persistCultivatorPortrait(makeInput())).rejects.toBe(commitError);
-
-    expect(mocks.deleteObject).toHaveBeenCalledWith({
-      kind: 'storage-reference',
-      path: 'users/user-123/portraits/portrait-id.png',
+      ok: false,
+      status: 503,
+      json: async () => ({ error: { message: 'PostgreSQL unavailable' } }),
     });
-  });
 
-  it('keeps an uploaded portrait queued when Firestore quota blocks its account record', async () => {
-    const quotaError = Object.assign(new Error('Quota limit exceeded'), {
-      code: 'resource-exhausted',
-    });
-    mocks.batchCommit.mockRejectedValueOnce(quotaError);
-
-    let deferredError: unknown;
+    let caught: unknown;
     try {
       await persistCultivatorPortrait(makeInput());
     } catch (error) {
-      deferredError = error;
+      caught = error;
     }
 
-    expect(deferredError).toBeInstanceOf(CultivatorPortraitCommitDeferredError);
-    expect((deferredError as CultivatorPortraitCommitDeferredError).portrait).toMatchObject({
-      id: 'portrait-id',
-      imageUrl: DOWNLOAD_URL,
+    expect(caught).toBeInstanceOf(CultivatorPortraitCommitDeferredError);
+    expect((caught as CultivatorPortraitCommitDeferredError).portrait).toMatchObject({
+      id: ASSET_ID,
+      imageUrl: descriptor.deliveryUrl,
     });
-    expect(mocks.deleteObject).not.toHaveBeenCalled();
-    expect(localStorage.getItem('seihouse-pending-portrait-commits-v1:user-123'))
-      .toContain('portrait-id');
+    expect((caught as Error & { cause?: Error }).cause?.message).toBe('PostgreSQL unavailable');
+  });
 
+  it('asks the server to recover incomplete portrait selections without local media state', async () => {
     await retryPendingCultivatorPortraits('user-123');
 
-    expect(mocks.batchCommit).toHaveBeenCalledTimes(2);
-    expect(localStorage.getItem('seihouse-pending-portrait-commits-v1:user-123')).toBeNull();
+    expect(fetchMock).toHaveBeenCalledWith('/api/persistence/profile/portraits/recover', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer firebase-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ idempotencyKey: 'request-key' }),
+    });
+
+    fetchMock.mockClear();
+    await retryPendingCultivatorPortraits('another-user');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('treats an empty recovery queue as success and surfaces server failures', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 404 });
+    await expect(retryPendingCultivatorPortraits('user-123')).resolves.toBeUndefined();
+
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 503 });
+    await expect(retryPendingCultivatorPortraits('user-123'))
+      .rejects.toThrow('could not be scheduled');
   });
 });

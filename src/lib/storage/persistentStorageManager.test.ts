@@ -36,8 +36,8 @@ vi.mock('./inMemoryAdapter', () => ({
     constructor() { return mocks.memory as any; }
   },
 }));
-vi.mock('../firebaseStorage', () => ({
-  FirebaseStorageAdapter: class {
+vi.mock('./dataConnectStorageAdapter', () => ({
+  DataConnectStorageAdapter: class {
     constructor() { return mocks.cloud as any; }
   },
 }));

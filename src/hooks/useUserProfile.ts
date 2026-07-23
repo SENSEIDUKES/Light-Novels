@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile as UserProfileType, Story, AppUser } from '../types';
-import { db, auth, LOCAL_ONLY_MODE } from '../lib/firebase';
-import { doc, setDoc, onSnapshot, collection, getDoc, getDocs, deleteDoc } from 'firebase/firestore';
+import { auth } from '../lib/firebase';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { useAppStore } from '../store/useAppStore';
-import { storyStorage } from '../lib/storage';
 import { getDaoRankData } from '../lib/qi';
 import { getApiHeaders } from '../hooks/storyEngineHelpers';
 import { generateId } from '../lib/id';
@@ -14,6 +12,13 @@ import {
   persistCultivatorPortrait,
 } from '../services/cultivatorPortraitPersistence';
 import { cacheAccountProfile, createAccountProfileFallback } from '../lib/userProfileCache';
+import {
+  deletePersistenceAdminStory,
+  getPersistenceAdminOverview,
+  getUserProfile,
+  saveUserProfile,
+  updatePersistenceAdminAccount,
+} from '../lib/persistence';
 
 interface UseUserProfileProps {
   currentUser: AppUser | null;
@@ -400,22 +405,10 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
     setIsFetchingAdminData(true);
     setAdminError('');
     try {
-      const usersSnap = await getDocs(collection(db, 'users'));
+      const overview = await getPersistenceAdminOverview();
       if (!requestIsCurrent()) return;
-      const usersList: UserProfileType[] = [];
-      usersSnap.forEach((d) => {
-        usersList.push(d.data() as UserProfileType);
-      });
-      setAllUsers(usersList);
-
-      const storiesSnap = await getDocs(collection(db, 'stories'));
-      if (!requestIsCurrent()) return;
-      const storiesList: any[] = [];
-      storiesSnap.forEach((d) => {
-        const story = d.data();
-        if (!story.deleted) storiesList.push(story);
-      });
-      setAllStories(storiesList);
+      setAllUsers(overview.users);
+      setAllStories(overview.stories.filter(story => !story.deleted));
     } catch (err: any) {
       if (!requestIsCurrent()) return;
       console.error(err);
@@ -429,7 +422,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
 
   const handleUpdateUserRole = async (targetUid: string, nextRole: 'owner' | 'admin' | 'user') => {
     try {
-      await setDoc(doc(db, 'users', targetUid), { role: nextRole }, { merge: true });
+      await updatePersistenceAdminAccount(targetUid, { role: nextRole });
       setAllUsers(prev => prev.map(u => u.uid === targetUid ? { ...u, role: nextRole } : u));
     } catch (err: any) {
       console.error(err);
@@ -439,7 +432,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
 
   const handleUpdateUserTier = async (targetUid: string, nextTier: "mortal" | "outer_sect" | "inner_sect" | "sect_master" | "immortal") => {
     try {
-      await setDoc(doc(db, 'users', targetUid), { premiumTier: nextTier }, { merge: true });
+      await updatePersistenceAdminAccount(targetUid, { premiumTier: nextTier });
       setAllUsers(prev => prev.map(u => u.uid === targetUid ? { ...u, premiumTier: nextTier } : u));
     } catch (err: any) {
       console.error(err);
@@ -452,22 +445,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
       return;
     }
     try {
-      const storyRef = doc(db, 'stories', storyId);
-      const storySnap = await getDoc(storyRef);
-      if (storySnap.exists()) {
-        const ownerUid = storySnap.data().userId;
-        if (typeof ownerUid !== 'string' || !ownerUid) {
-          throw new Error('Story owner is missing; refusing an unsafe deletion');
-        }
-        await setDoc(storyRef, {
-          id: storyId,
-          userId: ownerUid,
-          deleted: true,
-          updatedAt: new Date().toISOString(),
-        });
-        const chaptersSnap = await getDocs(collection(db, 'stories', storyId, 'chapters'));
-        await Promise.all(chaptersSnap.docs.map(chapter => deleteDoc(chapter.ref)));
-      }
+      await deletePersistenceAdminStory(storyId);
       setAllStories(prev => prev.filter(s => s.id !== storyId));
     } catch (err: any) {
       console.error(err);
@@ -502,14 +480,13 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
       !cancelled && activeProfileUidRef.current === expectedUid;
 
     setIsLoading(true);
-    // Subscribe to profile updates
-    const unsubscribe = onSnapshot(
-      doc(db, 'users', expectedUid),
-      (docSnap) => {
+    void (async () => {
+      try {
+        const stored = await getUserProfile();
         if (!snapshotIsCurrent()) return;
-        if (docSnap.exists()) {
+        if (stored) {
           const data: UserProfileType = {
-            ...(docSnap.data() as UserProfileType),
+            ...stored,
             uid: expectedUid,
           };
 
@@ -537,15 +514,14 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
           if (!snapshotIsCurrent()) return;
           setProfile(defaultProfile);
           cacheAccountProfile(defaultProfile);
-          void setDoc(doc(db, 'users', expectedUid), defaultProfile, { merge: true }).catch(err => {
+          void saveUserProfile(defaultProfile).catch(err => {
             if (!snapshotIsCurrent()) return;
             console.error("Failed to create profile", err);
             setError('Unable to create profile data.');
           });
         }
         setIsLoading(false);
-      },
-      (err) => {
+      } catch (err) {
         if (!snapshotIsCurrent()) return;
         console.error(err);
         const fallbackProfile = createAccountProfileFallback(currentUser);
@@ -553,12 +529,11 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
         setFormData(fallbackProfile);
         setError('');
         setIsLoading(false);
-      },
-    );
+      }
+    })();
 
     return () => {
       cancelled = true;
-      unsubscribe();
     };
   }, [currentUser]);
 
@@ -674,12 +649,13 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
 
     if (currentUser) {
       try {
-        await setDoc(doc(db, 'users', currentUser.uid), {
+        await saveUserProfile({
+          uid: currentUser.uid,
           equippedArtifactId: nextAttunementId,
           activeStatusEffects: updatedActiveEffects
-        }, { merge: true });
+        });
       } catch (e) {
-        console.error("Failed to save attunement to Firestore:", e);
+        console.error("Failed to save attunement to PostgreSQL:", e);
       }
     } else {
       let localProfile = null;
@@ -751,15 +727,16 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
 
       if (currentUser) {
         try {
-          await setDoc(doc(db, 'users', currentUser.uid), {
+          await saveUserProfile({
+            uid: currentUser.uid,
             qi: updatedProfile.qi,
             dao_xp: updatedProfile.dao_xp,
             heavenly_qi: updatedProfile.heavenly_qi,
             daoPillarCracked: false,
             daoPillarStreak: updatedProfile.daoPillarStreak
-          }, { merge: true });
+          });
         } catch (e) {
-          console.error("Failed to repair pillar in db:", e);
+          console.error("Failed to repair pillar in PostgreSQL:", e);
         }
       } else {
         try {
@@ -839,16 +816,17 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
 
     if (currentUser) {
       try {
-        await setDoc(doc(db, 'users', currentUser.uid), {
+        await saveUserProfile({
+          uid: currentUser.uid,
           lastReadDate: todayStr,
           daoPillarStreak: newStreak,
           daoPillarCracked: isCracked,
           qi: updatedProfile.qi,
           dao_xp: updatedProfile.dao_xp,
           heavenly_qi: updatedProfile.heavenly_qi
-        }, { merge: true });
+        });
       } catch (e) {
-        console.error("Failed to check in to pillar in db:", e);
+        console.error("Failed to check in to pillar in PostgreSQL:", e);
       }
     } else {
       try {
@@ -904,14 +882,14 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
         updatedAt: new Date().toISOString()
       };
 
-      // Clean undefined to prevent Firestore errors
+      // Keep partial updates small and omit unknown values.
       Object.keys(updates).forEach(key => {
         if (updates[key as keyof typeof updates] === undefined) {
           delete updates[key as keyof typeof updates];
         }
       });
 
-      await setDoc(doc(db, 'users', currentUser.uid), updates, { merge: true });
+      await saveUserProfile({ uid: currentUser.uid, ...updates });
       setIsEditing(false);
       setError('');
     } catch (err: any) {

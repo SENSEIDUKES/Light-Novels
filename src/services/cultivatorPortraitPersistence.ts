@@ -1,22 +1,11 @@
-import { doc, writeBatch } from 'firebase/firestore';
-import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { db, firebaseStorage } from '../lib/firebase';
+import { auth } from '../lib/firebase';
 import { generateUUID } from '../lib/id';
-import type {
-  CultivatorPortraitAsset,
-  CultivatorPortraitMimeType,
-} from '../types';
-
-const MAX_PORTRAIT_BYTES = 10 * 1024 * 1024;
-const FIREBASE_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
-const PENDING_PORTRAIT_PREFIX = 'seihouse-pending-portrait-commits-v1:';
-const pendingRetries = new Map<string, Promise<void>>();
-
-const EXTENSION_BY_MIME_TYPE: Record<CultivatorPortraitMimeType, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-};
+import {
+  MEDIA_PURPOSE,
+  MEDIA_TARGET_KIND,
+  saveMediaAsset,
+} from '../lib/media/mediaAssetClient';
+import type { CultivatorPortraitAsset } from '../types';
 
 export interface PersistCultivatorPortraitInput {
   userId: string;
@@ -30,279 +19,134 @@ export interface PersistCultivatorPortraitInput {
   usedReferenceImage: boolean;
 }
 
-interface NormalizedPortraitImage {
-  blob: Blob;
-  mimeType: CultivatorPortraitMimeType;
-}
-
 export class CultivatorPortraitCommitDeferredError extends Error {
   readonly portrait: CultivatorPortraitAsset;
 
   constructor(portrait: CultivatorPortraitAsset, options?: ErrorOptions) {
-    super('Portrait image is safe in cloud storage, but its account record is waiting to sync.', options);
+    super('Portrait image is safe in R2, but its PostgreSQL profile selection is waiting to sync.', options);
     this.name = 'CultivatorPortraitCommitDeferredError';
     this.portrait = portrait;
   }
 }
 
-const pendingPortraitKey = (userId: string) =>
-  `${PENDING_PORTRAIT_PREFIX}${encodeURIComponent(userId)}`;
-
-function readPendingPortraits(userId: string): CultivatorPortraitAsset[] {
-  try {
-    const serialized = localStorage.getItem(pendingPortraitKey(userId));
-    if (!serialized) return [];
-    const value: unknown = JSON.parse(serialized);
-    if (!Array.isArray(value)) return [];
-    return value.filter((portrait): portrait is CultivatorPortraitAsset => {
-      if (!portrait || typeof portrait !== 'object') return false;
-      const candidate = portrait as Partial<CultivatorPortraitAsset>;
-      return candidate.schemaVersion === 1
-        && candidate.userId === userId
-        && typeof candidate.id === 'string'
-        && FIREBASE_ID_PATTERN.test(candidate.id)
-        && typeof candidate.imageUrl === 'string'
-        && typeof candidate.storagePath === 'string';
-    });
-  } catch (error) {
-    console.warn('Failed to read pending portrait commits:', error);
-    return [];
-  }
-}
-
-function writePendingPortraits(userId: string, portraits: CultivatorPortraitAsset[]): void {
-  try {
-    if (portraits.length === 0) {
-      localStorage.removeItem(pendingPortraitKey(userId));
-      return;
-    }
-    localStorage.setItem(pendingPortraitKey(userId), JSON.stringify(portraits.slice(-5)));
-  } catch (error) {
-    console.warn('Failed to cache a pending portrait commit:', error);
-  }
-}
-
-function queuePendingPortrait(portrait: CultivatorPortraitAsset): void {
-  const pending = readPendingPortraits(portrait.userId)
-    .filter(candidate => candidate.id !== portrait.id);
-  pending.push(portrait);
-  writePendingPortraits(portrait.userId, pending);
-}
-
-function isRetryableCommitError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const code = 'code' in error ? String(error.code) : '';
-  const message = 'message' in error ? String(error.message).toLowerCase() : '';
-  return code.endsWith('resource-exhausted')
-    || code.endsWith('unavailable')
-    || code.endsWith('deadline-exceeded')
-    || message.includes('quota limit exceeded')
-    || message.includes('quota exceeded');
-}
-
-async function commitPortraitRecords(portrait: CultivatorPortraitAsset): Promise<void> {
-  const batch = writeBatch(db);
-  batch.set(doc(db, 'users', portrait.userId, 'portraits', portrait.id), portrait);
-  batch.set(doc(db, 'users', portrait.userId), {
-    avatarUrl: portrait.imageUrl,
-    activePortraitId: portrait.id,
-    updatedAt: portrait.updatedAt,
-  }, { merge: true });
-  await batch.commit();
-}
-
-/** Retries account metadata for portrait images already secured in cloud storage. */
-export function retryPendingCultivatorPortraits(userId: string): Promise<void> {
-  if (!FIREBASE_ID_PATTERN.test(userId)) return Promise.resolve();
-  const activeRetry = pendingRetries.get(userId);
-  if (activeRetry) return activeRetry;
-
-  const retry = (async () => {
-    const pending = readPendingPortraits(userId);
-    const remaining: CultivatorPortraitAsset[] = [];
-    for (const portrait of pending) {
-      try {
-        await commitPortraitRecords(portrait);
-      } catch (error) {
-        remaining.push(portrait);
-        console.warn('A pending portrait is still waiting for cloud profile access:', error);
-      }
-    }
-    writePendingPortraits(userId, remaining);
-  })().finally(() => {
-    pendingRetries.delete(userId);
-  });
-
-  pendingRetries.set(userId, retry);
-  return retry;
-}
-
-function requireSupportedMimeType(value: string): CultivatorPortraitMimeType {
-  const mimeType = value.split(';', 1)[0].trim().toLowerCase();
-  if (Object.hasOwn(EXTENSION_BY_MIME_TYPE, mimeType)) {
-    return mimeType as CultivatorPortraitMimeType;
-  }
-  throw new Error(`Unsupported portrait image type: ${mimeType || 'unknown'}.`);
-}
-
-function rejectOversizedImage(size: number): void {
-  if (size === 0) {
-    throw new Error('Portrait image is empty.');
-  }
-  if (size > MAX_PORTRAIT_BYTES) {
-    throw new Error('Portrait image exceeds the 10 MiB limit.');
-  }
-}
-
-function decodeDataUrl(source: string): NormalizedPortraitImage | null {
-  const match = /^data:([^;,]+);base64,([\s\S]*)$/i.exec(source);
-  if (!match) {
-    return null;
-  }
-
-  const mimeType = requireSupportedMimeType(match[1]);
-  const payload = match[2].replace(/\s/g, '');
-  const paddingLength = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0;
-  const estimatedSize = Math.max(0, Math.floor((payload.length * 3) / 4) - paddingLength);
-  rejectOversizedImage(estimatedSize);
-
-  let binary: string;
-  try {
-    binary = atob(payload);
-  } catch (error) {
-    throw new Error('Portrait data URL contains invalid base64 data.', { cause: error });
-  }
-
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-  rejectOversizedImage(bytes.byteLength);
-
+async function profileHeaders(): Promise<Record<string, string>> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Sign in to save a Celestial Portrait.');
   return {
-    blob: new Blob([bytes], { type: mimeType }),
-    mimeType,
+    Authorization: `Bearer ${await user.getIdToken()}`,
+    'Content-Type': 'application/json',
   };
 }
 
-async function downloadRemoteImage(source: string): Promise<NormalizedPortraitImage> {
-  let response: Response;
+async function activatePortrait(
+  portrait: CultivatorPortraitAsset,
+  input: PersistCultivatorPortraitInput,
+): Promise<void> {
+  const response = await fetch('/api/persistence/profile/portrait', {
+    method: 'PUT',
+    headers: await profileHeaders(),
+    body: JSON.stringify({
+      assetId: portrait.id,
+      prompt: input.prompt.slice(0, 5_000),
+      description: input.description.slice(0, 2_000),
+      daoRank: input.daoRank.slice(0, 100),
+      daoXp: Number.isFinite(input.daoXp) ? Math.max(0, Math.floor(input.daoXp)) : 0,
+      powerStage: input.powerStage.slice(0, 200),
+      equippedArtifactId: input.equippedArtifactId?.slice(0, 128) ?? null,
+      usedReferenceImage: input.usedReferenceImage,
+      customization: portrait.customization,
+      idempotencyKey: generateUUID(),
+    }),
+  });
+  if (response.ok) return;
+  let message = 'The portrait profile record could not be committed.';
   try {
-    response = await fetch(source);
-  } catch (error) {
-    throw new Error('Failed to fetch portrait image.', { cause: error });
-  }
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch portrait image (HTTP ${response.status}).`);
-  }
-
-  const contentLength = response.headers.get('content-length');
-  if (contentLength) {
-    const declaredSize = Number.parseInt(contentLength, 10);
-    if (Number.isFinite(declaredSize) && declaredSize > MAX_PORTRAIT_BYTES) {
-      throw new Error('Portrait image exceeds the 10 MiB limit.');
-    }
-  }
-
-  let blob: Blob;
-  try {
-    blob = await response.blob();
-  } catch (error) {
-    throw new Error('Failed to read the fetched portrait image.', { cause: error });
-  }
-
-  const mimeType = requireSupportedMimeType(blob.type);
-  rejectOversizedImage(blob.size);
-  return { blob, mimeType };
-}
-
-async function normalizePortraitImage(source: string): Promise<NormalizedPortraitImage> {
-  const normalizedSource = source.trim();
-  const dataImage = decodeDataUrl(normalizedSource);
-  if (dataImage) {
-    return dataImage;
-  }
-
-  let remoteUrl: URL;
-  try {
-    remoteUrl = new URL(normalizedSource);
+    const payload = await response.json();
+    if (typeof payload?.error?.message === 'string') message = payload.error.message;
   } catch {
-    throw new Error('Portrait image source must be a supported data URL or HTTP(S) URL.');
+    // Keep the sanitized fallback; never include the transient image source.
   }
-  if (remoteUrl.protocol !== 'http:' && remoteUrl.protocol !== 'https:') {
-    throw new Error('Portrait image source must be a supported data URL or HTTP(S) URL.');
-  }
-
-  return downloadRemoteImage(normalizedSource);
+  throw new Error(message);
 }
 
-/** Persists a generated portrait as an account-owned asset and selects it atomically. */
+/**
+ * Server-side recovery owns incomplete portrait selections. No signed URL or
+ * media body is stored in localStorage.
+ */
+export async function retryPendingCultivatorPortraits(userId: string): Promise<void> {
+  if (!auth.currentUser || auth.currentUser.uid !== userId) return;
+  const response = await fetch('/api/persistence/profile/portraits/recover', {
+    method: 'POST',
+    headers: await profileHeaders(),
+    body: JSON.stringify({ idempotencyKey: generateUUID() }),
+  });
+  if (!response.ok && response.status !== 404) {
+    throw new Error('Pending portrait recovery could not be scheduled.');
+  }
+}
+
+/**
+ * Persists the generated preview through the authenticated R2 pipeline, then
+ * atomically selects its PostgreSQL UserPortrait row. R2 owns the permanent
+ * object while PostgreSQL owns its metadata and active selection.
+ */
 export async function persistCultivatorPortrait(
   input: PersistCultivatorPortraitInput,
 ): Promise<CultivatorPortraitAsset> {
-  if (!FIREBASE_ID_PATTERN.test(input.userId)) {
-    throw new Error('A valid user ID is required to persist a cultivator portrait.');
+  const user = auth.currentUser;
+  if (!user || user.uid !== input.userId) {
+    throw new Error('The active Firebase account does not own this portrait request.');
   }
 
-  const { blob, mimeType } = await normalizePortraitImage(input.imageSource);
-  const id = generateUUID();
-  const extension = EXTENSION_BY_MIME_TYPE[mimeType];
-  const storagePath = `users/${input.userId}/portraits/${id}.${extension}`;
-  const storageRef = ref(firebaseStorage, storagePath);
+  const asset = await saveMediaAsset({
+    source: input.imageSource,
+    assetType: 'IMAGE',
+    purpose: MEDIA_PURPOSE.CELESTIAL_PORTRAIT,
+    association: {
+      targetKind: MEDIA_TARGET_KIND.PORTRAIT,
+      targetKey: input.userId,
+      legacyMediaId: generateUUID(),
+      entityType: 'portrait',
+      promptUsed: input.prompt,
+      label: input.description,
+    },
+    idempotencyKey: generateUUID(),
+  });
 
-  await uploadBytes(storageRef, blob, { contentType: mimeType });
+  const createdAt = asset.readyAt || asset.createdAt;
+  const portrait: CultivatorPortraitAsset = {
+    schemaVersion: 1,
+    id: asset.id,
+    userId: input.userId,
+    imageUrl: asset.deliveryUrl,
+    assetVersion: asset.version,
+    checksumSha256: asset.checksumSha256,
+    deliveryUrlExpiresAt: asset.deliveryUrlExpiresAt ?? undefined,
+    mimeType: asset.mimeType as CultivatorPortraitAsset['mimeType'],
+    source: 'generated',
+    createdAt,
+    updatedAt: createdAt,
+    generation: {
+      prompt: input.prompt.slice(0, 5_000),
+      description: input.description.slice(0, 2_000),
+      daoRank: input.daoRank.slice(0, 100),
+      daoXp: Number.isFinite(input.daoXp) ? Math.max(0, Math.floor(input.daoXp)) : 0,
+      powerStage: input.powerStage.slice(0, 200),
+      equippedArtifactId: input.equippedArtifactId?.slice(0, 128) ?? null,
+      usedReferenceImage: input.usedReferenceImage,
+    },
+    customization: {
+      frameId: null,
+      glowId: null,
+      bannerId: null,
+      effectIds: [],
+    },
+  };
 
   try {
-    const imageUrl = await getDownloadURL(storageRef);
-    const timestamp = new Date().toISOString();
-    const portrait: CultivatorPortraitAsset = {
-      schemaVersion: 1,
-      id,
-      userId: input.userId,
-      imageUrl,
-      storagePath,
-      mimeType,
-      source: 'generated',
-      createdAt: timestamp,
-      updatedAt: timestamp,
-      generation: {
-        prompt: input.prompt.slice(0, 5000),
-        description: input.description.slice(0, 2000),
-        daoRank: input.daoRank.slice(0, 100),
-        daoXp: Number.isFinite(input.daoXp) ? Math.max(0, input.daoXp) : 0,
-        powerStage: input.powerStage.slice(0, 200),
-        equippedArtifactId: input.equippedArtifactId?.slice(0, 128) ?? null,
-        usedReferenceImage: input.usedReferenceImage,
-      },
-      customization: {
-        frameId: null,
-        glowId: null,
-        bannerId: null,
-        effectIds: [],
-      },
-    };
-
-    try {
-      await commitPortraitRecords(portrait);
-    } catch (error) {
-      if (isRetryableCommitError(error)) {
-        queuePendingPortrait(portrait);
-        throw new CultivatorPortraitCommitDeferredError(portrait, { cause: error });
-      }
-      throw error;
-    }
-
-    return portrait;
+    await activatePortrait(portrait, input);
   } catch (error) {
-    if (error instanceof CultivatorPortraitCommitDeferredError) {
-      throw error;
-    }
-    try {
-      await deleteObject(storageRef);
-    } catch {
-      // The original persistence error is more useful than a cleanup failure.
-    }
-    throw error;
+    throw new CultivatorPortraitCommitDeferredError(portrait, { cause: error });
   }
+  return portrait;
 }

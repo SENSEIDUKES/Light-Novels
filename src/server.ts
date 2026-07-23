@@ -33,6 +33,7 @@ import { PROMPTS } from "./server/prompts";
 import * as deepl from "deepl-node";
 import { apiRouter } from "./server/routes";
 import { mediaAssetRouter } from "./server/routes/mediaAssetRouter";
+import { persistenceRouter } from "./server/routes/persistenceRouter";
 
 dotenv.config();
 
@@ -89,6 +90,7 @@ app.use(mediaAssetRouter);
 
 // Increase payload sizes
 app.use(express.json({ limit: "20mb" }));
+app.use(persistenceRouter);
 
 // ==========================================
 // API ROUTES

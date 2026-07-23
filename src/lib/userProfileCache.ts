@@ -49,7 +49,9 @@ export const cacheAccountProfile = (profile: UserProfile): void => {
     uid: profile.uid,
     username: profile.username,
     displayName: profile.displayName,
-    avatarUrl: profile.avatarUrl,
+    // Private R2 delivery URLs expire and must be refreshed from PostgreSQL/R2.
+    // Cache only non-portrait identity avatars; the asset ID remains canonical.
+    avatarUrl: profile.activePortraitId ? '' : profile.avatarUrl,
     preferredLanguage: profile.preferredLanguage,
     defaultTranslationLanguage: profile.defaultTranslationLanguage,
     joinedDate: profile.joinedDate,

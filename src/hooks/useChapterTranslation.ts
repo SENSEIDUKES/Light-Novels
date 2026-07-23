@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { storyStorage } from '../lib/storage';
-import { firebaseStorage } from '../lib/firebaseStorage';
+import { getLoreGlossary } from '../lib/persistence';
 
 export function useChapterTranslation() {
   const [isTranslating, setIsTranslating] = useState(false);
@@ -25,7 +25,7 @@ export function useChapterTranslation() {
       }
 
       // 1.5 Fetch glossary terms for this specific story novel_id
-      const glossaryTerms = await firebaseStorage.getLoreGlossary(storyId);
+      const glossaryTerms = await getLoreGlossary(storyId);
       // Filter for this specific language
       const applicableTerms = glossaryTerms.filter(t => t.target_lang === targetLang);
 

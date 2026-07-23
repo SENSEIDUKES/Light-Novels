@@ -47,7 +47,7 @@ jobs:
       run: npm run lint
 
     - name: Run tests with coverage
-      run: npx firebase-tools emulators:exec --only firestore,storage --project demo-seihouse-foundation "npm run test:coverage"
+      run: npm run test:coverage
 
     - name: Build project
       run: npm run build

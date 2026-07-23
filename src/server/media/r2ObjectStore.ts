@@ -124,7 +124,12 @@ function encodeObjectKey(key: string): string {
   return key.split('/').map(encodeURIComponent).join('/');
 }
 
-function assertUserMediaObjectKey(objectKey: string): void {
+/**
+ * Rejects catalog, system, and cleanup-marker keys before a destructive media
+ * operation reaches R2. User-generated objects live in visibility-isolated
+ * prefixes; curated catalog objects intentionally do not.
+ */
+export function assertIsolatedUserMediaObjectKey(objectKey: string): void {
   if (
     !objectKey.startsWith(`${USER_MEDIA_PREFIX}/private/`)
     && !objectKey.startsWith(`${USER_MEDIA_PREFIX}/public/`)
@@ -152,7 +157,7 @@ function parseCleanupMarker(value: string, allowedBuckets: ReadonlySet<string>):
     if (typeof marker[field] !== 'string' || !marker[field]) throw new Error(`R2 cleanup marker field ${field} is invalid.`);
   }
   if (!allowedBuckets.has(marker.bucket as string)) throw new Error('R2 cleanup marker targets an unconfigured bucket.');
-  assertUserMediaObjectKey(marker.objectKey as string);
+  assertIsolatedUserMediaObjectKey(marker.objectKey as string);
   return marker as unknown as CleanupMarker;
 }
 
@@ -221,7 +226,7 @@ export class R2ObjectStore implements MediaObjectStore {
   }
 
   async put(input: PutMediaObjectInput): Promise<{ etag?: string }> {
-    assertUserMediaObjectKey(input.objectKey);
+    assertIsolatedUserMediaObjectKey(input.objectKey);
     this.assertObjectBucket(input.bucket, input.objectKey);
     const result = await this.client.send(new PutObjectCommand({
       Bucket: input.bucket,
@@ -239,7 +244,7 @@ export class R2ObjectStore implements MediaObjectStore {
   }
 
   async head(bucket: string, objectKey: string): Promise<StoredObjectMetadata | null> {
-    assertUserMediaObjectKey(objectKey);
+    assertIsolatedUserMediaObjectKey(objectKey);
     this.assertObjectBucket(bucket, objectKey);
     try {
       const result = await this.client.send(new HeadObjectCommand({ Bucket: bucket, Key: objectKey }));
@@ -258,13 +263,13 @@ export class R2ObjectStore implements MediaObjectStore {
   }
 
   async delete(bucket: string, objectKey: string): Promise<void> {
-    assertUserMediaObjectKey(objectKey);
+    assertIsolatedUserMediaObjectKey(objectKey);
     this.assertObjectBucket(bucket, objectKey);
     await this.client.send(new DeleteObjectCommand({ Bucket: bucket, Key: objectKey }));
   }
 
   async getDeliveryUrl(bucket: string, objectKey: string, visibility: MediaVisibility, expiresInSeconds = 900): Promise<string> {
-    assertUserMediaObjectKey(objectKey);
+    assertIsolatedUserMediaObjectKey(objectKey);
     const expectedBucket = this.bucketFor(visibility);
     if (bucket !== expectedBucket) throw new Error('Media visibility does not match its configured R2 bucket.');
     this.assertObjectBucket(bucket, objectKey);
@@ -280,7 +285,7 @@ export class R2ObjectStore implements MediaObjectStore {
   }
 
   async writeCleanupMarker(marker: CleanupMarker): Promise<string> {
-    assertUserMediaObjectKey(marker.objectKey);
+    assertIsolatedUserMediaObjectKey(marker.objectKey);
     this.assertObjectBucket(marker.bucket, marker.objectKey);
     const key = `${CLEANUP_MARKER_PREFIX}/${marker.assetId}/${Date.now()}-${randomUUID()}.json`;
     await this.client.send(new PutObjectCommand({

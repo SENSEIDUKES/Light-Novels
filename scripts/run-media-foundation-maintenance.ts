@@ -83,8 +83,13 @@ async function main(): Promise<void> {
   const staleUploadRecovery = await runStage(() => service.runStaleUploadRecovery(limit));
   const emergencyR2Cleanup = await runStage(() => service.runEmergencyCleanup(limit));
   const databaseCleanup = await runStage(() => service.runCleanup(limit));
+  const storyDeletionCleanup = await runStage(() => service.runStoryDeletionCleanup(limit));
   const storage = await runStage(() => service.inspectStorage());
-  const ok = staleUploadRecovery.ok && emergencyR2Cleanup.ok && databaseCleanup.ok && storage.ok;
+  const ok = staleUploadRecovery.ok
+    && emergencyR2Cleanup.ok
+    && databaseCleanup.ok
+    && storyDeletionCleanup.ok
+    && storage.ok;
 
   process.stdout.write(`${JSON.stringify({
     ok,
@@ -92,6 +97,7 @@ async function main(): Promise<void> {
     staleUploadRecovery,
     emergencyR2Cleanup,
     databaseCleanup,
+    storyDeletionCleanup,
     storage,
   }, null, 2)}\n`);
 

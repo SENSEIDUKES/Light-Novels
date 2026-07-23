@@ -15,6 +15,9 @@ describe('PersistentStorageManager', () => {
     const cloudAdapter = (manager as any).cloudAdapter;
     // Keep older behavioral assertions centered on their mocked save methods,
     // while production sync calls the revision-checked counterparts.
+    cloudAdapter.getStories = vi.fn().mockResolvedValue([]);
+    cloudAdapter.getStory = vi.fn().mockResolvedValue(null);
+    cloudAdapter.getChapterContent = vi.fn().mockResolvedValue(null);
     cloudAdapter.saveStoryIfUnchanged = vi.fn((story: StoryWorld) =>
       cloudAdapter.saveStory(story),
     );

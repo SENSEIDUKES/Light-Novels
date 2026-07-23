@@ -7,6 +7,14 @@ const AccountRole = {
 }
 exports.AccountRole = AccountRole;
 
+const ArcStatus = {
+  PLANNED: "PLANNED",
+  ACTIVE: "ACTIVE",
+  COMPLETED: "COMPLETED",
+  ARCHIVED: "ARCHIVED",
+}
+exports.ArcStatus = ArcStatus;
+
 const ChapterStatus = {
   LOCKED: "LOCKED",
   UNLOCKED: "UNLOCKED",
@@ -18,6 +26,54 @@ const ChapterStatus = {
   DELETED: "DELETED",
 }
 exports.ChapterStatus = ChapterStatus;
+
+const CodexEntityKind = {
+  CHARACTER: "CHARACTER",
+  BEAST: "BEAST",
+  LOCATION: "LOCATION",
+  ARTIFACT: "ARTIFACT",
+  FACTION: "FACTION",
+  ABILITY: "ABILITY",
+  MYSTERY: "MYSTERY",
+  POWER: "POWER",
+  EVENT: "EVENT",
+  GLOSSARY: "GLOSSARY",
+  OTHER: "OTHER",
+}
+exports.CodexEntityKind = CodexEntityKind;
+
+const CodexRelevanceState = {
+  ACTIVE: "ACTIVE",
+  WARM: "WARM",
+  DORMANT: "DORMANT",
+  ARCHIVED: "ARCHIVED",
+  REACTIVATED: "REACTIVATED",
+}
+exports.CodexRelevanceState = CodexRelevanceState;
+
+const GenerationJobKind = {
+  STORY_BLUEPRINT: "STORY_BLUEPRINT",
+  STORY_ARC: "STORY_ARC",
+  CHAPTER: "CHAPTER",
+  CONTINUITY: "CONTINUITY",
+  TRANSLATION: "TRANSLATION",
+  IMAGE: "IMAGE",
+  AUDIO: "AUDIO",
+  VIDEO: "VIDEO",
+  EXPORT: "EXPORT",
+  OTHER: "OTHER",
+}
+exports.GenerationJobKind = GenerationJobKind;
+
+const GenerationJobStatus = {
+  QUEUED: "QUEUED",
+  RUNNING: "RUNNING",
+  PAUSED: "PAUSED",
+  SUCCEEDED: "SUCCEEDED",
+  FAILED: "FAILED",
+  CANCELLED: "CANCELLED",
+}
+exports.GenerationJobStatus = GenerationJobStatus;
 
 const MediaAssetStatus = {
   GENERATING: "GENERATING",
@@ -53,11 +109,66 @@ const MediaCleanupStatus = {
 }
 exports.MediaCleanupStatus = MediaCleanupStatus;
 
+const MediaDeletionIntentStatus = {
+  PENDING: "PENDING",
+  RUNNING: "RUNNING",
+  SUCCEEDED: "SUCCEEDED",
+  FAILED: "FAILED",
+}
+exports.MediaDeletionIntentStatus = MediaDeletionIntentStatus;
+
 const MediaVisibility = {
   PRIVATE: "PRIVATE",
   PUBLIC: "PUBLIC",
 }
 exports.MediaVisibility = MediaVisibility;
+
+const PlotThreadStatus = {
+  ACTIVE: "ACTIVE",
+  RESOLVED: "RESOLVED",
+  ARCHIVED: "ARCHIVED",
+}
+exports.PlotThreadStatus = PlotThreadStatus;
+
+const StorageQuotaReservationStatus = {
+  RESERVED: "RESERVED",
+  COMMITTED: "COMMITTED",
+  RELEASED: "RELEASED",
+  EXPIRED: "EXPIRED",
+}
+exports.StorageQuotaReservationStatus = StorageQuotaReservationStatus;
+
+const StoryChangeKind = {
+  UPSERTED: "UPSERTED",
+  CHAPTER_UPDATED: "CHAPTER_UPDATED",
+  PROFILE_UPDATED: "PROFILE_UPDATED",
+  DELETED: "DELETED",
+}
+exports.StoryChangeKind = StoryChangeKind;
+
+const StoryDeletionStageKind = {
+  TOMBSTONE: "TOMBSTONE",
+  STRUCTURED_DATA: "STRUCTURED_DATA",
+  MEDIA: "MEDIA",
+  LOCAL_CACHE: "LOCAL_CACHE",
+  FINALIZE: "FINALIZE",
+}
+exports.StoryDeletionStageKind = StoryDeletionStageKind;
+
+const StoryDeletionStatus = {
+  PENDING: "PENDING",
+  RUNNING: "RUNNING",
+  SUCCEEDED: "SUCCEEDED",
+  FAILED: "FAILED",
+}
+exports.StoryDeletionStatus = StoryDeletionStatus;
+
+const StoryMemberRole = {
+  OWNER: "OWNER",
+  EDITOR: "EDITOR",
+  READER: "READER",
+}
+exports.StoryMemberRole = StoryMemberRole;
 
 const StoryStatus = {
   DRAFT: "DRAFT",
@@ -74,6 +185,15 @@ const StoryVisibility = {
   PUBLIC: "PUBLIC",
 }
 exports.StoryVisibility = StoryVisibility;
+
+const SubscriptionTier = {
+  MORTAL: "MORTAL",
+  OUTER_SECT: "OUTER_SECT",
+  INNER_SECT: "INNER_SECT",
+  SECT_MASTER: "SECT_MASTER",
+  IMMORTAL: "IMMORTAL",
+}
+exports.SubscriptionTier = SubscriptionTier;
 
 const connectorConfig = {
   connector: 'celestial-library',
@@ -194,6 +314,153 @@ function adminFailMediaCleanup(dcOrVarsOrOptions, varsOrOptions, options) {
 }
 exports.adminFailMediaCleanup = adminFailMediaCleanup;
 
+function adminDeleteOwnedStory(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminDeleteOwnedStory', inputVars, inputOpts);
+}
+exports.adminDeleteOwnedStory = adminDeleteOwnedStory;
+
+function adminClaimStoryDeletionJob(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminClaimStoryDeletionJob', inputVars, inputOpts);
+}
+exports.adminClaimStoryDeletionJob = adminClaimStoryDeletionJob;
+
+function adminFailStoryDeletionJob(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminFailStoryDeletionJob', inputVars, inputOpts);
+}
+exports.adminFailStoryDeletionJob = adminFailStoryDeletionJob;
+
+function adminAdvanceStoryDeletionJob(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminAdvanceStoryDeletionJob', inputVars, inputOpts);
+}
+exports.adminAdvanceStoryDeletionJob = adminAdvanceStoryDeletionJob;
+
+function adminCompleteStoryDeletionJob(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminCompleteStoryDeletionJob', inputVars, inputOpts);
+}
+exports.adminCompleteStoryDeletionJob = adminCompleteStoryDeletionJob;
+
+function adminReserveStorageQuota(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminReserveStorageQuota', inputVars, inputOpts);
+}
+exports.adminReserveStorageQuota = adminReserveStorageQuota;
+
+function adminReleaseStorageQuotaReservation(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminReleaseStorageQuotaReservation', inputVars, inputOpts);
+}
+exports.adminReleaseStorageQuotaReservation = adminReleaseStorageQuotaReservation;
+
+function adminReserveMediaAssetIdempotent(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminReserveMediaAssetIdempotent', inputVars, inputOpts);
+}
+exports.adminReserveMediaAssetIdempotent = adminReserveMediaAssetIdempotent;
+
+function adminCommitMediaAssetToSlot(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminCommitMediaAssetToSlot', inputVars, inputOpts);
+}
+exports.adminCommitMediaAssetToSlot = adminCommitMediaAssetToSlot;
+
+function adminSelectOwnedMediaSlotAsset(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminSelectOwnedMediaSlotAsset', inputVars, inputOpts);
+}
+exports.adminSelectOwnedMediaSlotAsset = adminSelectOwnedMediaSlotAsset;
+
+function adminSelectUserPortrait(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminSelectUserPortrait', inputVars, inputOpts);
+}
+exports.adminSelectUserPortrait = adminSelectUserPortrait;
+
+function adminEnsureMediaDeletionIntent(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminEnsureMediaDeletionIntent', inputVars, inputOpts);
+}
+exports.adminEnsureMediaDeletionIntent = adminEnsureMediaDeletionIntent;
+
+function adminClaimMediaCleanupTask(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminClaimMediaCleanupTask', inputVars, inputOpts);
+}
+exports.adminClaimMediaCleanupTask = adminClaimMediaCleanupTask;
+
+function adminCompleteMediaDeletionIntent(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminCompleteMediaDeletionIntent', inputVars, inputOpts);
+}
+exports.adminCompleteMediaDeletionIntent = adminCompleteMediaDeletionIntent;
+
+function adminFailMediaDeletionIntent(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminFailMediaDeletionIntent', inputVars, inputOpts);
+}
+exports.adminFailMediaDeletionIntent = adminFailMediaDeletionIntent;
+
+function adminDeleteOwnedStorySeed(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminDeleteOwnedStorySeed', inputVars, inputOpts);
+}
+exports.adminDeleteOwnedStorySeed = adminDeleteOwnedStorySeed;
+
+function adminDeleteOwnedGlossaryTerm(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminDeleteOwnedGlossaryTerm', inputVars, inputOpts);
+}
+exports.adminDeleteOwnedGlossaryTerm = adminDeleteOwnedGlossaryTerm;
+
+function adminConsumeImageGenerationQuota(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminConsumeImageGenerationQuota', inputVars, inputOpts);
+}
+exports.adminConsumeImageGenerationQuota = adminConsumeImageGenerationQuota;
+
+function adminRecoverPendingUserPortraits(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminRecoverPendingUserPortraits', inputVars, inputOpts);
+}
+exports.adminRecoverPendingUserPortraits = adminRecoverPendingUserPortraits;
+
+function adminUpdateAccountAccess(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminUpdateAccountAccess', inputVars, inputOpts);
+}
+exports.adminUpdateAccountAccess = adminUpdateAccountAccess;
+
+function adminDeleteStoryAsAdmin(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminDeleteStoryAsAdmin', inputVars, inputOpts);
+}
+exports.adminDeleteStoryAsAdmin = adminDeleteStoryAsAdmin;
+
 function getMyAccount(dcOrOptions, options) {
   const { dc: dcInstance, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrOptions, options, undefined);
   dcInstance.useGen(true);
@@ -312,4 +579,165 @@ function adminListMediaAssetsForStorageReport(dcOrVarsOrOptions, varsOrOptions, 
   return dcInstance.executeQuery('AdminListMediaAssetsForStorageReport', inputVars, inputOpts);
 }
 exports.adminListMediaAssetsForStorageReport = adminListMediaAssetsForStorageReport;
+
+function listMyStoryChanges(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('ListMyStoryChanges', inputVars, inputOpts);
+}
+exports.listMyStoryChanges = listMyStoryChanges;
+
+function getMyCurrentMediaSlot(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('GetMyCurrentMediaSlot', inputVars, inputOpts);
+}
+exports.getMyCurrentMediaSlot = getMyCurrentMediaSlot;
+
+function listMyMediaSlotHistory(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('ListMyMediaSlotHistory', inputVars, inputOpts);
+}
+exports.listMyMediaSlotHistory = listMyMediaSlotHistory;
+
+function adminListOwnedStories(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminListOwnedStories', inputVars, inputOpts);
+}
+exports.adminListOwnedStories = adminListOwnedStories;
+
+function adminListOwnedStoryChanges(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminListOwnedStoryChanges', inputVars, inputOpts);
+}
+exports.adminListOwnedStoryChanges = adminListOwnedStoryChanges;
+
+function adminGetPersistenceReceipt(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminGetPersistenceReceipt', inputVars, inputOpts);
+}
+exports.adminGetPersistenceReceipt = adminGetPersistenceReceipt;
+
+function adminGetOwnedStoryGraph(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminGetOwnedStoryGraph', inputVars, inputOpts);
+}
+exports.adminGetOwnedStoryGraph = adminGetOwnedStoryGraph;
+
+function adminGetOwnedChapterContentGraph(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminGetOwnedChapterContentGraph', inputVars, inputOpts);
+}
+exports.adminGetOwnedChapterContentGraph = adminGetOwnedChapterContentGraph;
+
+function adminListOwnedStorySeeds(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminListOwnedStorySeeds', inputVars, inputOpts);
+}
+exports.adminListOwnedStorySeeds = adminListOwnedStorySeeds;
+
+function adminGetOwnedStorySeedGraph(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminGetOwnedStorySeedGraph', inputVars, inputOpts);
+}
+exports.adminGetOwnedStorySeedGraph = adminGetOwnedStorySeedGraph;
+
+function adminGetUserProfileGraph(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminGetUserProfileGraph', inputVars, inputOpts);
+}
+exports.adminGetUserProfileGraph = adminGetUserProfileGraph;
+
+function adminGetOwnedMediaSlot(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminGetOwnedMediaSlot', inputVars, inputOpts);
+}
+exports.adminGetOwnedMediaSlot = adminGetOwnedMediaSlot;
+
+function adminListOwnedMediaSlotHistory(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminListOwnedMediaSlotHistory', inputVars, inputOpts);
+}
+exports.adminListOwnedMediaSlotHistory = adminListOwnedMediaSlotHistory;
+
+function adminGetMediaUploadReceipt(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminGetMediaUploadReceipt', inputVars, inputOpts);
+}
+exports.adminGetMediaUploadReceipt = adminGetMediaUploadReceipt;
+
+function adminGetOwnedStorageQuotaReservation(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminGetOwnedStorageQuotaReservation', inputVars, inputOpts);
+}
+exports.adminGetOwnedStorageQuotaReservation = adminGetOwnedStorageQuotaReservation;
+
+function adminGetMediaDeletionIntent(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminGetMediaDeletionIntent', inputVars, inputOpts);
+}
+exports.adminGetMediaDeletionIntent = adminGetMediaDeletionIntent;
+
+function adminListStoryDeletionMediaCandidates(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminListStoryDeletionMediaCandidates', inputVars, inputOpts);
+}
+exports.adminListStoryDeletionMediaCandidates = adminListStoryDeletionMediaCandidates;
+
+function adminListStoryDeletionJobs(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, false);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminListStoryDeletionJobs', inputVars, inputOpts);
+}
+exports.adminListStoryDeletionJobs = adminListStoryDeletionJobs;
+
+function adminGetStorageUsageReport(dcOrOptions, options) {
+  const { dc: dcInstance, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrOptions, options, undefined);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminGetStorageUsageReport', undefined, inputOpts);
+}
+exports.adminGetStorageUsageReport = adminGetStorageUsageReport;
+
+function adminListOwnedGlossaryTerms(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminListOwnedGlossaryTerms', inputVars, inputOpts);
+}
+exports.adminListOwnedGlossaryTerms = adminListOwnedGlossaryTerms;
+
+function adminGetImageQuotaConsumption(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminGetImageQuotaConsumption', inputVars, inputOpts);
+}
+exports.adminGetImageQuotaConsumption = adminGetImageQuotaConsumption;
+
+function adminGetOwnedPortraitAsset(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminGetOwnedPortraitAsset', inputVars, inputOpts);
+}
+exports.adminGetOwnedPortraitAsset = adminGetOwnedPortraitAsset;
+
+function adminGetAdminOverview(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminGetAdminOverview', inputVars, inputOpts);
+}
+exports.adminGetAdminOverview = adminGetAdminOverview;
 
