@@ -1,6 +1,6 @@
 {
   "framework": "vite",
-  "buildCommand": "vite build && esbuild server-bundle/entry.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=api/index.ts",
+  "buildCommand": "vite build && esbuild server-bundle/entry.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=api/index.js",
   "outputDirectory": "dist",
   "routes": [
     {
@@ -16,7 +16,7 @@
     }
   ],
   "functions": {
-    "api/**/*.ts": {
+    "api/**/*.js": {
       "maxDuration": 60
     }
   }

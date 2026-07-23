@@ -3,7 +3,7 @@ build/
 dist/
 server-bundle/index.js
 server-bundle/index.js.map
-api/index.ts.map
+api/index.js.map
 coverage/
 playwright-report/
 test-results/
