@@ -17,6 +17,7 @@ import {
   adminGetUserProfileGraph,
   adminListOwnedGlossaryTerms,
   adminListOwnedStories,
+  adminListOwnedStoryCoverSlots,
   adminListOwnedStorySeeds,
   adminRecoverPendingUserPortraits,
   adminSelectUserPortrait,
@@ -33,6 +34,7 @@ import type {
   StoryWorld,
   UserProfile,
 } from '../../types';
+import { applyStoryPatch, type StoryPatchOperation } from '../../lib/storage/storyPatch';
 import { getFirebaseAdminApp } from '../firebaseAdmin';
 import type { MediaAssetDescriptor } from '../../contracts/mediaAssets';
 import type {
@@ -49,10 +51,12 @@ import {
   mapChapterContentToGraphVariables,
   mapStorySeedToGraphVariables,
   mapStoryWorldToGraphVariables,
+  mapStoryWorldToPatchVariables,
   mapUserProfileToGraphVariables,
   persistenceUuid,
   type AdminUpsertChapterContentGraphVariables,
   type AdminUpsertStoryGraphVariables,
+  type AdminPatchStoryGraphVariables,
   type AdminUpsertStorySeedGraphVariables,
   type AdminUpsertUserProfileGraphVariables,
 } from './graphMapper';
@@ -222,6 +226,50 @@ function roleToSql(value: UserProfile['role']): AccountRole {
   return AccountRole.USER;
 }
 
+function compactStorySummary(
+  ownerUid: string,
+  row: Awaited<ReturnType<typeof adminListOwnedStories>>['data']['stories'][number],
+  cover?: MediaAssetDescriptor,
+): StoryWorld {
+  const summary: StoryWorld = {
+    persistenceHydration: 'summary',
+    persistenceId: row.id,
+    userId: ownerUid,
+    id: row.clientStoryId ?? row.legacyStoryId ?? row.id,
+    sourceSeedId: row.sourceSeedId ?? undefined,
+    parentStoryId: row.parentStoryId ?? undefined,
+    forkChapterNumber: row.forkChapterNumber ?? undefined,
+    title: row.title,
+    genre: row.genre,
+    mcName: row.mainCharacterName ?? '',
+    customPremise: row.premise ?? '',
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    syncRevision: row.syncRevision ?? undefined,
+    memory: {
+      powerSystem: '',
+      currentPowerStage: '',
+      worldRules: [],
+      characters: [],
+      unresolvedPlotThreads: [],
+      resolvedPlotThreads: [],
+    },
+    arcs: [],
+    currentChapterNumber: row.currentChapterNumber,
+    coverAssetId: cover?.id,
+    imageUrl: cover?.deliveryUrl,
+    lastImageChapter: row.lastImageChapter ?? undefined,
+    evolutionReady: row.evolutionReady,
+    evolutionReason: row.evolutionReason ?? undefined,
+    availableVisualUpdate: row.availableVisualUpdate,
+    isEdited: row.isEdited,
+    conflictResolvedAt: row.conflictResolvedAt ?? undefined,
+    deleted: row.status === 'DELETED' || row.deletedAt != null,
+  };
+  if (cover) summary.mediaDescriptors = { [cover.id]: cover };
+  return summary;
+}
+
 export class DataConnectApplicationRepository implements ApplicationPersistenceRepository {
   private readonly executeRetiredMutation: RetiredMutationExecutor;
   private readonly loadMediaDescriptor: MediaDescriptorLoader;
@@ -268,6 +316,7 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     try {
       await this.executeRetiredMutation(
         operation === 'UPSERT_STORY_GRAPH' ? 'AdminUpsertStoryGraph'
+          : operation === 'PATCH_STORY_GRAPH' ? 'AdminPatchStoryGraph'
           : operation === 'UPSERT_CHAPTER_CONTENT_GRAPH' ? 'AdminUpsertChapterContentGraph'
             : operation === 'UPSERT_STORY_SEED_GRAPH' ? 'AdminUpsertStorySeedGraph'
               : operation === 'UPSERT_STORY_SEED_BATCH' ? 'AdminUpsertStorySeedBatch'
@@ -310,16 +359,17 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
   ): Promise<StoryWorld | null> {
     const story = hydrateStoryWorld(graph);
     if (!story) return null;
-    const assetIds = [...new Set([
-      ...graph.mediaAttachments.map(attachment => attachment.assetId),
-      ...graph.mediaSlots.map(slot => slot.currentAssetId),
-    ])];
+    // Historical attachment metadata stays in the graph, but signed delivery
+    // descriptors are loaded only for assets visible on the current surface.
+    const assetIds = [...new Set(graph.mediaSlots.map(slot => slot.currentAssetId))];
     const descriptors = new Map<string, MediaAssetDescriptor>();
     await Promise.all(assetIds.map(async assetId => {
       const descriptor = await this.loadMediaDescriptor(ownerUid, assetId);
       if (descriptor) descriptors.set(assetId, descriptor);
     }));
-    return hydrateStoryMediaDelivery(story, graph.mediaAttachments, descriptors);
+    const hydrated = hydrateStoryMediaDelivery(story, graph.mediaAttachments, descriptors);
+    hydrated.mediaDescriptors = Object.fromEntries(descriptors);
+    return hydrated;
   }
 
   private async hydrateChapter(
@@ -357,16 +407,31 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
   }
 
   async listStories(ownerUid: string): Promise<StoryWorld[]> {
-    const rows = (await this.listStoryRows(ownerUid)).filter(row => row.status !== 'DELETED');
-    const stories: StoryWorld[] = [];
-    for (let offset = 0; offset < rows.length; offset += 10) {
-      const batch = await Promise.all(rows.slice(offset, offset + 10).map(async row => {
-        const result = await adminGetOwnedStoryGraph({ ownerUid, storyId: row.id });
-        return result.data.story ? this.hydrateStory(ownerUid, result.data) : null;
-      }));
-      stories.push(...batch.filter((story): story is StoryWorld => Boolean(story && !story.deleted)));
+    const rows = await this.listStoryRows(ownerUid);
+    const coverAssetIdByStoryId = new Map<string, string>();
+    for (let offset = 0; ; offset += PAGE_SIZE) {
+      const result = await adminListOwnedStoryCoverSlots({
+        ownerUid,
+        limit: PAGE_SIZE,
+        offset,
+      });
+      for (const slot of result.data.coverSlots) {
+        if (slot.storyId && !coverAssetIdByStoryId.has(slot.storyId)) {
+          coverAssetIdByStoryId.set(slot.storyId, slot.currentAssetId);
+        }
+      }
+      if (result.data.coverSlots.length < PAGE_SIZE) break;
     }
-    return stories.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    const descriptors = new Map<string, MediaAssetDescriptor>();
+    await Promise.all([...new Set(coverAssetIdByStoryId.values())].map(async assetId => {
+      const descriptor = await this.loadMediaDescriptor(ownerUid, assetId);
+      if (descriptor) descriptors.set(assetId, descriptor);
+    }));
+    return rows.map(row => compactStorySummary(
+      ownerUid,
+      row,
+      descriptors.get(coverAssetIdByStoryId.get(row.id) ?? ''),
+    ));
   }
 
   async getStory(ownerUid: string, storyId: string): Promise<StoryWorld | null> {
@@ -399,7 +464,8 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
       story: { ...story, userId: ownerUid, persistenceId: storyId },
       currentGraph: current,
       expectedSyncRevision: current?.story?.syncRevision ?? null,
-      newSyncRevision: syncRevisionFor(ownerUid, operation, context.idempotencyKey),
+      newSyncRevision: story.syncRevision
+        ?? syncRevisionFor(ownerUid, operation, context.idempotencyKey),
       newRevision: revisionAfter(current?.story?.revision),
       idempotencyKey: context.idempotencyKey,
       requestHash: hash,
@@ -414,6 +480,58 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     const saved = await this.getStory(ownerUid, storyId);
     if (!saved) throw new Error('Story graph committed but could not be read back.');
     return saved;
+  }
+
+  async patchStory(
+    ownerUid: string,
+    storyId: string,
+    patch: StoryPatchOperation[],
+    context: PersistenceMutationContext,
+  ) {
+    const operation = 'PATCH_STORY_GRAPH';
+    const hash = mutationIntentHash(operation, ownerUid, { storyId, patch }, context.expected);
+    if (await this.receipt(ownerUid, context.idempotencyKey, operation, hash)) {
+      const replay = await this.getStory(ownerUid, storyId);
+      if (!replay) throw new Error('Story patch receipt exists without its story graph.');
+      return { story: replay, affectedRows: 0, durationMs: 0 };
+    }
+    const graph = await this.storyGraph(ownerUid, storyId);
+    if (!graph?.story) throw new Error('Owned story was not found for a bounded patch.');
+    assertExpected(context.expected, graph.story);
+    const current = hydrateStoryWorld(graph);
+    if (!current) throw new Error('Owned story graph could not be hydrated for a bounded patch.');
+    const desired = applyStoryPatch(current, patch);
+    if (
+      desired.id !== current.id
+      || desired.persistenceId !== current.persistenceId
+      || (desired.userId && desired.userId !== ownerUid)
+    ) {
+      throw taggedError('Story patch cannot change aggregate ownership or identity.', 'forbidden');
+    }
+    const mapped: AdminPatchStoryGraphVariables = mapStoryWorldToPatchVariables({
+      ownerUid,
+      story: { ...desired, userId: ownerUid, persistenceHydration: 'full' },
+      currentGraph: graph,
+      expectedSyncRevision: graph.story.syncRevision ?? null,
+      newSyncRevision: desired.syncRevision
+        ?? syncRevisionFor(ownerUid, operation, context.idempotencyKey),
+      newRevision: revisionAfter(graph.story.revision),
+      idempotencyKey: context.idempotencyKey,
+      requestHash: hash,
+    });
+    const { affectedRowCount, ...variables } = mapped;
+    const startedAt = performance.now();
+    await this.runRetired(
+      operation,
+      ownerUid,
+      context.idempotencyKey,
+      variables as unknown as RetiredMutationVariables,
+      hash,
+    );
+    const durationMs = performance.now() - startedAt;
+    const saved = await this.getStory(ownerUid, graph.story.id);
+    if (!saved) throw new Error('Story patch committed but could not be read back.');
+    return { story: saved, affectedRows: affectedRowCount, durationMs };
   }
 
   async deleteStory(

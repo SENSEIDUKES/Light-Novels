@@ -1513,6 +1513,26 @@ export interface AdminGetUserProfileGraphVariables {
   ownerUid: string;
 }
 
+export interface AdminListExpiredStoryTombstonesData {
+  storyDeletionJobs: ({
+    id: UUIDString;
+    ownerUid: string;
+    storyId: UUIDString;
+    idempotencyKey: string;
+    status: StoryDeletionStatus;
+    currentStage: StoryDeletionStageKind;
+    attemptCount: number;
+    createdAt: TimestampString;
+    updatedAt: TimestampString;
+    completedAt?: TimestampString | null;
+  } & StoryDeletionJob_Key)[];
+}
+
+export interface AdminListExpiredStoryTombstonesVariables {
+  completedBefore: TimestampString;
+  limit?: number | null;
+}
+
 export interface AdminListMediaAssetsForStorageReportData {
   mediaAssets: ({
     id: UUIDString;
@@ -1674,6 +1694,29 @@ export interface AdminListOwnedStoryChangesVariables {
   limit?: number | null;
 }
 
+export interface AdminListOwnedStoryCoverSlotsData {
+  coverSlots: ({
+    ownerUid: string;
+    storyId?: UUIDString | null;
+    targetKey: string;
+    currentAssetId: UUIDString;
+    version: Int64String;
+    updatedAt: TimestampString;
+    currentAsset: {
+      status: MediaAssetStatus;
+      mimeType: string;
+      checksumSha256: string;
+      version: number;
+    };
+  })[];
+}
+
+export interface AdminListOwnedStoryCoverSlotsVariables {
+  ownerUid: string;
+  limit?: number | null;
+  offset?: number | null;
+}
+
 export interface AdminListOwnedStorySeedsData {
   storySeeds: ({
     id: UUIDString;
@@ -1812,6 +1855,17 @@ export interface AdminMarkMediaAssetPendingCleanupVariables {
   objectKey: string;
   reason: string;
   failureMessage?: string | null;
+}
+
+export interface AdminPurgeExpiredStoryTombstoneData {
+  eligibleTombstone?: unknown | null;
+  story_delete?: Story_Key | null;
+}
+
+export interface AdminPurgeExpiredStoryTombstoneVariables {
+  jobId: UUIDString;
+  storyId: UUIDString;
+  completedBefore: TimestampString;
 }
 
 export interface AdminPurgeFoundationProbeData {
@@ -2805,6 +2859,11 @@ export function adminCompleteStoryDeletionJob(dc: DataConnect, vars: AdminComple
 /** Generated Node Admin SDK operation action function for the 'AdminCompleteStoryDeletionJob' Mutation. Allow users to pass in custom DataConnect instances. */
 export function adminCompleteStoryDeletionJob(vars: AdminCompleteStoryDeletionJobVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminCompleteStoryDeletionJobData>>;
 
+/** Generated Node Admin SDK operation action function for the 'AdminPurgeExpiredStoryTombstone' Mutation. Allow users to execute without passing in DataConnect. */
+export function adminPurgeExpiredStoryTombstone(dc: DataConnect, vars: AdminPurgeExpiredStoryTombstoneVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminPurgeExpiredStoryTombstoneData>>;
+/** Generated Node Admin SDK operation action function for the 'AdminPurgeExpiredStoryTombstone' Mutation. Allow users to pass in custom DataConnect instances. */
+export function adminPurgeExpiredStoryTombstone(vars: AdminPurgeExpiredStoryTombstoneVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminPurgeExpiredStoryTombstoneData>>;
+
 /** Generated Node Admin SDK operation action function for the 'AdminReserveStorageQuota' Mutation. Allow users to execute without passing in DataConnect. */
 export function adminReserveStorageQuota(dc: DataConnect, vars: AdminReserveStorageQuotaVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminReserveStorageQuotaData>>;
 /** Generated Node Admin SDK operation action function for the 'AdminReserveStorageQuota' Mutation. Allow users to pass in custom DataConnect instances. */
@@ -2990,6 +3049,11 @@ export function adminListOwnedStories(dc: DataConnect, vars: AdminListOwnedStori
 /** Generated Node Admin SDK operation action function for the 'AdminListOwnedStories' Query. Allow users to pass in custom DataConnect instances. */
 export function adminListOwnedStories(vars: AdminListOwnedStoriesVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminListOwnedStoriesData>>;
 
+/** Generated Node Admin SDK operation action function for the 'AdminListOwnedStoryCoverSlots' Query. Allow users to execute without passing in DataConnect. */
+export function adminListOwnedStoryCoverSlots(dc: DataConnect, vars: AdminListOwnedStoryCoverSlotsVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminListOwnedStoryCoverSlotsData>>;
+/** Generated Node Admin SDK operation action function for the 'AdminListOwnedStoryCoverSlots' Query. Allow users to pass in custom DataConnect instances. */
+export function adminListOwnedStoryCoverSlots(vars: AdminListOwnedStoryCoverSlotsVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminListOwnedStoryCoverSlotsData>>;
+
 /** Generated Node Admin SDK operation action function for the 'AdminListOwnedStoryChanges' Query. Allow users to execute without passing in DataConnect. */
 export function adminListOwnedStoryChanges(dc: DataConnect, vars: AdminListOwnedStoryChangesVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminListOwnedStoryChangesData>>;
 /** Generated Node Admin SDK operation action function for the 'AdminListOwnedStoryChanges' Query. Allow users to pass in custom DataConnect instances. */
@@ -3059,6 +3123,11 @@ export function adminListStoryDeletionMediaCandidates(vars: AdminListStoryDeleti
 export function adminListStoryDeletionJobs(dc: DataConnect, vars?: AdminListStoryDeletionJobsVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminListStoryDeletionJobsData>>;
 /** Generated Node Admin SDK operation action function for the 'AdminListStoryDeletionJobs' Query. Allow users to pass in custom DataConnect instances. */
 export function adminListStoryDeletionJobs(vars?: AdminListStoryDeletionJobsVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminListStoryDeletionJobsData>>;
+
+/** Generated Node Admin SDK operation action function for the 'AdminListExpiredStoryTombstones' Query. Allow users to execute without passing in DataConnect. */
+export function adminListExpiredStoryTombstones(dc: DataConnect, vars: AdminListExpiredStoryTombstonesVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminListExpiredStoryTombstonesData>>;
+/** Generated Node Admin SDK operation action function for the 'AdminListExpiredStoryTombstones' Query. Allow users to pass in custom DataConnect instances. */
+export function adminListExpiredStoryTombstones(vars: AdminListExpiredStoryTombstonesVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminListExpiredStoryTombstonesData>>;
 
 /** Generated Node Admin SDK operation action function for the 'AdminGetStorageUsageReport' Query. Allow users to execute without passing in DataConnect. */
 export function adminGetStorageUsageReport(dc: DataConnect, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminGetStorageUsageReportData>>;

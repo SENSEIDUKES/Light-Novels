@@ -29,6 +29,7 @@ This README will guide you through the process of using the generated JavaScript
   - [*GetMyCurrentMediaSlot*](#getmycurrentmediaslot)
   - [*ListMyMediaSlotHistory*](#listmymediaslothistory)
   - [*AdminListOwnedStories*](#adminlistownedstories)
+  - [*AdminListOwnedStoryCoverSlots*](#adminlistownedstorycoverslots)
   - [*AdminListOwnedStoryChanges*](#adminlistownedstorychanges)
   - [*AdminGetPersistenceReceipt*](#admingetpersistencereceipt)
   - [*AdminGetOwnedStoryGraph*](#admingetownedstorygraph)
@@ -43,6 +44,7 @@ This README will guide you through the process of using the generated JavaScript
   - [*AdminGetMediaDeletionIntent*](#admingetmediadeletionintent)
   - [*AdminListStoryDeletionMediaCandidates*](#adminliststorydeletionmediacandidates)
   - [*AdminListStoryDeletionJobs*](#adminliststorydeletionjobs)
+  - [*AdminListExpiredStoryTombstones*](#adminlistexpiredstorytombstones)
   - [*AdminGetStorageUsageReport*](#admingetstorageusagereport)
   - [*AdminListOwnedGlossaryTerms*](#adminlistownedglossaryterms)
   - [*AdminGetImageQuotaConsumption*](#admingetimagequotaconsumption)
@@ -70,6 +72,7 @@ This README will guide you through the process of using the generated JavaScript
   - [*AdminFailStoryDeletionJob*](#adminfailstorydeletionjob)
   - [*AdminAdvanceStoryDeletionJob*](#adminadvancestorydeletionjob)
   - [*AdminCompleteStoryDeletionJob*](#admincompletestorydeletionjob)
+  - [*AdminPurgeExpiredStoryTombstone*](#adminpurgeexpiredstorytombstone)
   - [*AdminReserveStorageQuota*](#adminreservestoragequota)
   - [*AdminReleaseStorageQuotaReservation*](#adminreleasestoragequotareservation)
   - [*AdminReserveMediaAssetIdempotent*](#adminreservemediaassetidempotent)
@@ -2767,6 +2770,134 @@ executeQuery(ref).then((response) => {
 });
 ```
 
+## AdminListOwnedStoryCoverSlots
+You can execute the `AdminListOwnedStoryCoverSlots` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
+```typescript
+adminListOwnedStoryCoverSlots(vars: AdminListOwnedStoryCoverSlotsVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListOwnedStoryCoverSlotsData, AdminListOwnedStoryCoverSlotsVariables>;
+
+interface AdminListOwnedStoryCoverSlotsRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: AdminListOwnedStoryCoverSlotsVariables): QueryRef<AdminListOwnedStoryCoverSlotsData, AdminListOwnedStoryCoverSlotsVariables>;
+}
+export const adminListOwnedStoryCoverSlotsRef: AdminListOwnedStoryCoverSlotsRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
+```typescript
+adminListOwnedStoryCoverSlots(dc: DataConnect, vars: AdminListOwnedStoryCoverSlotsVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListOwnedStoryCoverSlotsData, AdminListOwnedStoryCoverSlotsVariables>;
+
+interface AdminListOwnedStoryCoverSlotsRef {
+  ...
+  (dc: DataConnect, vars: AdminListOwnedStoryCoverSlotsVariables): QueryRef<AdminListOwnedStoryCoverSlotsData, AdminListOwnedStoryCoverSlotsVariables>;
+}
+export const adminListOwnedStoryCoverSlotsRef: AdminListOwnedStoryCoverSlotsRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminListOwnedStoryCoverSlotsRef:
+```typescript
+const name = adminListOwnedStoryCoverSlotsRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `AdminListOwnedStoryCoverSlots` query requires an argument of type `AdminListOwnedStoryCoverSlotsVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface AdminListOwnedStoryCoverSlotsVariables {
+  ownerUid: string;
+  limit?: number | null;
+  offset?: number | null;
+}
+```
+### Return Type
+Recall that executing the `AdminListOwnedStoryCoverSlots` query returns a `QueryPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `AdminListOwnedStoryCoverSlotsData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface AdminListOwnedStoryCoverSlotsData {
+  coverSlots: ({
+    ownerUid: string;
+    storyId?: UUIDString | null;
+    targetKey: string;
+    currentAssetId: UUIDString;
+    version: Int64String;
+    updatedAt: TimestampString;
+    currentAsset: {
+      status: MediaAssetStatus;
+      mimeType: string;
+      checksumSha256: string;
+      version: number;
+    };
+  })[];
+}
+```
+### Using `AdminListOwnedStoryCoverSlots`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, adminListOwnedStoryCoverSlots, AdminListOwnedStoryCoverSlotsVariables } from '@seihouse/celestial-library-dataconnect';
+
+// The `AdminListOwnedStoryCoverSlots` query requires an argument of type `AdminListOwnedStoryCoverSlotsVariables`:
+const adminListOwnedStoryCoverSlotsVars: AdminListOwnedStoryCoverSlotsVariables = {
+  ownerUid: ..., 
+  limit: ..., // optional
+  offset: ..., // optional
+};
+
+// Call the `adminListOwnedStoryCoverSlots()` function to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await adminListOwnedStoryCoverSlots(adminListOwnedStoryCoverSlotsVars);
+// Variables can be defined inline as well.
+const { data } = await adminListOwnedStoryCoverSlots({ ownerUid: ..., limit: ..., offset: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await adminListOwnedStoryCoverSlots(dataConnect, adminListOwnedStoryCoverSlotsVars);
+
+console.log(data.coverSlots);
+
+// Or, you can use the `Promise` API.
+adminListOwnedStoryCoverSlots(adminListOwnedStoryCoverSlotsVars).then((response) => {
+  const data = response.data;
+  console.log(data.coverSlots);
+});
+```
+
+### Using `AdminListOwnedStoryCoverSlots`'s `QueryRef` function
+
+```typescript
+import { getDataConnect, executeQuery } from 'firebase/data-connect';
+import { connectorConfig, adminListOwnedStoryCoverSlotsRef, AdminListOwnedStoryCoverSlotsVariables } from '@seihouse/celestial-library-dataconnect';
+
+// The `AdminListOwnedStoryCoverSlots` query requires an argument of type `AdminListOwnedStoryCoverSlotsVariables`:
+const adminListOwnedStoryCoverSlotsVars: AdminListOwnedStoryCoverSlotsVariables = {
+  ownerUid: ..., 
+  limit: ..., // optional
+  offset: ..., // optional
+};
+
+// Call the `adminListOwnedStoryCoverSlotsRef()` function to get a reference to the query.
+const ref = adminListOwnedStoryCoverSlotsRef(adminListOwnedStoryCoverSlotsVars);
+// Variables can be defined inline as well.
+const ref = adminListOwnedStoryCoverSlotsRef({ ownerUid: ..., limit: ..., offset: ..., });
+
+// You can also pass in a `DataConnect` instance to the `QueryRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = adminListOwnedStoryCoverSlotsRef(dataConnect, adminListOwnedStoryCoverSlotsVars);
+
+// Call `executeQuery()` on the reference to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeQuery(ref);
+
+console.log(data.coverSlots);
+
+// Or, you can use the `Promise` API.
+executeQuery(ref).then((response) => {
+  const data = response.data;
+  console.log(data.coverSlots);
+});
+```
+
 ## AdminListOwnedStoryChanges
 You can execute the `AdminListOwnedStoryChanges` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
 ```typescript
@@ -5317,6 +5448,129 @@ const ref = adminListStoryDeletionJobsRef();
 // You can also pass in a `DataConnect` instance to the `QueryRef` function.
 const dataConnect = getDataConnect(connectorConfig);
 const ref = adminListStoryDeletionJobsRef(dataConnect, adminListStoryDeletionJobsVars);
+
+// Call `executeQuery()` on the reference to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeQuery(ref);
+
+console.log(data.storyDeletionJobs);
+
+// Or, you can use the `Promise` API.
+executeQuery(ref).then((response) => {
+  const data = response.data;
+  console.log(data.storyDeletionJobs);
+});
+```
+
+## AdminListExpiredStoryTombstones
+You can execute the `AdminListExpiredStoryTombstones` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
+```typescript
+adminListExpiredStoryTombstones(vars: AdminListExpiredStoryTombstonesVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListExpiredStoryTombstonesData, AdminListExpiredStoryTombstonesVariables>;
+
+interface AdminListExpiredStoryTombstonesRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: AdminListExpiredStoryTombstonesVariables): QueryRef<AdminListExpiredStoryTombstonesData, AdminListExpiredStoryTombstonesVariables>;
+}
+export const adminListExpiredStoryTombstonesRef: AdminListExpiredStoryTombstonesRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
+```typescript
+adminListExpiredStoryTombstones(dc: DataConnect, vars: AdminListExpiredStoryTombstonesVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListExpiredStoryTombstonesData, AdminListExpiredStoryTombstonesVariables>;
+
+interface AdminListExpiredStoryTombstonesRef {
+  ...
+  (dc: DataConnect, vars: AdminListExpiredStoryTombstonesVariables): QueryRef<AdminListExpiredStoryTombstonesData, AdminListExpiredStoryTombstonesVariables>;
+}
+export const adminListExpiredStoryTombstonesRef: AdminListExpiredStoryTombstonesRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminListExpiredStoryTombstonesRef:
+```typescript
+const name = adminListExpiredStoryTombstonesRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `AdminListExpiredStoryTombstones` query requires an argument of type `AdminListExpiredStoryTombstonesVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface AdminListExpiredStoryTombstonesVariables {
+  completedBefore: TimestampString;
+  limit?: number | null;
+}
+```
+### Return Type
+Recall that executing the `AdminListExpiredStoryTombstones` query returns a `QueryPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `AdminListExpiredStoryTombstonesData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface AdminListExpiredStoryTombstonesData {
+  storyDeletionJobs: ({
+    id: UUIDString;
+    ownerUid: string;
+    storyId: UUIDString;
+    idempotencyKey: string;
+    status: StoryDeletionStatus;
+    currentStage: StoryDeletionStageKind;
+    attemptCount: number;
+    createdAt: TimestampString;
+    updatedAt: TimestampString;
+    completedAt?: TimestampString | null;
+  } & StoryDeletionJob_Key)[];
+}
+```
+### Using `AdminListExpiredStoryTombstones`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, adminListExpiredStoryTombstones, AdminListExpiredStoryTombstonesVariables } from '@seihouse/celestial-library-dataconnect';
+
+// The `AdminListExpiredStoryTombstones` query requires an argument of type `AdminListExpiredStoryTombstonesVariables`:
+const adminListExpiredStoryTombstonesVars: AdminListExpiredStoryTombstonesVariables = {
+  completedBefore: ..., 
+  limit: ..., // optional
+};
+
+// Call the `adminListExpiredStoryTombstones()` function to execute the query.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await adminListExpiredStoryTombstones(adminListExpiredStoryTombstonesVars);
+// Variables can be defined inline as well.
+const { data } = await adminListExpiredStoryTombstones({ completedBefore: ..., limit: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await adminListExpiredStoryTombstones(dataConnect, adminListExpiredStoryTombstonesVars);
+
+console.log(data.storyDeletionJobs);
+
+// Or, you can use the `Promise` API.
+adminListExpiredStoryTombstones(adminListExpiredStoryTombstonesVars).then((response) => {
+  const data = response.data;
+  console.log(data.storyDeletionJobs);
+});
+```
+
+### Using `AdminListExpiredStoryTombstones`'s `QueryRef` function
+
+```typescript
+import { getDataConnect, executeQuery } from 'firebase/data-connect';
+import { connectorConfig, adminListExpiredStoryTombstonesRef, AdminListExpiredStoryTombstonesVariables } from '@seihouse/celestial-library-dataconnect';
+
+// The `AdminListExpiredStoryTombstones` query requires an argument of type `AdminListExpiredStoryTombstonesVariables`:
+const adminListExpiredStoryTombstonesVars: AdminListExpiredStoryTombstonesVariables = {
+  completedBefore: ..., 
+  limit: ..., // optional
+};
+
+// Call the `adminListExpiredStoryTombstonesRef()` function to get a reference to the query.
+const ref = adminListExpiredStoryTombstonesRef(adminListExpiredStoryTombstonesVars);
+// Variables can be defined inline as well.
+const ref = adminListExpiredStoryTombstonesRef({ completedBefore: ..., limit: ..., });
+
+// You can also pass in a `DataConnect` instance to the `QueryRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = adminListExpiredStoryTombstonesRef(dataConnect, adminListExpiredStoryTombstonesVars);
 
 // Call `executeQuery()` on the reference to execute the query.
 // You can use the `await` keyword to wait for the promise to resolve.
@@ -8660,6 +8914,126 @@ executeMutation(ref).then((response) => {
   const data = response.data;
   console.log(data.storyDeletionStage_update);
   console.log(data.storyDeletionJob_update);
+});
+```
+
+## AdminPurgeExpiredStoryTombstone
+You can execute the `AdminPurgeExpiredStoryTombstone` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
+```typescript
+adminPurgeExpiredStoryTombstone(vars: AdminPurgeExpiredStoryTombstoneVariables): MutationPromise<AdminPurgeExpiredStoryTombstoneData, AdminPurgeExpiredStoryTombstoneVariables>;
+
+interface AdminPurgeExpiredStoryTombstoneRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: AdminPurgeExpiredStoryTombstoneVariables): MutationRef<AdminPurgeExpiredStoryTombstoneData, AdminPurgeExpiredStoryTombstoneVariables>;
+}
+export const adminPurgeExpiredStoryTombstoneRef: AdminPurgeExpiredStoryTombstoneRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+adminPurgeExpiredStoryTombstone(dc: DataConnect, vars: AdminPurgeExpiredStoryTombstoneVariables): MutationPromise<AdminPurgeExpiredStoryTombstoneData, AdminPurgeExpiredStoryTombstoneVariables>;
+
+interface AdminPurgeExpiredStoryTombstoneRef {
+  ...
+  (dc: DataConnect, vars: AdminPurgeExpiredStoryTombstoneVariables): MutationRef<AdminPurgeExpiredStoryTombstoneData, AdminPurgeExpiredStoryTombstoneVariables>;
+}
+export const adminPurgeExpiredStoryTombstoneRef: AdminPurgeExpiredStoryTombstoneRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminPurgeExpiredStoryTombstoneRef:
+```typescript
+const name = adminPurgeExpiredStoryTombstoneRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `AdminPurgeExpiredStoryTombstone` mutation requires an argument of type `AdminPurgeExpiredStoryTombstoneVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface AdminPurgeExpiredStoryTombstoneVariables {
+  jobId: UUIDString;
+  storyId: UUIDString;
+  completedBefore: TimestampString;
+}
+```
+### Return Type
+Recall that executing the `AdminPurgeExpiredStoryTombstone` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `AdminPurgeExpiredStoryTombstoneData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface AdminPurgeExpiredStoryTombstoneData {
+  eligibleTombstone?: unknown | null;
+  story_delete?: Story_Key | null;
+}
+```
+### Using `AdminPurgeExpiredStoryTombstone`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, adminPurgeExpiredStoryTombstone, AdminPurgeExpiredStoryTombstoneVariables } from '@seihouse/celestial-library-dataconnect';
+
+// The `AdminPurgeExpiredStoryTombstone` mutation requires an argument of type `AdminPurgeExpiredStoryTombstoneVariables`:
+const adminPurgeExpiredStoryTombstoneVars: AdminPurgeExpiredStoryTombstoneVariables = {
+  jobId: ..., 
+  storyId: ..., 
+  completedBefore: ..., 
+};
+
+// Call the `adminPurgeExpiredStoryTombstone()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await adminPurgeExpiredStoryTombstone(adminPurgeExpiredStoryTombstoneVars);
+// Variables can be defined inline as well.
+const { data } = await adminPurgeExpiredStoryTombstone({ jobId: ..., storyId: ..., completedBefore: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await adminPurgeExpiredStoryTombstone(dataConnect, adminPurgeExpiredStoryTombstoneVars);
+
+console.log(data.eligibleTombstone);
+console.log(data.story_delete);
+
+// Or, you can use the `Promise` API.
+adminPurgeExpiredStoryTombstone(adminPurgeExpiredStoryTombstoneVars).then((response) => {
+  const data = response.data;
+  console.log(data.eligibleTombstone);
+  console.log(data.story_delete);
+});
+```
+
+### Using `AdminPurgeExpiredStoryTombstone`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, adminPurgeExpiredStoryTombstoneRef, AdminPurgeExpiredStoryTombstoneVariables } from '@seihouse/celestial-library-dataconnect';
+
+// The `AdminPurgeExpiredStoryTombstone` mutation requires an argument of type `AdminPurgeExpiredStoryTombstoneVariables`:
+const adminPurgeExpiredStoryTombstoneVars: AdminPurgeExpiredStoryTombstoneVariables = {
+  jobId: ..., 
+  storyId: ..., 
+  completedBefore: ..., 
+};
+
+// Call the `adminPurgeExpiredStoryTombstoneRef()` function to get a reference to the mutation.
+const ref = adminPurgeExpiredStoryTombstoneRef(adminPurgeExpiredStoryTombstoneVars);
+// Variables can be defined inline as well.
+const ref = adminPurgeExpiredStoryTombstoneRef({ jobId: ..., storyId: ..., completedBefore: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = adminPurgeExpiredStoryTombstoneRef(dataConnect, adminPurgeExpiredStoryTombstoneVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.eligibleTombstone);
+console.log(data.story_delete);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.eligibleTombstone);
+  console.log(data.story_delete);
 });
 ```
 

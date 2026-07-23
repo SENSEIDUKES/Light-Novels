@@ -106,7 +106,7 @@ describe('DataConnectStorageAdapter', () => {
     expect(secondUrl).toBe(firstUrl);
     expect(firstInit.method).toBe('PUT');
     expect(JSON.parse(firstInit.body as string)).toEqual({ story });
-    expect(JSON.parse(secondInit.body as string)).toEqual({ story, expected });
+    expect(JSON.parse(secondInit.body as string)).toEqual({ patch: [], expected });
 
     for (const call of fetchMock.mock.calls) {
       const init = call[1] as RequestInit;

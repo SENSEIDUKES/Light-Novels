@@ -764,7 +764,7 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     manager.dispose();
   });
 
-  it('deep-checks existing chapter bodies during restored-account hydration and manual Harmony', async () => {
+  it('keeps restored-account hydration catalog-only and deep-checks chapters only on explicit Harmony', async () => {
     const story = {
       id: 'shared-story',
       userId: 'reader',
@@ -820,7 +820,7 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
       expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('reader');
       expect((manager as any).activeSyncPromise).toBeNull();
     });
-    expect(mocks.cloud.getChapterContent).toHaveBeenCalledWith(story.id, 1);
+    expect(mocks.cloud.getChapterContent).not.toHaveBeenCalled();
     mocks.cloud.getChapterContent.mockClear();
 
     await manager.performSync({ deep: true });

@@ -7,10 +7,17 @@ import type {
   UserProfile,
 } from '../../types';
 import type { CloudRevisionExpectation } from '../../lib/storage/types';
+import type { StoryPatchOperation } from '../../lib/storage/storyPatch';
 
 export interface PersistenceMutationContext {
   idempotencyKey: string;
   expected?: CloudRevisionExpectation;
+}
+
+export interface StoryPatchResult {
+  story: StoryWorld;
+  affectedRows: number;
+  durationMs: number;
 }
 
 export interface PersistenceAdminOverview {
@@ -49,6 +56,12 @@ export interface ApplicationPersistenceRepository {
     story: StoryWorld,
     context: PersistenceMutationContext,
   ): Promise<StoryWorld>;
+  patchStory(
+    ownerUid: string,
+    storyId: string,
+    patch: StoryPatchOperation[],
+    context: PersistenceMutationContext,
+  ): Promise<StoryPatchResult>;
   deleteStory(
     ownerUid: string,
     storyId: string,

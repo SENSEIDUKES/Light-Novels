@@ -639,6 +639,214 @@ mutation AdminUpsertStoryGraph(
   )
 }
 
+mutation AdminPatchStoryGraph(
+  $ownerUid: String!
+  $storyId: UUID!
+  $expectedSyncRevision: String
+  $newSyncRevision: String!
+  $newRevision: Int64!
+  $idempotencyKey: String!
+  $requestHash: String
+  $story: Story_Data!
+    @allow(fields: "id ownerUid sourceSeedId parentStoryId legacyStoryId clientStoryId title genre mainCharacterName premise status visibility currentChapterNumber forkChapterNumber syncRevision revision schemaVersion lastImageChapter evolutionReady evolutionReason availableVisualUpdate isEdited conflictResolvedAt deletedAt createdAt updatedAt")
+  $members: [StoryMember_Data!]!
+    @allow(fields: "storyId userUid role createdAt")
+  $deletedMemberUserUids: [String!]!
+  $preferences: [StoryPreference_Data!]!
+    @allow(fields: "storyId contextEngine hardcoreFateMode fatePressure motionCoverActive assignedRevealBackdropPolicy updatedAt")
+  $readerPreferences: [StoryReaderPreference_Data!]!
+    @allow(fields: "storyId userUid fontSize fontFamily lineHeight paragraphSpacing lineHeightScale paragraphSpacingScale letterSpacing wordSpacing readingWidth textAlignment contextEngine themeOverride colorPaletteId highlightStyle updatedAt")
+  $deletedReaderPreferenceUserUids: [String!]!
+  $memoryStates: [StoryMemoryState_Data!]!
+    @allow(fields: "storyId powerSystem currentPowerStage updatedAt")
+  $memoryWarnings: [StoryMemoryWarning_Data!]!
+    @allow(fields: "id storyId warning resolvedAt createdAt")
+  $deletedMemoryWarningIds: [UUID!]!
+  $rules: [StoryRule_Data!]!
+    @allow(fields: "id storyId ruleKey ruleValue isPinned position updatedAt")
+  $deletedRuleIds: [UUID!]!
+  $revealBackdrops: [StoryRevealBackdrop_Data!]!
+    @allow(fields: "storyId entityStableKey backdropAssetId updatedAt")
+  $deletedRevealBackdropKeys: [String!]!
+  $arcs: [StoryArc_Data!]!
+    @allow(fields: "id storyId arcNumber title summary status episodicSummaries createdAt updatedAt")
+  $deletedArcIds: [UUID!]!
+  $chapters: [Chapter_Data!]!
+    @allow(fields: "id storyId arcId legacyChapterId clientChapterId chapterNumber title premise status summary episodicSummary contentHash versionId syncRevision revision branchAnchor continuityWarnings continuitySoftNotes contractObjectiveFulfilled contractEvidence contractOpeningMatched embedding isSealed sealedAt hasContinuityFaults createdAt updatedAt")
+  $deletedChapterIds: [UUID!]!
+  $codexEntities: [CodexEntity_Data!]!
+    @allow(fields: "id storyId stableKey kind name role description status relationshipToMainCharacter relevanceState contextPriority authorContextNote firstAppearedChapter lastMajorInvolvementChapter currentRelevance toneMemory manifestationImportance isUserPinned pendingEvolution evolutionReady evolutionReason availableVisualUpdate lastImageChapter arcAccumulation sourceChapterNumber sourceBlockId provenanceCreatedBy provenanceConfidence lastMentionedChapter supersedesStableKey createdAt updatedAt")
+  $deletedCodexEntityIds: [UUID!]!
+  $replacedCodexChildEntityIds: [UUID!]!
+  $codexAliases: [CodexAlias_Data!]!
+    @allow(fields: "entityId alias normalizedAlias isCanonical")
+  $codexAttributes: [CodexEntityAttribute_Data!]!
+    @allow(fields: "entityId attributeKey stringValue numberValue booleanValue stringListValue jsonValue updatedAt")
+  $codexThreadLinks: [CodexThreadLink_Data!]!
+    @allow(fields: "entityId threadId createdAt")
+  $abilityProgression: [AbilityProgressionEvent_Data!]!
+    @allow(fields: "id abilityEntityId chapterNumber fromMastery toMastery note createdAt")
+  $codexRelationships: [CodexRelationship_Data!]!
+    @allow(fields: "id storyId sourceEntityId targetEntityId sourceStableKey targetStableKey sourceName targetName relationshipKind affinity threat description status createdAt updatedAt")
+  $deletedCodexRelationshipIds: [UUID!]!
+  $plotThreads: [PlotThread_Data!]!
+    @allow(fields: "id storyId description status originChapterNumber resolvedChapterNumber confidence isUserPinned stableKey sourceChapterNumber sourceBlockId provenanceCreatedBy provenanceConfidence lastMentionedChapter supersedesStableKey createdAt updatedAt")
+  $deletedPlotThreadIds: [UUID!]!
+  $karmaNodes: [KarmaNode_Data!]!
+    @allow(fields: "id storyId sourceEntityId targetEntityId sourceStableKey targetStableKey sourceName targetName description severity nodeType status createdAt resolvedAt")
+  $deletedKarmaNodeIds: [UUID!]!
+  $timelineEvents: [TimelineEvent_Data!]!
+    @allow(fields: "id storyId chapterId chapterNumber title description eventType occurredAtLabel createdAt")
+  $deletedTimelineEventIds: [UUID!]!
+  $bookmarks: [Bookmark_Data!]!
+    @allow(fields: "id userUid storyId chapterId paragraphIndex paragraphExcerpt note createdAt")
+  $deletedBookmarkIds: [UUID!]!
+  $readingProgresses: [ReadingProgress_Data!]!
+    @allow(fields: "userUid storyId chapterNumber anchorBlockId anchorText anchorOffset anchorParagraphIndex anchorContentSignature anchorIntraBlockRatio anchorSavedAt legacyScrollPosition anchor totalReadingTimeMs lastReadAt updatedAt")
+  $deletedReadingProgressUserUids: [String!]!
+  $arcReadingProgresses: [ArcReadingProgress_Data!]!
+    @allow(fields: "userUid storyId arcNumber readingTimeMs updatedAt")
+  $deletedArcReadingProgressNumbers: [Int!]!
+  $glossaryTerms: [GlossaryTerm_Data!]!
+    @allow(fields: "id storyId sourceText targetText targetLanguage note createdAt updatedAt")
+  $deletedGlossaryTermIds: [UUID!]!
+  $generationJobs: [GenerationJob_Data!]!
+    @allow(fields: "id ownerUid storyId chapterId kind status provider model inputHash idempotencyKey attemptCount errorCode errorMessage startedAt completedAt createdAt updatedAt")
+  $deletedGenerationJobIds: [UUID!]!
+  $replacedGenerationJobIds: [UUID!]!
+  $generationEvents: [GenerationEvent_Data!]!
+    @allow(fields: "id jobId eventType message progress createdAt")
+  $generationBatches: [ChapterGenerationBatch_Data!]!
+    @allow(fields: "id storyId clientBatchId status currentChapterNumber failedChapterNumber errorMessage createdAt completedAt updatedAt")
+  $deletedGenerationBatchIds: [UUID!]!
+  $replacedGenerationBatchIds: [UUID!]!
+  $generationBatchItems: [ChapterGenerationBatchItem_Data!]!
+    @allow(fields: "batchId chapterNumber status completedAt updatedAt")
+) @retired(reason: "Admin-only bounded graph patches are invoked with firebase-admin DataConnect")
+  @auth(level: NO_ACCESS)
+  @transaction {
+  query @redact {
+    existing: story(first: { where: { id: { eq: $storyId }, ownerUid: { eq: $ownerUid } } })
+      @check(
+        expr: "this != null && this.status != 'DELETED' && this.syncRevision == vars.expectedSyncRevision"
+        message: "Story is deleted or the expected revision is stale"
+      ) {
+      status
+      syncRevision
+    }
+    duplicate: persistenceReceipt(
+      key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    ) @check(expr: "this == null", message: "Idempotency key already completed") {
+      idempotencyKey
+    }
+  }
+
+  storyVersionGuard: _executeReturningFirst(
+    sql: """
+      UPDATE persistence_aggregate_version
+      SET sync_revision = $4, revision = $5, updated_at = NOW()
+      WHERE owner_uid = $1 AND aggregate_kind = 'STORY' AND aggregate_id = CAST($2 AS text)
+        AND sync_revision IS NOT DISTINCT FROM $3
+      RETURNING aggregate_id
+    """
+    params: [$ownerUid, $storyId, $expectedSyncRevision, $newSyncRevision, $newRevision]
+  ) @check(expr: "this != null", message: "Story compare-and-swap failed")
+
+  generationEvent_deleteMany(where: { jobId: { in: $replacedGenerationJobIds } })
+  chapterGenerationBatchItem_deleteMany(where: { batchId: { in: $replacedGenerationBatchIds } })
+  codexAlias_deleteMany(where: { entityId: { in: $replacedCodexChildEntityIds } })
+  codexEntityAttribute_deleteMany(where: { entityId: { in: $replacedCodexChildEntityIds } })
+  codexThreadLink_deleteMany(where: { entityId: { in: $replacedCodexChildEntityIds } })
+  abilityProgressionEvent_deleteMany(
+    where: { abilityEntityId: { in: $replacedCodexChildEntityIds } }
+  )
+
+  codexRelationship_deleteMany(where: { id: { in: $deletedCodexRelationshipIds } })
+  karmaNode_deleteMany(where: { id: { in: $deletedKarmaNodeIds } })
+  timelineEvent_deleteMany(where: { id: { in: $deletedTimelineEventIds } })
+  plotThread_deleteMany(where: { id: { in: $deletedPlotThreadIds } })
+  codexEntity_deleteMany(where: { id: { in: $deletedCodexEntityIds } })
+  generationJob_deleteMany(where: { id: { in: $deletedGenerationJobIds } })
+  chapterGenerationBatch_deleteMany(where: { id: { in: $deletedGenerationBatchIds } })
+  bookmark_deleteMany(where: { id: { in: $deletedBookmarkIds } })
+  readingProgress_deleteMany(
+    where: { storyId: { eq: $storyId }, userUid: { in: $deletedReadingProgressUserUids } }
+  )
+  arcReadingProgress_deleteMany(
+    where: {
+      storyId: { eq: $storyId }
+      userUid: { eq: $ownerUid }
+      arcNumber: { in: $deletedArcReadingProgressNumbers }
+    }
+  )
+  glossaryTerm_deleteMany(where: { id: { in: $deletedGlossaryTermIds } })
+  storyMemoryWarning_deleteMany(where: { id: { in: $deletedMemoryWarningIds } })
+  storyRule_deleteMany(where: { id: { in: $deletedRuleIds } })
+  storyRevealBackdrop_deleteMany(
+    where: {
+      storyId: { eq: $storyId }
+      entityStableKey: { in: $deletedRevealBackdropKeys }
+    }
+  )
+  storyReaderPreference_deleteMany(
+    where: { storyId: { eq: $storyId }, userUid: { in: $deletedReaderPreferenceUserUids } }
+  )
+  storyMember_deleteMany(
+    where: { storyId: { eq: $storyId }, userUid: { in: $deletedMemberUserUids } }
+  )
+  chapter_deleteMany(where: { id: { in: $deletedChapterIds } })
+  storyArc_deleteMany(where: { id: { in: $deletedArcIds } })
+
+  story_upsert(data: $story)
+  storyMember_upsertMany(data: $members)
+  storyPreference_upsertMany(data: $preferences)
+  storyReaderPreference_upsertMany(data: $readerPreferences)
+  storyMemoryState_upsertMany(data: $memoryStates)
+  storyMemoryWarning_upsertMany(data: $memoryWarnings)
+  storyRule_upsertMany(data: $rules)
+  storyRevealBackdrop_upsertMany(data: $revealBackdrops)
+  storyArc_upsertMany(data: $arcs)
+  chapter_upsertMany(data: $chapters)
+  codexEntity_upsertMany(data: $codexEntities)
+  codexAlias_upsertMany(data: $codexAliases)
+  codexEntityAttribute_upsertMany(data: $codexAttributes)
+  plotThread_upsertMany(data: $plotThreads)
+  codexThreadLink_upsertMany(data: $codexThreadLinks)
+  codexRelationship_upsertMany(data: $codexRelationships)
+  abilityProgressionEvent_upsertMany(data: $abilityProgression)
+  karmaNode_upsertMany(data: $karmaNodes)
+  timelineEvent_upsertMany(data: $timelineEvents)
+  bookmark_upsertMany(data: $bookmarks)
+  readingProgress_upsertMany(data: $readingProgresses)
+  arcReadingProgress_upsertMany(data: $arcReadingProgresses)
+  glossaryTerm_upsertMany(data: $glossaryTerms)
+  generationJob_upsertMany(data: $generationJobs)
+  generationEvent_upsertMany(data: $generationEvents)
+  chapterGenerationBatch_upsertMany(data: $generationBatches)
+  chapterGenerationBatchItem_upsertMany(data: $generationBatchItems)
+  persistenceReceipt_insert(
+    data: {
+      ownerUid: $ownerUid
+      idempotencyKey: $idempotencyKey
+      operation: "PATCH_STORY_GRAPH"
+      storyId: $storyId
+      resultingSyncRevision: $newSyncRevision
+      resultingRevision: $newRevision
+      requestHash: $requestHash
+    }
+  )
+  storyChange_insert(
+    data: {
+      ownerUid: $ownerUid
+      storyId: $storyId
+      changeKind: UPSERTED
+      storyRevision: $newRevision
+      syncRevision: $newSyncRevision
+      idempotencyKey: $idempotencyKey
+    }
+  )
+}
+
 mutation AdminUpsertChapterContentGraph(
   $ownerUid: String!
   $storyId: UUID!
@@ -1211,6 +1419,28 @@ mutation AdminCompleteStoryDeletionJob($jobId: UUID!, $leaseOwner: String!)
       updatedAt_expr: "request.time"
     }
   )
+}
+
+mutation AdminPurgeExpiredStoryTombstone(
+  $jobId: UUID!
+  $storyId: UUID!
+  $completedBefore: Timestamp!
+) @auth(level: NO_ACCESS) @transaction {
+  eligibleTombstone: _executeReturningFirst(
+    sql: """
+      SELECT j.story_id AS id
+      FROM story_deletion_job j
+      JOIN story s ON s.id = j.story_id
+      WHERE j.id = $1
+        AND j.story_id = $2
+        AND j.status = 'SUCCEEDED'::story_deletion_status
+        AND j.completed_at <= $3
+        AND s.status = 'DELETED'::story_status
+    """
+    params: [$jobId, $storyId, $completedBefore]
+  ) @check(expr: "this != null", message: "Expired story tombstone could not be purged")
+  story_delete(id: $storyId)
+    @check(expr: "this != null", message: "Expired story tombstone could not be deleted")
 }
 
 mutation AdminReserveStorageQuota(

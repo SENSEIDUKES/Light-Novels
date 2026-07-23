@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import type {
+  AdminCommitMediaAssetToSlotVariables,
   AdminGetOwnedChapterContentGraphData,
   AdminGetOwnedStoryGraphData,
   AdminGetOwnedStorySeedGraphData,
@@ -15,6 +16,7 @@ import {
   mapChapterContentToGraphVariables,
   mapStorySeedToGraphVariables,
   mapStoryWorldToGraphVariables,
+  mapStoryWorldToPatchVariables,
   mapUserProfileToGraphVariables,
   persistenceUuid,
 } from './graphMapper';
@@ -331,6 +333,182 @@ describe('story graph mapping', () => {
     expect(persistenceUuid('legacy-id', 'story')).toBe(persistenceUuid('legacy-id', 'story'));
     expect(persistenceUuid('legacy-id', 'story')).not.toBe(persistenceUuid('other-id', 'story'));
     expect(persistenceUuid(`story-${STORY_ID}`, 'story')).toBe(STORY_ID);
+  });
+
+  it('bounds a one-entity Codex update in a realistic 100-chapter graph', () => {
+    const currentGraph = storyGraph();
+    currentGraph.chapters = Array.from({ length: 100 }, (_, index) => ({
+      ...currentGraph.chapters[0],
+      id: `33333333-3333-4333-8333-${String(index + 1).padStart(12, '0')}`,
+      clientChapterId: `chapter-client-${index + 1}`,
+      chapterNumber: index + 1,
+      title: `Chapter ${index + 1}`,
+    }));
+    currentGraph.story!.currentChapterNumber = 100;
+    const current = hydrateStoryWorld(currentGraph)!;
+    const desired = structuredClone(current);
+    desired.updatedAt = '2026-07-22T18:01:00.000Z';
+    desired.memory.characters[0].description = 'Moon cultivator, newly sworn.';
+
+    const startedAt = performance.now();
+    const patch = mapStoryWorldToPatchVariables({
+      ownerUid: 'owner-a',
+      story: desired,
+      currentGraph,
+      ...mutationMetadata(),
+    });
+    const durationMs = performance.now() - startedAt;
+    const { affectedRowCount, ...wireVariables } = patch;
+    const requestBytes = Buffer.byteLength(JSON.stringify(wireVariables));
+
+    expect(patch.chapters).toHaveLength(0);
+    expect(patch.arcs).toHaveLength(0);
+    expect(patch.codexEntities).toEqual([
+      expect.objectContaining({ stableKey: 'lin', description: 'Moon cultivator, newly sworn.' }),
+    ]);
+    expect(affectedRowCount).toBeLessThanOrEqual(3);
+    expect(requestBytes).toBeLessThan(12_000);
+    expect(durationMs).toBeLessThan(250);
+  });
+
+  it('measures bounded hot paths against a 100-chapter, substantial-Codex story', () => {
+    const currentGraph = storyGraph();
+    currentGraph.chapters = Array.from({ length: 100 }, (_, index) => ({
+      ...currentGraph.chapters[0],
+      id: `33333333-3333-4333-8333-${String(index + 1).padStart(12, '0')}`,
+      clientChapterId: `chapter-client-${index + 1}`,
+      chapterNumber: index + 1,
+      title: `Chapter ${index + 1}`,
+    }));
+    currentGraph.story!.currentChapterNumber = 100;
+    currentGraph.codexEntities = Array.from({ length: 40 }, (_, index) => ({
+      ...currentGraph.codexEntities[0],
+      id: `44444444-4444-4444-8444-${String(index + 1).padStart(12, '0')}`,
+      stableKey: `cultivator-${index + 1}`,
+      name: `Cultivator ${index + 1}`,
+      description: `Cultivator ${index + 1} has a detailed history across the hundred-chapter fixture.`,
+      aliases: [{
+        alias: `Disciple ${index + 1}`,
+        normalizedAlias: `disciple ${index + 1}`,
+        isCanonical: false,
+      }],
+      attributes: [
+        { attributeKey: 'powerLevel', stringValue: `Realm ${index + 1}`, updatedAt: NOW },
+        { attributeKey: 'abilities', stringListValue: [`Art ${index + 1}`, `Step ${index + 1}`], updatedAt: NOW },
+      ],
+    })) as typeof currentGraph.codexEntities;
+    const current = hydrateStoryWorld(currentGraph)!;
+    const metrics: Record<string, { requestBytes: number; affectedRows: number; durationMs: number }> = {};
+    const measure = <T>(
+      name: string,
+      build: () => T,
+      affectedRows: (value: T) => number,
+    ): T => {
+      const startedAt = performance.now();
+      const value = build();
+      const requestBytes = Buffer.byteLength(JSON.stringify(value));
+      metrics[name] = {
+        requestBytes,
+        affectedRows: affectedRows(value),
+        durationMs: Number((performance.now() - startedAt).toFixed(3)),
+      };
+      return value;
+    };
+
+    const readerStory = structuredClone(current);
+    readerStory.updatedAt = '2026-07-22T18:02:00.000Z';
+    readerStory.lastReadChapter = 73;
+    readerStory.lastReadAt = readerStory.updatedAt;
+    readerStory.readingStats = { totalReadingTimeMs: 987_654 };
+    const readerPatch = measure(
+      'readerProgress',
+      () => mapStoryWorldToPatchVariables({
+        ownerUid: 'owner-a',
+        story: readerStory,
+        currentGraph,
+        ...mutationMetadata(),
+      }),
+      value => value.affectedRowCount,
+    );
+
+    const codexStory = structuredClone(current);
+    codexStory.updatedAt = '2026-07-22T18:03:00.000Z';
+    codexStory.memory.characters[19].description = 'Updated after a bounded cultivation breakthrough.';
+    const codexPatch = measure(
+      'codexEntity',
+      () => mapStoryWorldToPatchVariables({
+        ownerUid: 'owner-a',
+        story: codexStory,
+        currentGraph,
+        ...mutationMetadata(),
+      }),
+      value => value.affectedRowCount,
+    );
+
+    const chapterCurrent = chapterGraph();
+    const chapter = hydrateChapterContent(chapterCurrent)!;
+    const chapterWrite = measure(
+      'chapterSave',
+      () => mapChapterContentToGraphVariables({
+        ownerUid: 'owner-a',
+        storyId: STORY_ID,
+        content: {
+          ...chapter,
+          generatedContent: `${chapter.generatedContent}\n${'A bounded chapter paragraph. '.repeat(120)}`,
+          updatedAt: '2026-07-22T18:04:00.000Z',
+        },
+        currentGraph: chapterCurrent,
+        ...mutationMetadata(),
+      }),
+      value => 7 + [
+        value.blocks,
+        value.blockAttributes,
+        value.blockEntityMentions,
+        value.translations,
+        value.fingerprints,
+        value.facts,
+        value.factSupersessions,
+        value.audioManifests,
+        value.voiceClips,
+      ].reduce((total, rows) => total + rows.length, 0),
+    );
+
+    const coverCommit = measure(
+      'coverChange',
+      () => ({
+        id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2',
+        ownerUid: 'owner-a',
+        quotaReservationId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb3',
+        idempotencyKey: 'cover-change-scale-test',
+        etag: 'cover-etag',
+        storyId: STORY_ID,
+        targetKind: 'STORY',
+        targetKey: STORY_ID,
+        purpose: 'STORY_COVER',
+        attachmentId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb4',
+        historyEntityType: 'cover',
+        clientHistoryId: 'cover-history-2',
+        promptUsed: 'Moon archive cover',
+        position: 1,
+        expectedCurrentAssetId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        expectedSlotVersion: '1',
+        newSlotVersion: '2',
+      } satisfies AdminCommitMediaAssetToSlotVariables),
+      () => 7,
+    );
+
+    expect(readerPatch.readingProgresses).toHaveLength(1);
+    expect(readerPatch.chapters).toHaveLength(0);
+    expect(codexPatch.codexEntities).toHaveLength(1);
+    expect(codexPatch.chapters).toHaveLength(0);
+    expect(chapterWrite.blocks).toHaveLength(1);
+    expect(coverCommit.targetKind).toBe('STORY');
+    expect(metrics.chapterSave.requestBytes).toBeLessThan(20_000);
+    expect(metrics.coverChange.requestBytes).toBeLessThan(2_000);
+    expect(metrics.readerProgress.requestBytes).toBeLessThan(12_000);
+    expect(metrics.codexEntity.requestBytes).toBeLessThan(12_000);
+    expect(Math.max(...Object.values(metrics).map(value => value.durationMs))).toBeLessThan(250);
+    console.info(`[persistence-scale] ${JSON.stringify(metrics)}`);
   });
 });
 

@@ -1,5 +1,6 @@
 import { auth } from '../firebase';
 import { generateUUID } from '../id';
+import { resolveMediaAssetForDisplay } from '../media/privateMediaResolver';
 import type { LoreGlossary, StorySeed, UserProfile } from '../../types';
 
 export class PersistenceClientError extends Error {
@@ -114,7 +115,15 @@ function mutationBody<T>(value: T, options: PersistenceMutationOptions = {}) {
 
 export async function getUserProfile(): Promise<UserProfile | null> {
   const result = await persistenceRequest<{ profile: UserProfile | null }>('/profile');
-  return result.profile;
+  const profile = result.profile;
+  const descriptor = profile?.avatarMediaDescriptor;
+  if (!profile || !descriptor || descriptor.id !== profile.activePortraitId) return profile;
+  const resolved = await resolveMediaAssetForDisplay(descriptor);
+  return {
+    ...profile,
+    avatarUrl: resolved.url,
+    avatarMediaDescriptor: { ...resolved.descriptor, deliveryUrl: '' },
+  };
 }
 
 export async function saveUserProfile(

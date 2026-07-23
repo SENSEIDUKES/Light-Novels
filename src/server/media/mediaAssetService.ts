@@ -826,6 +826,29 @@ export class MediaAssetService {
     return { attempted: jobs.length, completed, failed };
   }
 
+  /** Permanently remove completed story tombstones after a bounded recovery window. */
+  async runStoryTombstonePurge(
+    retentionMs = 30 * 24 * 60 * 60 * 1000,
+    limit = 100,
+  ): Promise<{ attempted: number; completed: number; failed: number }> {
+    if (!Number.isSafeInteger(retentionMs) || retentionMs < 24 * 60 * 60 * 1000) {
+      throw new Error('Story tombstone retention must be at least one day.');
+    }
+    const completedBefore = new Date(this.now().getTime() - retentionMs).toISOString();
+    const jobs = await this.repository.listExpiredStoryTombstones(completedBefore, limit);
+    let completed = 0;
+    let failed = 0;
+    for (const job of jobs) {
+      try {
+        await this.repository.purgeExpiredStoryTombstone(job.id, job.storyId, completedBefore);
+        completed += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    return { attempted: jobs.length, completed, failed };
+  }
+
   /** Close abandoned UPLOADING reservations after the worker timeout. */
   async runStaleUploadRecovery(limit = 100): Promise<{ inspected: number; failedMarked: number; cleanupQueued: number; errors: number }> {
     const staleBefore = new Date(this.now().getTime() - this.staleUploadAgeMs).toISOString();

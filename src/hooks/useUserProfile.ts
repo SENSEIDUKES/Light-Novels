@@ -11,7 +11,11 @@ import {
   CultivatorPortraitCommitDeferredError,
   persistCultivatorPortrait,
 } from '../services/cultivatorPortraitPersistence';
-import { cacheAccountProfile, createAccountProfileFallback } from '../lib/userProfileCache';
+import {
+  cacheAccountProfile,
+  createAccountProfileFallback,
+  hydrateCachedAccountPortrait,
+} from '../lib/userProfileCache';
 import {
   deletePersistenceAdminStory,
   getPersistenceAdminOverview,
@@ -524,7 +528,9 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
       } catch (err) {
         if (!snapshotIsCurrent()) return;
         console.error(err);
-        const fallbackProfile = createAccountProfileFallback(currentUser);
+        const fallbackProfile = await hydrateCachedAccountPortrait(
+          createAccountProfileFallback(currentUser),
+        );
         setProfile(fallbackProfile);
         setFormData(fallbackProfile);
         setError('');

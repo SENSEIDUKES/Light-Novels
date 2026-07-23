@@ -5,6 +5,7 @@ import {
   MEDIA_TARGET_KIND,
   saveMediaAsset,
 } from '../lib/media/mediaAssetClient';
+import { resolveMediaAssetForDisplay } from '../lib/media/privateMediaResolver';
 import type { CultivatorPortraitAsset } from '../types';
 
 export interface PersistCultivatorPortraitInput {
@@ -112,13 +113,14 @@ export async function persistCultivatorPortrait(
     },
     idempotencyKey: generateUUID(),
   });
+  const resolved = await resolveMediaAssetForDisplay(asset);
 
   const createdAt = asset.readyAt || asset.createdAt;
   const portrait: CultivatorPortraitAsset = {
     schemaVersion: 1,
     id: asset.id,
     userId: input.userId,
-    imageUrl: asset.deliveryUrl,
+    imageUrl: resolved.url,
     assetVersion: asset.version,
     checksumSha256: asset.checksumSha256,
     deliveryUrlExpiresAt: asset.deliveryUrlExpiresAt ?? undefined,

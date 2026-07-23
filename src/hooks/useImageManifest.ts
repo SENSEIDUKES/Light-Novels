@@ -9,6 +9,10 @@ import {
   requirePersistenceUuid,
   saveMediaAsset,
 } from '../lib/media/mediaAssetClient';
+import {
+  discardCachedMedia,
+  resolveMediaAssetForDisplay,
+} from '../lib/media/privateMediaResolver';
 
 export function useImageManifest() {
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
@@ -94,9 +98,13 @@ export function useImageManifest() {
             promptUsed,
             chapterNumber: currentChapterNumber,
           },
+          replacesAssetId: entry.imageAssetId,
           idempotencyKey: generateUUID(),
         });
-        selectedUrl = asset.deliveryUrl;
+        selectedUrl = (await resolveMediaAssetForDisplay(asset)).url;
+        if (entry.imageAssetId && entry.imageAssetId !== asset.id) {
+          await discardCachedMedia(entry.imageAssetId);
+        }
         const newHistoryItem = {
           id: legacyMediaId,
           assetId: asset.id,
@@ -249,9 +257,13 @@ export function useImageManifest() {
             promptUsed: promptText,
             chapterNumber,
           },
+          replacesAssetId: chapter?.heroImageAssetId,
           idempotencyKey: generateUUID(),
         });
-        selectedUrl = asset.deliveryUrl;
+        selectedUrl = (await resolveMediaAssetForDisplay(asset)).url;
+        if (chapter?.heroImageAssetId && chapter.heroImageAssetId !== asset.id) {
+          await discardCachedMedia(chapter.heroImageAssetId);
+        }
         const newHistoryItem = {
           id: legacyMediaId,
           assetId: asset.id,

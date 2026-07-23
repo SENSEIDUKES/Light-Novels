@@ -349,6 +349,13 @@ function adminCompleteStoryDeletionJob(dcOrVarsOrOptions, varsOrOptions, options
 }
 exports.adminCompleteStoryDeletionJob = adminCompleteStoryDeletionJob;
 
+function adminPurgeExpiredStoryTombstone(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminPurgeExpiredStoryTombstone', inputVars, inputOpts);
+}
+exports.adminPurgeExpiredStoryTombstone = adminPurgeExpiredStoryTombstone;
+
 function adminReserveStorageQuota(dcOrVarsOrOptions, varsOrOptions, options) {
   const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
   dcInstance.useGen(true);
@@ -608,6 +615,13 @@ function adminListOwnedStories(dcOrVarsOrOptions, varsOrOptions, options) {
 }
 exports.adminListOwnedStories = adminListOwnedStories;
 
+function adminListOwnedStoryCoverSlots(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminListOwnedStoryCoverSlots', inputVars, inputOpts);
+}
+exports.adminListOwnedStoryCoverSlots = adminListOwnedStoryCoverSlots;
+
 function adminListOwnedStoryChanges(dcOrVarsOrOptions, varsOrOptions, options) {
   const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
   dcInstance.useGen(true);
@@ -705,6 +719,13 @@ function adminListStoryDeletionJobs(dcOrVarsOrOptions, varsOrOptions, options) {
   return dcInstance.executeQuery('AdminListStoryDeletionJobs', inputVars, inputOpts);
 }
 exports.adminListStoryDeletionJobs = adminListStoryDeletionJobs;
+
+function adminListExpiredStoryTombstones(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeQuery('AdminListExpiredStoryTombstones', inputVars, inputOpts);
+}
+exports.adminListExpiredStoryTombstones = adminListExpiredStoryTombstones;
 
 function adminGetStorageUsageReport(dcOrOptions, options) {
   const { dc: dcInstance, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrOptions, options, undefined);

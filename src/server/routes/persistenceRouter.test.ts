@@ -39,6 +39,11 @@ describe('persistenceRouter', () => {
       listStories: vi.fn().mockResolvedValue([story]),
       getStory: vi.fn().mockResolvedValue(story),
       saveStory: vi.fn().mockResolvedValue(story),
+      patchStory: vi.fn().mockResolvedValue({
+        story,
+        affectedRows: 2,
+        durationMs: 4.5,
+      }),
     } as unknown as ApplicationPersistenceRepository;
     const app = express();
     app.use(createPersistenceRouter({
@@ -96,6 +101,40 @@ describe('persistenceRouter', () => {
       idempotencyKey: 'stable-story-save-key',
       expected,
     });
+  });
+
+  it('passes bounded story patches and reports measured write metrics', async () => {
+    const expected = {
+      exists: true,
+      updatedAt: story.updatedAt,
+      syncRevision: 'remote-revision',
+    };
+    const patch = [{ op: 'replace', path: '/title', value: 'Patched Chronicle' }];
+    const response = await fetch(`${baseUrl}/api/persistence/stories/${story.id}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: 'Bearer valid-token',
+        'Content-Type': 'application/json',
+        'Idempotency-Key': 'stable-story-patch-key',
+      },
+      body: JSON.stringify({ patch, expected }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      story,
+      metrics: {
+        requestBytes: expect.any(Number),
+        affectedRows: 2,
+        durationMs: 4.5,
+      },
+    });
+    expect(repository.patchStory).toHaveBeenCalledWith(
+      ownerUid,
+      story.id,
+      patch,
+      { idempotencyKey: 'stable-story-patch-key', expected },
+    );
   });
 
   it('rejects a payload that names a different owner before repository access', async () => {

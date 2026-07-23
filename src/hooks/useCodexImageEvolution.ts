@@ -11,6 +11,10 @@ import {
   saveMediaAsset,
   selectMediaAsset,
 } from '../lib/media/mediaAssetClient';
+import {
+  discardCachedMedia,
+  resolveMediaAssetForDisplay,
+} from '../lib/media/privateMediaResolver';
 
 export function useCodexImageEvolution(
   memory: StoryMemory,
@@ -199,9 +203,13 @@ export function useCodexImageEvolution(
           promptUsed: preview.prompt,
           chapterNumber: activeStory.currentChapterNumber,
         },
+        replacesAssetId: entity?.imageAssetId,
         idempotencyKey: generateUUID(),
       });
-      const selectedUrl = asset.deliveryUrl;
+      const selectedUrl = (await resolveMediaAssetForDisplay(asset)).url;
+      if (entity?.imageAssetId && entity.imageAssetId !== asset.id) {
+        await discardCachedMedia(entity.imageAssetId);
+      }
 
       const newHistoryItem: GeneratedImage = {
         id: legacyMediaId,

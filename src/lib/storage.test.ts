@@ -790,15 +790,12 @@ describe('PersistentStorageManager', () => {
       cloudAdapter.saveStory = vi.fn().mockResolvedValue(undefined);
       (manager as any).isCloudAvailable = true;
 
-      await manager.performSync();
+      await manager.performSync({ deep: true });
 
       expect(cloudAdapter.saveChapterContent).toHaveBeenCalledWith(
         expect.objectContaining(localChapter),
       );
-      expect(cloudAdapter.saveStory).toHaveBeenCalledTimes(1);
-      expect(cloudAdapter.saveStory.mock.invocationCallOrder[0]).toBeGreaterThan(
-        cloudAdapter.saveChapterContent.mock.invocationCallOrder[0],
-      );
+      expect(cloudAdapter.saveStory).not.toHaveBeenCalled();
       expect((manager as any).syncQueue).toEqual([]);
     });
 
@@ -868,7 +865,7 @@ describe('PersistentStorageManager', () => {
       ]);
     });
 
-    it('publishes a final story heartbeat after its changed chapter body', async () => {
+    it('relies on the chapter mutation parent heartbeat without a second story save', async () => {
       const localAdapter = (manager as any).localAdapter;
       const cloudAdapter = (manager as any).cloudAdapter;
       const baseTimestamp = new Date(Date.now() - 60_000).toISOString();
@@ -902,16 +899,13 @@ describe('PersistentStorageManager', () => {
         new Date(baseTimestamp).getTime(),
       );
 
-      await manager.performSync();
+      await manager.performSync({ deep: true });
 
       expect(cloudAdapter.saveChapterContent).toHaveBeenCalledTimes(1);
-      expect(cloudAdapter.saveStory).toHaveBeenCalledTimes(1);
-      const chapterWriteOrder = cloudAdapter.saveChapterContent.mock.invocationCallOrder[0];
-      const finalHeartbeatOrder = cloudAdapter.saveStory.mock.invocationCallOrder.at(-1)!;
-      expect(finalHeartbeatOrder).toBeGreaterThan(chapterWriteOrder);
+      expect(cloudAdapter.saveStory).not.toHaveBeenCalled();
     });
 
-    it('publishes a second parent heartbeat after a brand-new chapter body', async () => {
+    it('does not republish a new parent after its chapter mutation heartbeat', async () => {
       const cloudAdapter = (manager as any).cloudAdapter;
       let cloudStory: StoryWorld | null = null;
       let cloudChapter: ChapterContent | null = null;
@@ -954,14 +948,8 @@ describe('PersistentStorageManager', () => {
 
       await manager.performSync();
 
-      expect(writeOrder).toEqual(['story', 'chapter', 'story']);
-      expect(cloudAdapter.saveStory).toHaveBeenCalledTimes(2);
-      const firstParent = cloudAdapter.saveStory.mock.calls[0][0];
-      const finalParent = cloudAdapter.saveStory.mock.calls[1][0];
-      expect(new Date(finalParent.updatedAt).getTime()).toBeGreaterThan(
-        new Date(firstParent.updatedAt).getTime(),
-      );
-      expect(finalParent.syncRevision).not.toBe(firstParent.syncRevision);
+      expect(writeOrder).toEqual(['story', 'chapter']);
+      expect(cloudAdapter.saveStory).toHaveBeenCalledTimes(1);
       expect(cloudChapter?.generatedContent).toBe(
         'The first body must arrive before the signal.',
       );

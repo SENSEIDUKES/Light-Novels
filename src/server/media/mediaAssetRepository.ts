@@ -22,6 +22,7 @@ export interface MediaUploadReceipt {
   status: string;
   createdAt: string;
   updatedAt: string;
+  completedAt?: string | null;
 }
 
 export interface MediaSlotState {
@@ -134,6 +135,7 @@ export interface StoryDeletionJobState {
   lastError?: string | null;
   createdAt: string;
   updatedAt: string;
+  completedAt?: string | null;
 }
 
 export interface StoryDeletionMediaCandidate {
@@ -176,6 +178,8 @@ export interface MediaAssetRepository {
   failStoryDeletionJob(jobId: string, leaseOwner: string, stage: StoryDeletionStage, message: string): Promise<void>;
   completeStoryDeletionJob(jobId: string, leaseOwner: string): Promise<void>;
   listStoryDeletionMediaCandidates(ownerUid: string, storyId: string, limit?: number): Promise<StoryDeletionMediaCandidate[]>;
+  listExpiredStoryTombstones(completedBefore: string, limit?: number): Promise<StoryDeletionJobState[]>;
+  purgeExpiredStoryTombstone(jobId: string, storyId: string, completedBefore: string): Promise<void>;
   listStorageUsage(limit?: number): Promise<StorageUsageRow[]>;
 }
 

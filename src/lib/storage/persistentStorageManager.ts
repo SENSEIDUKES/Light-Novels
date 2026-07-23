@@ -7,7 +7,10 @@ import {
   SyncTask,
 } from "./types";
 import { LocalStorageFallbackAdapter } from "./localStorageAdapter";
-import { DataConnectStorageAdapter } from "./dataConnectStorageAdapter";
+import {
+  DataConnectStorageAdapter,
+  preparePermanentPersistencePayload,
+} from "./dataConnectStorageAdapter";
 import { auth } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { IndexedDBStorageAdapter } from "./indexedDBAdapter";
@@ -19,6 +22,10 @@ import type {
   EnqueueFoundationOutboxItem,
   FoundationOutboxItem,
 } from "../foundation/cache/types";
+import {
+  resetPrivateMediaResolver,
+  resolveMediaAssetForDisplay,
+} from "../media/privateMediaResolver";
 
 type DurableSyncTask = Omit<SyncTask, "attempts">;
 
@@ -991,57 +998,12 @@ export class PersistentStorageManager implements StorageAdapter {
   }
 
   /**
-   * Chapter subcollections have no realtime listener. Once a chapter has been
-   * published, retain or create a durable parent task so a later parent write
-   * tells every open device to re-read that chapter.
+   * The targeted PostgreSQL chapter mutation advances the parent story
+   * revision in the same transaction, so no second graph write is needed.
    */
   private async requirePostChapterHeartbeat(storyId: string): Promise<void> {
-    const userId = this.assertActiveSyncAccount();
-    const parentStory = await this.localAdapter.getStory(storyId);
-    this.assertCurrentAccount(userId);
-    if (!parentStory || parentStory.deleted) {
-      throw new Error(
-        `Cannot signal published chapter for unavailable story ${storyId}`,
-      );
-    }
-    if (parentStory.userId && parentStory.userId !== userId) {
-      throw this.accountChangedError();
-    }
-
-    const pendingStory = this.syncQueue.find(
-      (task) =>
-        task.type === "story" &&
-        task.storyId === storyId &&
-        task.userId === userId,
-    );
-    if (pendingStory) {
-      if (!pendingStory.requiresPostChapterHeartbeat) {
-        const heartbeatTask = this.normalizeSyncTask(
-          {
-            ...pendingStory,
-            generation: (pendingStory.generation ?? 1) + 1,
-            requiresPostChapterHeartbeat: true,
-          },
-          generateUUID(),
-        );
-        await this.persistTask(heartbeatTask);
-        await this.completePersistedTask(pendingStory);
-        const pendingIndex = this.syncQueue.findIndex(
-          (candidate) =>
-            candidate.idempotencyKey === pendingStory.idempotencyKey,
-        );
-        if (pendingIndex >= 0) this.syncQueue[pendingIndex] = heartbeatTask;
-      }
-      return;
-    }
-
-    await this.enqueueTask({
-      type: "story",
-      storyId,
-      timestamp: Date.now(),
-      userId,
-      requiresPostChapterHeartbeat: true,
-    });
+    void storyId;
+    this.assertActiveSyncAccount();
   }
 
   private async flushSyncQueue(
@@ -1125,7 +1087,12 @@ export class PersistentStorageManager implements StorageAdapter {
 
           try {
             if (task.type === "story") {
-              blocked = await this.withRecordLock(
+              if (task.requiresPostChapterHeartbeat) {
+                // Retire compatibility outbox rows produced before the chapter
+                // transaction owned the parent heartbeat.
+                blocked = false;
+              } else {
+                blocked = await this.withRecordLock(
                 this.storyLockKey(task.storyId),
                 async () => {
                   const localStory = await this.localAdapter.getStory(task.storyId);
@@ -1199,7 +1166,8 @@ export class PersistentStorageManager implements StorageAdapter {
                   if (wrote) this.rememberCloudRevision(cloudPayload);
                   return !wrote;
                 },
-              );
+                );
+              }
             } else if (
               task.type === "chapter" &&
               task.chapterNumber !== undefined
@@ -1381,6 +1349,7 @@ export class PersistentStorageManager implements StorageAdapter {
     ) {
       return;
     }
+    resetPrivateMediaResolver();
     const transitionVersion = ++this.authTransitionVersion;
     this.isCloudAvailable = false;
     this.cancelScheduledFlush();
@@ -1422,7 +1391,7 @@ export class PersistentStorageManager implements StorageAdapter {
     this.isCloudAvailable = true;
     this.setStatus("idle");
     // A restored account must see its PostgreSQL library on a clean browser.
-    await this.performSync({ catalog: true, deep: true });
+    await this.performSync({ catalog: true, deep: false });
   }
 
   async init(): Promise<void> {
@@ -1580,7 +1549,7 @@ export class PersistentStorageManager implements StorageAdapter {
       } else if (auth.currentUser) {
         this.isCloudAvailable = true;
         this.setStatus("idle");
-        await this.performSync({ catalog: true, deep: true });
+        await this.performSync({ catalog: true, deep: false });
       }
 
       this.authUnsubscribe?.();
@@ -1627,9 +1596,14 @@ export class PersistentStorageManager implements StorageAdapter {
 
     if (local.title !== cloud.title) return true;
     if (local.currentChapterNumber !== cloud.currentChapterNumber) return true;
-    const localChars = local.memory?.characters?.length || 0;
-    const cloudChars = cloud.memory?.characters?.length || 0;
-    if (localChars !== cloudChars) return true;
+    if (
+      local.persistenceHydration !== "summary" &&
+      cloud.persistenceHydration !== "summary"
+    ) {
+      const localChars = local.memory?.characters?.length || 0;
+      const cloudChars = cloud.memory?.characters?.length || 0;
+      if (localChars !== cloudChars) return true;
+    }
     const getHasContentCount = (story: StoryWorld) => {
       let count = 0;
       if (story.arcs) {
@@ -1641,8 +1615,110 @@ export class PersistentStorageManager implements StorageAdapter {
       }
       return count;
     };
-    if (getHasContentCount(local) !== getHasContentCount(cloud)) return true;
+    if (
+      local.persistenceHydration !== "summary" &&
+      cloud.persistenceHydration !== "summary" &&
+      getHasContentCount(local) !== getHasContentCount(cloud)
+    ) return true;
     return false;
+  }
+
+  private mergeCatalogSummary(
+    local: StoryWorld,
+    summary: StoryWorld,
+  ): StoryWorld {
+    return {
+      ...local,
+      persistenceId: summary.persistenceId ?? local.persistenceId,
+      userId: summary.userId ?? local.userId,
+      sourceSeedId: summary.sourceSeedId,
+      parentStoryId: summary.parentStoryId,
+      forkChapterNumber: summary.forkChapterNumber,
+      title: summary.title,
+      genre: summary.genre,
+      mcName: summary.mcName,
+      customPremise: summary.customPremise,
+      updatedAt: summary.updatedAt,
+      syncRevision: summary.syncRevision,
+      currentChapterNumber: summary.currentChapterNumber,
+      coverAssetId: summary.coverAssetId,
+      imageUrl: summary.imageUrl,
+      lastImageChapter: summary.lastImageChapter,
+      evolutionReady: summary.evolutionReady,
+      evolutionReason: summary.evolutionReason,
+      availableVisualUpdate: summary.availableVisualUpdate,
+      isEdited: summary.isEdited,
+      conflictResolvedAt: summary.conflictResolvedAt,
+      deleted: summary.deleted,
+      persistenceHydration:
+        local.persistenceHydration === "summary" ? "summary" : "full",
+      mediaDescriptors: summary.mediaDescriptors ?? local.mediaDescriptors,
+    };
+  }
+
+  private async hydrateCurrentMedia(story: StoryWorld): Promise<StoryWorld> {
+    const descriptors = Object.values(story.mediaDescriptors ?? {});
+    if (descriptors.length === 0) return story;
+    const resolved = new Map<string, string>();
+    await Promise.all(descriptors.map(async (descriptor) => {
+      try {
+        resolved.set(
+          descriptor.id,
+          (await resolveMediaAssetForDisplay(descriptor)).url,
+        );
+      } catch (error) {
+        console.warn(`Current media ${descriptor.id} is unavailable.`, error);
+      }
+    }));
+    const clone = structuredClone(story);
+    const delivery = (assetId?: string) => assetId ? resolved.get(assetId) : undefined;
+    clone.imageUrl = delivery(clone.coverAssetId) ?? clone.imageUrl;
+    clone.imageHistory = clone.imageHistory?.map((image) => ({
+      ...image,
+      imageUrl: image.isCurrent ? delivery(image.assetId) ?? image.imageUrl : image.imageUrl,
+    }));
+    const entities = [
+      ...clone.memory.characters,
+      ...(clone.memory.locations ?? []),
+      ...(clone.memory.artifacts ?? []),
+      ...(clone.memory.factions ?? []),
+      ...(clone.memory.abilities ?? []).filter(
+        (entry): entry is Exclude<typeof entry, string> => typeof entry !== "string",
+      ),
+    ];
+    for (const entity of entities) {
+      const visual = entity as typeof entity & {
+        imageUrl?: string;
+        voiceAssetId?: string;
+        voiceClipUrl?: string;
+        imageHistory?: NonNullable<StoryWorld["imageHistory"]>;
+      };
+      visual.imageUrl = delivery(visual.imageAssetId) ?? visual.imageUrl;
+      visual.voiceClipUrl = delivery(visual.voiceAssetId) ?? visual.voiceClipUrl;
+      visual.imageHistory = visual.imageHistory?.map((image) => ({
+        ...image,
+        imageUrl: image.isCurrent ? delivery(image.assetId) ?? image.imageUrl : image.imageUrl,
+      }));
+    }
+    for (const chapter of clone.arcs.flatMap((arc) => arc.chapters)) {
+      const heroUrl = delivery(chapter.heroImageAssetId);
+      if (heroUrl) {
+        chapter.assetManifest = { ...(chapter.assetManifest ?? {}), heroImage: heroUrl };
+      }
+    }
+    clone.mediaDescriptors = Object.fromEntries(descriptors.map((descriptor) => [
+      descriptor.id,
+      { ...descriptor, deliveryUrl: "" },
+    ]));
+    return clone;
+  }
+
+  private async prepareCloudStoryForLocalCache(
+    story: StoryWorld,
+  ): Promise<StoryWorld> {
+    return preparePermanentPersistencePayload(
+      await this.hydrateCurrentMedia(story),
+    );
   }
 
   private handleSyncConflict(
@@ -1777,7 +1853,11 @@ export class PersistentStorageManager implements StorageAdapter {
         this.handleSyncConflict(localStory, cloudStory);
         return "conflict";
       }
-      await this.localAdapter.saveStory(cloudStory);
+      await this.localAdapter.saveStory(await this.prepareCloudStoryForLocalCache(
+        cloudStory.persistenceHydration === "summary"
+          ? this.mergeCatalogSummary(localStory, cloudStory)
+          : cloudStory,
+      ));
       this.rememberCloudRevision(cloudStory);
       return "ok";
     }
@@ -1820,7 +1900,11 @@ export class PersistentStorageManager implements StorageAdapter {
           // requests a trailing pass; never overwrite that newer local payload.
           return "blocked";
         }
-        await this.localAdapter.saveStory(cloudStory);
+        await this.localAdapter.saveStory(await this.prepareCloudStoryForLocalCache(
+          cloudStory.persistenceHydration === "summary"
+            ? this.mergeCatalogSummary(localStory, cloudStory)
+            : cloudStory,
+        ));
         this.rememberCloudRevision(cloudStory);
       } catch (err) {
         console.error("Failed to save cloud story locally:", err);
@@ -1853,7 +1937,9 @@ export class PersistentStorageManager implements StorageAdapter {
           if (cloudStory.deleted) {
             await this.applyCloudTombstone(cloudStory);
           } else {
-            await this.localAdapter.saveStory(cloudStory);
+            await this.localAdapter.saveStory(
+              await this.prepareCloudStoryForLocalCache(cloudStory),
+            );
             this.rememberCloudRevision(cloudStory);
           }
         });
@@ -2358,7 +2444,7 @@ export class PersistentStorageManager implements StorageAdapter {
     const catalog = options.catalog ?? true;
     this.syncRequested = true;
     if (catalog) this.catalogSyncRequested = true;
-    if (catalog && (options.deep ?? true)) this.deepSyncRequested = true;
+    if (catalog && (options.deep ?? false)) this.deepSyncRequested = true;
     for (const storyId of options.deepStoryIds ?? []) {
       this.deepStoryIdsRequested.add(storyId);
     }
@@ -2414,7 +2500,9 @@ export class PersistentStorageManager implements StorageAdapter {
       local = Array.from(newestById.values());
     }
     if (!this.activeTransaction) {
-      return local.filter((s) => !s.deleted);
+      return Promise.all(
+        local.filter((s) => !s.deleted).map((story) => this.hydrateCurrentMedia(story)),
+      );
     }
 
     const tx = this.activeTransaction;
@@ -2432,7 +2520,7 @@ export class PersistentStorageManager implements StorageAdapter {
       (a, b) =>
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     );
-    return result;
+    return Promise.all(result.map((story) => this.hydrateCurrentMedia(story)));
   }
 
   startTransaction() {
@@ -2479,12 +2567,35 @@ export class PersistentStorageManager implements StorageAdapter {
       }
     }
 
-    const story = await this.localAdapter.getStory(id);
+    let story = await this.localAdapter.getStory(id);
     if (!LOCAL_ONLY_MODE) this.assertCurrentAccount(currentUserId);
     if (story?.userId && currentUserId && story.userId !== currentUserId) {
       return null;
     }
-    return story;
+    if (
+      story?.persistenceHydration === "summary" &&
+      this.isCloudAvailable &&
+      currentUserId
+    ) {
+      const hydrated = await this.cloudAdapter.getStory(id);
+      this.assertCurrentAccount(currentUserId);
+      if (hydrated) {
+        const cacheable = preparePermanentPersistencePayload({
+          ...hydrated,
+          persistenceHydration: "full" as const,
+          mediaDescriptors: Object.fromEntries(
+            Object.entries(hydrated.mediaDescriptors ?? {}).map(([assetId, descriptor]) => [
+              assetId,
+              { ...descriptor, deliveryUrl: "" },
+            ]),
+          ),
+        });
+        await this.localAdapter.saveStory(cacheable);
+        this.rememberCloudRevision(cacheable);
+        story = await this.hydrateCurrentMedia(cacheable);
+      }
+    }
+    return story ? this.hydrateCurrentMedia(story) : null;
   }
 
   async saveStory(story: StoryWorld): Promise<void> {

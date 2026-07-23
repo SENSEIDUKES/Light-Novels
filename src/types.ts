@@ -101,6 +101,8 @@ export interface UserProfile {
   avatarUrl: string;
   /** Account-owned portrait selected from users/{uid}/portraits. */
   activePortraitId?: string;
+  /** Transient/canonical portrait metadata; signed delivery URLs are never cached. */
+  avatarMediaDescriptor?: import("./contracts/mediaAssets").MediaAssetDescriptor;
   preferredLanguage: string;
   defaultTranslationLanguage: string;
   savedStoryCount: number;
@@ -1004,6 +1006,10 @@ export interface StorySeed extends StorySeedPayload {
 }
 
 export interface StoryWorld {
+  /** Catalog rows remain compact until the story is explicitly opened. */
+  persistenceHydration?: "summary" | "full";
+  /** Transient current-surface descriptors; delivery URLs are never authoritative state. */
+  mediaDescriptors?: Record<string, import("./contracts/mediaAssets").MediaAssetDescriptor>;
   /** Canonical Data Connect row identity; new stories use this as `id`. */
   persistenceId?: string;
   userId?: string;

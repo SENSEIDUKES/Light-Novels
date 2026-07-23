@@ -67,7 +67,8 @@ conflict.
 storage manager. It maps the application model to normalized graph mutations
 and hydrates the same product-facing types on reads. The active flows include:
 
-- complete story list, story graph, and chapter-content reads;
+- compact story catalog reads, lazy story-graph hydration, and lazy
+  chapter-content reads;
 - story and chapter create/update with compare-and-swap protection;
 - atomic story-seed single and batch persistence;
 - glossary single and batch changes;
@@ -122,16 +123,24 @@ cache for the new UID. Logout and permanent story deletion remove matching
 records, media cache entries, recovery checkpoints, and pending outbox items so
 stale content cannot reappear for the next session.
 
+Private media uses the same owner boundary. Current-surface descriptors are
+resolved into Blob-backed object URLs and cached by asset ID, version, and
+checksum. Expired or nearly expired signed URLs are refreshed online. A cached
+Blob remains readable offline, replacements invalidate the prior version, and
+account transitions revoke object URLs and close the previous owner cache.
+Signed delivery URLs are stripped before permanent story persistence.
+
 ## Deletion and cleanup
 
 Permanent story deletion first tombstones the story so all normal owner reads
-and writes stop immediately. The tombstone is the current structured-data
-recovery policy: normalized descendants remain attached to that known,
-inaccessible story until a future retention purge, rather than becoming
-unscoped records. A staged deletion job then removes user-owned media, confirms
-local-cache reconciliation, and finalizes. Each stage has a lease, retry state,
-and recorded error; an expired `RUNNING` lease can be reclaimed. Curated catalog
-objects are outside the user-media candidate query and are never selected.
+and writes stop immediately. A staged deletion job then removes user-owned
+media, confirms local-cache reconciliation, and finalizes. Each stage has a
+lease, retry state, and recorded error; an expired `RUNNING` lease can be
+reclaimed. A completed tombstone remains recoverable for 30 days. Maintenance
+selects only `SUCCEEDED` jobs older than that cutoff, revalidates the job,
+story, and cutoff transactionally, and permanently deletes the story through
+Data Connect so its normalized descendants cascade with it. Curated catalog
+objects are outside both the user-media candidate and tombstone-purge paths.
 
 The media maintenance command recovers stale uploads, processes due cleanup
 tasks, reconciles deletion intents, releases expired quota reservations, and
@@ -155,6 +164,27 @@ deletes Firebase Authentication users or curated R2 catalog objects.
   browser's storage estimate.
 - Storage reports expose total bytes and assets, breakdowns by owner, story,
   type, and status, failed/pending/orphaned assets, and unusually large files.
+
+## Hot-path scale measurements
+
+`graphMapper.test.ts` includes a deterministic fixture with 100 chapters and 40
+Codex characters, each carrying aliases and attributes. The measurements below
+are from the local test run on 2026-07-23. Duration measures bounded request
+construction and serialization, excluding network and database latency;
+affected rows are the mutation's deterministic row-write bound.
+
+| Operation | Request bytes | Affected rows | Preparation duration |
+| --- | ---: | ---: | ---: |
+| Normal chapter save | 5,660 | 12 | 1.001 ms |
+| Cover slot change | 610 | 7 | 0.031 ms |
+| Reader-progress update | 2,078 | 2 | 7.714 ms |
+| One Codex-entity update | 2,388 | 2 | 4.531 ms |
+
+The chapter request contains only its content graph plus a compact parent
+revision heartbeat. The cover mutation updates the media asset/attachment/slot
+transaction. Reader and Codex changes contain no chapter or arc rows. The
+controlled full-story graph operation remains available only for bootstrap,
+recovery, import, and administrative reconstruction.
 
 ## Environment requirements
 
@@ -193,13 +223,13 @@ The completed local verification is:
 
 | Gate | Result |
 | --- | --- |
-| `npm test` | Passed: 170 files, 1,235 tests. |
-| `npm run test:coverage` | Passed: 170 files, 1,235 tests; report generated. |
+| `npm test` | Passed: 174 files, 1,250 tests. |
+| `npm run test:coverage` | Passed: 174 files, 1,250 tests; 58.68% statements / 61.56% lines. |
 | `npm run lint` | Passed ESLint and `tsc --noEmit`; one existing React dependency warning remains. |
 | `npm run build` | Passed the production Vite client and bundled server build. |
 | `npm run dataconnect:compile` | Passed schema compilation and generated browser/Admin SDK verification. |
-| `npm run test:foundation:e2e` | Passed two-user Auth/Data Connect ownership, cross-account denial, round-trip, `NO_ACCESS`, and tombstone checks. |
-| `git diff --check` | Passed. |
+| `npm run test:foundation:e2e` | Passed two-user Auth/Data Connect ownership, cross-account denial, round-trip, `NO_ACCESS`, 30-day tombstone retention, and permanent purge. |
+| `git diff --check -- . ':(exclude)src/generated/**'` | Passed; generated Firebase SDK output is preserved verbatim. |
 
 Focused tests cover graph mapping, owner isolation, revisions and idempotency,
 story seeds, offline outbox replay, cache isolation/pruning, media

@@ -1,4 +1,5 @@
 import type { AppUser, UserProfile } from '../types';
+import { resolveMediaAssetForDisplay } from './media/privateMediaResolver';
 
 const ACCOUNT_PROFILE_CACHE_PREFIX = 'seihouse-account-profile-cache-v1:';
 
@@ -16,6 +17,7 @@ type CachedAccountProfile = Pick<
   UserProfile,
   | 'displayNameColor'
   | 'activePortraitId'
+  | 'avatarMediaDescriptor'
   | 'dao_xp'
   | 'dao_rank'
   | 'qi'
@@ -58,6 +60,9 @@ export const cacheAccountProfile = (profile: UserProfile): void => {
     updatedAt: profile.updatedAt,
     displayNameColor: profile.displayNameColor,
     activePortraitId: profile.activePortraitId,
+    avatarMediaDescriptor: profile.avatarMediaDescriptor
+      ? { ...profile.avatarMediaDescriptor, deliveryUrl: '' }
+      : undefined,
     dao_xp: profile.dao_xp,
     dao_rank: profile.dao_rank,
     qi: profile.qi,
@@ -96,6 +101,7 @@ export const createAccountProfileFallback = (user: AppUser): UserProfile => {
     displayNameColor: cachedProfile?.displayNameColor,
     avatarUrl: cachedProfile?.avatarUrl || user.photoURL || '',
     activePortraitId: cachedProfile?.activePortraitId,
+    avatarMediaDescriptor: cachedProfile?.avatarMediaDescriptor,
     preferredLanguage: cachedProfile?.preferredLanguage || 'English',
     defaultTranslationLanguage: cachedProfile?.defaultTranslationLanguage || 'English',
     savedStoryCount: 0,
@@ -111,4 +117,21 @@ export const createAccountProfileFallback = (user: AppUser): UserProfile => {
     heavenly_qi: cachedProfile?.heavenly_qi,
     sect_qi: cachedProfile?.sect_qi,
   };
+};
+
+export const hydrateCachedAccountPortrait = async (
+  profile: UserProfile,
+): Promise<UserProfile> => {
+  const descriptor = profile.avatarMediaDescriptor;
+  if (!descriptor || descriptor.id !== profile.activePortraitId) return profile;
+  try {
+    const resolved = await resolveMediaAssetForDisplay(descriptor);
+    return {
+      ...profile,
+      avatarUrl: resolved.url,
+      avatarMediaDescriptor: { ...resolved.descriptor, deliveryUrl: '' },
+    };
+  } catch {
+    return profile;
+  }
 };

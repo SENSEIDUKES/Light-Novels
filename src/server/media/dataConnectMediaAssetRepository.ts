@@ -24,7 +24,9 @@ import {
   adminListOwnedMediaSlotHistory,
   adminListStaleMediaUploads,
   adminListStoryDeletionJobs,
+  adminListExpiredStoryTombstones,
   adminListStoryDeletionMediaCandidates,
+  adminPurgeExpiredStoryTombstone,
   adminMarkMediaAssetFailed,
   adminMarkMediaAssetPendingCleanup,
   adminReleaseStorageQuotaReservation,
@@ -483,6 +485,25 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
       bucket: asset.bucket,
       objectKey: asset.objectKey,
     }));
+  }
+
+  async listExpiredStoryTombstones(
+    completedBefore: string,
+    limit = 100,
+  ): Promise<StoryDeletionJobState[]> {
+    const result = await adminListExpiredStoryTombstones({ completedBefore, limit });
+    return result.data.storyDeletionJobs;
+  }
+
+  async purgeExpiredStoryTombstone(
+    jobId: string,
+    storyId: string,
+    completedBefore: string,
+  ): Promise<void> {
+    const result = await adminPurgeExpiredStoryTombstone({ jobId, storyId, completedBefore });
+    if (!result.data.eligibleTombstone || !result.data.story_delete) {
+      throw new Error('SQL Connect did not purge the expired story tombstone.');
+    }
   }
 
   async listStorageUsage(limit = 100_000): Promise<StorageUsageRow[]> {

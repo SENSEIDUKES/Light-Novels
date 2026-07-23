@@ -438,6 +438,18 @@ export function adminCompleteStoryDeletionJob(dcOrVars, vars) {
   return executeMutation(adminCompleteStoryDeletionJobRef(dcInstance, inputVars));
 }
 
+export const adminPurgeExpiredStoryTombstoneRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'AdminPurgeExpiredStoryTombstone', inputVars);
+}
+adminPurgeExpiredStoryTombstoneRef.operationName = 'AdminPurgeExpiredStoryTombstone';
+
+export function adminPurgeExpiredStoryTombstone(dcOrVars, vars) {
+  const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dcOrVars, vars, true);
+  return executeMutation(adminPurgeExpiredStoryTombstoneRef(dcInstance, inputVars));
+}
+
 export const adminReserveStorageQuotaRef = (dcOrVars, vars) => {
   const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
   dcInstance._useGeneratedSdk();
@@ -903,6 +915,19 @@ export function adminListOwnedStories(dcOrVars, varsOrOptions, options) {
   return executeQuery(adminListOwnedStoriesRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
 
+export const adminListOwnedStoryCoverSlotsRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'AdminListOwnedStoryCoverSlots', inputVars);
+}
+adminListOwnedStoryCoverSlotsRef.operationName = 'AdminListOwnedStoryCoverSlots';
+
+export function adminListOwnedStoryCoverSlots(dcOrVars, varsOrOptions, options) {
+  
+  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
+  return executeQuery(adminListOwnedStoryCoverSlotsRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
+}
+
 export const adminListOwnedStoryChangesRef = (dcOrVars, vars) => {
   const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
   dcInstance._useGeneratedSdk();
@@ -1083,6 +1108,19 @@ export function adminListStoryDeletionJobs(dcOrVars, varsOrOptions, options) {
   
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, false);
   return executeQuery(adminListStoryDeletionJobsRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
+}
+
+export const adminListExpiredStoryTombstonesRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return queryRef(dcInstance, 'AdminListExpiredStoryTombstones', inputVars);
+}
+adminListExpiredStoryTombstonesRef.operationName = 'AdminListExpiredStoryTombstones';
+
+export function adminListExpiredStoryTombstones(dcOrVars, varsOrOptions, options) {
+  
+  const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
+  return executeQuery(adminListExpiredStoryTombstonesRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
 
 export const adminGetStorageUsageReportRef = (dc) => {

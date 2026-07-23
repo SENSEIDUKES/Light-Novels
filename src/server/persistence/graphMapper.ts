@@ -93,6 +93,61 @@ export interface AdminUpsertStoryGraphVariables {
   generationBatchItems: GraphRow[];
 }
 
+export interface AdminPatchStoryGraphVariables extends GraphMutationMetadata {
+  ownerUid: string;
+  storyId: string;
+  story: GraphRow;
+  members: GraphRow[];
+  deletedMemberUserUids: string[];
+  preferences: GraphRow[];
+  readerPreferences: GraphRow[];
+  deletedReaderPreferenceUserUids: string[];
+  memoryStates: GraphRow[];
+  memoryWarnings: GraphRow[];
+  deletedMemoryWarningIds: string[];
+  rules: GraphRow[];
+  deletedRuleIds: string[];
+  revealBackdrops: GraphRow[];
+  deletedRevealBackdropKeys: string[];
+  arcs: GraphRow[];
+  deletedArcIds: string[];
+  chapters: GraphRow[];
+  deletedChapterIds: string[];
+  codexEntities: GraphRow[];
+  deletedCodexEntityIds: string[];
+  replacedCodexChildEntityIds: string[];
+  codexAliases: GraphRow[];
+  codexAttributes: GraphRow[];
+  codexThreadLinks: GraphRow[];
+  abilityProgression: GraphRow[];
+  codexRelationships: GraphRow[];
+  deletedCodexRelationshipIds: string[];
+  plotThreads: GraphRow[];
+  deletedPlotThreadIds: string[];
+  karmaNodes: GraphRow[];
+  deletedKarmaNodeIds: string[];
+  timelineEvents: GraphRow[];
+  deletedTimelineEventIds: string[];
+  bookmarks: GraphRow[];
+  deletedBookmarkIds: string[];
+  readingProgresses: GraphRow[];
+  deletedReadingProgressUserUids: string[];
+  arcReadingProgresses: GraphRow[];
+  deletedArcReadingProgressNumbers: number[];
+  glossaryTerms: GraphRow[];
+  deletedGlossaryTermIds: string[];
+  generationJobs: GraphRow[];
+  deletedGenerationJobIds: string[];
+  replacedGenerationJobIds: string[];
+  generationEvents: GraphRow[];
+  generationBatches: GraphRow[];
+  deletedGenerationBatchIds: string[];
+  replacedGenerationBatchIds: string[];
+  generationBatchItems: GraphRow[];
+  /** Business rows touched by this patch, excluding CAS/change/receipt bookkeeping. */
+  affectedRowCount: number;
+}
+
 export interface AdminUpsertChapterContentGraphVariables {
   ownerUid: string;
   storyId: string;
@@ -601,6 +656,7 @@ export function hydrateStoryWorld(graph: StoryGraph): StoryWorld | null {
   const coverAssetId = currentSlotAsset(graph, 'STORY_COVER', { targetKind: 'STORY' });
 
   return {
+    persistenceHydration: 'full',
     persistenceId: source.id,
     userId: source.ownerUid,
     id: source.clientStoryId ?? source.legacyStoryId ?? source.id,
@@ -1279,6 +1335,258 @@ export function mapStoryWorldToGraphVariables(input: StoryGraphWriteInput): Admi
     generationBatches,
     generationBatchItems,
   };
+  assertPermanentMediaMetadata(result);
+  return result;
+}
+
+const PATCH_VOLATILE_FIELDS = new Set(["updatedAt", "syncRevision", "revision"]);
+
+function comparableRow(value: GraphRow): string {
+  const normalized = Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => !PATCH_VOLATILE_FIELDS.has(key))
+      .sort(([left], [right]) => left.localeCompare(right)),
+  );
+  return JSON.stringify(normalized);
+}
+
+function keyedRows(
+  rows: GraphRow[],
+  key: (value: GraphRow) => string,
+): Map<string, GraphRow> {
+  return new Map(rows.map((value) => [key(value), value]));
+}
+
+function simpleRowDelta(
+  previous: GraphRow[],
+  next: GraphRow[],
+  key: (value: GraphRow) => string,
+): { upserts: GraphRow[]; deleted: string[] } {
+  const previousByKey = keyedRows(previous, key);
+  const nextByKey = keyedRows(next, key);
+  return {
+    upserts: next.filter((value) => {
+      const prior = previousByKey.get(key(value));
+      return !prior || comparableRow(prior) !== comparableRow(value);
+    }),
+    deleted: [...previousByKey.keys()].filter((value) => !nextByKey.has(value)),
+  };
+}
+
+function groupedChildDelta(
+  previous: GraphRow[],
+  next: GraphRow[],
+  parentKey: (value: GraphRow) => string,
+  rowKey: (value: GraphRow) => string,
+): { affectedParents: string[]; upserts: GraphRow[] } {
+  const group = (rows: GraphRow[]) => {
+    const result = new Map<string, GraphRow[]>();
+    for (const value of rows) {
+      const parentId = parentKey(value);
+      result.set(parentId, [...(result.get(parentId) ?? []), value]);
+    }
+    return result;
+  };
+  const previousGroups = group(previous);
+  const nextGroups = group(next);
+  const parentIds = new Set([...previousGroups.keys(), ...nextGroups.keys()]);
+  const affectedParents = [...parentIds].filter((parentId) => {
+    const prior = [...(previousGroups.get(parentId) ?? [])]
+      .sort((left, right) => rowKey(left).localeCompare(rowKey(right)));
+    const following = [...(nextGroups.get(parentId) ?? [])]
+      .sort((left, right) => rowKey(left).localeCompare(rowKey(right)));
+    return prior.length !== following.length
+      || prior.some((value, index) =>
+        rowKey(value) !== rowKey(following[index])
+        || comparableRow(value) !== comparableRow(following[index]));
+  });
+  const affected = new Set(affectedParents);
+  return {
+    affectedParents,
+    upserts: next.filter((value) => affected.has(parentKey(value))),
+  };
+}
+
+/**
+ * Convert one browser aggregate edit into changed normalized rows only.
+ * Full graph replacement remains available to explicit bootstrap/recovery paths.
+ */
+export function mapStoryWorldToPatchVariables(
+  input: StoryGraphWriteInput,
+): AdminPatchStoryGraphVariables {
+  if (!input.currentGraph?.story) {
+    throw new Error("A bounded story patch requires an existing story graph.");
+  }
+  const currentStory = hydrateStoryWorld(input.currentGraph);
+  if (!currentStory) throw new Error("The current story graph could not be hydrated.");
+  const previous = mapStoryWorldToGraphVariables({
+    ...input,
+    story: currentStory,
+    newSyncRevision: input.currentGraph.story.syncRevision ?? "",
+    newRevision: input.currentGraph.story.revision,
+  });
+  const next = mapStoryWorldToGraphVariables(input);
+  const key = (field: string) => (value: GraphRow) => String(value[field] ?? "");
+  const composite = (...fields: string[]) => (value: GraphRow) =>
+    fields.map((field) => String(value[field] ?? "")).join("\u0000");
+
+  const members = simpleRowDelta(previous.members, next.members, key("userUid"));
+  const preferences = simpleRowDelta(previous.preferences, next.preferences, key("storyId"));
+  const readerPreferences = simpleRowDelta(
+    previous.readerPreferences,
+    next.readerPreferences,
+    key("userUid"),
+  );
+  const memoryStates = simpleRowDelta(previous.memoryStates, next.memoryStates, key("storyId"));
+  const memoryWarnings = simpleRowDelta(
+    previous.memoryWarnings,
+    next.memoryWarnings,
+    key("id"),
+  );
+  const rules = simpleRowDelta(previous.rules, next.rules, key("id"));
+  const revealBackdrops = simpleRowDelta(
+    previous.revealBackdrops,
+    next.revealBackdrops,
+    key("entityStableKey"),
+  );
+  const arcs = simpleRowDelta(previous.arcs, next.arcs, key("id"));
+  const chapters = simpleRowDelta(previous.chapters, next.chapters, key("id"));
+  const codexEntities = simpleRowDelta(
+    previous.codexEntities,
+    next.codexEntities,
+    key("id"),
+  );
+  const aliases = groupedChildDelta(
+    previous.codexAliases,
+    next.codexAliases,
+    key("entityId"),
+    composite("entityId", "normalizedAlias"),
+  );
+  const attributes = groupedChildDelta(
+    previous.codexAttributes,
+    next.codexAttributes,
+    key("entityId"),
+    composite("entityId", "attributeKey"),
+  );
+  const threadLinks = groupedChildDelta(
+    previous.codexThreadLinks,
+    next.codexThreadLinks,
+    key("entityId"),
+    composite("entityId", "threadId"),
+  );
+  const progression = groupedChildDelta(
+    previous.abilityProgression,
+    next.abilityProgression,
+    key("abilityEntityId"),
+    key("id"),
+  );
+  const replacedCodexChildEntityIds = [...new Set([
+    ...aliases.affectedParents,
+    ...attributes.affectedParents,
+    ...threadLinks.affectedParents,
+    ...progression.affectedParents,
+  ])];
+  const codexRelationships = simpleRowDelta(
+    previous.codexRelationships,
+    next.codexRelationships,
+    key("id"),
+  );
+  const plotThreads = simpleRowDelta(previous.plotThreads, next.plotThreads, key("id"));
+  const karmaNodes = simpleRowDelta(previous.karmaNodes, next.karmaNodes, key("id"));
+  const timelineEvents = simpleRowDelta(
+    previous.timelineEvents,
+    next.timelineEvents,
+    key("id"),
+  );
+  const bookmarks = simpleRowDelta(previous.bookmarks, next.bookmarks, key("id"));
+  const readingProgresses = simpleRowDelta(
+    previous.readingProgresses,
+    next.readingProgresses,
+    key("userUid"),
+  );
+  const arcReadingProgresses = simpleRowDelta(
+    previous.arcReadingProgresses,
+    next.arcReadingProgresses,
+    composite("userUid", "arcNumber"),
+  );
+  const glossaryTerms = simpleRowDelta(previous.glossaryTerms, next.glossaryTerms, key("id"));
+  const generationJobs = simpleRowDelta(previous.generationJobs, next.generationJobs, key("id"));
+  const generationEvents = groupedChildDelta(
+    previous.generationEvents,
+    next.generationEvents,
+    key("jobId"),
+    key("id"),
+  );
+  const generationBatches = simpleRowDelta(
+    previous.generationBatches,
+    next.generationBatches,
+    key("id"),
+  );
+  const generationBatchItems = groupedChildDelta(
+    previous.generationBatchItems,
+    next.generationBatchItems,
+    key("batchId"),
+    composite("batchId", "chapterNumber"),
+  );
+
+  const result: AdminPatchStoryGraphVariables = {
+    ...mutationBase(input.ownerUid, input),
+    storyId: next.storyId,
+    story: next.story,
+    members: members.upserts,
+    deletedMemberUserUids: members.deleted,
+    preferences: preferences.upserts,
+    readerPreferences: readerPreferences.upserts,
+    deletedReaderPreferenceUserUids: readerPreferences.deleted,
+    memoryStates: memoryStates.upserts,
+    memoryWarnings: memoryWarnings.upserts,
+    deletedMemoryWarningIds: memoryWarnings.deleted,
+    rules: rules.upserts,
+    deletedRuleIds: rules.deleted,
+    revealBackdrops: revealBackdrops.upserts,
+    deletedRevealBackdropKeys: revealBackdrops.deleted,
+    arcs: arcs.upserts,
+    deletedArcIds: arcs.deleted,
+    chapters: chapters.upserts,
+    deletedChapterIds: chapters.deleted,
+    codexEntities: codexEntities.upserts,
+    deletedCodexEntityIds: codexEntities.deleted,
+    replacedCodexChildEntityIds,
+    codexAliases: aliases.upserts,
+    codexAttributes: attributes.upserts,
+    codexThreadLinks: threadLinks.upserts,
+    abilityProgression: progression.upserts,
+    codexRelationships: codexRelationships.upserts,
+    deletedCodexRelationshipIds: codexRelationships.deleted,
+    plotThreads: plotThreads.upserts,
+    deletedPlotThreadIds: plotThreads.deleted,
+    karmaNodes: karmaNodes.upserts,
+    deletedKarmaNodeIds: karmaNodes.deleted,
+    timelineEvents: timelineEvents.upserts,
+    deletedTimelineEventIds: timelineEvents.deleted,
+    bookmarks: bookmarks.upserts,
+    deletedBookmarkIds: bookmarks.deleted,
+    readingProgresses: readingProgresses.upserts,
+    deletedReadingProgressUserUids: readingProgresses.deleted,
+    arcReadingProgresses: arcReadingProgresses.upserts,
+    deletedArcReadingProgressNumbers: arcReadingProgresses.deleted.map((value) =>
+      Number(value.split("\u0000")[1])),
+    glossaryTerms: glossaryTerms.upserts,
+    deletedGlossaryTermIds: glossaryTerms.deleted,
+    generationJobs: generationJobs.upserts,
+    deletedGenerationJobIds: generationJobs.deleted,
+    replacedGenerationJobIds: generationEvents.affectedParents,
+    generationEvents: generationEvents.upserts,
+    generationBatches: generationBatches.upserts,
+    deletedGenerationBatchIds: generationBatches.deleted,
+    replacedGenerationBatchIds: generationBatchItems.affectedParents,
+    generationBatchItems: generationBatchItems.upserts,
+    affectedRowCount: 1,
+  };
+  result.affectedRowCount = 1 + Object.entries(result).reduce((count, [field, value]) => {
+    if (field === "story" || field === "affectedRowCount" || !Array.isArray(value)) return count;
+    return count + value.length;
+  }, 0);
   assertPermanentMediaMetadata(result);
   return result;
 }

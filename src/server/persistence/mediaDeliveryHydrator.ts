@@ -120,5 +120,9 @@ export function hydrateProfilePortraitDelivery(
   descriptor: MediaAssetDescriptor | null,
 ): UserProfile {
   if (!descriptor || profile.activePortraitId !== descriptor.id) return profile;
-  return { ...profile, avatarUrl: descriptor.deliveryUrl };
+  return {
+    ...profile,
+    avatarUrl: descriptor.deliveryUrl,
+    avatarMediaDescriptor: descriptor,
+  };
 }

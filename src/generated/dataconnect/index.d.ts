@@ -1553,6 +1553,26 @@ export interface AdminGetUserProfileGraphVariables {
   ownerUid: string;
 }
 
+export interface AdminListExpiredStoryTombstonesData {
+  storyDeletionJobs: ({
+    id: UUIDString;
+    ownerUid: string;
+    storyId: UUIDString;
+    idempotencyKey: string;
+    status: StoryDeletionStatus;
+    currentStage: StoryDeletionStageKind;
+    attemptCount: number;
+    createdAt: TimestampString;
+    updatedAt: TimestampString;
+    completedAt?: TimestampString | null;
+  } & StoryDeletionJob_Key)[];
+}
+
+export interface AdminListExpiredStoryTombstonesVariables {
+  completedBefore: TimestampString;
+  limit?: number | null;
+}
+
 export interface AdminListMediaAssetsForStorageReportData {
   mediaAssets: ({
     id: UUIDString;
@@ -1714,6 +1734,29 @@ export interface AdminListOwnedStoryChangesVariables {
   limit?: number | null;
 }
 
+export interface AdminListOwnedStoryCoverSlotsData {
+  coverSlots: ({
+    ownerUid: string;
+    storyId?: UUIDString | null;
+    targetKey: string;
+    currentAssetId: UUIDString;
+    version: Int64String;
+    updatedAt: TimestampString;
+    currentAsset: {
+      status: MediaAssetStatus;
+      mimeType: string;
+      checksumSha256: string;
+      version: number;
+    };
+  })[];
+}
+
+export interface AdminListOwnedStoryCoverSlotsVariables {
+  ownerUid: string;
+  limit?: number | null;
+  offset?: number | null;
+}
+
 export interface AdminListOwnedStorySeedsData {
   storySeeds: ({
     id: UUIDString;
@@ -1852,6 +1895,17 @@ export interface AdminMarkMediaAssetPendingCleanupVariables {
   objectKey: string;
   reason: string;
   failureMessage?: string | null;
+}
+
+export interface AdminPurgeExpiredStoryTombstoneData {
+  eligibleTombstone?: unknown | null;
+  story_delete?: Story_Key | null;
+}
+
+export interface AdminPurgeExpiredStoryTombstoneVariables {
+  jobId: UUIDString;
+  storyId: UUIDString;
+  completedBefore: TimestampString;
 }
 
 export interface AdminPurgeFoundationProbeData {
@@ -3994,6 +4048,18 @@ export const adminCompleteStoryDeletionJobRef: AdminCompleteStoryDeletionJobRef;
 export function adminCompleteStoryDeletionJob(vars: AdminCompleteStoryDeletionJobVariables): MutationPromise<AdminCompleteStoryDeletionJobData, AdminCompleteStoryDeletionJobVariables>;
 export function adminCompleteStoryDeletionJob(dc: DataConnect, vars: AdminCompleteStoryDeletionJobVariables): MutationPromise<AdminCompleteStoryDeletionJobData, AdminCompleteStoryDeletionJobVariables>;
 
+interface AdminPurgeExpiredStoryTombstoneRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: AdminPurgeExpiredStoryTombstoneVariables): MutationRef<AdminPurgeExpiredStoryTombstoneData, AdminPurgeExpiredStoryTombstoneVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: AdminPurgeExpiredStoryTombstoneVariables): MutationRef<AdminPurgeExpiredStoryTombstoneData, AdminPurgeExpiredStoryTombstoneVariables>;
+  operationName: string;
+}
+export const adminPurgeExpiredStoryTombstoneRef: AdminPurgeExpiredStoryTombstoneRef;
+
+export function adminPurgeExpiredStoryTombstone(vars: AdminPurgeExpiredStoryTombstoneVariables): MutationPromise<AdminPurgeExpiredStoryTombstoneData, AdminPurgeExpiredStoryTombstoneVariables>;
+export function adminPurgeExpiredStoryTombstone(dc: DataConnect, vars: AdminPurgeExpiredStoryTombstoneVariables): MutationPromise<AdminPurgeExpiredStoryTombstoneData, AdminPurgeExpiredStoryTombstoneVariables>;
+
 interface AdminReserveStorageQuotaRef {
   /* Allow users to create refs without passing in DataConnect */
   (vars: AdminReserveStorageQuotaVariables): MutationRef<AdminReserveStorageQuotaData, AdminReserveStorageQuotaVariables>;
@@ -4438,6 +4504,18 @@ export const adminListOwnedStoriesRef: AdminListOwnedStoriesRef;
 export function adminListOwnedStories(vars: AdminListOwnedStoriesVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListOwnedStoriesData, AdminListOwnedStoriesVariables>;
 export function adminListOwnedStories(dc: DataConnect, vars: AdminListOwnedStoriesVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListOwnedStoriesData, AdminListOwnedStoriesVariables>;
 
+interface AdminListOwnedStoryCoverSlotsRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: AdminListOwnedStoryCoverSlotsVariables): QueryRef<AdminListOwnedStoryCoverSlotsData, AdminListOwnedStoryCoverSlotsVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: AdminListOwnedStoryCoverSlotsVariables): QueryRef<AdminListOwnedStoryCoverSlotsData, AdminListOwnedStoryCoverSlotsVariables>;
+  operationName: string;
+}
+export const adminListOwnedStoryCoverSlotsRef: AdminListOwnedStoryCoverSlotsRef;
+
+export function adminListOwnedStoryCoverSlots(vars: AdminListOwnedStoryCoverSlotsVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListOwnedStoryCoverSlotsData, AdminListOwnedStoryCoverSlotsVariables>;
+export function adminListOwnedStoryCoverSlots(dc: DataConnect, vars: AdminListOwnedStoryCoverSlotsVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListOwnedStoryCoverSlotsData, AdminListOwnedStoryCoverSlotsVariables>;
+
 interface AdminListOwnedStoryChangesRef {
   /* Allow users to create refs without passing in DataConnect */
   (vars: AdminListOwnedStoryChangesVariables): QueryRef<AdminListOwnedStoryChangesData, AdminListOwnedStoryChangesVariables>;
@@ -4605,6 +4683,18 @@ export const adminListStoryDeletionJobsRef: AdminListStoryDeletionJobsRef;
 
 export function adminListStoryDeletionJobs(vars?: AdminListStoryDeletionJobsVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListStoryDeletionJobsData, AdminListStoryDeletionJobsVariables>;
 export function adminListStoryDeletionJobs(dc: DataConnect, vars?: AdminListStoryDeletionJobsVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListStoryDeletionJobsData, AdminListStoryDeletionJobsVariables>;
+
+interface AdminListExpiredStoryTombstonesRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: AdminListExpiredStoryTombstonesVariables): QueryRef<AdminListExpiredStoryTombstonesData, AdminListExpiredStoryTombstonesVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: AdminListExpiredStoryTombstonesVariables): QueryRef<AdminListExpiredStoryTombstonesData, AdminListExpiredStoryTombstonesVariables>;
+  operationName: string;
+}
+export const adminListExpiredStoryTombstonesRef: AdminListExpiredStoryTombstonesRef;
+
+export function adminListExpiredStoryTombstones(vars: AdminListExpiredStoryTombstonesVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListExpiredStoryTombstonesData, AdminListExpiredStoryTombstonesVariables>;
+export function adminListExpiredStoryTombstones(dc: DataConnect, vars: AdminListExpiredStoryTombstonesVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListExpiredStoryTombstonesData, AdminListExpiredStoryTombstonesVariables>;
 
 interface AdminGetStorageUsageReportRef {
   /* Allow users to create refs without passing in DataConnect */

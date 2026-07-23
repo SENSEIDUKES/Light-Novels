@@ -395,6 +395,7 @@ class FakeRepository implements MediaAssetRepository {
       currentStage: 'FINALIZE',
       leaseOwner: null,
       leaseExpiresAt: null,
+      completedAt: '2026-07-21T00:00:00.000Z',
     });
   }
 
@@ -412,6 +413,27 @@ class FakeRepository implements MediaAssetRepository {
         bucket: record.bucket,
         objectKey: record.objectKey,
       }));
+  }
+
+  async listExpiredStoryTombstones(
+    completedBefore: string,
+  ): Promise<StoryDeletionJobState[]> {
+    return [...this.storyDeletionJobs.values()].filter((job) =>
+      job.status === 'SUCCEEDED'
+      && Boolean(job.completedAt)
+      && job.completedAt! <= completedBefore);
+  }
+
+  async purgeExpiredStoryTombstone(
+    jobId: string,
+    _storyId: string,
+    completedBefore: string,
+  ): Promise<void> {
+    const job = this.storyDeletionJobs.get(jobId);
+    if (!job?.completedAt || job.completedAt > completedBefore) {
+      throw new Error('retention not expired');
+    }
+    this.storyDeletionJobs.delete(jobId);
   }
 
   async listStorageUsage(): Promise<StorageUsageRow[]> {
@@ -993,6 +1015,43 @@ describe('MediaAssetService', () => {
       status: 'SUCCEEDED',
       currentStage: 'FINALIZE',
     });
+  });
+
+  it('purges completed story tombstones only after the 30-day recovery window', async () => {
+    const repo = new FakeRepository();
+    const store = new FakeObjectStore();
+    repo.storyDeletionJobs.set('expired-job', {
+      id: 'expired-job',
+      ownerUid: OWNER.uid,
+      storyId: '11111111-1111-4111-8111-111111111111',
+      idempotencyKey: 'delete-expired',
+      status: 'SUCCEEDED',
+      currentStage: 'FINALIZE',
+      attemptCount: 0,
+      createdAt: '2026-05-01T00:00:00.000Z',
+      updatedAt: '2026-05-01T00:00:00.000Z',
+      completedAt: '2026-05-01T00:00:00.000Z',
+    });
+    repo.storyDeletionJobs.set('recoverable-job', {
+      id: 'recoverable-job',
+      ownerUid: OWNER.uid,
+      storyId: '22222222-2222-4222-8222-222222222222',
+      idempotencyKey: 'delete-recoverable',
+      status: 'SUCCEEDED',
+      currentStage: 'FINALIZE',
+      attemptCount: 0,
+      createdAt: '2026-07-20T00:00:00.000Z',
+      updatedAt: '2026-07-20T00:00:00.000Z',
+      completedAt: '2026-07-20T00:00:00.000Z',
+    });
+
+    await expect(service(repo, store).runStoryTombstonePurge()).resolves.toEqual({
+      attempted: 1,
+      completed: 1,
+      failed: 0,
+    });
+    expect(repo.storyDeletionJobs.has('expired-job')).toBe(false);
+    expect(repo.storyDeletionJobs.has('recoverable-job')).toBe(true);
   });
 });
 

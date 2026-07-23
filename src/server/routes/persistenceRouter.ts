@@ -8,6 +8,10 @@ import type {
   StoryWorld,
   UserProfile,
 } from '../../types';
+import {
+  MAX_STORY_PATCH_OPERATIONS,
+  type StoryPatchOperation,
+} from '../../lib/storage/storyPatch';
 import { getFirebaseAdminApp } from '../firebaseAdmin';
 import { logger } from '../logger';
 import type {
@@ -25,10 +29,26 @@ const expectedSchema = z.object({
   syncRevision: z.string().max(200).nullable().optional(),
 }).strict();
 const objectValueSchema = z.record(z.string(), z.unknown());
-const storyWriteSchema = z.object({
+const storyBootstrapWriteSchema = z.object({
   story: objectValueSchema,
   expected: expectedSchema.optional(),
 }).strict();
+const storyPatchOperationSchema = z.discriminatedUnion('op', [
+  z.object({
+    op: z.enum(['add', 'replace']),
+    path: z.string().min(2).max(1_000),
+    value: z.unknown(),
+  }).strict(),
+  z.object({
+    op: z.literal('remove'),
+    path: z.string().min(2).max(1_000),
+  }).strict(),
+]);
+const storyPatchWriteSchema = z.object({
+  patch: z.array(storyPatchOperationSchema).max(MAX_STORY_PATCH_OPERATIONS),
+  expected: expectedSchema,
+}).strict();
+const storyWriteSchema = z.union([storyBootstrapWriteSchema, storyPatchWriteSchema]);
 const chapterWriteSchema = z.object({
   content: objectValueSchema,
   expected: expectedSchema.optional(),
@@ -209,9 +229,26 @@ export function createPersistenceRouter(
   router.put('/api/persistence/stories/:storyId', asyncRoute(async (req, res) => {
     const storyId = identifierSchema.parse(req.params.storyId);
     const parsed = storyWriteSchema.parse(req.body);
+    const repository = await dependencies.getRepository();
+    if ('patch' in parsed) {
+      const result = await repository.patchStory(
+        res.locals.ownerUid,
+        storyId,
+        parsed.patch as StoryPatchOperation[],
+        mutationContext(req, parsed.expected),
+      );
+      res.json({
+        story: result.story,
+        metrics: {
+          requestBytes: Buffer.byteLength(JSON.stringify(req.body)),
+          affectedRows: result.affectedRows,
+          durationMs: result.durationMs,
+        },
+      });
+      return;
+    }
     if (parsed.story.id !== storyId) throw new Error('Story route and payload IDs do not match.');
     assertOwnerField(parsed.story, res.locals.ownerUid);
-    const repository = await dependencies.getRepository();
     const story = await repository.saveStory(
       res.locals.ownerUid,
       parsed.story as unknown as StoryWorld,

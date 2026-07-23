@@ -9,6 +9,10 @@ import {
   requirePersistenceUuid,
   saveMediaAsset,
 } from '../lib/media/mediaAssetClient';
+import {
+  discardCachedMedia,
+  resolveMediaAssetForDisplay,
+} from '../lib/media/privateMediaResolver';
 
 interface UseCodexVoiceCardsOptions {
   memory: StoryMemory;
@@ -104,9 +108,13 @@ export function useCodexVoiceCards({ memory, onUpdateMemory }: UseCodexVoiceCard
           entityType: 'character',
           label: char.signatureQuote,
         },
+        replacesAssetId: char.voiceAssetId,
         idempotencyKey: generateUUID(),
       });
-      const voiceClipUrl = asset.deliveryUrl;
+      const voiceClipUrl = (await resolveMediaAssetForDisplay(asset)).url;
+      if (char.voiceAssetId && char.voiceAssetId !== asset.id) {
+        await discardCachedMedia(char.voiceAssetId);
+      }
 
       const updatedChars = memory.characters.map(c => {
         if (c.id === char.id) {

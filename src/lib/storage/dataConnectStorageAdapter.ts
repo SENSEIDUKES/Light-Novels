@@ -1,5 +1,6 @@
 import type { ChapterContent, LoreGlossary, StoryWorld } from '../../types';
 import type { CloudRevisionExpectation, StorageAdapter } from './types';
+import { createStoryPatch } from './storyPatch';
 
 const DEFAULT_BASE_URL = '/api/persistence';
 const MIN_SUSPICIOUS_BASE64_LENGTH = 1024;
@@ -301,6 +302,7 @@ export class DataConnectStorageAdapter implements StorageAdapter {
   private readonly fetchImpl: typeof globalThis.fetch;
   private readonly baseUrl: string;
   private readonly temporaryMediaHosts: readonly string[];
+  private readonly storySnapshots = new Map<string, StoryWorld>();
 
   constructor(options: DataConnectStorageAdapterOptions) {
     this.auth = options.auth;
@@ -332,13 +334,30 @@ export class DataConnectStorageAdapter implements StorageAdapter {
         'persistence/invalid-response',
       );
     }
-    return stories.map(requireStory);
+    return stories.map((value) => {
+      const story = requireStory(value);
+      const existing = this.storySnapshots.get(story.id);
+      if (
+        !existing
+        || existing.persistenceHydration === 'summary'
+        || existing.syncRevision !== story.syncRevision
+      ) {
+        this.storySnapshots.set(story.id, story);
+      }
+      return story;
+    });
   }
 
   async getStory(id: string): Promise<StoryWorld | null> {
     const payload = await this.request(`/stories/${encodeURIComponent(id)}`);
     const story = requireEnvelope(payload, 'story');
-    return story === null ? null : requireStory(story);
+    if (story === null) {
+      this.storySnapshots.delete(id);
+      return null;
+    }
+    const hydrated = requireStory(story);
+    this.storySnapshots.set(hydrated.id, hydrated);
+    return hydrated;
   }
 
   async saveStory(story: StoryWorld): Promise<void> {
@@ -413,14 +432,34 @@ export class DataConnectStorageAdapter implements StorageAdapter {
     expected?: CloudRevisionExpectation,
   ): Promise<void> {
     const persistedStory = preparePermanentPersistencePayload(story, this.temporaryMediaHosts);
-    await this.request(`/stories/${encodeURIComponent(story.id)}`, {
+    let baseline = this.storySnapshots.get(story.id);
+    if (
+      expected?.exists
+      && (!baseline || baseline.persistenceHydration === 'summary')
+    ) {
+      baseline = (await this.getStory(story.id)) ?? undefined;
+    }
+    const patch = baseline ? createStoryPatch(baseline, persistedStory) : null;
+    if (patch?.length === 0 && expected === undefined) return;
+    const payload = await this.request(`/stories/${encodeURIComponent(story.id)}`, {
       method: 'PUT',
       body: JSON.stringify(
-        expected === undefined
-          ? { story: persistedStory }
-          : { story: persistedStory, expected },
+        patch
+          ? { patch, expected: expected ?? {
+              exists: true,
+              updatedAt: baseline?.updatedAt ?? null,
+              syncRevision: baseline?.syncRevision ?? null,
+            } }
+          : expected === undefined
+            ? { story: persistedStory }
+            : { story: persistedStory, expected },
       ),
     });
+    const saved = requireEnvelope(payload, 'story');
+    this.storySnapshots.set(
+      story.id,
+      saved === null ? persistedStory : requireStory(saved),
+    );
   }
 
   private async putChapter(

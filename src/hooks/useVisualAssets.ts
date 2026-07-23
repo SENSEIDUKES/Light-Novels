@@ -8,6 +8,10 @@ import {
   requirePersistenceUuid,
   saveMediaAsset,
 } from '../lib/media/mediaAssetClient';
+import {
+  discardCachedMedia,
+  resolveMediaAssetForDisplay,
+} from '../lib/media/privateMediaResolver';
 
 export const useVisualAssets = () => {
   const store_stories = useAppStore(state => state.stories);
@@ -90,8 +94,13 @@ export const useVisualAssets = () => {
         promptUsed,
         chapterNumber: activeStory.currentChapterNumber,
       },
+      replacesAssetId: activeStory.coverAssetId,
       idempotencyKey: generateUUID(),
     });
+    const resolved = await resolveMediaAssetForDisplay(asset);
+    if (activeStory.coverAssetId && activeStory.coverAssetId !== asset.id) {
+      await discardCachedMedia(activeStory.coverAssetId);
+    }
 
     const imageRecord: GeneratedImage = {
       id: legacyMediaId,
@@ -101,7 +110,7 @@ export const useVisualAssets = () => {
       deliveryUrlExpiresAt: asset.deliveryUrlExpiresAt ?? undefined,
       entityId: activeStory.id,
       entityType: 'cover',
-      imageUrl: asset.deliveryUrl,
+      imageUrl: resolved.url,
       promptUsed,
       createdAt: new Date().toISOString(),
       isCurrent: true,
@@ -116,7 +125,7 @@ export const useVisualAssets = () => {
     await handleUpdateStoryDirect({
       ...activeStory,
       persistenceId: storyId,
-      imageUrl: asset.deliveryUrl,
+      imageUrl: resolved.url,
       coverAssetId: asset.id,
       imageHistory: updatedHistory,
       evolutionReady: false,
