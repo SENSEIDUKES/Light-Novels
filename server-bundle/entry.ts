@@ -26,5 +26,28 @@ export function createServerlessApp() {
   return app;
 }
 
+const FORWARDED_API_PATH_QUERY = "__seihouse_api_path";
+
+export function restoreForwardedApiUrl(request: {
+  url?: string;
+  query?: Record<string, string | string[] | undefined>;
+}) {
+  const forwardedValue = request.query?.[FORWARDED_API_PATH_QUERY];
+  const forwardedPath = (Array.isArray(forwardedValue)
+    ? forwardedValue.join("/")
+    : forwardedValue ?? "")
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
+  const incomingUrl = new URL(request.url ?? "/api", "http://serverless.local");
+  incomingUrl.searchParams.delete(FORWARDED_API_PATH_QUERY);
+  const remainingQuery = incomingUrl.searchParams.toString();
+  request.url = `/api${forwardedPath ? `/${forwardedPath}` : ""}${
+    remainingQuery ? `?${remainingQuery}` : ""
+  }`;
+}
+
 const app = createServerlessApp();
 export default app;

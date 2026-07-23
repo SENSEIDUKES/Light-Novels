@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { createServer, type Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createServerlessApp } from "./entry";
+import { createServerlessApp, restoreForwardedApiUrl } from "./entry";
 
 describe("Vercel serverless entry", () => {
   let server: Server;
@@ -34,5 +34,19 @@ describe("Vercel serverless entry", () => {
     await expect(response.json()).resolves.toMatchObject({
       error: { code: "unauthenticated" },
     });
+  });
+
+  it("restores the original API path after Vercel selects the single function", () => {
+    const request = {
+      url: "/api?__seihouse_api_path=persistence%2Fstories&changedAfter=42",
+      query: {
+        __seihouse_api_path: "persistence/stories",
+        changedAfter: "42",
+      },
+    };
+
+    restoreForwardedApiUrl(request);
+
+    expect(request.url).toBe("/api/persistence/stories?changedAfter=42");
   });
 });
