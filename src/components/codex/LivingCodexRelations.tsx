@@ -305,6 +305,7 @@ export function LivingCodexRelations({
                             }}
                             className="absolute bottom-1.5 right-1.5 z-20 bg-black/85 hover:bg-portal hover:text-void border border-neutral-900 hover:border-portal text-neutral-300 p-1.5 rounded transition-all duration-200 opacity-0 group-hover/rel:opacity-100 flex items-center gap-1 font-mono text-[8px] uppercase tracking-wider backdrop-blur cursor-pointer shadow"
                             title="Download Portrait"
+                          aria-label={`Download portrait for ${selectedNodeChar.name}`}
                           >
                             <Download size={8} />
                             <span>Get</span>

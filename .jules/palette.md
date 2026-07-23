@@ -19,3 +19,7 @@
 
 **Learning:** Found several components using icon-only buttons that relied solely on `title` attributes (or lacked descriptions altogether). While `title` gives hover text for mouse users, it is not consistently exposed to screen readers unless explicitly bound via ARIA.
 **Action:** When creating or updating icon-only interactive elements (like `button` or `[role="button"]`), always explicitly assign an `aria-label` describing the action, matching the `title` attribute's intent where possible.
+## 2024-05-14 - Add Context-Specific ARIA Labels to Icon-Only Buttons in Mapped Lists
+
+**Learning:** It's common in this application to see icon-only buttons overlaying images within mapped lists (like codex entries) without proper accessibility metadata. Specifically, when rendering lists of similar entities (e.g., characters, artifacts), multiple identical download buttons exist on the page with only `title` tooltips.
+**Action:** When adding or auditing icon-only interaction buttons within mapped lists, ensure context-specific `aria-label` attributes are included using dynamic variables (e.g., `` aria-label={`Download portrait for ${entity.name}`} ``) to allow screen reader users to distinguish which entity is associated with which button.

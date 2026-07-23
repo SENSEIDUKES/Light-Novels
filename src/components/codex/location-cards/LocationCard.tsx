@@ -56,6 +56,7 @@ export const LocationCard: React.FC<LocationCardProps> = ({
               }}
               className="absolute bottom-2 right-2 z-20 bg-black/85 hover:bg-portal hover:text-void border border-neutral-900 hover:border-portal text-neutral-300 p-1.5 rounded-md transition-all duration-200 opacity-0 group-hover:opacity-100 flex items-center gap-1 font-mono text-[8px] uppercase tracking-wider backdrop-blur cursor-pointer shadow-md"
               title="Download Scenery Vista"
+            aria-label={`Download vista image for ${loc.name}`}
             >
               <Download size={10} />
               <span>Get</span>
