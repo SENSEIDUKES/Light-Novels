@@ -23,3 +23,4 @@ dataconnect-ci/.dataconnect/
 .agents/
 skills-lock.json
 
+.vercel/
