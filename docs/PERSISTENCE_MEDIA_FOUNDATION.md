@@ -1,5 +1,12 @@
 # Persistence and Media Foundation
 
+> **Historical Phase 1 document.** PR #173 established this foundation. The
+> application cutover described in
+> [`PERSISTENCE_MEDIA_CUTOVER.md`](./PERSISTENCE_MEDIA_CUTOVER.md) supersedes
+> the integration guidance below: PostgreSQL/Data Connect and R2 are now the
+> active persistence paths, while Firestore and Firebase Storage have been
+> retired from application persistence.
+
 ## Phase-one scope
 
 This foundation adds a production-shaped PostgreSQL/Data Connect model, a

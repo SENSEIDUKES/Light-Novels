@@ -74,9 +74,9 @@ The internal `dropEngine` parses dynamic events embedded within the AI's generat
 ## 🛡️ Cloud Persistence, Sects, & Security
 
 - **Sect Alignments**: Fully functional `SectsScreen` allows users to join multiplayer factions, pooling their Sect Qi and competing on leaderboards.
-- **Real-Time Firebase Synchronization**: User profiles, codex states, and story artifacts are synchronized to the cloud. Background jobs handle `SyncConflictModal` resolutions when switching devices.
+- **Celestial Library Synchronization**: PostgreSQL/Data Connect stores structured account, story, chapter, codex, glossary, and seed state. IndexedDB is a disposable offline cache with a durable mutation outbox, and conflict-safe reconciliation restores libraries across devices.
 - **Telemetry-Derived Encryption (BYOK)**: A local-first client obfuscation mechanism derives a client-side AES-GCM key by hashing local device telemetry. It provides "Bring-Your-Own-Key" shoulder-surfing protection for API keys directly in the browser's `secureStorage`.
-- **Firestore Invariants & Testing**: Strict security rules guarantee that StoryWorlds cannot exist without a matched, authenticated `userId`, validated through an internal `firestore.rules.test.ts` runner to prevent unauthorized state mutations.
+- **Authenticated Ownership Boundaries**: Firebase Authentication identifies the caller; trusted server routes enforce ownership before Data Connect mutations, while permanent generated media is stored in Cloudflare R2 with PostgreSQL metadata.
 
 ---
 

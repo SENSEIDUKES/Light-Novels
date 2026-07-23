@@ -343,7 +343,17 @@ query AdminListStaleMediaUploads($staleBefore: Timestamp!, $limit: Int = 100) @a
 
 query AdminListMediaCleanupTasks($limit: Int = 100) @auth(level: NO_ACCESS) {
   mediaCleanupTasks(
-    where: { status: { in: [PENDING, FAILED] }, nextAttemptAt: { le_expr: "request.time" } }
+    where: {
+      _and: [
+        { nextAttemptAt: { le_expr: "request.time" } }
+        {
+          _or: [
+            { status: { in: [PENDING, FAILED] } }
+            { status: { eq: RUNNING }, leaseExpiresAt: { lt_expr: "request.time" } }
+          ]
+        }
+      ]
+    }
     orderBy: [{ nextAttemptAt: ASC }]
     limit: $limit
   ) {
@@ -353,10 +363,13 @@ query AdminListMediaCleanupTasks($limit: Int = 100) @auth(level: NO_ACCESS) {
     bucket
     objectKey
     reason
+    idempotencyKey
     status
     attemptCount
     lastError
     nextAttemptAt
+    leaseOwner
+    leaseExpiresAt
     createdAt
   }
 }
@@ -377,5 +390,1431 @@ query AdminListMediaAssetsForStorageReport($limit: Int = 500, $offset: Int = 0) 
     mimeType
     objectKey
     createdAt
+  }
+}
+
+# Incremental browser sync is always derived from auth.uid and deliberately
+# includes DELETED tombstones.
+query ListMyStoryChanges($changedAfter: Timestamp!, $limit: Int = 200) @auth(level: USER) {
+  storyChanges(
+    where: {
+      ownerUid: { eq_expr: "auth.uid" }
+      changedAt: { gt: $changedAfter }
+    }
+    orderBy: [{ changedAt: ASC }, { id: ASC }]
+    limit: $limit
+  ) {
+    id
+    storyId
+    changeKind
+    storyRevision
+    syncRevision
+    idempotencyKey
+    changedAt
+  }
+}
+
+query GetMyCurrentMediaSlot($targetKind: String!, $targetKey: String!, $purpose: String!)
+  @auth(level: USER) {
+  mediaSlot(
+    first: {
+      where: {
+        ownerUid: { eq_expr: "auth.uid" }
+        targetKind: { eq: $targetKind }
+        targetKey: { eq: $targetKey }
+        purpose: { eq: $purpose }
+      }
+    }
+  ) {
+    targetKind
+    targetKey
+    purpose
+    storyId
+    chapterId
+    entityId
+    currentAssetId
+    version
+    updatedAt
+    currentAsset {
+      id
+      assetType
+      status
+      mimeType
+      byteSize
+      checksumSha256
+      width
+      height
+      durationMs
+      version
+      readyAt
+    }
+  }
+}
+
+query ListMyMediaSlotHistory($targetKind: String!, $targetKey: String!, $purpose: String!, $limit: Int = 100)
+  @auth(level: USER) {
+  mediaAttachments(
+    where: {
+      targetKind: { eq: $targetKind }
+      targetKey: { eq: $targetKey }
+      purpose: { eq: $purpose }
+      asset: { ownerUid: { eq_expr: "auth.uid" }, status: { nin: [DELETED, ORPHANED] } }
+    }
+    orderBy: [{ createdAt: DESC }]
+    limit: $limit
+  ) {
+    id
+    assetId
+    clientHistoryId
+    promptUsed
+    chapterNumber
+    arcTitle
+    label
+    position
+    isCurrent
+    createdAt
+    endedAt
+    asset {
+      assetType
+      status
+      mimeType
+      byteSize
+      checksumSha256
+      width
+      height
+      durationMs
+      version
+      readyAt
+    }
+  }
+}
+
+query AdminListOwnedStories($ownerUid: String!, $limit: Int = 200, $offset: Int = 0)
+  @auth(level: NO_ACCESS) {
+  stories(
+    where: { ownerUid: { eq: $ownerUid } }
+    orderBy: [{ updatedAt: DESC }]
+    limit: $limit
+    offset: $offset
+  ) {
+    id
+    ownerUid
+    sourceSeedId
+    parentStoryId
+    legacyStoryId
+    clientStoryId
+    title
+    genre
+    mainCharacterName
+    premise
+    status
+    visibility
+    currentChapterNumber
+    forkChapterNumber
+    syncRevision
+    revision
+    schemaVersion
+    lastImageChapter
+    evolutionReady
+    evolutionReason
+    availableVisualUpdate
+    isEdited
+    conflictResolvedAt
+    deletedAt
+    createdAt
+    updatedAt
+  }
+}
+
+query AdminListOwnedStoryCoverSlots(
+  $ownerUid: String!
+  $limit: Int = 500
+  $offset: Int = 0
+) @auth(level: NO_ACCESS) {
+  coverSlots: mediaSlots(
+    where: {
+      ownerUid: { eq: $ownerUid }
+      targetKind: { eq: "STORY" }
+      purpose: { eq: "STORY_COVER" }
+    }
+    orderBy: [{ updatedAt: DESC }]
+    limit: $limit
+    offset: $offset
+  ) {
+    ownerUid
+    storyId
+    targetKey
+    currentAssetId
+    version
+    updatedAt
+    currentAsset {
+      status
+      mimeType
+      checksumSha256
+      version
+    }
+  }
+}
+
+query AdminListOwnedStoryChanges(
+  $ownerUid: String!
+  $changedAfter: Timestamp!
+  $limit: Int = 500
+) @auth(level: NO_ACCESS) {
+  storyChanges(
+    where: { ownerUid: { eq: $ownerUid }, changedAt: { gt: $changedAfter } }
+    orderBy: [{ changedAt: ASC }, { id: ASC }]
+    limit: $limit
+  ) {
+    id
+    ownerUid
+    storyId
+    changeKind
+    storyRevision
+    syncRevision
+    idempotencyKey
+    changedAt
+  }
+}
+
+query AdminGetPersistenceReceipt($ownerUid: String!, $idempotencyKey: String!)
+  @auth(level: NO_ACCESS) {
+  persistenceReceipt(key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }) {
+    ownerUid
+    idempotencyKey
+    operation
+    storyId
+    chapterId
+    seedId
+    resultingSyncRevision
+    resultingRevision
+    requestHash
+    createdAt
+  }
+}
+
+# Story scaffolding, memory, Codex, reader state, generation state, and media
+# references are returned together. Full prose/block payloads use the dedicated
+# AdminGetOwnedChapterContentGraph operation so ordinary library hydration does
+# not pull every chapter body.
+query AdminGetOwnedStoryGraph($ownerUid: String!, $storyId: UUID!) @auth(level: NO_ACCESS) {
+  story(first: { where: { id: { eq: $storyId }, ownerUid: { eq: $ownerUid } } }) {
+    id
+    ownerUid
+    sourceSeedId
+    parentStoryId
+    legacyStoryId
+    clientStoryId
+    title
+    genre
+    mainCharacterName
+    premise
+    status
+    visibility
+    currentChapterNumber
+    forkChapterNumber
+    syncRevision
+    revision
+    schemaVersion
+    lastImageChapter
+    evolutionReady
+    evolutionReason
+    availableVisualUpdate
+    isEdited
+    conflictResolvedAt
+    deletedAt
+    createdAt
+    updatedAt
+  }
+  members: storyMembers(
+    where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
+  ) {
+    storyId
+    userUid
+    role
+    createdAt
+  }
+  preferences: storyPreferences(
+    where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
+  ) {
+    storyId
+    contextEngine
+    hardcoreFateMode
+    fatePressure
+    motionCoverActive
+    assignedRevealBackdropPolicy
+    updatedAt
+  }
+  readerPreferences: storyReaderPreferences(
+    where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
+  ) {
+    storyId
+    userUid
+    fontSize
+    fontFamily
+    lineHeight
+    paragraphSpacing
+    lineHeightScale
+    paragraphSpacingScale
+    letterSpacing
+    wordSpacing
+    readingWidth
+    textAlignment
+    contextEngine
+    themeOverride
+    colorPaletteId
+    highlightStyle
+    updatedAt
+  }
+  memoryStates: storyMemoryStates(
+    where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
+  ) {
+    storyId
+    powerSystem
+    currentPowerStage
+    updatedAt
+  }
+  memoryWarnings: storyMemoryWarnings(
+    where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
+    orderBy: [{ createdAt: ASC }]
+  ) {
+    id
+    warning
+    resolvedAt
+    createdAt
+  }
+  rules: storyRules(
+    where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
+    orderBy: [{ position: ASC }]
+  ) {
+    id
+    ruleKey
+    ruleValue
+    isPinned
+    position
+    updatedAt
+  }
+  revealBackdrops: storyRevealBackdrops(
+    where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
+  ) {
+    entityStableKey
+    backdropAssetId
+    updatedAt
+  }
+  arcs: storyArcs(
+    where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
+    orderBy: [{ arcNumber: ASC }]
+  ) {
+    id
+    arcNumber
+    title
+    summary
+    episodicSummaries
+    status
+    createdAt
+    updatedAt
+  }
+  chapters(
+    where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
+    orderBy: [{ chapterNumber: ASC }]
+  ) {
+    id
+    storyId
+    arcId
+    legacyChapterId
+    clientChapterId
+    chapterNumber
+    title
+    premise
+    status
+    summary
+    episodicSummary
+    contentHash
+    versionId
+    syncRevision
+    revision
+    branchAnchor
+    continuityWarnings
+    continuitySoftNotes
+    contractObjectiveFulfilled
+    contractEvidence
+    contractOpeningMatched
+    embedding
+    isSealed
+    sealedAt
+    hasContinuityFaults
+    createdAt
+    updatedAt
+  }
+  codexEntities(
+    where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
+    orderBy: [{ kind: ASC }, { name: ASC }]
+  ) {
+    id
+    stableKey
+    kind
+    name
+    role
+    description
+    status
+    relationshipToMainCharacter
+    relevanceState
+    contextPriority
+    authorContextNote
+    firstAppearedChapter
+    lastMajorInvolvementChapter
+    currentRelevance
+    toneMemory
+    manifestationImportance
+    isUserPinned
+    pendingEvolution
+    evolutionReady
+    evolutionReason
+    availableVisualUpdate
+    lastImageChapter
+    arcAccumulation
+    sourceChapterNumber
+    sourceBlockId
+    provenanceCreatedBy
+    provenanceConfidence
+    lastMentionedChapter
+    supersedesStableKey
+    createdAt
+    updatedAt
+    aliases: codexAliases_on_entity(orderBy: [{ alias: ASC }]) {
+      alias
+      normalizedAlias
+      isCanonical
+    }
+    attributes: codexEntityAttributes_on_entity(orderBy: [{ attributeKey: ASC }]) {
+      attributeKey
+      stringValue
+      numberValue
+      booleanValue
+      stringListValue
+      jsonValue
+      updatedAt
+    }
+    progression: abilityProgressionEvents_on_abilityEntity(orderBy: [{ chapterNumber: ASC }]) {
+      id
+      chapterNumber
+      fromMastery
+      toMastery
+      note
+      createdAt
+    }
+    threadLinks: codexThreadLinks_on_entity {
+      threadId
+      createdAt
+    }
+  }
+  codexRelationships(
+    where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
+  ) {
+    id
+    sourceEntityId
+    targetEntityId
+    sourceStableKey
+    targetStableKey
+    sourceName
+    targetName
+    relationshipKind
+    affinity
+    threat
+    description
+    status
+    createdAt
+    updatedAt
+  }
+  plotThreads(
+    where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
+    orderBy: [{ createdAt: ASC }]
+  ) {
+    id
+    stableKey
+    description
+    status
+    originChapterNumber
+    resolvedChapterNumber
+    confidence
+    isUserPinned
+    sourceChapterNumber
+    sourceBlockId
+    provenanceCreatedBy
+    provenanceConfidence
+    lastMentionedChapter
+    supersedesStableKey
+    createdAt
+    updatedAt
+  }
+  karmaNodes(
+    where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
+    orderBy: [{ createdAt: ASC }]
+  ) {
+    id
+    sourceEntityId
+    targetEntityId
+    sourceStableKey
+    targetStableKey
+    sourceName
+    targetName
+    description
+    severity
+    nodeType
+    status
+    createdAt
+    resolvedAt
+  }
+  timelineEvents(
+    where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
+    orderBy: [{ chapterNumber: ASC }, { createdAt: ASC }]
+  ) {
+    id
+    chapterId
+    chapterNumber
+    title
+    description
+    eventType
+    occurredAtLabel
+    createdAt
+  }
+  bookmarks(
+    where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
+    orderBy: [{ createdAt: ASC }]
+  ) {
+    id
+    userUid
+    chapterId
+    paragraphIndex
+    paragraphExcerpt
+    note
+    createdAt
+  }
+  readingProgresses(
+    where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
+  ) {
+    userUid
+    chapterNumber
+    anchorBlockId
+    anchorText
+    anchorOffset
+    anchorParagraphIndex
+    anchorContentSignature
+    anchorIntraBlockRatio
+    anchorSavedAt
+    legacyScrollPosition
+    anchor
+    totalReadingTimeMs
+    lastReadAt
+    updatedAt
+  }
+  arcReadingProgresses(
+    where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
+    orderBy: [{ arcNumber: ASC }]
+  ) {
+    userUid
+    arcNumber
+    readingTimeMs
+    updatedAt
+  }
+  glossaryTerms(
+    where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
+    orderBy: [{ sourceText: ASC }]
+  ) {
+    id
+    sourceText
+    targetText
+    targetLanguage
+    note
+    createdAt
+    updatedAt
+  }
+  generationJobs(
+    where: { storyId: { eq: $storyId }, ownerUid: { eq: $ownerUid } }
+    orderBy: [{ createdAt: ASC }]
+  ) {
+    id
+    chapterId
+    kind
+    status
+    provider
+    model
+    inputHash
+    idempotencyKey
+    attemptCount
+    errorCode
+    errorMessage
+    startedAt
+    completedAt
+    createdAt
+    updatedAt
+    events: generationEvents_on_job(orderBy: [{ createdAt: ASC }]) {
+      id
+      eventType
+      message
+      progress
+      createdAt
+    }
+  }
+  generationBatches: chapterGenerationBatches(
+    where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
+    orderBy: [{ createdAt: ASC }]
+  ) {
+    id
+    clientBatchId
+    status
+    currentChapterNumber
+    failedChapterNumber
+    errorMessage
+    createdAt
+    completedAt
+    updatedAt
+    items: chapterGenerationBatchItems_on_batch(orderBy: [{ chapterNumber: ASC }]) {
+      chapterNumber
+      status
+      completedAt
+      updatedAt
+    }
+  }
+  mediaSlots(
+    where: { storyId: { eq: $storyId }, ownerUid: { eq: $ownerUid } }
+    orderBy: [{ targetKind: ASC }, { targetKey: ASC }, { purpose: ASC }]
+  ) {
+    targetKind
+    targetKey
+    purpose
+    chapterId
+    entityId
+    currentAssetId
+    version
+    updatedAt
+  }
+  mediaAttachments(
+    where: { storyId: { eq: $storyId }, asset: { ownerUid: { eq: $ownerUid } } }
+    orderBy: [{ createdAt: ASC }]
+  ) {
+    id
+    assetId
+    chapterId
+    entityId
+    targetKind
+    targetKey
+    purpose
+    clientHistoryId
+    promptUsed
+    chapterNumber
+    arcTitle
+    label
+    position
+    isCurrent
+    createdAt
+    endedAt
+  }
+  deletionJobs: storyDeletionJobs(
+    where: { storyId: { eq: $storyId }, ownerUid: { eq: $ownerUid } }
+  ) {
+    id
+    idempotencyKey
+    status
+    currentStage
+    leaseOwner
+    leaseExpiresAt
+    attemptCount
+    lastError
+    createdAt
+    updatedAt
+    completedAt
+    stages: storyDeletionStages_on_job {
+      stage
+      status
+      attemptCount
+      lastError
+      startedAt
+      completedAt
+      updatedAt
+    }
+  }
+}
+
+query AdminGetOwnedChapterContentGraph(
+  $ownerUid: String!
+  $storyId: UUID!
+  $chapterId: UUID!
+) @auth(level: NO_ACCESS) {
+  chapter(
+    first: {
+      where: {
+        id: { eq: $chapterId }
+        storyId: { eq: $storyId }
+        story: { ownerUid: { eq: $ownerUid } }
+      }
+    }
+  ) {
+    id
+    storyId
+    arcId
+    legacyChapterId
+    clientChapterId
+    chapterNumber
+    title
+    premise
+    status
+    summary
+    episodicSummary
+    contentHash
+    versionId
+    syncRevision
+    revision
+    branchAnchor
+    continuityWarnings
+    continuitySoftNotes
+    contractObjectiveFulfilled
+    contractEvidence
+    contractOpeningMatched
+    embedding
+    isSealed
+    sealedAt
+    hasContinuityFaults
+    createdAt
+    updatedAt
+    content: chapterContent_on_chapter {
+      generatedContent
+      statsChangeMessage
+      contextEngine
+      contextRoute
+      contextEstimatedTokens
+      contextBudgetTokens
+      contractObjective
+      contractRequiredOpening
+      handoffNextImmediateAction
+      handoffEndLocation
+      handoffEndTimeMarker
+      handoffMainCharacterCondition
+      handoffOpenTension
+      revisionId
+      syncRevision
+      revision
+      cuePayload
+      contextManifest
+      handoff
+      contract
+      updatedAt
+    }
+    blocks: chapterBlocks_on_chapter(orderBy: [{ isArchived: ASC }, { position: ASC }]) {
+      id
+      legacyBlockId
+      position
+      blockType
+      text
+      speakerName
+      speakerRole
+      mode
+      sceneType
+      environment
+      atmosphereCategory
+      atmosphereTags
+      theme
+      motion
+      emotion
+      intensity
+      tension
+      danger
+      mysticism
+      audioSignature
+      isArchived
+      music
+      beastEvent
+      systemEvent
+      worldCard
+      attributes: chapterBlockAttributes_on_block {
+        attributeKey
+        stringValue
+        numberValue
+        booleanValue
+      }
+      entityMentions: chapterBlockEntityMentions_on_block(orderBy: [{ position: ASC }]) {
+        position
+        entityId
+        name
+        entityType
+        mentionKind
+      }
+    }
+    translations: chapterTranslations_on_chapter(orderBy: [{ languageCode: ASC }]) {
+      languageCode
+      title
+      content
+      translatedAt
+    }
+    audioManifest: chapterAudioManifest_on_chapter {
+      version
+      language
+      generatedAt
+      updatedAt
+    }
+    voiceClips: chapterVoiceClips_on_chapter(orderBy: [{ position: ASC }]) {
+      id
+      blockId
+      position
+      speakerVoice
+      assetId
+      catalogId
+      createdAt
+    }
+  }
+  fingerprints: chapterSceneFingerprints(
+    where: {
+      chapterId: { eq: $chapterId }
+      storyId: { eq: $storyId }
+      story: { ownerUid: { eq: $ownerUid } }
+    }
+    orderBy: [{ createdAt: ASC }]
+  ) {
+    id
+    chapterNumber
+    actionType
+    location
+    outcome
+    participants
+    createdAt
+  }
+  facts: chapterFacts(
+    where: {
+      chapterId: { eq: $chapterId }
+      storyId: { eq: $storyId }
+      story: { ownerUid: { eq: $ownerUid } }
+    }
+    orderBy: [{ createdAt: ASC }]
+  ) {
+    id
+    chapterNumber
+    factKind
+    subjectKey
+    factText
+    confidence
+    isPinned
+    createdAt
+    newerSupersessions: chapterFactSupersessions_on_newerFact {
+      olderFactId
+      createdAt
+    }
+  }
+}
+
+query AdminListOwnedStorySeeds($ownerUid: String!, $limit: Int = 200, $offset: Int = 0)
+  @auth(level: NO_ACCESS) {
+  storySeeds(
+    where: { ownerUid: { eq: $ownerUid }, deletedAt: { isNull: true } }
+    orderBy: [{ updatedAt: DESC }]
+    limit: $limit
+    offset: $offset
+  ) {
+    id
+    legacySeedId
+    clientSeedId
+    title
+    schemaVersion
+    syncRevision
+    revision
+    deletedAt
+    createdAt
+    updatedAt
+  }
+}
+
+query AdminGetOwnedStorySeedGraph($ownerUid: String!, $seedId: UUID!) @auth(level: NO_ACCESS) {
+  storySeed(
+    first: {
+      where: { id: { eq: $seedId }, ownerUid: { eq: $ownerUid }, deletedAt: { isNull: true } }
+    }
+  ) {
+    id
+    ownerUid
+    legacySeedId
+    clientSeedId
+    title
+    schemaVersion
+    syncRevision
+    revision
+    deletedAt
+    createdAt
+    updatedAt
+    fields: storySeedFields_on_seed(orderBy: [{ section: ASC }, { fieldKey: ASC }, { position: ASC }]) {
+      section
+      fieldKey
+      position
+      stringValue
+      numberValue
+      booleanValue
+    }
+    entities: storySeedEntities_on_seed(orderBy: [{ entityKind: ASC }, { position: ASC }]) {
+      id
+      entityKind
+      clientEntityId
+      position
+      name
+      age
+      skinTone
+      eyeColor
+      powerType
+      rankLevel
+      role
+      powerLevel
+      alignment
+      connectionToMainCharacter
+      description
+      aliases: storySeedEntityAliases_on_seedEntity(orderBy: [{ position: ASC }]) {
+        alias
+        normalizedAlias
+        position
+      }
+    }
+  }
+}
+
+query AdminGetUserProfileGraph($ownerUid: String!) @auth(level: NO_ACCESS) {
+  account: userAccount(key: { uid: $ownerUid }) {
+    uid
+    email
+    displayName
+    role
+    createdAt
+    updatedAt
+  }
+  profile: userProfile(key: { userUid: $ownerUid }) {
+    userUid
+    username
+    displayNameColor
+    preferredLanguage
+    defaultTranslationLanguage
+    subscriptionTier
+    legacyQi
+    daoXp
+    daoRank
+    heavenlyQi
+    sectQi
+    demonicQi
+    writingStreak
+    savedStoryCount
+    activePortraitAssetId
+    imageGenerationCount
+    imageQuotaResetAt
+    lastSessionEnd
+    daoPillarStreak
+    daoPillarCracked
+    lastReadDate
+    lastInteractionDate
+    equippedInventoryItemId
+    syncRevision
+    revision
+    lastReadAt
+    createdAt
+    updatedAt
+  }
+  preferences: userPreference(key: { userUid: $ownerUid }) {
+    userUid
+    fontSize
+    fontFamily
+    lineHeightScale
+    paragraphSpacingScale
+    letterSpacing
+    wordSpacing
+    readingWidth
+    textAlignment
+    contextEngine
+    theme
+    colorPaletteId
+    highlightStyle
+    audioMusicVolume
+    audioAtmosphereVolume
+    audioVoiceVolume
+    updatedAt
+  }
+  inventory: userInventoryItems(
+    where: { userUid: { eq: $ownerUid } }
+    orderBy: [{ acquiredAt: ASC }]
+  ) {
+    id
+    clientItemId
+    catalogItemId
+    itemKind
+    name
+    description
+    rarity
+    status
+    sourceStoryId
+    sourceStoryTitle
+    sourceMilestone
+    milestoneType
+    imageAssetId
+    attributeBoost
+    statusEffectDefinition
+    offeringWeekId
+    gatheredAt
+    rewardValueQi
+    rewardValueSectMerit
+    acquiredAt
+    updatedAt
+  }
+  activeEffects: userStatusEffects(
+    where: { userUid: { eq: $ownerUid } }
+    orderBy: [{ appliedAt: ASC }]
+  ) {
+    id
+    clientEffectId
+    sourceInventoryItemId
+    name
+    effectType
+    description
+    durationMs
+    scope
+    visual
+    counterplay
+    rewardHook
+    qiMultiplier
+    sectQiMultiplier
+    appliedAt
+    expiresAt
+    progress
+    targetProgress
+    completedAt
+    isUnlockedReward
+    createdAt
+    updatedAt
+  }
+  progressEvents: userProgressEvents(
+    where: { userUid: { eq: $ownerUid } }
+    orderBy: [{ createdAt: ASC }]
+  ) {
+    id
+    eventType
+    amount
+    sourceType
+    sourceId
+    idempotencyKey
+    createdAt
+  }
+  portraits: userPortraits(
+    where: { userUid: { eq: $ownerUid } }
+    orderBy: [{ createdAt: DESC }]
+  ) {
+    assetId
+    prompt
+    description
+    daoRank
+    daoXp
+    powerStage
+    equippedInventoryItemId
+    usedReferenceImage
+    frameId
+    glowId
+    bannerId
+    effectIds
+    active
+    createdAt
+    updatedAt
+  }
+  storageUsage: userStorageUsage(key: { userUid: $ownerUid }) {
+    hardLimitBytes
+    usedBytes
+    reservedBytes
+    assetCount
+    revision
+    updatedAt
+  }
+}
+
+query AdminGetOwnedMediaSlot(
+  $ownerUid: String!
+  $targetKind: String!
+  $targetKey: String!
+  $purpose: String!
+) @auth(level: NO_ACCESS) {
+  mediaSlot(
+    key: {
+      ownerUid: $ownerUid
+      targetKind: $targetKind
+      targetKey: $targetKey
+      purpose: $purpose
+    }
+  ) {
+    ownerUid
+    storyId
+    chapterId
+    entityId
+    targetKind
+    targetKey
+    purpose
+    currentAssetId
+    version
+    updatedAt
+    currentAsset {
+      id
+      assetType
+      purpose
+      status
+      bucket
+      objectKey
+      mimeType
+      byteSize
+      checksumSha256
+      width
+      height
+      durationMs
+      version
+      readyAt
+    }
+  }
+}
+
+query AdminListOwnedMediaSlotHistory(
+  $ownerUid: String!
+  $targetKind: String!
+  $targetKey: String!
+  $purpose: String!
+  $limit: Int = 200
+) @auth(level: NO_ACCESS) {
+  mediaAttachments(
+    where: {
+      targetKind: { eq: $targetKind }
+      targetKey: { eq: $targetKey }
+      purpose: { eq: $purpose }
+      asset: { ownerUid: { eq: $ownerUid } }
+    }
+    orderBy: [{ createdAt: DESC }]
+    limit: $limit
+  ) {
+    id
+    assetId
+    storyId
+    chapterId
+    entityId
+    historyEntityType
+    clientHistoryId
+    promptUsed
+    chapterNumber
+    arcTitle
+    label
+    position
+    isCurrent
+    createdAt
+    endedAt
+    asset {
+      id
+      assetType
+      purpose
+      status
+      bucket
+      objectKey
+      mimeType
+      byteSize
+      checksumSha256
+      width
+      height
+      durationMs
+      version
+      readyAt
+    }
+  }
+}
+
+query AdminGetMediaUploadReceipt($ownerUid: String!, $idempotencyKey: String!)
+  @auth(level: NO_ACCESS) {
+  mediaUploadReceipt(key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }) {
+    ownerUid
+    idempotencyKey
+    assetId
+    requestHash
+    status
+    createdAt
+    updatedAt
+  }
+}
+
+query AdminGetOwnedStorageQuotaReservation($ownerUid: String!, $idempotencyKey: String!)
+  @auth(level: NO_ACCESS) {
+  storageQuotaReservation(
+    first: { where: { ownerUid: { eq: $ownerUid }, idempotencyKey: { eq: $idempotencyKey } } }
+  ) {
+    id
+    ownerUid
+    storyId
+    assetId
+    idempotencyKey
+    requestedBytes
+    status
+    expiresAt
+    createdAt
+    updatedAt
+    completedAt
+  }
+}
+
+query AdminGetMediaDeletionIntent($ownerUid: String!, $idempotencyKey: String!)
+  @auth(level: NO_ACCESS) {
+  mediaDeletionIntent(key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }) {
+    ownerUid
+    idempotencyKey
+    assetId
+    storyId
+    reason
+    status
+    createdAt
+    updatedAt
+    completedAt
+    lastError
+  }
+}
+
+query AdminListStoryDeletionMediaCandidates($ownerUid: String!, $storyId: UUID!, $limit: Int = 500)
+  @auth(level: NO_ACCESS) {
+  mediaAssets(
+    where: { ownerUid: { eq: $ownerUid }, storyId: { eq: $storyId }, status: { nin: [DELETED] } }
+    orderBy: [{ createdAt: ASC }]
+    limit: $limit
+  ) {
+    id
+    ownerUid
+    storyId
+    assetType
+    purpose
+    status
+    bucket
+    objectKey
+    byteSize
+    checksumSha256
+    cleanupAfter
+    attachments: mediaAttachments_on_asset {
+      id
+      storyId
+      chapterId
+      entityId
+      targetKind
+      targetKey
+      purpose
+      isCurrent
+    }
+  }
+}
+
+query AdminListStoryDeletionJobs($limit: Int = 100) @auth(level: NO_ACCESS) {
+  storyDeletionJobs(
+    where: {
+      _or: [
+        { status: { in: [PENDING, FAILED] } }
+        { status: { eq: RUNNING }, leaseExpiresAt: { lt_expr: "request.time" } }
+      ]
+    }
+    orderBy: [{ updatedAt: ASC }]
+    limit: $limit
+  ) {
+    id
+    ownerUid
+    storyId
+    idempotencyKey
+    status
+    currentStage
+    leaseOwner
+    leaseExpiresAt
+    attemptCount
+    lastError
+    createdAt
+    updatedAt
+  }
+}
+
+query AdminListExpiredStoryTombstones(
+  $completedBefore: Timestamp!
+  $limit: Int = 100
+) @auth(level: NO_ACCESS) {
+  storyDeletionJobs(
+    where: {
+      status: { eq: SUCCEEDED }
+      completedAt: { le: $completedBefore }
+      story: { status: { eq: DELETED } }
+    }
+    orderBy: [{ completedAt: ASC }]
+    limit: $limit
+  ) {
+    id
+    ownerUid
+    storyId
+    idempotencyKey
+    status
+    currentStage
+    attemptCount
+    createdAt
+    updatedAt
+    completedAt
+  }
+}
+
+query AdminGetStorageUsageReport @auth(level: NO_ACCESS) {
+  totals: _selectFirst(
+    sql: """
+      SELECT
+        COALESCE(SUM(byte_size), 0)::bigint AS total_bytes,
+        COUNT(*)::bigint AS asset_count,
+        COUNT(*) FILTER (WHERE status = 'UPLOADING')::bigint AS uploading_count,
+        COUNT(*) FILTER (WHERE status IN ('FAILED', 'PENDING_CLEANUP', 'ORPHANED'))::bigint AS attention_count
+      FROM media_asset
+      WHERE status <> 'DELETED'
+    """
+  )
+  byUser: _select(
+    sql: """
+      SELECT owner_uid, COALESCE(SUM(byte_size), 0)::bigint AS used_bytes, COUNT(*)::bigint AS asset_count
+      FROM media_asset
+      WHERE status <> 'DELETED'
+      GROUP BY owner_uid
+      ORDER BY used_bytes DESC
+    """
+  )
+  byStory: _select(
+    sql: """
+      SELECT owner_uid, story_id, COALESCE(SUM(byte_size), 0)::bigint AS used_bytes, COUNT(*)::bigint AS asset_count
+      FROM media_asset
+      WHERE status <> 'DELETED' AND story_id IS NOT NULL
+      GROUP BY owner_uid, story_id
+      ORDER BY used_bytes DESC
+    """
+  )
+  byType: _select(
+    sql: """
+      SELECT asset_type, COALESCE(SUM(byte_size), 0)::bigint AS used_bytes, COUNT(*)::bigint AS asset_count
+      FROM media_asset
+      WHERE status <> 'DELETED'
+      GROUP BY asset_type
+      ORDER BY used_bytes DESC
+    """
+  )
+}
+
+query AdminListOwnedGlossaryTerms($ownerUid: String!, $storyId: UUID!, $limit: Int = 1000)
+  @auth(level: NO_ACCESS) {
+  glossaryTerms(
+    where: {
+      storyId: { eq: $storyId }
+      story: { ownerUid: { eq: $ownerUid }, status: { ne: DELETED } }
+    }
+    orderBy: [{ sourceText: ASC }, { targetLanguage: ASC }]
+    limit: $limit
+  ) {
+    id
+    storyId
+    sourceText
+    targetText
+    targetLanguage
+    note
+    createdAt
+    updatedAt
+  }
+}
+
+query AdminGetImageQuotaConsumption($ownerUid: String!, $idempotencyKey: String!)
+  @auth(level: NO_ACCESS) {
+  imageQuotaConsumption(key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }) {
+    ownerUid
+    idempotencyKey
+    imageGenerationCount
+    imageQuotaResetAt
+    consumedAt
+  }
+}
+
+query AdminGetOwnedPortraitAsset($ownerUid: String!, $assetId: UUID!)
+  @auth(level: NO_ACCESS) {
+  asset: mediaAsset(first: { where: { id: { eq: $assetId }, ownerUid: { eq: $ownerUid } } }) {
+    id
+    ownerUid
+    storyId
+    assetType
+    purpose
+    status
+    bucket
+    objectKey
+    originalFilename
+    mimeType
+    extension
+    byteSize
+    checksumSha256
+    etag
+    width
+    height
+    version
+    readyAt
+    createdAt
+    updatedAt
+  }
+  portrait: userPortrait(first: { where: { assetId: { eq: $assetId }, userUid: { eq: $ownerUid } } }) {
+    assetId
+    userUid
+    prompt
+    description
+    daoRank
+    daoXp
+    powerStage
+    equippedInventoryItemId
+    usedReferenceImage
+    frameId
+    glowId
+    bannerId
+    effectIds
+    active
+    createdAt
+    updatedAt
+  }
+}
+
+query AdminGetAdminOverview($actorUid: String!, $limit: Int = 1000)
+  @auth(level: NO_ACCESS) {
+  actor: userAccount(key: { uid: $actorUid })
+    @check(
+      expr: "this != null && (this.role == 'ADMIN' || this.role == 'OWNER')"
+      message: "Administrator access required"
+    ) {
+    uid
+    role
+  }
+  accounts: userAccounts(orderBy: [{ createdAt: ASC }], limit: $limit) {
+    uid
+    email
+    displayName
+    role
+    createdAt
+    updatedAt
+  }
+  profiles: userProfiles(orderBy: [{ createdAt: ASC }], limit: $limit) {
+    userUid
+    username
+    subscriptionTier
+    legacyQi
+    daoXp
+    daoRank
+    heavenlyQi
+    sectQi
+    demonicQi
+    writingStreak
+    savedStoryCount
+    activePortraitAssetId
+    imageGenerationCount
+    imageQuotaResetAt
+    syncRevision
+    revision
+    createdAt
+    updatedAt
+  }
+  stories(orderBy: [{ updatedAt: DESC }], limit: $limit) {
+    id
+    ownerUid
+    legacyStoryId
+    clientStoryId
+    title
+    status
+    syncRevision
+    revision
+    deletedAt
+    createdAt
+    updatedAt
   }
 }

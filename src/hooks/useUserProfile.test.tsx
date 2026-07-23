@@ -1,25 +1,18 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useUserProfile } from './useUserProfile';
-import { generateCultivatorPortrait } from '../services/cultivatorPortrait';
-import {
-  CultivatorPortraitCommitDeferredError,
-  persistCultivatorPortrait,
-} from '../services/cultivatorPortraitPersistence';
+import type { UserProfile } from '../types';
 
-const firestoreMocks = vi.hoisted(() => ({
-  subscriptions: [] as Array<{
-    ref: { id: string };
-    next: (snapshot: any) => void;
-    error: (error: Error) => void;
-    unsubscribe: ReturnType<typeof vi.fn>;
-  }>,
-  onSnapshot: vi.fn(),
-  setDoc: vi.fn().mockResolvedValue(undefined),
-  getDocs: vi.fn().mockResolvedValue({
-    docs: [],
-    forEach: vi.fn(),
-  }),
+const persistenceMocks = vi.hoisted(() => ({
+  getUserProfile: vi.fn(),
+  saveUserProfile: vi.fn(),
+  getPersistenceAdminOverview: vi.fn(),
+  updatePersistenceAdminAccount: vi.fn(),
+  deletePersistenceAdminStory: vi.fn(),
+}));
+
+const portraitMocks = vi.hoisted(() => ({
+  generateCultivatorPortrait: vi.fn(),
+  persistCultivatorPortrait: vi.fn(),
 }));
 
 const storeMocks = vi.hoisted(() => {
@@ -51,484 +44,227 @@ const storeMocks = vi.hoisted(() => {
   return { state, hook };
 });
 
-vi.mock('../lib/firebase', () => ({
-  auth: {},
-  db: {},
-  LOCAL_ONLY_MODE: false,
-}));
-
-vi.mock('firebase/firestore', () => ({
-  doc: vi.fn((...parts: string[]) => ({ id: parts.at(-1) ?? '' })),
-  collection: vi.fn((...parts: string[]) => ({ id: parts.at(-1) ?? '' })),
-  onSnapshot: firestoreMocks.onSnapshot,
-  setDoc: firestoreMocks.setDoc,
-  getDocs: firestoreMocks.getDocs,
-  getDoc: vi.fn(),
-  deleteDoc: vi.fn(),
-}));
-
+vi.mock('../lib/firebase', () => ({ auth: {}, LOCAL_ONLY_MODE: false }));
 vi.mock('firebase/auth', () => ({
   GoogleAuthProvider: vi.fn(),
   signInWithPopup: vi.fn(),
 }));
-
-vi.mock('../store/useAppStore', () => ({
-  useAppStore: storeMocks.hook,
-}));
-
-vi.mock('../lib/storage', () => ({
-  storyStorage: {
-    performSync: vi.fn(),
-  },
-}));
-
+vi.mock('../store/useAppStore', () => ({ useAppStore: storeMocks.hook }));
 vi.mock('./storyEngineHelpers', () => ({
-  getApiHeaders: vi.fn().mockResolvedValue({}),
+  getApiHeaders: vi.fn().mockResolvedValue({ Authorization: 'Bearer test' }),
 }));
-
 vi.mock('../services/cultivatorPortrait', () => ({
-  generateCultivatorPortrait: vi.fn(),
+  generateCultivatorPortrait: portraitMocks.generateCultivatorPortrait,
 }));
-
+vi.mock('../lib/persistence', () => persistenceMocks);
 vi.mock('../services/cultivatorPortraitPersistence', () => {
   class CultivatorPortraitCommitDeferredError extends Error {
-    portrait: unknown;
+    portrait: any;
 
-    constructor(portrait: unknown) {
-      super('Portrait account record is waiting to sync.');
+    constructor(portrait: any) {
+      super('Portrait profile selection is waiting to sync.');
       this.portrait = portrait;
     }
   }
-
   return {
     CultivatorPortraitCommitDeferredError,
-    persistCultivatorPortrait: vi.fn(),
+    persistCultivatorPortrait: portraitMocks.persistCultivatorPortrait,
   };
 });
+
+import { generateCultivatorPortrait } from '../services/cultivatorPortrait';
+import {
+  CultivatorPortraitCommitDeferredError,
+  persistCultivatorPortrait,
+} from '../services/cultivatorPortraitPersistence';
+import { useUserProfile } from './useUserProfile';
 
 const makeUser = (uid: string, email = `${uid}@example.com`) => ({
   uid,
   email,
-  displayName: uid,
-  photoURL: `${uid}.png`,
+  displayName: `Display ${uid}`,
+  photoURL: `https://avatars.example.test/${uid}.png`,
 }) as any;
 
-const profileSnapshot = (data: Record<string, unknown>) => ({
-  exists: () => true,
-  data: () => data,
+const makeProfile = (uid: string, overrides: Partial<UserProfile> = {}): UserProfile => ({
+  uid,
+  username: uid,
+  displayName: `Profile ${uid}`,
+  avatarUrl: '',
+  preferredLanguage: 'English',
+  defaultTranslationLanguage: 'English',
+  savedStoryCount: 0,
+  activeStories: [],
+  inactiveStories: [],
+  joinedDate: '2026-07-01T00:00:00.000Z',
+  updatedAt: '2026-07-22T00:00:00.000Z',
+  role: 'user',
+  premiumTier: 'mortal',
+  ...overrides,
 });
 
-const missingProfileSnapshot = {
-  exists: () => false,
-  data: () => ({}),
-};
-
-describe('useUserProfile account switching', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    firestoreMocks.subscriptions.length = 0;
-    storeMocks.state.userProfile = null;
-    localStorage.clear();
-    firestoreMocks.onSnapshot.mockImplementation((ref, next, error) => {
-      const unsubscribe = vi.fn();
-      firestoreMocks.subscriptions.push({ ref, next, error, unsubscribe });
-      return unsubscribe;
-    });
-    firestoreMocks.setDoc.mockResolvedValue(undefined);
-    firestoreMocks.getDocs.mockResolvedValue({ docs: [], forEach: vi.fn() });
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
   });
+  return { promise, resolve, reject };
+}
 
-  it('clears account-scoped profile, form, Qi, and admin state on a direct UID switch', async () => {
-    const accountA = makeUser('account-a', 'amaurylindy@gmail.com');
-    const accountB = makeUser('account-b');
-    const { result, rerender } = renderHook(
-      ({ user }) => useUserProfile({
-        currentUser: user,
-        stories: [],
-        onLogout: vi.fn(),
-        onNavigateHome: vi.fn(),
-      }),
-      { initialProps: { user: accountA } },
-    );
-
-    expect(firestoreMocks.subscriptions).toHaveLength(1);
-    act(() => {
-      firestoreMocks.subscriptions[0].next(profileSnapshot({
-        uid: 'account-a',
-        username: 'Account A',
-        displayName: 'Account A',
-        avatarUrl: 'private-a.png',
-        preferredLanguage: 'English',
-        defaultTranslationLanguage: 'English',
-        savedStoryCount: 4,
-        activeStories: [],
-        inactiveStories: [],
-        joinedDate: '2026-01-01',
-        updatedAt: '2026-01-01',
-        role: 'owner',
-        heavenly_qi: 999,
-      }));
-    });
-
-    await waitFor(() => expect(result.current.formData.avatarUrl).toBe('private-a.png'));
-    act(() => {
-      result.current.setIsAdminPanelOpen(true);
-      result.current.setAdminSearchQuery('account-a-only');
-      result.current.setIsQiMenuOpen(true);
-      result.current.setActiveQiTooltip('heavenly');
-      result.current.setShowAdvanced(true);
-      result.current.setIsEditing(true);
-      result.current.setError('account-a-error');
-    });
-
-    rerender({ user: accountB });
-
-    expect(result.current.profile).toMatchObject({ uid: 'account-b', avatarUrl: 'account-b.png' });
-    expect(result.current.formData).toMatchObject({ uid: 'account-b', avatarUrl: 'account-b.png' });
-    expect(result.current.isAdminPanelOpen).toBe(false);
-    expect(result.current.adminSearchQuery).toBe('');
-    expect(result.current.isQiMenuOpen).toBe(false);
-    expect(result.current.activeQiTooltip).toBeNull();
-    expect(result.current.showAdvanced).toBe(false);
-    expect(result.current.isEditing).toBe(false);
-    expect(result.current.error).toBe('');
-    expect(firestoreMocks.subscriptions[0].unsubscribe).toHaveBeenCalledOnce();
-  });
-
-  it('ignores cancelled snapshots and does not start their default-profile writes', () => {
-    const accountA = makeUser('account-a');
-    const accountB = makeUser('account-b');
-    const { result, rerender } = renderHook(
-      ({ user }) => useUserProfile({
-        currentUser: user,
-        stories: [],
-        onLogout: vi.fn(),
-        onNavigateHome: vi.fn(),
-      }),
-      { initialProps: { user: accountA } },
-    );
-
-    const staleAccountASubscription = firestoreMocks.subscriptions[0];
-    rerender({ user: accountB });
-    expect(firestoreMocks.subscriptions).toHaveLength(2);
-
-    act(() => {
-      staleAccountASubscription.next(profileSnapshot({
-        uid: 'account-a',
-        role: 'owner',
-        avatarUrl: 'private-a.png',
-        heavenly_qi: 999,
-      }));
-      staleAccountASubscription.next(missingProfileSnapshot);
-      staleAccountASubscription.error(new Error('stale account A read failure'));
-    });
-
-    expect(result.current.profile).toMatchObject({ uid: 'account-b', avatarUrl: 'account-b.png' });
-    expect(result.current.formData).toMatchObject({ uid: 'account-b', avatarUrl: 'account-b.png' });
-    expect(result.current.error).toBe('');
-    expect(firestoreMocks.setDoc).not.toHaveBeenCalled();
-
-    act(() => {
-      firestoreMocks.subscriptions[1].next(missingProfileSnapshot);
-    });
-
-    expect(result.current.profile?.uid).toBe('account-b');
-    expect(result.current.profile?.role).toBe('user');
-    expect(firestoreMocks.setDoc).toHaveBeenCalledOnce();
-    expect(firestoreMocks.setDoc.mock.calls[0][0]).toEqual({ id: 'account-b' });
-  });
-
-  it('shows account B provider identity when its profile read fails', () => {
-    const accountA = makeUser('account-a');
-    const accountB = makeUser('account-b');
-    const { result, rerender } = renderHook(
-      ({ user }) => useUserProfile({
-        currentUser: user,
-        stories: [],
-        onLogout: vi.fn(),
-        onNavigateHome: vi.fn(),
-      }),
-      { initialProps: { user: accountA } },
-    );
-
-    act(() => {
-      firestoreMocks.subscriptions[0].next(profileSnapshot({
-        uid: 'account-a',
-        username: 'Account A',
-        displayName: 'Account A',
-        avatarUrl: 'private-a.png',
-        preferredLanguage: 'English',
-        defaultTranslationLanguage: 'English',
-        savedStoryCount: 4,
-        activeStories: [],
-        inactiveStories: [],
-        joinedDate: '2026-01-01',
-        updatedAt: '2026-01-01',
-        role: 'owner',
-        heavenly_qi: 999,
-      }));
-    });
-    rerender({ user: accountB });
-
-    act(() => {
-      firestoreMocks.subscriptions[1].error(new Error('permission denied'));
-    });
-
-    expect(result.current.profile).toMatchObject({
-      uid: 'account-b',
-      displayName: 'account-b',
-      avatarUrl: 'account-b.png',
-    });
-    expect(result.current.formData).toMatchObject({
-      uid: 'account-b',
-      avatarUrl: 'account-b.png',
-    });
-    expect(result.current.error).toBe('');
-  });
-});
-
-describe('useUserProfile portrait persistence', () => {
-  const profileData = {
-    uid: 'account-a',
-    username: 'account-a',
-    displayName: 'Account A',
-    avatarUrl: 'provider-photo.png',
-    preferredLanguage: 'English',
-    defaultTranslationLanguage: 'English',
-    savedStoryCount: 0,
-    activeStories: [],
-    inactiveStories: [],
-    joinedDate: '2026-01-01',
-    updatedAt: '2026-01-01',
-    dao_rank: 'Dao Adept',
-    dao_xp: 400,
-  };
-
-  const savedPortrait = {
-    schemaVersion: 1 as const,
-    id: 'portrait-1',
-    userId: 'account-a',
-    imageUrl: 'https://firebasestorage.example/portrait-1.webp',
-    storagePath: 'users/account-a/portraits/portrait-1.webp',
-    mimeType: 'image/webp' as const,
-    source: 'generated' as const,
-    createdAt: '2026-07-14T12:00:00.000Z',
-    updatedAt: '2026-07-14T12:00:00.000Z',
-    generation: {
-      prompt: 'refined prompt',
-      description: 'silver hair',
-      daoRank: 'Dao Adept',
-      daoXp: 400,
-      powerStage: '',
-      equippedArtifactId: null,
-      usedReferenceImage: false,
-    },
-    customization: {
-      frameId: null,
-      glowId: null,
-      bannerId: null,
-      effectIds: [],
-    },
-  };
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    localStorage.clear();
-    firestoreMocks.subscriptions.length = 0;
-    storeMocks.state.userProfile = null;
-    firestoreMocks.onSnapshot.mockImplementation((ref, next, error) => {
-      const unsubscribe = vi.fn();
-      firestoreMocks.subscriptions.push({ ref, next, error, unsubscribe });
-      return unsubscribe;
-    });
-    vi.mocked(generateCultivatorPortrait).mockResolvedValue({
-      imageUrl: 'data:image/webp;base64,generated-portrait',
-      promptUsed: 'refined prompt',
-    });
-    vi.mocked(persistCultivatorPortrait).mockResolvedValue(savedPortrait);
-  });
-
-  const renderLoadedProfile = async () => {
-    const user = makeUser('account-a');
-    const hook = renderHook(() => useUserProfile({
-      currentUser: user,
+function renderProfile(user = makeUser('account-a')) {
+  return renderHook(
+    ({ currentUser }) => useUserProfile({
+      currentUser,
       stories: [],
       onLogout: vi.fn(),
       onNavigateHome: vi.fn(),
-    }));
-    act(() => {
-      firestoreMocks.subscriptions[0].next(profileSnapshot(profileData));
-    });
-    await waitFor(() => expect(hook.result.current.profile?.uid).toBe('account-a'));
-    return hook;
-  };
+    }),
+    { initialProps: { currentUser: user } },
+  );
+}
 
-  const generatePreview = async (result: Awaited<ReturnType<typeof renderLoadedProfile>>['result']) => {
-    act(() => {
-      result.current.setShowPortraitModal(true);
-      result.current.setPortraitDesc('silver hair');
+describe('useUserProfile PostgreSQL persistence', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    storeMocks.state.userProfile = null;
+    persistenceMocks.getUserProfile.mockResolvedValue(makeProfile('account-a'));
+    persistenceMocks.saveUserProfile.mockImplementation(async (profile) => profile);
+    persistenceMocks.getPersistenceAdminOverview.mockResolvedValue({ users: [], stories: [] });
+    portraitMocks.generateCultivatorPortrait.mockResolvedValue({
+      imageUrl: 'data:image/png;base64,AAEC',
+      promptUsed: 'moonlit cultivator',
     });
-    await act(async () => {
-      await result.current.handleGeneratePortrait();
+    portraitMocks.persistCultivatorPortrait.mockResolvedValue({
+      id: '11111111-1111-4111-8111-111111111111',
+      imageUrl: 'https://media.example.test/signed-portrait',
     });
-    expect(result.current.generatedPortraitUrl).toContain('data:image/webp');
-  };
+  });
 
-  it('applies an account-owned portrait only after durable persistence succeeds', async () => {
-    const { result } = await renderLoadedProfile();
-    await generatePreview(result);
+  it('loads the active account profile from PostgreSQL and caches only that identity', async () => {
+    const { result } = renderProfile();
 
-    await act(async () => {
-      await result.current.handleApplyPortrait();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(persistenceMocks.getUserProfile).toHaveBeenCalledOnce();
+    expect(result.current.profile).toMatchObject({
+      uid: 'account-a',
+      displayName: 'Profile account-a',
     });
+    expect(localStorage.getItem('seihouse-account-profile-cache-v1:account-a'))
+      .toContain('Profile account-a');
+  });
 
+  it('creates a default PostgreSQL profile when the account has no row', async () => {
+    persistenceMocks.getUserProfile.mockResolvedValue(null);
+    const owner = makeUser('owner-account', 'amaurylindy@gmail.com');
+    const { result } = renderProfile(owner);
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.profile).toMatchObject({
+      uid: 'owner-account',
+      role: 'owner',
+      premiumTier: 'immortal',
+    });
+    expect(persistenceMocks.saveUserProfile).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: 'owner-account', role: 'owner' }),
+    );
+  });
+
+  it('ignores a late account A read after switching directly to account B', async () => {
+    const accountARead = deferred<UserProfile | null>();
+    persistenceMocks.getUserProfile
+      .mockReturnValueOnce(accountARead.promise)
+      .mockResolvedValueOnce(makeProfile('account-b', { avatarUrl: 'private-b.png' }));
+    const { result, rerender } = renderProfile(makeUser('account-a'));
+
+    rerender({ currentUser: makeUser('account-b') });
+    await waitFor(() => expect(result.current.profile?.uid).toBe('account-b'));
+    accountARead.resolve(makeProfile('account-a', { avatarUrl: 'private-a.png' }));
+    await act(async () => accountARead.promise);
+
+    expect(result.current.profile).toMatchObject({
+      uid: 'account-b',
+      avatarUrl: 'private-b.png',
+    });
+  });
+
+  it('uses provider identity when a PostgreSQL read is temporarily unavailable', async () => {
+    persistenceMocks.getUserProfile.mockRejectedValue(new Error('offline'));
+    const { result } = renderProfile(makeUser('account-a'));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.profile).toMatchObject({
+      uid: 'account-a',
+      displayName: 'Display account-a',
+      avatarUrl: 'https://avatars.example.test/account-a.png',
+    });
+  });
+
+  it('publishes a portrait only after R2 upload and PostgreSQL selection succeed', async () => {
+    const { result } = renderProfile();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => result.current.handleGeneratePortrait());
+    await act(async () => result.current.handleApplyPortrait());
+
+    expect(generateCultivatorPortrait).toHaveBeenCalled();
     expect(persistCultivatorPortrait).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'account-a',
-      imageSource: 'data:image/webp;base64,generated-portrait',
-      prompt: 'refined prompt',
-      description: 'silver hair',
-      daoRank: 'Dao Adept',
-      daoXp: 400,
+      imageSource: 'data:image/png;base64,AAEC',
+      prompt: 'moonlit cultivator',
     }));
     expect(result.current.profile).toMatchObject({
-      avatarUrl: savedPortrait.imageUrl,
-      activePortraitId: 'portrait-1',
+      activePortraitId: '11111111-1111-4111-8111-111111111111',
+      avatarUrl: 'https://media.example.test/signed-portrait',
     });
-    expect(result.current.formData).toMatchObject({
-      avatarUrl: savedPortrait.imageUrl,
-      activePortraitId: 'portrait-1',
-    });
-    expect(storeMocks.state.setUserProfile).toHaveBeenCalledWith(expect.objectContaining({
-      avatarUrl: savedPortrait.imageUrl,
-      activePortraitId: 'portrait-1',
-    }));
-    expect(result.current.showPortraitModal).toBe(false);
-    expect(result.current.generatedPortraitUrl).toBe('');
   });
 
-  it('restores the selected account portrait from the profile snapshot on reload', async () => {
-    const user = makeUser('account-a');
-    const { result } = renderHook(() => useUserProfile({
-      currentUser: user,
-      stories: [],
-      onLogout: vi.fn(),
-      onNavigateHome: vi.fn(),
-    }));
-
-    act(() => {
-      firestoreMocks.subscriptions[0].next(profileSnapshot({
-        ...profileData,
-        avatarUrl: savedPortrait.imageUrl,
-        activePortraitId: savedPortrait.id,
-      }));
-    });
-
-    await waitFor(() => expect(result.current.formData).toMatchObject({
-      avatarUrl: savedPortrait.imageUrl,
-      activePortraitId: savedPortrait.id,
-    }));
-  });
-
-  it('recovers from malformed guest profile JSON when applying a portrait', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    localStorage.setItem('seihouse-local-user-profile', '{malformed-json');
-    const { result } = renderHook(() => useUserProfile({
-      currentUser: null,
-      stories: [],
-      onLogout: vi.fn(),
-      onNavigateHome: vi.fn(),
-    }));
-
-    await waitFor(() => expect(result.current.profile?.uid).toBe('anonymous'));
-    await generatePreview(result);
-
-    await act(async () => {
-      await result.current.handleApplyPortrait();
-    });
-
-    const savedProfile = JSON.parse(localStorage.getItem('seihouse-local-user-profile')!);
-    expect(savedProfile.avatarUrl).toBe('data:image/webp;base64,generated-portrait');
-    expect(result.current.showPortraitModal).toBe(false);
-    expect(result.current.portraitError).toBe('');
-    expect(warnSpy).toHaveBeenCalledWith('Failed to parse local profile:', expect.any(SyntaxError));
-    warnSpy.mockRestore();
-  });
-
-  it('keeps the generated preview available when account persistence fails', async () => {
-    vi.mocked(persistCultivatorPortrait).mockRejectedValueOnce(new Error('storage denied'));
-    const { result } = await renderLoadedProfile();
-    await generatePreview(result);
-
-    await act(async () => {
-      await result.current.handleApplyPortrait();
-    });
-
-    expect(result.current.showPortraitModal).toBe(true);
-    expect(result.current.generatedPortraitUrl).toBe('data:image/webp;base64,generated-portrait');
-    expect(result.current.portraitError).toContain('preview has been kept');
-    expect(result.current.isSavingPortrait).toBe(false);
-    expect(result.current.profile?.avatarUrl).toBe('provider-photo.png');
-  });
-
-  it('displays and caches an uploaded portrait while its Firestore record is queued', async () => {
-    vi.mocked(persistCultivatorPortrait).mockRejectedValueOnce(
-      new CultivatorPortraitCommitDeferredError(savedPortrait),
+  it('keeps an R2-safe portrait visible while its PostgreSQL selection is recoverable', async () => {
+    const uploaded = {
+      id: '22222222-2222-4222-8222-222222222222',
+      imageUrl: 'https://media.example.test/recoverable-portrait',
+    };
+    portraitMocks.persistCultivatorPortrait.mockRejectedValue(
+      new CultivatorPortraitCommitDeferredError(uploaded as any),
     );
-    const { result } = await renderLoadedProfile();
-    await generatePreview(result);
+    const { result } = renderProfile();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    await act(async () => {
-      await result.current.handleApplyPortrait();
-    });
+    await act(async () => result.current.handleGeneratePortrait());
+    await act(async () => result.current.handleApplyPortrait());
 
     expect(result.current.profile).toMatchObject({
-      avatarUrl: savedPortrait.imageUrl,
-      activePortraitId: savedPortrait.id,
+      activePortraitId: uploaded.id,
+      avatarUrl: uploaded.imageUrl,
     });
-    expect(result.current.formData.avatarUrl).toBe(savedPortrait.imageUrl);
-    expect(result.current.showPortraitModal).toBe(false);
-    expect(result.current.generatedPortraitUrl).toBe('');
-    expect(result.current.portraitError).toBe('');
-    expect(storeMocks.state.setUserProfile).toHaveBeenCalledWith(expect.objectContaining({
-      avatarUrl: savedPortrait.imageUrl,
-    }));
+    const cached = localStorage.getItem('seihouse-account-profile-cache-v1:account-a') ?? '';
+    expect(cached).toContain(uploaded.id);
+    expect(cached).not.toContain(uploaded.imageUrl);
   });
 
-  it('does not publish an account A save completion into account B state', async () => {
-    let resolvePersistence!: (portrait: typeof savedPortrait) => void;
-    vi.mocked(persistCultivatorPortrait).mockReturnValueOnce(new Promise(resolve => {
-      resolvePersistence = resolve;
-    }));
+  it('does not publish an account A portrait after the UI switches to account B', async () => {
+    const portraitWrite = deferred<any>();
+    portraitMocks.persistCultivatorPortrait.mockReturnValueOnce(portraitWrite.promise);
+    const { result, rerender } = renderProfile();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await act(async () => result.current.handleGeneratePortrait());
 
-    const accountA = makeUser('account-a');
-    const accountB = makeUser('account-b');
-    const { result, rerender } = renderHook(
-      ({ user }) => useUserProfile({
-        currentUser: user,
-        stories: [],
-        onLogout: vi.fn(),
-        onNavigateHome: vi.fn(),
-      }),
-      { initialProps: { user: accountA } },
-    );
+    let apply!: Promise<void>;
     act(() => {
-      firestoreMocks.subscriptions[0].next(profileSnapshot(profileData));
+      apply = result.current.handleApplyPortrait();
     });
-    await waitFor(() => expect(result.current.profile?.uid).toBe('account-a'));
-    await generatePreview(result);
+    await waitFor(() => expect(portraitMocks.persistCultivatorPortrait).toHaveBeenCalled());
+    persistenceMocks.getUserProfile.mockResolvedValueOnce(makeProfile('account-b'));
+    rerender({ currentUser: makeUser('account-b') });
+    portraitWrite.resolve({
+      id: '33333333-3333-4333-8333-333333333333',
+      imageUrl: 'https://media.example.test/account-a-portrait',
+    });
+    await act(async () => apply);
+    await waitFor(() => expect(result.current.profile?.uid).toBe('account-b'));
 
-    let applyPromise!: Promise<void>;
-    act(() => {
-      applyPromise = result.current.handleApplyPortrait();
-    });
-    rerender({ user: accountB });
-    await act(async () => {
-      resolvePersistence(savedPortrait);
-      await applyPromise;
-    });
-
-    expect(result.current.profile).toMatchObject({ uid: 'account-b', avatarUrl: 'account-b.png' });
-    expect(result.current.formData).toMatchObject({ uid: 'account-b', avatarUrl: 'account-b.png' });
-    expect(storeMocks.state.setUserProfile).not.toHaveBeenCalled();
+    expect(result.current.profile?.activePortraitId).toBeUndefined();
   });
 });

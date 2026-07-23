@@ -47,7 +47,17 @@ type CodexEntity @table @unique(fields: ["storyId", "stableKey"]) @index(fields:
   manifestationImportance: String
   isUserPinned: Boolean! @default(value: false)
   pendingEvolution: Boolean! @default(value: false)
+  evolutionReady: Boolean! @default(value: false)
   evolutionReason: String
+  availableVisualUpdate: Boolean! @default(value: false)
+  lastImageChapter: Int
+  arcAccumulation: String
+  sourceChapterNumber: Int
+  sourceBlockId: String
+  provenanceCreatedBy: String
+  provenanceConfidence: Float
+  lastMentionedChapter: Int
+  supersedesStableKey: String
   createdAt: Timestamp! @default(expr: "request.time")
   updatedAt: Timestamp! @default(expr: "request.time")
 }
@@ -71,17 +81,24 @@ type CodexEntityAttribute @table(key: ["entityId", "attributeKey"]) {
   numberValue: Float
   booleanValue: Boolean
   stringListValue: [String!]
+  # Bounded subtype values such as a beast sonic profile. Never use this for a
+  # whole Codex entity, story, media body, or provider response.
+  jsonValue: Any
   updatedAt: Timestamp! @default(expr: "request.time")
 }
 
-type CodexRelationship @table @unique(fields: ["storyId", "sourceEntityId", "targetEntityId", "relationshipKind"]) {
+type CodexRelationship @table @unique(fields: ["storyId", "sourceEntityId", "targetEntityId", "relationshipKind"]) @index(fields: ["storyId", "sourceStableKey", "targetStableKey"]) {
   id: UUID! @default(expr: "uuidV4()")
   story: Story! @ref(fields: "storyId", references: "id")
   storyId: UUID!
-  sourceEntity: CodexEntity! @ref(fields: "sourceEntityId", references: "id")
-  sourceEntityId: UUID!
-  targetEntity: CodexEntity! @ref(fields: "targetEntityId", references: "id")
-  targetEntityId: UUID!
+  sourceEntity: CodexEntity @ref(fields: "sourceEntityId", references: "id")
+  sourceEntityId: UUID
+  targetEntity: CodexEntity @ref(fields: "targetEntityId", references: "id")
+  targetEntityId: UUID
+  sourceStableKey: String!
+  targetStableKey: String!
+  sourceName: String!
+  targetName: String!
   relationshipKind: String!
   affinity: Int
   threat: Int
@@ -101,6 +118,13 @@ type PlotThread @table @index(fields: ["storyId", "status"]) {
   resolvedChapterNumber: Int
   confidence: Float
   isUserPinned: Boolean! @default(value: false)
+  stableKey: String
+  sourceChapterNumber: Int
+  sourceBlockId: String
+  provenanceCreatedBy: String
+  provenanceConfidence: Float
+  lastMentionedChapter: Int
+  supersedesStableKey: String
   createdAt: Timestamp! @default(expr: "request.time")
   updatedAt: Timestamp! @default(expr: "request.time")
 }
@@ -113,6 +137,8 @@ type KarmaNode @table @index(fields: ["storyId", "status"]) {
   sourceEntityId: UUID
   targetEntity: CodexEntity @ref(fields: "targetEntityId", references: "id")
   targetEntityId: UUID
+  sourceStableKey: String
+  targetStableKey: String
   sourceName: String!
   targetName: String!
   description: String!

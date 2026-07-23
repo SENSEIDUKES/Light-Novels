@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { auth, db, LOCAL_ONLY_MODE } from './lib/firebase';
+import { auth, LOCAL_ONLY_MODE } from './lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 
 // Store & Hooks
 import { useAppStore } from './store/useAppStore';
@@ -27,9 +26,7 @@ import {
 import { cacheAccountProfile, createAccountProfileFallback } from './lib/userProfileCache';
 import { retryPendingCultivatorPortraits } from './services/cultivatorPortraitPersistence';
 import { ensureAccountSeedForStory } from './lib/storySeedStorage';
-
-// Types
-import { UserProfile as UserProfileType } from './types';
+import { getUserProfile } from './lib/persistence';
 
 // Top-Level Layout Components
 import { GlobalHeader } from './components/GlobalHeader';
@@ -273,7 +270,6 @@ function App() {
     };
     initAndLoad();
 
-    let unsubProfile: (() => void) | undefined;
     let profileSubscriptionVersion = 0;
 
     let unsubAuth = () => {};
@@ -299,11 +295,6 @@ function App() {
         useAppStore.getState().setActiveConflict(null);
         store_setCurrentUser(user);
         
-        if (unsubProfile) {
-          unsubProfile();
-          unsubProfile = undefined;
-        }
-        
         if (user) {
           const expectedUid = user.uid;
           const snapshotIsCurrent = () => isProfileSnapshotStillCurrent({
@@ -314,13 +305,12 @@ function App() {
             renderedUid: useAppStore.getState().currentUser?.uid ?? null,
           });
 
-          unsubProfile = onSnapshot(
-            doc(db, 'users', expectedUid),
-            (docSnap) => {
+          void getUserProfile()
+            .then((storedProfile) => {
               if (!snapshotIsCurrent()) return;
-              if (docSnap.exists()) {
+              if (storedProfile) {
                 const data = {
-                  ...(docSnap.data() as UserProfileType),
+                  ...storedProfile,
                   uid: expectedUid,
                 };
                 if (user.email && ['amaurylindy@gmail.com', 'seihouseproductions@gmail.com'].includes(user.email.toLowerCase())) {
@@ -333,13 +323,12 @@ function App() {
               } else {
                 store_setUserProfile(createAccountProfileFallback(user));
               }
-            },
-            (error) => {
+            })
+            .catch((error) => {
               if (!snapshotIsCurrent()) return;
               console.error('Failed to load the active user profile:', error);
               store_setUserProfile(createAccountProfileFallback(user));
-            },
-          );
+            });
 
         } else {
           store_setUserProfile(null);
@@ -430,7 +419,6 @@ function App() {
       unsubAuth();
       unsubSync();
       unsubProgress();
-      if (unsubProfile) unsubProfile();
     };
     // Note: These Zustand store actions are guaranteed stable.
   }, [

@@ -1,28 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { processChapterDrops } from './dropEngine';
-import { getDoc, setDoc } from 'firebase/firestore';
+import { unlockCosmicArtifact } from './artifacts';
 import { Chapter } from '../types';
 
-vi.mock('./firebase', () => ({
-  auth: { currentUser: { uid: 'user-123' } },
-  db: {}
-}));
-
-vi.mock('firebase/firestore', () => ({
-  doc: vi.fn(),
-  getDoc: vi.fn(),
-  setDoc: vi.fn()
+vi.mock('./artifacts', () => ({
+  unlockCosmicArtifact: vi.fn(async (artifact) => ({
+    ...artifact,
+    id: 'artifact-1',
+    unlockedAt: '2026-07-22T00:00:00.000Z',
+  })),
 }));
 
 describe('Drop Engine', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     
-    // Set up default mock behavior for getDoc to return an empty inventory
-    (getDoc as any).mockResolvedValue({
-      exists: () => true,
-      data: () => ({ cosmicInventory: [] })
-    });
+    vi.mocked(unlockCosmicArtifact).mockImplementation(async (artifact) => ({
+      ...(artifact as object),
+      id: 'artifact-1',
+      unlockedAt: '2026-07-22T00:00:00.000Z',
+    } as any));
   });
 
   const mockStory: { id: string; title: string } = {
@@ -64,7 +61,7 @@ describe('Drop Engine', () => {
       expect(drop.milestoneName).toBe('Character Fate Encounter');
       expect(drop.description).toContain('Lady Mei of the Lotus Sect'); // from quote fallback, but we passed quote 'My lotus flower shall bloom in blood.'
       expect(drop.description).toContain('My lotus flower shall bloom in blood.');
-      expect(setDoc).toHaveBeenCalled();
+      expect(unlockCosmicArtifact).toHaveBeenCalled();
     });
 
     it('should drop a CosmicArtifact for a creature/beast worldCard', async () => {

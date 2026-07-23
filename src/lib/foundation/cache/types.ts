@@ -17,6 +17,10 @@ export interface CacheLifetime {
   expiresAt: number;
   lastAccessedAt: number;
   byteSize: number;
+  /** Hard retention boundary. `expiresAt` is only the online revalidation time. */
+  evictAfter: number;
+  /** Returned stale replicas remain valid for offline reading until eviction. */
+  stale?: boolean;
 }
 
 export interface FoundationCacheRecord<T = unknown>
@@ -129,13 +133,19 @@ export interface FoundationCache {
   getRecord<T>(
     namespace: CacheRecordNamespace,
     recordId: string,
+    options?: { allowStale?: boolean },
   ): Promise<FoundationCacheRecord<T> | null>;
+  listRecords<T>(
+    namespace: CacheRecordNamespace,
+    options?: { allowStale?: boolean },
+  ): Promise<FoundationCacheRecord<T>[]>;
   deleteRecord(namespace: CacheRecordNamespace, recordId: string): Promise<void>;
 
   putMedia(input: PutCachedMedia): Promise<FoundationCachedMedia>;
   getMedia(
     assetId: string,
     expected: ExpectedMediaIdentity,
+    options?: { allowStale?: boolean },
   ): Promise<FoundationCachedMedia | null>;
   invalidateMedia(
     assetId: string,

@@ -1,4 +1,3 @@
-import firebaseRulesPlugin from '@firebase/eslint-plugin-security-rules';
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import reactPlugin from 'eslint-plugin-react';
@@ -9,7 +8,7 @@ import globals from 'globals';
 
 export default [
   {
-    ignores: ['dist/**/*', 'node_modules/**/*', 'src/generated/**/*', 'test_api.js', 'scripts/**/*', 'server-bundle/index.js']
+    ignores: ['dist/**/*', '.vercel/**/*', 'node_modules/**/*', 'src/generated/**/*', 'test_api.js', 'scripts/**/*', 'server-bundle/index.js']
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -60,6 +59,5 @@ export default [
         version: 'detect'
       }
     }
-  },
-  firebaseRulesPlugin.configs['flat/recommended']
+  }
 ];

@@ -6,6 +6,7 @@ import { auth, LOCAL_ONLY_MODE } from '../lib/firebase';
 import { getRandomDemoStory } from './demoStories';
 import { secureStorage } from '../lib/encryption';
 import { mergeStories } from '../lib/merge';
+import { ensureStoryPersistenceIdentities } from '../lib/persistence';
 
 const STORAGE_KEY = '@seihouse/fiction-generator-stories-v2';
 let storageInitVersion = 0;
@@ -223,7 +224,8 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
     }
     const currentStories = get().stories;
     const activeId = get().activeStoryId;
-    const markedStories = updated.map(s => {
+    const markedStories = updated.map(inputStory => {
+      const s = ensureStoryPersistenceIdentities(inputStory);
       if (s.id.startsWith('demo-matrix-') && s.id === activeId) {
         return { ...s, isEdited: true };
       }

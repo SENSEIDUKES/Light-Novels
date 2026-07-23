@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useChapterTranslation } from './useChapterTranslation';
 import { storyStorage } from '../lib/storage';
-import { firebaseStorage } from '../lib/firebaseStorage';
+import { getLoreGlossary } from '../lib/persistence';
 
 // Mock dependencies
 vi.mock('../lib/storage', () => ({
@@ -12,10 +12,8 @@ vi.mock('../lib/storage', () => ({
   }
 }));
 
-vi.mock('../lib/firebaseStorage', () => ({
-  firebaseStorage: {
-    getLoreGlossary: vi.fn()
-  }
+vi.mock('../lib/persistence', () => ({
+  getLoreGlossary: vi.fn()
 }));
 
 describe('useChapterTranslation', () => {
@@ -37,7 +35,7 @@ describe('useChapterTranslation', () => {
     });
 
     expect(translated).toBe('Texto en Español');
-    expect(firebaseStorage.getLoreGlossary).not.toHaveBeenCalled();
+    expect(getLoreGlossary).not.toHaveBeenCalled();
     global.fetch = vi.fn();
     expect(global.fetch).not.toHaveBeenCalled();
   });
@@ -49,7 +47,7 @@ describe('useChapterTranslation', () => {
       generatedContent: 'English Sword',
     });
 
-    vi.mocked(firebaseStorage.getLoreGlossary).mockResolvedValue([
+    vi.mocked(getLoreGlossary).mockResolvedValue([
       { id: '1', novel_id: 's1', source_text: 'Sword', target_text: 'Espada', target_lang: 'es' },
       { id: '2', novel_id: 's1', source_text: 'Sword', target_text: 'Épée', target_lang: 'fr' }
     ]);
@@ -88,7 +86,7 @@ describe('useChapterTranslation', () => {
 
   it('should handle fetch errors correctly', async () => {
     vi.mocked(storyStorage.getChapterContent).mockResolvedValue(null);
-    vi.mocked(firebaseStorage.getLoreGlossary).mockResolvedValue([]);
+    vi.mocked(getLoreGlossary).mockResolvedValue([]);
 
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
@@ -110,7 +108,7 @@ describe('useChapterTranslation', () => {
 
   it('should initialize empty cache and save to it if getChapterContent returns null', async () => {
     vi.mocked(storyStorage.getChapterContent).mockResolvedValue(null);
-    vi.mocked(firebaseStorage.getLoreGlossary).mockResolvedValue([]);
+    vi.mocked(getLoreGlossary).mockResolvedValue([]);
 
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,

@@ -28,6 +28,7 @@ const ALL_STORES = [
 ] as const;
 
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const DEFAULT_MAX_CACHE_BYTES = 100 * 1024 * 1024;
 const DEFAULT_MAX_CACHE_ENTRIES = 5_000;
 const DEFAULT_MAX_QUOTA_FRACTION = 0.8;
@@ -52,6 +53,8 @@ export interface IndexedDbFoundationCacheOptions {
   indexedDB?: IDBFactory;
   now?: () => number;
   defaultTtlMs?: number;
+  /** Hard retention window for stale offline replicas. */
+  retentionMs?: number;
   maxCacheBytes?: number;
   maxCacheEntries?: number;
   maxQuotaFraction?: number;
@@ -73,6 +76,7 @@ export class IndexedDbFoundationCache implements FoundationCache {
   private readonly factory: IDBFactory;
   private readonly clock: () => number;
   private readonly defaultTtlMs: number;
+  private readonly retentionMs: number;
   private readonly maxCacheBytes: number;
   private readonly maxCacheEntries: number;
   private readonly maxQuotaFraction: number;
@@ -95,6 +99,10 @@ export class IndexedDbFoundationCache implements FoundationCache {
     this.defaultTtlMs = requirePositive(
       options.defaultTtlMs ?? DEFAULT_TTL_MS,
       "defaultTtlMs",
+    );
+    this.retentionMs = requirePositive(
+      options.retentionMs ?? DEFAULT_RETENTION_MS,
+      "retentionMs",
     );
     this.maxCacheBytes = requireNonNegative(
       options.maxCacheBytes ?? DEFAULT_MAX_CACHE_BYTES,
@@ -129,6 +137,7 @@ export class IndexedDbFoundationCache implements FoundationCache {
       checksum: optionalText(input.checksum),
       cachedAt: now,
       expiresAt: now + ttlMs,
+      evictAfter: now + Math.max(ttlMs, this.retentionMs),
       lastAccessedAt: now,
       byteSize: snapshot.byteSize,
     };
@@ -140,13 +149,35 @@ export class IndexedDbFoundationCache implements FoundationCache {
   getRecord<T>(
     namespace: CacheRecordNamespace,
     recordId: string,
+    options: { allowStale?: boolean } = {},
   ): Promise<FoundationCacheRecord<T> | null> {
     const normalizedNamespace = requireText(namespace, "namespace");
     const normalizedRecordId = requireText(recordId, "recordId");
     return this.readCacheEntry<FoundationCacheRecord<T>>(
       RECORDS_STORE,
       recordKey(this.ownerUid, normalizedNamespace, normalizedRecordId),
+      options.allowStale ?? false,
     );
+  }
+
+  async listRecords<T>(
+    namespace: CacheRecordNamespace,
+    options: { allowStale?: boolean } = {},
+  ): Promise<FoundationCacheRecord<T>[]> {
+    const normalizedNamespace = requireText(namespace, "namespace");
+    const now = this.clock();
+    const allowStale = options.allowStale ?? false;
+    const rows = (await this.readAll<FoundationCacheRecord<T>>(RECORDS_STORE))
+      .filter((row) => row.ownerUid === this.ownerUid && row.namespace === normalizedNamespace)
+      .filter((row) => hardExpiry(row) > now)
+      .filter((row) => allowStale || row.expiresAt > now)
+      .map((row) => ({
+        ...row,
+        stale: row.expiresAt <= now,
+        lastAccessedAt: now,
+      }));
+    await this.putMany(RECORDS_STORE, rows);
+    return rows;
   }
 
   deleteRecord(namespace: CacheRecordNamespace, recordId: string): Promise<void> {
@@ -169,6 +200,7 @@ export class IndexedDbFoundationCache implements FoundationCache {
     if (!(input.blob instanceof Blob)) {
       throw new TypeError("blob must be a Blob");
     }
+    const ttlMs = this.resolveTtl(input.ttlMs);
     const row: FoundationCachedMedia = {
       storageKey: mediaKey(this.ownerUid, assetId),
       ownerUid: this.ownerUid,
@@ -178,7 +210,8 @@ export class IndexedDbFoundationCache implements FoundationCache {
       mimeType,
       blob: input.blob,
       cachedAt: now,
-      expiresAt: now + this.resolveTtl(input.ttlMs),
+      expiresAt: now + ttlMs,
+      evictAfter: now + Math.max(ttlMs, this.retentionMs),
       lastAccessedAt: now,
       byteSize: input.blob.size,
     };
@@ -190,11 +223,16 @@ export class IndexedDbFoundationCache implements FoundationCache {
   async getMedia(
     assetId: string,
     expected: ExpectedMediaIdentity,
+    options: { allowStale?: boolean } = {},
   ): Promise<FoundationCachedMedia | null> {
     const normalizedAssetId = requireText(assetId, "assetId");
     const normalizedExpected = normalizeExpectedMedia(expected);
     const key = mediaKey(this.ownerUid, normalizedAssetId);
-    const row = await this.readCacheEntry<FoundationCachedMedia>(MEDIA_STORE, key);
+    const row = await this.readCacheEntry<FoundationCachedMedia>(
+      MEDIA_STORE,
+      key,
+      options.allowStale ?? false,
+    );
     if (!row) return null;
     if (!mediaIdentityMatches(row, normalizedExpected)) {
       await this.delete(MEDIA_STORE, key);
@@ -230,19 +268,29 @@ export class IndexedDbFoundationCache implements FoundationCache {
     const operation = requireText(input.operation, "operation");
     const idempotencyKey = requireText(input.idempotencyKey, "idempotencyKey");
     const payload = snapshotJsonValue(input.payload, "outbox payload").value;
-    const existing = (await this.readAll<FoundationOutboxItem<T>>(OUTBOX_STORE))
-      .find(
-        (row) =>
-          row.ownerUid === this.ownerUid && row.idempotencyKey === idempotencyKey,
-      );
-    if (existing) return existing;
-
     const now = this.clock();
     const nextAttemptAt = input.nextAttemptAt ?? now;
     if (!Number.isFinite(nextAttemptAt)) {
       throw new RangeError("nextAttemptAt must be finite");
     }
-    const id = requireText(input.id ?? createId(now), "id");
+    const id = requireText(input.id ?? idempotencyKey, "id");
+    if (id !== idempotencyKey) {
+      throw new Error("Outbox id must match its idempotency key.");
+    }
+    const existing = await this.peek<FoundationOutboxItem<T>>(
+      OUTBOX_STORE,
+      outboxKey(this.ownerUid, id),
+    );
+    if (existing?.ownerUid === this.ownerUid) {
+      if (
+        existing.idempotencyKey !== idempotencyKey
+        || existing.operation !== operation
+        || JSON.stringify(existing.payload) !== JSON.stringify(payload)
+      ) {
+        throw new Error('Outbox idempotency key was reused with a different operation or payload.');
+      }
+      return existing;
+    }
     const row: FoundationOutboxItem<T> = {
       storageKey: outboxKey(this.ownerUid, id),
       ownerUid: this.ownerUid,
@@ -421,8 +469,8 @@ export class IndexedDbFoundationCache implements FoundationCache {
         storeName: MEDIA_STORE,
       })),
     ].filter((row) => row.ownerUid === this.ownerUid);
-    const expired = candidates.filter((row) => row.expiresAt <= now);
-    const active = candidates.filter((row) => row.expiresAt > now);
+    const expired = candidates.filter((row) => hardExpiry(row) <= now);
+    const active = candidates.filter((row) => hardExpiry(row) > now);
     const expiredCheckpoints = checkpoints.filter(
       (row) =>
         row.ownerUid === this.ownerUid &&
@@ -645,11 +693,17 @@ export class IndexedDbFoundationCache implements FoundationCache {
   private async readCacheEntry<T extends CacheLifetimeRow & StoredOwnerRow>(
     storeName: typeof RECORDS_STORE | typeof MEDIA_STORE,
     storageKey: string,
+    allowStale: boolean,
   ): Promise<T | null> {
     const now = this.clock();
     return this.mutateOwned<T, T | null>(storeName, storageKey, null, (row) => {
-      if (row.expiresAt <= now) return { delete: true, result: null };
-      const updated = { ...row, lastAccessedAt: now } as T;
+      if (hardExpiry(row) <= now) return { delete: true, result: null };
+      if (row.expiresAt <= now && !allowStale) return { result: null };
+      const updated = {
+        ...row,
+        stale: row.expiresAt <= now,
+        lastAccessedAt: now,
+      } as T;
       return { row: updated, result: updated };
     });
   }
@@ -702,7 +756,12 @@ export class IndexedDbFoundationCache implements FoundationCache {
 
 interface CacheLifetimeRow {
   expiresAt: number;
+  evictAfter?: number;
   lastAccessedAt: number;
+}
+
+function hardExpiry(row: Pick<CacheLifetimeRow, "expiresAt" | "evictAfter">): number {
+  return row.evictAfter ?? row.expiresAt;
 }
 
 function transactionComplete(transaction: IDBTransaction): Promise<void> {
@@ -845,9 +904,4 @@ function assertJsonCompatible(
     assertJsonCompatible(entry, label, `${path}.${key}`, seen);
   }
   seen.delete(value);
-}
-
-function createId(now: number): string {
-  return globalThis.crypto?.randomUUID?.() ??
-    `${now.toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
