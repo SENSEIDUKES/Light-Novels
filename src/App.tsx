@@ -305,8 +305,8 @@ function App() {
             renderedUid: useAppStore.getState().currentUser?.uid ?? null,
           });
 
-          void getUserProfile().then(
-            (storedProfile) => {
+          void getUserProfile()
+            .then((storedProfile) => {
               if (!snapshotIsCurrent()) return;
               if (storedProfile) {
                 const data = {
@@ -323,13 +323,12 @@ function App() {
               } else {
                 store_setUserProfile(createAccountProfileFallback(user));
               }
-            },
-            (error) => {
+            })
+            .catch((error) => {
               if (!snapshotIsCurrent()) return;
               console.error('Failed to load the active user profile:', error);
               store_setUserProfile(createAccountProfileFallback(user));
-            },
-          );
+            });
 
         } else {
           store_setUserProfile(null);

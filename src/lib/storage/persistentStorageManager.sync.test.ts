@@ -31,6 +31,7 @@ const mocks = vi.hoisted(() => ({
     subscribeToStories: vi.fn(),
   },
   outboxByOwner: new Map<string, Map<string, any>>(),
+  claimedLeases: [] as number[],
   onAuthStateChanged: vi.fn(),
 }));
 
@@ -96,6 +97,7 @@ vi.mock('../foundation/cache/indexedDbFoundationCache', () => ({
     }
 
     async claimOutbox(id: string, leaseMs: number) {
+      mocks.claimedLeases.push(leaseMs);
       const row = this.rows.get(id);
       if (!row) return null;
       const now = Date.now();
@@ -169,6 +171,7 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     vi.resetAllMocks();
     localStorage.clear();
     mocks.outboxByOwner.clear();
+    mocks.claimedLeases = [];
     mocks.auth.currentUser = null;
     mocks.authCallback = null;
     mocks.idb.init.mockResolvedValue(undefined);
@@ -252,6 +255,7 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     });
     expect(mocks.cloud.getStories).not.toHaveBeenCalled();
     expect(mocks.cloud.getChapterContent).not.toHaveBeenCalled();
+    expect(mocks.claimedLeases).toEqual([30_000]);
     manager.dispose();
   });
 

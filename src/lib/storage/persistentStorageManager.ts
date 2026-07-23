@@ -39,6 +39,10 @@ export interface PersistentStorageManagerOptions {
   createOutboxCache?: (ownerUid: string) => SyncOutboxCache;
 }
 
+// Keep a durable claim while an outbox request is reconciled and written. This
+// prevents another tab from reclaiming the same idempotent task mid-flight.
+const OUTBOX_CLAIM_LEASE_MS = 30_000;
+
 /**
  * Last-resort queue for browsers that do not expose IndexedDB. It deliberately
  * never falls back to localStorage: supported browsers use mutation_outbox,
@@ -1108,7 +1112,7 @@ export class PersistentStorageManager implements StorageAdapter {
           }
           const claimed = await this.getOutboxCache(task.userId).claimOutbox(
             task.idempotencyKey!,
-            1,
+            OUTBOX_CLAIM_LEASE_MS,
           );
           if (!claimed) {
             this.syncQueue.push(this.syncQueue.shift()!);

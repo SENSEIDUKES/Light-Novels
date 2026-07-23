@@ -24,57 +24,62 @@ export function useCodexImageEvolution(
   const [previews, setPreviews] = useState<Record<string, { urls: string[], prompt: string, selectedIndex: number, type: 'character' | 'location' | 'artifact' | 'beast' }>>({});
 
   const handleRevertImage = async (id: string, type: string, newUrl: string) => {
-    const selectedHistory = activeStory.imageHistory?.find(
-      image => image.entityId === id && image.imageUrl === newUrl,
-    );
-    const entity = type === 'location'
-      ? memory.locations?.find(item => item.id === id)
-      : type === 'artifact'
-        ? memory.artifacts?.find(item => item.id === id)
-        : memory.characters?.find(item => item.id === id);
-    let selectedUrl = newUrl;
-    if (selectedHistory?.assetId) {
-      const targetKind = type === 'location'
-        ? MEDIA_TARGET_KIND.LOCATION
+    try {
+      const selectedHistory = activeStory.imageHistory?.find(
+        image => image.entityId === id && image.imageUrl === newUrl,
+      );
+      const entity = type === 'location'
+        ? memory.locations?.find(item => item.id === id)
         : type === 'artifact'
-          ? MEDIA_TARGET_KIND.ARTIFACT
-          : type === 'beast'
-            ? MEDIA_TARGET_KIND.BEAST
-            : MEDIA_TARGET_KIND.CHARACTER;
-      const descriptor = await selectMediaAsset(selectedHistory.assetId, {
-        targetKind,
-        targetKey: id,
-        purpose: MEDIA_PURPOSE.MANIFESTATION,
-        storyId: requirePersistenceUuid(activeStory.persistenceId ?? activeStory.id, 'Story'),
-        entityId: requirePersistenceUuid(entity?.persistenceId ?? entity?.id, `${type} entity`),
-      });
-      selectedUrl = descriptor.deliveryUrl;
-    }
-    let finalMemory = { ...memory };
-    if (type === 'character' || type === 'beast') {
-      const updated = memory.characters?.map(c => c.id === id ? { ...c, imageUrl: selectedUrl, imageAssetId: selectedHistory?.assetId ?? c.imageAssetId } : c) || [];
-      finalMemory = { ...memory, characters: updated };
-    } else if (type === 'location') {
-      const updated = (memory.locations || []).map(l => l.id === id ? { ...l, imageUrl: selectedUrl, imageAssetId: selectedHistory?.assetId ?? l.imageAssetId } : l);
-      finalMemory = { ...memory, locations: updated };
-    } else if (type === 'artifact') {
-      const updated = (memory.artifacts || []).map(a => a.id === id ? { ...a, imageUrl: selectedUrl, imageAssetId: selectedHistory?.assetId ?? a.imageAssetId } : a);
-      finalMemory = { ...memory, artifacts: updated };
-    }
-
-    const updatedStoryHistory = activeStory.imageHistory ? activeStory.imageHistory.map(img => {
-      if (img.entityId === id) {
-        return { ...img, imageUrl: img.id === selectedHistory?.id ? selectedUrl : img.imageUrl, isCurrent: img.id === selectedHistory?.id };
+          ? memory.artifacts?.find(item => item.id === id)
+          : memory.characters?.find(item => item.id === id);
+      let selectedUrl = newUrl;
+      if (selectedHistory?.assetId) {
+        const targetKind = type === 'location'
+          ? MEDIA_TARGET_KIND.LOCATION
+          : type === 'artifact'
+            ? MEDIA_TARGET_KIND.ARTIFACT
+            : type === 'beast'
+              ? MEDIA_TARGET_KIND.BEAST
+              : MEDIA_TARGET_KIND.CHARACTER;
+        const descriptor = await selectMediaAsset(selectedHistory.assetId, {
+          targetKind,
+          targetKey: id,
+          purpose: MEDIA_PURPOSE.MANIFESTATION,
+          storyId: requirePersistenceUuid(activeStory.persistenceId ?? activeStory.id, 'Story'),
+          entityId: requirePersistenceUuid(entity?.persistenceId ?? entity?.id, `${type} entity`),
+        });
+        selectedUrl = descriptor.deliveryUrl;
       }
-      return img;
-    }) : [];
+      let finalMemory = { ...memory };
+      if (type === 'character' || type === 'beast') {
+        const updated = memory.characters?.map(c => c.id === id ? { ...c, imageUrl: selectedUrl, imageAssetId: selectedHistory?.assetId ?? c.imageAssetId } : c) || [];
+        finalMemory = { ...memory, characters: updated };
+      } else if (type === 'location') {
+        const updated = (memory.locations || []).map(l => l.id === id ? { ...l, imageUrl: selectedUrl, imageAssetId: selectedHistory?.assetId ?? l.imageAssetId } : l);
+        finalMemory = { ...memory, locations: updated };
+      } else if (type === 'artifact') {
+        const updated = (memory.artifacts || []).map(a => a.id === id ? { ...a, imageUrl: selectedUrl, imageAssetId: selectedHistory?.assetId ?? a.imageAssetId } : a);
+        finalMemory = { ...memory, artifacts: updated };
+      }
 
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
-    onUpdateStory({
-      ...currentActiveStory,
-      memory: finalMemory,
-      imageHistory: updatedStoryHistory
-    });
+      const updatedStoryHistory = activeStory.imageHistory ? activeStory.imageHistory.map(img => {
+        if (img.entityId === id) {
+          return { ...img, imageUrl: img.id === selectedHistory?.id ? selectedUrl : img.imageUrl, isCurrent: img.id === selectedHistory?.id };
+        }
+        return img;
+      }) : [];
+
+      const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
+      onUpdateStory({
+        ...currentActiveStory,
+        memory: finalMemory,
+        imageHistory: updatedStoryHistory
+      });
+    } catch (error) {
+      console.error('Failed to revert the codex image:', error);
+      setGenerationError(error instanceof Error ? error.message : 'Failed to revert the codex image.');
+    }
   };
 
   const handleAwakenCardImage = async (
@@ -157,100 +162,105 @@ export function useCodexImageEvolution(
     const preview = previews[id];
     if (!preview) return;
 
-    const sourceUrl = preview.urls[preview.selectedIndex];
-    const storyPersistenceId = requirePersistenceUuid(
-      activeStory.persistenceId ?? activeStory.id,
-      'Story',
-    );
-    const entity = type === 'location'
-      ? memory.locations?.find(item => item.id === id)
-      : type === 'artifact'
-        ? memory.artifacts?.find(item => item.id === id)
-        : memory.characters?.find(item => item.id === id);
-    const entityPersistenceId = requirePersistenceUuid(
-      entity?.persistenceId ?? entity?.id,
-      `${type} entity`,
-    );
-    const targetKind = type === 'location'
-      ? MEDIA_TARGET_KIND.LOCATION
-      : type === 'artifact'
-        ? MEDIA_TARGET_KIND.ARTIFACT
-        : type === 'beast'
-          ? MEDIA_TARGET_KIND.BEAST
-          : MEDIA_TARGET_KIND.CHARACTER;
-    const legacyMediaId = generateId(8);
-    const asset = await saveMediaAsset({
-      source: sourceUrl,
-      assetType: 'IMAGE',
-      purpose: MEDIA_PURPOSE.MANIFESTATION,
-      association: {
-        targetKind,
-        targetKey: id,
-        storyId: storyPersistenceId,
-        entityId: entityPersistenceId,
-        legacyMediaId,
+    try {
+      const sourceUrl = preview.urls[preview.selectedIndex];
+      const storyPersistenceId = requirePersistenceUuid(
+        activeStory.persistenceId ?? activeStory.id,
+        'Story',
+      );
+      const entity = type === 'location'
+        ? memory.locations?.find(item => item.id === id)
+        : type === 'artifact'
+          ? memory.artifacts?.find(item => item.id === id)
+          : memory.characters?.find(item => item.id === id);
+      const entityPersistenceId = requirePersistenceUuid(
+        entity?.persistenceId ?? entity?.id,
+        `${type} entity`,
+      );
+      const targetKind = type === 'location'
+        ? MEDIA_TARGET_KIND.LOCATION
+        : type === 'artifact'
+          ? MEDIA_TARGET_KIND.ARTIFACT
+          : type === 'beast'
+            ? MEDIA_TARGET_KIND.BEAST
+            : MEDIA_TARGET_KIND.CHARACTER;
+      const legacyMediaId = generateId(8);
+      const asset = await saveMediaAsset({
+        source: sourceUrl,
+        assetType: 'IMAGE',
+        purpose: MEDIA_PURPOSE.MANIFESTATION,
+        association: {
+          targetKind,
+          targetKey: id,
+          storyId: storyPersistenceId,
+          entityId: entityPersistenceId,
+          legacyMediaId,
+          entityType: type,
+          promptUsed: preview.prompt,
+          chapterNumber: activeStory.currentChapterNumber,
+        },
+        idempotencyKey: generateUUID(),
+      });
+      const selectedUrl = asset.deliveryUrl;
+
+      const newHistoryItem: GeneratedImage = {
+        id: legacyMediaId,
+        assetId: asset.id,
+        assetVersion: asset.version,
+        checksumSha256: asset.checksumSha256,
+        deliveryUrlExpiresAt: asset.deliveryUrlExpiresAt ?? undefined,
+        entityId: id,
         entityType: type,
+        imageUrl: selectedUrl,
         promptUsed: preview.prompt,
-        chapterNumber: activeStory.currentChapterNumber,
-      },
-      idempotencyKey: generateUUID(),
-    });
-    const selectedUrl = asset.deliveryUrl;
+        createdAt: new Date().toISOString(),
+        isCurrent: true,
+        chapterNumber: activeStory.currentChapterNumber
+      };
 
-    const newHistoryItem: GeneratedImage = {
-      id: legacyMediaId,
-      assetId: asset.id,
-      assetVersion: asset.version,
-      checksumSha256: asset.checksumSha256,
-      deliveryUrlExpiresAt: asset.deliveryUrlExpiresAt ?? undefined,
-      entityId: id,
-      entityType: type,
-      imageUrl: selectedUrl,
-      promptUsed: preview.prompt,
-      createdAt: new Date().toISOString(),
-      isCurrent: true,
-      chapterNumber: activeStory.currentChapterNumber
-    };
+      const currentStoryHistory = activeStory.imageHistory || [];
+      const updatedStoryHistory: GeneratedImage[] = currentStoryHistory
+        .map(img => img.entityId === id ? { ...img, isCurrent: false } : img)
+        .concat(newHistoryItem);
 
-    const currentStoryHistory = activeStory.imageHistory || [];
-    const updatedStoryHistory: GeneratedImage[] = currentStoryHistory
-      .map(img => img.entityId === id ? { ...img, isCurrent: false } : img)
-      .concat(newHistoryItem);
+      let finalMemory = { ...memory };
 
-    let finalMemory = { ...memory };
+      if (type === 'character' || type === 'beast') {
+        const updated = memory.characters?.map(c =>
+          c.id === id ? { ...c, persistenceId: entityPersistenceId, imageAssetId: asset.id, imageUrl: selectedUrl, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber, arcAccumulation: undefined } : c
+        ) || [];
+        finalMemory = { ...memory, characters: updated };
+      } else if (type === 'location') {
+        const updated = (memory.locations || []).map(l =>
+          l.id === id ? { ...l, persistenceId: entityPersistenceId, imageAssetId: asset.id, imageUrl: selectedUrl, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber, arcAccumulation: undefined } : l
+        );
+        finalMemory = { ...memory, locations: updated };
+      } else if (type === 'artifact') {
+        const updated = (memory.artifacts || []).map(a =>
+          a.id === id ? { ...a, persistenceId: entityPersistenceId, imageAssetId: asset.id, imageUrl: selectedUrl, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber, arcAccumulation: undefined } : a
+        );
+        finalMemory = { ...memory, artifacts: updated };
+      }
 
-    if (type === 'character' || type === 'beast') {
-      const updated = memory.characters?.map(c => 
-        c.id === id ? { ...c, persistenceId: entityPersistenceId, imageAssetId: asset.id, imageUrl: selectedUrl, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber, arcAccumulation: undefined } : c
-      ) || [];
-      finalMemory = { ...memory, characters: updated };
-    } else if (type === 'location') {
-      const updated = (memory.locations || []).map(l => 
-        l.id === id ? { ...l, persistenceId: entityPersistenceId, imageAssetId: asset.id, imageUrl: selectedUrl, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber, arcAccumulation: undefined } : l
-      );
-      finalMemory = { ...memory, locations: updated };
-    } else if (type === 'artifact') {
-      const updated = (memory.artifacts || []).map(a => 
-        a.id === id ? { ...a, persistenceId: entityPersistenceId, imageAssetId: asset.id, imageUrl: selectedUrl, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber, arcAccumulation: undefined } : a
-      );
-      finalMemory = { ...memory, artifacts: updated };
+      const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
+      onUpdateStory({
+        ...currentActiveStory,
+        persistenceId: storyPersistenceId,
+        memory: finalMemory,
+        imageHistory: updatedStoryHistory
+      });
+
+      setPreviews(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+
+      pushNotification("Evolution successfully bonded to entity record.");
+    } catch (error) {
+      console.error('Failed to save the codex image evolution:', error);
+      setGenerationError(error instanceof Error ? error.message : 'Failed to save the codex image evolution.');
     }
-
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
-    onUpdateStory({
-      ...currentActiveStory,
-      persistenceId: storyPersistenceId,
-      memory: finalMemory,
-      imageHistory: updatedStoryHistory
-    });
-
-    setPreviews(prev => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-
-    pushNotification("Evolution successfully bonded to entity record.");
   };
 
   const handleDiscardPreview = (id: string) => {
