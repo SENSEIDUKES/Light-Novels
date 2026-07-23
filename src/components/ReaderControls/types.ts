@@ -13,6 +13,7 @@ export interface PlaybackState {
   isPausedText: boolean;
   handleTogglePlayback: () => void;
   readerMode: string;
+  playerStyle?: "vinyl" | "minimal" | "ethereal";
 }
 
 export interface AudioSettings {

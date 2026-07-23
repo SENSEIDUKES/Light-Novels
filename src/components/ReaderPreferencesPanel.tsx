@@ -5,6 +5,7 @@ import {
   ChevronDown,
   Eye,
   Palette,
+  Play,
   RotateCcw,
   Sliders,
   Type,
@@ -24,6 +25,12 @@ const HIGHLIGHT_OPTIONS = [
   { value: 'full', label: 'Full Block' },
   { value: 'underline', label: 'Underline' },
   { value: 'tint', label: 'Soft Tint' },
+] as const;
+
+const PLAYER_STYLE_OPTIONS = [
+  { value: 'vinyl', label: 'Classic Vinyl' },
+  { value: 'minimal', label: 'Minimal Core' },
+  { value: 'ethereal', label: 'Ethereal Pulse' },
 ] as const;
 
 type NumericTypographyPreference =
@@ -229,6 +236,21 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
                   <button key={option.value} type="button" onClick={() => handleUpdatePreference('highlightStyle', option.value)} className={choiceClass((currentPrefs.highlightStyle || 'full') === option.value)}>
                     <span>{option.label}</span>
                     {(currentPrefs.highlightStyle || 'full') === option.value ? <Check size={12} /> : null}
+                  </button>
+                ))}
+              </div>
+            </PreferenceGroup>
+
+            <PreferenceGroup
+              label="Audio Player Style"
+              icon={<Play size={13} />}
+              summary={PLAYER_STYLE_OPTIONS.find(option => option.value === (currentPrefs.playerStyle || 'vinyl'))?.label}
+            >
+              <div className="grid gap-1.5">
+                {PLAYER_STYLE_OPTIONS.map(option => (
+                  <button key={option.value} type="button" onClick={() => handleUpdatePreference('playerStyle', option.value)} className={choiceClass((currentPrefs.playerStyle || 'vinyl') === option.value)}>
+                    <span>{option.label}</span>
+                    {(currentPrefs.playerStyle || 'vinyl') === option.value ? <Check size={12} /> : null}
                   </button>
                 ))}
               </div>
