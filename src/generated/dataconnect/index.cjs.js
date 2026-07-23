@@ -737,7 +737,7 @@ getMyAccountRef.operationName = 'GetMyAccount';
 exports.getMyAccountRef = getMyAccountRef;
 
 exports.getMyAccount = function getMyAccount(dcOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrOptions, options, undefined,false, false);
   return executeQuery(getMyAccountRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -752,7 +752,7 @@ listMyFoundationProbesRef.operationName = 'ListMyFoundationProbes';
 exports.listMyFoundationProbesRef = listMyFoundationProbesRef;
 
 exports.listMyFoundationProbes = function listMyFoundationProbes(dcOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrOptions, options, undefined,false, false);
   return executeQuery(listMyFoundationProbesRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -767,7 +767,7 @@ getMyFoundationProbeRef.operationName = 'GetMyFoundationProbe';
 exports.getMyFoundationProbeRef = getMyFoundationProbeRef;
 
 exports.getMyFoundationProbe = function getMyFoundationProbe(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(getMyFoundationProbeRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -782,7 +782,7 @@ listMyStoriesRef.operationName = 'ListMyStories';
 exports.listMyStoriesRef = listMyStoriesRef;
 
 exports.listMyStories = function listMyStories(dcOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrOptions, options, undefined,false, false);
   return executeQuery(listMyStoriesRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -797,7 +797,7 @@ getMyStoryRef.operationName = 'GetMyStory';
 exports.getMyStoryRef = getMyStoryRef;
 
 exports.getMyStory = function getMyStory(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(getMyStoryRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -812,7 +812,7 @@ getMyChapterRef.operationName = 'GetMyChapter';
 exports.getMyChapterRef = getMyChapterRef;
 
 exports.getMyChapter = function getMyChapter(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(getMyChapterRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -827,7 +827,7 @@ getMyMediaAssetRef.operationName = 'GetMyMediaAsset';
 exports.getMyMediaAssetRef = getMyMediaAssetRef;
 
 exports.getMyMediaAsset = function getMyMediaAsset(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(getMyMediaAssetRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -842,7 +842,7 @@ listMyMediaAssetsRef.operationName = 'ListMyMediaAssets';
 exports.listMyMediaAssetsRef = listMyMediaAssetsRef;
 
 exports.listMyMediaAssets = function listMyMediaAssets(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, false);
   return executeQuery(listMyMediaAssetsRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -857,7 +857,7 @@ adminGetOwnedMediaAssetRef.operationName = 'AdminGetOwnedMediaAsset';
 exports.adminGetOwnedMediaAssetRef = adminGetOwnedMediaAssetRef;
 
 exports.adminGetOwnedMediaAsset = function adminGetOwnedMediaAsset(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminGetOwnedMediaAssetRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -872,7 +872,7 @@ adminGetOwnedStoryScopeRef.operationName = 'AdminGetOwnedStoryScope';
 exports.adminGetOwnedStoryScopeRef = adminGetOwnedStoryScopeRef;
 
 exports.adminGetOwnedStoryScope = function adminGetOwnedStoryScope(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminGetOwnedStoryScopeRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -887,7 +887,7 @@ adminGetOwnedChapterScopeRef.operationName = 'AdminGetOwnedChapterScope';
 exports.adminGetOwnedChapterScopeRef = adminGetOwnedChapterScopeRef;
 
 exports.adminGetOwnedChapterScope = function adminGetOwnedChapterScope(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminGetOwnedChapterScopeRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -902,7 +902,7 @@ adminGetOwnedEntityScopeRef.operationName = 'AdminGetOwnedEntityScope';
 exports.adminGetOwnedEntityScopeRef = adminGetOwnedEntityScopeRef;
 
 exports.adminGetOwnedEntityScope = function adminGetOwnedEntityScope(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminGetOwnedEntityScopeRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -917,7 +917,7 @@ adminGetOwnedGenerationJobScopeRef.operationName = 'AdminGetOwnedGenerationJobSc
 exports.adminGetOwnedGenerationJobScopeRef = adminGetOwnedGenerationJobScopeRef;
 
 exports.adminGetOwnedGenerationJobScope = function adminGetOwnedGenerationJobScope(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminGetOwnedGenerationJobScopeRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -932,7 +932,7 @@ adminGetOwnedMediaReplacementScopeRef.operationName = 'AdminGetOwnedMediaReplace
 exports.adminGetOwnedMediaReplacementScopeRef = adminGetOwnedMediaReplacementScopeRef;
 
 exports.adminGetOwnedMediaReplacementScope = function adminGetOwnedMediaReplacementScope(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminGetOwnedMediaReplacementScopeRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -947,7 +947,7 @@ adminListStaleMediaUploadsRef.operationName = 'AdminListStaleMediaUploads';
 exports.adminListStaleMediaUploadsRef = adminListStaleMediaUploadsRef;
 
 exports.adminListStaleMediaUploads = function adminListStaleMediaUploads(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminListStaleMediaUploadsRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -962,7 +962,7 @@ adminListMediaCleanupTasksRef.operationName = 'AdminListMediaCleanupTasks';
 exports.adminListMediaCleanupTasksRef = adminListMediaCleanupTasksRef;
 
 exports.adminListMediaCleanupTasks = function adminListMediaCleanupTasks(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, false);
   return executeQuery(adminListMediaCleanupTasksRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -977,7 +977,7 @@ adminListMediaAssetsForStorageReportRef.operationName = 'AdminListMediaAssetsFor
 exports.adminListMediaAssetsForStorageReportRef = adminListMediaAssetsForStorageReportRef;
 
 exports.adminListMediaAssetsForStorageReport = function adminListMediaAssetsForStorageReport(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, false);
   return executeQuery(adminListMediaAssetsForStorageReportRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -992,7 +992,7 @@ listMyStoryChangesRef.operationName = 'ListMyStoryChanges';
 exports.listMyStoryChangesRef = listMyStoryChangesRef;
 
 exports.listMyStoryChanges = function listMyStoryChanges(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(listMyStoryChangesRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1007,7 +1007,7 @@ getMyCurrentMediaSlotRef.operationName = 'GetMyCurrentMediaSlot';
 exports.getMyCurrentMediaSlotRef = getMyCurrentMediaSlotRef;
 
 exports.getMyCurrentMediaSlot = function getMyCurrentMediaSlot(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(getMyCurrentMediaSlotRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1022,7 +1022,7 @@ listMyMediaSlotHistoryRef.operationName = 'ListMyMediaSlotHistory';
 exports.listMyMediaSlotHistoryRef = listMyMediaSlotHistoryRef;
 
 exports.listMyMediaSlotHistory = function listMyMediaSlotHistory(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(listMyMediaSlotHistoryRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1037,7 +1037,7 @@ adminListOwnedStoriesRef.operationName = 'AdminListOwnedStories';
 exports.adminListOwnedStoriesRef = adminListOwnedStoriesRef;
 
 exports.adminListOwnedStories = function adminListOwnedStories(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminListOwnedStoriesRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1052,7 +1052,7 @@ adminListOwnedStoryChangesRef.operationName = 'AdminListOwnedStoryChanges';
 exports.adminListOwnedStoryChangesRef = adminListOwnedStoryChangesRef;
 
 exports.adminListOwnedStoryChanges = function adminListOwnedStoryChanges(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminListOwnedStoryChangesRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1067,7 +1067,7 @@ adminGetPersistenceReceiptRef.operationName = 'AdminGetPersistenceReceipt';
 exports.adminGetPersistenceReceiptRef = adminGetPersistenceReceiptRef;
 
 exports.adminGetPersistenceReceipt = function adminGetPersistenceReceipt(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminGetPersistenceReceiptRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1082,7 +1082,7 @@ adminGetOwnedStoryGraphRef.operationName = 'AdminGetOwnedStoryGraph';
 exports.adminGetOwnedStoryGraphRef = adminGetOwnedStoryGraphRef;
 
 exports.adminGetOwnedStoryGraph = function adminGetOwnedStoryGraph(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminGetOwnedStoryGraphRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1097,7 +1097,7 @@ adminGetOwnedChapterContentGraphRef.operationName = 'AdminGetOwnedChapterContent
 exports.adminGetOwnedChapterContentGraphRef = adminGetOwnedChapterContentGraphRef;
 
 exports.adminGetOwnedChapterContentGraph = function adminGetOwnedChapterContentGraph(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminGetOwnedChapterContentGraphRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1112,7 +1112,7 @@ adminListOwnedStorySeedsRef.operationName = 'AdminListOwnedStorySeeds';
 exports.adminListOwnedStorySeedsRef = adminListOwnedStorySeedsRef;
 
 exports.adminListOwnedStorySeeds = function adminListOwnedStorySeeds(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminListOwnedStorySeedsRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1127,7 +1127,7 @@ adminGetOwnedStorySeedGraphRef.operationName = 'AdminGetOwnedStorySeedGraph';
 exports.adminGetOwnedStorySeedGraphRef = adminGetOwnedStorySeedGraphRef;
 
 exports.adminGetOwnedStorySeedGraph = function adminGetOwnedStorySeedGraph(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminGetOwnedStorySeedGraphRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1142,7 +1142,7 @@ adminGetUserProfileGraphRef.operationName = 'AdminGetUserProfileGraph';
 exports.adminGetUserProfileGraphRef = adminGetUserProfileGraphRef;
 
 exports.adminGetUserProfileGraph = function adminGetUserProfileGraph(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminGetUserProfileGraphRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1157,7 +1157,7 @@ adminGetOwnedMediaSlotRef.operationName = 'AdminGetOwnedMediaSlot';
 exports.adminGetOwnedMediaSlotRef = adminGetOwnedMediaSlotRef;
 
 exports.adminGetOwnedMediaSlot = function adminGetOwnedMediaSlot(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminGetOwnedMediaSlotRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1172,7 +1172,7 @@ adminListOwnedMediaSlotHistoryRef.operationName = 'AdminListOwnedMediaSlotHistor
 exports.adminListOwnedMediaSlotHistoryRef = adminListOwnedMediaSlotHistoryRef;
 
 exports.adminListOwnedMediaSlotHistory = function adminListOwnedMediaSlotHistory(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminListOwnedMediaSlotHistoryRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1187,7 +1187,7 @@ adminGetMediaUploadReceiptRef.operationName = 'AdminGetMediaUploadReceipt';
 exports.adminGetMediaUploadReceiptRef = adminGetMediaUploadReceiptRef;
 
 exports.adminGetMediaUploadReceipt = function adminGetMediaUploadReceipt(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminGetMediaUploadReceiptRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1202,7 +1202,7 @@ adminGetOwnedStorageQuotaReservationRef.operationName = 'AdminGetOwnedStorageQuo
 exports.adminGetOwnedStorageQuotaReservationRef = adminGetOwnedStorageQuotaReservationRef;
 
 exports.adminGetOwnedStorageQuotaReservation = function adminGetOwnedStorageQuotaReservation(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminGetOwnedStorageQuotaReservationRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1217,7 +1217,7 @@ adminGetMediaDeletionIntentRef.operationName = 'AdminGetMediaDeletionIntent';
 exports.adminGetMediaDeletionIntentRef = adminGetMediaDeletionIntentRef;
 
 exports.adminGetMediaDeletionIntent = function adminGetMediaDeletionIntent(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminGetMediaDeletionIntentRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1232,7 +1232,7 @@ adminListStoryDeletionMediaCandidatesRef.operationName = 'AdminListStoryDeletion
 exports.adminListStoryDeletionMediaCandidatesRef = adminListStoryDeletionMediaCandidatesRef;
 
 exports.adminListStoryDeletionMediaCandidates = function adminListStoryDeletionMediaCandidates(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminListStoryDeletionMediaCandidatesRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1247,7 +1247,7 @@ adminListStoryDeletionJobsRef.operationName = 'AdminListStoryDeletionJobs';
 exports.adminListStoryDeletionJobsRef = adminListStoryDeletionJobsRef;
 
 exports.adminListStoryDeletionJobs = function adminListStoryDeletionJobs(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, false);
   return executeQuery(adminListStoryDeletionJobsRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1262,7 +1262,7 @@ adminGetStorageUsageReportRef.operationName = 'AdminGetStorageUsageReport';
 exports.adminGetStorageUsageReportRef = adminGetStorageUsageReportRef;
 
 exports.adminGetStorageUsageReport = function adminGetStorageUsageReport(dcOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrOptions, options, undefined,false, false);
   return executeQuery(adminGetStorageUsageReportRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1277,7 +1277,7 @@ adminListOwnedGlossaryTermsRef.operationName = 'AdminListOwnedGlossaryTerms';
 exports.adminListOwnedGlossaryTermsRef = adminListOwnedGlossaryTermsRef;
 
 exports.adminListOwnedGlossaryTerms = function adminListOwnedGlossaryTerms(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminListOwnedGlossaryTermsRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1292,7 +1292,7 @@ adminGetImageQuotaConsumptionRef.operationName = 'AdminGetImageQuotaConsumption'
 exports.adminGetImageQuotaConsumptionRef = adminGetImageQuotaConsumptionRef;
 
 exports.adminGetImageQuotaConsumption = function adminGetImageQuotaConsumption(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminGetImageQuotaConsumptionRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1307,7 +1307,7 @@ adminGetOwnedPortraitAssetRef.operationName = 'AdminGetOwnedPortraitAsset';
 exports.adminGetOwnedPortraitAssetRef = adminGetOwnedPortraitAssetRef;
 
 exports.adminGetOwnedPortraitAsset = function adminGetOwnedPortraitAsset(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminGetOwnedPortraitAssetRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }
@@ -1322,7 +1322,7 @@ adminGetAdminOverviewRef.operationName = 'AdminGetAdminOverview';
 exports.adminGetAdminOverviewRef = adminGetAdminOverviewRef;
 
 exports.adminGetAdminOverview = function adminGetAdminOverview(dcOrVars, varsOrOptions, options) {
-
+  
   const { dc: dcInstance, vars: inputVars, options: inputOpts } = validateArgsWithOptions(connectorConfig, dcOrVars, varsOrOptions, options, true, true);
   return executeQuery(adminGetAdminOverviewRef(dcInstance, inputVars), inputOpts && { fetchPolicy: inputOpts.fetchPolicy });
 }

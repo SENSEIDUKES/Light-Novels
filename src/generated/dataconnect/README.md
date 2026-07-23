@@ -94,7 +94,7 @@ You can use this generated SDK by importing from the package `@seihouse/celestia
 
 You can also follow the instructions from the [Data Connect documentation](https://firebase.google.com/docs/data-connect/web-sdk#set-client).
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig } from '@seihouse/celestial-library-dataconnect';
 
@@ -107,7 +107,7 @@ By default, the connector will connect to the production service.
 To connect to the emulator, you can use the following code.
 You can also follow the emulator instructions from the [Data Connect documentation](https://firebase.google.com/docs/data-connect/web-sdk#instrument-clients).
 
-```typescrip
+```typescript
 import { connectDataConnectEmulator, getDataConnect } from 'firebase/data-connect';
 import { connectorConfig } from '@seihouse/celestial-library-dataconnect';
 
@@ -132,9 +132,9 @@ The following is true for both the action shortcut function and the `QueryRef` f
 
 Below are examples of how to use the `celestial-library` connector's generated functions to execute each query. You can also follow the examples from the [Data Connect documentation](https://firebase.google.com/docs/data-connect/web-sdk#using-queries).
 
-## GetMyAccoun
+## GetMyAccount
 You can execute the `GetMyAccount` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 getMyAccount(options?: ExecuteQueryOptions): QueryPromise<GetMyAccountData, undefined>;
 
 interface GetMyAccountRef {
@@ -145,7 +145,7 @@ interface GetMyAccountRef {
 export const getMyAccountRef: GetMyAccountRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 getMyAccount(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<GetMyAccountData, undefined>;
 
 interface GetMyAccountRef {
@@ -156,7 +156,7 @@ export const getMyAccountRef: GetMyAccountRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the getMyAccountRef:
-```typescrip
+```typescript
 const name = getMyAccountRef.operationName;
 console.log(name);
 ```
@@ -167,7 +167,7 @@ The `GetMyAccount` query has no variables.
 Recall that executing the `GetMyAccount` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `GetMyAccountData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface GetMyAccountData {
   userAccount?: {
     uid: string;
@@ -181,7 +181,7 @@ export interface GetMyAccountData {
 ```
 ### Using `GetMyAccount`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, getMyAccount } from '@seihouse/celestial-library-dataconnect';
 
@@ -205,7 +205,7 @@ getMyAccount().then((response) => {
 
 ### Using `GetMyAccount`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, getMyAccountRef } from '@seihouse/celestial-library-dataconnect';
 
@@ -232,7 +232,7 @@ executeQuery(ref).then((response) => {
 
 ## ListMyFoundationProbes
 You can execute the `ListMyFoundationProbes` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 listMyFoundationProbes(options?: ExecuteQueryOptions): QueryPromise<ListMyFoundationProbesData, undefined>;
 
 interface ListMyFoundationProbesRef {
@@ -243,7 +243,7 @@ interface ListMyFoundationProbesRef {
 export const listMyFoundationProbesRef: ListMyFoundationProbesRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 listMyFoundationProbes(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListMyFoundationProbesData, undefined>;
 
 interface ListMyFoundationProbesRef {
@@ -254,7 +254,7 @@ export const listMyFoundationProbesRef: ListMyFoundationProbesRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the listMyFoundationProbesRef:
-```typescrip
+```typescript
 const name = listMyFoundationProbesRef.operationName;
 console.log(name);
 ```
@@ -265,7 +265,7 @@ The `ListMyFoundationProbes` query has no variables.
 Recall that executing the `ListMyFoundationProbes` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `ListMyFoundationProbesData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface ListMyFoundationProbesData {
   foundationProbes: ({
     id: UUIDString;
@@ -276,7 +276,7 @@ export interface ListMyFoundationProbesData {
 ```
 ### Using `ListMyFoundationProbes`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, listMyFoundationProbes } from '@seihouse/celestial-library-dataconnect';
 
@@ -300,7 +300,7 @@ listMyFoundationProbes().then((response) => {
 
 ### Using `ListMyFoundationProbes`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, listMyFoundationProbesRef } from '@seihouse/celestial-library-dataconnect';
 
@@ -327,7 +327,7 @@ executeQuery(ref).then((response) => {
 
 ## GetMyFoundationProbe
 You can execute the `GetMyFoundationProbe` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 getMyFoundationProbe(vars: GetMyFoundationProbeVariables, options?: ExecuteQueryOptions): QueryPromise<GetMyFoundationProbeData, GetMyFoundationProbeVariables>;
 
 interface GetMyFoundationProbeRef {
@@ -338,7 +338,7 @@ interface GetMyFoundationProbeRef {
 export const getMyFoundationProbeRef: GetMyFoundationProbeRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 getMyFoundationProbe(dc: DataConnect, vars: GetMyFoundationProbeVariables, options?: ExecuteQueryOptions): QueryPromise<GetMyFoundationProbeData, GetMyFoundationProbeVariables>;
 
 interface GetMyFoundationProbeRef {
@@ -349,7 +349,7 @@ export const getMyFoundationProbeRef: GetMyFoundationProbeRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the getMyFoundationProbeRef:
-```typescrip
+```typescript
 const name = getMyFoundationProbeRef.operationName;
 console.log(name);
 ```
@@ -357,7 +357,7 @@ console.log(name);
 ### Variables
 The `GetMyFoundationProbe` query requires an argument of type `GetMyFoundationProbeVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface GetMyFoundationProbeVariables {
   id: UUIDString;
 }
@@ -366,7 +366,7 @@ export interface GetMyFoundationProbeVariables {
 Recall that executing the `GetMyFoundationProbe` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `GetMyFoundationProbeData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface GetMyFoundationProbeData {
   foundationProbe?: {
     id: UUIDString;
@@ -377,13 +377,13 @@ export interface GetMyFoundationProbeData {
 ```
 ### Using `GetMyFoundationProbe`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, getMyFoundationProbe, GetMyFoundationProbeVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `GetMyFoundationProbe` query requires an argument of type `GetMyFoundationProbeVariables`:
 const getMyFoundationProbeVars: GetMyFoundationProbeVariables = {
-  id: ...,
+  id: ..., 
 };
 
 // Call the `getMyFoundationProbe()` function to execute the query.
@@ -407,13 +407,13 @@ getMyFoundationProbe(getMyFoundationProbeVars).then((response) => {
 
 ### Using `GetMyFoundationProbe`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, getMyFoundationProbeRef, GetMyFoundationProbeVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `GetMyFoundationProbe` query requires an argument of type `GetMyFoundationProbeVariables`:
 const getMyFoundationProbeVars: GetMyFoundationProbeVariables = {
-  id: ...,
+  id: ..., 
 };
 
 // Call the `getMyFoundationProbeRef()` function to get a reference to the query.
@@ -440,7 +440,7 @@ executeQuery(ref).then((response) => {
 
 ## ListMyStories
 You can execute the `ListMyStories` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 listMyStories(options?: ExecuteQueryOptions): QueryPromise<ListMyStoriesData, undefined>;
 
 interface ListMyStoriesRef {
@@ -451,7 +451,7 @@ interface ListMyStoriesRef {
 export const listMyStoriesRef: ListMyStoriesRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 listMyStories(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<ListMyStoriesData, undefined>;
 
 interface ListMyStoriesRef {
@@ -462,7 +462,7 @@ export const listMyStoriesRef: ListMyStoriesRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the listMyStoriesRef:
-```typescrip
+```typescript
 const name = listMyStoriesRef.operationName;
 console.log(name);
 ```
@@ -473,7 +473,7 @@ The `ListMyStories` query has no variables.
 Recall that executing the `ListMyStories` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `ListMyStoriesData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface ListMyStoriesData {
   stories: ({
     id: UUIDString;
@@ -493,7 +493,7 @@ export interface ListMyStoriesData {
 ```
 ### Using `ListMyStories`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, listMyStories } from '@seihouse/celestial-library-dataconnect';
 
@@ -517,7 +517,7 @@ listMyStories().then((response) => {
 
 ### Using `ListMyStories`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, listMyStoriesRef } from '@seihouse/celestial-library-dataconnect';
 
@@ -544,7 +544,7 @@ executeQuery(ref).then((response) => {
 
 ## GetMyStory
 You can execute the `GetMyStory` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 getMyStory(vars: GetMyStoryVariables, options?: ExecuteQueryOptions): QueryPromise<GetMyStoryData, GetMyStoryVariables>;
 
 interface GetMyStoryRef {
@@ -555,7 +555,7 @@ interface GetMyStoryRef {
 export const getMyStoryRef: GetMyStoryRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 getMyStory(dc: DataConnect, vars: GetMyStoryVariables, options?: ExecuteQueryOptions): QueryPromise<GetMyStoryData, GetMyStoryVariables>;
 
 interface GetMyStoryRef {
@@ -566,7 +566,7 @@ export const getMyStoryRef: GetMyStoryRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the getMyStoryRef:
-```typescrip
+```typescript
 const name = getMyStoryRef.operationName;
 console.log(name);
 ```
@@ -574,7 +574,7 @@ console.log(name);
 ### Variables
 The `GetMyStory` query requires an argument of type `GetMyStoryVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface GetMyStoryVariables {
   id: UUIDString;
 }
@@ -583,7 +583,7 @@ export interface GetMyStoryVariables {
 Recall that executing the `GetMyStory` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `GetMyStoryData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface GetMyStoryData {
   story?: {
     id: UUIDString;
@@ -622,13 +622,13 @@ export interface GetMyStoryData {
 ```
 ### Using `GetMyStory`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, getMyStory, GetMyStoryVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `GetMyStory` query requires an argument of type `GetMyStoryVariables`:
 const getMyStoryVars: GetMyStoryVariables = {
-  id: ...,
+  id: ..., 
 };
 
 // Call the `getMyStory()` function to execute the query.
@@ -652,13 +652,13 @@ getMyStory(getMyStoryVars).then((response) => {
 
 ### Using `GetMyStory`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, getMyStoryRef, GetMyStoryVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `GetMyStory` query requires an argument of type `GetMyStoryVariables`:
 const getMyStoryVars: GetMyStoryVariables = {
-  id: ...,
+  id: ..., 
 };
 
 // Call the `getMyStoryRef()` function to get a reference to the query.
@@ -685,7 +685,7 @@ executeQuery(ref).then((response) => {
 
 ## GetMyChapter
 You can execute the `GetMyChapter` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 getMyChapter(vars: GetMyChapterVariables, options?: ExecuteQueryOptions): QueryPromise<GetMyChapterData, GetMyChapterVariables>;
 
 interface GetMyChapterRef {
@@ -696,7 +696,7 @@ interface GetMyChapterRef {
 export const getMyChapterRef: GetMyChapterRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 getMyChapter(dc: DataConnect, vars: GetMyChapterVariables, options?: ExecuteQueryOptions): QueryPromise<GetMyChapterData, GetMyChapterVariables>;
 
 interface GetMyChapterRef {
@@ -707,7 +707,7 @@ export const getMyChapterRef: GetMyChapterRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the getMyChapterRef:
-```typescrip
+```typescript
 const name = getMyChapterRef.operationName;
 console.log(name);
 ```
@@ -715,7 +715,7 @@ console.log(name);
 ### Variables
 The `GetMyChapter` query requires an argument of type `GetMyChapterVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface GetMyChapterVariables {
   storyId: UUIDString;
   chapterNumber: number;
@@ -725,7 +725,7 @@ export interface GetMyChapterVariables {
 Recall that executing the `GetMyChapter` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `GetMyChapterData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface GetMyChapterData {
   chapter?: {
     id: UUIDString;
@@ -771,14 +771,14 @@ export interface GetMyChapterData {
 ```
 ### Using `GetMyChapter`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, getMyChapter, GetMyChapterVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `GetMyChapter` query requires an argument of type `GetMyChapterVariables`:
 const getMyChapterVars: GetMyChapterVariables = {
-  storyId: ...,
-  chapterNumber: ...,
+  storyId: ..., 
+  chapterNumber: ..., 
 };
 
 // Call the `getMyChapter()` function to execute the query.
@@ -802,14 +802,14 @@ getMyChapter(getMyChapterVars).then((response) => {
 
 ### Using `GetMyChapter`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, getMyChapterRef, GetMyChapterVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `GetMyChapter` query requires an argument of type `GetMyChapterVariables`:
 const getMyChapterVars: GetMyChapterVariables = {
-  storyId: ...,
-  chapterNumber: ...,
+  storyId: ..., 
+  chapterNumber: ..., 
 };
 
 // Call the `getMyChapterRef()` function to get a reference to the query.
@@ -834,9 +834,9 @@ executeQuery(ref).then((response) => {
 });
 ```
 
-## GetMyMediaAsse
+## GetMyMediaAsset
 You can execute the `GetMyMediaAsset` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 getMyMediaAsset(vars: GetMyMediaAssetVariables, options?: ExecuteQueryOptions): QueryPromise<GetMyMediaAssetData, GetMyMediaAssetVariables>;
 
 interface GetMyMediaAssetRef {
@@ -847,7 +847,7 @@ interface GetMyMediaAssetRef {
 export const getMyMediaAssetRef: GetMyMediaAssetRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 getMyMediaAsset(dc: DataConnect, vars: GetMyMediaAssetVariables, options?: ExecuteQueryOptions): QueryPromise<GetMyMediaAssetData, GetMyMediaAssetVariables>;
 
 interface GetMyMediaAssetRef {
@@ -858,7 +858,7 @@ export const getMyMediaAssetRef: GetMyMediaAssetRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the getMyMediaAssetRef:
-```typescrip
+```typescript
 const name = getMyMediaAssetRef.operationName;
 console.log(name);
 ```
@@ -866,7 +866,7 @@ console.log(name);
 ### Variables
 The `GetMyMediaAsset` query requires an argument of type `GetMyMediaAssetVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface GetMyMediaAssetVariables {
   id: UUIDString;
 }
@@ -875,7 +875,7 @@ export interface GetMyMediaAssetVariables {
 Recall that executing the `GetMyMediaAsset` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `GetMyMediaAssetData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface GetMyMediaAssetData {
   mediaAsset?: {
     id: UUIDString;
@@ -905,13 +905,13 @@ export interface GetMyMediaAssetData {
 ```
 ### Using `GetMyMediaAsset`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, getMyMediaAsset, GetMyMediaAssetVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `GetMyMediaAsset` query requires an argument of type `GetMyMediaAssetVariables`:
 const getMyMediaAssetVars: GetMyMediaAssetVariables = {
-  id: ...,
+  id: ..., 
 };
 
 // Call the `getMyMediaAsset()` function to execute the query.
@@ -935,13 +935,13 @@ getMyMediaAsset(getMyMediaAssetVars).then((response) => {
 
 ### Using `GetMyMediaAsset`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, getMyMediaAssetRef, GetMyMediaAssetVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `GetMyMediaAsset` query requires an argument of type `GetMyMediaAssetVariables`:
 const getMyMediaAssetVars: GetMyMediaAssetVariables = {
-  id: ...,
+  id: ..., 
 };
 
 // Call the `getMyMediaAssetRef()` function to get a reference to the query.
@@ -968,7 +968,7 @@ executeQuery(ref).then((response) => {
 
 ## ListMyMediaAssets
 You can execute the `ListMyMediaAssets` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 listMyMediaAssets(vars?: ListMyMediaAssetsVariables, options?: ExecuteQueryOptions): QueryPromise<ListMyMediaAssetsData, ListMyMediaAssetsVariables>;
 
 interface ListMyMediaAssetsRef {
@@ -979,7 +979,7 @@ interface ListMyMediaAssetsRef {
 export const listMyMediaAssetsRef: ListMyMediaAssetsRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 listMyMediaAssets(dc: DataConnect, vars?: ListMyMediaAssetsVariables, options?: ExecuteQueryOptions): QueryPromise<ListMyMediaAssetsData, ListMyMediaAssetsVariables>;
 
 interface ListMyMediaAssetsRef {
@@ -990,7 +990,7 @@ export const listMyMediaAssetsRef: ListMyMediaAssetsRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the listMyMediaAssetsRef:
-```typescrip
+```typescript
 const name = listMyMediaAssetsRef.operationName;
 console.log(name);
 ```
@@ -998,7 +998,7 @@ console.log(name);
 ### Variables
 The `ListMyMediaAssets` query has an optional argument of type `ListMyMediaAssetsVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface ListMyMediaAssetsVariables {
   storyId?: UUIDString | null;
   status?: MediaAssetStatus | null;
@@ -1009,7 +1009,7 @@ export interface ListMyMediaAssetsVariables {
 Recall that executing the `ListMyMediaAssets` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `ListMyMediaAssetsData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface ListMyMediaAssetsData {
   mediaAssets: ({
     id: UUIDString;
@@ -1033,7 +1033,7 @@ export interface ListMyMediaAssetsData {
 ```
 ### Using `ListMyMediaAssets`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, listMyMediaAssets, ListMyMediaAssetsVariables } from '@seihouse/celestial-library-dataconnect';
 
@@ -1067,7 +1067,7 @@ listMyMediaAssets(listMyMediaAssetsVars).then((response) => {
 
 ### Using `ListMyMediaAssets`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, listMyMediaAssetsRef, ListMyMediaAssetsVariables } from '@seihouse/celestial-library-dataconnect';
 
@@ -1102,9 +1102,9 @@ executeQuery(ref).then((response) => {
 });
 ```
 
-## AdminGetOwnedMediaAsse
+## AdminGetOwnedMediaAsset
 You can execute the `AdminGetOwnedMediaAsset` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminGetOwnedMediaAsset(vars: AdminGetOwnedMediaAssetVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedMediaAssetData, AdminGetOwnedMediaAssetVariables>;
 
 interface AdminGetOwnedMediaAssetRef {
@@ -1115,7 +1115,7 @@ interface AdminGetOwnedMediaAssetRef {
 export const adminGetOwnedMediaAssetRef: AdminGetOwnedMediaAssetRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminGetOwnedMediaAsset(dc: DataConnect, vars: AdminGetOwnedMediaAssetVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedMediaAssetData, AdminGetOwnedMediaAssetVariables>;
 
 interface AdminGetOwnedMediaAssetRef {
@@ -1126,7 +1126,7 @@ export const adminGetOwnedMediaAssetRef: AdminGetOwnedMediaAssetRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminGetOwnedMediaAssetRef:
-```typescrip
+```typescript
 const name = adminGetOwnedMediaAssetRef.operationName;
 console.log(name);
 ```
@@ -1134,7 +1134,7 @@ console.log(name);
 ### Variables
 The `AdminGetOwnedMediaAsset` query requires an argument of type `AdminGetOwnedMediaAssetVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminGetOwnedMediaAssetVariables {
   ownerUid: string;
   id: UUIDString;
@@ -1144,7 +1144,7 @@ export interface AdminGetOwnedMediaAssetVariables {
 Recall that executing the `AdminGetOwnedMediaAsset` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminGetOwnedMediaAssetData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminGetOwnedMediaAssetData {
   mediaAsset?: {
     id: UUIDString;
@@ -1182,14 +1182,14 @@ export interface AdminGetOwnedMediaAssetData {
 ```
 ### Using `AdminGetOwnedMediaAsset`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedMediaAsset, AdminGetOwnedMediaAssetVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedMediaAsset` query requires an argument of type `AdminGetOwnedMediaAssetVariables`:
 const adminGetOwnedMediaAssetVars: AdminGetOwnedMediaAssetVariables = {
-  ownerUid: ...,
-  id: ...,
+  ownerUid: ..., 
+  id: ..., 
 };
 
 // Call the `adminGetOwnedMediaAsset()` function to execute the query.
@@ -1213,14 +1213,14 @@ adminGetOwnedMediaAsset(adminGetOwnedMediaAssetVars).then((response) => {
 
 ### Using `AdminGetOwnedMediaAsset`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedMediaAssetRef, AdminGetOwnedMediaAssetVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedMediaAsset` query requires an argument of type `AdminGetOwnedMediaAssetVariables`:
 const adminGetOwnedMediaAssetVars: AdminGetOwnedMediaAssetVariables = {
-  ownerUid: ...,
-  id: ...,
+  ownerUid: ..., 
+  id: ..., 
 };
 
 // Call the `adminGetOwnedMediaAssetRef()` function to get a reference to the query.
@@ -1247,7 +1247,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminGetOwnedStoryScope
 You can execute the `AdminGetOwnedStoryScope` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminGetOwnedStoryScope(vars: AdminGetOwnedStoryScopeVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedStoryScopeData, AdminGetOwnedStoryScopeVariables>;
 
 interface AdminGetOwnedStoryScopeRef {
@@ -1258,7 +1258,7 @@ interface AdminGetOwnedStoryScopeRef {
 export const adminGetOwnedStoryScopeRef: AdminGetOwnedStoryScopeRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminGetOwnedStoryScope(dc: DataConnect, vars: AdminGetOwnedStoryScopeVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedStoryScopeData, AdminGetOwnedStoryScopeVariables>;
 
 interface AdminGetOwnedStoryScopeRef {
@@ -1269,7 +1269,7 @@ export const adminGetOwnedStoryScopeRef: AdminGetOwnedStoryScopeRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminGetOwnedStoryScopeRef:
-```typescrip
+```typescript
 const name = adminGetOwnedStoryScopeRef.operationName;
 console.log(name);
 ```
@@ -1277,7 +1277,7 @@ console.log(name);
 ### Variables
 The `AdminGetOwnedStoryScope` query requires an argument of type `AdminGetOwnedStoryScopeVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminGetOwnedStoryScopeVariables {
   ownerUid: string;
   storyId: UUIDString;
@@ -1287,7 +1287,7 @@ export interface AdminGetOwnedStoryScopeVariables {
 Recall that executing the `AdminGetOwnedStoryScope` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminGetOwnedStoryScopeData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminGetOwnedStoryScopeData {
   story?: {
     id: UUIDString;
@@ -1297,14 +1297,14 @@ export interface AdminGetOwnedStoryScopeData {
 ```
 ### Using `AdminGetOwnedStoryScope`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedStoryScope, AdminGetOwnedStoryScopeVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedStoryScope` query requires an argument of type `AdminGetOwnedStoryScopeVariables`:
 const adminGetOwnedStoryScopeVars: AdminGetOwnedStoryScopeVariables = {
-  ownerUid: ...,
-  storyId: ...,
+  ownerUid: ..., 
+  storyId: ..., 
 };
 
 // Call the `adminGetOwnedStoryScope()` function to execute the query.
@@ -1328,14 +1328,14 @@ adminGetOwnedStoryScope(adminGetOwnedStoryScopeVars).then((response) => {
 
 ### Using `AdminGetOwnedStoryScope`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedStoryScopeRef, AdminGetOwnedStoryScopeVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedStoryScope` query requires an argument of type `AdminGetOwnedStoryScopeVariables`:
 const adminGetOwnedStoryScopeVars: AdminGetOwnedStoryScopeVariables = {
-  ownerUid: ...,
-  storyId: ...,
+  ownerUid: ..., 
+  storyId: ..., 
 };
 
 // Call the `adminGetOwnedStoryScopeRef()` function to get a reference to the query.
@@ -1362,7 +1362,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminGetOwnedChapterScope
 You can execute the `AdminGetOwnedChapterScope` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminGetOwnedChapterScope(vars: AdminGetOwnedChapterScopeVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedChapterScopeData, AdminGetOwnedChapterScopeVariables>;
 
 interface AdminGetOwnedChapterScopeRef {
@@ -1373,7 +1373,7 @@ interface AdminGetOwnedChapterScopeRef {
 export const adminGetOwnedChapterScopeRef: AdminGetOwnedChapterScopeRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminGetOwnedChapterScope(dc: DataConnect, vars: AdminGetOwnedChapterScopeVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedChapterScopeData, AdminGetOwnedChapterScopeVariables>;
 
 interface AdminGetOwnedChapterScopeRef {
@@ -1384,7 +1384,7 @@ export const adminGetOwnedChapterScopeRef: AdminGetOwnedChapterScopeRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminGetOwnedChapterScopeRef:
-```typescrip
+```typescript
 const name = adminGetOwnedChapterScopeRef.operationName;
 console.log(name);
 ```
@@ -1392,7 +1392,7 @@ console.log(name);
 ### Variables
 The `AdminGetOwnedChapterScope` query requires an argument of type `AdminGetOwnedChapterScopeVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminGetOwnedChapterScopeVariables {
   ownerUid: string;
   chapterId: UUIDString;
@@ -1402,7 +1402,7 @@ export interface AdminGetOwnedChapterScopeVariables {
 Recall that executing the `AdminGetOwnedChapterScope` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminGetOwnedChapterScopeData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminGetOwnedChapterScopeData {
   chapter?: {
     id: UUIDString;
@@ -1412,14 +1412,14 @@ export interface AdminGetOwnedChapterScopeData {
 ```
 ### Using `AdminGetOwnedChapterScope`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedChapterScope, AdminGetOwnedChapterScopeVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedChapterScope` query requires an argument of type `AdminGetOwnedChapterScopeVariables`:
 const adminGetOwnedChapterScopeVars: AdminGetOwnedChapterScopeVariables = {
-  ownerUid: ...,
-  chapterId: ...,
+  ownerUid: ..., 
+  chapterId: ..., 
 };
 
 // Call the `adminGetOwnedChapterScope()` function to execute the query.
@@ -1443,14 +1443,14 @@ adminGetOwnedChapterScope(adminGetOwnedChapterScopeVars).then((response) => {
 
 ### Using `AdminGetOwnedChapterScope`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedChapterScopeRef, AdminGetOwnedChapterScopeVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedChapterScope` query requires an argument of type `AdminGetOwnedChapterScopeVariables`:
 const adminGetOwnedChapterScopeVars: AdminGetOwnedChapterScopeVariables = {
-  ownerUid: ...,
-  chapterId: ...,
+  ownerUid: ..., 
+  chapterId: ..., 
 };
 
 // Call the `adminGetOwnedChapterScopeRef()` function to get a reference to the query.
@@ -1477,7 +1477,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminGetOwnedEntityScope
 You can execute the `AdminGetOwnedEntityScope` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminGetOwnedEntityScope(vars: AdminGetOwnedEntityScopeVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedEntityScopeData, AdminGetOwnedEntityScopeVariables>;
 
 interface AdminGetOwnedEntityScopeRef {
@@ -1488,7 +1488,7 @@ interface AdminGetOwnedEntityScopeRef {
 export const adminGetOwnedEntityScopeRef: AdminGetOwnedEntityScopeRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminGetOwnedEntityScope(dc: DataConnect, vars: AdminGetOwnedEntityScopeVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedEntityScopeData, AdminGetOwnedEntityScopeVariables>;
 
 interface AdminGetOwnedEntityScopeRef {
@@ -1499,7 +1499,7 @@ export const adminGetOwnedEntityScopeRef: AdminGetOwnedEntityScopeRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminGetOwnedEntityScopeRef:
-```typescrip
+```typescript
 const name = adminGetOwnedEntityScopeRef.operationName;
 console.log(name);
 ```
@@ -1507,7 +1507,7 @@ console.log(name);
 ### Variables
 The `AdminGetOwnedEntityScope` query requires an argument of type `AdminGetOwnedEntityScopeVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminGetOwnedEntityScopeVariables {
   ownerUid: string;
   entityId: UUIDString;
@@ -1517,7 +1517,7 @@ export interface AdminGetOwnedEntityScopeVariables {
 Recall that executing the `AdminGetOwnedEntityScope` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminGetOwnedEntityScopeData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminGetOwnedEntityScopeData {
   codexEntity?: {
     id: UUIDString;
@@ -1527,14 +1527,14 @@ export interface AdminGetOwnedEntityScopeData {
 ```
 ### Using `AdminGetOwnedEntityScope`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedEntityScope, AdminGetOwnedEntityScopeVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedEntityScope` query requires an argument of type `AdminGetOwnedEntityScopeVariables`:
 const adminGetOwnedEntityScopeVars: AdminGetOwnedEntityScopeVariables = {
-  ownerUid: ...,
-  entityId: ...,
+  ownerUid: ..., 
+  entityId: ..., 
 };
 
 // Call the `adminGetOwnedEntityScope()` function to execute the query.
@@ -1558,14 +1558,14 @@ adminGetOwnedEntityScope(adminGetOwnedEntityScopeVars).then((response) => {
 
 ### Using `AdminGetOwnedEntityScope`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedEntityScopeRef, AdminGetOwnedEntityScopeVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedEntityScope` query requires an argument of type `AdminGetOwnedEntityScopeVariables`:
 const adminGetOwnedEntityScopeVars: AdminGetOwnedEntityScopeVariables = {
-  ownerUid: ...,
-  entityId: ...,
+  ownerUid: ..., 
+  entityId: ..., 
 };
 
 // Call the `adminGetOwnedEntityScopeRef()` function to get a reference to the query.
@@ -1592,7 +1592,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminGetOwnedGenerationJobScope
 You can execute the `AdminGetOwnedGenerationJobScope` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminGetOwnedGenerationJobScope(vars: AdminGetOwnedGenerationJobScopeVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedGenerationJobScopeData, AdminGetOwnedGenerationJobScopeVariables>;
 
 interface AdminGetOwnedGenerationJobScopeRef {
@@ -1603,7 +1603,7 @@ interface AdminGetOwnedGenerationJobScopeRef {
 export const adminGetOwnedGenerationJobScopeRef: AdminGetOwnedGenerationJobScopeRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminGetOwnedGenerationJobScope(dc: DataConnect, vars: AdminGetOwnedGenerationJobScopeVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedGenerationJobScopeData, AdminGetOwnedGenerationJobScopeVariables>;
 
 interface AdminGetOwnedGenerationJobScopeRef {
@@ -1614,7 +1614,7 @@ export const adminGetOwnedGenerationJobScopeRef: AdminGetOwnedGenerationJobScope
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminGetOwnedGenerationJobScopeRef:
-```typescrip
+```typescript
 const name = adminGetOwnedGenerationJobScopeRef.operationName;
 console.log(name);
 ```
@@ -1622,7 +1622,7 @@ console.log(name);
 ### Variables
 The `AdminGetOwnedGenerationJobScope` query requires an argument of type `AdminGetOwnedGenerationJobScopeVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminGetOwnedGenerationJobScopeVariables {
   ownerUid: string;
   generationJobId: UUIDString;
@@ -1632,7 +1632,7 @@ export interface AdminGetOwnedGenerationJobScopeVariables {
 Recall that executing the `AdminGetOwnedGenerationJobScope` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminGetOwnedGenerationJobScopeData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminGetOwnedGenerationJobScopeData {
   generationJob?: {
     id: UUIDString;
@@ -1643,14 +1643,14 @@ export interface AdminGetOwnedGenerationJobScopeData {
 ```
 ### Using `AdminGetOwnedGenerationJobScope`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedGenerationJobScope, AdminGetOwnedGenerationJobScopeVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedGenerationJobScope` query requires an argument of type `AdminGetOwnedGenerationJobScopeVariables`:
 const adminGetOwnedGenerationJobScopeVars: AdminGetOwnedGenerationJobScopeVariables = {
-  ownerUid: ...,
-  generationJobId: ...,
+  ownerUid: ..., 
+  generationJobId: ..., 
 };
 
 // Call the `adminGetOwnedGenerationJobScope()` function to execute the query.
@@ -1674,14 +1674,14 @@ adminGetOwnedGenerationJobScope(adminGetOwnedGenerationJobScopeVars).then((respo
 
 ### Using `AdminGetOwnedGenerationJobScope`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedGenerationJobScopeRef, AdminGetOwnedGenerationJobScopeVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedGenerationJobScope` query requires an argument of type `AdminGetOwnedGenerationJobScopeVariables`:
 const adminGetOwnedGenerationJobScopeVars: AdminGetOwnedGenerationJobScopeVariables = {
-  ownerUid: ...,
-  generationJobId: ...,
+  ownerUid: ..., 
+  generationJobId: ..., 
 };
 
 // Call the `adminGetOwnedGenerationJobScopeRef()` function to get a reference to the query.
@@ -1708,7 +1708,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminGetOwnedMediaReplacementScope
 You can execute the `AdminGetOwnedMediaReplacementScope` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminGetOwnedMediaReplacementScope(vars: AdminGetOwnedMediaReplacementScopeVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedMediaReplacementScopeData, AdminGetOwnedMediaReplacementScopeVariables>;
 
 interface AdminGetOwnedMediaReplacementScopeRef {
@@ -1719,7 +1719,7 @@ interface AdminGetOwnedMediaReplacementScopeRef {
 export const adminGetOwnedMediaReplacementScopeRef: AdminGetOwnedMediaReplacementScopeRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminGetOwnedMediaReplacementScope(dc: DataConnect, vars: AdminGetOwnedMediaReplacementScopeVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedMediaReplacementScopeData, AdminGetOwnedMediaReplacementScopeVariables>;
 
 interface AdminGetOwnedMediaReplacementScopeRef {
@@ -1730,7 +1730,7 @@ export const adminGetOwnedMediaReplacementScopeRef: AdminGetOwnedMediaReplacemen
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminGetOwnedMediaReplacementScopeRef:
-```typescrip
+```typescript
 const name = adminGetOwnedMediaReplacementScopeRef.operationName;
 console.log(name);
 ```
@@ -1738,7 +1738,7 @@ console.log(name);
 ### Variables
 The `AdminGetOwnedMediaReplacementScope` query requires an argument of type `AdminGetOwnedMediaReplacementScopeVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminGetOwnedMediaReplacementScopeVariables {
   ownerUid: string;
   assetId: UUIDString;
@@ -1748,7 +1748,7 @@ export interface AdminGetOwnedMediaReplacementScopeVariables {
 Recall that executing the `AdminGetOwnedMediaReplacementScope` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminGetOwnedMediaReplacementScopeData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminGetOwnedMediaReplacementScopeData {
   mediaAsset?: {
     id: UUIDString;
@@ -1765,14 +1765,14 @@ export interface AdminGetOwnedMediaReplacementScopeData {
 ```
 ### Using `AdminGetOwnedMediaReplacementScope`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedMediaReplacementScope, AdminGetOwnedMediaReplacementScopeVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedMediaReplacementScope` query requires an argument of type `AdminGetOwnedMediaReplacementScopeVariables`:
 const adminGetOwnedMediaReplacementScopeVars: AdminGetOwnedMediaReplacementScopeVariables = {
-  ownerUid: ...,
-  assetId: ...,
+  ownerUid: ..., 
+  assetId: ..., 
 };
 
 // Call the `adminGetOwnedMediaReplacementScope()` function to execute the query.
@@ -1796,14 +1796,14 @@ adminGetOwnedMediaReplacementScope(adminGetOwnedMediaReplacementScopeVars).then(
 
 ### Using `AdminGetOwnedMediaReplacementScope`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedMediaReplacementScopeRef, AdminGetOwnedMediaReplacementScopeVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedMediaReplacementScope` query requires an argument of type `AdminGetOwnedMediaReplacementScopeVariables`:
 const adminGetOwnedMediaReplacementScopeVars: AdminGetOwnedMediaReplacementScopeVariables = {
-  ownerUid: ...,
-  assetId: ...,
+  ownerUid: ..., 
+  assetId: ..., 
 };
 
 // Call the `adminGetOwnedMediaReplacementScopeRef()` function to get a reference to the query.
@@ -1830,7 +1830,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminListStaleMediaUploads
 You can execute the `AdminListStaleMediaUploads` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminListStaleMediaUploads(vars: AdminListStaleMediaUploadsVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListStaleMediaUploadsData, AdminListStaleMediaUploadsVariables>;
 
 interface AdminListStaleMediaUploadsRef {
@@ -1841,7 +1841,7 @@ interface AdminListStaleMediaUploadsRef {
 export const adminListStaleMediaUploadsRef: AdminListStaleMediaUploadsRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminListStaleMediaUploads(dc: DataConnect, vars: AdminListStaleMediaUploadsVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListStaleMediaUploadsData, AdminListStaleMediaUploadsVariables>;
 
 interface AdminListStaleMediaUploadsRef {
@@ -1852,7 +1852,7 @@ export const adminListStaleMediaUploadsRef: AdminListStaleMediaUploadsRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminListStaleMediaUploadsRef:
-```typescrip
+```typescript
 const name = adminListStaleMediaUploadsRef.operationName;
 console.log(name);
 ```
@@ -1860,7 +1860,7 @@ console.log(name);
 ### Variables
 The `AdminListStaleMediaUploads` query requires an argument of type `AdminListStaleMediaUploadsVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminListStaleMediaUploadsVariables {
   staleBefore: TimestampString;
   limit?: number | null;
@@ -1870,7 +1870,7 @@ export interface AdminListStaleMediaUploadsVariables {
 Recall that executing the `AdminListStaleMediaUploads` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminListStaleMediaUploadsData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminListStaleMediaUploadsData {
   mediaAssets: ({
     id: UUIDString;
@@ -1908,13 +1908,13 @@ export interface AdminListStaleMediaUploadsData {
 ```
 ### Using `AdminListStaleMediaUploads`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminListStaleMediaUploads, AdminListStaleMediaUploadsVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminListStaleMediaUploads` query requires an argument of type `AdminListStaleMediaUploadsVariables`:
 const adminListStaleMediaUploadsVars: AdminListStaleMediaUploadsVariables = {
-  staleBefore: ...,
+  staleBefore: ..., 
   limit: ..., // optional
 };
 
@@ -1939,13 +1939,13 @@ adminListStaleMediaUploads(adminListStaleMediaUploadsVars).then((response) => {
 
 ### Using `AdminListStaleMediaUploads`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminListStaleMediaUploadsRef, AdminListStaleMediaUploadsVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminListStaleMediaUploads` query requires an argument of type `AdminListStaleMediaUploadsVariables`:
 const adminListStaleMediaUploadsVars: AdminListStaleMediaUploadsVariables = {
-  staleBefore: ...,
+  staleBefore: ..., 
   limit: ..., // optional
 };
 
@@ -1973,7 +1973,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminListMediaCleanupTasks
 You can execute the `AdminListMediaCleanupTasks` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminListMediaCleanupTasks(vars?: AdminListMediaCleanupTasksVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListMediaCleanupTasksData, AdminListMediaCleanupTasksVariables>;
 
 interface AdminListMediaCleanupTasksRef {
@@ -1984,7 +1984,7 @@ interface AdminListMediaCleanupTasksRef {
 export const adminListMediaCleanupTasksRef: AdminListMediaCleanupTasksRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminListMediaCleanupTasks(dc: DataConnect, vars?: AdminListMediaCleanupTasksVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListMediaCleanupTasksData, AdminListMediaCleanupTasksVariables>;
 
 interface AdminListMediaCleanupTasksRef {
@@ -1995,7 +1995,7 @@ export const adminListMediaCleanupTasksRef: AdminListMediaCleanupTasksRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminListMediaCleanupTasksRef:
-```typescrip
+```typescript
 const name = adminListMediaCleanupTasksRef.operationName;
 console.log(name);
 ```
@@ -2003,7 +2003,7 @@ console.log(name);
 ### Variables
 The `AdminListMediaCleanupTasks` query has an optional argument of type `AdminListMediaCleanupTasksVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminListMediaCleanupTasksVariables {
   limit?: number | null;
 }
@@ -2012,7 +2012,7 @@ export interface AdminListMediaCleanupTasksVariables {
 Recall that executing the `AdminListMediaCleanupTasks` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminListMediaCleanupTasksData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminListMediaCleanupTasksData {
   mediaCleanupTasks: ({
     id: UUIDString;
@@ -2034,7 +2034,7 @@ export interface AdminListMediaCleanupTasksData {
 ```
 ### Using `AdminListMediaCleanupTasks`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminListMediaCleanupTasks, AdminListMediaCleanupTasksVariables } from '@seihouse/celestial-library-dataconnect';
 
@@ -2066,7 +2066,7 @@ adminListMediaCleanupTasks(adminListMediaCleanupTasksVars).then((response) => {
 
 ### Using `AdminListMediaCleanupTasks`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminListMediaCleanupTasksRef, AdminListMediaCleanupTasksVariables } from '@seihouse/celestial-library-dataconnect';
 
@@ -2099,9 +2099,9 @@ executeQuery(ref).then((response) => {
 });
 ```
 
-## AdminListMediaAssetsForStorageRepor
+## AdminListMediaAssetsForStorageReport
 You can execute the `AdminListMediaAssetsForStorageReport` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminListMediaAssetsForStorageReport(vars?: AdminListMediaAssetsForStorageReportVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListMediaAssetsForStorageReportData, AdminListMediaAssetsForStorageReportVariables>;
 
 interface AdminListMediaAssetsForStorageReportRef {
@@ -2112,7 +2112,7 @@ interface AdminListMediaAssetsForStorageReportRef {
 export const adminListMediaAssetsForStorageReportRef: AdminListMediaAssetsForStorageReportRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminListMediaAssetsForStorageReport(dc: DataConnect, vars?: AdminListMediaAssetsForStorageReportVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListMediaAssetsForStorageReportData, AdminListMediaAssetsForStorageReportVariables>;
 
 interface AdminListMediaAssetsForStorageReportRef {
@@ -2123,7 +2123,7 @@ export const adminListMediaAssetsForStorageReportRef: AdminListMediaAssetsForSto
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminListMediaAssetsForStorageReportRef:
-```typescrip
+```typescript
 const name = adminListMediaAssetsForStorageReportRef.operationName;
 console.log(name);
 ```
@@ -2131,7 +2131,7 @@ console.log(name);
 ### Variables
 The `AdminListMediaAssetsForStorageReport` query has an optional argument of type `AdminListMediaAssetsForStorageReportVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminListMediaAssetsForStorageReportVariables {
   limit?: number | null;
   offset?: number | null;
@@ -2141,7 +2141,7 @@ export interface AdminListMediaAssetsForStorageReportVariables {
 Recall that executing the `AdminListMediaAssetsForStorageReport` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminListMediaAssetsForStorageReportData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminListMediaAssetsForStorageReportData {
   mediaAssets: ({
     id: UUIDString;
@@ -2158,7 +2158,7 @@ export interface AdminListMediaAssetsForStorageReportData {
 ```
 ### Using `AdminListMediaAssetsForStorageReport`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminListMediaAssetsForStorageReport, AdminListMediaAssetsForStorageReportVariables } from '@seihouse/celestial-library-dataconnect';
 
@@ -2191,7 +2191,7 @@ adminListMediaAssetsForStorageReport(adminListMediaAssetsForStorageReportVars).t
 
 ### Using `AdminListMediaAssetsForStorageReport`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminListMediaAssetsForStorageReportRef, AdminListMediaAssetsForStorageReportVariables } from '@seihouse/celestial-library-dataconnect';
 
@@ -2227,7 +2227,7 @@ executeQuery(ref).then((response) => {
 
 ## ListMyStoryChanges
 You can execute the `ListMyStoryChanges` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 listMyStoryChanges(vars: ListMyStoryChangesVariables, options?: ExecuteQueryOptions): QueryPromise<ListMyStoryChangesData, ListMyStoryChangesVariables>;
 
 interface ListMyStoryChangesRef {
@@ -2238,7 +2238,7 @@ interface ListMyStoryChangesRef {
 export const listMyStoryChangesRef: ListMyStoryChangesRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 listMyStoryChanges(dc: DataConnect, vars: ListMyStoryChangesVariables, options?: ExecuteQueryOptions): QueryPromise<ListMyStoryChangesData, ListMyStoryChangesVariables>;
 
 interface ListMyStoryChangesRef {
@@ -2249,7 +2249,7 @@ export const listMyStoryChangesRef: ListMyStoryChangesRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the listMyStoryChangesRef:
-```typescrip
+```typescript
 const name = listMyStoryChangesRef.operationName;
 console.log(name);
 ```
@@ -2257,7 +2257,7 @@ console.log(name);
 ### Variables
 The `ListMyStoryChanges` query requires an argument of type `ListMyStoryChangesVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface ListMyStoryChangesVariables {
   changedAfter: TimestampString;
   limit?: number | null;
@@ -2267,7 +2267,7 @@ export interface ListMyStoryChangesVariables {
 Recall that executing the `ListMyStoryChanges` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `ListMyStoryChangesData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface ListMyStoryChangesData {
   storyChanges: ({
     id: UUIDString;
@@ -2282,13 +2282,13 @@ export interface ListMyStoryChangesData {
 ```
 ### Using `ListMyStoryChanges`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, listMyStoryChanges, ListMyStoryChangesVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `ListMyStoryChanges` query requires an argument of type `ListMyStoryChangesVariables`:
 const listMyStoryChangesVars: ListMyStoryChangesVariables = {
-  changedAfter: ...,
+  changedAfter: ..., 
   limit: ..., // optional
 };
 
@@ -2313,13 +2313,13 @@ listMyStoryChanges(listMyStoryChangesVars).then((response) => {
 
 ### Using `ListMyStoryChanges`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, listMyStoryChangesRef, ListMyStoryChangesVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `ListMyStoryChanges` query requires an argument of type `ListMyStoryChangesVariables`:
 const listMyStoryChangesVars: ListMyStoryChangesVariables = {
-  changedAfter: ...,
+  changedAfter: ..., 
   limit: ..., // optional
 };
 
@@ -2345,9 +2345,9 @@ executeQuery(ref).then((response) => {
 });
 ```
 
-## GetMyCurrentMediaSlo
+## GetMyCurrentMediaSlot
 You can execute the `GetMyCurrentMediaSlot` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 getMyCurrentMediaSlot(vars: GetMyCurrentMediaSlotVariables, options?: ExecuteQueryOptions): QueryPromise<GetMyCurrentMediaSlotData, GetMyCurrentMediaSlotVariables>;
 
 interface GetMyCurrentMediaSlotRef {
@@ -2358,7 +2358,7 @@ interface GetMyCurrentMediaSlotRef {
 export const getMyCurrentMediaSlotRef: GetMyCurrentMediaSlotRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 getMyCurrentMediaSlot(dc: DataConnect, vars: GetMyCurrentMediaSlotVariables, options?: ExecuteQueryOptions): QueryPromise<GetMyCurrentMediaSlotData, GetMyCurrentMediaSlotVariables>;
 
 interface GetMyCurrentMediaSlotRef {
@@ -2369,7 +2369,7 @@ export const getMyCurrentMediaSlotRef: GetMyCurrentMediaSlotRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the getMyCurrentMediaSlotRef:
-```typescrip
+```typescript
 const name = getMyCurrentMediaSlotRef.operationName;
 console.log(name);
 ```
@@ -2377,7 +2377,7 @@ console.log(name);
 ### Variables
 The `GetMyCurrentMediaSlot` query requires an argument of type `GetMyCurrentMediaSlotVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface GetMyCurrentMediaSlotVariables {
   targetKind: string;
   targetKey: string;
@@ -2388,7 +2388,7 @@ export interface GetMyCurrentMediaSlotVariables {
 Recall that executing the `GetMyCurrentMediaSlot` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `GetMyCurrentMediaSlotData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface GetMyCurrentMediaSlotData {
   mediaSlot?: {
     targetKind: string;
@@ -2418,15 +2418,15 @@ export interface GetMyCurrentMediaSlotData {
 ```
 ### Using `GetMyCurrentMediaSlot`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, getMyCurrentMediaSlot, GetMyCurrentMediaSlotVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `GetMyCurrentMediaSlot` query requires an argument of type `GetMyCurrentMediaSlotVariables`:
 const getMyCurrentMediaSlotVars: GetMyCurrentMediaSlotVariables = {
-  targetKind: ...,
-  targetKey: ...,
-  purpose: ...,
+  targetKind: ..., 
+  targetKey: ..., 
+  purpose: ..., 
 };
 
 // Call the `getMyCurrentMediaSlot()` function to execute the query.
@@ -2450,15 +2450,15 @@ getMyCurrentMediaSlot(getMyCurrentMediaSlotVars).then((response) => {
 
 ### Using `GetMyCurrentMediaSlot`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, getMyCurrentMediaSlotRef, GetMyCurrentMediaSlotVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `GetMyCurrentMediaSlot` query requires an argument of type `GetMyCurrentMediaSlotVariables`:
 const getMyCurrentMediaSlotVars: GetMyCurrentMediaSlotVariables = {
-  targetKind: ...,
-  targetKey: ...,
-  purpose: ...,
+  targetKind: ..., 
+  targetKey: ..., 
+  purpose: ..., 
 };
 
 // Call the `getMyCurrentMediaSlotRef()` function to get a reference to the query.
@@ -2485,7 +2485,7 @@ executeQuery(ref).then((response) => {
 
 ## ListMyMediaSlotHistory
 You can execute the `ListMyMediaSlotHistory` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 listMyMediaSlotHistory(vars: ListMyMediaSlotHistoryVariables, options?: ExecuteQueryOptions): QueryPromise<ListMyMediaSlotHistoryData, ListMyMediaSlotHistoryVariables>;
 
 interface ListMyMediaSlotHistoryRef {
@@ -2496,7 +2496,7 @@ interface ListMyMediaSlotHistoryRef {
 export const listMyMediaSlotHistoryRef: ListMyMediaSlotHistoryRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 listMyMediaSlotHistory(dc: DataConnect, vars: ListMyMediaSlotHistoryVariables, options?: ExecuteQueryOptions): QueryPromise<ListMyMediaSlotHistoryData, ListMyMediaSlotHistoryVariables>;
 
 interface ListMyMediaSlotHistoryRef {
@@ -2507,7 +2507,7 @@ export const listMyMediaSlotHistoryRef: ListMyMediaSlotHistoryRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the listMyMediaSlotHistoryRef:
-```typescrip
+```typescript
 const name = listMyMediaSlotHistoryRef.operationName;
 console.log(name);
 ```
@@ -2515,7 +2515,7 @@ console.log(name);
 ### Variables
 The `ListMyMediaSlotHistory` query requires an argument of type `ListMyMediaSlotHistoryVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface ListMyMediaSlotHistoryVariables {
   targetKind: string;
   targetKey: string;
@@ -2527,7 +2527,7 @@ export interface ListMyMediaSlotHistoryVariables {
 Recall that executing the `ListMyMediaSlotHistory` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `ListMyMediaSlotHistoryData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface ListMyMediaSlotHistoryData {
   mediaAttachments: ({
     id: UUIDString;
@@ -2558,15 +2558,15 @@ export interface ListMyMediaSlotHistoryData {
 ```
 ### Using `ListMyMediaSlotHistory`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, listMyMediaSlotHistory, ListMyMediaSlotHistoryVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `ListMyMediaSlotHistory` query requires an argument of type `ListMyMediaSlotHistoryVariables`:
 const listMyMediaSlotHistoryVars: ListMyMediaSlotHistoryVariables = {
-  targetKind: ...,
-  targetKey: ...,
-  purpose: ...,
+  targetKind: ..., 
+  targetKey: ..., 
+  purpose: ..., 
   limit: ..., // optional
 };
 
@@ -2591,15 +2591,15 @@ listMyMediaSlotHistory(listMyMediaSlotHistoryVars).then((response) => {
 
 ### Using `ListMyMediaSlotHistory`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, listMyMediaSlotHistoryRef, ListMyMediaSlotHistoryVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `ListMyMediaSlotHistory` query requires an argument of type `ListMyMediaSlotHistoryVariables`:
 const listMyMediaSlotHistoryVars: ListMyMediaSlotHistoryVariables = {
-  targetKind: ...,
-  targetKey: ...,
-  purpose: ...,
+  targetKind: ..., 
+  targetKey: ..., 
+  purpose: ..., 
   limit: ..., // optional
 };
 
@@ -2627,7 +2627,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminListOwnedStories
 You can execute the `AdminListOwnedStories` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminListOwnedStories(vars: AdminListOwnedStoriesVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListOwnedStoriesData, AdminListOwnedStoriesVariables>;
 
 interface AdminListOwnedStoriesRef {
@@ -2638,7 +2638,7 @@ interface AdminListOwnedStoriesRef {
 export const adminListOwnedStoriesRef: AdminListOwnedStoriesRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminListOwnedStories(dc: DataConnect, vars: AdminListOwnedStoriesVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListOwnedStoriesData, AdminListOwnedStoriesVariables>;
 
 interface AdminListOwnedStoriesRef {
@@ -2649,7 +2649,7 @@ export const adminListOwnedStoriesRef: AdminListOwnedStoriesRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminListOwnedStoriesRef:
-```typescrip
+```typescript
 const name = adminListOwnedStoriesRef.operationName;
 console.log(name);
 ```
@@ -2657,7 +2657,7 @@ console.log(name);
 ### Variables
 The `AdminListOwnedStories` query requires an argument of type `AdminListOwnedStoriesVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminListOwnedStoriesVariables {
   ownerUid: string;
   limit?: number | null;
@@ -2668,7 +2668,7 @@ export interface AdminListOwnedStoriesVariables {
 Recall that executing the `AdminListOwnedStories` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminListOwnedStoriesData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminListOwnedStoriesData {
   stories: ({
     id: UUIDString;
@@ -2702,13 +2702,13 @@ export interface AdminListOwnedStoriesData {
 ```
 ### Using `AdminListOwnedStories`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminListOwnedStories, AdminListOwnedStoriesVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminListOwnedStories` query requires an argument of type `AdminListOwnedStoriesVariables`:
 const adminListOwnedStoriesVars: AdminListOwnedStoriesVariables = {
-  ownerUid: ...,
+  ownerUid: ..., 
   limit: ..., // optional
   offset: ..., // optional
 };
@@ -2734,13 +2734,13 @@ adminListOwnedStories(adminListOwnedStoriesVars).then((response) => {
 
 ### Using `AdminListOwnedStories`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminListOwnedStoriesRef, AdminListOwnedStoriesVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminListOwnedStories` query requires an argument of type `AdminListOwnedStoriesVariables`:
 const adminListOwnedStoriesVars: AdminListOwnedStoriesVariables = {
-  ownerUid: ...,
+  ownerUid: ..., 
   limit: ..., // optional
   offset: ..., // optional
 };
@@ -2769,7 +2769,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminListOwnedStoryChanges
 You can execute the `AdminListOwnedStoryChanges` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminListOwnedStoryChanges(vars: AdminListOwnedStoryChangesVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListOwnedStoryChangesData, AdminListOwnedStoryChangesVariables>;
 
 interface AdminListOwnedStoryChangesRef {
@@ -2780,7 +2780,7 @@ interface AdminListOwnedStoryChangesRef {
 export const adminListOwnedStoryChangesRef: AdminListOwnedStoryChangesRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminListOwnedStoryChanges(dc: DataConnect, vars: AdminListOwnedStoryChangesVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListOwnedStoryChangesData, AdminListOwnedStoryChangesVariables>;
 
 interface AdminListOwnedStoryChangesRef {
@@ -2791,7 +2791,7 @@ export const adminListOwnedStoryChangesRef: AdminListOwnedStoryChangesRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminListOwnedStoryChangesRef:
-```typescrip
+```typescript
 const name = adminListOwnedStoryChangesRef.operationName;
 console.log(name);
 ```
@@ -2799,7 +2799,7 @@ console.log(name);
 ### Variables
 The `AdminListOwnedStoryChanges` query requires an argument of type `AdminListOwnedStoryChangesVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminListOwnedStoryChangesVariables {
   ownerUid: string;
   changedAfter: TimestampString;
@@ -2810,7 +2810,7 @@ export interface AdminListOwnedStoryChangesVariables {
 Recall that executing the `AdminListOwnedStoryChanges` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminListOwnedStoryChangesData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminListOwnedStoryChangesData {
   storyChanges: ({
     id: UUIDString;
@@ -2826,14 +2826,14 @@ export interface AdminListOwnedStoryChangesData {
 ```
 ### Using `AdminListOwnedStoryChanges`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminListOwnedStoryChanges, AdminListOwnedStoryChangesVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminListOwnedStoryChanges` query requires an argument of type `AdminListOwnedStoryChangesVariables`:
 const adminListOwnedStoryChangesVars: AdminListOwnedStoryChangesVariables = {
-  ownerUid: ...,
-  changedAfter: ...,
+  ownerUid: ..., 
+  changedAfter: ..., 
   limit: ..., // optional
 };
 
@@ -2858,14 +2858,14 @@ adminListOwnedStoryChanges(adminListOwnedStoryChangesVars).then((response) => {
 
 ### Using `AdminListOwnedStoryChanges`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminListOwnedStoryChangesRef, AdminListOwnedStoryChangesVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminListOwnedStoryChanges` query requires an argument of type `AdminListOwnedStoryChangesVariables`:
 const adminListOwnedStoryChangesVars: AdminListOwnedStoryChangesVariables = {
-  ownerUid: ...,
-  changedAfter: ...,
+  ownerUid: ..., 
+  changedAfter: ..., 
   limit: ..., // optional
 };
 
@@ -2891,9 +2891,9 @@ executeQuery(ref).then((response) => {
 });
 ```
 
-## AdminGetPersistenceReceip
+## AdminGetPersistenceReceipt
 You can execute the `AdminGetPersistenceReceipt` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminGetPersistenceReceipt(vars: AdminGetPersistenceReceiptVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetPersistenceReceiptData, AdminGetPersistenceReceiptVariables>;
 
 interface AdminGetPersistenceReceiptRef {
@@ -2904,7 +2904,7 @@ interface AdminGetPersistenceReceiptRef {
 export const adminGetPersistenceReceiptRef: AdminGetPersistenceReceiptRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminGetPersistenceReceipt(dc: DataConnect, vars: AdminGetPersistenceReceiptVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetPersistenceReceiptData, AdminGetPersistenceReceiptVariables>;
 
 interface AdminGetPersistenceReceiptRef {
@@ -2915,7 +2915,7 @@ export const adminGetPersistenceReceiptRef: AdminGetPersistenceReceiptRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminGetPersistenceReceiptRef:
-```typescrip
+```typescript
 const name = adminGetPersistenceReceiptRef.operationName;
 console.log(name);
 ```
@@ -2923,7 +2923,7 @@ console.log(name);
 ### Variables
 The `AdminGetPersistenceReceipt` query requires an argument of type `AdminGetPersistenceReceiptVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminGetPersistenceReceiptVariables {
   ownerUid: string;
   idempotencyKey: string;
@@ -2933,7 +2933,7 @@ export interface AdminGetPersistenceReceiptVariables {
 Recall that executing the `AdminGetPersistenceReceipt` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminGetPersistenceReceiptData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminGetPersistenceReceiptData {
   persistenceReceipt?: {
     ownerUid: string;
@@ -2951,14 +2951,14 @@ export interface AdminGetPersistenceReceiptData {
 ```
 ### Using `AdminGetPersistenceReceipt`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminGetPersistenceReceipt, AdminGetPersistenceReceiptVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetPersistenceReceipt` query requires an argument of type `AdminGetPersistenceReceiptVariables`:
 const adminGetPersistenceReceiptVars: AdminGetPersistenceReceiptVariables = {
-  ownerUid: ...,
-  idempotencyKey: ...,
+  ownerUid: ..., 
+  idempotencyKey: ..., 
 };
 
 // Call the `adminGetPersistenceReceipt()` function to execute the query.
@@ -2982,14 +2982,14 @@ adminGetPersistenceReceipt(adminGetPersistenceReceiptVars).then((response) => {
 
 ### Using `AdminGetPersistenceReceipt`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminGetPersistenceReceiptRef, AdminGetPersistenceReceiptVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetPersistenceReceipt` query requires an argument of type `AdminGetPersistenceReceiptVariables`:
 const adminGetPersistenceReceiptVars: AdminGetPersistenceReceiptVariables = {
-  ownerUid: ...,
-  idempotencyKey: ...,
+  ownerUid: ..., 
+  idempotencyKey: ..., 
 };
 
 // Call the `adminGetPersistenceReceiptRef()` function to get a reference to the query.
@@ -3016,7 +3016,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminGetOwnedStoryGraph
 You can execute the `AdminGetOwnedStoryGraph` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminGetOwnedStoryGraph(vars: AdminGetOwnedStoryGraphVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedStoryGraphData, AdminGetOwnedStoryGraphVariables>;
 
 interface AdminGetOwnedStoryGraphRef {
@@ -3027,7 +3027,7 @@ interface AdminGetOwnedStoryGraphRef {
 export const adminGetOwnedStoryGraphRef: AdminGetOwnedStoryGraphRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminGetOwnedStoryGraph(dc: DataConnect, vars: AdminGetOwnedStoryGraphVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedStoryGraphData, AdminGetOwnedStoryGraphVariables>;
 
 interface AdminGetOwnedStoryGraphRef {
@@ -3038,7 +3038,7 @@ export const adminGetOwnedStoryGraphRef: AdminGetOwnedStoryGraphRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminGetOwnedStoryGraphRef:
-```typescrip
+```typescript
 const name = adminGetOwnedStoryGraphRef.operationName;
 console.log(name);
 ```
@@ -3046,7 +3046,7 @@ console.log(name);
 ### Variables
 The `AdminGetOwnedStoryGraph` query requires an argument of type `AdminGetOwnedStoryGraphVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminGetOwnedStoryGraphVariables {
   ownerUid: string;
   storyId: UUIDString;
@@ -3056,7 +3056,7 @@ export interface AdminGetOwnedStoryGraphVariables {
 Recall that executing the `AdminGetOwnedStoryGraph` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminGetOwnedStoryGraphData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminGetOwnedStoryGraphData {
   story?: {
     id: UUIDString;
@@ -3437,14 +3437,14 @@ export interface AdminGetOwnedStoryGraphData {
 ```
 ### Using `AdminGetOwnedStoryGraph`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedStoryGraph, AdminGetOwnedStoryGraphVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedStoryGraph` query requires an argument of type `AdminGetOwnedStoryGraphVariables`:
 const adminGetOwnedStoryGraphVars: AdminGetOwnedStoryGraphVariables = {
-  ownerUid: ...,
-  storyId: ...,
+  ownerUid: ..., 
+  storyId: ..., 
 };
 
 // Call the `adminGetOwnedStoryGraph()` function to execute the query.
@@ -3514,14 +3514,14 @@ adminGetOwnedStoryGraph(adminGetOwnedStoryGraphVars).then((response) => {
 
 ### Using `AdminGetOwnedStoryGraph`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedStoryGraphRef, AdminGetOwnedStoryGraphVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedStoryGraph` query requires an argument of type `AdminGetOwnedStoryGraphVariables`:
 const adminGetOwnedStoryGraphVars: AdminGetOwnedStoryGraphVariables = {
-  ownerUid: ...,
-  storyId: ...,
+  ownerUid: ..., 
+  storyId: ..., 
 };
 
 // Call the `adminGetOwnedStoryGraphRef()` function to get a reference to the query.
@@ -3594,7 +3594,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminGetOwnedChapterContentGraph
 You can execute the `AdminGetOwnedChapterContentGraph` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminGetOwnedChapterContentGraph(vars: AdminGetOwnedChapterContentGraphVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedChapterContentGraphData, AdminGetOwnedChapterContentGraphVariables>;
 
 interface AdminGetOwnedChapterContentGraphRef {
@@ -3605,7 +3605,7 @@ interface AdminGetOwnedChapterContentGraphRef {
 export const adminGetOwnedChapterContentGraphRef: AdminGetOwnedChapterContentGraphRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminGetOwnedChapterContentGraph(dc: DataConnect, vars: AdminGetOwnedChapterContentGraphVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedChapterContentGraphData, AdminGetOwnedChapterContentGraphVariables>;
 
 interface AdminGetOwnedChapterContentGraphRef {
@@ -3616,7 +3616,7 @@ export const adminGetOwnedChapterContentGraphRef: AdminGetOwnedChapterContentGra
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminGetOwnedChapterContentGraphRef:
-```typescrip
+```typescript
 const name = adminGetOwnedChapterContentGraphRef.operationName;
 console.log(name);
 ```
@@ -3624,7 +3624,7 @@ console.log(name);
 ### Variables
 The `AdminGetOwnedChapterContentGraph` query requires an argument of type `AdminGetOwnedChapterContentGraphVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminGetOwnedChapterContentGraphVariables {
   ownerUid: string;
   storyId: UUIDString;
@@ -3635,7 +3635,7 @@ export interface AdminGetOwnedChapterContentGraphVariables {
 Recall that executing the `AdminGetOwnedChapterContentGraph` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminGetOwnedChapterContentGraphData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminGetOwnedChapterContentGraphData {
   chapter?: {
     id: UUIDString;
@@ -3777,15 +3777,15 @@ export interface AdminGetOwnedChapterContentGraphData {
 ```
 ### Using `AdminGetOwnedChapterContentGraph`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedChapterContentGraph, AdminGetOwnedChapterContentGraphVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedChapterContentGraph` query requires an argument of type `AdminGetOwnedChapterContentGraphVariables`:
 const adminGetOwnedChapterContentGraphVars: AdminGetOwnedChapterContentGraphVariables = {
-  ownerUid: ...,
-  storyId: ...,
-  chapterId: ...,
+  ownerUid: ..., 
+  storyId: ..., 
+  chapterId: ..., 
 };
 
 // Call the `adminGetOwnedChapterContentGraph()` function to execute the query.
@@ -3813,15 +3813,15 @@ adminGetOwnedChapterContentGraph(adminGetOwnedChapterContentGraphVars).then((res
 
 ### Using `AdminGetOwnedChapterContentGraph`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedChapterContentGraphRef, AdminGetOwnedChapterContentGraphVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedChapterContentGraph` query requires an argument of type `AdminGetOwnedChapterContentGraphVariables`:
 const adminGetOwnedChapterContentGraphVars: AdminGetOwnedChapterContentGraphVariables = {
-  ownerUid: ...,
-  storyId: ...,
-  chapterId: ...,
+  ownerUid: ..., 
+  storyId: ..., 
+  chapterId: ..., 
 };
 
 // Call the `adminGetOwnedChapterContentGraphRef()` function to get a reference to the query.
@@ -3852,7 +3852,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminListOwnedStorySeeds
 You can execute the `AdminListOwnedStorySeeds` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminListOwnedStorySeeds(vars: AdminListOwnedStorySeedsVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListOwnedStorySeedsData, AdminListOwnedStorySeedsVariables>;
 
 interface AdminListOwnedStorySeedsRef {
@@ -3863,7 +3863,7 @@ interface AdminListOwnedStorySeedsRef {
 export const adminListOwnedStorySeedsRef: AdminListOwnedStorySeedsRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminListOwnedStorySeeds(dc: DataConnect, vars: AdminListOwnedStorySeedsVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListOwnedStorySeedsData, AdminListOwnedStorySeedsVariables>;
 
 interface AdminListOwnedStorySeedsRef {
@@ -3874,7 +3874,7 @@ export const adminListOwnedStorySeedsRef: AdminListOwnedStorySeedsRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminListOwnedStorySeedsRef:
-```typescrip
+```typescript
 const name = adminListOwnedStorySeedsRef.operationName;
 console.log(name);
 ```
@@ -3882,7 +3882,7 @@ console.log(name);
 ### Variables
 The `AdminListOwnedStorySeeds` query requires an argument of type `AdminListOwnedStorySeedsVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminListOwnedStorySeedsVariables {
   ownerUid: string;
   limit?: number | null;
@@ -3893,7 +3893,7 @@ export interface AdminListOwnedStorySeedsVariables {
 Recall that executing the `AdminListOwnedStorySeeds` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminListOwnedStorySeedsData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminListOwnedStorySeedsData {
   storySeeds: ({
     id: UUIDString;
@@ -3911,13 +3911,13 @@ export interface AdminListOwnedStorySeedsData {
 ```
 ### Using `AdminListOwnedStorySeeds`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminListOwnedStorySeeds, AdminListOwnedStorySeedsVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminListOwnedStorySeeds` query requires an argument of type `AdminListOwnedStorySeedsVariables`:
 const adminListOwnedStorySeedsVars: AdminListOwnedStorySeedsVariables = {
-  ownerUid: ...,
+  ownerUid: ..., 
   limit: ..., // optional
   offset: ..., // optional
 };
@@ -3943,13 +3943,13 @@ adminListOwnedStorySeeds(adminListOwnedStorySeedsVars).then((response) => {
 
 ### Using `AdminListOwnedStorySeeds`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminListOwnedStorySeedsRef, AdminListOwnedStorySeedsVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminListOwnedStorySeeds` query requires an argument of type `AdminListOwnedStorySeedsVariables`:
 const adminListOwnedStorySeedsVars: AdminListOwnedStorySeedsVariables = {
-  ownerUid: ...,
+  ownerUid: ..., 
   limit: ..., // optional
   offset: ..., // optional
 };
@@ -3978,7 +3978,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminGetOwnedStorySeedGraph
 You can execute the `AdminGetOwnedStorySeedGraph` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminGetOwnedStorySeedGraph(vars: AdminGetOwnedStorySeedGraphVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedStorySeedGraphData, AdminGetOwnedStorySeedGraphVariables>;
 
 interface AdminGetOwnedStorySeedGraphRef {
@@ -3989,7 +3989,7 @@ interface AdminGetOwnedStorySeedGraphRef {
 export const adminGetOwnedStorySeedGraphRef: AdminGetOwnedStorySeedGraphRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminGetOwnedStorySeedGraph(dc: DataConnect, vars: AdminGetOwnedStorySeedGraphVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedStorySeedGraphData, AdminGetOwnedStorySeedGraphVariables>;
 
 interface AdminGetOwnedStorySeedGraphRef {
@@ -4000,7 +4000,7 @@ export const adminGetOwnedStorySeedGraphRef: AdminGetOwnedStorySeedGraphRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminGetOwnedStorySeedGraphRef:
-```typescrip
+```typescript
 const name = adminGetOwnedStorySeedGraphRef.operationName;
 console.log(name);
 ```
@@ -4008,7 +4008,7 @@ console.log(name);
 ### Variables
 The `AdminGetOwnedStorySeedGraph` query requires an argument of type `AdminGetOwnedStorySeedGraphVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminGetOwnedStorySeedGraphVariables {
   ownerUid: string;
   seedId: UUIDString;
@@ -4018,7 +4018,7 @@ export interface AdminGetOwnedStorySeedGraphVariables {
 Recall that executing the `AdminGetOwnedStorySeedGraph` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminGetOwnedStorySeedGraphData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminGetOwnedStorySeedGraphData {
   storySeed?: {
     id: UUIDString;
@@ -4067,14 +4067,14 @@ export interface AdminGetOwnedStorySeedGraphData {
 ```
 ### Using `AdminGetOwnedStorySeedGraph`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedStorySeedGraph, AdminGetOwnedStorySeedGraphVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedStorySeedGraph` query requires an argument of type `AdminGetOwnedStorySeedGraphVariables`:
 const adminGetOwnedStorySeedGraphVars: AdminGetOwnedStorySeedGraphVariables = {
-  ownerUid: ...,
-  seedId: ...,
+  ownerUid: ..., 
+  seedId: ..., 
 };
 
 // Call the `adminGetOwnedStorySeedGraph()` function to execute the query.
@@ -4098,14 +4098,14 @@ adminGetOwnedStorySeedGraph(adminGetOwnedStorySeedGraphVars).then((response) => 
 
 ### Using `AdminGetOwnedStorySeedGraph`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedStorySeedGraphRef, AdminGetOwnedStorySeedGraphVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedStorySeedGraph` query requires an argument of type `AdminGetOwnedStorySeedGraphVariables`:
 const adminGetOwnedStorySeedGraphVars: AdminGetOwnedStorySeedGraphVariables = {
-  ownerUid: ...,
-  seedId: ...,
+  ownerUid: ..., 
+  seedId: ..., 
 };
 
 // Call the `adminGetOwnedStorySeedGraphRef()` function to get a reference to the query.
@@ -4132,7 +4132,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminGetUserProfileGraph
 You can execute the `AdminGetUserProfileGraph` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminGetUserProfileGraph(vars: AdminGetUserProfileGraphVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetUserProfileGraphData, AdminGetUserProfileGraphVariables>;
 
 interface AdminGetUserProfileGraphRef {
@@ -4143,7 +4143,7 @@ interface AdminGetUserProfileGraphRef {
 export const adminGetUserProfileGraphRef: AdminGetUserProfileGraphRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminGetUserProfileGraph(dc: DataConnect, vars: AdminGetUserProfileGraphVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetUserProfileGraphData, AdminGetUserProfileGraphVariables>;
 
 interface AdminGetUserProfileGraphRef {
@@ -4154,7 +4154,7 @@ export const adminGetUserProfileGraphRef: AdminGetUserProfileGraphRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminGetUserProfileGraphRef:
-```typescrip
+```typescript
 const name = adminGetUserProfileGraphRef.operationName;
 console.log(name);
 ```
@@ -4162,7 +4162,7 @@ console.log(name);
 ### Variables
 The `AdminGetUserProfileGraph` query requires an argument of type `AdminGetUserProfileGraphVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminGetUserProfileGraphVariables {
   ownerUid: string;
 }
@@ -4171,7 +4171,7 @@ export interface AdminGetUserProfileGraphVariables {
 Recall that executing the `AdminGetUserProfileGraph` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminGetUserProfileGraphData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminGetUserProfileGraphData {
   account?: {
     uid: string;
@@ -4314,13 +4314,13 @@ export interface AdminGetUserProfileGraphData {
 ```
 ### Using `AdminGetUserProfileGraph`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminGetUserProfileGraph, AdminGetUserProfileGraphVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetUserProfileGraph` query requires an argument of type `AdminGetUserProfileGraphVariables`:
 const adminGetUserProfileGraphVars: AdminGetUserProfileGraphVariables = {
-  ownerUid: ...,
+  ownerUid: ..., 
 };
 
 // Call the `adminGetUserProfileGraph()` function to execute the query.
@@ -4358,13 +4358,13 @@ adminGetUserProfileGraph(adminGetUserProfileGraphVars).then((response) => {
 
 ### Using `AdminGetUserProfileGraph`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminGetUserProfileGraphRef, AdminGetUserProfileGraphVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetUserProfileGraph` query requires an argument of type `AdminGetUserProfileGraphVariables`:
 const adminGetUserProfileGraphVars: AdminGetUserProfileGraphVariables = {
-  ownerUid: ...,
+  ownerUid: ..., 
 };
 
 // Call the `adminGetUserProfileGraphRef()` function to get a reference to the query.
@@ -4403,9 +4403,9 @@ executeQuery(ref).then((response) => {
 });
 ```
 
-## AdminGetOwnedMediaSlo
+## AdminGetOwnedMediaSlot
 You can execute the `AdminGetOwnedMediaSlot` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminGetOwnedMediaSlot(vars: AdminGetOwnedMediaSlotVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedMediaSlotData, AdminGetOwnedMediaSlotVariables>;
 
 interface AdminGetOwnedMediaSlotRef {
@@ -4416,7 +4416,7 @@ interface AdminGetOwnedMediaSlotRef {
 export const adminGetOwnedMediaSlotRef: AdminGetOwnedMediaSlotRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminGetOwnedMediaSlot(dc: DataConnect, vars: AdminGetOwnedMediaSlotVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedMediaSlotData, AdminGetOwnedMediaSlotVariables>;
 
 interface AdminGetOwnedMediaSlotRef {
@@ -4427,7 +4427,7 @@ export const adminGetOwnedMediaSlotRef: AdminGetOwnedMediaSlotRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminGetOwnedMediaSlotRef:
-```typescrip
+```typescript
 const name = adminGetOwnedMediaSlotRef.operationName;
 console.log(name);
 ```
@@ -4435,7 +4435,7 @@ console.log(name);
 ### Variables
 The `AdminGetOwnedMediaSlot` query requires an argument of type `AdminGetOwnedMediaSlotVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminGetOwnedMediaSlotVariables {
   ownerUid: string;
   targetKind: string;
@@ -4447,7 +4447,7 @@ export interface AdminGetOwnedMediaSlotVariables {
 Recall that executing the `AdminGetOwnedMediaSlot` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminGetOwnedMediaSlotData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminGetOwnedMediaSlotData {
   mediaSlot?: {
     ownerUid: string;
@@ -4481,16 +4481,16 @@ export interface AdminGetOwnedMediaSlotData {
 ```
 ### Using `AdminGetOwnedMediaSlot`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedMediaSlot, AdminGetOwnedMediaSlotVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedMediaSlot` query requires an argument of type `AdminGetOwnedMediaSlotVariables`:
 const adminGetOwnedMediaSlotVars: AdminGetOwnedMediaSlotVariables = {
-  ownerUid: ...,
-  targetKind: ...,
-  targetKey: ...,
-  purpose: ...,
+  ownerUid: ..., 
+  targetKind: ..., 
+  targetKey: ..., 
+  purpose: ..., 
 };
 
 // Call the `adminGetOwnedMediaSlot()` function to execute the query.
@@ -4514,16 +4514,16 @@ adminGetOwnedMediaSlot(adminGetOwnedMediaSlotVars).then((response) => {
 
 ### Using `AdminGetOwnedMediaSlot`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedMediaSlotRef, AdminGetOwnedMediaSlotVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedMediaSlot` query requires an argument of type `AdminGetOwnedMediaSlotVariables`:
 const adminGetOwnedMediaSlotVars: AdminGetOwnedMediaSlotVariables = {
-  ownerUid: ...,
-  targetKind: ...,
-  targetKey: ...,
-  purpose: ...,
+  ownerUid: ..., 
+  targetKind: ..., 
+  targetKey: ..., 
+  purpose: ..., 
 };
 
 // Call the `adminGetOwnedMediaSlotRef()` function to get a reference to the query.
@@ -4550,7 +4550,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminListOwnedMediaSlotHistory
 You can execute the `AdminListOwnedMediaSlotHistory` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminListOwnedMediaSlotHistory(vars: AdminListOwnedMediaSlotHistoryVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListOwnedMediaSlotHistoryData, AdminListOwnedMediaSlotHistoryVariables>;
 
 interface AdminListOwnedMediaSlotHistoryRef {
@@ -4561,7 +4561,7 @@ interface AdminListOwnedMediaSlotHistoryRef {
 export const adminListOwnedMediaSlotHistoryRef: AdminListOwnedMediaSlotHistoryRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminListOwnedMediaSlotHistory(dc: DataConnect, vars: AdminListOwnedMediaSlotHistoryVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListOwnedMediaSlotHistoryData, AdminListOwnedMediaSlotHistoryVariables>;
 
 interface AdminListOwnedMediaSlotHistoryRef {
@@ -4572,7 +4572,7 @@ export const adminListOwnedMediaSlotHistoryRef: AdminListOwnedMediaSlotHistoryRe
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminListOwnedMediaSlotHistoryRef:
-```typescrip
+```typescript
 const name = adminListOwnedMediaSlotHistoryRef.operationName;
 console.log(name);
 ```
@@ -4580,7 +4580,7 @@ console.log(name);
 ### Variables
 The `AdminListOwnedMediaSlotHistory` query requires an argument of type `AdminListOwnedMediaSlotHistoryVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminListOwnedMediaSlotHistoryVariables {
   ownerUid: string;
   targetKind: string;
@@ -4593,7 +4593,7 @@ export interface AdminListOwnedMediaSlotHistoryVariables {
 Recall that executing the `AdminListOwnedMediaSlotHistory` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminListOwnedMediaSlotHistoryData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminListOwnedMediaSlotHistoryData {
   mediaAttachments: ({
     id: UUIDString;
@@ -4632,16 +4632,16 @@ export interface AdminListOwnedMediaSlotHistoryData {
 ```
 ### Using `AdminListOwnedMediaSlotHistory`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminListOwnedMediaSlotHistory, AdminListOwnedMediaSlotHistoryVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminListOwnedMediaSlotHistory` query requires an argument of type `AdminListOwnedMediaSlotHistoryVariables`:
 const adminListOwnedMediaSlotHistoryVars: AdminListOwnedMediaSlotHistoryVariables = {
-  ownerUid: ...,
-  targetKind: ...,
-  targetKey: ...,
-  purpose: ...,
+  ownerUid: ..., 
+  targetKind: ..., 
+  targetKey: ..., 
+  purpose: ..., 
   limit: ..., // optional
 };
 
@@ -4666,16 +4666,16 @@ adminListOwnedMediaSlotHistory(adminListOwnedMediaSlotHistoryVars).then((respons
 
 ### Using `AdminListOwnedMediaSlotHistory`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminListOwnedMediaSlotHistoryRef, AdminListOwnedMediaSlotHistoryVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminListOwnedMediaSlotHistory` query requires an argument of type `AdminListOwnedMediaSlotHistoryVariables`:
 const adminListOwnedMediaSlotHistoryVars: AdminListOwnedMediaSlotHistoryVariables = {
-  ownerUid: ...,
-  targetKind: ...,
-  targetKey: ...,
-  purpose: ...,
+  ownerUid: ..., 
+  targetKind: ..., 
+  targetKey: ..., 
+  purpose: ..., 
   limit: ..., // optional
 };
 
@@ -4701,9 +4701,9 @@ executeQuery(ref).then((response) => {
 });
 ```
 
-## AdminGetMediaUploadReceip
+## AdminGetMediaUploadReceipt
 You can execute the `AdminGetMediaUploadReceipt` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminGetMediaUploadReceipt(vars: AdminGetMediaUploadReceiptVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetMediaUploadReceiptData, AdminGetMediaUploadReceiptVariables>;
 
 interface AdminGetMediaUploadReceiptRef {
@@ -4714,7 +4714,7 @@ interface AdminGetMediaUploadReceiptRef {
 export const adminGetMediaUploadReceiptRef: AdminGetMediaUploadReceiptRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminGetMediaUploadReceipt(dc: DataConnect, vars: AdminGetMediaUploadReceiptVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetMediaUploadReceiptData, AdminGetMediaUploadReceiptVariables>;
 
 interface AdminGetMediaUploadReceiptRef {
@@ -4725,7 +4725,7 @@ export const adminGetMediaUploadReceiptRef: AdminGetMediaUploadReceiptRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminGetMediaUploadReceiptRef:
-```typescrip
+```typescript
 const name = adminGetMediaUploadReceiptRef.operationName;
 console.log(name);
 ```
@@ -4733,7 +4733,7 @@ console.log(name);
 ### Variables
 The `AdminGetMediaUploadReceipt` query requires an argument of type `AdminGetMediaUploadReceiptVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminGetMediaUploadReceiptVariables {
   ownerUid: string;
   idempotencyKey: string;
@@ -4743,7 +4743,7 @@ export interface AdminGetMediaUploadReceiptVariables {
 Recall that executing the `AdminGetMediaUploadReceipt` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminGetMediaUploadReceiptData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminGetMediaUploadReceiptData {
   mediaUploadReceipt?: {
     ownerUid: string;
@@ -4758,14 +4758,14 @@ export interface AdminGetMediaUploadReceiptData {
 ```
 ### Using `AdminGetMediaUploadReceipt`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminGetMediaUploadReceipt, AdminGetMediaUploadReceiptVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetMediaUploadReceipt` query requires an argument of type `AdminGetMediaUploadReceiptVariables`:
 const adminGetMediaUploadReceiptVars: AdminGetMediaUploadReceiptVariables = {
-  ownerUid: ...,
-  idempotencyKey: ...,
+  ownerUid: ..., 
+  idempotencyKey: ..., 
 };
 
 // Call the `adminGetMediaUploadReceipt()` function to execute the query.
@@ -4789,14 +4789,14 @@ adminGetMediaUploadReceipt(adminGetMediaUploadReceiptVars).then((response) => {
 
 ### Using `AdminGetMediaUploadReceipt`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminGetMediaUploadReceiptRef, AdminGetMediaUploadReceiptVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetMediaUploadReceipt` query requires an argument of type `AdminGetMediaUploadReceiptVariables`:
 const adminGetMediaUploadReceiptVars: AdminGetMediaUploadReceiptVariables = {
-  ownerUid: ...,
-  idempotencyKey: ...,
+  ownerUid: ..., 
+  idempotencyKey: ..., 
 };
 
 // Call the `adminGetMediaUploadReceiptRef()` function to get a reference to the query.
@@ -4823,7 +4823,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminGetOwnedStorageQuotaReservation
 You can execute the `AdminGetOwnedStorageQuotaReservation` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminGetOwnedStorageQuotaReservation(vars: AdminGetOwnedStorageQuotaReservationVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedStorageQuotaReservationData, AdminGetOwnedStorageQuotaReservationVariables>;
 
 interface AdminGetOwnedStorageQuotaReservationRef {
@@ -4834,7 +4834,7 @@ interface AdminGetOwnedStorageQuotaReservationRef {
 export const adminGetOwnedStorageQuotaReservationRef: AdminGetOwnedStorageQuotaReservationRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminGetOwnedStorageQuotaReservation(dc: DataConnect, vars: AdminGetOwnedStorageQuotaReservationVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedStorageQuotaReservationData, AdminGetOwnedStorageQuotaReservationVariables>;
 
 interface AdminGetOwnedStorageQuotaReservationRef {
@@ -4845,7 +4845,7 @@ export const adminGetOwnedStorageQuotaReservationRef: AdminGetOwnedStorageQuotaR
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminGetOwnedStorageQuotaReservationRef:
-```typescrip
+```typescript
 const name = adminGetOwnedStorageQuotaReservationRef.operationName;
 console.log(name);
 ```
@@ -4853,7 +4853,7 @@ console.log(name);
 ### Variables
 The `AdminGetOwnedStorageQuotaReservation` query requires an argument of type `AdminGetOwnedStorageQuotaReservationVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminGetOwnedStorageQuotaReservationVariables {
   ownerUid: string;
   idempotencyKey: string;
@@ -4863,7 +4863,7 @@ export interface AdminGetOwnedStorageQuotaReservationVariables {
 Recall that executing the `AdminGetOwnedStorageQuotaReservation` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminGetOwnedStorageQuotaReservationData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminGetOwnedStorageQuotaReservationData {
   storageQuotaReservation?: {
     id: UUIDString;
@@ -4882,14 +4882,14 @@ export interface AdminGetOwnedStorageQuotaReservationData {
 ```
 ### Using `AdminGetOwnedStorageQuotaReservation`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedStorageQuotaReservation, AdminGetOwnedStorageQuotaReservationVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedStorageQuotaReservation` query requires an argument of type `AdminGetOwnedStorageQuotaReservationVariables`:
 const adminGetOwnedStorageQuotaReservationVars: AdminGetOwnedStorageQuotaReservationVariables = {
-  ownerUid: ...,
-  idempotencyKey: ...,
+  ownerUid: ..., 
+  idempotencyKey: ..., 
 };
 
 // Call the `adminGetOwnedStorageQuotaReservation()` function to execute the query.
@@ -4913,14 +4913,14 @@ adminGetOwnedStorageQuotaReservation(adminGetOwnedStorageQuotaReservationVars).t
 
 ### Using `AdminGetOwnedStorageQuotaReservation`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedStorageQuotaReservationRef, AdminGetOwnedStorageQuotaReservationVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedStorageQuotaReservation` query requires an argument of type `AdminGetOwnedStorageQuotaReservationVariables`:
 const adminGetOwnedStorageQuotaReservationVars: AdminGetOwnedStorageQuotaReservationVariables = {
-  ownerUid: ...,
-  idempotencyKey: ...,
+  ownerUid: ..., 
+  idempotencyKey: ..., 
 };
 
 // Call the `adminGetOwnedStorageQuotaReservationRef()` function to get a reference to the query.
@@ -4945,9 +4945,9 @@ executeQuery(ref).then((response) => {
 });
 ```
 
-## AdminGetMediaDeletionInten
+## AdminGetMediaDeletionIntent
 You can execute the `AdminGetMediaDeletionIntent` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminGetMediaDeletionIntent(vars: AdminGetMediaDeletionIntentVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetMediaDeletionIntentData, AdminGetMediaDeletionIntentVariables>;
 
 interface AdminGetMediaDeletionIntentRef {
@@ -4958,7 +4958,7 @@ interface AdminGetMediaDeletionIntentRef {
 export const adminGetMediaDeletionIntentRef: AdminGetMediaDeletionIntentRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminGetMediaDeletionIntent(dc: DataConnect, vars: AdminGetMediaDeletionIntentVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetMediaDeletionIntentData, AdminGetMediaDeletionIntentVariables>;
 
 interface AdminGetMediaDeletionIntentRef {
@@ -4969,7 +4969,7 @@ export const adminGetMediaDeletionIntentRef: AdminGetMediaDeletionIntentRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminGetMediaDeletionIntentRef:
-```typescrip
+```typescript
 const name = adminGetMediaDeletionIntentRef.operationName;
 console.log(name);
 ```
@@ -4977,7 +4977,7 @@ console.log(name);
 ### Variables
 The `AdminGetMediaDeletionIntent` query requires an argument of type `AdminGetMediaDeletionIntentVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminGetMediaDeletionIntentVariables {
   ownerUid: string;
   idempotencyKey: string;
@@ -4987,7 +4987,7 @@ export interface AdminGetMediaDeletionIntentVariables {
 Recall that executing the `AdminGetMediaDeletionIntent` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminGetMediaDeletionIntentData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminGetMediaDeletionIntentData {
   mediaDeletionIntent?: {
     ownerUid: string;
@@ -5005,14 +5005,14 @@ export interface AdminGetMediaDeletionIntentData {
 ```
 ### Using `AdminGetMediaDeletionIntent`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminGetMediaDeletionIntent, AdminGetMediaDeletionIntentVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetMediaDeletionIntent` query requires an argument of type `AdminGetMediaDeletionIntentVariables`:
 const adminGetMediaDeletionIntentVars: AdminGetMediaDeletionIntentVariables = {
-  ownerUid: ...,
-  idempotencyKey: ...,
+  ownerUid: ..., 
+  idempotencyKey: ..., 
 };
 
 // Call the `adminGetMediaDeletionIntent()` function to execute the query.
@@ -5036,14 +5036,14 @@ adminGetMediaDeletionIntent(adminGetMediaDeletionIntentVars).then((response) => 
 
 ### Using `AdminGetMediaDeletionIntent`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminGetMediaDeletionIntentRef, AdminGetMediaDeletionIntentVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetMediaDeletionIntent` query requires an argument of type `AdminGetMediaDeletionIntentVariables`:
 const adminGetMediaDeletionIntentVars: AdminGetMediaDeletionIntentVariables = {
-  ownerUid: ...,
-  idempotencyKey: ...,
+  ownerUid: ..., 
+  idempotencyKey: ..., 
 };
 
 // Call the `adminGetMediaDeletionIntentRef()` function to get a reference to the query.
@@ -5070,7 +5070,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminListStoryDeletionMediaCandidates
 You can execute the `AdminListStoryDeletionMediaCandidates` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminListStoryDeletionMediaCandidates(vars: AdminListStoryDeletionMediaCandidatesVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListStoryDeletionMediaCandidatesData, AdminListStoryDeletionMediaCandidatesVariables>;
 
 interface AdminListStoryDeletionMediaCandidatesRef {
@@ -5081,7 +5081,7 @@ interface AdminListStoryDeletionMediaCandidatesRef {
 export const adminListStoryDeletionMediaCandidatesRef: AdminListStoryDeletionMediaCandidatesRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminListStoryDeletionMediaCandidates(dc: DataConnect, vars: AdminListStoryDeletionMediaCandidatesVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListStoryDeletionMediaCandidatesData, AdminListStoryDeletionMediaCandidatesVariables>;
 
 interface AdminListStoryDeletionMediaCandidatesRef {
@@ -5092,7 +5092,7 @@ export const adminListStoryDeletionMediaCandidatesRef: AdminListStoryDeletionMed
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminListStoryDeletionMediaCandidatesRef:
-```typescrip
+```typescript
 const name = adminListStoryDeletionMediaCandidatesRef.operationName;
 console.log(name);
 ```
@@ -5100,7 +5100,7 @@ console.log(name);
 ### Variables
 The `AdminListStoryDeletionMediaCandidates` query requires an argument of type `AdminListStoryDeletionMediaCandidatesVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminListStoryDeletionMediaCandidatesVariables {
   ownerUid: string;
   storyId: UUIDString;
@@ -5111,7 +5111,7 @@ export interface AdminListStoryDeletionMediaCandidatesVariables {
 Recall that executing the `AdminListStoryDeletionMediaCandidates` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminListStoryDeletionMediaCandidatesData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminListStoryDeletionMediaCandidatesData {
   mediaAssets: ({
     id: UUIDString;
@@ -5140,14 +5140,14 @@ export interface AdminListStoryDeletionMediaCandidatesData {
 ```
 ### Using `AdminListStoryDeletionMediaCandidates`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminListStoryDeletionMediaCandidates, AdminListStoryDeletionMediaCandidatesVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminListStoryDeletionMediaCandidates` query requires an argument of type `AdminListStoryDeletionMediaCandidatesVariables`:
 const adminListStoryDeletionMediaCandidatesVars: AdminListStoryDeletionMediaCandidatesVariables = {
-  ownerUid: ...,
-  storyId: ...,
+  ownerUid: ..., 
+  storyId: ..., 
   limit: ..., // optional
 };
 
@@ -5172,14 +5172,14 @@ adminListStoryDeletionMediaCandidates(adminListStoryDeletionMediaCandidatesVars)
 
 ### Using `AdminListStoryDeletionMediaCandidates`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminListStoryDeletionMediaCandidatesRef, AdminListStoryDeletionMediaCandidatesVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminListStoryDeletionMediaCandidates` query requires an argument of type `AdminListStoryDeletionMediaCandidatesVariables`:
 const adminListStoryDeletionMediaCandidatesVars: AdminListStoryDeletionMediaCandidatesVariables = {
-  ownerUid: ...,
-  storyId: ...,
+  ownerUid: ..., 
+  storyId: ..., 
   limit: ..., // optional
 };
 
@@ -5207,7 +5207,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminListStoryDeletionJobs
 You can execute the `AdminListStoryDeletionJobs` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminListStoryDeletionJobs(vars?: AdminListStoryDeletionJobsVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListStoryDeletionJobsData, AdminListStoryDeletionJobsVariables>;
 
 interface AdminListStoryDeletionJobsRef {
@@ -5218,7 +5218,7 @@ interface AdminListStoryDeletionJobsRef {
 export const adminListStoryDeletionJobsRef: AdminListStoryDeletionJobsRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminListStoryDeletionJobs(dc: DataConnect, vars?: AdminListStoryDeletionJobsVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListStoryDeletionJobsData, AdminListStoryDeletionJobsVariables>;
 
 interface AdminListStoryDeletionJobsRef {
@@ -5229,7 +5229,7 @@ export const adminListStoryDeletionJobsRef: AdminListStoryDeletionJobsRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminListStoryDeletionJobsRef:
-```typescrip
+```typescript
 const name = adminListStoryDeletionJobsRef.operationName;
 console.log(name);
 ```
@@ -5237,7 +5237,7 @@ console.log(name);
 ### Variables
 The `AdminListStoryDeletionJobs` query has an optional argument of type `AdminListStoryDeletionJobsVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminListStoryDeletionJobsVariables {
   limit?: number | null;
 }
@@ -5246,7 +5246,7 @@ export interface AdminListStoryDeletionJobsVariables {
 Recall that executing the `AdminListStoryDeletionJobs` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminListStoryDeletionJobsData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminListStoryDeletionJobsData {
   storyDeletionJobs: ({
     id: UUIDString;
@@ -5266,7 +5266,7 @@ export interface AdminListStoryDeletionJobsData {
 ```
 ### Using `AdminListStoryDeletionJobs`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminListStoryDeletionJobs, AdminListStoryDeletionJobsVariables } from '@seihouse/celestial-library-dataconnect';
 
@@ -5298,7 +5298,7 @@ adminListStoryDeletionJobs(adminListStoryDeletionJobsVars).then((response) => {
 
 ### Using `AdminListStoryDeletionJobs`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminListStoryDeletionJobsRef, AdminListStoryDeletionJobsVariables } from '@seihouse/celestial-library-dataconnect';
 
@@ -5331,9 +5331,9 @@ executeQuery(ref).then((response) => {
 });
 ```
 
-## AdminGetStorageUsageRepor
+## AdminGetStorageUsageReport
 You can execute the `AdminGetStorageUsageReport` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminGetStorageUsageReport(options?: ExecuteQueryOptions): QueryPromise<AdminGetStorageUsageReportData, undefined>;
 
 interface AdminGetStorageUsageReportRef {
@@ -5344,7 +5344,7 @@ interface AdminGetStorageUsageReportRef {
 export const adminGetStorageUsageReportRef: AdminGetStorageUsageReportRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminGetStorageUsageReport(dc: DataConnect, options?: ExecuteQueryOptions): QueryPromise<AdminGetStorageUsageReportData, undefined>;
 
 interface AdminGetStorageUsageReportRef {
@@ -5355,7 +5355,7 @@ export const adminGetStorageUsageReportRef: AdminGetStorageUsageReportRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminGetStorageUsageReportRef:
-```typescrip
+```typescript
 const name = adminGetStorageUsageReportRef.operationName;
 console.log(name);
 ```
@@ -5366,7 +5366,7 @@ The `AdminGetStorageUsageReport` query has no variables.
 Recall that executing the `AdminGetStorageUsageReport` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminGetStorageUsageReportData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminGetStorageUsageReportData {
   totals?: unknown | null;
   byUser?: unknown[] | null;
@@ -5376,7 +5376,7 @@ export interface AdminGetStorageUsageReportData {
 ```
 ### Using `AdminGetStorageUsageReport`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminGetStorageUsageReport } from '@seihouse/celestial-library-dataconnect';
 
@@ -5406,7 +5406,7 @@ adminGetStorageUsageReport().then((response) => {
 
 ### Using `AdminGetStorageUsageReport`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminGetStorageUsageReportRef } from '@seihouse/celestial-library-dataconnect';
 
@@ -5439,7 +5439,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminListOwnedGlossaryTerms
 You can execute the `AdminListOwnedGlossaryTerms` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminListOwnedGlossaryTerms(vars: AdminListOwnedGlossaryTermsVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListOwnedGlossaryTermsData, AdminListOwnedGlossaryTermsVariables>;
 
 interface AdminListOwnedGlossaryTermsRef {
@@ -5450,7 +5450,7 @@ interface AdminListOwnedGlossaryTermsRef {
 export const adminListOwnedGlossaryTermsRef: AdminListOwnedGlossaryTermsRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminListOwnedGlossaryTerms(dc: DataConnect, vars: AdminListOwnedGlossaryTermsVariables, options?: ExecuteQueryOptions): QueryPromise<AdminListOwnedGlossaryTermsData, AdminListOwnedGlossaryTermsVariables>;
 
 interface AdminListOwnedGlossaryTermsRef {
@@ -5461,7 +5461,7 @@ export const adminListOwnedGlossaryTermsRef: AdminListOwnedGlossaryTermsRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminListOwnedGlossaryTermsRef:
-```typescrip
+```typescript
 const name = adminListOwnedGlossaryTermsRef.operationName;
 console.log(name);
 ```
@@ -5469,7 +5469,7 @@ console.log(name);
 ### Variables
 The `AdminListOwnedGlossaryTerms` query requires an argument of type `AdminListOwnedGlossaryTermsVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminListOwnedGlossaryTermsVariables {
   ownerUid: string;
   storyId: UUIDString;
@@ -5480,7 +5480,7 @@ export interface AdminListOwnedGlossaryTermsVariables {
 Recall that executing the `AdminListOwnedGlossaryTerms` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminListOwnedGlossaryTermsData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminListOwnedGlossaryTermsData {
   glossaryTerms: ({
     id: UUIDString;
@@ -5496,14 +5496,14 @@ export interface AdminListOwnedGlossaryTermsData {
 ```
 ### Using `AdminListOwnedGlossaryTerms`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminListOwnedGlossaryTerms, AdminListOwnedGlossaryTermsVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminListOwnedGlossaryTerms` query requires an argument of type `AdminListOwnedGlossaryTermsVariables`:
 const adminListOwnedGlossaryTermsVars: AdminListOwnedGlossaryTermsVariables = {
-  ownerUid: ...,
-  storyId: ...,
+  ownerUid: ..., 
+  storyId: ..., 
   limit: ..., // optional
 };
 
@@ -5528,14 +5528,14 @@ adminListOwnedGlossaryTerms(adminListOwnedGlossaryTermsVars).then((response) => 
 
 ### Using `AdminListOwnedGlossaryTerms`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminListOwnedGlossaryTermsRef, AdminListOwnedGlossaryTermsVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminListOwnedGlossaryTerms` query requires an argument of type `AdminListOwnedGlossaryTermsVariables`:
 const adminListOwnedGlossaryTermsVars: AdminListOwnedGlossaryTermsVariables = {
-  ownerUid: ...,
-  storyId: ...,
+  ownerUid: ..., 
+  storyId: ..., 
   limit: ..., // optional
 };
 
@@ -5563,7 +5563,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminGetImageQuotaConsumption
 You can execute the `AdminGetImageQuotaConsumption` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminGetImageQuotaConsumption(vars: AdminGetImageQuotaConsumptionVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetImageQuotaConsumptionData, AdminGetImageQuotaConsumptionVariables>;
 
 interface AdminGetImageQuotaConsumptionRef {
@@ -5574,7 +5574,7 @@ interface AdminGetImageQuotaConsumptionRef {
 export const adminGetImageQuotaConsumptionRef: AdminGetImageQuotaConsumptionRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminGetImageQuotaConsumption(dc: DataConnect, vars: AdminGetImageQuotaConsumptionVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetImageQuotaConsumptionData, AdminGetImageQuotaConsumptionVariables>;
 
 interface AdminGetImageQuotaConsumptionRef {
@@ -5585,7 +5585,7 @@ export const adminGetImageQuotaConsumptionRef: AdminGetImageQuotaConsumptionRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminGetImageQuotaConsumptionRef:
-```typescrip
+```typescript
 const name = adminGetImageQuotaConsumptionRef.operationName;
 console.log(name);
 ```
@@ -5593,7 +5593,7 @@ console.log(name);
 ### Variables
 The `AdminGetImageQuotaConsumption` query requires an argument of type `AdminGetImageQuotaConsumptionVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminGetImageQuotaConsumptionVariables {
   ownerUid: string;
   idempotencyKey: string;
@@ -5603,7 +5603,7 @@ export interface AdminGetImageQuotaConsumptionVariables {
 Recall that executing the `AdminGetImageQuotaConsumption` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminGetImageQuotaConsumptionData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminGetImageQuotaConsumptionData {
   imageQuotaConsumption?: {
     ownerUid: string;
@@ -5616,14 +5616,14 @@ export interface AdminGetImageQuotaConsumptionData {
 ```
 ### Using `AdminGetImageQuotaConsumption`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminGetImageQuotaConsumption, AdminGetImageQuotaConsumptionVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetImageQuotaConsumption` query requires an argument of type `AdminGetImageQuotaConsumptionVariables`:
 const adminGetImageQuotaConsumptionVars: AdminGetImageQuotaConsumptionVariables = {
-  ownerUid: ...,
-  idempotencyKey: ...,
+  ownerUid: ..., 
+  idempotencyKey: ..., 
 };
 
 // Call the `adminGetImageQuotaConsumption()` function to execute the query.
@@ -5647,14 +5647,14 @@ adminGetImageQuotaConsumption(adminGetImageQuotaConsumptionVars).then((response)
 
 ### Using `AdminGetImageQuotaConsumption`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminGetImageQuotaConsumptionRef, AdminGetImageQuotaConsumptionVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetImageQuotaConsumption` query requires an argument of type `AdminGetImageQuotaConsumptionVariables`:
 const adminGetImageQuotaConsumptionVars: AdminGetImageQuotaConsumptionVariables = {
-  ownerUid: ...,
-  idempotencyKey: ...,
+  ownerUid: ..., 
+  idempotencyKey: ..., 
 };
 
 // Call the `adminGetImageQuotaConsumptionRef()` function to get a reference to the query.
@@ -5679,9 +5679,9 @@ executeQuery(ref).then((response) => {
 });
 ```
 
-## AdminGetOwnedPortraitAsse
+## AdminGetOwnedPortraitAsset
 You can execute the `AdminGetOwnedPortraitAsset` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminGetOwnedPortraitAsset(vars: AdminGetOwnedPortraitAssetVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedPortraitAssetData, AdminGetOwnedPortraitAssetVariables>;
 
 interface AdminGetOwnedPortraitAssetRef {
@@ -5692,7 +5692,7 @@ interface AdminGetOwnedPortraitAssetRef {
 export const adminGetOwnedPortraitAssetRef: AdminGetOwnedPortraitAssetRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminGetOwnedPortraitAsset(dc: DataConnect, vars: AdminGetOwnedPortraitAssetVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetOwnedPortraitAssetData, AdminGetOwnedPortraitAssetVariables>;
 
 interface AdminGetOwnedPortraitAssetRef {
@@ -5703,7 +5703,7 @@ export const adminGetOwnedPortraitAssetRef: AdminGetOwnedPortraitAssetRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminGetOwnedPortraitAssetRef:
-```typescrip
+```typescript
 const name = adminGetOwnedPortraitAssetRef.operationName;
 console.log(name);
 ```
@@ -5711,7 +5711,7 @@ console.log(name);
 ### Variables
 The `AdminGetOwnedPortraitAsset` query requires an argument of type `AdminGetOwnedPortraitAssetVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminGetOwnedPortraitAssetVariables {
   ownerUid: string;
   assetId: UUIDString;
@@ -5721,7 +5721,7 @@ export interface AdminGetOwnedPortraitAssetVariables {
 Recall that executing the `AdminGetOwnedPortraitAsset` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminGetOwnedPortraitAssetData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminGetOwnedPortraitAssetData {
   asset?: {
     id: UUIDString;
@@ -5767,14 +5767,14 @@ export interface AdminGetOwnedPortraitAssetData {
 ```
 ### Using `AdminGetOwnedPortraitAsset`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedPortraitAsset, AdminGetOwnedPortraitAssetVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedPortraitAsset` query requires an argument of type `AdminGetOwnedPortraitAssetVariables`:
 const adminGetOwnedPortraitAssetVars: AdminGetOwnedPortraitAssetVariables = {
-  ownerUid: ...,
-  assetId: ...,
+  ownerUid: ..., 
+  assetId: ..., 
 };
 
 // Call the `adminGetOwnedPortraitAsset()` function to execute the query.
@@ -5800,14 +5800,14 @@ adminGetOwnedPortraitAsset(adminGetOwnedPortraitAssetVars).then((response) => {
 
 ### Using `AdminGetOwnedPortraitAsset`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminGetOwnedPortraitAssetRef, AdminGetOwnedPortraitAssetVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetOwnedPortraitAsset` query requires an argument of type `AdminGetOwnedPortraitAssetVariables`:
 const adminGetOwnedPortraitAssetVars: AdminGetOwnedPortraitAssetVariables = {
-  ownerUid: ...,
-  assetId: ...,
+  ownerUid: ..., 
+  assetId: ..., 
 };
 
 // Call the `adminGetOwnedPortraitAssetRef()` function to get a reference to the query.
@@ -5836,7 +5836,7 @@ executeQuery(ref).then((response) => {
 
 ## AdminGetAdminOverview
 You can execute the `AdminGetAdminOverview` query using the following action shortcut function, or by calling `executeQuery()` after calling the following `QueryRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminGetAdminOverview(vars: AdminGetAdminOverviewVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetAdminOverviewData, AdminGetAdminOverviewVariables>;
 
 interface AdminGetAdminOverviewRef {
@@ -5847,7 +5847,7 @@ interface AdminGetAdminOverviewRef {
 export const adminGetAdminOverviewRef: AdminGetAdminOverviewRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `QueryRef` function.
-```typescrip
+```typescript
 adminGetAdminOverview(dc: DataConnect, vars: AdminGetAdminOverviewVariables, options?: ExecuteQueryOptions): QueryPromise<AdminGetAdminOverviewData, AdminGetAdminOverviewVariables>;
 
 interface AdminGetAdminOverviewRef {
@@ -5858,7 +5858,7 @@ export const adminGetAdminOverviewRef: AdminGetAdminOverviewRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminGetAdminOverviewRef:
-```typescrip
+```typescript
 const name = adminGetAdminOverviewRef.operationName;
 console.log(name);
 ```
@@ -5866,7 +5866,7 @@ console.log(name);
 ### Variables
 The `AdminGetAdminOverview` query requires an argument of type `AdminGetAdminOverviewVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminGetAdminOverviewVariables {
   actorUid: string;
   limit?: number | null;
@@ -5876,7 +5876,7 @@ export interface AdminGetAdminOverviewVariables {
 Recall that executing the `AdminGetAdminOverview` query returns a `QueryPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminGetAdminOverviewData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminGetAdminOverviewData {
   actor?: {
     uid: string;
@@ -5927,13 +5927,13 @@ export interface AdminGetAdminOverviewData {
 ```
 ### Using `AdminGetAdminOverview`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminGetAdminOverview, AdminGetAdminOverviewVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetAdminOverview` query requires an argument of type `AdminGetAdminOverviewVariables`:
 const adminGetAdminOverviewVars: AdminGetAdminOverviewVariables = {
-  actorUid: ...,
+  actorUid: ..., 
   limit: ..., // optional
 };
 
@@ -5964,13 +5964,13 @@ adminGetAdminOverview(adminGetAdminOverviewVars).then((response) => {
 
 ### Using `AdminGetAdminOverview`'s `QueryRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeQuery } from 'firebase/data-connect';
 import { connectorConfig, adminGetAdminOverviewRef, AdminGetAdminOverviewVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminGetAdminOverview` query requires an argument of type `AdminGetAdminOverviewVariables`:
 const adminGetAdminOverviewVars: AdminGetAdminOverviewVariables = {
-  actorUid: ...,
+  actorUid: ..., 
   limit: ..., // optional
 };
 
@@ -6017,9 +6017,9 @@ The following is true for both the action shortcut function and the `MutationRef
 
 Below are examples of how to use the `celestial-library` connector's generated functions to execute each mutation. You can also follow the examples from the [Data Connect documentation](https://firebase.google.com/docs/data-connect/web-sdk#using-mutations).
 
-## UpsertMyAccoun
+## UpsertMyAccount
 You can execute the `UpsertMyAccount` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 upsertMyAccount(): MutationPromise<UpsertMyAccountData, undefined>;
 
 interface UpsertMyAccountRef {
@@ -6030,7 +6030,7 @@ interface UpsertMyAccountRef {
 export const upsertMyAccountRef: UpsertMyAccountRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 upsertMyAccount(dc: DataConnect): MutationPromise<UpsertMyAccountData, undefined>;
 
 interface UpsertMyAccountRef {
@@ -6041,7 +6041,7 @@ export const upsertMyAccountRef: UpsertMyAccountRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the upsertMyAccountRef:
-```typescrip
+```typescript
 const name = upsertMyAccountRef.operationName;
 console.log(name);
 ```
@@ -6052,14 +6052,14 @@ The `UpsertMyAccount` mutation has no variables.
 Recall that executing the `UpsertMyAccount` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `UpsertMyAccountData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface UpsertMyAccountData {
   userAccount_upsert: UserAccount_Key;
 }
 ```
 ### Using `UpsertMyAccount`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, upsertMyAccount } from '@seihouse/celestial-library-dataconnect';
 
@@ -6083,7 +6083,7 @@ upsertMyAccount().then((response) => {
 
 ### Using `UpsertMyAccount`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, upsertMyAccountRef } from '@seihouse/celestial-library-dataconnect';
 
@@ -6110,7 +6110,7 @@ executeMutation(ref).then((response) => {
 
 ## CreateFoundationProbe
 You can execute the `CreateFoundationProbe` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 createFoundationProbe(vars: CreateFoundationProbeVariables): MutationPromise<CreateFoundationProbeData, CreateFoundationProbeVariables>;
 
 interface CreateFoundationProbeRef {
@@ -6121,7 +6121,7 @@ interface CreateFoundationProbeRef {
 export const createFoundationProbeRef: CreateFoundationProbeRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 createFoundationProbe(dc: DataConnect, vars: CreateFoundationProbeVariables): MutationPromise<CreateFoundationProbeData, CreateFoundationProbeVariables>;
 
 interface CreateFoundationProbeRef {
@@ -6132,7 +6132,7 @@ export const createFoundationProbeRef: CreateFoundationProbeRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the createFoundationProbeRef:
-```typescrip
+```typescript
 const name = createFoundationProbeRef.operationName;
 console.log(name);
 ```
@@ -6140,7 +6140,7 @@ console.log(name);
 ### Variables
 The `CreateFoundationProbe` mutation requires an argument of type `CreateFoundationProbeVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface CreateFoundationProbeVariables {
   label: string;
 }
@@ -6149,7 +6149,7 @@ export interface CreateFoundationProbeVariables {
 Recall that executing the `CreateFoundationProbe` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `CreateFoundationProbeData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface CreateFoundationProbeData {
   userAccount_upsert: UserAccount_Key;
   foundationProbe_insert: FoundationProbe_Key;
@@ -6157,13 +6157,13 @@ export interface CreateFoundationProbeData {
 ```
 ### Using `CreateFoundationProbe`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, createFoundationProbe, CreateFoundationProbeVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `CreateFoundationProbe` mutation requires an argument of type `CreateFoundationProbeVariables`:
 const createFoundationProbeVars: CreateFoundationProbeVariables = {
-  label: ...,
+  label: ..., 
 };
 
 // Call the `createFoundationProbe()` function to execute the mutation.
@@ -6189,13 +6189,13 @@ createFoundationProbe(createFoundationProbeVars).then((response) => {
 
 ### Using `CreateFoundationProbe`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, createFoundationProbeRef, CreateFoundationProbeVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `CreateFoundationProbe` mutation requires an argument of type `CreateFoundationProbeVariables`:
 const createFoundationProbeVars: CreateFoundationProbeVariables = {
-  label: ...,
+  label: ..., 
 };
 
 // Call the `createFoundationProbeRef()` function to get a reference to the mutation.
@@ -6224,7 +6224,7 @@ executeMutation(ref).then((response) => {
 
 ## DeleteMyFoundationProbe
 You can execute the `DeleteMyFoundationProbe` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 deleteMyFoundationProbe(vars: DeleteMyFoundationProbeVariables): MutationPromise<DeleteMyFoundationProbeData, DeleteMyFoundationProbeVariables>;
 
 interface DeleteMyFoundationProbeRef {
@@ -6235,7 +6235,7 @@ interface DeleteMyFoundationProbeRef {
 export const deleteMyFoundationProbeRef: DeleteMyFoundationProbeRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 deleteMyFoundationProbe(dc: DataConnect, vars: DeleteMyFoundationProbeVariables): MutationPromise<DeleteMyFoundationProbeData, DeleteMyFoundationProbeVariables>;
 
 interface DeleteMyFoundationProbeRef {
@@ -6246,7 +6246,7 @@ export const deleteMyFoundationProbeRef: DeleteMyFoundationProbeRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the deleteMyFoundationProbeRef:
-```typescrip
+```typescript
 const name = deleteMyFoundationProbeRef.operationName;
 console.log(name);
 ```
@@ -6254,7 +6254,7 @@ console.log(name);
 ### Variables
 The `DeleteMyFoundationProbe` mutation requires an argument of type `DeleteMyFoundationProbeVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface DeleteMyFoundationProbeVariables {
   id: UUIDString;
 }
@@ -6263,20 +6263,20 @@ export interface DeleteMyFoundationProbeVariables {
 Recall that executing the `DeleteMyFoundationProbe` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `DeleteMyFoundationProbeData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface DeleteMyFoundationProbeData {
   foundationProbe_delete?: FoundationProbe_Key | null;
 }
 ```
 ### Using `DeleteMyFoundationProbe`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, deleteMyFoundationProbe, DeleteMyFoundationProbeVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `DeleteMyFoundationProbe` mutation requires an argument of type `DeleteMyFoundationProbeVariables`:
 const deleteMyFoundationProbeVars: DeleteMyFoundationProbeVariables = {
-  id: ...,
+  id: ..., 
 };
 
 // Call the `deleteMyFoundationProbe()` function to execute the mutation.
@@ -6300,13 +6300,13 @@ deleteMyFoundationProbe(deleteMyFoundationProbeVars).then((response) => {
 
 ### Using `DeleteMyFoundationProbe`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, deleteMyFoundationProbeRef, DeleteMyFoundationProbeVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `DeleteMyFoundationProbe` mutation requires an argument of type `DeleteMyFoundationProbeVariables`:
 const deleteMyFoundationProbeVars: DeleteMyFoundationProbeVariables = {
-  id: ...,
+  id: ..., 
 };
 
 // Call the `deleteMyFoundationProbeRef()` function to get a reference to the mutation.
@@ -6333,7 +6333,7 @@ executeMutation(ref).then((response) => {
 
 ## CreateStoryWithFirstChapter
 You can execute the `CreateStoryWithFirstChapter` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 createStoryWithFirstChapter(vars: CreateStoryWithFirstChapterVariables): MutationPromise<CreateStoryWithFirstChapterData, CreateStoryWithFirstChapterVariables>;
 
 interface CreateStoryWithFirstChapterRef {
@@ -6344,7 +6344,7 @@ interface CreateStoryWithFirstChapterRef {
 export const createStoryWithFirstChapterRef: CreateStoryWithFirstChapterRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 createStoryWithFirstChapter(dc: DataConnect, vars: CreateStoryWithFirstChapterVariables): MutationPromise<CreateStoryWithFirstChapterData, CreateStoryWithFirstChapterVariables>;
 
 interface CreateStoryWithFirstChapterRef {
@@ -6355,7 +6355,7 @@ export const createStoryWithFirstChapterRef: CreateStoryWithFirstChapterRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the createStoryWithFirstChapterRef:
-```typescrip
+```typescript
 const name = createStoryWithFirstChapterRef.operationName;
 console.log(name);
 ```
@@ -6363,7 +6363,7 @@ console.log(name);
 ### Variables
 The `CreateStoryWithFirstChapter` mutation requires an argument of type `CreateStoryWithFirstChapterVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface CreateStoryWithFirstChapterVariables {
   title: string;
   genre: string;
@@ -6377,7 +6377,7 @@ export interface CreateStoryWithFirstChapterVariables {
 Recall that executing the `CreateStoryWithFirstChapter` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `CreateStoryWithFirstChapterData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface CreateStoryWithFirstChapterData {
   userAccount_upsert: UserAccount_Key;
   story_insert: Story_Key;
@@ -6387,17 +6387,17 @@ export interface CreateStoryWithFirstChapterData {
 ```
 ### Using `CreateStoryWithFirstChapter`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, createStoryWithFirstChapter, CreateStoryWithFirstChapterVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `CreateStoryWithFirstChapter` mutation requires an argument of type `CreateStoryWithFirstChapterVariables`:
 const createStoryWithFirstChapterVars: CreateStoryWithFirstChapterVariables = {
-  title: ...,
-  genre: ...,
+  title: ..., 
+  genre: ..., 
   mainCharacterName: ..., // optional
   premise: ..., // optional
-  chapterTitle: ...,
+  chapterTitle: ..., 
   chapterPremise: ..., // optional
 };
 
@@ -6428,17 +6428,17 @@ createStoryWithFirstChapter(createStoryWithFirstChapterVars).then((response) => 
 
 ### Using `CreateStoryWithFirstChapter`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, createStoryWithFirstChapterRef, CreateStoryWithFirstChapterVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `CreateStoryWithFirstChapter` mutation requires an argument of type `CreateStoryWithFirstChapterVariables`:
 const createStoryWithFirstChapterVars: CreateStoryWithFirstChapterVariables = {
-  title: ...,
-  genre: ...,
+  title: ..., 
+  genre: ..., 
   mainCharacterName: ..., // optional
   premise: ..., // optional
-  chapterTitle: ...,
+  chapterTitle: ..., 
   chapterPremise: ..., // optional
 };
 
@@ -6472,7 +6472,7 @@ executeMutation(ref).then((response) => {
 
 ## CreateMyChapter
 You can execute the `CreateMyChapter` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 createMyChapter(vars: CreateMyChapterVariables): MutationPromise<CreateMyChapterData, CreateMyChapterVariables>;
 
 interface CreateMyChapterRef {
@@ -6483,7 +6483,7 @@ interface CreateMyChapterRef {
 export const createMyChapterRef: CreateMyChapterRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 createMyChapter(dc: DataConnect, vars: CreateMyChapterVariables): MutationPromise<CreateMyChapterData, CreateMyChapterVariables>;
 
 interface CreateMyChapterRef {
@@ -6494,7 +6494,7 @@ export const createMyChapterRef: CreateMyChapterRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the createMyChapterRef:
-```typescrip
+```typescript
 const name = createMyChapterRef.operationName;
 console.log(name);
 ```
@@ -6502,7 +6502,7 @@ console.log(name);
 ### Variables
 The `CreateMyChapter` mutation requires an argument of type `CreateMyChapterVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface CreateMyChapterVariables {
   storyId: UUIDString;
   chapterNumber: number;
@@ -6514,22 +6514,22 @@ export interface CreateMyChapterVariables {
 Recall that executing the `CreateMyChapter` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `CreateMyChapterData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface CreateMyChapterData {
   chapter_insert: Chapter_Key;
 }
 ```
 ### Using `CreateMyChapter`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, createMyChapter, CreateMyChapterVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `CreateMyChapter` mutation requires an argument of type `CreateMyChapterVariables`:
 const createMyChapterVars: CreateMyChapterVariables = {
-  storyId: ...,
-  chapterNumber: ...,
-  title: ...,
+  storyId: ..., 
+  chapterNumber: ..., 
+  title: ..., 
   premise: ..., // optional
 };
 
@@ -6554,15 +6554,15 @@ createMyChapter(createMyChapterVars).then((response) => {
 
 ### Using `CreateMyChapter`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, createMyChapterRef, CreateMyChapterVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `CreateMyChapter` mutation requires an argument of type `CreateMyChapterVariables`:
 const createMyChapterVars: CreateMyChapterVariables = {
-  storyId: ...,
-  chapterNumber: ...,
-  title: ...,
+  storyId: ..., 
+  chapterNumber: ..., 
+  title: ..., 
   premise: ..., // optional
 };
 
@@ -6590,7 +6590,7 @@ executeMutation(ref).then((response) => {
 
 ## SoftDeleteMyStory
 You can execute the `SoftDeleteMyStory` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 softDeleteMyStory(vars: SoftDeleteMyStoryVariables): MutationPromise<SoftDeleteMyStoryData, SoftDeleteMyStoryVariables>;
 
 interface SoftDeleteMyStoryRef {
@@ -6601,7 +6601,7 @@ interface SoftDeleteMyStoryRef {
 export const softDeleteMyStoryRef: SoftDeleteMyStoryRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 softDeleteMyStory(dc: DataConnect, vars: SoftDeleteMyStoryVariables): MutationPromise<SoftDeleteMyStoryData, SoftDeleteMyStoryVariables>;
 
 interface SoftDeleteMyStoryRef {
@@ -6612,7 +6612,7 @@ export const softDeleteMyStoryRef: SoftDeleteMyStoryRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the softDeleteMyStoryRef:
-```typescrip
+```typescript
 const name = softDeleteMyStoryRef.operationName;
 console.log(name);
 ```
@@ -6620,7 +6620,7 @@ console.log(name);
 ### Variables
 The `SoftDeleteMyStory` mutation requires an argument of type `SoftDeleteMyStoryVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface SoftDeleteMyStoryVariables {
   id: UUIDString;
 }
@@ -6629,20 +6629,20 @@ export interface SoftDeleteMyStoryVariables {
 Recall that executing the `SoftDeleteMyStory` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `SoftDeleteMyStoryData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface SoftDeleteMyStoryData {
   story_update?: Story_Key | null;
 }
 ```
 ### Using `SoftDeleteMyStory`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, softDeleteMyStory, SoftDeleteMyStoryVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `SoftDeleteMyStory` mutation requires an argument of type `SoftDeleteMyStoryVariables`:
 const softDeleteMyStoryVars: SoftDeleteMyStoryVariables = {
-  id: ...,
+  id: ..., 
 };
 
 // Call the `softDeleteMyStory()` function to execute the mutation.
@@ -6666,13 +6666,13 @@ softDeleteMyStory(softDeleteMyStoryVars).then((response) => {
 
 ### Using `SoftDeleteMyStory`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, softDeleteMyStoryRef, SoftDeleteMyStoryVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `SoftDeleteMyStory` mutation requires an argument of type `SoftDeleteMyStoryVariables`:
 const softDeleteMyStoryVars: SoftDeleteMyStoryVariables = {
-  id: ...,
+  id: ..., 
 };
 
 // Call the `softDeleteMyStoryRef()` function to get a reference to the mutation.
@@ -6699,7 +6699,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminPurgeFoundationProbe
 You can execute the `AdminPurgeFoundationProbe` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminPurgeFoundationProbe(vars: AdminPurgeFoundationProbeVariables): MutationPromise<AdminPurgeFoundationProbeData, AdminPurgeFoundationProbeVariables>;
 
 interface AdminPurgeFoundationProbeRef {
@@ -6710,7 +6710,7 @@ interface AdminPurgeFoundationProbeRef {
 export const adminPurgeFoundationProbeRef: AdminPurgeFoundationProbeRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminPurgeFoundationProbe(dc: DataConnect, vars: AdminPurgeFoundationProbeVariables): MutationPromise<AdminPurgeFoundationProbeData, AdminPurgeFoundationProbeVariables>;
 
 interface AdminPurgeFoundationProbeRef {
@@ -6721,7 +6721,7 @@ export const adminPurgeFoundationProbeRef: AdminPurgeFoundationProbeRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminPurgeFoundationProbeRef:
-```typescrip
+```typescript
 const name = adminPurgeFoundationProbeRef.operationName;
 console.log(name);
 ```
@@ -6729,7 +6729,7 @@ console.log(name);
 ### Variables
 The `AdminPurgeFoundationProbe` mutation requires an argument of type `AdminPurgeFoundationProbeVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminPurgeFoundationProbeVariables {
   id: UUIDString;
 }
@@ -6738,20 +6738,20 @@ export interface AdminPurgeFoundationProbeVariables {
 Recall that executing the `AdminPurgeFoundationProbe` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminPurgeFoundationProbeData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminPurgeFoundationProbeData {
   foundationProbe_delete?: FoundationProbe_Key | null;
 }
 ```
 ### Using `AdminPurgeFoundationProbe`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminPurgeFoundationProbe, AdminPurgeFoundationProbeVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminPurgeFoundationProbe` mutation requires an argument of type `AdminPurgeFoundationProbeVariables`:
 const adminPurgeFoundationProbeVars: AdminPurgeFoundationProbeVariables = {
-  id: ...,
+  id: ..., 
 };
 
 // Call the `adminPurgeFoundationProbe()` function to execute the mutation.
@@ -6775,13 +6775,13 @@ adminPurgeFoundationProbe(adminPurgeFoundationProbeVars).then((response) => {
 
 ### Using `AdminPurgeFoundationProbe`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminPurgeFoundationProbeRef, AdminPurgeFoundationProbeVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminPurgeFoundationProbe` mutation requires an argument of type `AdminPurgeFoundationProbeVariables`:
 const adminPurgeFoundationProbeVars: AdminPurgeFoundationProbeVariables = {
-  id: ...,
+  id: ..., 
 };
 
 // Call the `adminPurgeFoundationProbeRef()` function to get a reference to the mutation.
@@ -6808,7 +6808,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminPurgeFoundationStory
 You can execute the `AdminPurgeFoundationStory` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminPurgeFoundationStory(vars: AdminPurgeFoundationStoryVariables): MutationPromise<AdminPurgeFoundationStoryData, AdminPurgeFoundationStoryVariables>;
 
 interface AdminPurgeFoundationStoryRef {
@@ -6819,7 +6819,7 @@ interface AdminPurgeFoundationStoryRef {
 export const adminPurgeFoundationStoryRef: AdminPurgeFoundationStoryRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminPurgeFoundationStory(dc: DataConnect, vars: AdminPurgeFoundationStoryVariables): MutationPromise<AdminPurgeFoundationStoryData, AdminPurgeFoundationStoryVariables>;
 
 interface AdminPurgeFoundationStoryRef {
@@ -6830,7 +6830,7 @@ export const adminPurgeFoundationStoryRef: AdminPurgeFoundationStoryRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminPurgeFoundationStoryRef:
-```typescrip
+```typescript
 const name = adminPurgeFoundationStoryRef.operationName;
 console.log(name);
 ```
@@ -6838,7 +6838,7 @@ console.log(name);
 ### Variables
 The `AdminPurgeFoundationStory` mutation requires an argument of type `AdminPurgeFoundationStoryVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminPurgeFoundationStoryVariables {
   id: UUIDString;
 }
@@ -6847,20 +6847,20 @@ export interface AdminPurgeFoundationStoryVariables {
 Recall that executing the `AdminPurgeFoundationStory` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminPurgeFoundationStoryData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminPurgeFoundationStoryData {
   story_delete?: Story_Key | null;
 }
 ```
 ### Using `AdminPurgeFoundationStory`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminPurgeFoundationStory, AdminPurgeFoundationStoryVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminPurgeFoundationStory` mutation requires an argument of type `AdminPurgeFoundationStoryVariables`:
 const adminPurgeFoundationStoryVars: AdminPurgeFoundationStoryVariables = {
-  id: ...,
+  id: ..., 
 };
 
 // Call the `adminPurgeFoundationStory()` function to execute the mutation.
@@ -6884,13 +6884,13 @@ adminPurgeFoundationStory(adminPurgeFoundationStoryVars).then((response) => {
 
 ### Using `AdminPurgeFoundationStory`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminPurgeFoundationStoryRef, AdminPurgeFoundationStoryVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminPurgeFoundationStory` mutation requires an argument of type `AdminPurgeFoundationStoryVariables`:
 const adminPurgeFoundationStoryVars: AdminPurgeFoundationStoryVariables = {
-  id: ...,
+  id: ..., 
 };
 
 // Call the `adminPurgeFoundationStoryRef()` function to get a reference to the mutation.
@@ -6915,9 +6915,9 @@ executeMutation(ref).then((response) => {
 });
 ```
 
-## AdminReserveMediaAsse
+## AdminReserveMediaAsset
 You can execute the `AdminReserveMediaAsset` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminReserveMediaAsset(vars: AdminReserveMediaAssetVariables): MutationPromise<AdminReserveMediaAssetData, AdminReserveMediaAssetVariables>;
 
 interface AdminReserveMediaAssetRef {
@@ -6928,7 +6928,7 @@ interface AdminReserveMediaAssetRef {
 export const adminReserveMediaAssetRef: AdminReserveMediaAssetRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminReserveMediaAsset(dc: DataConnect, vars: AdminReserveMediaAssetVariables): MutationPromise<AdminReserveMediaAssetData, AdminReserveMediaAssetVariables>;
 
 interface AdminReserveMediaAssetRef {
@@ -6939,7 +6939,7 @@ export const adminReserveMediaAssetRef: AdminReserveMediaAssetRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminReserveMediaAssetRef:
-```typescrip
+```typescript
 const name = adminReserveMediaAssetRef.operationName;
 console.log(name);
 ```
@@ -6947,7 +6947,7 @@ console.log(name);
 ### Variables
 The `AdminReserveMediaAsset` mutation requires an argument of type `AdminReserveMediaAssetVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminReserveMediaAssetVariables {
   id: UUIDString;
   ownerUid: string;
@@ -6978,7 +6978,7 @@ export interface AdminReserveMediaAssetVariables {
 Recall that executing the `AdminReserveMediaAsset` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminReserveMediaAssetData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminReserveMediaAssetData {
   userAccount_upsert: UserAccount_Key;
   mediaAsset_insert: MediaAsset_Key;
@@ -6987,35 +6987,35 @@ export interface AdminReserveMediaAssetData {
 ```
 ### Using `AdminReserveMediaAsset`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminReserveMediaAsset, AdminReserveMediaAssetVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminReserveMediaAsset` mutation requires an argument of type `AdminReserveMediaAssetVariables`:
 const adminReserveMediaAssetVars: AdminReserveMediaAssetVariables = {
-  id: ...,
-  ownerUid: ...,
+  id: ..., 
+  ownerUid: ..., 
   ownerEmail: ..., // optional
   ownerDisplayName: ..., // optional
   storyId: ..., // optional
   generationJobId: ..., // optional
   replacesAssetId: ..., // optional
-  assetType: ...,
-  purpose: ...,
-  visibility: ...,
-  bucket: ...,
-  objectKey: ...,
+  assetType: ..., 
+  purpose: ..., 
+  visibility: ..., 
+  bucket: ..., 
+  objectKey: ..., 
   originalFilename: ..., // optional
-  mimeType: ...,
-  extension: ...,
-  byteSize: ...,
-  checksumSha256: ...,
+  mimeType: ..., 
+  extension: ..., 
+  byteSize: ..., 
+  checksumSha256: ..., 
   width: ..., // optional
   height: ..., // optional
   durationMs: ..., // optional
-  version: ...,
-  cacheControl: ...,
-  sourceKind: ...,
+  version: ..., 
+  cacheControl: ..., 
+  sourceKind: ..., 
 };
 
 // Call the `adminReserveMediaAsset()` function to execute the mutation.
@@ -7043,35 +7043,35 @@ adminReserveMediaAsset(adminReserveMediaAssetVars).then((response) => {
 
 ### Using `AdminReserveMediaAsset`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminReserveMediaAssetRef, AdminReserveMediaAssetVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminReserveMediaAsset` mutation requires an argument of type `AdminReserveMediaAssetVariables`:
 const adminReserveMediaAssetVars: AdminReserveMediaAssetVariables = {
-  id: ...,
-  ownerUid: ...,
+  id: ..., 
+  ownerUid: ..., 
   ownerEmail: ..., // optional
   ownerDisplayName: ..., // optional
   storyId: ..., // optional
   generationJobId: ..., // optional
   replacesAssetId: ..., // optional
-  assetType: ...,
-  purpose: ...,
-  visibility: ...,
-  bucket: ...,
-  objectKey: ...,
+  assetType: ..., 
+  purpose: ..., 
+  visibility: ..., 
+  bucket: ..., 
+  objectKey: ..., 
   originalFilename: ..., // optional
-  mimeType: ...,
-  extension: ...,
-  byteSize: ...,
-  checksumSha256: ...,
+  mimeType: ..., 
+  extension: ..., 
+  byteSize: ..., 
+  checksumSha256: ..., 
   width: ..., // optional
   height: ..., // optional
   durationMs: ..., // optional
-  version: ...,
-  cacheControl: ...,
-  sourceKind: ...,
+  version: ..., 
+  cacheControl: ..., 
+  sourceKind: ..., 
 };
 
 // Call the `adminReserveMediaAssetRef()` function to get a reference to the mutation.
@@ -7102,7 +7102,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminCommitMediaAssetReady
 You can execute the `AdminCommitMediaAssetReady` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminCommitMediaAssetReady(vars: AdminCommitMediaAssetReadyVariables): MutationPromise<AdminCommitMediaAssetReadyData, AdminCommitMediaAssetReadyVariables>;
 
 interface AdminCommitMediaAssetReadyRef {
@@ -7113,7 +7113,7 @@ interface AdminCommitMediaAssetReadyRef {
 export const adminCommitMediaAssetReadyRef: AdminCommitMediaAssetReadyRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminCommitMediaAssetReady(dc: DataConnect, vars: AdminCommitMediaAssetReadyVariables): MutationPromise<AdminCommitMediaAssetReadyData, AdminCommitMediaAssetReadyVariables>;
 
 interface AdminCommitMediaAssetReadyRef {
@@ -7124,7 +7124,7 @@ export const adminCommitMediaAssetReadyRef: AdminCommitMediaAssetReadyRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminCommitMediaAssetReadyRef:
-```typescrip
+```typescript
 const name = adminCommitMediaAssetReadyRef.operationName;
 console.log(name);
 ```
@@ -7132,7 +7132,7 @@ console.log(name);
 ### Variables
 The `AdminCommitMediaAssetReady` mutation requires an argument of type `AdminCommitMediaAssetReadyVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminCommitMediaAssetReadyVariables {
   id: UUIDString;
   ownerUid: string;
@@ -7149,7 +7149,7 @@ export interface AdminCommitMediaAssetReadyVariables {
 Recall that executing the `AdminCommitMediaAssetReady` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminCommitMediaAssetReadyData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminCommitMediaAssetReadyData {
   assetReady?: MediaAsset_Key | null;
   mediaAttachment_insert: MediaAttachment_Key;
@@ -7158,18 +7158,18 @@ export interface AdminCommitMediaAssetReadyData {
 ```
 ### Using `AdminCommitMediaAssetReady`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminCommitMediaAssetReady, AdminCommitMediaAssetReadyVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminCommitMediaAssetReady` mutation requires an argument of type `AdminCommitMediaAssetReadyVariables`:
 const adminCommitMediaAssetReadyVars: AdminCommitMediaAssetReadyVariables = {
-  id: ...,
-  ownerUid: ...,
+  id: ..., 
+  ownerUid: ..., 
   etag: ..., // optional
-  targetKind: ...,
-  targetKey: ...,
-  purpose: ...,
+  targetKind: ..., 
+  targetKey: ..., 
+  purpose: ..., 
   storyId: ..., // optional
   chapterId: ..., // optional
   entityId: ..., // optional
@@ -7200,18 +7200,18 @@ adminCommitMediaAssetReady(adminCommitMediaAssetReadyVars).then((response) => {
 
 ### Using `AdminCommitMediaAssetReady`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminCommitMediaAssetReadyRef, AdminCommitMediaAssetReadyVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminCommitMediaAssetReady` mutation requires an argument of type `AdminCommitMediaAssetReadyVariables`:
 const adminCommitMediaAssetReadyVars: AdminCommitMediaAssetReadyVariables = {
-  id: ...,
-  ownerUid: ...,
+  id: ..., 
+  ownerUid: ..., 
   etag: ..., // optional
-  targetKind: ...,
-  targetKey: ...,
-  purpose: ...,
+  targetKind: ..., 
+  targetKey: ..., 
+  purpose: ..., 
   storyId: ..., // optional
   chapterId: ..., // optional
   entityId: ..., // optional
@@ -7243,9 +7243,9 @@ executeMutation(ref).then((response) => {
 });
 ```
 
-## AdminCommitMediaAssetReplacemen
+## AdminCommitMediaAssetReplacement
 You can execute the `AdminCommitMediaAssetReplacement` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminCommitMediaAssetReplacement(vars: AdminCommitMediaAssetReplacementVariables): MutationPromise<AdminCommitMediaAssetReplacementData, AdminCommitMediaAssetReplacementVariables>;
 
 interface AdminCommitMediaAssetReplacementRef {
@@ -7256,7 +7256,7 @@ interface AdminCommitMediaAssetReplacementRef {
 export const adminCommitMediaAssetReplacementRef: AdminCommitMediaAssetReplacementRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminCommitMediaAssetReplacement(dc: DataConnect, vars: AdminCommitMediaAssetReplacementVariables): MutationPromise<AdminCommitMediaAssetReplacementData, AdminCommitMediaAssetReplacementVariables>;
 
 interface AdminCommitMediaAssetReplacementRef {
@@ -7267,7 +7267,7 @@ export const adminCommitMediaAssetReplacementRef: AdminCommitMediaAssetReplaceme
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminCommitMediaAssetReplacementRef:
-```typescrip
+```typescript
 const name = adminCommitMediaAssetReplacementRef.operationName;
 console.log(name);
 ```
@@ -7275,7 +7275,7 @@ console.log(name);
 ### Variables
 The `AdminCommitMediaAssetReplacement` mutation requires an argument of type `AdminCommitMediaAssetReplacementVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminCommitMediaAssetReplacementVariables {
   id: UUIDString;
   ownerUid: string;
@@ -7296,7 +7296,7 @@ export interface AdminCommitMediaAssetReplacementVariables {
 Recall that executing the `AdminCommitMediaAssetReplacement` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminCommitMediaAssetReplacementData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminCommitMediaAssetReplacementData {
   replacementReady?: MediaAsset_Key | null;
   mediaAttachment_updateMany: number;
@@ -7308,25 +7308,25 @@ export interface AdminCommitMediaAssetReplacementData {
 ```
 ### Using `AdminCommitMediaAssetReplacement`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminCommitMediaAssetReplacement, AdminCommitMediaAssetReplacementVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminCommitMediaAssetReplacement` mutation requires an argument of type `AdminCommitMediaAssetReplacementVariables`:
 const adminCommitMediaAssetReplacementVars: AdminCommitMediaAssetReplacementVariables = {
-  id: ...,
-  ownerUid: ...,
-  replacesAssetId: ...,
-  replacesBucket: ...,
-  replacesObjectKey: ...,
+  id: ..., 
+  ownerUid: ..., 
+  replacesAssetId: ..., 
+  replacesBucket: ..., 
+  replacesObjectKey: ..., 
   etag: ..., // optional
-  targetKind: ...,
-  targetKey: ...,
-  purpose: ...,
+  targetKind: ..., 
+  targetKey: ..., 
+  purpose: ..., 
   storyId: ..., // optional
   chapterId: ..., // optional
   entityId: ..., // optional
-  cleanupAfter: ...,
+  cleanupAfter: ..., 
 };
 
 // Call the `adminCommitMediaAssetReplacement()` function to execute the mutation.
@@ -7360,25 +7360,25 @@ adminCommitMediaAssetReplacement(adminCommitMediaAssetReplacementVars).then((res
 
 ### Using `AdminCommitMediaAssetReplacement`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminCommitMediaAssetReplacementRef, AdminCommitMediaAssetReplacementVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminCommitMediaAssetReplacement` mutation requires an argument of type `AdminCommitMediaAssetReplacementVariables`:
 const adminCommitMediaAssetReplacementVars: AdminCommitMediaAssetReplacementVariables = {
-  id: ...,
-  ownerUid: ...,
-  replacesAssetId: ...,
-  replacesBucket: ...,
-  replacesObjectKey: ...,
+  id: ..., 
+  ownerUid: ..., 
+  replacesAssetId: ..., 
+  replacesBucket: ..., 
+  replacesObjectKey: ..., 
   etag: ..., // optional
-  targetKind: ...,
-  targetKey: ...,
-  purpose: ...,
+  targetKind: ..., 
+  targetKey: ..., 
+  purpose: ..., 
   storyId: ..., // optional
   chapterId: ..., // optional
   entityId: ..., // optional
-  cleanupAfter: ...,
+  cleanupAfter: ..., 
 };
 
 // Call the `adminCommitMediaAssetReplacementRef()` function to get a reference to the mutation.
@@ -7415,7 +7415,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminMarkMediaAssetFailed
 You can execute the `AdminMarkMediaAssetFailed` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminMarkMediaAssetFailed(vars: AdminMarkMediaAssetFailedVariables): MutationPromise<AdminMarkMediaAssetFailedData, AdminMarkMediaAssetFailedVariables>;
 
 interface AdminMarkMediaAssetFailedRef {
@@ -7426,7 +7426,7 @@ interface AdminMarkMediaAssetFailedRef {
 export const adminMarkMediaAssetFailedRef: AdminMarkMediaAssetFailedRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminMarkMediaAssetFailed(dc: DataConnect, vars: AdminMarkMediaAssetFailedVariables): MutationPromise<AdminMarkMediaAssetFailedData, AdminMarkMediaAssetFailedVariables>;
 
 interface AdminMarkMediaAssetFailedRef {
@@ -7437,7 +7437,7 @@ export const adminMarkMediaAssetFailedRef: AdminMarkMediaAssetFailedRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminMarkMediaAssetFailedRef:
-```typescrip
+```typescript
 const name = adminMarkMediaAssetFailedRef.operationName;
 console.log(name);
 ```
@@ -7445,7 +7445,7 @@ console.log(name);
 ### Variables
 The `AdminMarkMediaAssetFailed` mutation requires an argument of type `AdminMarkMediaAssetFailedVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminMarkMediaAssetFailedVariables {
   id: UUIDString;
   ownerUid: string;
@@ -7457,7 +7457,7 @@ export interface AdminMarkMediaAssetFailedVariables {
 Recall that executing the `AdminMarkMediaAssetFailed` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminMarkMediaAssetFailedData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminMarkMediaAssetFailedData {
   mediaAsset_update?: MediaAsset_Key | null;
   mediaUploadAttempt_updateMany: number;
@@ -7465,16 +7465,16 @@ export interface AdminMarkMediaAssetFailedData {
 ```
 ### Using `AdminMarkMediaAssetFailed`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminMarkMediaAssetFailed, AdminMarkMediaAssetFailedVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminMarkMediaAssetFailed` mutation requires an argument of type `AdminMarkMediaAssetFailedVariables`:
 const adminMarkMediaAssetFailedVars: AdminMarkMediaAssetFailedVariables = {
-  id: ...,
-  ownerUid: ...,
-  failureCode: ...,
-  failureMessage: ...,
+  id: ..., 
+  ownerUid: ..., 
+  failureCode: ..., 
+  failureMessage: ..., 
 };
 
 // Call the `adminMarkMediaAssetFailed()` function to execute the mutation.
@@ -7500,16 +7500,16 @@ adminMarkMediaAssetFailed(adminMarkMediaAssetFailedVars).then((response) => {
 
 ### Using `AdminMarkMediaAssetFailed`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminMarkMediaAssetFailedRef, AdminMarkMediaAssetFailedVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminMarkMediaAssetFailed` mutation requires an argument of type `AdminMarkMediaAssetFailedVariables`:
 const adminMarkMediaAssetFailedVars: AdminMarkMediaAssetFailedVariables = {
-  id: ...,
-  ownerUid: ...,
-  failureCode: ...,
-  failureMessage: ...,
+  id: ..., 
+  ownerUid: ..., 
+  failureCode: ..., 
+  failureMessage: ..., 
 };
 
 // Call the `adminMarkMediaAssetFailedRef()` function to get a reference to the mutation.
@@ -7538,7 +7538,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminMarkMediaAssetPendingCleanup
 You can execute the `AdminMarkMediaAssetPendingCleanup` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminMarkMediaAssetPendingCleanup(vars: AdminMarkMediaAssetPendingCleanupVariables): MutationPromise<AdminMarkMediaAssetPendingCleanupData, AdminMarkMediaAssetPendingCleanupVariables>;
 
 interface AdminMarkMediaAssetPendingCleanupRef {
@@ -7549,7 +7549,7 @@ interface AdminMarkMediaAssetPendingCleanupRef {
 export const adminMarkMediaAssetPendingCleanupRef: AdminMarkMediaAssetPendingCleanupRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminMarkMediaAssetPendingCleanup(dc: DataConnect, vars: AdminMarkMediaAssetPendingCleanupVariables): MutationPromise<AdminMarkMediaAssetPendingCleanupData, AdminMarkMediaAssetPendingCleanupVariables>;
 
 interface AdminMarkMediaAssetPendingCleanupRef {
@@ -7560,7 +7560,7 @@ export const adminMarkMediaAssetPendingCleanupRef: AdminMarkMediaAssetPendingCle
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminMarkMediaAssetPendingCleanupRef:
-```typescrip
+```typescript
 const name = adminMarkMediaAssetPendingCleanupRef.operationName;
 console.log(name);
 ```
@@ -7568,7 +7568,7 @@ console.log(name);
 ### Variables
 The `AdminMarkMediaAssetPendingCleanup` mutation requires an argument of type `AdminMarkMediaAssetPendingCleanupVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminMarkMediaAssetPendingCleanupVariables {
   id: UUIDString;
   ownerUid: string;
@@ -7582,7 +7582,7 @@ export interface AdminMarkMediaAssetPendingCleanupVariables {
 Recall that executing the `AdminMarkMediaAssetPendingCleanup` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminMarkMediaAssetPendingCleanupData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminMarkMediaAssetPendingCleanupData {
   mediaAsset_update?: MediaAsset_Key | null;
   mediaCleanupTask_insert: MediaCleanupTask_Key;
@@ -7590,17 +7590,17 @@ export interface AdminMarkMediaAssetPendingCleanupData {
 ```
 ### Using `AdminMarkMediaAssetPendingCleanup`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminMarkMediaAssetPendingCleanup, AdminMarkMediaAssetPendingCleanupVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminMarkMediaAssetPendingCleanup` mutation requires an argument of type `AdminMarkMediaAssetPendingCleanupVariables`:
 const adminMarkMediaAssetPendingCleanupVars: AdminMarkMediaAssetPendingCleanupVariables = {
-  id: ...,
-  ownerUid: ...,
-  bucket: ...,
-  objectKey: ...,
-  reason: ...,
+  id: ..., 
+  ownerUid: ..., 
+  bucket: ..., 
+  objectKey: ..., 
+  reason: ..., 
   failureMessage: ..., // optional
 };
 
@@ -7627,17 +7627,17 @@ adminMarkMediaAssetPendingCleanup(adminMarkMediaAssetPendingCleanupVars).then((r
 
 ### Using `AdminMarkMediaAssetPendingCleanup`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminMarkMediaAssetPendingCleanupRef, AdminMarkMediaAssetPendingCleanupVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminMarkMediaAssetPendingCleanup` mutation requires an argument of type `AdminMarkMediaAssetPendingCleanupVariables`:
 const adminMarkMediaAssetPendingCleanupVars: AdminMarkMediaAssetPendingCleanupVariables = {
-  id: ...,
-  ownerUid: ...,
-  bucket: ...,
-  objectKey: ...,
-  reason: ...,
+  id: ..., 
+  ownerUid: ..., 
+  bucket: ..., 
+  objectKey: ..., 
+  reason: ..., 
   failureMessage: ..., // optional
 };
 
@@ -7667,7 +7667,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminRequestMediaAssetDeletion
 You can execute the `AdminRequestMediaAssetDeletion` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminRequestMediaAssetDeletion(vars: AdminRequestMediaAssetDeletionVariables): MutationPromise<AdminRequestMediaAssetDeletionData, AdminRequestMediaAssetDeletionVariables>;
 
 interface AdminRequestMediaAssetDeletionRef {
@@ -7678,7 +7678,7 @@ interface AdminRequestMediaAssetDeletionRef {
 export const adminRequestMediaAssetDeletionRef: AdminRequestMediaAssetDeletionRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminRequestMediaAssetDeletion(dc: DataConnect, vars: AdminRequestMediaAssetDeletionVariables): MutationPromise<AdminRequestMediaAssetDeletionData, AdminRequestMediaAssetDeletionVariables>;
 
 interface AdminRequestMediaAssetDeletionRef {
@@ -7689,7 +7689,7 @@ export const adminRequestMediaAssetDeletionRef: AdminRequestMediaAssetDeletionRe
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminRequestMediaAssetDeletionRef:
-```typescrip
+```typescript
 const name = adminRequestMediaAssetDeletionRef.operationName;
 console.log(name);
 ```
@@ -7697,7 +7697,7 @@ console.log(name);
 ### Variables
 The `AdminRequestMediaAssetDeletion` mutation requires an argument of type `AdminRequestMediaAssetDeletionVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminRequestMediaAssetDeletionVariables {
   id: UUIDString;
   ownerUid: string;
@@ -7709,7 +7709,7 @@ export interface AdminRequestMediaAssetDeletionVariables {
 Recall that executing the `AdminRequestMediaAssetDeletion` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminRequestMediaAssetDeletionData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminRequestMediaAssetDeletionData {
   mediaAsset_update?: MediaAsset_Key | null;
   mediaAttachment_updateMany: number;
@@ -7718,16 +7718,16 @@ export interface AdminRequestMediaAssetDeletionData {
 ```
 ### Using `AdminRequestMediaAssetDeletion`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminRequestMediaAssetDeletion, AdminRequestMediaAssetDeletionVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminRequestMediaAssetDeletion` mutation requires an argument of type `AdminRequestMediaAssetDeletionVariables`:
 const adminRequestMediaAssetDeletionVars: AdminRequestMediaAssetDeletionVariables = {
-  id: ...,
-  ownerUid: ...,
-  bucket: ...,
-  objectKey: ...,
+  id: ..., 
+  ownerUid: ..., 
+  bucket: ..., 
+  objectKey: ..., 
 };
 
 // Call the `adminRequestMediaAssetDeletion()` function to execute the mutation.
@@ -7755,16 +7755,16 @@ adminRequestMediaAssetDeletion(adminRequestMediaAssetDeletionVars).then((respons
 
 ### Using `AdminRequestMediaAssetDeletion`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminRequestMediaAssetDeletionRef, AdminRequestMediaAssetDeletionVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminRequestMediaAssetDeletion` mutation requires an argument of type `AdminRequestMediaAssetDeletionVariables`:
 const adminRequestMediaAssetDeletionVars: AdminRequestMediaAssetDeletionVariables = {
-  id: ...,
-  ownerUid: ...,
-  bucket: ...,
-  objectKey: ...,
+  id: ..., 
+  ownerUid: ..., 
+  bucket: ..., 
+  objectKey: ..., 
 };
 
 // Call the `adminRequestMediaAssetDeletionRef()` function to get a reference to the mutation.
@@ -7795,7 +7795,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminCompleteMediaCleanup
 You can execute the `AdminCompleteMediaCleanup` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminCompleteMediaCleanup(vars: AdminCompleteMediaCleanupVariables): MutationPromise<AdminCompleteMediaCleanupData, AdminCompleteMediaCleanupVariables>;
 
 interface AdminCompleteMediaCleanupRef {
@@ -7806,7 +7806,7 @@ interface AdminCompleteMediaCleanupRef {
 export const adminCompleteMediaCleanupRef: AdminCompleteMediaCleanupRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminCompleteMediaCleanup(dc: DataConnect, vars: AdminCompleteMediaCleanupVariables): MutationPromise<AdminCompleteMediaCleanupData, AdminCompleteMediaCleanupVariables>;
 
 interface AdminCompleteMediaCleanupRef {
@@ -7817,7 +7817,7 @@ export const adminCompleteMediaCleanupRef: AdminCompleteMediaCleanupRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminCompleteMediaCleanupRef:
-```typescrip
+```typescript
 const name = adminCompleteMediaCleanupRef.operationName;
 console.log(name);
 ```
@@ -7825,7 +7825,7 @@ console.log(name);
 ### Variables
 The `AdminCompleteMediaCleanup` mutation requires an argument of type `AdminCompleteMediaCleanupVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminCompleteMediaCleanupVariables {
   taskId: UUIDString;
   assetId: UUIDString;
@@ -7835,7 +7835,7 @@ export interface AdminCompleteMediaCleanupVariables {
 Recall that executing the `AdminCompleteMediaCleanup` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminCompleteMediaCleanupData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminCompleteMediaCleanupData {
   mediaCleanupTask_update?: MediaCleanupTask_Key | null;
   mediaAsset_update?: MediaAsset_Key | null;
@@ -7843,14 +7843,14 @@ export interface AdminCompleteMediaCleanupData {
 ```
 ### Using `AdminCompleteMediaCleanup`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminCompleteMediaCleanup, AdminCompleteMediaCleanupVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminCompleteMediaCleanup` mutation requires an argument of type `AdminCompleteMediaCleanupVariables`:
 const adminCompleteMediaCleanupVars: AdminCompleteMediaCleanupVariables = {
-  taskId: ...,
-  assetId: ...,
+  taskId: ..., 
+  assetId: ..., 
 };
 
 // Call the `adminCompleteMediaCleanup()` function to execute the mutation.
@@ -7876,14 +7876,14 @@ adminCompleteMediaCleanup(adminCompleteMediaCleanupVars).then((response) => {
 
 ### Using `AdminCompleteMediaCleanup`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminCompleteMediaCleanupRef, AdminCompleteMediaCleanupVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminCompleteMediaCleanup` mutation requires an argument of type `AdminCompleteMediaCleanupVariables`:
 const adminCompleteMediaCleanupVars: AdminCompleteMediaCleanupVariables = {
-  taskId: ...,
-  assetId: ...,
+  taskId: ..., 
+  assetId: ..., 
 };
 
 // Call the `adminCompleteMediaCleanupRef()` function to get a reference to the mutation.
@@ -7912,7 +7912,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminFailMediaCleanup
 You can execute the `AdminFailMediaCleanup` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminFailMediaCleanup(vars: AdminFailMediaCleanupVariables): MutationPromise<AdminFailMediaCleanupData, AdminFailMediaCleanupVariables>;
 
 interface AdminFailMediaCleanupRef {
@@ -7923,7 +7923,7 @@ interface AdminFailMediaCleanupRef {
 export const adminFailMediaCleanupRef: AdminFailMediaCleanupRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminFailMediaCleanup(dc: DataConnect, vars: AdminFailMediaCleanupVariables): MutationPromise<AdminFailMediaCleanupData, AdminFailMediaCleanupVariables>;
 
 interface AdminFailMediaCleanupRef {
@@ -7934,7 +7934,7 @@ export const adminFailMediaCleanupRef: AdminFailMediaCleanupRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminFailMediaCleanupRef:
-```typescrip
+```typescript
 const name = adminFailMediaCleanupRef.operationName;
 console.log(name);
 ```
@@ -7942,7 +7942,7 @@ console.log(name);
 ### Variables
 The `AdminFailMediaCleanup` mutation requires an argument of type `AdminFailMediaCleanupVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminFailMediaCleanupVariables {
   taskId: UUIDString;
   lastError: string;
@@ -7953,22 +7953,22 @@ export interface AdminFailMediaCleanupVariables {
 Recall that executing the `AdminFailMediaCleanup` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminFailMediaCleanupData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminFailMediaCleanupData {
   mediaCleanupTask_update?: MediaCleanupTask_Key | null;
 }
 ```
 ### Using `AdminFailMediaCleanup`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminFailMediaCleanup, AdminFailMediaCleanupVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminFailMediaCleanup` mutation requires an argument of type `AdminFailMediaCleanupVariables`:
 const adminFailMediaCleanupVars: AdminFailMediaCleanupVariables = {
-  taskId: ...,
-  lastError: ...,
-  nextAttemptAt: ...,
+  taskId: ..., 
+  lastError: ..., 
+  nextAttemptAt: ..., 
 };
 
 // Call the `adminFailMediaCleanup()` function to execute the mutation.
@@ -7992,15 +7992,15 @@ adminFailMediaCleanup(adminFailMediaCleanupVars).then((response) => {
 
 ### Using `AdminFailMediaCleanup`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminFailMediaCleanupRef, AdminFailMediaCleanupVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminFailMediaCleanup` mutation requires an argument of type `AdminFailMediaCleanupVariables`:
 const adminFailMediaCleanupVars: AdminFailMediaCleanupVariables = {
-  taskId: ...,
-  lastError: ...,
-  nextAttemptAt: ...,
+  taskId: ..., 
+  lastError: ..., 
+  nextAttemptAt: ..., 
 };
 
 // Call the `adminFailMediaCleanupRef()` function to get a reference to the mutation.
@@ -8027,7 +8027,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminDeleteOwnedStory
 You can execute the `AdminDeleteOwnedStory` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminDeleteOwnedStory(vars: AdminDeleteOwnedStoryVariables): MutationPromise<AdminDeleteOwnedStoryData, AdminDeleteOwnedStoryVariables>;
 
 interface AdminDeleteOwnedStoryRef {
@@ -8038,7 +8038,7 @@ interface AdminDeleteOwnedStoryRef {
 export const adminDeleteOwnedStoryRef: AdminDeleteOwnedStoryRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminDeleteOwnedStory(dc: DataConnect, vars: AdminDeleteOwnedStoryVariables): MutationPromise<AdminDeleteOwnedStoryData, AdminDeleteOwnedStoryVariables>;
 
 interface AdminDeleteOwnedStoryRef {
@@ -8049,7 +8049,7 @@ export const adminDeleteOwnedStoryRef: AdminDeleteOwnedStoryRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminDeleteOwnedStoryRef:
-```typescrip
+```typescript
 const name = adminDeleteOwnedStoryRef.operationName;
 console.log(name);
 ```
@@ -8057,7 +8057,7 @@ console.log(name);
 ### Variables
 The `AdminDeleteOwnedStory` mutation requires an argument of type `AdminDeleteOwnedStoryVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminDeleteOwnedStoryVariables {
   ownerUid: string;
   storyId: UUIDString;
@@ -8072,7 +8072,7 @@ export interface AdminDeleteOwnedStoryVariables {
 Recall that executing the `AdminDeleteOwnedStory` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminDeleteOwnedStoryData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminDeleteOwnedStoryData {
   storyVersionGuard?: unknown | null;
   story_update?: Story_Key | null;
@@ -8084,19 +8084,19 @@ export interface AdminDeleteOwnedStoryData {
 ```
 ### Using `AdminDeleteOwnedStory`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminDeleteOwnedStory, AdminDeleteOwnedStoryVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminDeleteOwnedStory` mutation requires an argument of type `AdminDeleteOwnedStoryVariables`:
 const adminDeleteOwnedStoryVars: AdminDeleteOwnedStoryVariables = {
-  ownerUid: ...,
-  storyId: ...,
+  ownerUid: ..., 
+  storyId: ..., 
   expectedSyncRevision: ..., // optional
-  newSyncRevision: ...,
-  newRevision: ...,
-  idempotencyKey: ...,
-  deletionJobId: ...,
+  newSyncRevision: ..., 
+  newRevision: ..., 
+  idempotencyKey: ..., 
+  deletionJobId: ..., 
 };
 
 // Call the `adminDeleteOwnedStory()` function to execute the mutation.
@@ -8130,19 +8130,19 @@ adminDeleteOwnedStory(adminDeleteOwnedStoryVars).then((response) => {
 
 ### Using `AdminDeleteOwnedStory`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminDeleteOwnedStoryRef, AdminDeleteOwnedStoryVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminDeleteOwnedStory` mutation requires an argument of type `AdminDeleteOwnedStoryVariables`:
 const adminDeleteOwnedStoryVars: AdminDeleteOwnedStoryVariables = {
-  ownerUid: ...,
-  storyId: ...,
+  ownerUid: ..., 
+  storyId: ..., 
   expectedSyncRevision: ..., // optional
-  newSyncRevision: ...,
-  newRevision: ...,
-  idempotencyKey: ...,
-  deletionJobId: ...,
+  newSyncRevision: ..., 
+  newRevision: ..., 
+  idempotencyKey: ..., 
+  deletionJobId: ..., 
 };
 
 // Call the `adminDeleteOwnedStoryRef()` function to get a reference to the mutation.
@@ -8179,7 +8179,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminClaimStoryDeletionJob
 You can execute the `AdminClaimStoryDeletionJob` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminClaimStoryDeletionJob(vars: AdminClaimStoryDeletionJobVariables): MutationPromise<AdminClaimStoryDeletionJobData, AdminClaimStoryDeletionJobVariables>;
 
 interface AdminClaimStoryDeletionJobRef {
@@ -8190,7 +8190,7 @@ interface AdminClaimStoryDeletionJobRef {
 export const adminClaimStoryDeletionJobRef: AdminClaimStoryDeletionJobRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminClaimStoryDeletionJob(dc: DataConnect, vars: AdminClaimStoryDeletionJobVariables): MutationPromise<AdminClaimStoryDeletionJobData, AdminClaimStoryDeletionJobVariables>;
 
 interface AdminClaimStoryDeletionJobRef {
@@ -8201,7 +8201,7 @@ export const adminClaimStoryDeletionJobRef: AdminClaimStoryDeletionJobRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminClaimStoryDeletionJobRef:
-```typescrip
+```typescript
 const name = adminClaimStoryDeletionJobRef.operationName;
 console.log(name);
 ```
@@ -8209,7 +8209,7 @@ console.log(name);
 ### Variables
 The `AdminClaimStoryDeletionJob` mutation requires an argument of type `AdminClaimStoryDeletionJobVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminClaimStoryDeletionJobVariables {
   jobId: UUIDString;
   leaseOwner: string;
@@ -8221,7 +8221,7 @@ export interface AdminClaimStoryDeletionJobVariables {
 Recall that executing the `AdminClaimStoryDeletionJob` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminClaimStoryDeletionJobData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminClaimStoryDeletionJobData {
   storyDeletionJob_update?: StoryDeletionJob_Key | null;
   storyDeletionStage_update?: StoryDeletionStage_Key | null;
@@ -8229,16 +8229,16 @@ export interface AdminClaimStoryDeletionJobData {
 ```
 ### Using `AdminClaimStoryDeletionJob`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminClaimStoryDeletionJob, AdminClaimStoryDeletionJobVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminClaimStoryDeletionJob` mutation requires an argument of type `AdminClaimStoryDeletionJobVariables`:
 const adminClaimStoryDeletionJobVars: AdminClaimStoryDeletionJobVariables = {
-  jobId: ...,
-  leaseOwner: ...,
-  leaseExpiresAt: ...,
-  stage: ...,
+  jobId: ..., 
+  leaseOwner: ..., 
+  leaseExpiresAt: ..., 
+  stage: ..., 
 };
 
 // Call the `adminClaimStoryDeletionJob()` function to execute the mutation.
@@ -8264,16 +8264,16 @@ adminClaimStoryDeletionJob(adminClaimStoryDeletionJobVars).then((response) => {
 
 ### Using `AdminClaimStoryDeletionJob`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminClaimStoryDeletionJobRef, AdminClaimStoryDeletionJobVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminClaimStoryDeletionJob` mutation requires an argument of type `AdminClaimStoryDeletionJobVariables`:
 const adminClaimStoryDeletionJobVars: AdminClaimStoryDeletionJobVariables = {
-  jobId: ...,
-  leaseOwner: ...,
-  leaseExpiresAt: ...,
-  stage: ...,
+  jobId: ..., 
+  leaseOwner: ..., 
+  leaseExpiresAt: ..., 
+  stage: ..., 
 };
 
 // Call the `adminClaimStoryDeletionJobRef()` function to get a reference to the mutation.
@@ -8302,7 +8302,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminFailStoryDeletionJob
 You can execute the `AdminFailStoryDeletionJob` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminFailStoryDeletionJob(vars: AdminFailStoryDeletionJobVariables): MutationPromise<AdminFailStoryDeletionJobData, AdminFailStoryDeletionJobVariables>;
 
 interface AdminFailStoryDeletionJobRef {
@@ -8313,7 +8313,7 @@ interface AdminFailStoryDeletionJobRef {
 export const adminFailStoryDeletionJobRef: AdminFailStoryDeletionJobRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminFailStoryDeletionJob(dc: DataConnect, vars: AdminFailStoryDeletionJobVariables): MutationPromise<AdminFailStoryDeletionJobData, AdminFailStoryDeletionJobVariables>;
 
 interface AdminFailStoryDeletionJobRef {
@@ -8324,7 +8324,7 @@ export const adminFailStoryDeletionJobRef: AdminFailStoryDeletionJobRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminFailStoryDeletionJobRef:
-```typescrip
+```typescript
 const name = adminFailStoryDeletionJobRef.operationName;
 console.log(name);
 ```
@@ -8332,7 +8332,7 @@ console.log(name);
 ### Variables
 The `AdminFailStoryDeletionJob` mutation requires an argument of type `AdminFailStoryDeletionJobVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminFailStoryDeletionJobVariables {
   jobId: UUIDString;
   leaseOwner: string;
@@ -8344,7 +8344,7 @@ export interface AdminFailStoryDeletionJobVariables {
 Recall that executing the `AdminFailStoryDeletionJob` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminFailStoryDeletionJobData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminFailStoryDeletionJobData {
   storyDeletionStage_update?: StoryDeletionStage_Key | null;
   storyDeletionJob_update?: StoryDeletionJob_Key | null;
@@ -8352,16 +8352,16 @@ export interface AdminFailStoryDeletionJobData {
 ```
 ### Using `AdminFailStoryDeletionJob`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminFailStoryDeletionJob, AdminFailStoryDeletionJobVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminFailStoryDeletionJob` mutation requires an argument of type `AdminFailStoryDeletionJobVariables`:
 const adminFailStoryDeletionJobVars: AdminFailStoryDeletionJobVariables = {
-  jobId: ...,
-  leaseOwner: ...,
-  stage: ...,
-  lastError: ...,
+  jobId: ..., 
+  leaseOwner: ..., 
+  stage: ..., 
+  lastError: ..., 
 };
 
 // Call the `adminFailStoryDeletionJob()` function to execute the mutation.
@@ -8387,16 +8387,16 @@ adminFailStoryDeletionJob(adminFailStoryDeletionJobVars).then((response) => {
 
 ### Using `AdminFailStoryDeletionJob`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminFailStoryDeletionJobRef, AdminFailStoryDeletionJobVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminFailStoryDeletionJob` mutation requires an argument of type `AdminFailStoryDeletionJobVariables`:
 const adminFailStoryDeletionJobVars: AdminFailStoryDeletionJobVariables = {
-  jobId: ...,
-  leaseOwner: ...,
-  stage: ...,
-  lastError: ...,
+  jobId: ..., 
+  leaseOwner: ..., 
+  stage: ..., 
+  lastError: ..., 
 };
 
 // Call the `adminFailStoryDeletionJobRef()` function to get a reference to the mutation.
@@ -8425,7 +8425,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminAdvanceStoryDeletionJob
 You can execute the `AdminAdvanceStoryDeletionJob` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminAdvanceStoryDeletionJob(vars: AdminAdvanceStoryDeletionJobVariables): MutationPromise<AdminAdvanceStoryDeletionJobData, AdminAdvanceStoryDeletionJobVariables>;
 
 interface AdminAdvanceStoryDeletionJobRef {
@@ -8436,7 +8436,7 @@ interface AdminAdvanceStoryDeletionJobRef {
 export const adminAdvanceStoryDeletionJobRef: AdminAdvanceStoryDeletionJobRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminAdvanceStoryDeletionJob(dc: DataConnect, vars: AdminAdvanceStoryDeletionJobVariables): MutationPromise<AdminAdvanceStoryDeletionJobData, AdminAdvanceStoryDeletionJobVariables>;
 
 interface AdminAdvanceStoryDeletionJobRef {
@@ -8447,7 +8447,7 @@ export const adminAdvanceStoryDeletionJobRef: AdminAdvanceStoryDeletionJobRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminAdvanceStoryDeletionJobRef:
-```typescrip
+```typescript
 const name = adminAdvanceStoryDeletionJobRef.operationName;
 console.log(name);
 ```
@@ -8455,7 +8455,7 @@ console.log(name);
 ### Variables
 The `AdminAdvanceStoryDeletionJob` mutation requires an argument of type `AdminAdvanceStoryDeletionJobVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminAdvanceStoryDeletionJobVariables {
   jobId: UUIDString;
   leaseOwner: string;
@@ -8467,7 +8467,7 @@ export interface AdminAdvanceStoryDeletionJobVariables {
 Recall that executing the `AdminAdvanceStoryDeletionJob` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminAdvanceStoryDeletionJobData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminAdvanceStoryDeletionJobData {
   storyDeletionStage_update?: StoryDeletionStage_Key | null;
   storyDeletionJob_update?: StoryDeletionJob_Key | null;
@@ -8475,16 +8475,16 @@ export interface AdminAdvanceStoryDeletionJobData {
 ```
 ### Using `AdminAdvanceStoryDeletionJob`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminAdvanceStoryDeletionJob, AdminAdvanceStoryDeletionJobVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminAdvanceStoryDeletionJob` mutation requires an argument of type `AdminAdvanceStoryDeletionJobVariables`:
 const adminAdvanceStoryDeletionJobVars: AdminAdvanceStoryDeletionJobVariables = {
-  jobId: ...,
-  leaseOwner: ...,
-  completedStage: ...,
-  nextStage: ...,
+  jobId: ..., 
+  leaseOwner: ..., 
+  completedStage: ..., 
+  nextStage: ..., 
 };
 
 // Call the `adminAdvanceStoryDeletionJob()` function to execute the mutation.
@@ -8510,16 +8510,16 @@ adminAdvanceStoryDeletionJob(adminAdvanceStoryDeletionJobVars).then((response) =
 
 ### Using `AdminAdvanceStoryDeletionJob`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminAdvanceStoryDeletionJobRef, AdminAdvanceStoryDeletionJobVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminAdvanceStoryDeletionJob` mutation requires an argument of type `AdminAdvanceStoryDeletionJobVariables`:
 const adminAdvanceStoryDeletionJobVars: AdminAdvanceStoryDeletionJobVariables = {
-  jobId: ...,
-  leaseOwner: ...,
-  completedStage: ...,
-  nextStage: ...,
+  jobId: ..., 
+  leaseOwner: ..., 
+  completedStage: ..., 
+  nextStage: ..., 
 };
 
 // Call the `adminAdvanceStoryDeletionJobRef()` function to get a reference to the mutation.
@@ -8548,7 +8548,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminCompleteStoryDeletionJob
 You can execute the `AdminCompleteStoryDeletionJob` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminCompleteStoryDeletionJob(vars: AdminCompleteStoryDeletionJobVariables): MutationPromise<AdminCompleteStoryDeletionJobData, AdminCompleteStoryDeletionJobVariables>;
 
 interface AdminCompleteStoryDeletionJobRef {
@@ -8559,7 +8559,7 @@ interface AdminCompleteStoryDeletionJobRef {
 export const adminCompleteStoryDeletionJobRef: AdminCompleteStoryDeletionJobRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminCompleteStoryDeletionJob(dc: DataConnect, vars: AdminCompleteStoryDeletionJobVariables): MutationPromise<AdminCompleteStoryDeletionJobData, AdminCompleteStoryDeletionJobVariables>;
 
 interface AdminCompleteStoryDeletionJobRef {
@@ -8570,7 +8570,7 @@ export const adminCompleteStoryDeletionJobRef: AdminCompleteStoryDeletionJobRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminCompleteStoryDeletionJobRef:
-```typescrip
+```typescript
 const name = adminCompleteStoryDeletionJobRef.operationName;
 console.log(name);
 ```
@@ -8578,7 +8578,7 @@ console.log(name);
 ### Variables
 The `AdminCompleteStoryDeletionJob` mutation requires an argument of type `AdminCompleteStoryDeletionJobVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminCompleteStoryDeletionJobVariables {
   jobId: UUIDString;
   leaseOwner: string;
@@ -8588,7 +8588,7 @@ export interface AdminCompleteStoryDeletionJobVariables {
 Recall that executing the `AdminCompleteStoryDeletionJob` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminCompleteStoryDeletionJobData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminCompleteStoryDeletionJobData {
   storyDeletionStage_update?: StoryDeletionStage_Key | null;
   storyDeletionJob_update?: StoryDeletionJob_Key | null;
@@ -8596,14 +8596,14 @@ export interface AdminCompleteStoryDeletionJobData {
 ```
 ### Using `AdminCompleteStoryDeletionJob`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminCompleteStoryDeletionJob, AdminCompleteStoryDeletionJobVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminCompleteStoryDeletionJob` mutation requires an argument of type `AdminCompleteStoryDeletionJobVariables`:
 const adminCompleteStoryDeletionJobVars: AdminCompleteStoryDeletionJobVariables = {
-  jobId: ...,
-  leaseOwner: ...,
+  jobId: ..., 
+  leaseOwner: ..., 
 };
 
 // Call the `adminCompleteStoryDeletionJob()` function to execute the mutation.
@@ -8629,14 +8629,14 @@ adminCompleteStoryDeletionJob(adminCompleteStoryDeletionJobVars).then((response)
 
 ### Using `AdminCompleteStoryDeletionJob`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminCompleteStoryDeletionJobRef, AdminCompleteStoryDeletionJobVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminCompleteStoryDeletionJob` mutation requires an argument of type `AdminCompleteStoryDeletionJobVariables`:
 const adminCompleteStoryDeletionJobVars: AdminCompleteStoryDeletionJobVariables = {
-  jobId: ...,
-  leaseOwner: ...,
+  jobId: ..., 
+  leaseOwner: ..., 
 };
 
 // Call the `adminCompleteStoryDeletionJobRef()` function to get a reference to the mutation.
@@ -8665,7 +8665,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminReserveStorageQuota
 You can execute the `AdminReserveStorageQuota` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminReserveStorageQuota(vars: AdminReserveStorageQuotaVariables): MutationPromise<AdminReserveStorageQuotaData, AdminReserveStorageQuotaVariables>;
 
 interface AdminReserveStorageQuotaRef {
@@ -8676,7 +8676,7 @@ interface AdminReserveStorageQuotaRef {
 export const adminReserveStorageQuotaRef: AdminReserveStorageQuotaRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminReserveStorageQuota(dc: DataConnect, vars: AdminReserveStorageQuotaVariables): MutationPromise<AdminReserveStorageQuotaData, AdminReserveStorageQuotaVariables>;
 
 interface AdminReserveStorageQuotaRef {
@@ -8687,7 +8687,7 @@ export const adminReserveStorageQuotaRef: AdminReserveStorageQuotaRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminReserveStorageQuotaRef:
-```typescrip
+```typescript
 const name = adminReserveStorageQuotaRef.operationName;
 console.log(name);
 ```
@@ -8695,7 +8695,7 @@ console.log(name);
 ### Variables
 The `AdminReserveStorageQuota` mutation requires an argument of type `AdminReserveStorageQuotaVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminReserveStorageQuotaVariables {
   reservationId: UUIDString;
   ownerUid: string;
@@ -8710,7 +8710,7 @@ export interface AdminReserveStorageQuotaVariables {
 Recall that executing the `AdminReserveStorageQuota` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminReserveStorageQuotaData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminReserveStorageQuotaData {
   quota?: unknown | null;
   storageQuotaReservation_insert: StorageQuotaReservation_Key;
@@ -8718,19 +8718,19 @@ export interface AdminReserveStorageQuotaData {
 ```
 ### Using `AdminReserveStorageQuota`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminReserveStorageQuota, AdminReserveStorageQuotaVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminReserveStorageQuota` mutation requires an argument of type `AdminReserveStorageQuotaVariables`:
 const adminReserveStorageQuotaVars: AdminReserveStorageQuotaVariables = {
-  reservationId: ...,
-  ownerUid: ...,
+  reservationId: ..., 
+  ownerUid: ..., 
   storyId: ..., // optional
-  idempotencyKey: ...,
-  requestedBytes: ...,
-  hardLimitBytes: ...,
-  expiresAt: ...,
+  idempotencyKey: ..., 
+  requestedBytes: ..., 
+  hardLimitBytes: ..., 
+  expiresAt: ..., 
 };
 
 // Call the `adminReserveStorageQuota()` function to execute the mutation.
@@ -8756,19 +8756,19 @@ adminReserveStorageQuota(adminReserveStorageQuotaVars).then((response) => {
 
 ### Using `AdminReserveStorageQuota`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminReserveStorageQuotaRef, AdminReserveStorageQuotaVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminReserveStorageQuota` mutation requires an argument of type `AdminReserveStorageQuotaVariables`:
 const adminReserveStorageQuotaVars: AdminReserveStorageQuotaVariables = {
-  reservationId: ...,
-  ownerUid: ...,
+  reservationId: ..., 
+  ownerUid: ..., 
   storyId: ..., // optional
-  idempotencyKey: ...,
-  requestedBytes: ...,
-  hardLimitBytes: ...,
-  expiresAt: ...,
+  idempotencyKey: ..., 
+  requestedBytes: ..., 
+  hardLimitBytes: ..., 
+  expiresAt: ..., 
 };
 
 // Call the `adminReserveStorageQuotaRef()` function to get a reference to the mutation.
@@ -8797,7 +8797,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminReleaseStorageQuotaReservation
 You can execute the `AdminReleaseStorageQuotaReservation` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminReleaseStorageQuotaReservation(vars: AdminReleaseStorageQuotaReservationVariables): MutationPromise<AdminReleaseStorageQuotaReservationData, AdminReleaseStorageQuotaReservationVariables>;
 
 interface AdminReleaseStorageQuotaReservationRef {
@@ -8808,7 +8808,7 @@ interface AdminReleaseStorageQuotaReservationRef {
 export const adminReleaseStorageQuotaReservationRef: AdminReleaseStorageQuotaReservationRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminReleaseStorageQuotaReservation(dc: DataConnect, vars: AdminReleaseStorageQuotaReservationVariables): MutationPromise<AdminReleaseStorageQuotaReservationData, AdminReleaseStorageQuotaReservationVariables>;
 
 interface AdminReleaseStorageQuotaReservationRef {
@@ -8819,7 +8819,7 @@ export const adminReleaseStorageQuotaReservationRef: AdminReleaseStorageQuotaRes
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminReleaseStorageQuotaReservationRef:
-```typescrip
+```typescript
 const name = adminReleaseStorageQuotaReservationRef.operationName;
 console.log(name);
 ```
@@ -8827,7 +8827,7 @@ console.log(name);
 ### Variables
 The `AdminReleaseStorageQuotaReservation` mutation requires an argument of type `AdminReleaseStorageQuotaReservationVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminReleaseStorageQuotaReservationVariables {
   reservationId: UUIDString;
   ownerUid: string;
@@ -8837,21 +8837,21 @@ export interface AdminReleaseStorageQuotaReservationVariables {
 Recall that executing the `AdminReleaseStorageQuotaReservation` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminReleaseStorageQuotaReservationData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminReleaseStorageQuotaReservationData {
   released?: number | null;
 }
 ```
 ### Using `AdminReleaseStorageQuotaReservation`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminReleaseStorageQuotaReservation, AdminReleaseStorageQuotaReservationVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminReleaseStorageQuotaReservation` mutation requires an argument of type `AdminReleaseStorageQuotaReservationVariables`:
 const adminReleaseStorageQuotaReservationVars: AdminReleaseStorageQuotaReservationVariables = {
-  reservationId: ...,
-  ownerUid: ...,
+  reservationId: ..., 
+  ownerUid: ..., 
 };
 
 // Call the `adminReleaseStorageQuotaReservation()` function to execute the mutation.
@@ -8875,14 +8875,14 @@ adminReleaseStorageQuotaReservation(adminReleaseStorageQuotaReservationVars).the
 
 ### Using `AdminReleaseStorageQuotaReservation`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminReleaseStorageQuotaReservationRef, AdminReleaseStorageQuotaReservationVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminReleaseStorageQuotaReservation` mutation requires an argument of type `AdminReleaseStorageQuotaReservationVariables`:
 const adminReleaseStorageQuotaReservationVars: AdminReleaseStorageQuotaReservationVariables = {
-  reservationId: ...,
-  ownerUid: ...,
+  reservationId: ..., 
+  ownerUid: ..., 
 };
 
 // Call the `adminReleaseStorageQuotaReservationRef()` function to get a reference to the mutation.
@@ -8907,9 +8907,9 @@ executeMutation(ref).then((response) => {
 });
 ```
 
-## AdminReserveMediaAssetIdempoten
+## AdminReserveMediaAssetIdempotent
 You can execute the `AdminReserveMediaAssetIdempotent` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminReserveMediaAssetIdempotent(vars: AdminReserveMediaAssetIdempotentVariables): MutationPromise<AdminReserveMediaAssetIdempotentData, AdminReserveMediaAssetIdempotentVariables>;
 
 interface AdminReserveMediaAssetIdempotentRef {
@@ -8920,7 +8920,7 @@ interface AdminReserveMediaAssetIdempotentRef {
 export const adminReserveMediaAssetIdempotentRef: AdminReserveMediaAssetIdempotentRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminReserveMediaAssetIdempotent(dc: DataConnect, vars: AdminReserveMediaAssetIdempotentVariables): MutationPromise<AdminReserveMediaAssetIdempotentData, AdminReserveMediaAssetIdempotentVariables>;
 
 interface AdminReserveMediaAssetIdempotentRef {
@@ -8931,7 +8931,7 @@ export const adminReserveMediaAssetIdempotentRef: AdminReserveMediaAssetIdempote
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminReserveMediaAssetIdempotentRef:
-```typescrip
+```typescript
 const name = adminReserveMediaAssetIdempotentRef.operationName;
 console.log(name);
 ```
@@ -8939,7 +8939,7 @@ console.log(name);
 ### Variables
 The `AdminReserveMediaAssetIdempotent` mutation requires an argument of type `AdminReserveMediaAssetIdempotentVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminReserveMediaAssetIdempotentVariables {
   id: UUIDString;
   ownerUid: string;
@@ -8971,7 +8971,7 @@ export interface AdminReserveMediaAssetIdempotentVariables {
 Recall that executing the `AdminReserveMediaAssetIdempotent` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminReserveMediaAssetIdempotentData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminReserveMediaAssetIdempotentData {
   mediaAsset_insert: MediaAsset_Key;
   storageQuotaReservation_update?: StorageQuotaReservation_Key | null;
@@ -8981,36 +8981,36 @@ export interface AdminReserveMediaAssetIdempotentData {
 ```
 ### Using `AdminReserveMediaAssetIdempotent`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminReserveMediaAssetIdempotent, AdminReserveMediaAssetIdempotentVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminReserveMediaAssetIdempotent` mutation requires an argument of type `AdminReserveMediaAssetIdempotentVariables`:
 const adminReserveMediaAssetIdempotentVars: AdminReserveMediaAssetIdempotentVariables = {
-  id: ...,
-  ownerUid: ...,
+  id: ..., 
+  ownerUid: ..., 
   storyId: ..., // optional
   generationJobId: ..., // optional
   replacesAssetId: ..., // optional
-  quotaReservationId: ...,
-  idempotencyKey: ...,
-  requestHash: ...,
-  assetType: ...,
-  purpose: ...,
-  visibility: ...,
-  bucket: ...,
-  objectKey: ...,
+  quotaReservationId: ..., 
+  idempotencyKey: ..., 
+  requestHash: ..., 
+  assetType: ..., 
+  purpose: ..., 
+  visibility: ..., 
+  bucket: ..., 
+  objectKey: ..., 
   originalFilename: ..., // optional
-  mimeType: ...,
-  extension: ...,
-  byteSize: ...,
-  checksumSha256: ...,
+  mimeType: ..., 
+  extension: ..., 
+  byteSize: ..., 
+  checksumSha256: ..., 
   width: ..., // optional
   height: ..., // optional
   durationMs: ..., // optional
-  version: ...,
-  cacheControl: ...,
-  sourceKind: ...,
+  version: ..., 
+  cacheControl: ..., 
+  sourceKind: ..., 
 };
 
 // Call the `adminReserveMediaAssetIdempotent()` function to execute the mutation.
@@ -9040,36 +9040,36 @@ adminReserveMediaAssetIdempotent(adminReserveMediaAssetIdempotentVars).then((res
 
 ### Using `AdminReserveMediaAssetIdempotent`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminReserveMediaAssetIdempotentRef, AdminReserveMediaAssetIdempotentVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminReserveMediaAssetIdempotent` mutation requires an argument of type `AdminReserveMediaAssetIdempotentVariables`:
 const adminReserveMediaAssetIdempotentVars: AdminReserveMediaAssetIdempotentVariables = {
-  id: ...,
-  ownerUid: ...,
+  id: ..., 
+  ownerUid: ..., 
   storyId: ..., // optional
   generationJobId: ..., // optional
   replacesAssetId: ..., // optional
-  quotaReservationId: ...,
-  idempotencyKey: ...,
-  requestHash: ...,
-  assetType: ...,
-  purpose: ...,
-  visibility: ...,
-  bucket: ...,
-  objectKey: ...,
+  quotaReservationId: ..., 
+  idempotencyKey: ..., 
+  requestHash: ..., 
+  assetType: ..., 
+  purpose: ..., 
+  visibility: ..., 
+  bucket: ..., 
+  objectKey: ..., 
   originalFilename: ..., // optional
-  mimeType: ...,
-  extension: ...,
-  byteSize: ...,
-  checksumSha256: ...,
+  mimeType: ..., 
+  extension: ..., 
+  byteSize: ..., 
+  checksumSha256: ..., 
   width: ..., // optional
   height: ..., // optional
   durationMs: ..., // optional
-  version: ...,
-  cacheControl: ...,
-  sourceKind: ...,
+  version: ..., 
+  cacheControl: ..., 
+  sourceKind: ..., 
 };
 
 // Call the `adminReserveMediaAssetIdempotentRef()` function to get a reference to the mutation.
@@ -9100,9 +9100,9 @@ executeMutation(ref).then((response) => {
 });
 ```
 
-## AdminCommitMediaAssetToSlo
+## AdminCommitMediaAssetToSlot
 You can execute the `AdminCommitMediaAssetToSlot` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminCommitMediaAssetToSlot(vars: AdminCommitMediaAssetToSlotVariables): MutationPromise<AdminCommitMediaAssetToSlotData, AdminCommitMediaAssetToSlotVariables>;
 
 interface AdminCommitMediaAssetToSlotRef {
@@ -9113,7 +9113,7 @@ interface AdminCommitMediaAssetToSlotRef {
 export const adminCommitMediaAssetToSlotRef: AdminCommitMediaAssetToSlotRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminCommitMediaAssetToSlot(dc: DataConnect, vars: AdminCommitMediaAssetToSlotVariables): MutationPromise<AdminCommitMediaAssetToSlotData, AdminCommitMediaAssetToSlotVariables>;
 
 interface AdminCommitMediaAssetToSlotRef {
@@ -9124,7 +9124,7 @@ export const adminCommitMediaAssetToSlotRef: AdminCommitMediaAssetToSlotRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminCommitMediaAssetToSlotRef:
-```typescrip
+```typescript
 const name = adminCommitMediaAssetToSlotRef.operationName;
 console.log(name);
 ```
@@ -9132,7 +9132,7 @@ console.log(name);
 ### Variables
 The `AdminCommitMediaAssetToSlot` mutation requires an argument of type `AdminCommitMediaAssetToSlotVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminCommitMediaAssetToSlotVariables {
   id: UUIDString;
   ownerUid: string;
@@ -9162,7 +9162,7 @@ export interface AdminCommitMediaAssetToSlotVariables {
 Recall that executing the `AdminCommitMediaAssetToSlot` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminCommitMediaAssetToSlotData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminCommitMediaAssetToSlotData {
   mediaAttachment_updateMany: number;
   mediaAsset_update?: MediaAsset_Key | null;
@@ -9175,34 +9175,34 @@ export interface AdminCommitMediaAssetToSlotData {
 ```
 ### Using `AdminCommitMediaAssetToSlot`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminCommitMediaAssetToSlot, AdminCommitMediaAssetToSlotVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminCommitMediaAssetToSlot` mutation requires an argument of type `AdminCommitMediaAssetToSlotVariables`:
 const adminCommitMediaAssetToSlotVars: AdminCommitMediaAssetToSlotVariables = {
-  id: ...,
-  ownerUid: ...,
-  quotaReservationId: ...,
-  idempotencyKey: ...,
+  id: ..., 
+  ownerUid: ..., 
+  quotaReservationId: ..., 
+  idempotencyKey: ..., 
   etag: ..., // optional
   storyId: ..., // optional
   chapterId: ..., // optional
   entityId: ..., // optional
-  targetKind: ...,
-  targetKey: ...,
-  purpose: ...,
-  attachmentId: ...,
+  targetKind: ..., 
+  targetKey: ..., 
+  purpose: ..., 
+  attachmentId: ..., 
   historyEntityType: ..., // optional
   clientHistoryId: ..., // optional
   promptUsed: ..., // optional
   chapterNumber: ..., // optional
   arcTitle: ..., // optional
   label: ..., // optional
-  position: ...,
+  position: ..., 
   expectedCurrentAssetId: ..., // optional
   expectedSlotVersion: ..., // optional
-  newSlotVersion: ...,
+  newSlotVersion: ..., 
 };
 
 // Call the `adminCommitMediaAssetToSlot()` function to execute the mutation.
@@ -9238,34 +9238,34 @@ adminCommitMediaAssetToSlot(adminCommitMediaAssetToSlotVars).then((response) => 
 
 ### Using `AdminCommitMediaAssetToSlot`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminCommitMediaAssetToSlotRef, AdminCommitMediaAssetToSlotVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminCommitMediaAssetToSlot` mutation requires an argument of type `AdminCommitMediaAssetToSlotVariables`:
 const adminCommitMediaAssetToSlotVars: AdminCommitMediaAssetToSlotVariables = {
-  id: ...,
-  ownerUid: ...,
-  quotaReservationId: ...,
-  idempotencyKey: ...,
+  id: ..., 
+  ownerUid: ..., 
+  quotaReservationId: ..., 
+  idempotencyKey: ..., 
   etag: ..., // optional
   storyId: ..., // optional
   chapterId: ..., // optional
   entityId: ..., // optional
-  targetKind: ...,
-  targetKey: ...,
-  purpose: ...,
-  attachmentId: ...,
+  targetKind: ..., 
+  targetKey: ..., 
+  purpose: ..., 
+  attachmentId: ..., 
   historyEntityType: ..., // optional
   clientHistoryId: ..., // optional
   promptUsed: ..., // optional
   chapterNumber: ..., // optional
   arcTitle: ..., // optional
   label: ..., // optional
-  position: ...,
+  position: ..., 
   expectedCurrentAssetId: ..., // optional
   expectedSlotVersion: ..., // optional
-  newSlotVersion: ...,
+  newSlotVersion: ..., 
 };
 
 // Call the `adminCommitMediaAssetToSlotRef()` function to get a reference to the mutation.
@@ -9302,9 +9302,9 @@ executeMutation(ref).then((response) => {
 });
 ```
 
-## AdminSelectOwnedMediaSlotAsse
+## AdminSelectOwnedMediaSlotAsset
 You can execute the `AdminSelectOwnedMediaSlotAsset` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminSelectOwnedMediaSlotAsset(vars: AdminSelectOwnedMediaSlotAssetVariables): MutationPromise<AdminSelectOwnedMediaSlotAssetData, AdminSelectOwnedMediaSlotAssetVariables>;
 
 interface AdminSelectOwnedMediaSlotAssetRef {
@@ -9315,7 +9315,7 @@ interface AdminSelectOwnedMediaSlotAssetRef {
 export const adminSelectOwnedMediaSlotAssetRef: AdminSelectOwnedMediaSlotAssetRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminSelectOwnedMediaSlotAsset(dc: DataConnect, vars: AdminSelectOwnedMediaSlotAssetVariables): MutationPromise<AdminSelectOwnedMediaSlotAssetData, AdminSelectOwnedMediaSlotAssetVariables>;
 
 interface AdminSelectOwnedMediaSlotAssetRef {
@@ -9326,7 +9326,7 @@ export const adminSelectOwnedMediaSlotAssetRef: AdminSelectOwnedMediaSlotAssetRe
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminSelectOwnedMediaSlotAssetRef:
-```typescrip
+```typescript
 const name = adminSelectOwnedMediaSlotAssetRef.operationName;
 console.log(name);
 ```
@@ -9334,7 +9334,7 @@ console.log(name);
 ### Variables
 The `AdminSelectOwnedMediaSlotAsset` mutation requires an argument of type `AdminSelectOwnedMediaSlotAssetVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminSelectOwnedMediaSlotAssetVariables {
   assetId: UUIDString;
   ownerUid: string;
@@ -9354,7 +9354,7 @@ export interface AdminSelectOwnedMediaSlotAssetVariables {
 Recall that executing the `AdminSelectOwnedMediaSlotAsset` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminSelectOwnedMediaSlotAssetData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminSelectOwnedMediaSlotAssetData {
   mediaAttachment_updateMany: number;
   mediaAttachment_update?: MediaAttachment_Key | null;
@@ -9363,24 +9363,24 @@ export interface AdminSelectOwnedMediaSlotAssetData {
 ```
 ### Using `AdminSelectOwnedMediaSlotAsset`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminSelectOwnedMediaSlotAsset, AdminSelectOwnedMediaSlotAssetVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminSelectOwnedMediaSlotAsset` mutation requires an argument of type `AdminSelectOwnedMediaSlotAssetVariables`:
 const adminSelectOwnedMediaSlotAssetVars: AdminSelectOwnedMediaSlotAssetVariables = {
-  assetId: ...,
-  ownerUid: ...,
+  assetId: ..., 
+  ownerUid: ..., 
   storyId: ..., // optional
   chapterId: ..., // optional
   entityId: ..., // optional
-  targetKind: ...,
-  targetKey: ...,
-  purpose: ...,
-  attachmentId: ...,
+  targetKind: ..., 
+  targetKey: ..., 
+  purpose: ..., 
+  attachmentId: ..., 
   expectedCurrentAssetId: ..., // optional
   expectedSlotVersion: ..., // optional
-  newSlotVersion: ...,
+  newSlotVersion: ..., 
 };
 
 // Call the `adminSelectOwnedMediaSlotAsset()` function to execute the mutation.
@@ -9408,24 +9408,24 @@ adminSelectOwnedMediaSlotAsset(adminSelectOwnedMediaSlotAssetVars).then((respons
 
 ### Using `AdminSelectOwnedMediaSlotAsset`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminSelectOwnedMediaSlotAssetRef, AdminSelectOwnedMediaSlotAssetVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminSelectOwnedMediaSlotAsset` mutation requires an argument of type `AdminSelectOwnedMediaSlotAssetVariables`:
 const adminSelectOwnedMediaSlotAssetVars: AdminSelectOwnedMediaSlotAssetVariables = {
-  assetId: ...,
-  ownerUid: ...,
+  assetId: ..., 
+  ownerUid: ..., 
   storyId: ..., // optional
   chapterId: ..., // optional
   entityId: ..., // optional
-  targetKind: ...,
-  targetKey: ...,
-  purpose: ...,
-  attachmentId: ...,
+  targetKind: ..., 
+  targetKey: ..., 
+  purpose: ..., 
+  attachmentId: ..., 
   expectedCurrentAssetId: ..., // optional
   expectedSlotVersion: ..., // optional
-  newSlotVersion: ...,
+  newSlotVersion: ..., 
 };
 
 // Call the `adminSelectOwnedMediaSlotAssetRef()` function to get a reference to the mutation.
@@ -9454,9 +9454,9 @@ executeMutation(ref).then((response) => {
 });
 ```
 
-## AdminSelectUserPortrai
+## AdminSelectUserPortrait
 You can execute the `AdminSelectUserPortrait` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminSelectUserPortrait(vars: AdminSelectUserPortraitVariables): MutationPromise<AdminSelectUserPortraitData, AdminSelectUserPortraitVariables>;
 
 interface AdminSelectUserPortraitRef {
@@ -9467,7 +9467,7 @@ interface AdminSelectUserPortraitRef {
 export const adminSelectUserPortraitRef: AdminSelectUserPortraitRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminSelectUserPortrait(dc: DataConnect, vars: AdminSelectUserPortraitVariables): MutationPromise<AdminSelectUserPortraitData, AdminSelectUserPortraitVariables>;
 
 interface AdminSelectUserPortraitRef {
@@ -9478,7 +9478,7 @@ export const adminSelectUserPortraitRef: AdminSelectUserPortraitRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminSelectUserPortraitRef:
-```typescrip
+```typescript
 const name = adminSelectUserPortraitRef.operationName;
 console.log(name);
 ```
@@ -9486,7 +9486,7 @@ console.log(name);
 ### Variables
 The `AdminSelectUserPortrait` mutation requires an argument of type `AdminSelectUserPortraitVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminSelectUserPortraitVariables {
   ownerUid: string;
   assetId: UUIDString;
@@ -9512,7 +9512,7 @@ export interface AdminSelectUserPortraitVariables {
 Recall that executing the `AdminSelectUserPortrait` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminSelectUserPortraitData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminSelectUserPortraitData {
   profileVersionGuard?: unknown | null;
   userPortrait_updateMany: number;
@@ -9523,26 +9523,26 @@ export interface AdminSelectUserPortraitData {
 ```
 ### Using `AdminSelectUserPortrait`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminSelectUserPortrait, AdminSelectUserPortraitVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminSelectUserPortrait` mutation requires an argument of type `AdminSelectUserPortraitVariables`:
 const adminSelectUserPortraitVars: AdminSelectUserPortraitVariables = {
-  ownerUid: ...,
-  assetId: ...,
-  idempotencyKey: ...,
+  ownerUid: ..., 
+  assetId: ..., 
+  idempotencyKey: ..., 
   expectedActivePortraitAssetId: ..., // optional
   expectedSyncRevision: ..., // optional
-  newSyncRevision: ...,
-  newRevision: ...,
+  newSyncRevision: ..., 
+  newRevision: ..., 
   prompt: ..., // optional
   description: ..., // optional
   daoRank: ..., // optional
   daoXp: ..., // optional
   powerStage: ..., // optional
   equippedInventoryItemId: ..., // optional
-  usedReferenceImage: ...,
+  usedReferenceImage: ..., 
   frameId: ..., // optional
   glowId: ..., // optional
   bannerId: ..., // optional
@@ -9578,26 +9578,26 @@ adminSelectUserPortrait(adminSelectUserPortraitVars).then((response) => {
 
 ### Using `AdminSelectUserPortrait`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminSelectUserPortraitRef, AdminSelectUserPortraitVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminSelectUserPortrait` mutation requires an argument of type `AdminSelectUserPortraitVariables`:
 const adminSelectUserPortraitVars: AdminSelectUserPortraitVariables = {
-  ownerUid: ...,
-  assetId: ...,
-  idempotencyKey: ...,
+  ownerUid: ..., 
+  assetId: ..., 
+  idempotencyKey: ..., 
   expectedActivePortraitAssetId: ..., // optional
   expectedSyncRevision: ..., // optional
-  newSyncRevision: ...,
-  newRevision: ...,
+  newSyncRevision: ..., 
+  newRevision: ..., 
   prompt: ..., // optional
   description: ..., // optional
   daoRank: ..., // optional
   daoXp: ..., // optional
   powerStage: ..., // optional
   equippedInventoryItemId: ..., // optional
-  usedReferenceImage: ...,
+  usedReferenceImage: ..., 
   frameId: ..., // optional
   glowId: ..., // optional
   bannerId: ..., // optional
@@ -9634,9 +9634,9 @@ executeMutation(ref).then((response) => {
 });
 ```
 
-## AdminEnsureMediaDeletionInten
+## AdminEnsureMediaDeletionIntent
 You can execute the `AdminEnsureMediaDeletionIntent` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminEnsureMediaDeletionIntent(vars: AdminEnsureMediaDeletionIntentVariables): MutationPromise<AdminEnsureMediaDeletionIntentData, AdminEnsureMediaDeletionIntentVariables>;
 
 interface AdminEnsureMediaDeletionIntentRef {
@@ -9647,7 +9647,7 @@ interface AdminEnsureMediaDeletionIntentRef {
 export const adminEnsureMediaDeletionIntentRef: AdminEnsureMediaDeletionIntentRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminEnsureMediaDeletionIntent(dc: DataConnect, vars: AdminEnsureMediaDeletionIntentVariables): MutationPromise<AdminEnsureMediaDeletionIntentData, AdminEnsureMediaDeletionIntentVariables>;
 
 interface AdminEnsureMediaDeletionIntentRef {
@@ -9658,7 +9658,7 @@ export const adminEnsureMediaDeletionIntentRef: AdminEnsureMediaDeletionIntentRe
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminEnsureMediaDeletionIntentRef:
-```typescrip
+```typescript
 const name = adminEnsureMediaDeletionIntentRef.operationName;
 console.log(name);
 ```
@@ -9666,7 +9666,7 @@ console.log(name);
 ### Variables
 The `AdminEnsureMediaDeletionIntent` mutation requires an argument of type `AdminEnsureMediaDeletionIntentVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminEnsureMediaDeletionIntentVariables {
   taskId: UUIDString;
   ownerUid: string;
@@ -9682,7 +9682,7 @@ export interface AdminEnsureMediaDeletionIntentVariables {
 Recall that executing the `AdminEnsureMediaDeletionIntent` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminEnsureMediaDeletionIntentData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminEnsureMediaDeletionIntentData {
   mediaSlot_deleteMany: number;
   mediaAttachment_updateMany: number;
@@ -9693,20 +9693,20 @@ export interface AdminEnsureMediaDeletionIntentData {
 ```
 ### Using `AdminEnsureMediaDeletionIntent`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminEnsureMediaDeletionIntent, AdminEnsureMediaDeletionIntentVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminEnsureMediaDeletionIntent` mutation requires an argument of type `AdminEnsureMediaDeletionIntentVariables`:
 const adminEnsureMediaDeletionIntentVars: AdminEnsureMediaDeletionIntentVariables = {
-  taskId: ...,
-  ownerUid: ...,
-  assetId: ...,
+  taskId: ..., 
+  ownerUid: ..., 
+  assetId: ..., 
   storyId: ..., // optional
-  idempotencyKey: ...,
-  bucket: ...,
-  objectKey: ...,
-  reason: ...,
+  idempotencyKey: ..., 
+  bucket: ..., 
+  objectKey: ..., 
+  reason: ..., 
 };
 
 // Call the `adminEnsureMediaDeletionIntent()` function to execute the mutation.
@@ -9738,20 +9738,20 @@ adminEnsureMediaDeletionIntent(adminEnsureMediaDeletionIntentVars).then((respons
 
 ### Using `AdminEnsureMediaDeletionIntent`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminEnsureMediaDeletionIntentRef, AdminEnsureMediaDeletionIntentVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminEnsureMediaDeletionIntent` mutation requires an argument of type `AdminEnsureMediaDeletionIntentVariables`:
 const adminEnsureMediaDeletionIntentVars: AdminEnsureMediaDeletionIntentVariables = {
-  taskId: ...,
-  ownerUid: ...,
-  assetId: ...,
+  taskId: ..., 
+  ownerUid: ..., 
+  assetId: ..., 
   storyId: ..., // optional
-  idempotencyKey: ...,
-  bucket: ...,
-  objectKey: ...,
-  reason: ...,
+  idempotencyKey: ..., 
+  bucket: ..., 
+  objectKey: ..., 
+  reason: ..., 
 };
 
 // Call the `adminEnsureMediaDeletionIntentRef()` function to get a reference to the mutation.
@@ -9786,7 +9786,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminClaimMediaCleanupTask
 You can execute the `AdminClaimMediaCleanupTask` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminClaimMediaCleanupTask(vars: AdminClaimMediaCleanupTaskVariables): MutationPromise<AdminClaimMediaCleanupTaskData, AdminClaimMediaCleanupTaskVariables>;
 
 interface AdminClaimMediaCleanupTaskRef {
@@ -9797,7 +9797,7 @@ interface AdminClaimMediaCleanupTaskRef {
 export const adminClaimMediaCleanupTaskRef: AdminClaimMediaCleanupTaskRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminClaimMediaCleanupTask(dc: DataConnect, vars: AdminClaimMediaCleanupTaskVariables): MutationPromise<AdminClaimMediaCleanupTaskData, AdminClaimMediaCleanupTaskVariables>;
 
 interface AdminClaimMediaCleanupTaskRef {
@@ -9808,7 +9808,7 @@ export const adminClaimMediaCleanupTaskRef: AdminClaimMediaCleanupTaskRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminClaimMediaCleanupTaskRef:
-```typescrip
+```typescript
 const name = adminClaimMediaCleanupTaskRef.operationName;
 console.log(name);
 ```
@@ -9816,7 +9816,7 @@ console.log(name);
 ### Variables
 The `AdminClaimMediaCleanupTask` mutation requires an argument of type `AdminClaimMediaCleanupTaskVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminClaimMediaCleanupTaskVariables {
   taskId: UUIDString;
   assetId: UUIDString;
@@ -9830,7 +9830,7 @@ export interface AdminClaimMediaCleanupTaskVariables {
 Recall that executing the `AdminClaimMediaCleanupTask` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminClaimMediaCleanupTaskData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminClaimMediaCleanupTaskData {
   mediaCleanupTask_update?: MediaCleanupTask_Key | null;
   mediaDeletionIntent_update?: MediaDeletionIntent_Key | null;
@@ -9838,18 +9838,18 @@ export interface AdminClaimMediaCleanupTaskData {
 ```
 ### Using `AdminClaimMediaCleanupTask`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminClaimMediaCleanupTask, AdminClaimMediaCleanupTaskVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminClaimMediaCleanupTask` mutation requires an argument of type `AdminClaimMediaCleanupTaskVariables`:
 const adminClaimMediaCleanupTaskVars: AdminClaimMediaCleanupTaskVariables = {
-  taskId: ...,
-  assetId: ...,
-  ownerUid: ...,
-  idempotencyKey: ...,
-  leaseOwner: ...,
-  leaseExpiresAt: ...,
+  taskId: ..., 
+  assetId: ..., 
+  ownerUid: ..., 
+  idempotencyKey: ..., 
+  leaseOwner: ..., 
+  leaseExpiresAt: ..., 
 };
 
 // Call the `adminClaimMediaCleanupTask()` function to execute the mutation.
@@ -9875,18 +9875,18 @@ adminClaimMediaCleanupTask(adminClaimMediaCleanupTaskVars).then((response) => {
 
 ### Using `AdminClaimMediaCleanupTask`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminClaimMediaCleanupTaskRef, AdminClaimMediaCleanupTaskVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminClaimMediaCleanupTask` mutation requires an argument of type `AdminClaimMediaCleanupTaskVariables`:
 const adminClaimMediaCleanupTaskVars: AdminClaimMediaCleanupTaskVariables = {
-  taskId: ...,
-  assetId: ...,
-  ownerUid: ...,
-  idempotencyKey: ...,
-  leaseOwner: ...,
-  leaseExpiresAt: ...,
+  taskId: ..., 
+  assetId: ..., 
+  ownerUid: ..., 
+  idempotencyKey: ..., 
+  leaseOwner: ..., 
+  leaseExpiresAt: ..., 
 };
 
 // Call the `adminClaimMediaCleanupTaskRef()` function to get a reference to the mutation.
@@ -9913,9 +9913,9 @@ executeMutation(ref).then((response) => {
 });
 ```
 
-## AdminCompleteMediaDeletionInten
+## AdminCompleteMediaDeletionIntent
 You can execute the `AdminCompleteMediaDeletionIntent` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminCompleteMediaDeletionIntent(vars: AdminCompleteMediaDeletionIntentVariables): MutationPromise<AdminCompleteMediaDeletionIntentData, AdminCompleteMediaDeletionIntentVariables>;
 
 interface AdminCompleteMediaDeletionIntentRef {
@@ -9926,7 +9926,7 @@ interface AdminCompleteMediaDeletionIntentRef {
 export const adminCompleteMediaDeletionIntentRef: AdminCompleteMediaDeletionIntentRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminCompleteMediaDeletionIntent(dc: DataConnect, vars: AdminCompleteMediaDeletionIntentVariables): MutationPromise<AdminCompleteMediaDeletionIntentData, AdminCompleteMediaDeletionIntentVariables>;
 
 interface AdminCompleteMediaDeletionIntentRef {
@@ -9937,7 +9937,7 @@ export const adminCompleteMediaDeletionIntentRef: AdminCompleteMediaDeletionInte
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminCompleteMediaDeletionIntentRef:
-```typescrip
+```typescript
 const name = adminCompleteMediaDeletionIntentRef.operationName;
 console.log(name);
 ```
@@ -9945,7 +9945,7 @@ console.log(name);
 ### Variables
 The `AdminCompleteMediaDeletionIntent` mutation requires an argument of type `AdminCompleteMediaDeletionIntentVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminCompleteMediaDeletionIntentVariables {
   taskId: UUIDString;
   assetId: UUIDString;
@@ -9958,24 +9958,24 @@ export interface AdminCompleteMediaDeletionIntentVariables {
 Recall that executing the `AdminCompleteMediaDeletionIntent` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminCompleteMediaDeletionIntentData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminCompleteMediaDeletionIntentData {
   completed?: number | null;
 }
 ```
 ### Using `AdminCompleteMediaDeletionIntent`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminCompleteMediaDeletionIntent, AdminCompleteMediaDeletionIntentVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminCompleteMediaDeletionIntent` mutation requires an argument of type `AdminCompleteMediaDeletionIntentVariables`:
 const adminCompleteMediaDeletionIntentVars: AdminCompleteMediaDeletionIntentVariables = {
-  taskId: ...,
-  assetId: ...,
-  ownerUid: ...,
-  idempotencyKey: ...,
-  leaseOwner: ...,
+  taskId: ..., 
+  assetId: ..., 
+  ownerUid: ..., 
+  idempotencyKey: ..., 
+  leaseOwner: ..., 
 };
 
 // Call the `adminCompleteMediaDeletionIntent()` function to execute the mutation.
@@ -9999,17 +9999,17 @@ adminCompleteMediaDeletionIntent(adminCompleteMediaDeletionIntentVars).then((res
 
 ### Using `AdminCompleteMediaDeletionIntent`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminCompleteMediaDeletionIntentRef, AdminCompleteMediaDeletionIntentVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminCompleteMediaDeletionIntent` mutation requires an argument of type `AdminCompleteMediaDeletionIntentVariables`:
 const adminCompleteMediaDeletionIntentVars: AdminCompleteMediaDeletionIntentVariables = {
-  taskId: ...,
-  assetId: ...,
-  ownerUid: ...,
-  idempotencyKey: ...,
-  leaseOwner: ...,
+  taskId: ..., 
+  assetId: ..., 
+  ownerUid: ..., 
+  idempotencyKey: ..., 
+  leaseOwner: ..., 
 };
 
 // Call the `adminCompleteMediaDeletionIntentRef()` function to get a reference to the mutation.
@@ -10034,9 +10034,9 @@ executeMutation(ref).then((response) => {
 });
 ```
 
-## AdminFailMediaDeletionInten
+## AdminFailMediaDeletionIntent
 You can execute the `AdminFailMediaDeletionIntent` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminFailMediaDeletionIntent(vars: AdminFailMediaDeletionIntentVariables): MutationPromise<AdminFailMediaDeletionIntentData, AdminFailMediaDeletionIntentVariables>;
 
 interface AdminFailMediaDeletionIntentRef {
@@ -10047,7 +10047,7 @@ interface AdminFailMediaDeletionIntentRef {
 export const adminFailMediaDeletionIntentRef: AdminFailMediaDeletionIntentRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminFailMediaDeletionIntent(dc: DataConnect, vars: AdminFailMediaDeletionIntentVariables): MutationPromise<AdminFailMediaDeletionIntentData, AdminFailMediaDeletionIntentVariables>;
 
 interface AdminFailMediaDeletionIntentRef {
@@ -10058,7 +10058,7 @@ export const adminFailMediaDeletionIntentRef: AdminFailMediaDeletionIntentRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminFailMediaDeletionIntentRef:
-```typescrip
+```typescript
 const name = adminFailMediaDeletionIntentRef.operationName;
 console.log(name);
 ```
@@ -10066,7 +10066,7 @@ console.log(name);
 ### Variables
 The `AdminFailMediaDeletionIntent` mutation requires an argument of type `AdminFailMediaDeletionIntentVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminFailMediaDeletionIntentVariables {
   taskId: UUIDString;
   ownerUid: string;
@@ -10080,7 +10080,7 @@ export interface AdminFailMediaDeletionIntentVariables {
 Recall that executing the `AdminFailMediaDeletionIntent` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminFailMediaDeletionIntentData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminFailMediaDeletionIntentData {
   mediaCleanupTask_update?: MediaCleanupTask_Key | null;
   mediaDeletionIntent_update?: MediaDeletionIntent_Key | null;
@@ -10088,18 +10088,18 @@ export interface AdminFailMediaDeletionIntentData {
 ```
 ### Using `AdminFailMediaDeletionIntent`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminFailMediaDeletionIntent, AdminFailMediaDeletionIntentVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminFailMediaDeletionIntent` mutation requires an argument of type `AdminFailMediaDeletionIntentVariables`:
 const adminFailMediaDeletionIntentVars: AdminFailMediaDeletionIntentVariables = {
-  taskId: ...,
-  ownerUid: ...,
-  idempotencyKey: ...,
-  leaseOwner: ...,
-  lastError: ...,
-  nextAttemptAt: ...,
+  taskId: ..., 
+  ownerUid: ..., 
+  idempotencyKey: ..., 
+  leaseOwner: ..., 
+  lastError: ..., 
+  nextAttemptAt: ..., 
 };
 
 // Call the `adminFailMediaDeletionIntent()` function to execute the mutation.
@@ -10125,18 +10125,18 @@ adminFailMediaDeletionIntent(adminFailMediaDeletionIntentVars).then((response) =
 
 ### Using `AdminFailMediaDeletionIntent`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminFailMediaDeletionIntentRef, AdminFailMediaDeletionIntentVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminFailMediaDeletionIntent` mutation requires an argument of type `AdminFailMediaDeletionIntentVariables`:
 const adminFailMediaDeletionIntentVars: AdminFailMediaDeletionIntentVariables = {
-  taskId: ...,
-  ownerUid: ...,
-  idempotencyKey: ...,
-  leaseOwner: ...,
-  lastError: ...,
-  nextAttemptAt: ...,
+  taskId: ..., 
+  ownerUid: ..., 
+  idempotencyKey: ..., 
+  leaseOwner: ..., 
+  lastError: ..., 
+  nextAttemptAt: ..., 
 };
 
 // Call the `adminFailMediaDeletionIntentRef()` function to get a reference to the mutation.
@@ -10165,7 +10165,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminDeleteOwnedStorySeed
 You can execute the `AdminDeleteOwnedStorySeed` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminDeleteOwnedStorySeed(vars: AdminDeleteOwnedStorySeedVariables): MutationPromise<AdminDeleteOwnedStorySeedData, AdminDeleteOwnedStorySeedVariables>;
 
 interface AdminDeleteOwnedStorySeedRef {
@@ -10176,7 +10176,7 @@ interface AdminDeleteOwnedStorySeedRef {
 export const adminDeleteOwnedStorySeedRef: AdminDeleteOwnedStorySeedRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminDeleteOwnedStorySeed(dc: DataConnect, vars: AdminDeleteOwnedStorySeedVariables): MutationPromise<AdminDeleteOwnedStorySeedData, AdminDeleteOwnedStorySeedVariables>;
 
 interface AdminDeleteOwnedStorySeedRef {
@@ -10187,7 +10187,7 @@ export const adminDeleteOwnedStorySeedRef: AdminDeleteOwnedStorySeedRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminDeleteOwnedStorySeedRef:
-```typescrip
+```typescript
 const name = adminDeleteOwnedStorySeedRef.operationName;
 console.log(name);
 ```
@@ -10195,7 +10195,7 @@ console.log(name);
 ### Variables
 The `AdminDeleteOwnedStorySeed` mutation requires an argument of type `AdminDeleteOwnedStorySeedVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminDeleteOwnedStorySeedVariables {
   ownerUid: string;
   seedId: UUIDString;
@@ -10206,7 +10206,7 @@ export interface AdminDeleteOwnedStorySeedVariables {
 Recall that executing the `AdminDeleteOwnedStorySeed` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminDeleteOwnedStorySeedData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminDeleteOwnedStorySeedData {
   story_updateMany: number;
   storySeed_update?: StorySeed_Key | null;
@@ -10216,15 +10216,15 @@ export interface AdminDeleteOwnedStorySeedData {
 ```
 ### Using `AdminDeleteOwnedStorySeed`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminDeleteOwnedStorySeed, AdminDeleteOwnedStorySeedVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminDeleteOwnedStorySeed` mutation requires an argument of type `AdminDeleteOwnedStorySeedVariables`:
 const adminDeleteOwnedStorySeedVars: AdminDeleteOwnedStorySeedVariables = {
-  ownerUid: ...,
-  seedId: ...,
-  idempotencyKey: ...,
+  ownerUid: ..., 
+  seedId: ..., 
+  idempotencyKey: ..., 
 };
 
 // Call the `adminDeleteOwnedStorySeed()` function to execute the mutation.
@@ -10254,15 +10254,15 @@ adminDeleteOwnedStorySeed(adminDeleteOwnedStorySeedVars).then((response) => {
 
 ### Using `AdminDeleteOwnedStorySeed`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminDeleteOwnedStorySeedRef, AdminDeleteOwnedStorySeedVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminDeleteOwnedStorySeed` mutation requires an argument of type `AdminDeleteOwnedStorySeedVariables`:
 const adminDeleteOwnedStorySeedVars: AdminDeleteOwnedStorySeedVariables = {
-  ownerUid: ...,
-  seedId: ...,
-  idempotencyKey: ...,
+  ownerUid: ..., 
+  seedId: ..., 
+  idempotencyKey: ..., 
 };
 
 // Call the `adminDeleteOwnedStorySeedRef()` function to get a reference to the mutation.
@@ -10295,7 +10295,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminDeleteOwnedGlossaryTerm
 You can execute the `AdminDeleteOwnedGlossaryTerm` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminDeleteOwnedGlossaryTerm(vars: AdminDeleteOwnedGlossaryTermVariables): MutationPromise<AdminDeleteOwnedGlossaryTermData, AdminDeleteOwnedGlossaryTermVariables>;
 
 interface AdminDeleteOwnedGlossaryTermRef {
@@ -10306,7 +10306,7 @@ interface AdminDeleteOwnedGlossaryTermRef {
 export const adminDeleteOwnedGlossaryTermRef: AdminDeleteOwnedGlossaryTermRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminDeleteOwnedGlossaryTerm(dc: DataConnect, vars: AdminDeleteOwnedGlossaryTermVariables): MutationPromise<AdminDeleteOwnedGlossaryTermData, AdminDeleteOwnedGlossaryTermVariables>;
 
 interface AdminDeleteOwnedGlossaryTermRef {
@@ -10317,7 +10317,7 @@ export const adminDeleteOwnedGlossaryTermRef: AdminDeleteOwnedGlossaryTermRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminDeleteOwnedGlossaryTermRef:
-```typescrip
+```typescript
 const name = adminDeleteOwnedGlossaryTermRef.operationName;
 console.log(name);
 ```
@@ -10325,7 +10325,7 @@ console.log(name);
 ### Variables
 The `AdminDeleteOwnedGlossaryTerm` mutation requires an argument of type `AdminDeleteOwnedGlossaryTermVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminDeleteOwnedGlossaryTermVariables {
   ownerUid: string;
   termId: UUIDString;
@@ -10336,7 +10336,7 @@ export interface AdminDeleteOwnedGlossaryTermVariables {
 Recall that executing the `AdminDeleteOwnedGlossaryTerm` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminDeleteOwnedGlossaryTermData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminDeleteOwnedGlossaryTermData {
   glossaryTerm_delete?: GlossaryTerm_Key | null;
   persistenceReceipt_insert: PersistenceReceipt_Key;
@@ -10344,15 +10344,15 @@ export interface AdminDeleteOwnedGlossaryTermData {
 ```
 ### Using `AdminDeleteOwnedGlossaryTerm`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminDeleteOwnedGlossaryTerm, AdminDeleteOwnedGlossaryTermVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminDeleteOwnedGlossaryTerm` mutation requires an argument of type `AdminDeleteOwnedGlossaryTermVariables`:
 const adminDeleteOwnedGlossaryTermVars: AdminDeleteOwnedGlossaryTermVariables = {
-  ownerUid: ...,
-  termId: ...,
-  idempotencyKey: ...,
+  ownerUid: ..., 
+  termId: ..., 
+  idempotencyKey: ..., 
 };
 
 // Call the `adminDeleteOwnedGlossaryTerm()` function to execute the mutation.
@@ -10378,15 +10378,15 @@ adminDeleteOwnedGlossaryTerm(adminDeleteOwnedGlossaryTermVars).then((response) =
 
 ### Using `AdminDeleteOwnedGlossaryTerm`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminDeleteOwnedGlossaryTermRef, AdminDeleteOwnedGlossaryTermVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminDeleteOwnedGlossaryTerm` mutation requires an argument of type `AdminDeleteOwnedGlossaryTermVariables`:
 const adminDeleteOwnedGlossaryTermVars: AdminDeleteOwnedGlossaryTermVariables = {
-  ownerUid: ...,
-  termId: ...,
-  idempotencyKey: ...,
+  ownerUid: ..., 
+  termId: ..., 
+  idempotencyKey: ..., 
 };
 
 // Call the `adminDeleteOwnedGlossaryTermRef()` function to get a reference to the mutation.
@@ -10415,7 +10415,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminConsumeImageGenerationQuota
 You can execute the `AdminConsumeImageGenerationQuota` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminConsumeImageGenerationQuota(vars: AdminConsumeImageGenerationQuotaVariables): MutationPromise<AdminConsumeImageGenerationQuotaData, AdminConsumeImageGenerationQuotaVariables>;
 
 interface AdminConsumeImageGenerationQuotaRef {
@@ -10426,7 +10426,7 @@ interface AdminConsumeImageGenerationQuotaRef {
 export const adminConsumeImageGenerationQuotaRef: AdminConsumeImageGenerationQuotaRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminConsumeImageGenerationQuota(dc: DataConnect, vars: AdminConsumeImageGenerationQuotaVariables): MutationPromise<AdminConsumeImageGenerationQuotaData, AdminConsumeImageGenerationQuotaVariables>;
 
 interface AdminConsumeImageGenerationQuotaRef {
@@ -10437,7 +10437,7 @@ export const adminConsumeImageGenerationQuotaRef: AdminConsumeImageGenerationQuo
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminConsumeImageGenerationQuotaRef:
-```typescrip
+```typescript
 const name = adminConsumeImageGenerationQuotaRef.operationName;
 console.log(name);
 ```
@@ -10445,7 +10445,7 @@ console.log(name);
 ### Variables
 The `AdminConsumeImageGenerationQuota` mutation requires an argument of type `AdminConsumeImageGenerationQuotaVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminConsumeImageGenerationQuotaVariables {
   ownerUid: string;
   idempotencyKey: string;
@@ -10457,23 +10457,23 @@ export interface AdminConsumeImageGenerationQuotaVariables {
 Recall that executing the `AdminConsumeImageGenerationQuota` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminConsumeImageGenerationQuotaData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminConsumeImageGenerationQuotaData {
   consumed?: number | null;
 }
 ```
 ### Using `AdminConsumeImageGenerationQuota`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminConsumeImageGenerationQuota, AdminConsumeImageGenerationQuotaVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminConsumeImageGenerationQuota` mutation requires an argument of type `AdminConsumeImageGenerationQuotaVariables`:
 const adminConsumeImageGenerationQuotaVars: AdminConsumeImageGenerationQuotaVariables = {
-  ownerUid: ...,
-  idempotencyKey: ...,
-  now: ...,
-  nextReset: ...,
+  ownerUid: ..., 
+  idempotencyKey: ..., 
+  now: ..., 
+  nextReset: ..., 
 };
 
 // Call the `adminConsumeImageGenerationQuota()` function to execute the mutation.
@@ -10497,16 +10497,16 @@ adminConsumeImageGenerationQuota(adminConsumeImageGenerationQuotaVars).then((res
 
 ### Using `AdminConsumeImageGenerationQuota`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminConsumeImageGenerationQuotaRef, AdminConsumeImageGenerationQuotaVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminConsumeImageGenerationQuota` mutation requires an argument of type `AdminConsumeImageGenerationQuotaVariables`:
 const adminConsumeImageGenerationQuotaVars: AdminConsumeImageGenerationQuotaVariables = {
-  ownerUid: ...,
-  idempotencyKey: ...,
-  now: ...,
-  nextReset: ...,
+  ownerUid: ..., 
+  idempotencyKey: ..., 
+  now: ..., 
+  nextReset: ..., 
 };
 
 // Call the `adminConsumeImageGenerationQuotaRef()` function to get a reference to the mutation.
@@ -10533,7 +10533,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminRecoverPendingUserPortraits
 You can execute the `AdminRecoverPendingUserPortraits` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminRecoverPendingUserPortraits(vars: AdminRecoverPendingUserPortraitsVariables): MutationPromise<AdminRecoverPendingUserPortraitsData, AdminRecoverPendingUserPortraitsVariables>;
 
 interface AdminRecoverPendingUserPortraitsRef {
@@ -10544,7 +10544,7 @@ interface AdminRecoverPendingUserPortraitsRef {
 export const adminRecoverPendingUserPortraitsRef: AdminRecoverPendingUserPortraitsRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminRecoverPendingUserPortraits(dc: DataConnect, vars: AdminRecoverPendingUserPortraitsVariables): MutationPromise<AdminRecoverPendingUserPortraitsData, AdminRecoverPendingUserPortraitsVariables>;
 
 interface AdminRecoverPendingUserPortraitsRef {
@@ -10555,7 +10555,7 @@ export const adminRecoverPendingUserPortraitsRef: AdminRecoverPendingUserPortrai
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminRecoverPendingUserPortraitsRef:
-```typescrip
+```typescript
 const name = adminRecoverPendingUserPortraitsRef.operationName;
 console.log(name);
 ```
@@ -10563,7 +10563,7 @@ console.log(name);
 ### Variables
 The `AdminRecoverPendingUserPortraits` mutation requires an argument of type `AdminRecoverPendingUserPortraitsVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminRecoverPendingUserPortraitsVariables {
   ownerUid: string;
   idempotencyKey: string;
@@ -10573,7 +10573,7 @@ export interface AdminRecoverPendingUserPortraitsVariables {
 Recall that executing the `AdminRecoverPendingUserPortraits` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminRecoverPendingUserPortraitsData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminRecoverPendingUserPortraitsData {
   recovered?: number | null;
   persistenceReceipt_insert: PersistenceReceipt_Key;
@@ -10581,14 +10581,14 @@ export interface AdminRecoverPendingUserPortraitsData {
 ```
 ### Using `AdminRecoverPendingUserPortraits`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminRecoverPendingUserPortraits, AdminRecoverPendingUserPortraitsVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminRecoverPendingUserPortraits` mutation requires an argument of type `AdminRecoverPendingUserPortraitsVariables`:
 const adminRecoverPendingUserPortraitsVars: AdminRecoverPendingUserPortraitsVariables = {
-  ownerUid: ...,
-  idempotencyKey: ...,
+  ownerUid: ..., 
+  idempotencyKey: ..., 
 };
 
 // Call the `adminRecoverPendingUserPortraits()` function to execute the mutation.
@@ -10614,14 +10614,14 @@ adminRecoverPendingUserPortraits(adminRecoverPendingUserPortraitsVars).then((res
 
 ### Using `AdminRecoverPendingUserPortraits`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminRecoverPendingUserPortraitsRef, AdminRecoverPendingUserPortraitsVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminRecoverPendingUserPortraits` mutation requires an argument of type `AdminRecoverPendingUserPortraitsVariables`:
 const adminRecoverPendingUserPortraitsVars: AdminRecoverPendingUserPortraitsVariables = {
-  ownerUid: ...,
-  idempotencyKey: ...,
+  ownerUid: ..., 
+  idempotencyKey: ..., 
 };
 
 // Call the `adminRecoverPendingUserPortraitsRef()` function to get a reference to the mutation.
@@ -10650,7 +10650,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminUpdateAccountAccess
 You can execute the `AdminUpdateAccountAccess` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminUpdateAccountAccess(vars: AdminUpdateAccountAccessVariables): MutationPromise<AdminUpdateAccountAccessData, AdminUpdateAccountAccessVariables>;
 
 interface AdminUpdateAccountAccessRef {
@@ -10661,7 +10661,7 @@ interface AdminUpdateAccountAccessRef {
 export const adminUpdateAccountAccessRef: AdminUpdateAccountAccessRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminUpdateAccountAccess(dc: DataConnect, vars: AdminUpdateAccountAccessVariables): MutationPromise<AdminUpdateAccountAccessData, AdminUpdateAccountAccessVariables>;
 
 interface AdminUpdateAccountAccessRef {
@@ -10672,7 +10672,7 @@ export const adminUpdateAccountAccessRef: AdminUpdateAccountAccessRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminUpdateAccountAccessRef:
-```typescrip
+```typescript
 const name = adminUpdateAccountAccessRef.operationName;
 console.log(name);
 ```
@@ -10680,7 +10680,7 @@ console.log(name);
 ### Variables
 The `AdminUpdateAccountAccess` mutation requires an argument of type `AdminUpdateAccountAccessVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminUpdateAccountAccessVariables {
   actorUid: string;
   ownerUid: string;
@@ -10693,7 +10693,7 @@ export interface AdminUpdateAccountAccessVariables {
 Recall that executing the `AdminUpdateAccountAccess` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminUpdateAccountAccessData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminUpdateAccountAccessData {
   userAccount_update?: UserAccount_Key | null;
   userProfile_update?: UserProfile_Key | null;
@@ -10702,17 +10702,17 @@ export interface AdminUpdateAccountAccessData {
 ```
 ### Using `AdminUpdateAccountAccess`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminUpdateAccountAccess, AdminUpdateAccountAccessVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminUpdateAccountAccess` mutation requires an argument of type `AdminUpdateAccountAccessVariables`:
 const adminUpdateAccountAccessVars: AdminUpdateAccountAccessVariables = {
-  actorUid: ...,
-  ownerUid: ...,
-  role: ...,
-  subscriptionTier: ...,
-  idempotencyKey: ...,
+  actorUid: ..., 
+  ownerUid: ..., 
+  role: ..., 
+  subscriptionTier: ..., 
+  idempotencyKey: ..., 
 };
 
 // Call the `adminUpdateAccountAccess()` function to execute the mutation.
@@ -10740,17 +10740,17 @@ adminUpdateAccountAccess(adminUpdateAccountAccessVars).then((response) => {
 
 ### Using `AdminUpdateAccountAccess`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminUpdateAccountAccessRef, AdminUpdateAccountAccessVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminUpdateAccountAccess` mutation requires an argument of type `AdminUpdateAccountAccessVariables`:
 const adminUpdateAccountAccessVars: AdminUpdateAccountAccessVariables = {
-  actorUid: ...,
-  ownerUid: ...,
-  role: ...,
-  subscriptionTier: ...,
-  idempotencyKey: ...,
+  actorUid: ..., 
+  ownerUid: ..., 
+  role: ..., 
+  subscriptionTier: ..., 
+  idempotencyKey: ..., 
 };
 
 // Call the `adminUpdateAccountAccessRef()` function to get a reference to the mutation.
@@ -10781,7 +10781,7 @@ executeMutation(ref).then((response) => {
 
 ## AdminDeleteStoryAsAdmin
 You can execute the `AdminDeleteStoryAsAdmin` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
-```typescrip
+```typescript
 adminDeleteStoryAsAdmin(vars: AdminDeleteStoryAsAdminVariables): MutationPromise<AdminDeleteStoryAsAdminData, AdminDeleteStoryAsAdminVariables>;
 
 interface AdminDeleteStoryAsAdminRef {
@@ -10792,7 +10792,7 @@ interface AdminDeleteStoryAsAdminRef {
 export const adminDeleteStoryAsAdminRef: AdminDeleteStoryAsAdminRef;
 ```
 You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
-```typescrip
+```typescript
 adminDeleteStoryAsAdmin(dc: DataConnect, vars: AdminDeleteStoryAsAdminVariables): MutationPromise<AdminDeleteStoryAsAdminData, AdminDeleteStoryAsAdminVariables>;
 
 interface AdminDeleteStoryAsAdminRef {
@@ -10803,7 +10803,7 @@ export const adminDeleteStoryAsAdminRef: AdminDeleteStoryAsAdminRef;
 ```
 
 If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminDeleteStoryAsAdminRef:
-```typescrip
+```typescript
 const name = adminDeleteStoryAsAdminRef.operationName;
 console.log(name);
 ```
@@ -10811,7 +10811,7 @@ console.log(name);
 ### Variables
 The `AdminDeleteStoryAsAdmin` mutation requires an argument of type `AdminDeleteStoryAsAdminVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 
-```typescrip
+```typescript
 export interface AdminDeleteStoryAsAdminVariables {
   actorUid: string;
   ownerUid: string;
@@ -10827,7 +10827,7 @@ export interface AdminDeleteStoryAsAdminVariables {
 Recall that executing the `AdminDeleteStoryAsAdmin` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
 
 The `data` property is an object of type `AdminDeleteStoryAsAdminData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
-```typescrip
+```typescript
 export interface AdminDeleteStoryAsAdminData {
   storyVersionGuard?: unknown | null;
   story_update?: Story_Key | null;
@@ -10839,20 +10839,20 @@ export interface AdminDeleteStoryAsAdminData {
 ```
 ### Using `AdminDeleteStoryAsAdmin`'s action shortcut function
 
-```typescrip
+```typescript
 import { getDataConnect } from 'firebase/data-connect';
 import { connectorConfig, adminDeleteStoryAsAdmin, AdminDeleteStoryAsAdminVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminDeleteStoryAsAdmin` mutation requires an argument of type `AdminDeleteStoryAsAdminVariables`:
 const adminDeleteStoryAsAdminVars: AdminDeleteStoryAsAdminVariables = {
-  actorUid: ...,
-  ownerUid: ...,
-  storyId: ...,
+  actorUid: ..., 
+  ownerUid: ..., 
+  storyId: ..., 
   expectedSyncRevision: ..., // optional
-  newSyncRevision: ...,
-  newRevision: ...,
-  idempotencyKey: ...,
-  deletionJobId: ...,
+  newSyncRevision: ..., 
+  newRevision: ..., 
+  idempotencyKey: ..., 
+  deletionJobId: ..., 
 };
 
 // Call the `adminDeleteStoryAsAdmin()` function to execute the mutation.
@@ -10886,20 +10886,20 @@ adminDeleteStoryAsAdmin(adminDeleteStoryAsAdminVars).then((response) => {
 
 ### Using `AdminDeleteStoryAsAdmin`'s `MutationRef` function
 
-```typescrip
+```typescript
 import { getDataConnect, executeMutation } from 'firebase/data-connect';
 import { connectorConfig, adminDeleteStoryAsAdminRef, AdminDeleteStoryAsAdminVariables } from '@seihouse/celestial-library-dataconnect';
 
 // The `AdminDeleteStoryAsAdmin` mutation requires an argument of type `AdminDeleteStoryAsAdminVariables`:
 const adminDeleteStoryAsAdminVars: AdminDeleteStoryAsAdminVariables = {
-  actorUid: ...,
-  ownerUid: ...,
-  storyId: ...,
+  actorUid: ..., 
+  ownerUid: ..., 
+  storyId: ..., 
   expectedSyncRevision: ..., // optional
-  newSyncRevision: ...,
-  newRevision: ...,
-  idempotencyKey: ...,
-  deletionJobId: ...,
+  newSyncRevision: ..., 
+  newRevision: ..., 
+  idempotencyKey: ..., 
+  deletionJobId: ..., 
 };
 
 // Call the `adminDeleteStoryAsAdminRef()` function to get a reference to the mutation.
@@ -10933,3 +10933,4 @@ executeMutation(ref).then((response) => {
   console.log(data.storyChange_insert);
 });
 ```
+
