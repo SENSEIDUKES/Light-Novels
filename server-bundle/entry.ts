@@ -7,7 +7,7 @@ import { mediaAssetRouter } from "../src/server/routes/mediaAssetRouter";
 import { persistenceRouter } from "../src/server/routes/persistenceRouter";
 
 // Source for the Vercel serverless backend. esbuild bundles THIS file (and everything it
-// imports from src/) into a single self-contained ../server-bundle/index.js at build time
+// imports from src/) into a single self-contained ../api/index.js at build time
 // (see vercel.json buildCommand), leaving only bare node_modules imports for the runtime.
 //
 // It's a minimal Express app: JSON body parsing + request logging + all API routes. Unlike
@@ -50,4 +50,12 @@ export function restoreForwardedApiUrl(request: {
 }
 
 const app = createServerlessApp();
-export default app;
+export default function handler(
+  request: Parameters<typeof app>[0] & {
+    query?: Record<string, string | string[] | undefined>;
+  },
+  response: Parameters<typeof app>[1],
+) {
+  restoreForwardedApiUrl(request);
+  return app(request, response);
+}
