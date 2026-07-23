@@ -39,10 +39,6 @@ describe("Vercel serverless entry", () => {
   it("restores the original API path after Vercel selects the single function", () => {
     const request = {
       url: "/api?__seihouse_api_path=persistence%2Fstories&changedAfter=42",
-      query: {
-        __seihouse_api_path: "persistence/stories",
-        changedAfter: "42",
-      },
     };
 
     restoreForwardedApiUrl(request);

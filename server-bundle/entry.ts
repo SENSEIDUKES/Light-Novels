@@ -32,7 +32,10 @@ export function restoreForwardedApiUrl(request: {
   url?: string;
   query?: Record<string, string | string[] | undefined>;
 }) {
-  const forwardedValue = request.query?.[FORWARDED_API_PATH_QUERY];
+  const incomingUrl = new URL(request.url ?? "/api", "http://serverless.local");
+  const forwardedValue =
+    incomingUrl.searchParams.get(FORWARDED_API_PATH_QUERY)
+    ?? request.query?.[FORWARDED_API_PATH_QUERY];
   const forwardedPath = (Array.isArray(forwardedValue)
     ? forwardedValue.join("/")
     : forwardedValue ?? "")
@@ -41,7 +44,6 @@ export function restoreForwardedApiUrl(request: {
     .map((segment) => encodeURIComponent(segment))
     .join("/");
 
-  const incomingUrl = new URL(request.url ?? "/api", "http://serverless.local");
   incomingUrl.searchParams.delete(FORWARDED_API_PATH_QUERY);
   const remainingQuery = incomingUrl.searchParams.toString();
   request.url = `/api${forwardedPath ? `/${forwardedPath}` : ""}${
@@ -56,6 +58,25 @@ export default function handler(
   },
   response: Parameters<typeof app>[1],
 ) {
-  restoreForwardedApiUrl(request);
-  return app(request, response);
+  try {
+    restoreForwardedApiUrl(request);
+    return app(request, response);
+  } catch (error) {
+    logger.error({ err: error }, "Vercel serverless request bootstrap failed");
+    if (!response.headersSent) {
+      response.status(500).json({
+        error: {
+          code: "serverless_bootstrap_failed",
+          reason:
+            error && typeof error === "object" && "code" in error
+              ? String(error.code)
+              : error instanceof Error
+                ? error.name
+                : "UnknownError",
+        },
+      });
+      return;
+    }
+    throw error;
+  }
 }
