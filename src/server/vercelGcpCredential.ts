@@ -19,7 +19,6 @@ type FetchLike = typeof globalThis.fetch;
 
 interface CachedAccessToken {
   access_token: string;
-  expires_in: number;
   expiresAt: number;
 }
 
@@ -31,6 +30,7 @@ interface VercelGcpCredentialOptions {
 }
 
 const vercelOidcTokenContext = new AsyncLocalStorage<string | undefined>();
+let latestVercelOidcToken: string | undefined;
 
 export function captureVercelOidcToken(
   request: Request,
@@ -38,6 +38,7 @@ export function captureVercelOidcToken(
   next: NextFunction,
 ): void {
   const token = request.get('x-vercel-oidc-token')?.trim() || undefined;
+  if (token) latestVercelOidcToken = token;
   vercelOidcTokenContext.run(token, next);
 }
 
@@ -78,6 +79,7 @@ export class VercelGcpAccessTokenProvider {
     this.now = options.now ?? Date.now;
     this.subjectTokenSupplier = options.getSubjectToken ?? (() => (
       vercelOidcTokenContext.getStore()
+      ?? latestVercelOidcToken
       ?? this.env.VERCEL_OIDC_TOKEN?.trim()
       ?? undefined
     ));
@@ -162,20 +164,26 @@ export class VercelGcpAccessTokenProvider {
 
     return {
       access_token: impersonated.accessToken,
-      expires_in: Math.max(1, Math.floor((expiresAt - this.now()) / 1_000)),
       expiresAt,
+    };
+  }
+
+  private present(token: CachedAccessToken): { access_token: string; expires_in: number } {
+    return {
+      access_token: token.access_token,
+      expires_in: Math.max(1, Math.floor((token.expiresAt - this.now()) / 1_000)),
     };
   }
 
   async getAccessToken(): Promise<{ access_token: string; expires_in: number }> {
     if (this.cached && this.cached.expiresAt - TOKEN_REFRESH_WINDOW_MS > this.now()) {
-      return { access_token: this.cached.access_token, expires_in: this.cached.expires_in };
+      return this.present(this.cached);
     }
     this.pending ??= this.exchange().finally(() => {
       this.pending = undefined;
     });
     this.cached = await this.pending;
-    return { access_token: this.cached.access_token, expires_in: this.cached.expires_in };
+    return this.present(this.cached);
   }
 }
 
