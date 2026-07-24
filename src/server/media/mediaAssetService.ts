@@ -594,6 +594,11 @@ export class MediaAssetService {
         newSlotVersion,
       });
     } catch (error) {
+      logger.error({
+        err: error,
+        assetId: id,
+        quotaReservationId,
+      }, 'Media database commit failed after R2 upload');
       const reconciliation = await this.reconcileCommitFailure(owner.uid, reservation, error);
       if (reconciliation.ready) return this.toDescriptor(reconciliation.ready);
       if (reconciliation.releaseQuota) await this.safeReleaseQuota(owner.uid, quotaReservationId);
