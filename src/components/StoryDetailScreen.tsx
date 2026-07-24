@@ -52,6 +52,7 @@ export const StoryDetailScreen: React.FC<{
     const setSelectedChapterNum = useAppStore(state => state.setSelectedChapterNum);
     const userProfile = useAppStore(state => state.userProfile);
     const saveStories = useAppStore(state => state.saveStories);
+    const setAppError = useAppStore(state => state.setAppError);
   const [isStoryMenuOpen, setIsStoryMenuOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [coverPreview, setCoverPreview] = useState<{
@@ -196,7 +197,12 @@ export const StoryDetailScreen: React.FC<{
       }
       return s;
     });
-    await saveStories(updated);
+    try {
+      await saveStories(updated);
+    } catch (err) {
+      console.error('Failed to save motion cover preference:', err);
+      setAppError('The motion cover preference could not be saved. Please try again.');
+    }
   };
 
   const isCurrentArcFinished =
@@ -697,7 +703,10 @@ export const StoryDetailScreen: React.FC<{
                             }
                             return s;
                           });
-                          store.saveStories(updated);
+                          store.saveStories(updated).catch((err) => {
+                            console.error('Failed to save selected cover from history:', err);
+                            store.setAppError('The selected cover could not be saved. Please try again.');
+                          });
                         }}
                         role="button"
                         tabIndex={0}
@@ -723,7 +732,10 @@ export const StoryDetailScreen: React.FC<{
                               }
                               return s;
                             });
-                            store.saveStories(updated);
+                            store.saveStories(updated).catch((err) => {
+                              console.error('Failed to save selected cover from history:', err);
+                              store.setAppError('The selected cover could not be saved. Please try again.');
+                            });
                           }
                         }}
                         aria-label={`Apply cover image from chapter ${img.chapterNumber || "Unknown"}`}

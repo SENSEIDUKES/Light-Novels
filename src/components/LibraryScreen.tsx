@@ -65,6 +65,47 @@ const PUBLISHED_WORLDS: any[] = INITIAL_DEMO_STORIES.map(story => {
   };
 });
 
+export async function openPublishedWorld(
+  world: any,
+  setActiveStoryId: (id: string | null) => void,
+  setCurrentScreen: (screen: any) => void,
+) {
+  const user = auth.currentUser;
+  const finalId = user ? `${world.id}-${user.uid}` : world.id;
+  const { stories: latestStories, setStories, saveStories, setAppError } = useAppStore.getState();
+  const existing = latestStories.find(s => s.id === finalId);
+  if (!existing) {
+    // `world` comes from PUBLISHED_WORLDS, which layers mocked Library-card
+    // display fields (reads, chapterCount, powerStage) on top of the real
+    // story — strip them so they don't get written into the persisted
+    // record, and stamp a real updatedAt now that this is a durable save.
+    const { reads, chapterCount, powerStage, ...cleanWorld } = world;
+    const personalizedWorld: Story = {
+      ...cleanWorld,
+      id: finalId,
+      updatedAt: new Date().toISOString(),
+      ...(user ? { userId: user.uid } : {}),
+    };
+    if (!user) {
+      // No account to attribute an owner-scoped durable record to (and every
+      // downstream generation step already requires sign-in) — keep this an
+      // in-memory-only selection, same as before this record went through
+      // the account-owned persistence pipeline.
+      setStories([personalizedWorld, ...latestStories]);
+    } else {
+      try {
+        await saveStories([personalizedWorld, ...latestStories]);
+      } catch (err) {
+        console.error('Failed to save selected library world to the account:', err);
+        setAppError('Could not save this world to your library. Please try again.');
+        return;
+      }
+    }
+  }
+  setActiveStoryId(finalId);
+  setCurrentScreen('detail');
+}
+
 export const LibraryScreen: React.FC = () => {
   const currentScreen = useAppStore(state => state.currentScreen);
     const setCurrentScreen = useAppStore(state => state.setCurrentScreen);
@@ -623,38 +664,14 @@ export const LibraryScreen: React.FC = () => {
                     key={world.id}
                     className="group cursor-pointer flex flex-col space-y-3"
                     onClick={() => {
-                      const user = auth.currentUser;
-                      const finalId = user ? `${world.id}-${user.uid}` : world.id;
-                      const personalizedWorld = {
-                        ...world,
-                        id: finalId,
-                        userId: user?.uid
-                      };
-                      const existing = stories.find(s => s.id === finalId);
-                      if (!existing) {
-                        useAppStore.getState().setStories([personalizedWorld, ...stories]);
-                      }
-                      setActiveStoryId(finalId);
-                      setCurrentScreen('detail');
+                      void openPublishedWorld(world, setActiveStoryId, setCurrentScreen);
                     }}
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        const user = auth.currentUser;
-                        const finalId = user ? `${world.id}-${user.uid}` : world.id;
-                        const personalizedWorld = {
-                          ...world,
-                          id: finalId,
-                          userId: user?.uid
-                        };
-                        const existing = stories.find(s => s.id === finalId);
-                        if (!existing) {
-                          useAppStore.getState().setStories([personalizedWorld, ...stories]);
-                        }
-                        setActiveStoryId(finalId);
-                        setCurrentScreen('detail');
+                        void openPublishedWorld(world, setActiveStoryId, setCurrentScreen);
                       }
                     }}
                     aria-label={`View published world ${world.title}`}
