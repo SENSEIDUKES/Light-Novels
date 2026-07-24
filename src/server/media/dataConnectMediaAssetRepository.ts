@@ -82,6 +82,14 @@ function matchesAssociationScope(
     && (value.entityId ?? null) === (association.entityId ?? null);
 }
 
+function isRetryableDataConnectQueryError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const candidate = error as Error & { code?: string; errorInfo?: { code?: string } };
+  return candidate.code === 'data-connect/query-error'
+    || candidate.errorInfo?.code === 'data-connect/query-error'
+    || error.message.includes('Invalid SQL statement');
+}
+
 export class DataConnectMediaAssetRepository implements MediaAssetRepository {
   constructor() {
     getFirebaseAdminApp();
@@ -270,7 +278,7 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
 
   async commitToSlot(ownerUid: string, assetId: string, etag: string | undefined, commit: MediaSlotCommit): Promise<MediaAssetRecord> {
     const association = commit.association;
-    const result = await adminCommitMediaAssetToSlot({
+    const variables = {
       id: assetId,
       ownerUid,
       quotaReservationId: commit.quotaReservationId,
@@ -293,7 +301,24 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
       expectedCurrentAssetId: commit.expectedCurrentAssetId ?? null,
       expectedSlotVersion: commit.expectedSlotVersion ?? null,
       newSlotVersion: commit.newSlotVersion,
-    });
+    };
+    let result: Awaited<ReturnType<typeof adminCommitMediaAssetToSlot>> | undefined;
+    let lastError: unknown;
+    for (const delayMs of [0, 100, 300, 750, 1_500]) {
+      if (delayMs > 0) await delay(delayMs);
+      try {
+        result = await adminCommitMediaAssetToSlot(variables);
+        break;
+      } catch (error) {
+        lastError = error;
+        if (!isRetryableDataConnectQueryError(error)) throw error;
+        // The transaction may have committed even if its response was lost.
+        // Returning an already-ready asset keeps this retry idempotent.
+        const existing = await this.getOwned(ownerUid, assetId).catch(() => null);
+        if (existing?.status === 'READY') return existing;
+      }
+    }
+    if (!result) throw lastError;
     const expectedCurrentUpdates = commit.expectedCurrentAssetId ? 1 : 0;
     if (!result.data.mediaAsset_update
       || !result.data.mediaSlot_upsert

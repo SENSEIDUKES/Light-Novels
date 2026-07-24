@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   reserveStorageQuota: vi.fn(),
   reserveMediaAsset: vi.fn(),
   getOwnedMediaAsset: vi.fn(),
+  commitMediaAsset: vi.fn(),
 }));
 
 vi.mock('../firebaseAdmin', () => ({ getFirebaseAdminApp: () => ({}) }));
@@ -12,6 +13,7 @@ vi.mock('../../generated/dataconnect-admin', () => ({
   adminReserveStorageQuota: mocks.reserveStorageQuota,
   adminReserveMediaAssetIdempotent: mocks.reserveMediaAsset,
   adminGetOwnedMediaAsset: mocks.getOwnedMediaAsset,
+  adminCommitMediaAssetToSlot: mocks.commitMediaAsset,
 }));
 
 import { DataConnectMediaAssetRepository } from './dataConnectMediaAssetRepository';
@@ -21,6 +23,7 @@ describe('DataConnectMediaAssetRepository', () => {
     mocks.reserveStorageQuota.mockReset();
     mocks.reserveMediaAsset.mockReset();
     mocks.getOwnedMediaAsset.mockReset();
+    mocks.commitMediaAsset.mockReset();
     mocks.reserveStorageQuota.mockResolvedValue({
       data: { storageQuotaReservation_insert: { id: 'quota-reservation' } },
     });
@@ -114,6 +117,77 @@ describe('DataConnectMediaAssetRepository', () => {
     expect(mocks.reserveStorageQuota).toHaveBeenCalledWith(expect.objectContaining({
       ownerUid: 'owner-1',
       storyId: null,
+    }));
+  });
+
+  it('retries a media commit until the just-reserved asset is visible', async () => {
+    const queryError = Object.assign(new Error('Invalid SQL statement\nAsset not found (aborted)'), {
+      code: 'data-connect/query-error',
+    });
+    mocks.commitMediaAsset
+      .mockRejectedValueOnce(queryError)
+      .mockResolvedValueOnce({
+        data: {
+          mediaAsset_update: { id: 'fc0aac17-fb01-4f7e-a9bc-e3121204125d' },
+          mediaSlot_upsert: { ownerUid: 'owner-1' },
+          mediaUploadReceipt_update: { idempotencyKey: 'request-1' },
+          mediaAttachment_updateMany: 0,
+          mediaUploadAttempt_updateMany: 1,
+          committedQuota: 1,
+        },
+      });
+    mocks.getOwnedMediaAsset
+      .mockResolvedValueOnce({
+        data: {
+          mediaAsset: {
+            id: 'fc0aac17-fb01-4f7e-a9bc-e3121204125d',
+            ownerUid: 'owner-1',
+            assetType: 'IMAGE',
+            purpose: 'CELESTIAL_PORTRAIT',
+            visibility: 'PRIVATE',
+            status: 'UPLOADING',
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          mediaAsset: {
+            id: 'fc0aac17-fb01-4f7e-a9bc-e3121204125d',
+            ownerUid: 'owner-1',
+            assetType: 'IMAGE',
+            purpose: 'CELESTIAL_PORTRAIT',
+            visibility: 'PRIVATE',
+            status: 'READY',
+          },
+        },
+      });
+    const repository = new DataConnectMediaAssetRepository();
+
+    await expect(repository.commitToSlot(
+      'owner-1',
+      'fc0aac17-fb01-4f7e-a9bc-e3121204125d',
+      'etag-1',
+      {
+        quotaReservationId: '0b3eeea7-88d8-4304-973d-c5d5b4b19146',
+        idempotencyKey: 'request-1',
+        attachmentId: 'de52773d-42dd-4aa2-932f-a4660b2f9d18',
+        position: 0,
+        newSlotVersion: '1',
+        association: {
+          targetKind: 'PROFILE',
+          targetKey: 'owner-1',
+          purpose: 'CELESTIAL_PORTRAIT',
+        },
+      },
+    )).resolves.toMatchObject({
+      id: 'fc0aac17-fb01-4f7e-a9bc-e3121204125d',
+      status: 'READY',
+    });
+    expect(mocks.commitMediaAsset).toHaveBeenCalledTimes(2);
+    expect(mocks.commitMediaAsset).toHaveBeenLastCalledWith(expect.objectContaining({
+      storyId: null,
+      chapterId: null,
+      entityId: null,
     }));
   });
 });

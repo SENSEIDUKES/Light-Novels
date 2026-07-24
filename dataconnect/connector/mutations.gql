@@ -1605,8 +1605,16 @@ mutation AdminCommitMediaAssetToSlot(
       status @check(expr: "this == 'UPLOADING'", message: "Asset is not uploading")
       storyId @check(expr: "this == vars.storyId", message: "Asset story scope mismatch")
       story {
-        status @check(expr: "this != 'DELETED'", message: "Cannot attach media to a deleted story")
+        status
       }
+    }
+    storyScope: story(first: { where: { id: { eq: $storyId }, ownerUid: { eq: $ownerUid } } })
+      @check(
+        expr: "vars.storyId == null || (this != null && this.status != 'DELETED')"
+        message: "Story scope not found or deleted"
+      ) {
+      id
+      status
     }
     slot: mediaSlot(
       key: {
