@@ -490,7 +490,6 @@ describe('story graph mapping', () => {
         clientHistoryId: 'cover-history-2',
         promptUsed: 'Moon archive cover',
         position: 1,
-        allowCreate: false,
         expectedCurrentAssetId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
         expectedSlotVersion: '1',
         newSlotVersion: '2',

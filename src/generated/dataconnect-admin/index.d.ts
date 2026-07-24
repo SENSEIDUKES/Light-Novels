@@ -277,7 +277,6 @@ export interface AdminCommitMediaAssetToSlotVariables {
   arcTitle?: string | null;
   label?: string | null;
   position: number;
-  allowCreate: boolean;
   expectedCurrentAssetId?: UUIDString | null;
   expectedSlotVersion?: Int64String | null;
   newSlotVersion: Int64String;
