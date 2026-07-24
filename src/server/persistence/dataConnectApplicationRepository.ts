@@ -56,7 +56,6 @@ import {
   mapUserProfileToGraphVariables,
   persistenceUuid,
   type AdminUpsertChapterContentGraphVariables,
-  type AdminUpsertStoryGraphVariables,
   type AdminPatchStoryGraphVariables,
   type AdminUpsertStorySeedGraphVariables,
   type AdminUpsertUserProfileGraphVariables,
@@ -458,13 +457,6 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     context: PersistenceMutationContext,
   ): Promise<StoryWorld> {
     if (story.userId && story.userId !== ownerUid) throw taggedError('Story owner mismatch.', 'forbidden');
-    const operation = 'UPSERT_STORY_GRAPH';
-    const hash = mutationIntentHash(operation, ownerUid, story, context.expected);
-    if (await this.receipt(ownerUid, context.idempotencyKey, operation, hash)) {
-      const replay = await this.getStory(ownerUid, story.persistenceId ?? story.id);
-      if (!replay) throw new Error('Story persistence receipt exists without its story graph.');
-      return replay;
-    }
     const storyId = story.persistenceId
       ? persistenceUuid(story.persistenceId, 'story', story.id)
       : await this.resolveStoryId(ownerUid, story.id)
@@ -472,17 +464,39 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     const currentResult = await adminGetOwnedStoryGraph({ ownerUid, storyId });
     const current = currentResult.data.story ? currentResult.data : null;
     assertExpected(context.expected, current?.story);
-    const variables: AdminUpsertStoryGraphVariables = mapStoryWorldToGraphVariables({
-      ownerUid,
-      story: { ...story, userId: ownerUid, persistenceId: storyId },
-      currentGraph: current,
-      expectedSyncRevision: current?.story?.syncRevision ?? null,
-      newSyncRevision: story.syncRevision
-        ?? syncRevisionFor(ownerUid, operation, context.idempotencyKey),
-      newRevision: revisionAfter(current?.story?.revision),
-      idempotencyKey: context.idempotencyKey,
-      requestHash: hash,
-    });
+    const operation = current ? 'PATCH_STORY_GRAPH' : 'UPSERT_STORY_GRAPH';
+    const hash = mutationIntentHash(operation, ownerUid, story, context.expected);
+    if (await this.receipt(ownerUid, context.idempotencyKey, operation, hash)) {
+      const replay = await this.getStory(ownerUid, storyId);
+      if (!replay) throw new Error('Story persistence receipt exists without its story graph.');
+      return replay;
+    }
+    const variables = current
+      ? (() => {
+        const { affectedRowCount: _affectedRowCount, ...mapped } = mapStoryWorldToPatchVariables({
+          ownerUid,
+          story: { ...story, userId: ownerUid, persistenceId: storyId, persistenceHydration: 'full' },
+          currentGraph: current,
+          expectedSyncRevision: current.story.syncRevision ?? null,
+          newSyncRevision: story.syncRevision
+            ?? syncRevisionFor(ownerUid, operation, context.idempotencyKey),
+          newRevision: revisionAfter(current.story.revision),
+          idempotencyKey: context.idempotencyKey,
+          requestHash: hash,
+        });
+        return mapped;
+      })()
+      : mapStoryWorldToGraphVariables({
+        ownerUid,
+        story: { ...story, userId: ownerUid, persistenceId: storyId },
+        currentGraph: null,
+        expectedSyncRevision: null,
+        newSyncRevision: story.syncRevision
+          ?? syncRevisionFor(ownerUid, operation, context.idempotencyKey),
+        newRevision: revisionAfter(null),
+        idempotencyKey: context.idempotencyKey,
+        requestHash: hash,
+      });
     await this.runRetired(
       operation,
       ownerUid,
