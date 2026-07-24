@@ -5,6 +5,7 @@ import { apiRouter } from "../src/server/routes";
 import { createApiRateLimiter, sanitizedGlobalErrorHandler } from "../src/server/httpMiddleware";
 import { mediaAssetRouter } from "../src/server/routes/mediaAssetRouter";
 import { persistenceRouter } from "../src/server/routes/persistenceRouter";
+import { captureVercelOidcToken } from "../src/server/vercelGcpCredential";
 
 // Source for the Vercel serverless backend. esbuild bundles THIS file (and everything it
 // imports from src/) into a single self-contained ../api/index.js at build time
@@ -16,6 +17,7 @@ import { persistenceRouter } from "../src/server/routes/persistenceRouter";
 export function createServerlessApp() {
   const app = express();
   app.use(pinoHttp({ logger }));
+  app.use(captureVercelOidcToken);
   app.use("/api", createApiRateLimiter());
   app.use(mediaAssetRouter);
   app.use(express.json({ limit: "20mb" }));
