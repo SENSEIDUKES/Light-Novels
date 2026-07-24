@@ -196,7 +196,11 @@ export const StoryDetailScreen: React.FC<{
       }
       return s;
     });
-    await saveStories(updated);
+    try {
+      await saveStories(updated);
+    } catch (err) {
+      console.error('Failed to save motion cover preference:', err);
+    }
   };
 
   const isCurrentArcFinished =
@@ -697,7 +701,7 @@ export const StoryDetailScreen: React.FC<{
                             }
                             return s;
                           });
-                          store.saveStories(updated);
+                          store.saveStories(updated).catch(console.error);
                         }}
                         role="button"
                         tabIndex={0}
@@ -723,7 +727,7 @@ export const StoryDetailScreen: React.FC<{
                               }
                               return s;
                             });
-                            store.saveStories(updated);
+                            store.saveStories(updated).catch(console.error);
                           }
                         }}
                         aria-label={`Apply cover image from chapter ${img.chapterNumber || "Unknown"}`}

@@ -246,7 +246,10 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
 
     const toSave = changedStories;
 
-    set({ stories: markedStories });
+    // Generation status (chapter.hasContent, "generated" flags, etc.) lives on
+    // `markedStories` and must not become visible to the reader/Living Codex
+    // until it is durably written — commit to state only after the storage
+    // transaction succeeds, not optimistically beforehand.
     try {
       storyStorage.startTransaction();
       for (const s of toSave) {
@@ -257,7 +260,7 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
         set({ stories: [], activeStoryId: null });
         throw new Error('Active account changed while saving the story library');
       }
-      set({ lastSavedTime: new Date() });
+      set({ stories: markedStories, lastSavedTime: new Date() });
     } catch (e) {
       storyStorage.rollbackTransaction();
       if (!LOCAL_ONLY_MODE && auth.currentUser?.uid !== expectedUid) {
@@ -296,7 +299,11 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
            console.error("Even stripped stories exceeded quota.", stripError);
         }
       }
-      set({ lastSavedTime: new Date() });
+      // The local-storage copy above is a data-loss backstop only, not a
+      // success path: callers (chapter generation, blueprint/seed saves,
+      // image jobs) must see this failure so they don't report content as
+      // generated when it was never durably persisted.
+      throw e;
     }
   },
 
@@ -433,7 +440,7 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
     if (storyToDelete) {
       storyStorage.deleteStory(storyToDelete).catch(console.error);
       const updated = stories.filter(s => s.id !== storyToDelete);
-      saveStories(updated);
+      saveStories(updated).catch(console.error);
       if (activeStoryId === storyToDelete) {
         setActiveStoryId(null);
         setCurrentScreen('home');

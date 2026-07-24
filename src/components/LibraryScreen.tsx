@@ -65,6 +65,33 @@ const PUBLISHED_WORLDS: any[] = INITIAL_DEMO_STORIES.map(story => {
   };
 });
 
+async function openPublishedWorld(
+  world: any,
+  setActiveStoryId: (id: string | null) => void,
+  setCurrentScreen: (screen: any) => void,
+) {
+  const user = auth.currentUser;
+  const finalId = user ? `${world.id}-${user.uid}` : world.id;
+  const { stories: latestStories, saveStories, setAppError } = useAppStore.getState();
+  const existing = latestStories.find(s => s.id === finalId);
+  if (!existing) {
+    const personalizedWorld: Story = {
+      ...world,
+      id: finalId,
+      userId: user?.uid,
+    };
+    try {
+      await saveStories([personalizedWorld, ...latestStories]);
+    } catch (err) {
+      console.error('Failed to save selected library world to the account:', err);
+      setAppError('Could not save this world to your library. Please try again.');
+      return;
+    }
+  }
+  setActiveStoryId(finalId);
+  setCurrentScreen('detail');
+}
+
 export const LibraryScreen: React.FC = () => {
   const currentScreen = useAppStore(state => state.currentScreen);
     const setCurrentScreen = useAppStore(state => state.setCurrentScreen);
@@ -623,38 +650,14 @@ export const LibraryScreen: React.FC = () => {
                     key={world.id}
                     className="group cursor-pointer flex flex-col space-y-3"
                     onClick={() => {
-                      const user = auth.currentUser;
-                      const finalId = user ? `${world.id}-${user.uid}` : world.id;
-                      const personalizedWorld = {
-                        ...world,
-                        id: finalId,
-                        userId: user?.uid
-                      };
-                      const existing = stories.find(s => s.id === finalId);
-                      if (!existing) {
-                        useAppStore.getState().setStories([personalizedWorld, ...stories]);
-                      }
-                      setActiveStoryId(finalId);
-                      setCurrentScreen('detail');
+                      void openPublishedWorld(world, setActiveStoryId, setCurrentScreen);
                     }}
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        const user = auth.currentUser;
-                        const finalId = user ? `${world.id}-${user.uid}` : world.id;
-                        const personalizedWorld = {
-                          ...world,
-                          id: finalId,
-                          userId: user?.uid
-                        };
-                        const existing = stories.find(s => s.id === finalId);
-                        if (!existing) {
-                          useAppStore.getState().setStories([personalizedWorld, ...stories]);
-                        }
-                        setActiveStoryId(finalId);
-                        setCurrentScreen('detail');
+                        void openPublishedWorld(world, setActiveStoryId, setCurrentScreen);
                       }
                     }}
                     aria-label={`View published world ${world.title}`}
