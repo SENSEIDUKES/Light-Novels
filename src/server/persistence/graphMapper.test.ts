@@ -655,9 +655,16 @@ describe('user profile graph mapping', () => {
       currentGraph: null,
       ...mutationMetadata(),
     });
+    const ownerARepeat = mapUserProfileToGraphVariables({
+      ownerUid: 'owner-a',
+      patch: { uid: 'owner-a' },
+      currentGraph: null,
+      ...mutationMetadata(),
+    });
 
     expect(ownerA.profile.username).toMatch(/^user_[a-f0-9]{64}$/);
     expect(ownerB.profile.username).toMatch(/^user_[a-f0-9]{64}$/);
+    expect(ownerARepeat.profile.username).toBe(ownerA.profile.username);
     expect(ownerA.profile.username).not.toBe(ownerB.profile.username);
   });
 
