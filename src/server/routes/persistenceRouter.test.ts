@@ -44,6 +44,7 @@ describe('persistenceRouter', () => {
         affectedRows: 2,
         durationMs: 4.5,
       }),
+      saveProfile: vi.fn().mockResolvedValue({ uid: ownerUid, username: 'Saved' }),
     } as unknown as ApplicationPersistenceRepository;
     const app = express();
     app.use(createPersistenceRouter({
@@ -168,5 +169,79 @@ describe('persistenceRouter', () => {
     await expect(response.json()).resolves.toMatchObject({
       error: { code: 'revision_conflict' },
     });
+  });
+
+  it('saves a username with no client revision expectation (does not fabricate exists:false)', async () => {
+    // Regression: the route previously converted a missing expectedSyncRevision
+    // into `expected: { exists: false }`, so every profile update of an
+    // already-existing record was rejected with revision_conflict — breaking
+    // every username save after the first. Omitting the field must forward
+    // `expected: undefined` so no client-side existence assertion is enforced.
+    const response = await fetch(`${baseUrl}/api/persistence/profile`, {
+      method: 'PUT',
+      headers: {
+        Authorization: 'Bearer valid-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        value: { uid: ownerUid, username: 'NewDaoName' },
+        idempotencyKey: 'stable-profile-username-key',
+      }),
+    });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ profile: { username: 'Saved' } });
+    expect(repository.saveProfile).toHaveBeenCalledWith(
+      ownerUid,
+      { uid: ownerUid, username: 'NewDaoName' },
+      { idempotencyKey: 'stable-profile-username-key', expected: undefined },
+    );
+  });
+
+  it('forwards an explicit revision expectation when the client provides one', async () => {
+    const response = await fetch(`${baseUrl}/api/persistence/profile`, {
+      method: 'PUT',
+      headers: {
+        Authorization: 'Bearer valid-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        value: { uid: ownerUid, username: 'NewDaoName' },
+        idempotencyKey: 'stable-profile-cas-key',
+        expectedSyncRevision: 'remote-revision',
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(repository.saveProfile).toHaveBeenCalledWith(
+      ownerUid,
+      { uid: ownerUid, username: 'NewDaoName' },
+      {
+        idempotencyKey: 'stable-profile-cas-key',
+        expected: { exists: true, updatedAt: null, syncRevision: 'remote-revision' },
+      },
+    );
+  });
+
+  it('treats an explicit null revision expectation as "expect no existing record"', async () => {
+    const response = await fetch(`${baseUrl}/api/persistence/profile`, {
+      method: 'PUT',
+      headers: {
+        Authorization: 'Bearer valid-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        value: { uid: ownerUid, username: 'FirstName' },
+        idempotencyKey: 'stable-profile-create-key',
+        expectedSyncRevision: null,
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(repository.saveProfile).toHaveBeenCalledWith(
+      ownerUid,
+      { uid: ownerUid, username: 'FirstName' },
+      {
+        idempotencyKey: 'stable-profile-create-key',
+        expected: { exists: false, updatedAt: null, syncRevision: null },
+      },
+    );
   });
 });

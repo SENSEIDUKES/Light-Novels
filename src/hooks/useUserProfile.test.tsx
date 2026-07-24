@@ -156,7 +156,12 @@ describe('useUserProfile PostgreSQL persistence', () => {
       .toContain('Profile account-a');
   });
 
-  it('creates a default PostgreSQL profile when the account has no row', async () => {
+  it('shows a local fallback profile without writing when the account has no row', async () => {
+    // The canonical account + profile row is provisioned server-side the first
+    // time the profile is read, so the client no longer performs its own
+    // default-profile write. Doing so was a competing initialization path that
+    // could race with — and overwrite — an explicit username save. When the
+    // read returns null the hook shows a local fallback but persists nothing.
     persistenceMocks.getUserProfile.mockResolvedValue(null);
     const owner = makeUser('owner-account', 'amaurylindy@gmail.com');
     const { result } = renderProfile(owner);
@@ -167,9 +172,7 @@ describe('useUserProfile PostgreSQL persistence', () => {
       role: 'owner',
       premiumTier: 'immortal',
     });
-    expect(persistenceMocks.saveUserProfile).toHaveBeenCalledWith(
-      expect.objectContaining({ uid: 'owner-account', role: 'owner' }),
-    );
+    expect(persistenceMocks.saveUserProfile).not.toHaveBeenCalled();
   });
 
   it('ignores a late account A read after switching directly to account B', async () => {
