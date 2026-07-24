@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import type { NextFunction, Request, Response } from 'express';
+import type { NextFunction, Request, Response as ExpressResponse } from 'express';
 import type { AppOptions } from 'firebase-admin/app';
 
 const CLOUD_PLATFORM_SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
@@ -34,7 +34,7 @@ let latestVercelOidcToken: string | undefined;
 
 export function captureVercelOidcToken(
   request: Request,
-  _response: Response,
+  _response: ExpressResponse,
   next: NextFunction,
 ): void {
   const token = request.get('x-vercel-oidc-token')?.trim() || undefined;
