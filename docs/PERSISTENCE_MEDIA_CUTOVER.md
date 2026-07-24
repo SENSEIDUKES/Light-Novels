@@ -44,9 +44,17 @@ other binary bodies.
 ## Ownership and authorization
 
 Every `/api/persistence/*` and `/api/foundation/media-assets*` request requires
-`Authorization: Bearer <Firebase ID token>`. The server verifies the token and
-uses its UID as the owner; payload owner fields and route IDs cannot select a
-different account.
+`Authorization: Bearer <Firebase ID token>`. Firebase Admin validates the token
+against Firebase's public signing certificates, validates its project claims,
+and checks revocation. The verified UID is the only owner identity accepted by
+the persistence and media layers; payload owner fields and route IDs cannot
+select a different account.
+
+The Vercel backend does not store a Firebase service-account private key.
+Vercel supplies a short-lived OIDC token to each function invocation. Google
+Workload Identity Federation exchanges that token for a short-lived access
+token for the existing Firebase Admin service account, which the Admin Data
+Connect SDK uses for privileged graph and media operations.
 
 Data Connect browser operations retain `@auth(level: USER)` owner predicates.
 The richer graph and media lifecycle mutations are `@auth(level: NO_ACCESS)`
@@ -188,16 +196,33 @@ recovery, import, and administrative reconstruction.
 
 ## Environment requirements
 
-The server requires the following protected values. Only placeholders belong in
-tracked files:
+The server requires the following hosted configuration:
 
-- `FIREBASE_PROJECT_ID` and `FIREBASE_SERVICE_ACCOUNT_JSON`
+- `FIREBASE_PROJECT_ID` (`seihouse-moduel`)
 - `R2_ENDPOINT_URL`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY`
 - `R2_PRIVATE_BUCKET_NAME` for private user media
 - `R2_PUBLIC_BUCKET_NAME` and `R2_PUBLIC_BASE_URL` only when trusted public
   publishing is enabled
 - `MEDIA_REMOTE_SOURCE_HOSTS` for temporary provider ingestion allowlisting
 - `MEDIA_CLEANUP_BATCH_SIZE` for a maintenance-run work bound
+
+No Firebase service-account JSON or private key is required. The project uses
+these non-secret Workload Identity defaults: GCP project number `28157517738`,
+pool `vercel`, providers `vercel-team` and `vercel-global`, and service account
+`firebase-adminsdk-fbsvc@seihouse-moduel.iam.gserviceaccount.com`. They may be
+overridden with the matching `GCP_*` variables in `.env.example`.
+
+Google Cloud must trust the Vercel project once. From an authenticated Google
+Cloud Shell for `seihouse-moduel`, run:
+
+```sh
+bash scripts/configure-vercel-gcp-wif.sh
+```
+
+The script is idempotent, creates both Vercel issuer-mode providers, and grants
+only the exact `light-novels` preview and production subjects permission to
+impersonate the existing Firebase Admin service account. It does not create,
+download, rotate, or store any private key.
 
 `R2_BUCKET_NAME` remains a public-bucket compatibility fallback. Credentials
 must never use a `VITE_` prefix or enter a browser bundle. The Firebase client
@@ -233,8 +258,8 @@ The completed local verification is:
 
 Focused tests cover graph mapping, owner isolation, revisions and idempotency,
 story seeds, offline outbox replay, cache isolation/pruning, media
-upload/replacement/delivery/deletion, quota accounting, cleanup recovery, and
-the migrated product hooks.
+upload/replacement/delivery/deletion, quota accounting, cleanup recovery,
+keyless Vercel-to-Google token exchange, and the migrated product hooks.
 
 Live R2 and deployed-preview verification require the protected environment and
 must use only disposable user-media records. Those checks must not delete Auth
