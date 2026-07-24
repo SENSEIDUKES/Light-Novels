@@ -34,6 +34,7 @@ import * as deepl from "deepl-node";
 import { apiRouter } from "./server/routes";
 import { mediaAssetRouter } from "./server/routes/mediaAssetRouter";
 import { persistenceRouter } from "./server/routes/persistenceRouter";
+import { captureVercelOidcToken } from "./server/vercelGcpCredential";
 
 dotenv.config();
 
@@ -62,6 +63,7 @@ function validateEnvironmentOnStartup() {
 
 const app = express();
 app.use(pinoHttp({ logger }));
+app.use(captureVercelOidcToken);
 
 // Helper to extract custom API credentials/configurations passed securely by the client from standard headers
 function getCustomKeys(req: express.Request) {
@@ -143,4 +145,3 @@ async function startServer() {
 }
 
 startServer();
-
