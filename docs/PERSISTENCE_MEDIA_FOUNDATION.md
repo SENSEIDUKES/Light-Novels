@@ -210,7 +210,6 @@ credentials.
 | Variable | Required | Meaning |
 | --- | --- | --- |
 | `FIREBASE_PROJECT_ID` | Hosted server | Firebase project used by Admin Auth and Data Connect. |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | Hosted server unless ADC is configured | Single-line service-account JSON. Prefer the platform secret store. |
 | `R2_ACCESS_KEY_ID` | Yes for media writes | R2 S3-compatible credential. |
 | `R2_SECRET_ACCESS_KEY` | Yes for media writes | R2 secret credential. |
 | `R2_PRIVATE_BUCKET_NAME` | Yes for media writes | Dedicated non-public bucket for private foundation assets and cleanup markers. Production is `celestial-library-private-media`. |
@@ -221,6 +220,11 @@ credentials.
 | `R2_PUBLIC_BASE_URL` | Only for public assets | HTTPS public/CDN origin for the separate public bucket. Without it public saves are rejected before persistence. |
 | `MEDIA_REMOTE_SOURCE_HOSTS` | For remote ingestion | Comma-separated exact hosts or explicit `*.` subdomain patterns, including every allowed redirect destination. |
 | `MEDIA_CLEANUP_BATCH_SIZE` | No | Per-stage maintenance limit; defaults to 100 and is capped at 1,000. |
+
+The current Phase 2 cutover uses Vercel OIDC and Google Workload Identity
+Federation instead of a downloadable Firebase service-account key. The active
+configuration and one-time setup command are documented in
+[`PERSISTENCE_MEDIA_CUTOVER.md`](./PERSISTENCE_MEDIA_CUTOVER.md).
 
 The older `R2_PUBLIC_LIBRARY_URL`, `R2_PUBLIC_AUDIO_URL`,
 `R2_PUBLIC_IMAGES_URL`, `R2_PUBLIC_VIDEOS_URL`, and `R2_PUBLIC_DEV_URL`
@@ -246,163 +250,78 @@ npm run foundation:r2:provision
   responses. The JSON data-URL request and raw upload route have additional
   transport limits.
 - R2 stores the body once; PostgreSQL stores size, checksum, MIME, dimensions,
-  duration, lifecycle, attachment, and audit metadata only.
-- Immutable public objects receive a one-year cache policy. Private descriptors
-  use signed URLs and private/no-store object metadata.
-- `inspectStorage()` aggregates active SQL-recorded byte metadata, up to its
-  query limit, by owner, story, type, and status and lists failed, orphaned,
-  pending-cleanup, and unusually large assets. It is not an R2 bucket inventory
-  or a billable-byte report. `DELETED` tombstones remain in SQL but are excluded
-  from active storage totals.
-- Cleanup tasks and R2 emergency markers make leaked-object inspection explicit.
-  They do not replace Cloudflare bucket lifecycle rules, spend alerts, or a
-  scheduled cleanup worker, which must be configured operationally.
+  duration, lifecycle state, and object location. Signed delivery URLs are
+  generated only when needed.
+- The current default per-owner quota is 500 MiB and 5,000 committed assets.
+- `MediaUploadReceipt` makes repeated upload requests idempotent. A reused key
+  with a different request hash is rejected.
+- Cleanup workers claim tasks with leases, exponential backoff, and a maximum
+  retry count. Stale `RUNNING` tasks can be reclaimed after lease expiry.
+- Storage reports aggregate by owner, story, media type, and status without
+  scanning R2 object bodies.
 
-## IndexedDB cache and offline recovery
+## IndexedDB cache and outbox
 
-`IndexedDbFoundationCache` uses a separate
-`seihouse-foundation-cache-v1` database. Its public contract hard-codes
-`authoritative: false` and `sourceOfTruth: "remote"`.
+The cache is explicitly non-authoritative. Its stores are owner-scoped and its
+records carry update/expiry metadata. The current defaults are 24-hour stale
+revalidation, 30-day hard retention, 100 MiB, and 5,000 entries, additionally
+capped at 80% of the browser-reported quota. Pruning removes hard-expired data
+first, then least-recently-used records and media until all configured bounds are
+met. Account cleanup removes records, media, outbox entries, and recovery state
+without affecting another owner.
 
-The stores are owner-scoped and include:
+The mutation outbox provides:
 
-- remote record replicas with TTL, server version, checksum, serialized UTF-8
-  byte size, and last-access time;
-- media blobs keyed by asset ID and validated against both immutable version and
-  checksum;
-- an idempotent mutation outbox with leases, attempts, retry time, and failure
-  detail;
-- recovery checkpoints for resumable client workflows.
+- deterministic item identity and idempotency keys;
+- pending/processing/failed/succeeded state;
+- leases and stale-lease recovery;
+- bounded exponential backoff;
+- duplicate-enqueue convergence;
+- durable recovery checkpoints; and
+- per-owner processing isolation.
 
-Record, outbox, and checkpoint values are strict JSON only and are snapshotted
-before asynchronous IndexedDB writes. Binary values, `Map`, non-plain objects,
-sparse or augmented arrays, cycles, symbols, and non-finite numbers are rejected
-outside the dedicated media store. Retry timestamps must also be finite.
+The outbox is not evidence that a remote write committed. Callers must reconcile
+against PostgreSQL after reconnecting or recovering from an unknown outcome.
 
-Pruning removes expired entries first and then least-recently-used record/media
-entries until configured entry, byte, and browser-quota-fraction limits are met.
-Signing out must call `clearOwner()` and `close()` for the previous UID. A cache
-write never means a server mutation committed, and the outbox must replay only
-through authenticated, idempotent server operations.
+## Deployment and operations
 
-## Build, emulators, and deployment
+### Firebase configuration
 
-Compile and regenerate both SDKs after any schema or connector edit:
+Phase one keeps the current Firebase application configuration. Data Connect
+configuration lives in `dataconnect/` and is compiled separately. Emulator
+configuration is isolated in `firebase.dataconnect-ci.json`; it does not alter
+production resources.
 
-```bash
-npm run dataconnect:compile
+### Cloudflare R2
+
+Production private media uses `celestial-library-private-media`, with public
+access and `r2.dev` disabled. Public/catalog content remains in the separate
+existing namespace. The private bucket CORS policy allows signed browser
+`GET`/`HEAD` requests from the known app origins; CORS is not authorization.
+
+### Maintenance
+
+Run:
+
+```sh
+npm run foundation:media:maintenance
 ```
 
-The compile script uses `firebase.dataconnect-ci.json`, the
-`demo-seihouse-foundation` project ID, and a local `STRICT` validation mirror so
-CI can validate the schema and regenerate code without production credentials
-or a production database. The deployment config remains `COMPATIBLE`. Both
-configs read the same schema and connector sources; the generated connector
-remains `celestial-library` in `us-west2`. CI regenerates both SDK surfaces and
-fails if code generation leaves either tracked modifications or untracked SDK
-files.
+The command recovers stale uploads, reconciles emergency cleanup markers,
+processes due cleanup tasks, releases expired quota reservations, and emits a
+storage report. It exits nonzero when any stage fails but attempts every stage.
 
-Run the isolated two-user ownership suite against Auth and Data Connect
-emulators:
+### Verification
 
-```bash
-npm run test:foundation:e2e
-```
+The foundation acceptance suite covers two distinct Firebase users, round-trip
+persistence, cross-account denial, browser denial of `NO_ACCESS` operations,
+retention, permanent purge, media ownership, cleanup recovery, and cache/outbox
+isolation. Phase 2 adds the full product cutover validation documented in
+`PERSISTENCE_MEDIA_CUTOVER.md`.
 
-The runner refuses to start without both emulator host variables. It creates two
-authenticated users, checks cross-user read/write denial, checks browser denial
-for a `NO_ACCESS` operation, enforces one probe per owner, creates a story and
-two chapters, denies chapter reads/writes after soft deletion, and cleans up its
-records through the Admin SDK. The runner reports eight acceptance checks.
+## Security and rotation
 
-Deploy Data Connect separately from the application cutover:
-
-```bash
-npx --yes firebase-tools@latest deploy --only dataconnect --project seihouse-moduel
-```
-
-Initial production provisioning and deployment completed successfully: the
-service, connector, Cloud SQL instance, database, and schema all match the
-identifiers above. Continue to review SQL migration diffs and Cloud SQL
-cost/region settings before every later deployment. The deployment did not
-route any existing application read or write to PostgreSQL.
-
-The final production migration replaced the global generation-job idempotency
-index with the intended owner-scoped index and added the other scoped uniqueness
-and stale-upload indexes. A post-deployment `dataconnect:sql:diff` reported an
-exact schema match.
-
-The live R2 smoke test is intentionally opt-in and invokes the production
-server services directly:
-
-```powershell
-$env:FOUNDATION_RUN_LIVE_R2_TEST='I_UNDERSTAND_THIS_WRITES_AND_DELETES_PRODUCTION_MEDIA'
-$env:FIREBASE_PROJECT_ID='seihouse-moduel'
-$env:GOOGLE_APPLICATION_CREDENTIALS='C:\path\to\application-default-or-service-account.json'
-$env:R2_PRIVATE_BUCKET_NAME='celestial-library-private-media'
-npm run test:foundation:r2:live
-```
-
-It refuses emulator hosts, requires explicit Firebase Admin credentials, creates
-and deletes its own temporary Firebase Auth user, and never prints credentials.
-The completed production run normalized the one-pixel PNG data URL, uploaded it
-to R2, confirmed it with `HEAD`, committed and reread the SQL `READY` row, then
-fetched the signed URL from a newly launched browser context on a separate local
-origin and matched the exact bytes through the production CORS policy. The run
-also proved that both the unsigned S3 endpoint and configured public origin deny
-the private object. Deletion committed the SQL `DELETED` tombstone, confirmed
-the R2 object was absent, and confirmed the stale signed URL failed. The owner
-account row and deleted media tombstone remain intentionally for lifecycle
-auditability.
-
-## Verification ledger
-
-This table records completed production acceptance evidence and any explicitly
-identified verification still in progress. Results are not inferred from
-adjacent checks.
-
-| Check | Command or evidence | Result |
-| --- | --- | --- |
-| Data Connect schema and SDK generation | `npm run dataconnect:compile` | PASSED - schema compiled and both generated SDK surfaces were present |
-| Full test suite | `npm test` | PASSED - 170 test files; 1,215 passed, 44 skipped, 1,259 total. Vitest is capped at four workers for stable whole-repository execution, and the two existing `CreationPortal` cases have explicit 30-second integration budgets. |
-| Firestore and Storage security rules with coverage | `firebase emulators:exec --only firestore,storage --project demo-seihouse-foundation "npm run test:coverage"` | PASSED - 1,259/1,259 tests; 59.90% statements, 46.57% branches, 56.41% functions, and 62.87% lines |
-| Full lint and TypeScript | `npm run lint` | PASSED - no errors; one existing `App.tsx` React hook dependency warning remains |
-| Production bundle | `npm run build` | PASSED |
-| Two-user Auth/Data Connect ownership denial | `npm run test:foundation:e2e` | PASSED - eight checks covered one probe per owner, cross-user probe/story/chapter denial, `NO_ACCESS` browser denial, owned story/two-chapter creation, and soft-deleted-story chapter read/write denial |
-| Data Connect deployment and SQL provisioning | Firebase deployment output plus `dataconnect:sql:diff` | PASSED - service and connector `celestial-library`, region `us-west2`, Cloud SQL `celestial-library-sql`, database `celestial_library`; final SQL diff reported an exact match |
-| Live R2 upload, `HEAD`, PostgreSQL `READY`, fresh-browser fetch, and delete | `npm run test:foundation:r2:live` plus production provider state | PASSED - temporary Auth user; data-URL normalization; private-bucket `PUT`/`HEAD`; SQL `READY`; exact signed bytes from fresh Chromium through CORS; unsigned S3 and public-origin access denied; SQL `DELETED`; R2 absent; stale URL failed |
-| Private/public R2 isolation and public-delivery preflight | media service and object-store tests plus Cloudflare bucket state | PASSED - distinct bucket/key namespaces are enforced, same-bucket configuration is rejected, PRIVATE uses the non-public production bucket, and incomplete PUBLIC delivery configuration fails before SQL or R2 writes |
-| Remote-source boundary | media ingress tests and pinned HTTPS smoke | PASSED - exact and wildcard host semantics, redirect revalidation, rejection on any private/reserved DNS answer, and production DNS-pinned TLS/SNI behavior are covered |
-| Relational target and replacement boundary | media service/repository tests | PASSED - generation-job owner/story scope, target shape, exact current-attachment replacement matching, and explicit shared-asset detach requirements are covered |
-| Upload/commit/delete partial-failure paths | media service and router tests | PASSED - definitive cleanup, lost-commit `READY` preservation, unreadable commit markers, stale `UPLOADING` recovery, retryable deletion, and four-stage failure-isolated maintenance are covered |
-| Media payload and HTTP parsing boundary | ingress and router tests | PASSED - recognized short encoded media and canonical base64-like persistence are rejected, authentication precedes body parsing, oversized/malformed errors are sanitized, and raw `application/json` exports preserve their bytes |
-| IndexedDB strict snapshot and recovery contracts | cache tests | PASSED - pre-await JSON snapshots, UTF-8 byte accounting, unsupported-value rejection, finite retry timestamps, owner isolation, pruning, and checksum/version checks are covered |
-| Existing audio catalog and atmosphere behavior | existing targeted audio tests plus catalog diff | Existing catalog remains authoritative and outside the new `user-media/` namespace; no cutover occurred |
-| Current Firestore/Storage behavior remains active | application persistence/import audit | CONFIRMED - the legacy application remains on Firestore/Firebase Storage; Data Connect and R2 foundation routes are isolated and no persistence cutover occurred |
-
-## Phase-two integration points
-
-Phase two should be a deliberate migration, not an incidental import of the new
-facade.
-
-1. Add a read-through adapter at a single story repository boundary. Start with
-   shadow reads and compare normalized results to Firestore without changing the
-   visible result.
-2. Backfill accounts, stories, chapters, Codex rows, settings, jobs, and media
-   metadata with idempotent checkpoints and per-owner reconciliation reports.
-3. Move one bounded write path to dual-write, record divergence, and define the
-   rollback owner before expanding scope.
-4. Wire `IndexedDbFoundationCache` only beneath the new remote repository. Clear
-   owner data on auth changes and never use cache presence as commit evidence.
-5. Connect generated/uploaded image producers to the server media endpoint.
-   Retain old URLs until each replacement reaches `READY` and the UI confirms
-   the new descriptor.
-6. Add the protected scheduled cleanup worker, Cloudflare lifecycle rules,
-   storage budgets, alert thresholds, and recurring storage report review.
-7. Migrate the curated audio catalog separately. Preserve current IDs, paths,
-   role separation, and the exact atmosphere categories `wind`, `crowd`,
-   `waves`, `rain`, `combat`, and `noise` until an explicit catalog migration is
-   designed and verified.
-8. Cut reads over by cohort only after ownership, rollback, clean-session media,
-   and consistency metrics meet agreed gates. Remove legacy persistence only in
-   a later explicitly approved phase.
+No private Firebase service-account key is required by the active Phase 2
+Vercel deployment. Google credentials are short-lived and issued through
+Workload Identity Federation. R2 credentials remain protected server-only
+secrets and follow the rotation procedure in `SECRET_ROTATION.md`.
