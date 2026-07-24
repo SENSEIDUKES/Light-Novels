@@ -177,7 +177,10 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
     const result = await adminReserveStorageQuota({
       reservationId: reservation.id,
       ownerUid,
-      storyId: reservation.storyId,
+      // Data Connect nullable variables must be explicit. Omitting storyId as
+      // JavaScript undefined makes the generated operation produce an invalid
+      // SQL statement for account-scoped slots such as profile portraits.
+      storyId: reservation.storyId ?? null,
       idempotencyKey: reservation.idempotencyKey,
       requestedBytes: reservation.requestedBytes,
       hardLimitBytes: reservation.hardLimitBytes,

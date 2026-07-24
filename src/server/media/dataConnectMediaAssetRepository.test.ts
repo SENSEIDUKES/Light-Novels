@@ -1,0 +1,39 @@
+// @vitest-environment node
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  reserveStorageQuota: vi.fn(),
+}));
+
+vi.mock('../firebaseAdmin', () => ({ getFirebaseAdminApp: () => ({}) }));
+vi.mock('../../generated/dataconnect-admin', () => ({
+  adminReserveStorageQuota: mocks.reserveStorageQuota,
+}));
+
+import { DataConnectMediaAssetRepository } from './dataConnectMediaAssetRepository';
+
+describe('DataConnectMediaAssetRepository', () => {
+  beforeEach(() => {
+    mocks.reserveStorageQuota.mockReset();
+    mocks.reserveStorageQuota.mockResolvedValue({
+      data: { storageQuotaReservation_insert: { id: 'quota-reservation' } },
+    });
+  });
+
+  it('sends an explicit null story scope for account portrait quota reservations', async () => {
+    const repository = new DataConnectMediaAssetRepository();
+
+    await repository.reserveQuota('owner-1', {
+      id: '0b3eeea7-88d8-4304-973d-c5d5b4b19146',
+      idempotencyKey: '1ace85af-0b0e-43d8-83c9-c01a171f80f7',
+      requestedBytes: '1024',
+      hardLimitBytes: '524288000',
+      expiresAt: '2026-07-24T19:00:00.000Z',
+    });
+
+    expect(mocks.reserveStorageQuota).toHaveBeenCalledWith(expect.objectContaining({
+      ownerUid: 'owner-1',
+      storyId: null,
+    }));
+  });
+});
