@@ -961,6 +961,7 @@ export default function ReaderChamber({
           isPausedText,
           handleTogglePlayback,
           readerMode,
+          playerStyle: currentPrefs.playerStyle,
         }}
         audio={{
           speechRate,
