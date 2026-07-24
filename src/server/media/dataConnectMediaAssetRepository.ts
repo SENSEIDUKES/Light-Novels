@@ -288,6 +288,7 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
         quotaReservationId: commit.quotaReservationId,
         idempotencyKey: commit.idempotencyKey,
         etag: etag ?? null,
+        requestedBytes: commit.requestedBytes,
       };
       let result: Awaited<ReturnType<typeof adminCommitAccountMediaAsset>> | undefined;
       let lastError: unknown;
@@ -307,6 +308,7 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
       if (!result.data.mediaAsset_update
         || !result.data.mediaUploadReceipt_update
         || result.data.mediaUploadAttempt_updateMany !== 1
+        || !result.data.committedReservation
         || !result.data.committedQuota) {
         throw new Error('SQL Connect did not atomically commit the account media asset.');
       }
@@ -334,6 +336,7 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
       arcTitle: association.arcTitle ?? null,
       label: association.label ?? null,
       position: commit.position,
+      requestedBytes: commit.requestedBytes,
       expectedCurrentAssetId: commit.expectedCurrentAssetId ?? null,
       expectedSlotVersion: commit.expectedSlotVersion ?? null,
       newSlotVersion: commit.newSlotVersion,
@@ -361,6 +364,8 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
       || !result.data.mediaUploadReceipt_update
       || result.data.mediaAttachment_updateMany !== expectedCurrentUpdates
       || result.data.mediaUploadAttempt_updateMany !== 1
+      || !result.data.committedReservation
+      || !result.data.storyUsage
       || !result.data.committedQuota) {
       throw new Error('SQL Connect did not atomically commit the media asset and exactly one current slot.');
     }

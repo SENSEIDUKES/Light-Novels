@@ -136,6 +136,8 @@ describe('DataConnectMediaAssetRepository', () => {
           mediaUploadReceipt_update: { idempotencyKey: 'request-1' },
           mediaAttachment_updateMany: 0,
           mediaUploadAttempt_updateMany: 1,
+          committedReservation: { id: '0b3eeea7-88d8-4304-973d-c5d5b4b19146' },
+          storyUsage: { storyId: '7da538b7-75ce-44f9-bdf9-82e7f9e4d7ae' },
           committedQuota: { userUid: 'owner-1' },
         },
       });
@@ -173,6 +175,7 @@ describe('DataConnectMediaAssetRepository', () => {
       {
         quotaReservationId: '0b3eeea7-88d8-4304-973d-c5d5b4b19146',
         idempotencyKey: 'request-1',
+        requestedBytes: '1024',
         attachmentId: 'de52773d-42dd-4aa2-932f-a4660b2f9d18',
         position: 0,
         newSlotVersion: '1',
@@ -205,6 +208,7 @@ describe('DataConnectMediaAssetRepository', () => {
           mediaAsset_update: { id: 'fc0aac17-fb01-4f7e-a9bc-e3121204125d' },
           mediaUploadReceipt_update: { idempotencyKey: 'request-1' },
           mediaUploadAttempt_updateMany: 1,
+          committedReservation: { id: '0b3eeea7-88d8-4304-973d-c5d5b4b19146' },
           committedQuota: { userUid: 'owner-1' },
         },
       });
@@ -242,6 +246,7 @@ describe('DataConnectMediaAssetRepository', () => {
       {
         quotaReservationId: '0b3eeea7-88d8-4304-973d-c5d5b4b19146',
         idempotencyKey: 'request-1',
+        requestedBytes: '1024',
         attachmentId: 'de52773d-42dd-4aa2-932f-a4660b2f9d18',
         position: 0,
         newSlotVersion: '1',
@@ -262,6 +267,7 @@ describe('DataConnectMediaAssetRepository', () => {
       quotaReservationId: '0b3eeea7-88d8-4304-973d-c5d5b4b19146',
       idempotencyKey: 'request-1',
       etag: 'etag-1',
+      requestedBytes: '1024',
     });
     expect(mocks.commitMediaAsset).not.toHaveBeenCalled();
   });

@@ -586,6 +586,7 @@ export class MediaAssetService {
       ready = await this.repository.commitToSlot(owner.uid, id, etag, {
         quotaReservationId,
         idempotencyKey: request.idempotencyKey,
+        requestedBytes: reservation.byteSize,
         association: request.association,
         attachmentId: this.createId(),
         position: Number(positionValue),

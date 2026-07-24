@@ -208,6 +208,7 @@ export interface AdminCommitAccountMediaAssetData {
   mediaAsset_update?: MediaAsset_Key | null;
   mediaUploadAttempt_updateMany: number;
   mediaUploadReceipt_update?: MediaUploadReceipt_Key | null;
+  committedReservation?: unknown | null;
   committedQuota?: unknown | null;
 }
 
@@ -217,6 +218,7 @@ export interface AdminCommitAccountMediaAssetVariables {
   quotaReservationId: UUIDString;
   idempotencyKey: string;
   etag?: string | null;
+  requestedBytes: Int64String;
 }
 
 export interface AdminCommitMediaAssetReadyData {
@@ -269,6 +271,8 @@ export interface AdminCommitMediaAssetToSlotData {
   mediaSlot_upsert: MediaSlot_Key;
   mediaUploadAttempt_updateMany: number;
   mediaUploadReceipt_update?: MediaUploadReceipt_Key | null;
+  committedReservation?: unknown | null;
+  storyUsage?: unknown | null;
   committedQuota?: unknown | null;
 }
 
@@ -292,6 +296,7 @@ export interface AdminCommitMediaAssetToSlotVariables {
   arcTitle?: string | null;
   label?: string | null;
   position: number;
+  requestedBytes: Int64String;
   expectedCurrentAssetId?: UUIDString | null;
   expectedSlotVersion?: Int64String | null;
   newSlotVersion: Int64String;

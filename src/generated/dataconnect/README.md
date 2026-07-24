@@ -9528,6 +9528,7 @@ export interface AdminCommitMediaAssetToSlotVariables {
   arcTitle?: string | null;
   label?: string | null;
   position: number;
+  requestedBytes: Int64String;
   expectedCurrentAssetId?: UUIDString | null;
   expectedSlotVersion?: Int64String | null;
   newSlotVersion: Int64String;
@@ -9545,6 +9546,8 @@ export interface AdminCommitMediaAssetToSlotData {
   mediaSlot_upsert: MediaSlot_Key;
   mediaUploadAttempt_updateMany: number;
   mediaUploadReceipt_update?: MediaUploadReceipt_Key | null;
+  committedReservation?: unknown | null;
+  storyUsage?: unknown | null;
   committedQuota?: unknown | null;
 }
 ```
@@ -9575,6 +9578,7 @@ const adminCommitMediaAssetToSlotVars: AdminCommitMediaAssetToSlotVariables = {
   arcTitle: ..., // optional
   label: ..., // optional
   position: ..., 
+  requestedBytes: ...,
   expectedCurrentAssetId: ..., // optional
   expectedSlotVersion: ..., // optional
   newSlotVersion: ..., 
@@ -9584,7 +9588,7 @@ const adminCommitMediaAssetToSlotVars: AdminCommitMediaAssetToSlotVariables = {
 // You can use the `await` keyword to wait for the promise to resolve.
 const { data } = await adminCommitMediaAssetToSlot(adminCommitMediaAssetToSlotVars);
 // Variables can be defined inline as well.
-const { data } = await adminCommitMediaAssetToSlot({ id: ..., ownerUid: ..., quotaReservationId: ..., idempotencyKey: ..., etag: ..., storyId: ..., chapterId: ..., entityId: ..., targetKind: ..., targetKey: ..., purpose: ..., attachmentId: ..., historyEntityType: ..., clientHistoryId: ..., promptUsed: ..., chapterNumber: ..., arcTitle: ..., label: ..., position: ..., expectedCurrentAssetId: ..., expectedSlotVersion: ..., newSlotVersion: ..., });
+const { data } = await adminCommitMediaAssetToSlot({ id: ..., ownerUid: ..., quotaReservationId: ..., idempotencyKey: ..., etag: ..., storyId: ..., chapterId: ..., entityId: ..., targetKind: ..., targetKey: ..., purpose: ..., attachmentId: ..., historyEntityType: ..., clientHistoryId: ..., promptUsed: ..., chapterNumber: ..., arcTitle: ..., label: ..., position: ..., requestedBytes: ..., expectedCurrentAssetId: ..., expectedSlotVersion: ..., newSlotVersion: ..., });
 
 // You can also pass in a `DataConnect` instance to the action shortcut function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -9596,6 +9600,8 @@ console.log(data.mediaAttachment_upsert);
 console.log(data.mediaSlot_upsert);
 console.log(data.mediaUploadAttempt_updateMany);
 console.log(data.mediaUploadReceipt_update);
+console.log(data.committedReservation);
+console.log(data.storyUsage);
 console.log(data.committedQuota);
 
 // Or, you can use the `Promise` API.
@@ -9607,6 +9613,8 @@ adminCommitMediaAssetToSlot(adminCommitMediaAssetToSlotVars).then((response) => 
   console.log(data.mediaSlot_upsert);
   console.log(data.mediaUploadAttempt_updateMany);
   console.log(data.mediaUploadReceipt_update);
+  console.log(data.committedReservation);
+  console.log(data.storyUsage);
   console.log(data.committedQuota);
 });
 ```
@@ -9638,6 +9646,7 @@ const adminCommitMediaAssetToSlotVars: AdminCommitMediaAssetToSlotVariables = {
   arcTitle: ..., // optional
   label: ..., // optional
   position: ..., 
+  requestedBytes: ...,
   expectedCurrentAssetId: ..., // optional
   expectedSlotVersion: ..., // optional
   newSlotVersion: ..., 
@@ -9646,7 +9655,7 @@ const adminCommitMediaAssetToSlotVars: AdminCommitMediaAssetToSlotVariables = {
 // Call the `adminCommitMediaAssetToSlotRef()` function to get a reference to the mutation.
 const ref = adminCommitMediaAssetToSlotRef(adminCommitMediaAssetToSlotVars);
 // Variables can be defined inline as well.
-const ref = adminCommitMediaAssetToSlotRef({ id: ..., ownerUid: ..., quotaReservationId: ..., idempotencyKey: ..., etag: ..., storyId: ..., chapterId: ..., entityId: ..., targetKind: ..., targetKey: ..., purpose: ..., attachmentId: ..., historyEntityType: ..., clientHistoryId: ..., promptUsed: ..., chapterNumber: ..., arcTitle: ..., label: ..., position: ..., expectedCurrentAssetId: ..., expectedSlotVersion: ..., newSlotVersion: ..., });
+const ref = adminCommitMediaAssetToSlotRef({ id: ..., ownerUid: ..., quotaReservationId: ..., idempotencyKey: ..., etag: ..., storyId: ..., chapterId: ..., entityId: ..., targetKind: ..., targetKey: ..., purpose: ..., attachmentId: ..., historyEntityType: ..., clientHistoryId: ..., promptUsed: ..., chapterNumber: ..., arcTitle: ..., label: ..., position: ..., requestedBytes: ..., expectedCurrentAssetId: ..., expectedSlotVersion: ..., newSlotVersion: ..., });
 
 // You can also pass in a `DataConnect` instance to the `MutationRef` function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -9662,6 +9671,8 @@ console.log(data.mediaAttachment_upsert);
 console.log(data.mediaSlot_upsert);
 console.log(data.mediaUploadAttempt_updateMany);
 console.log(data.mediaUploadReceipt_update);
+console.log(data.committedReservation);
+console.log(data.storyUsage);
 console.log(data.committedQuota);
 
 // Or, you can use the `Promise` API.
@@ -9673,6 +9684,8 @@ executeMutation(ref).then((response) => {
   console.log(data.mediaSlot_upsert);
   console.log(data.mediaUploadAttempt_updateMany);
   console.log(data.mediaUploadReceipt_update);
+  console.log(data.committedReservation);
+  console.log(data.storyUsage);
   console.log(data.committedQuota);
 });
 ```
@@ -9716,6 +9729,7 @@ export interface AdminCommitAccountMediaAssetVariables {
   quotaReservationId: UUIDString;
   idempotencyKey: string;
   etag?: string | null;
+  requestedBytes: Int64String;
 }
 ```
 ### Return Type
@@ -9727,6 +9741,7 @@ export interface AdminCommitAccountMediaAssetData {
   mediaAsset_update?: MediaAsset_Key | null;
   mediaUploadAttempt_updateMany: number;
   mediaUploadReceipt_update?: MediaUploadReceipt_Key | null;
+  committedReservation?: unknown | null;
   committedQuota?: unknown | null;
 }
 ```
@@ -9743,13 +9758,14 @@ const adminCommitAccountMediaAssetVars: AdminCommitAccountMediaAssetVariables = 
   quotaReservationId: ..., 
   idempotencyKey: ..., 
   etag: ..., // optional
+  requestedBytes: ...,
 };
 
 // Call the `adminCommitAccountMediaAsset()` function to execute the mutation.
 // You can use the `await` keyword to wait for the promise to resolve.
 const { data } = await adminCommitAccountMediaAsset(adminCommitAccountMediaAssetVars);
 // Variables can be defined inline as well.
-const { data } = await adminCommitAccountMediaAsset({ id: ..., ownerUid: ..., quotaReservationId: ..., idempotencyKey: ..., etag: ..., });
+const { data } = await adminCommitAccountMediaAsset({ id: ..., ownerUid: ..., quotaReservationId: ..., idempotencyKey: ..., etag: ..., requestedBytes: ..., });
 
 // You can also pass in a `DataConnect` instance to the action shortcut function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -9758,6 +9774,7 @@ const { data } = await adminCommitAccountMediaAsset(dataConnect, adminCommitAcco
 console.log(data.mediaAsset_update);
 console.log(data.mediaUploadAttempt_updateMany);
 console.log(data.mediaUploadReceipt_update);
+console.log(data.committedReservation);
 console.log(data.committedQuota);
 
 // Or, you can use the `Promise` API.
@@ -9766,6 +9783,7 @@ adminCommitAccountMediaAsset(adminCommitAccountMediaAssetVars).then((response) =
   console.log(data.mediaAsset_update);
   console.log(data.mediaUploadAttempt_updateMany);
   console.log(data.mediaUploadReceipt_update);
+  console.log(data.committedReservation);
   console.log(data.committedQuota);
 });
 ```
@@ -9783,12 +9801,13 @@ const adminCommitAccountMediaAssetVars: AdminCommitAccountMediaAssetVariables = 
   quotaReservationId: ..., 
   idempotencyKey: ..., 
   etag: ..., // optional
+  requestedBytes: ...,
 };
 
 // Call the `adminCommitAccountMediaAssetRef()` function to get a reference to the mutation.
 const ref = adminCommitAccountMediaAssetRef(adminCommitAccountMediaAssetVars);
 // Variables can be defined inline as well.
-const ref = adminCommitAccountMediaAssetRef({ id: ..., ownerUid: ..., quotaReservationId: ..., idempotencyKey: ..., etag: ..., });
+const ref = adminCommitAccountMediaAssetRef({ id: ..., ownerUid: ..., quotaReservationId: ..., idempotencyKey: ..., etag: ..., requestedBytes: ..., });
 
 // You can also pass in a `DataConnect` instance to the `MutationRef` function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -9801,6 +9820,7 @@ const { data } = await executeMutation(ref);
 console.log(data.mediaAsset_update);
 console.log(data.mediaUploadAttempt_updateMany);
 console.log(data.mediaUploadReceipt_update);
+console.log(data.committedReservation);
 console.log(data.committedQuota);
 
 // Or, you can use the `Promise` API.
@@ -9809,6 +9829,7 @@ executeMutation(ref).then((response) => {
   console.log(data.mediaAsset_update);
   console.log(data.mediaUploadAttempt_updateMany);
   console.log(data.mediaUploadReceipt_update);
+  console.log(data.committedReservation);
   console.log(data.committedQuota);
 });
 ```

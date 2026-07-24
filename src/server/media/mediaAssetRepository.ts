@@ -82,6 +82,7 @@ export interface MediaQuotaReservationState {
 export interface MediaSlotCommit {
   quotaReservationId: string;
   idempotencyKey: string;
+  requestedBytes: string;
   association: MediaAssociation;
   attachmentId: string;
   position: number;
