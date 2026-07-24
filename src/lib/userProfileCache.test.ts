@@ -19,6 +19,20 @@ const profile: UserProfile = {
   displayName: 'Cultivator Name',
   avatarUrl: 'https://firebasestorage.example/portrait.webp',
   activePortraitId: 'portrait-1',
+  avatarMediaDescriptor: {
+    id: 'portrait-1',
+    assetType: 'IMAGE',
+    purpose: 'CELESTIAL_PORTRAIT',
+    visibility: 'PRIVATE',
+    status: 'READY',
+    mimeType: 'image/webp',
+    byteSize: '1024',
+    checksumSha256: 'a'.repeat(64),
+    version: 2,
+    deliveryUrl: 'https://private.example/signed-portrait',
+    deliveryUrlExpiresAt: '2026-07-14T00:15:00.000Z',
+    createdAt: '2026-07-14T00:00:00.000Z',
+  },
   preferredLanguage: 'Japanese',
   defaultTranslationLanguage: 'English',
   savedStoryCount: 3,
@@ -35,15 +49,20 @@ describe('account profile cache', () => {
     vi.restoreAllMocks();
   });
 
-  it('restores a previously selected account portrait during a cloud outage', () => {
+  it('retains the portrait asset identity without caching its expired delivery URL', () => {
     cacheAccountProfile(profile);
 
     expect(createAccountProfileFallback(user)).toMatchObject({
       uid: user.uid,
       username: 'reader',
       displayName: 'Cultivator Name',
-      avatarUrl: 'https://firebasestorage.example/portrait.webp',
+      avatarUrl: 'provider-photo.png',
       activePortraitId: 'portrait-1',
+      avatarMediaDescriptor: expect.objectContaining({
+        id: 'portrait-1',
+        version: 2,
+        deliveryUrl: '',
+      }),
       preferredLanguage: 'Japanese',
     });
   });

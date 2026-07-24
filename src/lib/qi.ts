@@ -1,8 +1,8 @@
-import { doc, setDoc, collection, addDoc, query, where, getDocs, getDoc } from 'firebase/firestore';
-import { db, auth } from './firebase';
+import { auth } from './firebase';
 import { checkAndAwardRankArtifacts } from './artifacts';
 import type { ActiveStatusEffect } from '../types';
 import { useAppStore } from '../store/useAppStore';
+import { saveUserProfile } from './persistence';
 
 let pendingProfileUpdates: any = null;
 let profileSyncTimeout: any = null;
@@ -19,7 +19,7 @@ function queueProfileSync(updates: any, uid: string) {
     const toSync = pendingProfileUpdates;
     pendingProfileUpdates = null;
     try {
-      await setDoc(doc(db, 'users', uid), toSync, { merge: true });
+      await saveUserProfile({ uid, ...toSync });
     } catch (err) {
       console.error('Failed to sync XP to cloud', err);
     }
@@ -286,7 +286,7 @@ export async function awardQi(event: QiEvent, sourceId?: string, sourceType?: st
     // Update local immediately for instantaneous UI updates
     useAppStore.getState().setUserProfile({ ...data, ...userUpdates });
     
-    // Queue background sync to firestore
+    // Queue one owner-scoped PostgreSQL profile mutation for the burst.
     queueProfileSync(userUpdates, user.uid);
 
   } catch (error) {

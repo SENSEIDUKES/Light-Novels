@@ -1,15 +1,22 @@
 {
   "framework": "vite",
-  "buildCommand": "vite build && esbuild server-bundle/entry.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=server-bundle/index.js",
+  "buildCommand": "vite build && esbuild server-bundle/entry.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=api/index.js",
   "outputDirectory": "dist",
-  "rewrites": [
+  "routes": [
     {
-      "source": "/((?!api/).*)",
-      "destination": "/index.html"
+      "src": "^/api/(.*)$",
+      "dest": "/api?__seihouse_api_path=$1"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "^/(.*)$",
+      "dest": "/index.html"
     }
   ],
   "functions": {
-    "api/**/*.ts": {
+    "api/**/*.js": {
       "maxDuration": 60
     }
   }

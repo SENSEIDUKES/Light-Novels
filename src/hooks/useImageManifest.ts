@@ -2,7 +2,17 @@ import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { secureStorage } from '../lib/encryption';
 import { checkAndConsumeImageQuota } from '../lib/quota';
-import { generateId } from '../lib/id';
+import { generateId, generateUUID } from '../lib/id';
+import {
+  MEDIA_PURPOSE,
+  MEDIA_TARGET_KIND,
+  requirePersistenceUuid,
+  saveMediaAsset,
+} from '../lib/media/mediaAssetClient';
+import {
+  discardCachedMedia,
+  resolveMediaAssetForDisplay,
+} from '../lib/media/privateMediaResolver';
 
 export function useImageManifest() {
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
@@ -50,17 +60,61 @@ export function useImageManifest() {
       if (!newImageUrls || newImageUrls.length === 0) {
         throw new Error("No imagery frames returned.");
       }
-      const selectedUrl = newImageUrls[0];
+      let selectedUrl = newImageUrls[0];
 
-      if (activeStory && type !== 'faction') {
+      if (activeStory) {
         const id = entry.id;
         const currentChapterNumber = activeStory.currentChapterNumber || 1;
+        const legacyMediaId = generateId(8);
+        const storyPersistenceId = requirePersistenceUuid(
+          activeStory.persistenceId ?? activeStory.id,
+          'Story',
+        );
+        const entityPersistenceId = requirePersistenceUuid(
+          entry.persistenceId ?? entry.id,
+          `${type} entity`,
+        );
+        const targetKindByType: Record<string, string> = {
+          character: MEDIA_TARGET_KIND.CHARACTER,
+          beast: MEDIA_TARGET_KIND.BEAST,
+          location: MEDIA_TARGET_KIND.LOCATION,
+          artifact: MEDIA_TARGET_KIND.ARTIFACT,
+          faction: MEDIA_TARGET_KIND.FACTION,
+        };
+        const targetKind = targetKindByType[type];
+        if (!targetKind) throw new Error(`Unsupported manifestation type: ${type}`);
+        const promptUsed = `${entry.name}. ${entry.description}`;
+        const asset = await saveMediaAsset({
+          source: selectedUrl,
+          assetType: 'IMAGE',
+          purpose: MEDIA_PURPOSE.MANIFESTATION,
+          association: {
+            targetKind,
+            targetKey: id,
+            storyId: storyPersistenceId,
+            entityId: entityPersistenceId,
+            legacyMediaId,
+            entityType: type,
+            promptUsed,
+            chapterNumber: currentChapterNumber,
+          },
+          replacesAssetId: entry.imageAssetId,
+          idempotencyKey: generateUUID(),
+        });
+        selectedUrl = (await resolveMediaAssetForDisplay(asset)).url;
+        if (entry.imageAssetId && entry.imageAssetId !== asset.id) {
+          await discardCachedMedia(entry.imageAssetId);
+        }
         const newHistoryItem = {
-          id: generateId(8),
+          id: legacyMediaId,
+          assetId: asset.id,
+          assetVersion: asset.version,
+          checksumSha256: asset.checksumSha256,
+          deliveryUrlExpiresAt: asset.deliveryUrlExpiresAt ?? undefined,
           entityId: id,
           entityType: type as any,
           imageUrl: selectedUrl,
-          promptUsed: `${entry.name}. ${entry.description}`,
+          promptUsed,
           createdAt: new Date().toISOString(),
           isCurrent: true,
           chapterNumber: currentChapterNumber
@@ -75,15 +129,23 @@ export function useImageManifest() {
         const updatedMemory = { ...memory };
         if (type === 'character') {
           updatedMemory.characters = memory.characters.map((c: any) => 
-            c.id === id ? { ...c, imageUrl: selectedUrl, imageHistory: (c.imageHistory || []).concat(newHistoryItem) } : c
+            c.id === id ? { ...c, persistenceId: entityPersistenceId, imageAssetId: asset.id, imageUrl: selectedUrl, imageHistory: (c.imageHistory || []).concat(newHistoryItem) } : c
           );
         } else if (type === 'location') {
           updatedMemory.locations = (memory.locations || []).map((l: any) => 
-            l.id === id ? { ...l, imageUrl: selectedUrl, imageHistory: (l.imageHistory || []).concat(newHistoryItem) } : l
+            l.id === id ? { ...l, persistenceId: entityPersistenceId, imageAssetId: asset.id, imageUrl: selectedUrl, imageHistory: (l.imageHistory || []).concat(newHistoryItem) } : l
           );
         } else if (type === 'artifact') {
           updatedMemory.artifacts = (memory.artifacts || []).map((a: any) => 
-            a.id === id ? { ...a, imageUrl: selectedUrl, imageHistory: (a.imageHistory || []).concat(newHistoryItem) } : a
+            a.id === id ? { ...a, persistenceId: entityPersistenceId, imageAssetId: asset.id, imageUrl: selectedUrl, imageHistory: (a.imageHistory || []).concat(newHistoryItem) } : a
+          );
+        } else if (type === 'beast') {
+          updatedMemory.characters = memory.characters.map((c: any) =>
+            c.id === id ? { ...c, persistenceId: entityPersistenceId, imageAssetId: asset.id, imageUrl: selectedUrl, imageHistory: (c.imageHistory || []).concat(newHistoryItem) } : c
+          );
+        } else if (type === 'faction') {
+          updatedMemory.factions = (memory.factions || []).map((f: any) =>
+            f.id === id ? { ...f, persistenceId: entityPersistenceId, imageAssetId: asset.id, imageUrl: selectedUrl, imageHistory: (f.imageHistory || []).concat(newHistoryItem) } : f
           );
         }
 
@@ -91,6 +153,7 @@ export function useImageManifest() {
           if (s.id === activeStoryId) {
             return {
               ...s,
+              persistenceId: storyPersistenceId,
               memory: updatedMemory,
               imageHistory: updatedStoryHistory,
               updatedAt: new Date().toISOString()
@@ -99,7 +162,7 @@ export function useImageManifest() {
           return s;
         });
 
-        saveStories(updatedStories);
+        await saveStories(updatedStories);
       }
       
       setGeneratingIds(prev => {
@@ -165,11 +228,48 @@ export function useImageManifest() {
       if (!newImageUrls || newImageUrls.length === 0) {
         throw new Error("No imagery frames returned.");
       }
-      const selectedUrl = newImageUrls[0];
+      let selectedUrl = newImageUrls[0];
 
       if (activeStory) {
+        const storyPersistenceId = requirePersistenceUuid(
+          activeStory.persistenceId ?? activeStory.id,
+          'Story',
+        );
+        const chapter = activeStory.arcs
+          .flatMap(arc => arc.chapters)
+          .find(candidate => candidate.number === chapterNumber);
+        const chapterPersistenceId = requirePersistenceUuid(
+          chapter?.persistenceId,
+          `Chapter ${chapterNumber}`,
+        );
+        const legacyMediaId = generateId(8);
+        const asset = await saveMediaAsset({
+          source: selectedUrl,
+          assetType: 'IMAGE',
+          purpose: MEDIA_PURPOSE.CHAPTER_HERO,
+          association: {
+            targetKind: MEDIA_TARGET_KIND.CHAPTER,
+            targetKey: `${activeStory.id}:${chapterNumber}`,
+            storyId: storyPersistenceId,
+            chapterId: chapterPersistenceId,
+            legacyMediaId,
+            entityType: 'chapterHero',
+            promptUsed: promptText,
+            chapterNumber,
+          },
+          replacesAssetId: chapter?.heroImageAssetId,
+          idempotencyKey: generateUUID(),
+        });
+        selectedUrl = (await resolveMediaAssetForDisplay(asset)).url;
+        if (chapter?.heroImageAssetId && chapter.heroImageAssetId !== asset.id) {
+          await discardCachedMedia(chapter.heroImageAssetId);
+        }
         const newHistoryItem = {
-          id: generateId(8),
+          id: legacyMediaId,
+          assetId: asset.id,
+          assetVersion: asset.version,
+          checksumSha256: asset.checksumSha256,
+          deliveryUrlExpiresAt: asset.deliveryUrlExpiresAt ?? undefined,
           entityId: `chapter-hero-${chapterNumber}`,
           entityType: 'chapterHero' as const,
           imageUrl: selectedUrl,
@@ -192,6 +292,8 @@ export function useImageManifest() {
                 if (ch.number === chapterNumber) {
                   return {
                     ...ch,
+                    persistenceId: chapterPersistenceId,
+                    heroImageAssetId: asset.id,
                     assetManifest: {
                       ...(ch.assetManifest || {}),
                       heroImage: selectedUrl
@@ -204,6 +306,7 @@ export function useImageManifest() {
             
             return {
               ...s,
+              persistenceId: storyPersistenceId,
               arcs: updatedArcs,
               imageHistory: updatedStoryHistory,
               updatedAt: new Date().toISOString()
@@ -212,7 +315,7 @@ export function useImageManifest() {
           return s;
         });
 
-        saveStories(updatedStories);
+        await saveStories(updatedStories);
       }
       
       setGeneratingIds(prev => {

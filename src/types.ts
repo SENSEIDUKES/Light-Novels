@@ -82,7 +82,9 @@ export interface CultivatorPortraitAsset {
   id: string;
   userId: string;
   imageUrl: string;
-  storagePath: string;
+  assetVersion?: number;
+  checksumSha256?: string;
+  deliveryUrlExpiresAt?: string;
   mimeType: CultivatorPortraitMimeType;
   source: 'generated';
   createdAt: string;
@@ -99,6 +101,8 @@ export interface UserProfile {
   avatarUrl: string;
   /** Account-owned portrait selected from users/{uid}/portraits. */
   activePortraitId?: string;
+  /** Transient/canonical portrait metadata; signed delivery URLs are never cached. */
+  avatarMediaDescriptor?: import("./contracts/mediaAssets").MediaAssetDescriptor;
   preferredLanguage: string;
   defaultTranslationLanguage: string;
   savedStoryCount: number;
@@ -142,6 +146,11 @@ export interface DaoXpEvent {
 
 export interface GeneratedImage {
   id: string;
+  /** Canonical PostgreSQL/R2 asset identity. `imageUrl` is only a transient delivery URL. */
+  assetId?: string;
+  assetVersion?: number;
+  checksumSha256?: string;
+  deliveryUrlExpiresAt?: string;
   entityId: string;
   entityType: "cover" | "character" | "beast" | "location" | "artifact" | "chapterHero";
   imageUrl: string;
@@ -242,6 +251,10 @@ export interface Ability extends BaseCodexEntry {
 }
 
 export interface BaseCodexEntry {
+  /** Canonical Data Connect row identity for relational/media associations. */
+  persistenceId?: string;
+  /** Current immutable R2 manifestation asset. */
+  imageAssetId?: string;
   aliases?: string[];
   contextPriority?: number;
   authorContextNote?: string;
@@ -279,6 +292,7 @@ export interface Character extends BaseCodexEntry {
   voicePresetId?: string;
   signatureQuote?: string;
   voiceClipUrl?: string;
+  voiceAssetId?: string;
 }
 
 export interface Faction extends BaseCodexEntry {
@@ -288,6 +302,8 @@ export interface Faction extends BaseCodexEntry {
   alignment: "Righteous" | "Demonic" | "Neutral" | "Mysterious" | string;
   headquarters?: string;
   status?: "Active" | "Destroyed" | "Fractured" | string;
+  imageUrl?: string;
+  imageHistory?: GeneratedImage[];
 }
 
 export interface Location extends BaseCodexEntry {
@@ -746,6 +762,8 @@ export interface ContextManifest {
 }
 
 export interface Chapter {
+  /** Canonical Data Connect row identity. */
+  persistenceId?: string;
   number: number;
   title: string;
   premise: string;
@@ -758,6 +776,7 @@ export interface Chapter {
   sealedAt?: number;
   versionId?: string;
   assetManifest?: Record<string, string>;
+  heroImageAssetId?: string;
   translationCache?: Record<string, string>;
   audioCueCache?: Record<string, string>;
   branchAnchor?: string;
@@ -795,6 +814,8 @@ export interface Chapter {
 }
 
 export interface StoryArc {
+  /** Canonical Data Connect row identity. */
+  persistenceId?: string;
   title: string;
   chapters: Chapter[];
   isCompleted: boolean;
@@ -985,6 +1006,12 @@ export interface StorySeed extends StorySeedPayload {
 }
 
 export interface StoryWorld {
+  /** Catalog rows remain compact until the story is explicitly opened. */
+  persistenceHydration?: "summary" | "full";
+  /** Transient current-surface descriptors; delivery URLs are never authoritative state. */
+  mediaDescriptors?: Record<string, import("./contracts/mediaAssets").MediaAssetDescriptor>;
+  /** Canonical Data Connect row identity; new stories use this as `id`. */
+  persistenceId?: string;
   userId?: string;
   id: string;
   /** Account-owned seed used to create this story. */
@@ -1003,6 +1030,7 @@ export interface StoryWorld {
   arcs: StoryArc[];
   currentChapterNumber: number;
   imageUrl?: string;
+  coverAssetId?: string;
   imageHistory?: GeneratedImage[];
   lastImageChapter?: number;
   evolutionReady?: boolean;

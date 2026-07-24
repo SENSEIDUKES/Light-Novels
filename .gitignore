@@ -3,18 +3,26 @@ build/
 dist/
 server-bundle/index.js
 server-bundle/index.js.map
+api/index.js.map
 coverage/
 playwright-report/
 test-results/
 scratch/
 .DS_Store
 *.log
+eslint-output.txt
+eslint_report.json
+lint.json
 .env*
 !.env.example
 dataconnect/.dataconnect/
 dataconnect-ci/.dataconnect/
+# Firebase CLI temporary cache and emulator state.
+.firebase/
 
 # Agent skills
 .agents/
 skills-lock.json
 
+.vercel/
+.vercel

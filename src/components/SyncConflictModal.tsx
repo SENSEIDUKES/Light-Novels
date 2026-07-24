@@ -210,7 +210,7 @@ export const SyncConflictModal: React.FC = () => {
                 <div className="flex items-center gap-2.5 mb-4">
                   <Cloud size={18} className="text-human" />
                   <span className="font-sc font-bold text-[11px] uppercase tracking-wider text-human">
-                    Cloud Storage Data
+                    PostgreSQL Library Data
                   </span>
                 </div>
 

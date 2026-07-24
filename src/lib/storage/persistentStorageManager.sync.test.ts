@@ -30,6 +30,8 @@ const mocks = vi.hoisted(() => ({
     deleteStory: vi.fn(),
     subscribeToStories: vi.fn(),
   },
+  outboxByOwner: new Map<string, Map<string, any>>(),
+  claimedLeases: [] as number[],
   onAuthStateChanged: vi.fn(),
 }));
 
@@ -48,9 +50,84 @@ vi.mock('./inMemoryAdapter', () => ({
     constructor() { return mocks.memory as any; }
   },
 }));
-vi.mock('../firebaseStorage', () => ({
-  FirebaseStorageAdapter: class {
+vi.mock('./dataConnectStorageAdapter', () => ({
+  DataConnectStorageAdapter: class {
     constructor() { return mocks.cloud as any; }
+  },
+}));
+vi.mock('../foundation/cache/indexedDbFoundationCache', () => ({
+  IndexedDbFoundationCache: class {
+    ownerUid: string;
+    rows: Map<string, any>;
+
+    constructor({ ownerUid }: { ownerUid: string }) {
+      this.ownerUid = ownerUid;
+      this.rows = mocks.outboxByOwner.get(ownerUid) ?? new Map();
+      mocks.outboxByOwner.set(ownerUid, this.rows);
+    }
+
+    async enqueueOutbox(input: any) {
+      const id = input.id ?? input.idempotencyKey;
+      const existing = this.rows.get(id);
+      if (existing) return existing;
+      const now = Date.now();
+      const row = {
+        storageKey: `${this.ownerUid}\u0000${id}`,
+        ownerUid: this.ownerUid,
+        id,
+        operation: input.operation,
+        payload: JSON.parse(JSON.stringify(input.payload)),
+        idempotencyKey: input.idempotencyKey,
+        state: 'PENDING',
+        attempts: 0,
+        createdAt: now,
+        updatedAt: now,
+        lastAccessedAt: now,
+        nextAttemptAt: input.nextAttemptAt ?? now,
+      };
+      this.rows.set(id, row);
+      return row;
+    }
+
+    async listRecoverableOutbox(limit = 100) {
+      const now = Date.now();
+      return [...this.rows.values()]
+        .filter((row) => row.nextAttemptAt <= now)
+        .slice(0, limit);
+    }
+
+    async claimOutbox(id: string, leaseMs: number) {
+      mocks.claimedLeases.push(leaseMs);
+      const row = this.rows.get(id);
+      if (!row) return null;
+      const now = Date.now();
+      const claimed = {
+        ...row,
+        state: 'IN_FLIGHT',
+        attempts: row.attempts + 1,
+        leaseExpiresAt: now + leaseMs,
+      };
+      this.rows.set(id, claimed);
+      return claimed;
+    }
+
+    async failOutbox(id: string, error: string, nextAttemptAt: number) {
+      const row = this.rows.get(id);
+      if (!row) return;
+      this.rows.set(id, {
+        ...row,
+        state: 'FAILED',
+        lastError: error,
+        nextAttemptAt,
+        leaseExpiresAt: undefined,
+      });
+    }
+
+    async completeOutbox(id: string) {
+      this.rows.delete(id);
+    }
+
+    close() {}
   },
 }));
 vi.mock('../firebase', () => ({
@@ -93,6 +170,8 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     // intentionally leave different cloud responses for different users.
     vi.resetAllMocks();
     localStorage.clear();
+    mocks.outboxByOwner.clear();
+    mocks.claimedLeases = [];
     mocks.auth.currentUser = null;
     mocks.authCallback = null;
     mocks.idb.init.mockResolvedValue(undefined);
@@ -120,7 +199,7 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     });
   });
 
-  it('does not scan the cloud on sign-in, reconnect, focus, or visibility changes', async () => {
+  it('hydrates once on sign-in without rescanning on reconnect, focus, or visibility changes', async () => {
     const manager = new PersistentStorageManager();
     await manager.init();
 
@@ -131,6 +210,8 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
       expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('reader');
       expect((manager as any).activeSyncPromise).toBeNull();
     });
+    expect(mocks.cloud.getStories).toHaveBeenCalledTimes(1);
+    mocks.cloud.getStories.mockClear();
 
     window.dispatchEvent(new Event('online'));
     await vi.waitFor(() => {
@@ -146,7 +227,7 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     manager.dispose();
   });
 
-  it('reconnect flushes queued edits with targeted reads instead of listing the library', async () => {
+  it('reconnect flushes queued edits with targeted reads after the initial catalog hydration', async () => {
     let storedStory: any = null;
     mocks.idb.getStories.mockImplementation(async () => storedStory ? [storedStory] : []);
     mocks.idb.getStory.mockImplementation(async () => storedStory);
@@ -162,6 +243,7 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
       expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('reader');
       expect((manager as any).activeSyncPromise).toBeNull();
     });
+    mocks.cloud.getStories.mockClear();
 
     await manager.saveStory(makeStory() as any);
     window.dispatchEvent(new Event('online'));
@@ -173,6 +255,118 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     });
     expect(mocks.cloud.getStories).not.toHaveBeenCalled();
     expect(mocks.cloud.getChapterContent).not.toHaveBeenCalled();
+    expect(mocks.claimedLeases).toEqual([30_000]);
+    manager.dispose();
+  });
+
+  it('restores an offline mutation from IndexedDB after reload and acknowledges it after reconnect', async () => {
+    let storedStory: any = null;
+    mocks.idb.getStories.mockImplementation(async () =>
+      storedStory ? [storedStory] : [],
+    );
+    mocks.idb.getStory.mockImplementation(async () => storedStory);
+    mocks.idb.saveStory.mockImplementation(async (story) => {
+      storedStory = JSON.parse(JSON.stringify(story));
+    });
+    mocks.auth.currentUser = { uid: 'reader' };
+
+    const firstTab = new PersistentStorageManager();
+    await firstTab.init();
+    (firstTab as any).isCloudAvailable = false;
+    mocks.cloud.saveStoryIfUnchanged.mockClear();
+
+    await firstTab.saveStory(makeStory({ title: 'Saved offline' }) as any);
+
+    const persistedRows = mocks.outboxByOwner.get('reader');
+    expect(persistedRows?.size).toBe(1);
+    const persistedId = [...persistedRows!.keys()][0];
+    expect(localStorage.getItem('@seihouse/sync-queue')).toBeNull();
+    firstTab.dispose();
+
+    const restoredTab = new PersistentStorageManager();
+    await restoredTab.init();
+
+    expect(mocks.cloud.saveStoryIfUnchanged).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Saved offline' }),
+      expect.any(Object),
+    );
+    expect(mocks.outboxByOwner.get('reader')?.has(persistedId)).toBe(false);
+    expect((restoredTab as any).syncQueue).toEqual([]);
+    restoredTab.dispose();
+  });
+
+  it('reuses one persisted idempotency key across a failed retry', async () => {
+    let storedStory: any = null;
+    mocks.idb.getStories.mockImplementation(async () =>
+      storedStory ? [storedStory] : [],
+    );
+    mocks.idb.getStory.mockImplementation(async () => storedStory);
+    mocks.idb.saveStory.mockImplementation(async (story) => {
+      storedStory = JSON.parse(JSON.stringify(story));
+    });
+    mocks.auth.currentUser = { uid: 'reader' };
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    const transient = Object.assign(new Error('temporarily unavailable'), {
+      code: 'unavailable',
+    });
+    mocks.cloud.saveStoryIfUnchanged
+      .mockRejectedValueOnce(transient)
+      .mockResolvedValueOnce(undefined);
+
+    await manager.saveStory(makeStory({ title: 'Retry me' }) as any);
+    const queuedBefore = (manager as any).syncQueue[0];
+    const idempotencyKey = queuedBefore.idempotencyKey;
+    await (manager as any).flushSyncQueue();
+
+    const failedRow = mocks.outboxByOwner.get('reader')?.get(idempotencyKey);
+    expect(failedRow).toEqual(
+      expect.objectContaining({
+        idempotencyKey,
+        state: 'FAILED',
+        attempts: 1,
+      }),
+    );
+    expect((manager as any).syncQueue[0].idempotencyKey).toBe(idempotencyKey);
+
+    await (manager as any).flushSyncQueue();
+    expect(mocks.cloud.saveStoryIfUnchanged).toHaveBeenCalledTimes(2);
+    expect(mocks.outboxByOwner.get('reader')?.has(idempotencyKey)).toBe(false);
+    manager.dispose();
+  });
+
+  it('migrates the legacy localStorage queue into isolated owner outboxes', async () => {
+    localStorage.setItem(
+      '@seihouse/sync-queue',
+      JSON.stringify([
+        {
+          type: 'story',
+          storyId: 'account-a-story',
+          timestamp: 1,
+          userId: 'account-a',
+        },
+        {
+          type: 'story',
+          storyId: 'account-b-story',
+          timestamp: 2,
+          userId: 'account-b',
+        },
+      ]),
+    );
+    const manager = new PersistentStorageManager();
+
+    await (manager as any).loadQueueForScope('account-a');
+    expect((manager as any).syncQueue).toEqual([
+      expect.objectContaining({ storyId: 'account-a-story', userId: 'account-a' }),
+    ]);
+    expect(mocks.outboxByOwner.get('account-a')?.size).toBe(1);
+    expect(mocks.outboxByOwner.get('account-b')?.size).toBe(1);
+    expect(localStorage.getItem('@seihouse/sync-queue')).toBeNull();
+
+    await (manager as any).loadQueueForScope('account-b');
+    expect((manager as any).syncQueue).toEqual([
+      expect.objectContaining({ storyId: 'account-b-story', userId: 'account-b' }),
+    ]);
     manager.dispose();
   });
 
@@ -208,7 +402,7 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     manager.dispose();
   });
 
-  it('waits for a physical Harmony request before pulling a restored account', async () => {
+  it('hydrates a restored account before initialization completes', async () => {
     mocks.auth.currentUser = { uid: 'restored-reader' };
     let releaseCloud!: (stories: any[]) => void;
     mocks.cloud.getStories.mockReturnValueOnce(new Promise<any[]>((resolve) => {
@@ -216,20 +410,17 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     }));
     const manager = new PersistentStorageManager();
 
-    await manager.init();
-    expect(mocks.cloud.getStories).not.toHaveBeenCalled();
-
-    let harmonized = false;
-    const harmony = manager.performSync({ deep: true }).then(() => {
-      harmonized = true;
+    let initialized = false;
+    const initialization = manager.init().then(() => {
+      initialized = true;
     });
     await vi.waitFor(() => expect(mocks.cloud.getStories).toHaveBeenCalledTimes(1));
-    expect(harmonized).toBe(false);
+    expect(initialized).toBe(false);
     releaseCloud([]);
-    await harmony;
+    await initialization;
 
     expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('restored-reader');
-    expect(harmonized).toBe(true);
+    expect(initialized).toBe(true);
     manager.dispose();
   });
 
@@ -350,6 +541,7 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
   it('finishes the old account pass before switching the local namespace', async () => {
     let releaseAccountA!: (stories: any[]) => void;
     mocks.cloud.getStories
+      .mockResolvedValueOnce([])
       .mockReturnValueOnce(new Promise<any[]>((resolve) => {
         releaseAccountA = resolve;
       }))
@@ -365,7 +557,7 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
       expect((manager as any).activeSyncPromise).toBeNull();
     });
     const accountASync = manager.performSync({ deep: true });
-    await vi.waitFor(() => expect(mocks.cloud.getStories).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(mocks.cloud.getStories).toHaveBeenCalledTimes(2));
 
     const accountB = { uid: 'account-b' };
     mocks.auth.currentUser = accountB;
@@ -378,7 +570,7 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
       expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('account-b');
     });
     await (manager as any).accountTransitionPromise;
-    expect(mocks.cloud.getStories).toHaveBeenCalledTimes(1);
+    expect(mocks.cloud.getStories).toHaveBeenCalledTimes(3);
     manager.dispose();
   });
 
@@ -392,16 +584,6 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
       title: 'Private cloud A',
     });
     let releaseReconcileRead!: (story: any) => void;
-    mocks.idb.getStories.mockResolvedValue([localStory]);
-    mocks.idb.getStory
-      .mockResolvedValueOnce(localStory)
-      .mockReturnValueOnce(new Promise<any>((resolve) => {
-        releaseReconcileRead = resolve;
-      }))
-      .mockResolvedValue(null);
-    mocks.cloud.getStories
-      .mockResolvedValueOnce([cloudStory])
-      .mockResolvedValue([]);
     const conflictHandler = vi.fn();
     const manager = new PersistentStorageManager();
     manager.onConflict(conflictHandler);
@@ -414,6 +596,16 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
       expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('account-a');
       expect((manager as any).activeSyncPromise).toBeNull();
     });
+    mocks.idb.getStories.mockResolvedValue([localStory]);
+    mocks.idb.getStory
+      .mockResolvedValueOnce(localStory)
+      .mockReturnValueOnce(new Promise<any>((resolve) => {
+        releaseReconcileRead = resolve;
+      }))
+      .mockResolvedValue(null);
+    mocks.cloud.getStories
+      .mockResolvedValueOnce([cloudStory])
+      .mockResolvedValue([]);
     const accountASync = manager.performSync({ deep: true });
     await vi.waitFor(() => expect(mocks.idb.getStory).toHaveBeenCalledTimes(2));
 
@@ -452,6 +644,7 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     });
     let releaseAccountA!: (stories: any[]) => void;
     mocks.cloud.getStories
+      .mockResolvedValueOnce([])
       .mockReturnValueOnce(new Promise<any[]>((resolve) => {
         releaseAccountA = resolve;
       }))
@@ -467,7 +660,7 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
       expect((manager as any).activeSyncPromise).toBeNull();
     });
     const accountASync = manager.performSync({ deep: true });
-    await vi.waitFor(() => expect(mocks.cloud.getStories).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(mocks.cloud.getStories).toHaveBeenCalledTimes(2));
 
     const accountB = { uid: 'account-b' };
     mocks.auth.currentUser = accountB;
@@ -520,9 +713,12 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     const accountB = { uid: 'account-b' };
     mocks.auth.currentUser = accountB;
     mocks.authCallback?.(accountB);
-    await vi.waitFor(() => expect((manager as any).activeSyncPromise).toBeNull());
+    await vi.waitFor(() => {
+      expect(mocks.cloud.getStories).toHaveBeenCalledTimes(1);
+      expect((manager as any).activeSyncPromise).toBeNull();
+    });
 
-    expect(mocks.cloud.getStories).not.toHaveBeenCalled();
+    expect(mocks.cloud.getStories).toHaveBeenCalledTimes(1);
     expect(mocks.cloud.deleteStory).not.toHaveBeenCalled();
     expect((manager as any).syncQueue).toEqual([
       expect.objectContaining({
@@ -568,7 +764,7 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     manager.dispose();
   });
 
-  it('deep-checks existing chapter bodies only after Harmony is activated', async () => {
+  it('keeps restored-account hydration catalog-only and deep-checks chapters only on explicit Harmony', async () => {
     const story = {
       id: 'shared-story',
       userId: 'reader',
@@ -625,6 +821,7 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
       expect((manager as any).activeSyncPromise).toBeNull();
     });
     expect(mocks.cloud.getChapterContent).not.toHaveBeenCalled();
+    mocks.cloud.getChapterContent.mockClear();
 
     await manager.performSync({ deep: true });
 

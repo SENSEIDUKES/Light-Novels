@@ -22,6 +22,13 @@ const associationSchema = z.object({
   storyId: optionalUuid,
   chapterId: optionalUuid,
   entityId: optionalUuid,
+  clientHistoryId: z.string().trim().min(1).max(160).optional().nullable(),
+  legacyMediaId: z.string().trim().min(1).max(160).optional().nullable(),
+  entityType: z.string().trim().min(1).max(64).optional().nullable(),
+  promptUsed: z.string().max(12_000).optional().nullable(),
+  chapterNumber: z.coerce.number().int().min(0).optional().nullable(),
+  arcTitle: z.string().trim().max(500).optional().nullable(),
+  label: z.string().trim().max(500).optional().nullable(),
 }).strict();
 
 const mediaMetadataSchema = z.object({
@@ -31,6 +38,7 @@ const mediaMetadataSchema = z.object({
   association: associationSchema,
   generationJobId: optionalUuid,
   replacesAssetId: optionalUuid,
+  idempotencyKey: z.string().uuid(),
 }).strict();
 
 const jsonMediaRequestSchema = mediaMetadataSchema.extend({
@@ -60,7 +68,21 @@ const rawMediaQuerySchema = z.object({
   entityId: optionalUuid,
   generationJobId: optionalUuid,
   replacesAssetId: optionalUuid,
+  idempotencyKey: z.string().uuid(),
+  clientHistoryId: z.string().trim().min(1).max(160).optional().nullable(),
+  legacyMediaId: z.string().trim().min(1).max(160).optional().nullable(),
+  entityType: z.string().trim().min(1).max(64).optional().nullable(),
+  promptUsed: z.string().max(12_000).optional().nullable(),
+  chapterNumber: z.coerce.number().int().min(0).optional().nullable(),
+  arcTitle: z.string().trim().max(500).optional().nullable(),
+  label: z.string().trim().max(500).optional().nullable(),
   filename: z.string().trim().min(1).max(240).optional(),
+}).strict();
+
+const selectMediaAssetSchema = z.object({
+  association: associationSchema.extend({
+    purpose: z.string().trim().min(1).max(80),
+  }),
 }).strict();
 
 const mediaAssetParamsSchema = z.object({
@@ -71,11 +93,13 @@ export interface VerifiedMediaToken {
   uid: string;
   email?: string | null;
   name?: string | null;
+  role?: 'owner' | 'admin' | 'user';
 }
 
 export interface MediaAssetRouteService {
   save(owner: MediaOwner, request: SaveMediaAssetRequest): Promise<MediaAssetDescriptor>;
   get(ownerUid: string, assetId: string): Promise<MediaAssetDescriptor | null>;
+  select(ownerUid: string, assetId: string, association: SaveMediaAssetRequest['association']): Promise<MediaAssetDescriptor>;
   delete(ownerUid: string, assetId: string): Promise<void>;
 }
 
@@ -124,6 +148,7 @@ const defaultDependencies: MediaAssetRouteDependencies = {
       uid: token.uid,
       email: typeof token.email === 'string' ? token.email : null,
       name: typeof token.name === 'string' ? token.name : null,
+      role: token.role === 'owner' || token.role === 'admin' || token.role === 'user' ? token.role : undefined,
     };
   },
   getService: getDefaultService,
@@ -155,6 +180,7 @@ function authenticateMediaRequest(dependencies: MediaAssetRouteDependencies) {
         uid: decoded.uid,
         email: decoded.email ?? null,
         displayName: decoded.name ?? null,
+        ...(decoded.role ? { role: decoded.role } : {}),
       };
       next();
     } catch {
@@ -175,6 +201,7 @@ function toSaveRequest(parsed: z.infer<typeof jsonMediaRequestSchema>): SaveMedi
     },
     generationJobId: parsed.generationJobId,
     replacesAssetId: parsed.replacesAssetId,
+    idempotencyKey: parsed.idempotencyKey,
   };
 }
 
@@ -203,7 +230,21 @@ function handleRouteError(error: unknown, res: Response): Response {
       not_found: 404,
       replacement_not_ready: 404,
       replacement_slot_mismatch: 409,
+      current_slot_conflict: 409,
+      idempotency_conflict: 409,
+      idempotency_in_progress: 409,
+      idempotency_failed: 409,
+      idempotency_state_conflict: 503,
+      asset_not_ready: 409,
+      history_asset_not_found: 404,
+      media_slot_not_found: 404,
+      rate_limit_exceeded: 429,
+      user_quota_exceeded: 413,
+      public_storage_prohibited: 403,
+      quota_reservation_failed: 503,
+      database_reservation_failed: 503,
       upload_failed: 502,
+      upload_confirmation_failed: 502,
       database_commit_failed: 503,
       delete_pending_cleanup: 503,
     };
@@ -274,12 +315,36 @@ export function createMediaAssetRouter(
           storyId: metadata.storyId,
           chapterId: metadata.chapterId,
           entityId: metadata.entityId,
+          clientHistoryId: metadata.clientHistoryId,
+          legacyMediaId: metadata.legacyMediaId,
+          entityType: metadata.entityType,
+          promptUsed: metadata.promptUsed,
+          chapterNumber: metadata.chapterNumber,
+          arcTitle: metadata.arcTitle,
+          label: metadata.label,
         },
         generationJobId: metadata.generationJobId,
         replacesAssetId: metadata.replacesAssetId,
+        idempotencyKey: metadata.idempotencyKey,
       };
       const asset = await (await dependencies.getService()).save(res.locals.mediaOwner, request);
       res.status(201).json({ asset });
+    }),
+  );
+
+  router.post(
+    '/api/foundation/media-assets/:assetId/select',
+    authenticate,
+    express.json({ limit: '32kb' }),
+    asyncRoute(async (req, res) => {
+      const { assetId } = mediaAssetParamsSchema.parse(req.params);
+      const { association } = selectMediaAssetSchema.parse(req.body);
+      const asset = await (await dependencies.getService()).select(
+        res.locals.mediaOwner.uid,
+        assetId,
+        association,
+      );
+      res.json({ asset });
     }),
   );
 

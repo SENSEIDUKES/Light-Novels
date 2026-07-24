@@ -1,10 +1,13 @@
-import { collection, doc, getDoc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
-import { auth, db, handleFirestoreError, OperationType } from './firebase';
+import { auth } from './firebase';
 import { generateUUID } from './id';
+import {
+  getStorySeed as getPostgresStorySeed,
+  listStorySeeds as listPostgresStorySeeds,
+  saveStorySeed as savePostgresStorySeed,
+  saveStorySeeds as savePostgresStorySeeds,
+} from './persistence';
 import { normalizeStorySeedPayload } from './storySeedFormat';
 import type { Story, StorySeed, StorySeedPayload } from '../types';
-
-const seedCollectionPath = (userId: string): string => `users/${userId}/seeds`;
 
 const getAuthenticatedUid = (): string => {
   const uid = auth.currentUser?.uid;
@@ -39,14 +42,11 @@ const buildSeed = (
 };
 
 const writeSeed = async (seed: StorySeed): Promise<StorySeed> => {
-  try {
-    await setDoc(doc(db, seedCollectionPath(seed.userId), seed.id), seed);
-    assertCurrentAccount(seed.userId);
-    return seed;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, `${seedCollectionPath(seed.userId)}/${seed.id}`);
-    throw error;
-  }
+  const saved = await savePostgresStorySeed(seed, {
+    idempotencyKey: generateUUID(),
+  });
+  assertCurrentAccount(seed.userId);
+  return saved;
 };
 
 export const createStorySeed = async (
@@ -76,34 +76,19 @@ export const updateStorySeed = async (
 
 export const getStorySeed = async (seedId: string): Promise<StorySeed | null> => {
   const userId = getAuthenticatedUid();
-  try {
-    const snapshot = await getDoc(doc(db, seedCollectionPath(userId), seedId));
-    assertCurrentAccount(userId);
-    if (!snapshot.exists()) return null;
-    const seed = snapshot.data() as StorySeed;
-    return seed.userId === userId ? seed : null;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.GET, `${seedCollectionPath(userId)}/${seedId}`);
-    throw error;
-  }
+  const seed = await getPostgresStorySeed(seedId);
+  assertCurrentAccount(userId);
+  return seed?.userId === userId ? seed : null;
 };
 
 export const listStorySeeds = async (): Promise<StorySeed[]> => {
   const userId = auth.currentUser?.uid;
   if (!userId) return [];
-  try {
-    // Keep the existing standard Web SDK path: this is one small, account-scoped
-    // collection and must remain compatible with the app's current offline stack.
-    const snapshot = await getDocs(collection(db, seedCollectionPath(userId)));
-    assertCurrentAccount(userId);
-    return snapshot.docs
-      .map(seedDoc => seedDoc.data() as StorySeed)
-      .filter(seed => seed.userId === userId)
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.LIST, seedCollectionPath(userId));
-    throw error;
-  }
+  const seeds = await listPostgresStorySeeds();
+  assertCurrentAccount(userId);
+  return seeds
+    .filter(seed => seed.userId === userId)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 };
 
 export const importStorySeeds = async (payloads: StorySeedPayload[]): Promise<StorySeed[]> => {
@@ -113,20 +98,10 @@ export const importStorySeeds = async (payloads: StorySeedPayload[]): Promise<St
   if (payloads.length === 0) return [];
 
   const userId = getAuthenticatedUid();
-  const batch = writeBatch(db);
   const seeds = payloads.map(payload => buildSeed(userId, `seed-${generateUUID()}`, payload));
-  for (const seed of seeds) {
-    batch.set(doc(db, seedCollectionPath(userId), seed.id), seed);
-  }
-
-  try {
-    await batch.commit();
-    assertCurrentAccount(userId);
-    return seeds;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, seedCollectionPath(userId));
-    throw error;
-  }
+  const saved = await savePostgresStorySeeds(seeds, generateUUID());
+  assertCurrentAccount(userId);
+  return saved;
 };
 
 /**

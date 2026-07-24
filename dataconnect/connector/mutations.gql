@@ -412,3 +412,2256 @@ mutation AdminFailMediaCleanup(
     }
   )
 }
+
+mutation AdminUpsertStoryGraph(
+  $ownerUid: String!
+  $storyId: UUID!
+  $expectedSyncRevision: String
+  $newSyncRevision: String!
+  $newRevision: Int64!
+  $idempotencyKey: String!
+  $requestHash: String
+  $story: Story_Data!
+    @allow(fields: "id ownerUid sourceSeedId parentStoryId legacyStoryId clientStoryId title genre mainCharacterName premise status visibility currentChapterNumber forkChapterNumber syncRevision revision schemaVersion lastImageChapter evolutionReady evolutionReason availableVisualUpdate isEdited conflictResolvedAt deletedAt createdAt updatedAt")
+  $memberUserUids: [String!]!
+  $members: [StoryMember_Data!]!
+    @allow(fields: "storyId userUid role createdAt")
+  $preferences: [StoryPreference_Data!]!
+    @allow(fields: "storyId contextEngine hardcoreFateMode fatePressure motionCoverActive assignedRevealBackdropPolicy updatedAt")
+  $readerPreferenceUserUids: [String!]!
+  $readerPreferences: [StoryReaderPreference_Data!]!
+    @allow(fields: "storyId userUid fontSize fontFamily lineHeight paragraphSpacing lineHeightScale paragraphSpacingScale letterSpacing wordSpacing readingWidth textAlignment contextEngine themeOverride colorPaletteId highlightStyle updatedAt")
+  $memoryStates: [StoryMemoryState_Data!]!
+    @allow(fields: "storyId powerSystem currentPowerStage updatedAt")
+  $memoryWarningIds: [UUID!]!
+  $memoryWarnings: [StoryMemoryWarning_Data!]!
+    @allow(fields: "id storyId warning resolvedAt createdAt")
+  $ruleIds: [UUID!]!
+  $rules: [StoryRule_Data!]!
+    @allow(fields: "id storyId ruleKey ruleValue isPinned position updatedAt")
+  $revealBackdropKeys: [String!]!
+  $revealBackdrops: [StoryRevealBackdrop_Data!]!
+    @allow(fields: "storyId entityStableKey backdropAssetId updatedAt")
+  $arcIds: [UUID!]!
+  $arcs: [StoryArc_Data!]!
+    @allow(fields: "id storyId arcNumber title summary status episodicSummaries createdAt updatedAt")
+  $chapterIds: [UUID!]!
+  $chapters: [Chapter_Data!]!
+    @allow(fields: "id storyId arcId legacyChapterId clientChapterId chapterNumber title premise status summary episodicSummary contentHash versionId syncRevision revision branchAnchor continuityWarnings continuitySoftNotes contractObjectiveFulfilled contractEvidence contractOpeningMatched embedding isSealed sealedAt hasContinuityFaults createdAt updatedAt")
+  $codexEntityIds: [UUID!]!
+  $codexEntities: [CodexEntity_Data!]!
+    @allow(fields: "id storyId stableKey kind name role description status relationshipToMainCharacter relevanceState contextPriority authorContextNote firstAppearedChapter lastMajorInvolvementChapter currentRelevance toneMemory manifestationImportance isUserPinned pendingEvolution evolutionReady evolutionReason availableVisualUpdate lastImageChapter arcAccumulation sourceChapterNumber sourceBlockId provenanceCreatedBy provenanceConfidence lastMentionedChapter supersedesStableKey createdAt updatedAt")
+  $codexAliases: [CodexAlias_Data!]!
+    @allow(fields: "entityId alias normalizedAlias isCanonical")
+  $codexAttributes: [CodexEntityAttribute_Data!]!
+    @allow(fields: "entityId attributeKey stringValue numberValue booleanValue stringListValue jsonValue updatedAt")
+  $codexRelationshipIds: [UUID!]!
+  $codexRelationships: [CodexRelationship_Data!]!
+    @allow(fields: "id storyId sourceEntityId targetEntityId sourceStableKey targetStableKey sourceName targetName relationshipKind affinity threat description status createdAt updatedAt")
+  $plotThreadIds: [UUID!]!
+  $plotThreads: [PlotThread_Data!]!
+    @allow(fields: "id storyId description status originChapterNumber resolvedChapterNumber confidence isUserPinned stableKey sourceChapterNumber sourceBlockId provenanceCreatedBy provenanceConfidence lastMentionedChapter supersedesStableKey createdAt updatedAt")
+  $codexThreadLinks: [CodexThreadLink_Data!]!
+    @allow(fields: "entityId threadId createdAt")
+  $abilityProgressionIds: [UUID!]!
+  $abilityProgression: [AbilityProgressionEvent_Data!]!
+    @allow(fields: "id abilityEntityId chapterNumber fromMastery toMastery note createdAt")
+  $karmaNodeIds: [UUID!]!
+  $karmaNodes: [KarmaNode_Data!]!
+    @allow(fields: "id storyId sourceEntityId targetEntityId sourceStableKey targetStableKey sourceName targetName description severity nodeType status createdAt resolvedAt")
+  $timelineEventIds: [UUID!]!
+  $timelineEvents: [TimelineEvent_Data!]!
+    @allow(fields: "id storyId chapterId chapterNumber title description eventType occurredAtLabel createdAt")
+  $bookmarkIds: [UUID!]!
+  $bookmarks: [Bookmark_Data!]!
+    @allow(fields: "id userUid storyId chapterId paragraphIndex paragraphExcerpt note createdAt")
+  $readingProgressUserUids: [String!]!
+  $readingProgresses: [ReadingProgress_Data!]!
+    @allow(fields: "userUid storyId chapterNumber anchorBlockId anchorText anchorOffset anchorParagraphIndex anchorContentSignature anchorIntraBlockRatio anchorSavedAt legacyScrollPosition anchor totalReadingTimeMs lastReadAt updatedAt")
+  $arcReadingProgresses: [ArcReadingProgress_Data!]!
+    @allow(fields: "userUid storyId arcNumber readingTimeMs updatedAt")
+  $glossaryTermIds: [UUID!]!
+  $glossaryTerms: [GlossaryTerm_Data!]!
+    @allow(fields: "id storyId sourceText targetText targetLanguage note createdAt updatedAt")
+  $generationJobIds: [UUID!]!
+  $generationJobs: [GenerationJob_Data!]!
+    @allow(fields: "id ownerUid storyId chapterId kind status provider model inputHash idempotencyKey attemptCount errorCode errorMessage startedAt completedAt createdAt updatedAt")
+  $generationEventIds: [UUID!]!
+  $generationEvents: [GenerationEvent_Data!]!
+    @allow(fields: "id jobId eventType message progress createdAt")
+  $generationBatchIds: [UUID!]!
+  $generationBatches: [ChapterGenerationBatch_Data!]!
+    @allow(fields: "id storyId clientBatchId status currentChapterNumber failedChapterNumber errorMessage createdAt completedAt updatedAt")
+  $generationBatchItems: [ChapterGenerationBatchItem_Data!]!
+    @allow(fields: "batchId chapterNumber status completedAt updatedAt")
+) @retired(reason: "Admin-only bulk graph inputs are invoked with firebase-admin DataConnect")
+  @auth(level: NO_ACCESS)
+  @transaction {
+  query @redact {
+    existing: story(first: { where: { id: { eq: $storyId }, ownerUid: { eq: $ownerUid } } })
+      @check(
+        expr: "this == null || (this.status != 'DELETED' && this.syncRevision == vars.expectedSyncRevision)"
+        message: "Story is deleted or the expected revision is stale"
+      ) {
+      status
+      syncRevision
+    }
+    duplicate: persistenceReceipt(
+      key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    ) @check(expr: "this == null", message: "Idempotency key already completed") {
+      idempotencyKey
+    }
+  }
+
+  storyVersionGuard: _executeReturningFirst(
+    sql: """
+      INSERT INTO persistence_aggregate_version (
+        owner_uid, aggregate_kind, aggregate_id, sync_revision, revision, updated_at
+      )
+      SELECT $1, 'STORY', CAST($2 AS text), $4, $5, NOW()
+      WHERE (
+        EXISTS (
+          SELECT 1 FROM story
+          WHERE id = $2 AND owner_uid = $1 AND status <> 'DELETED'
+            AND sync_revision IS NOT DISTINCT FROM $3
+        )
+        OR (
+          $3 IS NULL
+          AND NOT EXISTS (SELECT 1 FROM story WHERE id = $2)
+        )
+      )
+      ON CONFLICT (owner_uid, aggregate_kind, aggregate_id) DO UPDATE SET
+        sync_revision = EXCLUDED.sync_revision,
+        revision = EXCLUDED.revision,
+        updated_at = NOW()
+      WHERE persistence_aggregate_version.sync_revision IS NOT DISTINCT FROM $3
+      RETURNING aggregate_id
+    """
+    params: [$ownerUid, $storyId, $expectedSyncRevision, $newSyncRevision, $newRevision]
+  ) @check(expr: "this != null", message: "Story compare-and-swap failed")
+
+  # Remove descendants before stale parents. Composite child collections are
+  # replaced in full; entity/scaffold rows use id-based stale reconciliation.
+  codexAlias_deleteMany(where: { entity: { storyId: { eq: $storyId } } })
+  codexEntityAttribute_deleteMany(where: { entity: { storyId: { eq: $storyId } } })
+  codexThreadLink_deleteMany(where: { entity: { storyId: { eq: $storyId } } })
+  abilityProgressionEvent_deleteMany(
+    where: { abilityEntity: { storyId: { eq: $storyId } }, id: { nin: $abilityProgressionIds } }
+  )
+  chapterGenerationBatchItem_deleteMany(where: { batch: { storyId: { eq: $storyId } } })
+  generationEvent_deleteMany(
+    where: { job: { storyId: { eq: $storyId } }, id: { nin: $generationEventIds } }
+  )
+  codexRelationship_deleteMany(
+    where: { storyId: { eq: $storyId }, id: { nin: $codexRelationshipIds } }
+  )
+  karmaNode_deleteMany(where: { storyId: { eq: $storyId }, id: { nin: $karmaNodeIds } })
+  timelineEvent_deleteMany(where: { storyId: { eq: $storyId }, id: { nin: $timelineEventIds } })
+  plotThread_deleteMany(where: { storyId: { eq: $storyId }, id: { nin: $plotThreadIds } })
+  codexEntity_deleteMany(where: { storyId: { eq: $storyId }, id: { nin: $codexEntityIds } })
+  generationJob_deleteMany(
+    where: { storyId: { eq: $storyId }, ownerUid: { eq: $ownerUid }, id: { nin: $generationJobIds } }
+  )
+  chapterGenerationBatch_deleteMany(
+    where: { storyId: { eq: $storyId }, id: { nin: $generationBatchIds } }
+  )
+  bookmark_deleteMany(where: { storyId: { eq: $storyId }, id: { nin: $bookmarkIds } })
+  readingProgress_deleteMany(
+    where: { storyId: { eq: $storyId }, userUid: { nin: $readingProgressUserUids } }
+  )
+  arcReadingProgress_deleteMany(where: { storyId: { eq: $storyId } })
+  glossaryTerm_deleteMany(where: { storyId: { eq: $storyId }, id: { nin: $glossaryTermIds } })
+  storyMemoryWarning_deleteMany(
+    where: { storyId: { eq: $storyId }, id: { nin: $memoryWarningIds } }
+  )
+  storyRule_deleteMany(where: { storyId: { eq: $storyId }, id: { nin: $ruleIds } })
+  storyRevealBackdrop_deleteMany(
+    where: { storyId: { eq: $storyId }, entityStableKey: { nin: $revealBackdropKeys } }
+  )
+  storyPreference_deleteMany(where: { storyId: { eq: $storyId } })
+  storyMemoryState_deleteMany(where: { storyId: { eq: $storyId } })
+  storyReaderPreference_deleteMany(
+    where: { storyId: { eq: $storyId }, userUid: { nin: $readerPreferenceUserUids } }
+  )
+  storyMember_deleteMany(
+    where: { storyId: { eq: $storyId }, userUid: { nin: $memberUserUids } }
+  )
+  chapter_deleteMany(where: { storyId: { eq: $storyId }, id: { nin: $chapterIds } })
+  storyArc_deleteMany(where: { storyId: { eq: $storyId }, id: { nin: $arcIds } })
+
+  story_upsert(data: $story)
+  storyMember_upsertMany(data: $members)
+  storyPreference_upsertMany(data: $preferences)
+  storyReaderPreference_upsertMany(data: $readerPreferences)
+  storyMemoryState_upsertMany(data: $memoryStates)
+  storyMemoryWarning_upsertMany(data: $memoryWarnings)
+  storyRule_upsertMany(data: $rules)
+  storyRevealBackdrop_upsertMany(data: $revealBackdrops)
+  storyArc_upsertMany(data: $arcs)
+  chapter_upsertMany(data: $chapters)
+  codexEntity_upsertMany(data: $codexEntities)
+  codexAlias_upsertMany(data: $codexAliases)
+  codexEntityAttribute_upsertMany(data: $codexAttributes)
+  plotThread_upsertMany(data: $plotThreads)
+  codexThreadLink_upsertMany(data: $codexThreadLinks)
+  codexRelationship_upsertMany(data: $codexRelationships)
+  abilityProgressionEvent_upsertMany(data: $abilityProgression)
+  karmaNode_upsertMany(data: $karmaNodes)
+  timelineEvent_upsertMany(data: $timelineEvents)
+  bookmark_upsertMany(data: $bookmarks)
+  readingProgress_upsertMany(data: $readingProgresses)
+  arcReadingProgress_upsertMany(data: $arcReadingProgresses)
+  glossaryTerm_upsertMany(data: $glossaryTerms)
+  generationJob_upsertMany(data: $generationJobs)
+  generationEvent_upsertMany(data: $generationEvents)
+  chapterGenerationBatch_upsertMany(data: $generationBatches)
+  chapterGenerationBatchItem_upsertMany(data: $generationBatchItems)
+  persistenceReceipt_insert(
+    data: {
+      ownerUid: $ownerUid
+      idempotencyKey: $idempotencyKey
+      operation: "UPSERT_STORY_GRAPH"
+      storyId: $storyId
+      resultingSyncRevision: $newSyncRevision
+      resultingRevision: $newRevision
+      requestHash: $requestHash
+    }
+  )
+  storyChange_insert(
+    data: {
+      ownerUid: $ownerUid
+      storyId: $storyId
+      changeKind: UPSERTED
+      storyRevision: $newRevision
+      syncRevision: $newSyncRevision
+      idempotencyKey: $idempotencyKey
+    }
+  )
+}
+
+mutation AdminPatchStoryGraph(
+  $ownerUid: String!
+  $storyId: UUID!
+  $expectedSyncRevision: String
+  $newSyncRevision: String!
+  $newRevision: Int64!
+  $idempotencyKey: String!
+  $requestHash: String
+  $story: Story_Data!
+    @allow(fields: "id ownerUid sourceSeedId parentStoryId legacyStoryId clientStoryId title genre mainCharacterName premise status visibility currentChapterNumber forkChapterNumber syncRevision revision schemaVersion lastImageChapter evolutionReady evolutionReason availableVisualUpdate isEdited conflictResolvedAt deletedAt createdAt updatedAt")
+  $members: [StoryMember_Data!]!
+    @allow(fields: "storyId userUid role createdAt")
+  $deletedMemberUserUids: [String!]!
+  $preferences: [StoryPreference_Data!]!
+    @allow(fields: "storyId contextEngine hardcoreFateMode fatePressure motionCoverActive assignedRevealBackdropPolicy updatedAt")
+  $readerPreferences: [StoryReaderPreference_Data!]!
+    @allow(fields: "storyId userUid fontSize fontFamily lineHeight paragraphSpacing lineHeightScale paragraphSpacingScale letterSpacing wordSpacing readingWidth textAlignment contextEngine themeOverride colorPaletteId highlightStyle updatedAt")
+  $deletedReaderPreferenceUserUids: [String!]!
+  $memoryStates: [StoryMemoryState_Data!]!
+    @allow(fields: "storyId powerSystem currentPowerStage updatedAt")
+  $memoryWarnings: [StoryMemoryWarning_Data!]!
+    @allow(fields: "id storyId warning resolvedAt createdAt")
+  $deletedMemoryWarningIds: [UUID!]!
+  $rules: [StoryRule_Data!]!
+    @allow(fields: "id storyId ruleKey ruleValue isPinned position updatedAt")
+  $deletedRuleIds: [UUID!]!
+  $revealBackdrops: [StoryRevealBackdrop_Data!]!
+    @allow(fields: "storyId entityStableKey backdropAssetId updatedAt")
+  $deletedRevealBackdropKeys: [String!]!
+  $arcs: [StoryArc_Data!]!
+    @allow(fields: "id storyId arcNumber title summary status episodicSummaries createdAt updatedAt")
+  $deletedArcIds: [UUID!]!
+  $chapters: [Chapter_Data!]!
+    @allow(fields: "id storyId arcId legacyChapterId clientChapterId chapterNumber title premise status summary episodicSummary contentHash versionId syncRevision revision branchAnchor continuityWarnings continuitySoftNotes contractObjectiveFulfilled contractEvidence contractOpeningMatched embedding isSealed sealedAt hasContinuityFaults createdAt updatedAt")
+  $deletedChapterIds: [UUID!]!
+  $codexEntities: [CodexEntity_Data!]!
+    @allow(fields: "id storyId stableKey kind name role description status relationshipToMainCharacter relevanceState contextPriority authorContextNote firstAppearedChapter lastMajorInvolvementChapter currentRelevance toneMemory manifestationImportance isUserPinned pendingEvolution evolutionReady evolutionReason availableVisualUpdate lastImageChapter arcAccumulation sourceChapterNumber sourceBlockId provenanceCreatedBy provenanceConfidence lastMentionedChapter supersedesStableKey createdAt updatedAt")
+  $deletedCodexEntityIds: [UUID!]!
+  $replacedCodexChildEntityIds: [UUID!]!
+  $codexAliases: [CodexAlias_Data!]!
+    @allow(fields: "entityId alias normalizedAlias isCanonical")
+  $codexAttributes: [CodexEntityAttribute_Data!]!
+    @allow(fields: "entityId attributeKey stringValue numberValue booleanValue stringListValue jsonValue updatedAt")
+  $codexThreadLinks: [CodexThreadLink_Data!]!
+    @allow(fields: "entityId threadId createdAt")
+  $abilityProgression: [AbilityProgressionEvent_Data!]!
+    @allow(fields: "id abilityEntityId chapterNumber fromMastery toMastery note createdAt")
+  $codexRelationships: [CodexRelationship_Data!]!
+    @allow(fields: "id storyId sourceEntityId targetEntityId sourceStableKey targetStableKey sourceName targetName relationshipKind affinity threat description status createdAt updatedAt")
+  $deletedCodexRelationshipIds: [UUID!]!
+  $plotThreads: [PlotThread_Data!]!
+    @allow(fields: "id storyId description status originChapterNumber resolvedChapterNumber confidence isUserPinned stableKey sourceChapterNumber sourceBlockId provenanceCreatedBy provenanceConfidence lastMentionedChapter supersedesStableKey createdAt updatedAt")
+  $deletedPlotThreadIds: [UUID!]!
+  $karmaNodes: [KarmaNode_Data!]!
+    @allow(fields: "id storyId sourceEntityId targetEntityId sourceStableKey targetStableKey sourceName targetName description severity nodeType status createdAt resolvedAt")
+  $deletedKarmaNodeIds: [UUID!]!
+  $timelineEvents: [TimelineEvent_Data!]!
+    @allow(fields: "id storyId chapterId chapterNumber title description eventType occurredAtLabel createdAt")
+  $deletedTimelineEventIds: [UUID!]!
+  $bookmarks: [Bookmark_Data!]!
+    @allow(fields: "id userUid storyId chapterId paragraphIndex paragraphExcerpt note createdAt")
+  $deletedBookmarkIds: [UUID!]!
+  $readingProgresses: [ReadingProgress_Data!]!
+    @allow(fields: "userUid storyId chapterNumber anchorBlockId anchorText anchorOffset anchorParagraphIndex anchorContentSignature anchorIntraBlockRatio anchorSavedAt legacyScrollPosition anchor totalReadingTimeMs lastReadAt updatedAt")
+  $deletedReadingProgressUserUids: [String!]!
+  $arcReadingProgresses: [ArcReadingProgress_Data!]!
+    @allow(fields: "userUid storyId arcNumber readingTimeMs updatedAt")
+  $deletedArcReadingProgressNumbers: [Int!]!
+  $glossaryTerms: [GlossaryTerm_Data!]!
+    @allow(fields: "id storyId sourceText targetText targetLanguage note createdAt updatedAt")
+  $deletedGlossaryTermIds: [UUID!]!
+  $generationJobs: [GenerationJob_Data!]!
+    @allow(fields: "id ownerUid storyId chapterId kind status provider model inputHash idempotencyKey attemptCount errorCode errorMessage startedAt completedAt createdAt updatedAt")
+  $deletedGenerationJobIds: [UUID!]!
+  $replacedGenerationJobIds: [UUID!]!
+  $generationEvents: [GenerationEvent_Data!]!
+    @allow(fields: "id jobId eventType message progress createdAt")
+  $generationBatches: [ChapterGenerationBatch_Data!]!
+    @allow(fields: "id storyId clientBatchId status currentChapterNumber failedChapterNumber errorMessage createdAt completedAt updatedAt")
+  $deletedGenerationBatchIds: [UUID!]!
+  $replacedGenerationBatchIds: [UUID!]!
+  $generationBatchItems: [ChapterGenerationBatchItem_Data!]!
+    @allow(fields: "batchId chapterNumber status completedAt updatedAt")
+) @retired(reason: "Admin-only bounded graph patches are invoked with firebase-admin DataConnect")
+  @auth(level: NO_ACCESS)
+  @transaction {
+  query @redact {
+    existing: story(first: { where: { id: { eq: $storyId }, ownerUid: { eq: $ownerUid } } })
+      @check(
+        expr: "this != null && this.status != 'DELETED' && this.syncRevision == vars.expectedSyncRevision"
+        message: "Story is deleted or the expected revision is stale"
+      ) {
+      status
+      syncRevision
+    }
+    duplicate: persistenceReceipt(
+      key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    ) @check(expr: "this == null", message: "Idempotency key already completed") {
+      idempotencyKey
+    }
+  }
+
+  storyVersionGuard: _executeReturningFirst(
+    sql: """
+      UPDATE persistence_aggregate_version
+      SET sync_revision = $4, revision = $5, updated_at = NOW()
+      WHERE owner_uid = $1 AND aggregate_kind = 'STORY' AND aggregate_id = CAST($2 AS text)
+        AND sync_revision IS NOT DISTINCT FROM $3
+      RETURNING aggregate_id
+    """
+    params: [$ownerUid, $storyId, $expectedSyncRevision, $newSyncRevision, $newRevision]
+  ) @check(expr: "this != null", message: "Story compare-and-swap failed")
+
+  generationEvent_deleteMany(where: { jobId: { in: $replacedGenerationJobIds } })
+  chapterGenerationBatchItem_deleteMany(where: { batchId: { in: $replacedGenerationBatchIds } })
+  codexAlias_deleteMany(where: { entityId: { in: $replacedCodexChildEntityIds } })
+  codexEntityAttribute_deleteMany(where: { entityId: { in: $replacedCodexChildEntityIds } })
+  codexThreadLink_deleteMany(where: { entityId: { in: $replacedCodexChildEntityIds } })
+  abilityProgressionEvent_deleteMany(
+    where: { abilityEntityId: { in: $replacedCodexChildEntityIds } }
+  )
+
+  codexRelationship_deleteMany(where: { id: { in: $deletedCodexRelationshipIds } })
+  karmaNode_deleteMany(where: { id: { in: $deletedKarmaNodeIds } })
+  timelineEvent_deleteMany(where: { id: { in: $deletedTimelineEventIds } })
+  plotThread_deleteMany(where: { id: { in: $deletedPlotThreadIds } })
+  codexEntity_deleteMany(where: { id: { in: $deletedCodexEntityIds } })
+  generationJob_deleteMany(where: { id: { in: $deletedGenerationJobIds } })
+  chapterGenerationBatch_deleteMany(where: { id: { in: $deletedGenerationBatchIds } })
+  bookmark_deleteMany(where: { id: { in: $deletedBookmarkIds } })
+  readingProgress_deleteMany(
+    where: { storyId: { eq: $storyId }, userUid: { in: $deletedReadingProgressUserUids } }
+  )
+  arcReadingProgress_deleteMany(
+    where: {
+      storyId: { eq: $storyId }
+      userUid: { eq: $ownerUid }
+      arcNumber: { in: $deletedArcReadingProgressNumbers }
+    }
+  )
+  glossaryTerm_deleteMany(where: { id: { in: $deletedGlossaryTermIds } })
+  storyMemoryWarning_deleteMany(where: { id: { in: $deletedMemoryWarningIds } })
+  storyRule_deleteMany(where: { id: { in: $deletedRuleIds } })
+  storyRevealBackdrop_deleteMany(
+    where: {
+      storyId: { eq: $storyId }
+      entityStableKey: { in: $deletedRevealBackdropKeys }
+    }
+  )
+  storyReaderPreference_deleteMany(
+    where: { storyId: { eq: $storyId }, userUid: { in: $deletedReaderPreferenceUserUids } }
+  )
+  storyMember_deleteMany(
+    where: { storyId: { eq: $storyId }, userUid: { in: $deletedMemberUserUids } }
+  )
+  chapter_deleteMany(where: { id: { in: $deletedChapterIds } })
+  storyArc_deleteMany(where: { id: { in: $deletedArcIds } })
+
+  story_upsert(data: $story)
+  storyMember_upsertMany(data: $members)
+  storyPreference_upsertMany(data: $preferences)
+  storyReaderPreference_upsertMany(data: $readerPreferences)
+  storyMemoryState_upsertMany(data: $memoryStates)
+  storyMemoryWarning_upsertMany(data: $memoryWarnings)
+  storyRule_upsertMany(data: $rules)
+  storyRevealBackdrop_upsertMany(data: $revealBackdrops)
+  storyArc_upsertMany(data: $arcs)
+  chapter_upsertMany(data: $chapters)
+  codexEntity_upsertMany(data: $codexEntities)
+  codexAlias_upsertMany(data: $codexAliases)
+  codexEntityAttribute_upsertMany(data: $codexAttributes)
+  plotThread_upsertMany(data: $plotThreads)
+  codexThreadLink_upsertMany(data: $codexThreadLinks)
+  codexRelationship_upsertMany(data: $codexRelationships)
+  abilityProgressionEvent_upsertMany(data: $abilityProgression)
+  karmaNode_upsertMany(data: $karmaNodes)
+  timelineEvent_upsertMany(data: $timelineEvents)
+  bookmark_upsertMany(data: $bookmarks)
+  readingProgress_upsertMany(data: $readingProgresses)
+  arcReadingProgress_upsertMany(data: $arcReadingProgresses)
+  glossaryTerm_upsertMany(data: $glossaryTerms)
+  generationJob_upsertMany(data: $generationJobs)
+  generationEvent_upsertMany(data: $generationEvents)
+  chapterGenerationBatch_upsertMany(data: $generationBatches)
+  chapterGenerationBatchItem_upsertMany(data: $generationBatchItems)
+  persistenceReceipt_insert(
+    data: {
+      ownerUid: $ownerUid
+      idempotencyKey: $idempotencyKey
+      operation: "PATCH_STORY_GRAPH"
+      storyId: $storyId
+      resultingSyncRevision: $newSyncRevision
+      resultingRevision: $newRevision
+      requestHash: $requestHash
+    }
+  )
+  storyChange_insert(
+    data: {
+      ownerUid: $ownerUid
+      storyId: $storyId
+      changeKind: UPSERTED
+      storyRevision: $newRevision
+      syncRevision: $newSyncRevision
+      idempotencyKey: $idempotencyKey
+    }
+  )
+}
+
+mutation AdminUpsertChapterContentGraph(
+  $ownerUid: String!
+  $storyId: UUID!
+  $chapterId: UUID!
+  $expectedSyncRevision: String
+  $newSyncRevision: String!
+  $newRevision: Int64!
+  $idempotencyKey: String!
+  $requestHash: String
+  $chapter: Chapter_Data!
+    @allow(fields: "id storyId arcId legacyChapterId clientChapterId chapterNumber title premise status summary episodicSummary contentHash versionId syncRevision revision branchAnchor continuityWarnings continuitySoftNotes contractObjectiveFulfilled contractEvidence contractOpeningMatched embedding isSealed sealedAt hasContinuityFaults createdAt updatedAt")
+  $content: ChapterContent_Data!
+    @allow(fields: "chapterId generatedContent statsChangeMessage contextEngine contextRoute contextEstimatedTokens contextBudgetTokens contractObjective contractRequiredOpening handoffNextImmediateAction handoffEndLocation handoffEndTimeMarker handoffMainCharacterCondition handoffOpenTension revisionId syncRevision revision cuePayload contextManifest handoff contract updatedAt")
+  $blockIds: [UUID!]!
+  $blocks: [ChapterBlock_Data!]!
+    @allow(fields: "id chapterId legacyBlockId position blockType text speakerName speakerRole mode sceneType environment atmosphereCategory atmosphereTags theme motion emotion intensity tension danger mysticism audioSignature isArchived music beastEvent systemEvent worldCard")
+  $blockAttributes: [ChapterBlockAttribute_Data!]!
+    @allow(fields: "blockId attributeKey stringValue numberValue booleanValue")
+  $blockEntityMentions: [ChapterBlockEntityMention_Data!]!
+    @allow(fields: "blockId position entityId name entityType mentionKind")
+  $translationLanguages: [String!]!
+  $translations: [ChapterTranslation_Data!]!
+    @allow(fields: "chapterId languageCode title content translatedAt")
+  $fingerprintIds: [UUID!]!
+  $fingerprints: [ChapterSceneFingerprint_Data!]!
+    @allow(fields: "id storyId chapterId chapterNumber actionType location outcome participants createdAt")
+  $factIds: [UUID!]!
+  $facts: [ChapterFact_Data!]!
+    @allow(fields: "id storyId chapterId chapterNumber factKind subjectKey factText confidence isPinned createdAt")
+  $factSupersessions: [ChapterFactSupersession_Data!]!
+    @allow(fields: "newerFactId olderFactId createdAt")
+  $audioManifests: [ChapterAudioManifest_Data!]!
+    @allow(fields: "chapterId version language generatedAt updatedAt")
+  $voiceClipIds: [UUID!]!
+  $voiceClips: [ChapterVoiceClip_Data!]!
+    @allow(fields: "id chapterId blockId position speakerVoice assetId catalogId createdAt")
+) @retired(reason: "Admin-only bulk graph inputs are invoked with firebase-admin DataConnect")
+  @auth(level: NO_ACCESS)
+  @transaction {
+  query @redact {
+    storyScope: story(first: { where: { id: { eq: $storyId }, ownerUid: { eq: $ownerUid } } })
+      @check(
+        expr: "this != null && this.status != 'DELETED' && this.syncRevision == vars.expectedSyncRevision"
+        message: "Story is deleted or the expected revision is stale"
+      ) {
+      status
+      syncRevision
+    }
+    chapterScope: chapter(
+      first: {
+        where: {
+          id: { eq: $chapterId }
+          storyId: { eq: $storyId }
+          story: { ownerUid: { eq: $ownerUid }, status: { ne: DELETED } }
+          status: { ne: DELETED }
+        }
+      }
+    ) @check(expr: "this != null", message: "Chapter not found") {
+      id
+    }
+    duplicate: persistenceReceipt(
+      key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    ) @check(expr: "this == null", message: "Idempotency key already completed") {
+      idempotencyKey
+    }
+  }
+
+  storyVersionGuard: _executeReturningFirst(
+    sql: """
+      INSERT INTO persistence_aggregate_version (
+        owner_uid, aggregate_kind, aggregate_id, sync_revision, revision, updated_at
+      )
+      SELECT $1, 'STORY', CAST($2 AS text), $4, $5, NOW()
+      WHERE EXISTS (
+        SELECT 1 FROM story
+        WHERE id = $2 AND owner_uid = $1 AND status <> 'DELETED'
+          AND sync_revision IS NOT DISTINCT FROM $3
+      )
+      ON CONFLICT (owner_uid, aggregate_kind, aggregate_id) DO UPDATE SET
+        sync_revision = EXCLUDED.sync_revision,
+        revision = EXCLUDED.revision,
+        updated_at = NOW()
+      WHERE persistence_aggregate_version.sync_revision IS NOT DISTINCT FROM $3
+      RETURNING aggregate_id
+    """
+    params: [$ownerUid, $storyId, $expectedSyncRevision, $newSyncRevision, $newRevision]
+  ) @check(expr: "this != null", message: "Story compare-and-swap failed")
+
+  chapterBlockAttribute_deleteMany(where: { block: { chapterId: { eq: $chapterId } } })
+  chapterBlockEntityMention_deleteMany(where: { block: { chapterId: { eq: $chapterId } } })
+  chapterFactSupersession_deleteMany(
+    where: { newerFact: { chapterId: { eq: $chapterId } } }
+  )
+  chapterVoiceClip_deleteMany(
+    where: { chapterId: { eq: $chapterId }, id: { nin: $voiceClipIds } }
+  )
+  chapterBlock_deleteMany(
+    where: { chapterId: { eq: $chapterId }, id: { nin: $blockIds } }
+  )
+  chapterTranslation_deleteMany(
+    where: { chapterId: { eq: $chapterId }, languageCode: { nin: $translationLanguages } }
+  )
+  chapterSceneFingerprint_deleteMany(
+    where: { chapterId: { eq: $chapterId }, id: { nin: $fingerprintIds } }
+  )
+  chapterFact_deleteMany(
+    where: { chapterId: { eq: $chapterId }, id: { nin: $factIds } }
+  )
+  chapterAudioManifest_deleteMany(where: { chapterId: { eq: $chapterId } })
+
+  story_update(
+    first: {
+      where: {
+        id: { eq: $storyId }
+        ownerUid: { eq: $ownerUid }
+        status: { ne: DELETED }
+        syncRevision: { eq: $expectedSyncRevision }
+      }
+    }
+    data: {
+      syncRevision: $newSyncRevision
+      revision: $newRevision
+      updatedAt_expr: "request.time"
+    }
+  ) @check(expr: "this != null", message: "Story revision changed")
+  chapter_upsert(data: $chapter)
+  chapterContent_upsert(data: $content)
+  chapterBlock_upsertMany(data: $blocks)
+  chapterBlockAttribute_upsertMany(data: $blockAttributes)
+  chapterBlockEntityMention_upsertMany(data: $blockEntityMentions)
+  chapterTranslation_upsertMany(data: $translations)
+  chapterSceneFingerprint_upsertMany(data: $fingerprints)
+  chapterFact_upsertMany(data: $facts)
+  chapterFactSupersession_upsertMany(data: $factSupersessions)
+  chapterAudioManifest_upsertMany(data: $audioManifests)
+  chapterVoiceClip_upsertMany(data: $voiceClips)
+  persistenceReceipt_insert(
+    data: {
+      ownerUid: $ownerUid
+      idempotencyKey: $idempotencyKey
+      operation: "UPSERT_CHAPTER_CONTENT_GRAPH"
+      storyId: $storyId
+      chapterId: $chapterId
+      resultingSyncRevision: $newSyncRevision
+      resultingRevision: $newRevision
+      requestHash: $requestHash
+    }
+  )
+  storyChange_insert(
+    data: {
+      ownerUid: $ownerUid
+      storyId: $storyId
+      changeKind: CHAPTER_UPDATED
+      storyRevision: $newRevision
+      syncRevision: $newSyncRevision
+      idempotencyKey: $idempotencyKey
+    }
+  )
+}
+
+mutation AdminUpsertStorySeedGraph(
+  $ownerUid: String!
+  $seedId: UUID!
+  $expectedSyncRevision: String
+  $newSyncRevision: String!
+  $newRevision: Int64!
+  $idempotencyKey: String!
+  $requestHash: String
+  $seed: StorySeed_Data!
+    @allow(fields: "id ownerUid legacySeedId clientSeedId title schemaVersion syncRevision revision deletedAt createdAt updatedAt")
+  $fields: [StorySeedField_Data!]!
+    @allow(fields: "seedId section fieldKey position stringValue numberValue booleanValue")
+  $entityIds: [UUID!]!
+  $entities: [StorySeedEntity_Data!]!
+    @allow(fields: "id seedId entityKind clientEntityId position name age skinTone eyeColor powerType rankLevel role powerLevel alignment connectionToMainCharacter description")
+  $entityAliases: [StorySeedEntityAlias_Data!]!
+    @allow(fields: "seedEntityId alias normalizedAlias position")
+) @retired(reason: "Admin-only bulk graph inputs are invoked with firebase-admin DataConnect")
+  @auth(level: NO_ACCESS)
+  @transaction {
+  query @redact {
+    existing: storySeed(first: { where: { id: { eq: $seedId }, ownerUid: { eq: $ownerUid } } })
+      @check(
+        expr: "this == null || (this.deletedAt == null && this.syncRevision == vars.expectedSyncRevision)"
+        message: "Story seed is deleted or the expected revision is stale"
+      ) {
+      syncRevision
+      deletedAt
+    }
+    duplicate: persistenceReceipt(
+      key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    ) @check(expr: "this == null", message: "Idempotency key already completed") {
+      idempotencyKey
+    }
+  }
+  seedVersionGuard: _executeReturningFirst(
+    sql: """
+      INSERT INTO persistence_aggregate_version (
+        owner_uid, aggregate_kind, aggregate_id, sync_revision, revision, updated_at
+      )
+      SELECT $1, 'STORY_SEED', CAST($2 AS text), $4, $5, NOW()
+      WHERE (
+        EXISTS (
+          SELECT 1 FROM story_seed
+          WHERE id = $2 AND owner_uid = $1 AND deleted_at IS NULL
+            AND sync_revision IS NOT DISTINCT FROM $3
+        )
+        OR (
+          $3 IS NULL
+          AND NOT EXISTS (SELECT 1 FROM story_seed WHERE id = $2)
+        )
+      )
+      ON CONFLICT (owner_uid, aggregate_kind, aggregate_id) DO UPDATE SET
+        sync_revision = EXCLUDED.sync_revision,
+        revision = EXCLUDED.revision,
+        updated_at = NOW()
+      WHERE persistence_aggregate_version.sync_revision IS NOT DISTINCT FROM $3
+      RETURNING aggregate_id
+    """
+    params: [$ownerUid, $seedId, $expectedSyncRevision, $newSyncRevision, $newRevision]
+  ) @check(expr: "this != null", message: "Story seed compare-and-swap failed")
+
+  storySeedEntityAlias_deleteMany(where: { seedEntity: { seedId: { eq: $seedId } } })
+  storySeedField_deleteMany(where: { seedId: { eq: $seedId } })
+  storySeedEntity_deleteMany(where: { seedId: { eq: $seedId }, id: { nin: $entityIds } })
+  storySeed_upsert(data: $seed)
+  storySeedField_upsertMany(data: $fields)
+  storySeedEntity_upsertMany(data: $entities)
+  storySeedEntityAlias_upsertMany(data: $entityAliases)
+  persistenceReceipt_insert(
+    data: {
+      ownerUid: $ownerUid
+      idempotencyKey: $idempotencyKey
+      operation: "UPSERT_STORY_SEED_GRAPH"
+      seedId: $seedId
+      resultingSyncRevision: $newSyncRevision
+      resultingRevision: $newRevision
+      requestHash: $requestHash
+    }
+  )
+}
+
+mutation AdminUpsertUserProfileGraph(
+  $ownerUid: String!
+  $expectedSyncRevision: String
+  $newSyncRevision: String!
+  $newRevision: Int64!
+  $idempotencyKey: String!
+  $requestHash: String
+  $account: UserAccount_Data!
+    @allow(fields: "uid email displayName updatedAt")
+  $profile: UserProfile_Data!
+    @allow(fields: "userUid username displayNameColor preferredLanguage defaultTranslationLanguage subscriptionTier legacyQi daoXp daoRank heavenlyQi sectQi demonicQi writingStreak savedStoryCount activePortraitAssetId imageGenerationCount imageQuotaResetAt lastSessionEnd daoPillarStreak daoPillarCracked lastReadDate lastInteractionDate equippedInventoryItemId syncRevision revision lastReadAt createdAt updatedAt")
+  $preferences: [UserPreference_Data!]!
+    @allow(fields: "userUid fontSize fontFamily lineHeightScale paragraphSpacingScale letterSpacing wordSpacing readingWidth textAlignment contextEngine theme colorPaletteId highlightStyle audioMusicVolume audioAtmosphereVolume audioVoiceVolume updatedAt")
+  $inventoryIds: [UUID!]!
+  $inventory: [UserInventoryItem_Data!]!
+    @allow(fields: "id userUid clientItemId catalogItemId itemKind name description rarity status sourceStoryId sourceStoryTitle sourceMilestone milestoneType imageAssetId attributeBoost statusEffectDefinition offeringWeekId gatheredAt rewardValueQi rewardValueSectMerit acquiredAt updatedAt")
+  $effectIds: [UUID!]!
+  $effects: [UserStatusEffect_Data!]!
+    @allow(fields: "id userUid clientEffectId sourceInventoryItemId name effectType description durationMs scope visual counterplay rewardHook qiMultiplier sectQiMultiplier appliedAt expiresAt progress targetProgress completedAt isUnlockedReward createdAt updatedAt")
+  $progressEventIds: [UUID!]!
+  $progressEvents: [UserProgressEvent_Data!]!
+    @allow(fields: "id userUid eventType amount sourceType sourceId idempotencyKey createdAt")
+) @retired(reason: "Admin-only bulk graph inputs are invoked with firebase-admin DataConnect")
+  @auth(level: NO_ACCESS)
+  @transaction {
+  query @redact {
+    existing: userProfile(key: { userUid: $ownerUid })
+      @check(
+        expr: "this == null || this.syncRevision == vars.expectedSyncRevision"
+        message: "User profile expected revision is stale"
+      ) {
+      syncRevision
+    }
+    duplicate: persistenceReceipt(
+      key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    ) @check(expr: "this == null", message: "Idempotency key already completed") {
+      idempotencyKey
+    }
+  }
+  # The account must exist before the version row can reference it. A failed
+  # guard rolls this upsert back with the rest of the transaction.
+  userAccount_upsert(data: $account)
+  profileVersionGuard: _executeReturningFirst(
+    sql: """
+      INSERT INTO persistence_aggregate_version (
+        owner_uid, aggregate_kind, aggregate_id, sync_revision, revision, updated_at
+      )
+      SELECT $1, 'USER_PROFILE', $1, $3, $4, NOW()
+      WHERE (
+        EXISTS (
+          SELECT 1 FROM user_profile
+          WHERE user_uid = $1 AND sync_revision IS NOT DISTINCT FROM $2
+        )
+        OR (
+          $2 IS NULL
+          AND NOT EXISTS (SELECT 1 FROM user_profile WHERE user_uid = $1)
+        )
+      )
+      ON CONFLICT (owner_uid, aggregate_kind, aggregate_id) DO UPDATE SET
+        sync_revision = EXCLUDED.sync_revision,
+        revision = EXCLUDED.revision,
+        updated_at = NOW()
+      WHERE persistence_aggregate_version.sync_revision IS NOT DISTINCT FROM $2
+      RETURNING aggregate_id
+    """
+    params: [$ownerUid, $expectedSyncRevision, $newSyncRevision, $newRevision]
+  ) @check(expr: "this != null", message: "User profile compare-and-swap failed")
+  userStatusEffect_deleteMany(
+    where: { userUid: { eq: $ownerUid }, id: { nin: $effectIds } }
+  )
+  userInventoryItem_deleteMany(
+    where: { userUid: { eq: $ownerUid }, id: { nin: $inventoryIds } }
+  )
+  userProgressEvent_deleteMany(
+    where: { userUid: { eq: $ownerUid }, id: { nin: $progressEventIds } }
+  )
+  userPreference_deleteMany(where: { userUid: { eq: $ownerUid } })
+  userInventoryItem_upsertMany(data: $inventory)
+  userStatusEffect_upsertMany(data: $effects)
+  userProgressEvent_upsertMany(data: $progressEvents)
+  userProfile_upsert(data: $profile)
+  userPreference_upsertMany(data: $preferences)
+  persistenceReceipt_insert(
+    data: {
+      ownerUid: $ownerUid
+      idempotencyKey: $idempotencyKey
+      operation: "UPSERT_USER_PROFILE_GRAPH"
+      resultingSyncRevision: $newSyncRevision
+      resultingRevision: $newRevision
+      requestHash: $requestHash
+    }
+  )
+}
+
+mutation AdminDeleteOwnedStory(
+  $ownerUid: String!
+  $storyId: UUID!
+  $expectedSyncRevision: String
+  $newSyncRevision: String!
+  $newRevision: Int64!
+  $idempotencyKey: String!
+  $deletionJobId: UUID!
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    existing: story(first: { where: { id: { eq: $storyId }, ownerUid: { eq: $ownerUid } } })
+      @check(
+        expr: "this != null && this.status != 'DELETED' && this.syncRevision == vars.expectedSyncRevision"
+        message: "Story is deleted or the expected revision is stale"
+      ) {
+      status
+      syncRevision
+    }
+    duplicate: persistenceReceipt(
+      key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    ) @check(expr: "this == null", message: "Idempotency key already completed") {
+      idempotencyKey
+    }
+  }
+  storyVersionGuard: _executeReturningFirst(
+    sql: """
+      INSERT INTO persistence_aggregate_version (
+        owner_uid, aggregate_kind, aggregate_id, sync_revision, revision, updated_at
+      )
+      SELECT $1, 'STORY', CAST($2 AS text), $4, $5, NOW()
+      WHERE EXISTS (
+        SELECT 1 FROM story
+        WHERE id = $2 AND owner_uid = $1 AND status <> 'DELETED'
+          AND sync_revision IS NOT DISTINCT FROM $3
+      )
+      ON CONFLICT (owner_uid, aggregate_kind, aggregate_id) DO UPDATE SET
+        sync_revision = EXCLUDED.sync_revision,
+        revision = EXCLUDED.revision,
+        updated_at = NOW()
+      WHERE persistence_aggregate_version.sync_revision IS NOT DISTINCT FROM $3
+      RETURNING aggregate_id
+    """
+    params: [$ownerUid, $storyId, $expectedSyncRevision, $newSyncRevision, $newRevision]
+  ) @check(expr: "this != null", message: "Story compare-and-swap failed")
+  story_update(
+    first: {
+      where: {
+        id: { eq: $storyId }
+        ownerUid: { eq: $ownerUid }
+        status: { ne: DELETED }
+        syncRevision: { eq: $expectedSyncRevision }
+      }
+    }
+    data: {
+      status: DELETED
+      syncRevision: $newSyncRevision
+      revision: $newRevision
+      deletedAt_expr: "request.time"
+      updatedAt_expr: "request.time"
+    }
+  ) @check(expr: "this != null", message: "Story revision changed")
+  storyDeletionJob_insert(
+    data: {
+      id: $deletionJobId
+      ownerUid: $ownerUid
+      storyId: $storyId
+      idempotencyKey: $idempotencyKey
+      status: PENDING
+      currentStage: TOMBSTONE
+    }
+  )
+  storyDeletionStage_insertMany(
+    data: [
+      { jobId: $deletionJobId, stage: TOMBSTONE, status: SUCCEEDED }
+      { jobId: $deletionJobId, stage: STRUCTURED_DATA, status: PENDING }
+      { jobId: $deletionJobId, stage: MEDIA, status: PENDING }
+      { jobId: $deletionJobId, stage: LOCAL_CACHE, status: PENDING }
+      { jobId: $deletionJobId, stage: FINALIZE, status: PENDING }
+    ]
+  )
+  persistenceReceipt_insert(
+    data: {
+      ownerUid: $ownerUid
+      idempotencyKey: $idempotencyKey
+      operation: "DELETE_STORY"
+      storyId: $storyId
+      resultingSyncRevision: $newSyncRevision
+      resultingRevision: $newRevision
+    }
+  )
+  storyChange_insert(
+    data: {
+      ownerUid: $ownerUid
+      storyId: $storyId
+      changeKind: DELETED
+      storyRevision: $newRevision
+      syncRevision: $newSyncRevision
+      idempotencyKey: $idempotencyKey
+    }
+  )
+}
+
+mutation AdminClaimStoryDeletionJob(
+  $jobId: UUID!
+  $leaseOwner: String!
+  $leaseExpiresAt: Timestamp!
+  $stage: StoryDeletionStageKind!
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    job: storyDeletionJob(first: { where: { id: { eq: $jobId }, currentStage: { eq: $stage } } })
+      @check(expr: "this != null", message: "Deletion job stage changed") {
+      id
+    }
+  }
+  storyDeletionJob_update(
+    first: {
+      where: {
+        _and: [
+          { id: { eq: $jobId } }
+          {
+            _or: [
+              { status: { in: [PENDING, FAILED] } }
+              { status: { eq: RUNNING }, leaseExpiresAt: { lt_expr: "request.time" } }
+            ]
+          }
+          {
+            _or: [
+              { leaseExpiresAt: { isNull: true } }
+              { leaseExpiresAt: { lt_expr: "request.time" } }
+            ]
+          }
+        ]
+      }
+    }
+    data: {
+      status: RUNNING
+      leaseOwner: $leaseOwner
+      leaseExpiresAt: $leaseExpiresAt
+      attemptCount_update: { inc: 1 }
+      updatedAt_expr: "request.time"
+    }
+  ) @check(expr: "this != null", message: "Deletion job is not claimable")
+  storyDeletionStage_update(
+    key: { jobId: $jobId, stage: $stage }
+    data: {
+      status: RUNNING
+      attemptCount_update: { inc: 1 }
+      startedAt_expr: "request.time"
+      lastError: null
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+mutation AdminFailStoryDeletionJob(
+  $jobId: UUID!
+  $leaseOwner: String!
+  $stage: StoryDeletionStageKind!
+  $lastError: String!
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    storyDeletionJob(
+      first: {
+        where: {
+          id: { eq: $jobId }
+          leaseOwner: { eq: $leaseOwner }
+          currentStage: { eq: $stage }
+          status: { eq: RUNNING }
+        }
+      }
+    ) @check(expr: "this != null", message: "Deletion job lease not held") {
+      id
+    }
+  }
+  storyDeletionStage_update(
+    key: { jobId: $jobId, stage: $stage }
+    data: { status: FAILED, lastError: $lastError, updatedAt_expr: "request.time" }
+  )
+  storyDeletionJob_update(
+    id: $jobId
+    data: {
+      status: FAILED
+      leaseOwner: null
+      leaseExpiresAt: null
+      lastError: $lastError
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+mutation AdminAdvanceStoryDeletionJob(
+  $jobId: UUID!
+  $leaseOwner: String!
+  $completedStage: StoryDeletionStageKind!
+  $nextStage: StoryDeletionStageKind!
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    storyDeletionJob(first: { where: { id: { eq: $jobId }, leaseOwner: { eq: $leaseOwner }, status: { eq: RUNNING } } })
+      @check(expr: "this != null", message: "Deletion job lease not held") {
+      id
+    }
+  }
+  storyDeletionStage_update(
+    key: { jobId: $jobId, stage: $completedStage }
+    data: { status: SUCCEEDED, completedAt_expr: "request.time", updatedAt_expr: "request.time" }
+  )
+  storyDeletionJob_update(
+    id: $jobId
+    data: { currentStage: $nextStage, updatedAt_expr: "request.time" }
+  )
+}
+
+mutation AdminCompleteStoryDeletionJob($jobId: UUID!, $leaseOwner: String!)
+  @auth(level: NO_ACCESS)
+  @transaction {
+  query @redact {
+    storyDeletionJob(first: { where: { id: { eq: $jobId }, leaseOwner: { eq: $leaseOwner }, status: { eq: RUNNING } } })
+      @check(expr: "this != null", message: "Deletion job lease not held") {
+      id
+    }
+  }
+  storyDeletionStage_update(
+    key: { jobId: $jobId, stage: FINALIZE }
+    data: { status: SUCCEEDED, completedAt_expr: "request.time", updatedAt_expr: "request.time" }
+  )
+  storyDeletionJob_update(
+    id: $jobId
+    data: {
+      status: SUCCEEDED
+      currentStage: FINALIZE
+      leaseOwner: null
+      leaseExpiresAt: null
+      completedAt_expr: "request.time"
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+mutation AdminPurgeExpiredStoryTombstone(
+  $jobId: UUID!
+  $storyId: UUID!
+  $completedBefore: Timestamp!
+) @auth(level: NO_ACCESS) @transaction {
+  eligibleTombstone: _executeReturningFirst(
+    sql: """
+      SELECT j.story_id AS id
+      FROM story_deletion_job j
+      JOIN story s ON s.id = j.story_id
+      WHERE j.id = $1
+        AND j.story_id = $2
+        AND j.status = 'SUCCEEDED'::story_deletion_status
+        AND j.completed_at <= $3
+        AND s.status = 'DELETED'::story_status
+    """
+    params: [$jobId, $storyId, $completedBefore]
+  ) @check(expr: "this != null", message: "Expired story tombstone could not be purged")
+  story_delete(id: $storyId)
+    @check(expr: "this != null", message: "Expired story tombstone could not be deleted")
+}
+
+mutation AdminReserveStorageQuota(
+  $reservationId: UUID!
+  $ownerUid: String!
+  $storyId: UUID
+  $idempotencyKey: String!
+  $requestedBytes: Int64!
+  $hardLimitBytes: Int64!
+  $expiresAt: Timestamp!
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    duplicate: storageQuotaReservation(
+      first: { where: { ownerUid: { eq: $ownerUid }, idempotencyKey: { eq: $idempotencyKey } } }
+    ) @check(expr: "this == null", message: "Quota idempotency key already reserved") {
+      id
+    }
+    storyScope: story(first: { where: { id: { eq: $storyId }, ownerUid: { eq: $ownerUid } } })
+      @check(
+        expr: "vars.storyId == null || (this != null && this.id == vars.storyId && this.status != 'DELETED')"
+        message: "Story scope not found or deleted"
+      ) {
+      id
+      status
+    }
+  }
+  quota: _executeReturningFirst(
+    sql: """
+      INSERT INTO user_storage_usage (
+        user_uid, hard_limit_bytes, used_bytes, reserved_bytes, asset_count, revision, updated_at
+      )
+      SELECT $1, $3, 0, $2, 0, 1, NOW()
+      WHERE $2 <= $3
+      ON CONFLICT (user_uid) DO UPDATE SET
+        hard_limit_bytes = EXCLUDED.hard_limit_bytes,
+        reserved_bytes = user_storage_usage.reserved_bytes + EXCLUDED.reserved_bytes,
+        revision = user_storage_usage.revision + 1,
+        updated_at = NOW()
+      WHERE user_storage_usage.used_bytes + user_storage_usage.reserved_bytes + EXCLUDED.reserved_bytes
+        <= EXCLUDED.hard_limit_bytes
+      RETURNING user_uid, used_bytes, reserved_bytes, hard_limit_bytes, revision
+    """
+    params: [$ownerUid, $requestedBytes, $hardLimitBytes]
+  ) @check(expr: "this != null", message: "Storage quota exceeded")
+  storageQuotaReservation_insert(
+    data: {
+      id: $reservationId
+      ownerUid: $ownerUid
+      storyId: $storyId
+      idempotencyKey: $idempotencyKey
+      requestedBytes: $requestedBytes
+      status: RESERVED
+      expiresAt: $expiresAt
+    }
+  )
+}
+
+mutation AdminReleaseStorageQuotaReservation(
+  $reservationId: UUID!
+  $ownerUid: String!
+) @auth(level: NO_ACCESS) @transaction {
+  released: _execute(
+    sql: """
+      WITH released AS (
+        UPDATE storage_quota_reservation
+        SET status = 'RELEASED', completed_at = NOW(), updated_at = NOW()
+        WHERE id = $1 AND owner_uid = $2 AND status = 'RESERVED'
+        RETURNING requested_bytes
+      )
+      UPDATE user_storage_usage AS usage
+      SET reserved_bytes = GREATEST(0, usage.reserved_bytes - released.requested_bytes),
+          revision = usage.revision + 1,
+          updated_at = NOW()
+      FROM released
+      WHERE usage.user_uid = $2
+    """
+    params: [$reservationId, $ownerUid]
+  ) @check(expr: "this == 1", message: "Quota reservation is not releasable")
+}
+
+mutation AdminReserveMediaAssetIdempotent(
+  $id: UUID!
+  $ownerUid: String!
+  $storyId: UUID
+  $generationJobId: UUID
+  $replacesAssetId: UUID
+  $quotaReservationId: UUID!
+  $idempotencyKey: String!
+  $requestHash: String!
+  $assetType: MediaAssetType!
+  $purpose: String!
+  $visibility: MediaVisibility!
+  $bucket: String!
+  $objectKey: String!
+  $originalFilename: String
+  $mimeType: String!
+  $extension: String!
+  $byteSize: Int64!
+  $checksumSha256: String!
+  $width: Int
+  $height: Int
+  $durationMs: Int64
+  $version: Int!
+  $cacheControl: String!
+  $sourceKind: String!
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    reservation: storageQuotaReservation(
+      first: {
+        where: {
+          id: { eq: $quotaReservationId }
+          ownerUid: { eq: $ownerUid }
+          idempotencyKey: { eq: $idempotencyKey }
+          requestedBytes: { eq: $byteSize }
+          status: { eq: RESERVED }
+        }
+      }
+    ) @check(expr: "this != null", message: "Matching quota reservation not found") {
+      id
+    }
+    duplicate: mediaUploadReceipt(
+      key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    ) @check(expr: "this == null", message: "Upload idempotency key already reserved") {
+      assetId
+    }
+    storyScope: story(first: { where: { id: { eq: $storyId }, ownerUid: { eq: $ownerUid } } })
+      @check(
+        expr: "vars.storyId == null || (this != null && this.id == vars.storyId && this.status != 'DELETED')"
+        message: "Story scope not found or deleted"
+      ) {
+      id
+      status
+    }
+  }
+  mediaAsset_insert(
+    data: {
+      id: $id
+      ownerUid: $ownerUid
+      storyId: $storyId
+      generationJobId: $generationJobId
+      replacesAssetId: $replacesAssetId
+      uploadOperationId: $idempotencyKey
+      assetType: $assetType
+      purpose: $purpose
+      visibility: $visibility
+      status: UPLOADING
+      bucket: $bucket
+      objectKey: $objectKey
+      originalFilename: $originalFilename
+      mimeType: $mimeType
+      extension: $extension
+      byteSize: $byteSize
+      checksumSha256: $checksumSha256
+      width: $width
+      height: $height
+      durationMs: $durationMs
+      version: $version
+      cacheControl: $cacheControl
+    }
+  )
+  storageQuotaReservation_update(
+    id: $quotaReservationId
+    data: { assetId: $id, updatedAt_expr: "request.time" }
+  )
+  mediaUploadAttempt_insert(
+    data: {
+      assetId: $id
+      attemptNumber: 1
+      sourceKind: $sourceKind
+      status: "uploading"
+    }
+  )
+  mediaUploadReceipt_insert(
+    data: {
+      ownerUid: $ownerUid
+      idempotencyKey: $idempotencyKey
+      assetId: $id
+      requestHash: $requestHash
+      status: "uploading"
+    }
+  )
+}
+
+mutation AdminCommitMediaAssetToSlot(
+  $id: UUID!
+  $ownerUid: String!
+  $quotaReservationId: UUID!
+  $idempotencyKey: String!
+  $etag: String
+  $storyId: UUID
+  $chapterId: UUID
+  $entityId: UUID
+  $targetKind: String!
+  $targetKey: String!
+  $purpose: String!
+  $attachmentId: UUID!
+  $historyEntityType: String
+  $clientHistoryId: String
+  $promptUsed: String
+  $chapterNumber: Int
+  $arcTitle: String
+  $label: String
+  $position: Int!
+  $expectedCurrentAssetId: UUID
+  $expectedSlotVersion: Int64
+  $newSlotVersion: Int64!
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    asset: mediaAsset(first: { where: { id: { eq: $id }, ownerUid: { eq: $ownerUid } } })
+      @check(expr: "this != null", message: "Asset not found") {
+      status @check(expr: "this == 'UPLOADING'", message: "Asset is not uploading")
+      storyId @check(expr: "this == vars.storyId", message: "Asset story scope mismatch")
+      story {
+        status @check(expr: "this != 'DELETED'", message: "Cannot attach media to a deleted story")
+      }
+    }
+    slot: mediaSlot(
+      key: {
+        ownerUid: $ownerUid
+        targetKind: $targetKind
+        targetKey: $targetKey
+        purpose: $purpose
+      }
+    ) @check(
+      expr: "(this == null && vars.expectedCurrentAssetId == null) || (this != null && this.currentAssetId == vars.expectedCurrentAssetId && this.version == vars.expectedSlotVersion)"
+      message: "Media slot expected version is stale"
+    ) {
+      currentAssetId
+      version
+    }
+  }
+  mediaAttachment_updateMany(
+    where: {
+      asset: { ownerUid: { eq: $ownerUid } }
+      targetKind: { eq: $targetKind }
+      targetKey: { eq: $targetKey }
+      purpose: { eq: $purpose }
+      isCurrent: { eq: true }
+    }
+    data: { isCurrent: false, endedAt_expr: "request.time" }
+  )
+  mediaAsset_update(
+    id: $id
+    data: { status: READY, etag: $etag, readyAt_expr: "request.time", updatedAt_expr: "request.time" }
+  )
+  mediaAttachment_upsert(
+    data: {
+      id: $attachmentId
+      assetId: $id
+      storyId: $storyId
+      chapterId: $chapterId
+      entityId: $entityId
+      targetKind: $targetKind
+      targetKey: $targetKey
+      purpose: $purpose
+      historyEntityType: $historyEntityType
+      clientHistoryId: $clientHistoryId
+      promptUsed: $promptUsed
+      chapterNumber: $chapterNumber
+      arcTitle: $arcTitle
+      label: $label
+      position: $position
+      isCurrent: true
+      endedAt: null
+    }
+  )
+  mediaSlot_upsert(
+    data: {
+      ownerUid: $ownerUid
+      storyId: $storyId
+      chapterId: $chapterId
+      entityId: $entityId
+      targetKind: $targetKind
+      targetKey: $targetKey
+      purpose: $purpose
+      currentAssetId: $id
+      version: $newSlotVersion
+      updatedAt_expr: "request.time"
+    }
+  )
+  mediaUploadAttempt_updateMany(
+    where: { assetId: { eq: $id }, status: { eq: "uploading" } }
+    data: { status: "succeeded", completedAt_expr: "request.time" }
+  )
+  mediaUploadReceipt_update(
+    key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    data: { status: "succeeded", updatedAt_expr: "request.time" }
+  )
+  committedQuota: _execute(
+    sql: """
+      WITH committed AS (
+        UPDATE storage_quota_reservation
+        SET status = 'COMMITTED', completed_at = NOW(), updated_at = NOW()
+        WHERE id = $1 AND owner_uid = $2 AND asset_id = $3 AND status = 'RESERVED'
+        RETURNING requested_bytes, story_id
+      ), story_usage AS (
+        INSERT INTO story_storage_usage (
+          story_id, owner_uid, used_bytes, reserved_bytes, asset_count, updated_at
+        )
+        SELECT committed.story_id, $2, committed.requested_bytes, 0, 1, NOW()
+        FROM committed
+        WHERE committed.story_id IS NOT NULL
+        ON CONFLICT (story_id) DO UPDATE SET
+          used_bytes = story_storage_usage.used_bytes + EXCLUDED.used_bytes,
+          asset_count = story_storage_usage.asset_count + 1,
+          updated_at = NOW()
+        RETURNING story_id
+      )
+      UPDATE user_storage_usage AS usage
+      SET reserved_bytes = GREATEST(0, usage.reserved_bytes - committed.requested_bytes),
+          used_bytes = usage.used_bytes + committed.requested_bytes,
+          asset_count = usage.asset_count + 1,
+          revision = usage.revision + 1,
+          updated_at = NOW()
+      FROM committed
+      WHERE usage.user_uid = $2
+    """
+    params: [$quotaReservationId, $ownerUid, $id]
+  ) @check(expr: "this == 1", message: "Quota reservation could not be committed")
+}
+
+mutation AdminSelectOwnedMediaSlotAsset(
+  $assetId: UUID!
+  $ownerUid: String!
+  $storyId: UUID
+  $chapterId: UUID
+  $entityId: UUID
+  $targetKind: String!
+  $targetKey: String!
+  $purpose: String!
+  $attachmentId: UUID!
+  $expectedCurrentAssetId: UUID
+  $expectedSlotVersion: Int64
+  $newSlotVersion: Int64!
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    asset: mediaAsset(first: { where: { id: { eq: $assetId }, ownerUid: { eq: $ownerUid }, status: { eq: READY } } })
+      @check(expr: "this != null", message: "Ready history asset not found") {
+      storyId @check(expr: "this == vars.storyId", message: "Asset story scope mismatch")
+      story {
+        status @check(expr: "this != 'DELETED'", message: "Cannot attach media to a deleted story")
+      }
+    }
+    slot: mediaSlot(
+      key: {
+        ownerUid: $ownerUid
+        targetKind: $targetKind
+        targetKey: $targetKey
+        purpose: $purpose
+      }
+    ) @check(
+      expr: "this != null && this.currentAssetId == vars.expectedCurrentAssetId && this.version == vars.expectedSlotVersion"
+      message: "Media slot expected version is stale"
+    ) {
+      currentAssetId
+      version
+    }
+  }
+  mediaAttachment_updateMany(
+    where: {
+      asset: { ownerUid: { eq: $ownerUid } }
+      targetKind: { eq: $targetKind }
+      targetKey: { eq: $targetKey }
+      purpose: { eq: $purpose }
+      isCurrent: { eq: true }
+    }
+    data: { isCurrent: false, endedAt_expr: "request.time" }
+  )
+  mediaAttachment_update(
+    first: {
+      where: {
+        id: { eq: $attachmentId }
+        assetId: { eq: $assetId }
+        targetKind: { eq: $targetKind }
+        targetKey: { eq: $targetKey }
+        purpose: { eq: $purpose }
+      }
+    }
+    data: { isCurrent: true, endedAt: null }
+  ) @check(expr: "this != null", message: "History attachment not found")
+  mediaSlot_update(
+    key: {
+      ownerUid: $ownerUid
+      targetKind: $targetKind
+      targetKey: $targetKey
+      purpose: $purpose
+    }
+    data: {
+      storyId: $storyId
+      chapterId: $chapterId
+      entityId: $entityId
+      currentAssetId: $assetId
+      version: $newSlotVersion
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+mutation AdminSelectUserPortrait(
+  $ownerUid: String!
+  $assetId: UUID!
+  $idempotencyKey: String!
+  $expectedActivePortraitAssetId: UUID
+  $expectedSyncRevision: String
+  $newSyncRevision: String!
+  $newRevision: Int64!
+  $prompt: String
+  $description: String
+  $daoRank: String
+  $daoXp: Int64
+  $powerStage: String
+  $equippedInventoryItemId: UUID
+  $usedReferenceImage: Boolean!
+  $frameId: String
+  $glowId: String
+  $bannerId: String
+  $effectIds: [String!]
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    asset: mediaAsset(first: { where: { id: { eq: $assetId }, ownerUid: { eq: $ownerUid }, status: { eq: READY } } })
+      @check(expr: "this != null", message: "Ready portrait asset not found") {
+      assetType @check(expr: "this == 'IMAGE'", message: "Portrait asset must be an image")
+    }
+    profile: userProfile(key: { userUid: $ownerUid })
+      @check(expr: "this != null", message: "User profile not found") {
+      activePortraitAssetId
+        @check(expr: "this == vars.expectedActivePortraitAssetId", message: "Active portrait changed")
+      syncRevision
+        @check(expr: "this == vars.expectedSyncRevision", message: "Profile expected revision is stale")
+    }
+    duplicate: persistenceReceipt(
+      key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    ) @check(expr: "this == null", message: "Idempotency key already completed") {
+      idempotencyKey
+    }
+  }
+  profileVersionGuard: _executeReturningFirst(
+    sql: """
+      INSERT INTO persistence_aggregate_version (
+        owner_uid, aggregate_kind, aggregate_id, sync_revision, revision, updated_at
+      )
+      SELECT $1, 'USER_PROFILE', $1, $4, $5, NOW()
+      WHERE EXISTS (
+        SELECT 1 FROM user_profile
+        WHERE user_uid = $1
+          AND active_portrait_asset_id IS NOT DISTINCT FROM $2
+          AND sync_revision IS NOT DISTINCT FROM $3
+      )
+      ON CONFLICT (owner_uid, aggregate_kind, aggregate_id) DO UPDATE SET
+        sync_revision = EXCLUDED.sync_revision,
+        revision = EXCLUDED.revision,
+        updated_at = NOW()
+      WHERE persistence_aggregate_version.sync_revision IS NOT DISTINCT FROM $3
+      RETURNING aggregate_id
+    """
+    params: [
+      $ownerUid
+      $expectedActivePortraitAssetId
+      $expectedSyncRevision
+      $newSyncRevision
+      $newRevision
+    ]
+  ) @check(expr: "this != null", message: "User profile compare-and-swap failed")
+  userPortrait_updateMany(
+    where: { userUid: { eq: $ownerUid }, active: { eq: true } }
+    data: { active: false, updatedAt_expr: "request.time" }
+  )
+  userPortrait_upsert(
+    data: {
+      assetId: $assetId
+      userUid: $ownerUid
+      prompt: $prompt
+      description: $description
+      daoRank: $daoRank
+      daoXp: $daoXp
+      powerStage: $powerStage
+      equippedInventoryItemId: $equippedInventoryItemId
+      usedReferenceImage: $usedReferenceImage
+      frameId: $frameId
+      glowId: $glowId
+      bannerId: $bannerId
+      effectIds: $effectIds
+      active: true
+      updatedAt_expr: "request.time"
+    }
+  )
+  userProfile_update(
+    first: {
+      where: {
+        userUid: { eq: $ownerUid }
+        activePortraitAssetId: { eq: $expectedActivePortraitAssetId }
+        syncRevision: { eq: $expectedSyncRevision }
+      }
+    }
+    data: {
+      activePortraitAssetId: $assetId
+      syncRevision: $newSyncRevision
+      revision: $newRevision
+      updatedAt_expr: "request.time"
+    }
+  ) @check(expr: "this != null", message: "Profile revision changed")
+  persistenceReceipt_insert(
+    data: {
+      ownerUid: $ownerUid
+      idempotencyKey: $idempotencyKey
+      operation: "SELECT_USER_PORTRAIT"
+      resultingSyncRevision: $newSyncRevision
+      resultingRevision: $newRevision
+    }
+  )
+}
+
+mutation AdminEnsureMediaDeletionIntent(
+  $taskId: UUID!
+  $ownerUid: String!
+  $assetId: UUID!
+  $storyId: UUID
+  $idempotencyKey: String!
+  $bucket: String!
+  $objectKey: String!
+  $reason: String!
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    asset: mediaAsset(first: { where: { id: { eq: $assetId }, ownerUid: { eq: $ownerUid } } })
+      @check(expr: "this != null", message: "Asset not found") {
+      storyId @check(expr: "this == vars.storyId", message: "Asset story scope mismatch")
+      status @check(expr: "this in ['READY', 'ARCHIVED']", message: "Only quota-committed media can use deletion intents")
+      bucket @check(expr: "this == vars.bucket", message: "Asset bucket mismatch")
+      objectKey
+        @check(expr: "this == vars.objectKey", message: "Asset object key mismatch")
+        @check(
+          expr: "this.startsWith('user-media/private/') || this.startsWith('user-media/public/')"
+          message: "Asset is outside the isolated user-media namespace"
+        )
+    }
+  }
+  mediaSlot_deleteMany(where: { ownerUid: { eq: $ownerUid }, currentAssetId: { eq: $assetId } })
+  mediaAttachment_updateMany(
+    where: { assetId: { eq: $assetId }, isCurrent: { eq: true } }
+    data: { isCurrent: false, endedAt_expr: "request.time" }
+  )
+  mediaAsset_update(
+    id: $assetId
+    data: { status: PENDING_CLEANUP, cleanupAfter_expr: "request.time", updatedAt_expr: "request.time" }
+  )
+  mediaDeletionIntent_upsert(
+    data: {
+      ownerUid: $ownerUid
+      idempotencyKey: $idempotencyKey
+      assetId: $assetId
+      storyId: $storyId
+      reason: $reason
+      status: PENDING
+      updatedAt_expr: "request.time"
+    }
+  )
+  mediaCleanupTask_upsert(
+    data: {
+      id: $taskId
+      assetId: $assetId
+      ownerUid: $ownerUid
+      bucket: $bucket
+      objectKey: $objectKey
+      reason: $reason
+      idempotencyKey: $idempotencyKey
+      status: PENDING
+      nextAttemptAt_expr: "request.time"
+      updatedAt_expr: "request.time"
+    }
+  )
+}
+
+mutation AdminClaimMediaCleanupTask(
+  $taskId: UUID!
+  $assetId: UUID!
+  $ownerUid: String!
+  $idempotencyKey: String!
+  $leaseOwner: String!
+  $leaseExpiresAt: Timestamp!
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    task: mediaCleanupTask(
+      first: {
+        where: {
+          id: { eq: $taskId }
+          assetId: { eq: $assetId }
+          ownerUid: { eq: $ownerUid }
+          idempotencyKey: { eq: $idempotencyKey }
+        }
+      }
+    ) @check(expr: "this != null", message: "Cleanup task intent mismatch") {
+      assetId
+    }
+    intent: mediaDeletionIntent(
+      first: {
+        where: {
+          ownerUid: { eq: $ownerUid }
+          idempotencyKey: { eq: $idempotencyKey }
+          assetId: { eq: $assetId }
+        }
+      }
+    )
+      @check(expr: "this != null", message: "Deletion intent not found") {
+      assetId
+    }
+  }
+  mediaCleanupTask_update(
+    first: {
+      where: {
+        _and: [
+          { id: { eq: $taskId } }
+          { assetId: { eq: $assetId } }
+          { ownerUid: { eq: $ownerUid } }
+          { idempotencyKey: { eq: $idempotencyKey } }
+          {
+            _or: [
+              { status: { in: [PENDING, FAILED] } }
+              { status: { eq: RUNNING }, leaseExpiresAt: { lt_expr: "request.time" } }
+            ]
+          }
+          {
+            _or: [
+              { leaseExpiresAt: { isNull: true } }
+              { leaseExpiresAt: { lt_expr: "request.time" } }
+            ]
+          }
+        ]
+      }
+    }
+    data: {
+      status: RUNNING
+      leaseOwner: $leaseOwner
+      leaseExpiresAt: $leaseExpiresAt
+      attemptCount_update: { inc: 1 }
+      updatedAt_expr: "request.time"
+    }
+  ) @check(expr: "this != null", message: "Cleanup task is not claimable")
+  mediaDeletionIntent_update(
+    key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    data: { status: RUNNING, lastError: null, updatedAt_expr: "request.time" }
+  )
+}
+
+mutation AdminCompleteMediaDeletionIntent(
+  $taskId: UUID!
+  $assetId: UUID!
+  $ownerUid: String!
+  $idempotencyKey: String!
+  $leaseOwner: String!
+) @auth(level: NO_ACCESS) @transaction {
+  completed: _execute(
+    sql: """
+      WITH asset_info AS (
+        SELECT id, owner_uid, story_id, byte_size
+        FROM media_asset
+        WHERE id = $2 AND owner_uid = $3 AND status = 'PENDING_CLEANUP'
+      ), completed_task AS (
+        UPDATE media_cleanup_task
+        SET status = 'SUCCEEDED', completed_at = NOW(), lease_owner = NULL,
+            lease_expires_at = NULL, updated_at = NOW()
+        WHERE id = $1 AND asset_id = $2 AND owner_uid = $3
+          AND idempotency_key = $4 AND lease_owner = $5 AND status = 'RUNNING'
+        RETURNING asset_id
+      ), completed_intent AS (
+        UPDATE media_deletion_intent
+        SET status = 'SUCCEEDED', completed_at = NOW(), updated_at = NOW()
+        WHERE owner_uid = $3 AND idempotency_key = $4 AND asset_id = $2
+          AND EXISTS (SELECT 1 FROM completed_task)
+        RETURNING asset_id
+      ), user_usage AS (
+        UPDATE user_storage_usage AS usage
+        SET used_bytes = GREATEST(0, usage.used_bytes - asset_info.byte_size),
+            asset_count = GREATEST(0, usage.asset_count - 1),
+            revision = usage.revision + 1,
+            updated_at = NOW()
+        FROM asset_info
+        WHERE usage.user_uid = $3
+          AND EXISTS (SELECT 1 FROM completed_intent)
+        RETURNING usage.user_uid
+      ), story_usage AS (
+        UPDATE story_storage_usage AS usage
+        SET used_bytes = GREATEST(0, usage.used_bytes - asset_info.byte_size),
+            asset_count = GREATEST(0, usage.asset_count - 1),
+            updated_at = NOW()
+        FROM asset_info
+        WHERE usage.story_id = asset_info.story_id
+          AND EXISTS (SELECT 1 FROM completed_intent)
+        RETURNING usage.story_id
+      )
+      UPDATE media_asset
+      SET status = 'DELETED', deleted_at = NOW(), updated_at = NOW()
+      WHERE id = $2 AND owner_uid = $3
+        AND EXISTS (SELECT 1 FROM completed_intent)
+    """
+    params: [$taskId, $assetId, $ownerUid, $idempotencyKey, $leaseOwner]
+  ) @check(expr: "this == 1", message: "Cleanup task or deletion intent is not completable")
+}
+
+mutation AdminFailMediaDeletionIntent(
+  $taskId: UUID!
+  $ownerUid: String!
+  $idempotencyKey: String!
+  $leaseOwner: String!
+  $lastError: String!
+  $nextAttemptAt: Timestamp!
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    mediaCleanupTask(
+      first: { where: { id: { eq: $taskId }, ownerUid: { eq: $ownerUid }, leaseOwner: { eq: $leaseOwner }, status: { eq: RUNNING } } }
+    ) @check(expr: "this != null", message: "Cleanup task lease not held") {
+      id
+    }
+  }
+  mediaCleanupTask_update(
+    id: $taskId
+    data: {
+      status: FAILED
+      lastError: $lastError
+      nextAttemptAt: $nextAttemptAt
+      leaseOwner: null
+      leaseExpiresAt: null
+      updatedAt_expr: "request.time"
+    }
+  )
+  mediaDeletionIntent_update(
+    key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    data: { status: FAILED, lastError: $lastError, updatedAt_expr: "request.time" }
+  )
+}
+
+mutation AdminUpsertStorySeedBatch(
+  $ownerUid: String!
+  $idempotencyKey: String!
+  $requestHash: String
+  $seedIds: [UUID!]!
+  $seeds: [StorySeed_Data!]!
+    @allow(fields: "id ownerUid legacySeedId clientSeedId title schemaVersion syncRevision revision deletedAt createdAt updatedAt")
+  $fields: [StorySeedField_Data!]!
+    @allow(fields: "seedId section fieldKey position stringValue numberValue booleanValue")
+  $entityIds: [UUID!]!
+  $entities: [StorySeedEntity_Data!]!
+    @allow(fields: "id seedId entityKind clientEntityId position name age skinTone eyeColor powerType rankLevel role powerLevel alignment connectionToMainCharacter description")
+  $entityAliases: [StorySeedEntityAlias_Data!]!
+    @allow(fields: "seedEntityId alias normalizedAlias position")
+) @retired(reason: "Admin-only atomic seed-batch inputs are invoked with firebase-admin DataConnect")
+  @auth(level: NO_ACCESS)
+  @transaction {
+  query @redact {
+    owner: userAccount(key: { uid: $ownerUid })
+      @check(expr: "this != null", message: "Seed owner not found") {
+      uid
+    }
+    foreignSeed: storySeed(
+      first: { where: { id: { in: $seedIds }, ownerUid: { ne: $ownerUid } } }
+    ) @check(expr: "this == null", message: "Seed batch contains an ID owned by another account") {
+      id
+    }
+    duplicate: persistenceReceipt(
+      key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    ) @check(expr: "this == null", message: "Idempotency key already completed") {
+      idempotencyKey
+    }
+  }
+  storySeedEntityAlias_deleteMany(
+    where: { seedEntity: { seedId: { in: $seedIds } } }
+  )
+  storySeedField_deleteMany(where: { seedId: { in: $seedIds } })
+  storySeedEntity_deleteMany(
+    where: { seedId: { in: $seedIds }, id: { nin: $entityIds } }
+  )
+  storySeed_upsertMany(data: $seeds)
+  storySeedField_upsertMany(data: $fields)
+  storySeedEntity_upsertMany(data: $entities)
+  storySeedEntityAlias_upsertMany(data: $entityAliases)
+  persistenceReceipt_insert(
+    data: {
+      ownerUid: $ownerUid
+      idempotencyKey: $idempotencyKey
+      operation: "UPSERT_STORY_SEED_BATCH"
+      requestHash: $requestHash
+    }
+  )
+}
+
+mutation AdminDeleteOwnedStorySeed(
+  $ownerUid: String!
+  $seedId: UUID!
+  $idempotencyKey: String!
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    existing: storySeed(
+      first: {
+        where: { id: { eq: $seedId }, ownerUid: { eq: $ownerUid }, deletedAt: { isNull: true } }
+      }
+    ) @check(expr: "this != null", message: "Story seed not found") {
+      id
+    }
+    duplicate: persistenceReceipt(
+      key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    ) @check(expr: "this == null", message: "Idempotency key already completed") {
+      idempotencyKey
+    }
+  }
+  story_updateMany(
+    where: { ownerUid: { eq: $ownerUid }, sourceSeedId: { eq: $seedId } }
+    data: { sourceSeedId: null, updatedAt_expr: "request.time" }
+  )
+  storySeed_update(
+    first: {
+      where: { id: { eq: $seedId }, ownerUid: { eq: $ownerUid }, deletedAt: { isNull: true } }
+    }
+    data: {
+      syncRevision: $idempotencyKey
+      revision_update: { inc: 1 }
+      deletedAt_expr: "request.time"
+      updatedAt_expr: "request.time"
+    }
+  ) @check(expr: "this != null", message: "Story seed was already deleted")
+  seedVersionRecorded: _execute(
+    sql: """
+      INSERT INTO persistence_aggregate_version (
+        owner_uid, aggregate_kind, aggregate_id, sync_revision, revision, updated_at
+      )
+      SELECT owner_uid, 'STORY_SEED', CAST(id AS text), sync_revision, revision, NOW()
+      FROM story_seed
+      WHERE id = $1 AND owner_uid = $2 AND deleted_at IS NOT NULL
+      ON CONFLICT (owner_uid, aggregate_kind, aggregate_id) DO UPDATE SET
+        sync_revision = EXCLUDED.sync_revision,
+        revision = EXCLUDED.revision,
+        updated_at = NOW()
+    """
+    params: [$seedId, $ownerUid]
+  ) @check(expr: "this == 1", message: "Story seed deletion version was not recorded")
+  persistenceReceipt_insert(
+    data: {
+      ownerUid: $ownerUid
+      idempotencyKey: $idempotencyKey
+      operation: "DELETE_STORY_SEED"
+      seedId: $seedId
+      resultingSyncRevision: $idempotencyKey
+    }
+  )
+}
+
+mutation AdminUpsertOwnedGlossaryTerms(
+  $ownerUid: String!
+  $storyId: UUID!
+  $idempotencyKey: String!
+  $terms: [GlossaryTerm_Data!]!
+    @allow(fields: "id storyId sourceText targetText targetLanguage note createdAt updatedAt")
+) @retired(reason: "Admin-only bulk glossary inputs are invoked with firebase-admin DataConnect")
+  @auth(level: NO_ACCESS)
+  @transaction {
+  query @redact {
+    storyScope: story(
+      first: { where: { id: { eq: $storyId }, ownerUid: { eq: $ownerUid }, status: { ne: DELETED } } }
+    ) @check(expr: "this != null", message: "Story not found") {
+      id
+    }
+    duplicate: persistenceReceipt(
+      key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    ) @check(expr: "this == null", message: "Idempotency key already completed") {
+      idempotencyKey
+    }
+  }
+  glossaryTerm_upsertMany(data: $terms)
+  persistenceReceipt_insert(
+    data: {
+      ownerUid: $ownerUid
+      idempotencyKey: $idempotencyKey
+      operation: "UPSERT_GLOSSARY_TERMS"
+      storyId: $storyId
+    }
+  )
+}
+
+mutation AdminDeleteOwnedGlossaryTerm(
+  $ownerUid: String!
+  $termId: UUID!
+  $idempotencyKey: String!
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    term: glossaryTerm(
+      first: {
+        where: {
+          id: { eq: $termId }
+          story: { ownerUid: { eq: $ownerUid }, status: { ne: DELETED } }
+        }
+      }
+    ) @check(expr: "this != null", message: "Glossary term not found") {
+      id
+    }
+    duplicate: persistenceReceipt(
+      key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    ) @check(expr: "this == null", message: "Idempotency key already completed") {
+      idempotencyKey
+    }
+  }
+  glossaryTerm_delete(
+    first: {
+      where: {
+        id: { eq: $termId }
+        story: { ownerUid: { eq: $ownerUid }, status: { ne: DELETED } }
+      }
+    }
+  ) @check(expr: "this != null", message: "Glossary term was already deleted")
+  persistenceReceipt_insert(
+    data: {
+      ownerUid: $ownerUid
+      idempotencyKey: $idempotencyKey
+      operation: "DELETE_GLOSSARY_TERM"
+    }
+  )
+}
+
+mutation AdminConsumeImageGenerationQuota(
+  $ownerUid: String!
+  $idempotencyKey: String!
+  $now: Timestamp!
+  $nextReset: Timestamp!
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    profile: userProfile(key: { userUid: $ownerUid })
+      @check(expr: "this != null", message: "User profile not found") {
+      userUid
+    }
+    duplicate: imageQuotaConsumption(
+      key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    ) @check(expr: "this == null", message: "Image quota request already completed") {
+      idempotencyKey
+    }
+  }
+  consumed: _execute(
+    sql: """
+      WITH charged AS (
+        UPDATE user_profile
+        SET image_generation_count = CASE
+              WHEN image_quota_reset_at IS NULL OR image_quota_reset_at <= $2 THEN 1
+              ELSE image_generation_count + 1
+            END,
+            image_quota_reset_at = CASE
+              WHEN image_quota_reset_at IS NULL OR image_quota_reset_at <= $2 THEN $3
+              ELSE image_quota_reset_at
+            END,
+            revision = revision + 1,
+            updated_at = NOW()
+        WHERE user_uid = $1
+          AND (
+            image_quota_reset_at IS NULL
+            OR image_quota_reset_at <= $2
+            OR subscription_tier <> 'MORTAL'
+            OR image_generation_count < 4
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM image_quota_consumption
+            WHERE owner_uid = $1 AND idempotency_key = $4
+          )
+        RETURNING user_uid, image_generation_count, image_quota_reset_at
+      )
+      INSERT INTO image_quota_consumption (
+        owner_uid, idempotency_key, image_generation_count, image_quota_reset_at, consumed_at
+      )
+      SELECT user_uid, $4, image_generation_count, image_quota_reset_at, NOW()
+      FROM charged
+    """
+    params: [$ownerUid, $now, $nextReset, $idempotencyKey]
+  ) @check(
+    expr: "this == 1"
+    message: "Mortal tier limits reached (4 manifestations max per day)"
+  )
+}
+
+mutation AdminRecoverPendingUserPortraits(
+  $ownerUid: String!
+  $idempotencyKey: String!
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    profile: userProfile(key: { userUid: $ownerUid })
+      @check(expr: "this != null", message: "User profile not found") {
+      userUid
+    }
+    duplicate: persistenceReceipt(
+      key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    ) @check(expr: "this == null", message: "Idempotency key already completed") {
+      idempotencyKey
+    }
+  }
+  recovered: _execute(
+    sql: """
+      WITH candidate AS (
+        SELECT slot.current_asset_id AS asset_id
+        FROM media_slot AS slot
+        JOIN media_asset AS asset
+          ON asset.id = slot.current_asset_id
+         AND asset.owner_uid = slot.owner_uid
+         AND asset.status = 'READY'
+         AND asset.asset_type = 'IMAGE'
+        JOIN user_profile AS profile
+          ON profile.user_uid = slot.owner_uid
+        WHERE slot.owner_uid = $1
+          AND slot.target_kind = 'PORTRAIT'
+          AND slot.target_key = $1
+          AND slot.purpose = 'CELESTIAL_PORTRAIT'
+          AND (
+            profile.active_portrait_asset_id IS DISTINCT FROM slot.current_asset_id
+            OR NOT EXISTS (
+              SELECT 1 FROM user_portrait
+              WHERE asset_id = slot.current_asset_id
+                AND user_uid = $1
+                AND active = TRUE
+            )
+          )
+        ORDER BY slot.updated_at DESC
+        LIMIT 1
+      ), recovered_portrait AS (
+        INSERT INTO user_portrait (
+          asset_id, user_uid, used_reference_image, active, created_at, updated_at
+        )
+        SELECT asset_id, $1, FALSE, TRUE, NOW(), NOW()
+        FROM candidate
+        ON CONFLICT (asset_id) DO UPDATE SET
+          user_uid = EXCLUDED.user_uid,
+          active = TRUE,
+          updated_at = NOW()
+        RETURNING asset_id, user_uid
+      ), deactivated AS (
+        UPDATE user_portrait AS portrait
+        SET active = FALSE, updated_at = NOW()
+        FROM recovered_portrait
+        WHERE portrait.user_uid = $1
+          AND portrait.asset_id <> recovered_portrait.asset_id
+          AND portrait.active = TRUE
+        RETURNING portrait.asset_id
+      ), updated_profile AS (
+        UPDATE user_profile AS profile
+        SET active_portrait_asset_id = recovered_portrait.asset_id,
+            sync_revision = $2,
+            revision = profile.revision + 1,
+            updated_at = NOW()
+        FROM recovered_portrait
+        WHERE profile.user_uid = $1
+        RETURNING profile.user_uid, profile.sync_revision, profile.revision
+      )
+      INSERT INTO persistence_aggregate_version (
+        owner_uid, aggregate_kind, aggregate_id, sync_revision, revision, updated_at
+      )
+      SELECT user_uid, 'USER_PROFILE', user_uid, sync_revision, revision, NOW()
+      FROM updated_profile
+      ON CONFLICT (owner_uid, aggregate_kind, aggregate_id) DO UPDATE SET
+        sync_revision = EXCLUDED.sync_revision,
+        revision = EXCLUDED.revision,
+        updated_at = NOW()
+    """
+    params: [$ownerUid, $idempotencyKey]
+  )
+  persistenceReceipt_insert(
+    data: {
+      ownerUid: $ownerUid
+      idempotencyKey: $idempotencyKey
+      operation: "RECOVER_PENDING_USER_PORTRAITS"
+      resultingSyncRevision: $idempotencyKey
+    }
+  )
+}
+
+mutation AdminUpdateAccountAccess(
+  $actorUid: String!
+  $ownerUid: String!
+  $role: AccountRole!
+  $subscriptionTier: SubscriptionTier!
+  $idempotencyKey: String!
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    actor: userAccount(key: { uid: $actorUid })
+      @check(
+        expr: "this != null && (this.role == 'ADMIN' || this.role == 'OWNER')"
+        message: "Administrator access required"
+      ) {
+      role
+    }
+    target: userAccount(key: { uid: $ownerUid })
+      @check(expr: "this != null", message: "Target account not found") {
+      uid
+    }
+    targetProfile: userProfile(key: { userUid: $ownerUid })
+      @check(expr: "this != null", message: "Target profile not found") {
+      userUid
+    }
+    duplicate: persistenceReceipt(
+      key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    ) @check(expr: "this == null", message: "Idempotency key already completed") {
+      idempotencyKey
+    }
+  }
+  userAccount_update(
+    key: { uid: $ownerUid }
+    data: { role: $role, updatedAt_expr: "request.time" }
+  )
+  userProfile_update(
+    key: { userUid: $ownerUid }
+    data: {
+      subscriptionTier: $subscriptionTier
+      revision_update: { inc: 1 }
+      updatedAt_expr: "request.time"
+    }
+  )
+  persistenceReceipt_insert(
+    data: {
+      ownerUid: $ownerUid
+      idempotencyKey: $idempotencyKey
+      operation: "UPDATE_ACCOUNT_ACCESS"
+    }
+  )
+}
+
+mutation AdminDeleteStoryAsAdmin(
+  $actorUid: String!
+  $ownerUid: String!
+  $storyId: UUID!
+  $expectedSyncRevision: String
+  $newSyncRevision: String!
+  $newRevision: Int64!
+  $idempotencyKey: String!
+  $deletionJobId: UUID!
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    actor: userAccount(key: { uid: $actorUid })
+      @check(
+        expr: "this != null && (this.role == 'ADMIN' || this.role == 'OWNER')"
+        message: "Administrator access required"
+      ) {
+      role
+    }
+    existing: story(first: { where: { id: { eq: $storyId }, ownerUid: { eq: $ownerUid } } })
+      @check(
+        expr: "this != null && this.status != 'DELETED' && this.syncRevision == vars.expectedSyncRevision"
+        message: "Story is deleted or the expected revision is stale"
+      ) {
+      status
+      syncRevision
+    }
+    duplicate: persistenceReceipt(
+      key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    ) @check(expr: "this == null", message: "Idempotency key already completed") {
+      idempotencyKey
+    }
+  }
+  storyVersionGuard: _executeReturningFirst(
+    sql: """
+      INSERT INTO persistence_aggregate_version (
+        owner_uid, aggregate_kind, aggregate_id, sync_revision, revision, updated_at
+      )
+      SELECT $1, 'STORY', CAST($2 AS text), $4, $5, NOW()
+      WHERE EXISTS (
+        SELECT 1 FROM story
+        WHERE id = $2 AND owner_uid = $1 AND status <> 'DELETED'
+          AND sync_revision IS NOT DISTINCT FROM $3
+      )
+      ON CONFLICT (owner_uid, aggregate_kind, aggregate_id) DO UPDATE SET
+        sync_revision = EXCLUDED.sync_revision,
+        revision = EXCLUDED.revision,
+        updated_at = NOW()
+      WHERE persistence_aggregate_version.sync_revision IS NOT DISTINCT FROM $3
+      RETURNING aggregate_id
+    """
+    params: [$ownerUid, $storyId, $expectedSyncRevision, $newSyncRevision, $newRevision]
+  ) @check(expr: "this != null", message: "Story compare-and-swap failed")
+  story_update(
+    first: {
+      where: {
+        id: { eq: $storyId }
+        ownerUid: { eq: $ownerUid }
+        status: { ne: DELETED }
+        syncRevision: { eq: $expectedSyncRevision }
+      }
+    }
+    data: {
+      status: DELETED
+      syncRevision: $newSyncRevision
+      revision: $newRevision
+      deletedAt_expr: "request.time"
+      updatedAt_expr: "request.time"
+    }
+  ) @check(expr: "this != null", message: "Story revision changed")
+  storyDeletionJob_insert(
+    data: {
+      id: $deletionJobId
+      ownerUid: $ownerUid
+      storyId: $storyId
+      idempotencyKey: $idempotencyKey
+      status: PENDING
+      currentStage: TOMBSTONE
+    }
+  )
+  storyDeletionStage_insertMany(
+    data: [
+      { jobId: $deletionJobId, stage: TOMBSTONE, status: SUCCEEDED }
+      { jobId: $deletionJobId, stage: STRUCTURED_DATA, status: PENDING }
+      { jobId: $deletionJobId, stage: MEDIA, status: PENDING }
+      { jobId: $deletionJobId, stage: LOCAL_CACHE, status: PENDING }
+      { jobId: $deletionJobId, stage: FINALIZE, status: PENDING }
+    ]
+  )
+  persistenceReceipt_insert(
+    data: {
+      ownerUid: $ownerUid
+      idempotencyKey: $idempotencyKey
+      operation: "ADMIN_DELETE_STORY"
+      storyId: $storyId
+      resultingSyncRevision: $newSyncRevision
+      resultingRevision: $newRevision
+    }
+  )
+  storyChange_insert(
+    data: {
+      ownerUid: $ownerUid
+      storyId: $storyId
+      changeKind: DELETED
+      storyRevision: $newRevision
+      syncRevision: $newSyncRevision
+      idempotencyKey: $idempotencyKey
+    }
+  )
+}

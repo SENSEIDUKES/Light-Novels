@@ -240,11 +240,12 @@ export const useArcSteering = () => {
 
     const clonedBookmarks = (activeStory.bookmarks || []).filter(b => b.chapterNumber <= chapterNumber);
 
-    const newStoryId = `story-${generateUUID()}-fork`;
+    const newStoryId = generateUUID();
     const newStory: StoryWorld = {
       ...activeStory,
       id: newStoryId,
-      parentStoryId: activeStory.id,
+      persistenceId: newStoryId,
+      parentStoryId: activeStory.persistenceId ?? activeStory.id,
       forkChapterNumber: chapterNumber,
       title: `[Fate Fork] ${activeStory.title}`,
       arcs: clonedArcs,

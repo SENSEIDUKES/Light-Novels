@@ -27,6 +27,8 @@ const require = createRequire(import.meta.url);
 const adminSdk = require('../src/generated/dataconnect-admin') as typeof import('../src/generated/dataconnect-admin');
 const clientSdk = require('../src/generated/dataconnect') as typeof import('../src/generated/dataconnect');
 const {
+  adminListExpiredStoryTombstones,
+  adminPurgeExpiredStoryTombstone,
   adminPurgeFoundationProbe,
   adminPurgeFoundationStory,
   connectorConfig: adminConnectorConfig,
@@ -322,6 +324,106 @@ async function main(): Promise<void> {
       'User A must not create a chapter in a soft-deleted story.',
     );
 
+    const deletionJobId = randomUUID();
+    const completedAt = new Date().toISOString();
+    const retentionCutoff = new Date(Date.now() - (30 * 24 * 60 * 60 * 1_000)).toISOString();
+    await step('create a completed deletion job for retention verification', () => (
+      adminDataConnect.executeGraphql<
+        { storyDeletionJob_insert: { id: string } },
+        {
+          id: string;
+          ownerUid: string;
+          storyId: string;
+          idempotencyKey: string;
+          completedAt: string;
+        }
+      >(
+        `mutation CreateCompletedDeletionJob(
+          $id: UUID!
+          $ownerUid: String!
+          $storyId: UUID!
+          $idempotencyKey: String!
+          $completedAt: Timestamp!
+        ) {
+          storyDeletionJob_insert(data: {
+            id: $id
+            ownerUid: $ownerUid
+            storyId: $storyId
+            idempotencyKey: $idempotencyKey
+            status: SUCCEEDED
+            currentStage: FINALIZE
+            completedAt: $completedAt
+          })
+        }`,
+        {
+          variables: {
+            id: deletionJobId,
+            ownerUid: clientA.uid!,
+            storyId: storyId!,
+            idempotencyKey: `foundation-purge-${runId}`,
+            completedAt,
+          },
+        },
+      )
+    ));
+    const retainedJobs = await adminListExpiredStoryTombstones(
+      adminDataConnect,
+      { completedBefore: retentionCutoff, limit: 100 },
+    );
+    assert.equal(
+      retainedJobs.data.storyDeletionJobs.some((job) => job.id === deletionJobId),
+      false,
+      'A completed deletion job inside the retention window must not be selected for purge.',
+    );
+
+    const expiredCompletedAt = new Date(Date.now() - (31 * 24 * 60 * 60 * 1_000)).toISOString();
+    await step('expire and permanently purge the completed story tombstone', async () => {
+      const updatedJob = await adminDataConnect.executeGraphql<
+        { storyDeletionJob_update: { id: string } | null },
+        { jobId: string; completedAt: string }
+      >(
+        `mutation ExpireCompletedDeletionJob($jobId: UUID!, $completedAt: Timestamp!) {
+          storyDeletionJob_update(id: $jobId, data: {
+            completedAt: $completedAt
+            updatedAt_expr: "request.time"
+          })
+        }`,
+        { variables: { jobId: deletionJobId, completedAt: expiredCompletedAt } },
+      );
+      assert.ok(updatedJob.data.storyDeletionJob_update, 'The completed job must be aged for the retention test.');
+      const expiredJobs = await adminListExpiredStoryTombstones(
+        adminDataConnect,
+        { completedBefore: retentionCutoff, limit: 100 },
+      );
+      const normalizeUuid = (value: string) => value.replaceAll('-', '').toLowerCase();
+      const expiredJob = expiredJobs.data.storyDeletionJobs.find(
+        (job) => normalizeUuid(job.id) === normalizeUuid(deletionJobId),
+      );
+      assert.ok(
+        expiredJob,
+        `The aged deletion job must be selected for purge: ${JSON.stringify(expiredJobs.data.storyDeletionJobs)}`,
+      );
+      const purged = await adminPurgeExpiredStoryTombstone(adminDataConnect, {
+        jobId: expiredJob.id,
+        storyId: expiredJob.storyId,
+        completedBefore: retentionCutoff,
+      });
+      assert.ok(purged.data.eligibleTombstone, 'The purge mutation must validate the retention guard.');
+      assert.ok(purged.data.story_delete, 'The purge mutation must return the deleted story id.');
+    });
+
+    const purgedStory = await adminDataConnect.executeGraphql<
+      { story: { id: string } | null },
+      { storyId: string }
+    >(
+      `query GetPurgedFoundationStory($storyId: UUID!) {
+        story(first: { where: { id: { eq: $storyId } } }) { id }
+      }`,
+      { variables: { storyId } },
+    );
+    assert.equal(purgedStory.data.story ?? null, null, 'Expired story tombstone must be removed.');
+    storyId = undefined;
+
     process.stdout.write(`${JSON.stringify({
       ok: true,
       checks: [
@@ -333,6 +435,7 @@ async function main(): Promise<void> {
         'NO_ACCESS browser denial',
         'owned story and two chapter round trip',
         'soft-deleted story chapter read/write denial',
+        '30-day tombstone retention and permanent purge',
       ],
     }, null, 2)}\n`);
   } finally {

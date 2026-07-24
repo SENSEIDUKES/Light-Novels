@@ -14,13 +14,11 @@ describe("IndexedDbFoundationCache", () => {
     await ownerA.putMedia(mediaInput("same-asset", "A"));
     await ownerB.putMedia(mediaInput("same-asset", "B"));
     await ownerA.enqueueOutbox({
-      id: "outbox-a",
       operation: "story.update",
       payload: { title: "A" },
       idempotencyKey: "update-a",
     });
     await ownerB.enqueueOutbox({
-      id: "outbox-b",
       operation: "story.update",
       payload: { title: "B" },
       idempotencyKey: "update-b",
@@ -55,10 +53,10 @@ describe("IndexedDbFoundationCache", () => {
     ]);
   });
 
-  it("updates last access and removes expired records and recovery metadata", async () => {
+  it("keeps stale records for offline reads until the hard retention boundary", async () => {
     const indexedDB = new MemoryIndexedDbFactory();
     let now = 1_000;
-    const cache = makeCache(indexedDB, "owner", () => now);
+    const cache = makeCache(indexedDB, "owner", () => now, { retentionMs: 100 });
     await cache.putRecord({
       namespace: "chapter",
       recordId: "one",
@@ -83,7 +81,20 @@ describe("IndexedDbFoundationCache", () => {
 
     now = 1_050;
     await expect(cache.getRecord("chapter", "one")).resolves.toBeNull();
+    await expect(
+      cache.getRecord("chapter", "one", { allowStale: true }),
+    ).resolves.toMatchObject({ value: { text: "cached" }, stale: true });
+    await expect(
+      cache.listRecords("chapter", { allowStale: true }),
+    ).resolves.toEqual([
+      expect.objectContaining({ recordId: "one", stale: true }),
+    ]);
     await expect(cache.getRecoveryCheckpoint("generation")).resolves.toBeNull();
+
+    now = 1_100;
+    await expect(
+      cache.getRecord("chapter", "one", { allowStale: true }),
+    ).resolves.toBeNull();
   });
 
   it("invalidates cached media when its server version or checksum changes", async () => {
@@ -119,7 +130,6 @@ describe("IndexedDbFoundationCache", () => {
     now = 3;
     await cache.getRecord("story", "old");
     await cache.enqueueOutbox({
-      id: "pending",
       operation: "story.save",
       payload: { id: "story" },
       idempotencyKey: "pending-save",
@@ -235,25 +245,35 @@ describe("IndexedDbFoundationCache", () => {
     let now = 100;
     const cache = makeCache(indexedDB, "owner", () => now);
     const queued = await cache.enqueueOutbox({
-      id: "mutation-1",
+      id: "chapter-create-1",
       operation: "chapter.create",
       payload: { storyId: "story" },
       idempotencyKey: "chapter-create-1",
     });
     const duplicate = await cache.enqueueOutbox({
-      id: "different-id",
       operation: "chapter.create",
-      payload: { storyId: "changed" },
+      payload: { storyId: "story" },
       idempotencyKey: "chapter-create-1",
     });
     expect(duplicate.id).toBe(queued.id);
+    await expect(cache.enqueueOutbox({
+      operation: "chapter.create",
+      payload: { storyId: "changed" },
+      idempotencyKey: "chapter-create-1",
+    })).rejects.toThrow(/different operation or payload/);
+    await expect(cache.enqueueOutbox({
+      id: "different-id",
+      operation: "chapter.create",
+      payload: { storyId: "story" },
+      idempotencyKey: "chapter-create-1",
+    })).rejects.toThrow(/must match its idempotency key/);
     await cache.putRecoveryCheckpoint({
       recoveryKey: "generation-job",
       state: { eventCursor: 7 },
     });
 
     await expect(cache.listRecoverableOutbox()).resolves.toHaveLength(1);
-    await expect(cache.claimOutbox("mutation-1", 20)).resolves.toMatchObject({
+    await expect(cache.claimOutbox("chapter-create-1", 20)).resolves.toMatchObject({
       state: "IN_FLIGHT",
       attempts: 1,
       leaseExpiresAt: 120,
@@ -262,7 +282,7 @@ describe("IndexedDbFoundationCache", () => {
 
     now = 121;
     await expect(cache.listRecoverableOutbox()).resolves.toHaveLength(1);
-    await cache.failOutbox("mutation-1", "offline", 150);
+    await cache.failOutbox("chapter-create-1", "offline", 150);
     await expect(cache.listRecoverableOutbox()).resolves.toEqual([]);
 
     now = 150;
@@ -275,7 +295,7 @@ describe("IndexedDbFoundationCache", () => {
         }),
       ],
     });
-    await cache.completeOutbox("mutation-1");
+    await cache.completeOutbox("chapter-create-1");
     await cache.deleteRecoveryCheckpoint("generation-job");
     await expect(cache.getRecoveryBundle()).resolves.toEqual({
       outbox: [],

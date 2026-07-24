@@ -179,8 +179,10 @@ export const useStoryGeneration = () => {
         return aliases.length > 0 ? { ...character, aliases } : character;
       });
 
+      const newStoryId = generateUUID();
       const newStory: Story = {
-        id: `story-${generateUUID()}`,
+        id: newStoryId,
+        persistenceId: newStoryId,
         userId: initiatingUserId || undefined,
         sourceSeedId,
         title: responseData.title || blueprint.title || 'The Ascension Chronicles',

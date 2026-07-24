@@ -1,5 +1,13 @@
 import { StoryWorld, ChapterContent } from "../../types";
 
+/** Exact remote version observed by a synchronization read. */
+export interface CloudRevisionExpectation {
+    exists: boolean;
+    updatedAt: string | null;
+    /** Optional only while legacy records without app revisions still exist. */
+    syncRevision?: string | null;
+}
+
 /**
  * StorageAdapter defines the contract for persistent story memory.
  * This separates the storage logic from UI/logic components,
@@ -39,6 +47,11 @@ export interface SyncTask {
     userId?: string;
     /** Immutable enqueue version used to avoid acknowledging a newer in-flight save. */
     generation?: number;
+    /**
+     * Stable identity for this exact mutation generation. Retries reuse it;
+     * coalescing a newer local edit creates a new key.
+     */
+    idempotencyKey?: string;
     /** Number of failed cloud-sync attempts; retained for diagnostics and retry visibility. */
     attempts?: number;
     /**

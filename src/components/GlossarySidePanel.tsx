@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BookA, X, Plus, Trash2, Check, Save } from 'lucide-react';
-import { firebaseStorage } from '../lib/firebaseStorage';
+import {
+  deleteLoreGlossaryTerm,
+  getLoreGlossary,
+  saveLoreGlossaryTerm,
+} from '../lib/persistence';
 import { LoreGlossary } from '../types';
 import { useAppStore } from '../store/useAppStore';
 
@@ -23,7 +27,7 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
   const loadTerms = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const dbTerms = await firebaseStorage.getLoreGlossary(novelId);
+      const dbTerms = await getLoreGlossary(novelId);
       setTerms(dbTerms);
     } catch (e) {
       console.error("Failed to load glossary terms:", e);
@@ -49,7 +53,7 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
     };
 
     try {
-      await firebaseStorage.saveLoreGlossaryTerm(termData);
+      await saveLoreGlossaryTerm(termData);
       setNewSource('');
       setNewTarget('');
       loadTerms();
@@ -60,7 +64,7 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
 
   const handleDelete = async (id: string) => {
     try {
-      await firebaseStorage.deleteLoreGlossaryTerm(id);
+      await deleteLoreGlossaryTerm(id);
       setTerms(terms.filter(t => t.id !== id));
     } catch (e) {
       console.error("Failed to delete term:", e);

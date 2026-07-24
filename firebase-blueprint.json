@@ -139,27 +139,5 @@
       },
       "required": ["novel_id", "source_text", "target_text", "target_lang"]
     }
-  },
-  "firestore": {
-    "users/{userId}": {
-      "schema": "#/entities/UserProfile",
-      "description": "User profiles containing public and preference data."
-    },
-    "users/{userId}/portraits/{portraitId}": {
-      "schema": "#/entities/CultivatorPortraitAsset",
-      "description": "Private durable cultivator portrait assets owned by the parent user."
-    },
-    "stories/{storyId}": {
-      "schema": "#/entities/StoryWorld",
-      "description": "Stories belonging to users."
-    },
-    "stories/{storyId}/chapters/{chapterId}": {
-      "schema": "#/entities/Chapter",
-      "description": "Individual chapters belonging to a story."
-    },
-    "lore_glossary/{termId}": {
-      "schema": "#/entities/LoreGlossary",
-      "description": "Glossary terms used for translation within novels."
-    }
   }
 }

@@ -6,6 +6,7 @@ import express from 'express';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MediaAssetDescriptor } from '../../contracts/mediaAssets';
 import { logger } from '../logger';
+import { MediaAssetServiceError } from '../media/mediaAssetService';
 import {
   createMediaAssetRouter,
   type MediaAssetRouteDependencies,
@@ -13,6 +14,7 @@ import {
 } from './mediaAssetRouter';
 
 const ASSET_ID = '11111111-1111-4111-8111-111111111111';
+const IDEMPOTENCY_KEY = '22222222-2222-4222-8222-222222222222';
 const READY_ASSET: MediaAssetDescriptor = {
   id: ASSET_ID,
   assetType: 'IMAGE',
@@ -38,6 +40,7 @@ describe('foundation media asset routes', () => {
     service = {
       save: vi.fn(async () => READY_ASSET),
       get: vi.fn(async () => READY_ASSET),
+      select: vi.fn(async () => READY_ASSET),
       delete: vi.fn(async () => undefined),
     };
     dependencies = {
@@ -126,6 +129,7 @@ describe('foundation media asset routes', () => {
       body: JSON.stringify({
         assetType: 'IMAGE',
         purpose: 'cover',
+        idempotencyKey: IDEMPOTENCY_KEY,
         association: { targetKind: 'PROFILE', targetKey: 'owner-a' },
         source: { kind: 'data-url', dataUrl: 'data:image/png;base64,iVBORw0KGgo=' },
       }),
@@ -168,12 +172,39 @@ describe('foundation media asset routes', () => {
     expect(service.save).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['rate_limit_exceeded', 429],
+    ['user_quota_exceeded', 413],
+    ['public_storage_prohibited', 403],
+    ['idempotency_conflict', 409],
+  ] as const)('maps %s to HTTP %s', async (code, status) => {
+    vi.mocked(service.save).mockRejectedValueOnce(new MediaAssetServiceError('mapped failure', code));
+    const response = await fetch(`${baseUrl}/api/foundation/media-assets`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer valid-token',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        assetType: 'IMAGE',
+        purpose: 'cover',
+        idempotencyKey: IDEMPOTENCY_KEY,
+        association: { targetKind: 'PROFILE', targetKey: 'owner-a' },
+        source: { kind: 'remote-url', url: 'https://provider.example.test/image.png' },
+      }),
+    });
+
+    expect(response.status).toBe(status);
+    expect((await response.json()).error.code).toBe(code);
+  });
+
   it('accepts raw bytes through the isolated upload endpoint', async () => {
     const query = new URLSearchParams({
       assetType: 'IMAGE',
       purpose: 'cover',
       targetKind: 'PROFILE',
       targetKey: 'owner-a',
+      idempotencyKey: IDEMPOTENCY_KEY,
       filename: 'cover.png',
     });
     const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
@@ -202,6 +233,7 @@ describe('foundation media asset routes', () => {
       purpose: 'story-export',
       targetKind: 'PROFILE',
       targetKey: 'owner-a',
+      idempotencyKey: IDEMPOTENCY_KEY,
       filename: 'story.json',
     });
     const bytes = new TextEncoder().encode('{"story":"one"}');
@@ -241,6 +273,26 @@ describe('foundation media asset routes', () => {
     expect(service.delete).toHaveBeenCalledWith('owner-a', ASSET_ID);
   });
 
+  it('selects an existing history asset through the authenticated owner-scoped endpoint', async () => {
+    const association = {
+      targetKind: 'PROFILE',
+      targetKey: 'owner-a',
+      purpose: 'cover',
+    };
+    const response = await fetch(`${baseUrl}/api/foundation/media-assets/${ASSET_ID}/select`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer valid-token',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ association }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ asset: READY_ASSET });
+    expect(service.select).toHaveBeenCalledWith('owner-a', ASSET_ID, association);
+  });
+
   it('maps association ownership failures to a non-leaking forbidden response', async () => {
     vi.mocked(service.save).mockRejectedValueOnce(new Error('Story media target is not owned by the authenticated user.'));
 
@@ -253,6 +305,7 @@ describe('foundation media asset routes', () => {
       body: JSON.stringify({
         assetType: 'IMAGE',
         purpose: 'cover',
+        idempotencyKey: IDEMPOTENCY_KEY,
         association: { targetKind: 'STORY', targetKey: ASSET_ID, storyId: ASSET_ID },
         source: { kind: 'remote-url', url: 'https://provider.example.test/image.png' },
       }),
