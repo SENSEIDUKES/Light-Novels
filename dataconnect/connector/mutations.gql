@@ -500,8 +500,8 @@ mutation AdminUpsertStoryGraph(
   query @redact {
     existing: story(first: { where: { id: { eq: $storyId }, ownerUid: { eq: $ownerUid } } })
       @check(
-        expr: "this == null || (this.status != 'DELETED' && this.syncRevision == vars.expectedSyncRevision)"
-        message: "Story is deleted or the expected revision is stale"
+        expr: "this == null"
+        message: "Story bootstrap requires a new story"
       ) {
       status
       syncRevision
@@ -539,55 +539,6 @@ mutation AdminUpsertStoryGraph(
     """
     params: [$ownerUid, $storyId, $expectedSyncRevision, $newSyncRevision, $newRevision]
   ) @check(expr: "this != null", message: "Story compare-and-swap failed")
-
-  # Remove descendants before stale parents. Composite child collections are
-  # replaced in full; entity/scaffold rows use id-based stale reconciliation.
-  codexAlias_deleteMany(where: { entity: { storyId: { eq: $storyId } } })
-  codexEntityAttribute_deleteMany(where: { entity: { storyId: { eq: $storyId } } })
-  codexThreadLink_deleteMany(where: { entity: { storyId: { eq: $storyId } } })
-  abilityProgressionEvent_deleteMany(
-    where: { abilityEntity: { storyId: { eq: $storyId } }, id: { nin: $abilityProgressionIds } }
-  )
-  chapterGenerationBatchItem_deleteMany(where: { batch: { storyId: { eq: $storyId } } })
-  generationEvent_deleteMany(
-    where: { job: { storyId: { eq: $storyId } }, id: { nin: $generationEventIds } }
-  )
-  codexRelationship_deleteMany(
-    where: { storyId: { eq: $storyId }, id: { nin: $codexRelationshipIds } }
-  )
-  karmaNode_deleteMany(where: { storyId: { eq: $storyId }, id: { nin: $karmaNodeIds } })
-  timelineEvent_deleteMany(where: { storyId: { eq: $storyId }, id: { nin: $timelineEventIds } })
-  plotThread_deleteMany(where: { storyId: { eq: $storyId }, id: { nin: $plotThreadIds } })
-  codexEntity_deleteMany(where: { storyId: { eq: $storyId }, id: { nin: $codexEntityIds } })
-  generationJob_deleteMany(
-    where: { storyId: { eq: $storyId }, ownerUid: { eq: $ownerUid }, id: { nin: $generationJobIds } }
-  )
-  chapterGenerationBatch_deleteMany(
-    where: { storyId: { eq: $storyId }, id: { nin: $generationBatchIds } }
-  )
-  bookmark_deleteMany(where: { storyId: { eq: $storyId }, id: { nin: $bookmarkIds } })
-  readingProgress_deleteMany(
-    where: { storyId: { eq: $storyId }, userUid: { nin: $readingProgressUserUids } }
-  )
-  arcReadingProgress_deleteMany(where: { storyId: { eq: $storyId } })
-  glossaryTerm_deleteMany(where: { storyId: { eq: $storyId }, id: { nin: $glossaryTermIds } })
-  storyMemoryWarning_deleteMany(
-    where: { storyId: { eq: $storyId }, id: { nin: $memoryWarningIds } }
-  )
-  storyRule_deleteMany(where: { storyId: { eq: $storyId }, id: { nin: $ruleIds } })
-  storyRevealBackdrop_deleteMany(
-    where: { storyId: { eq: $storyId }, entityStableKey: { nin: $revealBackdropKeys } }
-  )
-  storyPreference_deleteMany(where: { storyId: { eq: $storyId } })
-  storyMemoryState_deleteMany(where: { storyId: { eq: $storyId } })
-  storyReaderPreference_deleteMany(
-    where: { storyId: { eq: $storyId }, userUid: { nin: $readerPreferenceUserUids } }
-  )
-  storyMember_deleteMany(
-    where: { storyId: { eq: $storyId }, userUid: { nin: $memberUserUids } }
-  )
-  chapter_deleteMany(where: { storyId: { eq: $storyId }, id: { nin: $chapterIds } })
-  storyArc_deleteMany(where: { storyId: { eq: $storyId }, id: { nin: $arcIds } })
 
   story_upsert(data: $story)
   storyMember_upsertMany(data: $members)

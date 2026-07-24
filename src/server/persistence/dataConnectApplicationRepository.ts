@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 import { getDataConnect } from 'firebase-admin/data-connect';
 import {
   AccountRole,
@@ -339,6 +340,18 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     }
   }
 
+  private async readStoryAfterWrite(
+    ownerUid: string,
+    storyId: string,
+  ): Promise<StoryWorld | null> {
+    for (const delayMs of [0, 100, 300, 750]) {
+      if (delayMs > 0) await delay(delayMs);
+      const result = await adminGetOwnedStoryGraph({ ownerUid, storyId });
+      if (result.data.story) return this.hydrateStory(ownerUid, result.data);
+    }
+    return null;
+  }
+
   private async resolveStoryId(ownerUid: string, storyId: string): Promise<string | null> {
     const match = (await this.listStoryRows(ownerUid)).find(row =>
       row.id === storyId || row.clientStoryId === storyId || row.legacyStoryId === storyId,
@@ -477,7 +490,7 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
       variables as unknown as RetiredMutationVariables,
       hash,
     );
-    const saved = await this.getStory(ownerUid, storyId);
+    const saved = await this.readStoryAfterWrite(ownerUid, storyId);
     if (!saved) throw new Error('Story graph committed but could not be read back.');
     return saved;
   }
@@ -529,7 +542,7 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
       hash,
     );
     const durationMs = performance.now() - startedAt;
-    const saved = await this.getStory(ownerUid, graph.story.id);
+    const saved = await this.readStoryAfterWrite(ownerUid, graph.story.id);
     if (!saved) throw new Error('Story patch committed but could not be read back.');
     return { story: saved, affectedRows: affectedRowCount, durationMs };
   }
