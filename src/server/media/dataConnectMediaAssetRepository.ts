@@ -307,7 +307,7 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
       if (!result.data.mediaAsset_update
         || !result.data.mediaUploadReceipt_update
         || result.data.mediaUploadAttempt_updateMany !== 1
-        || result.data.committedQuota !== 1) {
+        || !result.data.committedQuota) {
         throw new Error('SQL Connect did not atomically commit the account media asset.');
       }
       const saved = await this.getOwnedAfterWrite(ownerUid, assetId);
@@ -361,7 +361,7 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
       || !result.data.mediaUploadReceipt_update
       || result.data.mediaAttachment_updateMany !== expectedCurrentUpdates
       || result.data.mediaUploadAttempt_updateMany !== 1
-      || result.data.committedQuota !== 1) {
+      || !result.data.committedQuota) {
       throw new Error('SQL Connect did not atomically commit the media asset and exactly one current slot.');
     }
     const saved = await this.getOwnedAfterWrite(ownerUid, assetId);

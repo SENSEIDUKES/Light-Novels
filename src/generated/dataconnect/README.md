@@ -9545,7 +9545,7 @@ export interface AdminCommitMediaAssetToSlotData {
   mediaSlot_upsert: MediaSlot_Key;
   mediaUploadAttempt_updateMany: number;
   mediaUploadReceipt_update?: MediaUploadReceipt_Key | null;
-  committedQuota?: number | null;
+  committedQuota?: unknown | null;
 }
 ```
 ### Using `AdminCommitMediaAssetToSlot`'s action shortcut function
@@ -9727,7 +9727,7 @@ export interface AdminCommitAccountMediaAssetData {
   mediaAsset_update?: MediaAsset_Key | null;
   mediaUploadAttempt_updateMany: number;
   mediaUploadReceipt_update?: MediaUploadReceipt_Key | null;
-  committedQuota?: number | null;
+  committedQuota?: unknown | null;
 }
 ```
 ### Using `AdminCommitAccountMediaAsset`'s action shortcut function

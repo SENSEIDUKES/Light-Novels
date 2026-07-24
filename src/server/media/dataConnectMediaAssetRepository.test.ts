@@ -136,7 +136,7 @@ describe('DataConnectMediaAssetRepository', () => {
           mediaUploadReceipt_update: { idempotencyKey: 'request-1' },
           mediaAttachment_updateMany: 0,
           mediaUploadAttempt_updateMany: 1,
-          committedQuota: 1,
+          committedQuota: { userUid: 'owner-1' },
         },
       });
     mocks.getOwnedMediaAsset
@@ -205,7 +205,7 @@ describe('DataConnectMediaAssetRepository', () => {
           mediaAsset_update: { id: 'fc0aac17-fb01-4f7e-a9bc-e3121204125d' },
           mediaUploadReceipt_update: { idempotencyKey: 'request-1' },
           mediaUploadAttempt_updateMany: 1,
-          committedQuota: 1,
+          committedQuota: { userUid: 'owner-1' },
         },
       });
     mocks.getOwnedMediaAsset

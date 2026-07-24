@@ -1676,7 +1676,7 @@ mutation AdminCommitMediaAssetToSlot(
     key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
     data: { status: "succeeded", updatedAt_expr: "request.time" }
   )
-  committedQuota: _execute(
+  committedQuota: _executeReturningFirst(
     sql: """
       WITH committed AS (
         UPDATE storage_quota_reservation
@@ -1695,21 +1695,19 @@ mutation AdminCommitMediaAssetToSlot(
           asset_count = story_storage_usage.asset_count + 1,
           updated_at = NOW()
         RETURNING story_id
-      ), usage_updated AS (
-        UPDATE user_storage_usage AS usage
-        SET reserved_bytes = GREATEST(0, usage.reserved_bytes - committed.requested_bytes),
-            used_bytes = usage.used_bytes + committed.requested_bytes,
-            asset_count = usage.asset_count + 1,
-            revision = usage.revision + 1,
-            updated_at = NOW()
-        FROM committed
-        WHERE usage.user_uid = $2
-        RETURNING 1
       )
-      SELECT COUNT(*) FROM usage_updated
+      UPDATE user_storage_usage AS usage
+      SET reserved_bytes = GREATEST(0, usage.reserved_bytes - committed.requested_bytes),
+          used_bytes = usage.used_bytes + committed.requested_bytes,
+          asset_count = usage.asset_count + 1,
+          revision = usage.revision + 1,
+          updated_at = NOW()
+      FROM committed
+      WHERE usage.user_uid = $2
+      RETURNING usage.user_uid
     """
     params: [$quotaReservationId, $ownerUid, $id]
-  ) @check(expr: "this == 1", message: "Quota reservation could not be committed")
+  ) @check(expr: "this != null", message: "Quota reservation could not be committed")
 }
 
 mutation AdminCommitAccountMediaAsset(
@@ -1731,28 +1729,26 @@ mutation AdminCommitAccountMediaAsset(
     key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
     data: { status: "succeeded", updatedAt_expr: "request.time" }
   )
-  committedQuota: _execute(
+  committedQuota: _executeReturningFirst(
     sql: """
       WITH committed AS (
         UPDATE storage_quota_reservation
         SET status = 'COMMITTED', completed_at = NOW(), updated_at = NOW()
         WHERE id = $1 AND owner_uid = $2 AND asset_id = $3 AND status = 'RESERVED'
         RETURNING requested_bytes
-      ), usage_updated AS (
-        UPDATE user_storage_usage AS usage
-        SET reserved_bytes = GREATEST(0, usage.reserved_bytes - committed.requested_bytes),
-            used_bytes = usage.used_bytes + committed.requested_bytes,
-            asset_count = usage.asset_count + 1,
-            revision = usage.revision + 1,
-            updated_at = NOW()
-        FROM committed
-        WHERE usage.user_uid = $2
-        RETURNING 1
       )
-      SELECT COUNT(*) FROM usage_updated
+      UPDATE user_storage_usage AS usage
+      SET reserved_bytes = GREATEST(0, usage.reserved_bytes - committed.requested_bytes),
+          used_bytes = usage.used_bytes + committed.requested_bytes,
+          asset_count = usage.asset_count + 1,
+          revision = usage.revision + 1,
+          updated_at = NOW()
+      FROM committed
+      WHERE usage.user_uid = $2
+      RETURNING usage.user_uid
     """
     params: [$quotaReservationId, $ownerUid, $id]
-  ) @check(expr: "this == 1", message: "Quota reservation could not be committed")
+  ) @check(expr: "this != null", message: "Quota reservation could not be committed")
 }
 
 mutation AdminSelectOwnedMediaSlotAsset(
