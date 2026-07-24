@@ -77,6 +77,7 @@ This README will guide you through the process of using the generated JavaScript
   - [*AdminReleaseStorageQuotaReservation*](#adminreleasestoragequotareservation)
   - [*AdminReserveMediaAssetIdempotent*](#adminreservemediaassetidempotent)
   - [*AdminCommitMediaAssetToSlot*](#admincommitmediaassettoslot)
+  - [*AdminCommitAccountMediaAsset*](#admincommitaccountmediaasset)
   - [*AdminSelectOwnedMediaSlotAsset*](#adminselectownedmediaslotasset)
   - [*AdminSelectUserPortrait*](#adminselectuserportrait)
   - [*AdminEnsureMediaDeletionIntent*](#adminensuremediadeletionintent)
@@ -9555,10 +9556,10 @@ import { connectorConfig, adminCommitMediaAssetToSlot, AdminCommitMediaAssetToSl
 
 // The `AdminCommitMediaAssetToSlot` mutation requires an argument of type `AdminCommitMediaAssetToSlotVariables`:
 const adminCommitMediaAssetToSlotVars: AdminCommitMediaAssetToSlotVariables = {
-  id: ..., 
-  ownerUid: ..., 
-  quotaReservationId: ..., 
-  idempotencyKey: ..., 
+  id: ...,
+  ownerUid: ...,
+  quotaReservationId: ...,
+  idempotencyKey: ...,
   etag: ..., // optional
   storyId: ..., // optional
   chapterId: ..., // optional
@@ -9618,10 +9619,10 @@ import { connectorConfig, adminCommitMediaAssetToSlotRef, AdminCommitMediaAssetT
 
 // The `AdminCommitMediaAssetToSlot` mutation requires an argument of type `AdminCommitMediaAssetToSlotVariables`:
 const adminCommitMediaAssetToSlotVars: AdminCommitMediaAssetToSlotVariables = {
-  id: ..., 
-  ownerUid: ..., 
-  quotaReservationId: ..., 
-  idempotencyKey: ..., 
+  id: ...,
+  ownerUid: ...,
+  quotaReservationId: ...,
+  idempotencyKey: ...,
   etag: ..., // optional
   storyId: ..., // optional
   chapterId: ..., // optional
@@ -9670,6 +9671,142 @@ executeMutation(ref).then((response) => {
   console.log(data.mediaAsset_update);
   console.log(data.mediaAttachment_upsert);
   console.log(data.mediaSlot_upsert);
+  console.log(data.mediaUploadAttempt_updateMany);
+  console.log(data.mediaUploadReceipt_update);
+  console.log(data.committedQuota);
+});
+```
+
+## AdminCommitAccountMediaAsset
+You can execute the `AdminCommitAccountMediaAsset` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
+```typescript
+adminCommitAccountMediaAsset(vars: AdminCommitAccountMediaAssetVariables): MutationPromise<AdminCommitAccountMediaAssetData, AdminCommitAccountMediaAssetVariables>;
+
+interface AdminCommitAccountMediaAssetRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: AdminCommitAccountMediaAssetVariables): MutationRef<AdminCommitAccountMediaAssetData, AdminCommitAccountMediaAssetVariables>;
+}
+export const adminCommitAccountMediaAssetRef: AdminCommitAccountMediaAssetRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+adminCommitAccountMediaAsset(dc: DataConnect, vars: AdminCommitAccountMediaAssetVariables): MutationPromise<AdminCommitAccountMediaAssetData, AdminCommitAccountMediaAssetVariables>;
+
+interface AdminCommitAccountMediaAssetRef {
+  ...
+  (dc: DataConnect, vars: AdminCommitAccountMediaAssetVariables): MutationRef<AdminCommitAccountMediaAssetData, AdminCommitAccountMediaAssetVariables>;
+}
+export const adminCommitAccountMediaAssetRef: AdminCommitAccountMediaAssetRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminCommitAccountMediaAssetRef:
+```typescript
+const name = adminCommitAccountMediaAssetRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `AdminCommitAccountMediaAsset` mutation requires an argument of type `AdminCommitAccountMediaAssetVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface AdminCommitAccountMediaAssetVariables {
+  id: UUIDString;
+  ownerUid: string;
+  quotaReservationId: UUIDString;
+  idempotencyKey: string;
+  etag?: string | null;
+}
+```
+### Return Type
+Recall that executing the `AdminCommitAccountMediaAsset` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `AdminCommitAccountMediaAssetData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface AdminCommitAccountMediaAssetData {
+  mediaAsset_update?: MediaAsset_Key | null;
+  mediaUploadAttempt_updateMany: number;
+  mediaUploadReceipt_update?: MediaUploadReceipt_Key | null;
+  committedQuota?: number | null;
+}
+```
+### Using `AdminCommitAccountMediaAsset`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, adminCommitAccountMediaAsset, AdminCommitAccountMediaAssetVariables } from '@seihouse/celestial-library-dataconnect';
+
+// The `AdminCommitAccountMediaAsset` mutation requires an argument of type `AdminCommitAccountMediaAssetVariables`:
+const adminCommitAccountMediaAssetVars: AdminCommitAccountMediaAssetVariables = {
+  id: ..., 
+  ownerUid: ..., 
+  quotaReservationId: ..., 
+  idempotencyKey: ..., 
+  etag: ..., // optional
+};
+
+// Call the `adminCommitAccountMediaAsset()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await adminCommitAccountMediaAsset(adminCommitAccountMediaAssetVars);
+// Variables can be defined inline as well.
+const { data } = await adminCommitAccountMediaAsset({ id: ..., ownerUid: ..., quotaReservationId: ..., idempotencyKey: ..., etag: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await adminCommitAccountMediaAsset(dataConnect, adminCommitAccountMediaAssetVars);
+
+console.log(data.mediaAsset_update);
+console.log(data.mediaUploadAttempt_updateMany);
+console.log(data.mediaUploadReceipt_update);
+console.log(data.committedQuota);
+
+// Or, you can use the `Promise` API.
+adminCommitAccountMediaAsset(adminCommitAccountMediaAssetVars).then((response) => {
+  const data = response.data;
+  console.log(data.mediaAsset_update);
+  console.log(data.mediaUploadAttempt_updateMany);
+  console.log(data.mediaUploadReceipt_update);
+  console.log(data.committedQuota);
+});
+```
+
+### Using `AdminCommitAccountMediaAsset`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, adminCommitAccountMediaAssetRef, AdminCommitAccountMediaAssetVariables } from '@seihouse/celestial-library-dataconnect';
+
+// The `AdminCommitAccountMediaAsset` mutation requires an argument of type `AdminCommitAccountMediaAssetVariables`:
+const adminCommitAccountMediaAssetVars: AdminCommitAccountMediaAssetVariables = {
+  id: ..., 
+  ownerUid: ..., 
+  quotaReservationId: ..., 
+  idempotencyKey: ..., 
+  etag: ..., // optional
+};
+
+// Call the `adminCommitAccountMediaAssetRef()` function to get a reference to the mutation.
+const ref = adminCommitAccountMediaAssetRef(adminCommitAccountMediaAssetVars);
+// Variables can be defined inline as well.
+const ref = adminCommitAccountMediaAssetRef({ id: ..., ownerUid: ..., quotaReservationId: ..., idempotencyKey: ..., etag: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = adminCommitAccountMediaAssetRef(dataConnect, adminCommitAccountMediaAssetVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.mediaAsset_update);
+console.log(data.mediaUploadAttempt_updateMany);
+console.log(data.mediaUploadReceipt_update);
+console.log(data.committedQuota);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.mediaAsset_update);
   console.log(data.mediaUploadAttempt_updateMany);
   console.log(data.mediaUploadReceipt_update);
   console.log(data.committedQuota);

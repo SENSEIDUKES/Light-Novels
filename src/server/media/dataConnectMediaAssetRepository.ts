@@ -3,6 +3,7 @@ import {
   adminAdvanceStoryDeletionJob,
   adminClaimMediaCleanupTask,
   adminClaimStoryDeletionJob,
+  adminCommitAccountMediaAsset,
   adminCommitMediaAssetToSlot,
   adminCompleteMediaCleanup,
   adminCompleteMediaDeletionIntent,
@@ -278,6 +279,24 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
 
   async commitToSlot(ownerUid: string, assetId: string, etag: string | undefined, commit: MediaSlotCommit): Promise<MediaAssetRecord> {
     const association = commit.association;
+    if (!association.storyId) {
+      const result = await adminCommitAccountMediaAsset({
+        id: assetId,
+        ownerUid,
+        quotaReservationId: commit.quotaReservationId,
+        idempotencyKey: commit.idempotencyKey,
+        etag: etag ?? null,
+      });
+      if (!result.data.mediaAsset_update
+        || !result.data.mediaUploadReceipt_update
+        || result.data.mediaUploadAttempt_updateMany !== 1
+        || result.data.committedQuota !== 1) {
+        throw new Error('SQL Connect did not atomically commit the account media asset.');
+      }
+      const saved = await this.getOwnedAfterWrite(ownerUid, assetId);
+      if (!saved || saved.status !== 'READY') throw new Error('SQL Connect returned without a ready account media asset.');
+      return saved;
+    }
     const variables = {
       id: assetId,
       ownerUid,

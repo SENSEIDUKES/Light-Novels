@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   reserveMediaAsset: vi.fn(),
   getOwnedMediaAsset: vi.fn(),
   commitMediaAsset: vi.fn(),
+  commitAccountMediaAsset: vi.fn(),
 }));
 
 vi.mock('../firebaseAdmin', () => ({ getFirebaseAdminApp: () => ({}) }));
@@ -14,6 +15,7 @@ vi.mock('../../generated/dataconnect-admin', () => ({
   adminReserveMediaAssetIdempotent: mocks.reserveMediaAsset,
   adminGetOwnedMediaAsset: mocks.getOwnedMediaAsset,
   adminCommitMediaAssetToSlot: mocks.commitMediaAsset,
+  adminCommitAccountMediaAsset: mocks.commitAccountMediaAsset,
 }));
 
 import { DataConnectMediaAssetRepository } from './dataConnectMediaAssetRepository';
@@ -24,6 +26,7 @@ describe('DataConnectMediaAssetRepository', () => {
     mocks.reserveMediaAsset.mockReset();
     mocks.getOwnedMediaAsset.mockReset();
     mocks.commitMediaAsset.mockReset();
+    mocks.commitAccountMediaAsset.mockReset();
     mocks.reserveStorageQuota.mockResolvedValue({
       data: { storageQuotaReservation_insert: { id: 'quota-reservation' } },
     });
@@ -174,8 +177,9 @@ describe('DataConnectMediaAssetRepository', () => {
         position: 0,
         newSlotVersion: '1',
         association: {
-          targetKind: 'PROFILE',
-          targetKey: 'owner-1',
+          storyId: '7da538b7-75ce-44f9-bdf9-82e7f9e4d7ae',
+          targetKind: 'STORY',
+          targetKey: '7da538b7-75ce-44f9-bdf9-82e7f9e4d7ae',
           purpose: 'CELESTIAL_PORTRAIT',
         },
       },
@@ -185,9 +189,62 @@ describe('DataConnectMediaAssetRepository', () => {
     });
     expect(mocks.commitMediaAsset).toHaveBeenCalledTimes(2);
     expect(mocks.commitMediaAsset).toHaveBeenLastCalledWith(expect.objectContaining({
-      storyId: null,
+      storyId: '7da538b7-75ce-44f9-bdf9-82e7f9e4d7ae',
       chapterId: null,
       entityId: null,
     }));
+  });
+
+  it('commits account portraits without story attachment or slot writes', async () => {
+    mocks.commitAccountMediaAsset.mockResolvedValue({
+      data: {
+        mediaAsset_update: { id: 'fc0aac17-fb01-4f7e-a9bc-e3121204125d' },
+        mediaUploadReceipt_update: { idempotencyKey: 'request-1' },
+        mediaUploadAttempt_updateMany: 1,
+        committedQuota: 1,
+      },
+    });
+    mocks.getOwnedMediaAsset.mockResolvedValue({
+      data: {
+        mediaAsset: {
+          id: 'fc0aac17-fb01-4f7e-a9bc-e3121204125d',
+          ownerUid: 'owner-1',
+          assetType: 'IMAGE',
+          purpose: 'CELESTIAL_PORTRAIT',
+          visibility: 'PRIVATE',
+          status: 'READY',
+        },
+      },
+    });
+    const repository = new DataConnectMediaAssetRepository();
+
+    await expect(repository.commitToSlot(
+      'owner-1',
+      'fc0aac17-fb01-4f7e-a9bc-e3121204125d',
+      'etag-1',
+      {
+        quotaReservationId: '0b3eeea7-88d8-4304-973d-c5d5b4b19146',
+        idempotencyKey: 'request-1',
+        attachmentId: 'de52773d-42dd-4aa2-932f-a4660b2f9d18',
+        position: 0,
+        newSlotVersion: '1',
+        association: {
+          targetKind: 'PROFILE',
+          targetKey: 'owner-1',
+          purpose: 'CELESTIAL_PORTRAIT',
+        },
+      },
+    )).resolves.toMatchObject({
+      id: 'fc0aac17-fb01-4f7e-a9bc-e3121204125d',
+      status: 'READY',
+    });
+    expect(mocks.commitAccountMediaAsset).toHaveBeenCalledWith({
+      id: 'fc0aac17-fb01-4f7e-a9bc-e3121204125d',
+      ownerUid: 'owner-1',
+      quotaReservationId: '0b3eeea7-88d8-4304-973d-c5d5b4b19146',
+      idempotencyKey: 'request-1',
+      etag: 'etag-1',
+    });
+    expect(mocks.commitMediaAsset).not.toHaveBeenCalled();
   });
 });

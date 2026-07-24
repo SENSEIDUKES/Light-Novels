@@ -336,6 +336,12 @@ export function adminCommitMediaAssetToSlot(dcOrVarsOrOptions, varsOrOptions, op
   return dcInstance.executeMutation('AdminCommitMediaAssetToSlot', inputVars, inputOpts);
 }
 
+export function adminCommitAccountMediaAsset(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminCommitAccountMediaAsset', inputVars, inputOpts);
+}
+
 export function adminSelectOwnedMediaSlotAsset(dcOrVarsOrOptions, varsOrOptions, options) {
   const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
   dcInstance.useGen(true);
