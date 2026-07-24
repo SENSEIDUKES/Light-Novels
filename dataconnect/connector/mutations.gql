@@ -1602,7 +1602,7 @@ mutation AdminCommitMediaAssetToSlot(
   query @redact {
     asset: mediaAsset(first: { where: { id: { eq: $id }, ownerUid: { eq: $ownerUid } } })
       @check(expr: "this != null", message: "Asset not found") {
-      status @check(expr: "this == 'UPLOADING'", message: "Asset is not uploading")
+      status
       storyId
       story {
         status
