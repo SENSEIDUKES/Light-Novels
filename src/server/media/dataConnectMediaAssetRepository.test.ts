@@ -196,26 +196,43 @@ describe('DataConnectMediaAssetRepository', () => {
   });
 
   it('commits account portraits without story attachment or slot writes', async () => {
-    mocks.commitAccountMediaAsset.mockResolvedValue({
-      data: {
-        mediaAsset_update: { id: 'fc0aac17-fb01-4f7e-a9bc-e3121204125d' },
-        mediaUploadReceipt_update: { idempotencyKey: 'request-1' },
-        mediaUploadAttempt_updateMany: 1,
-        committedQuota: 1,
-      },
-    });
-    mocks.getOwnedMediaAsset.mockResolvedValue({
-      data: {
-        mediaAsset: {
-          id: 'fc0aac17-fb01-4f7e-a9bc-e3121204125d',
-          ownerUid: 'owner-1',
-          assetType: 'IMAGE',
-          purpose: 'CELESTIAL_PORTRAIT',
-          visibility: 'PRIVATE',
-          status: 'READY',
+    mocks.commitAccountMediaAsset
+      .mockRejectedValueOnce(Object.assign(new Error('Invalid SQL statement'), {
+        code: 'data-connect/query-error',
+      }))
+      .mockResolvedValueOnce({
+        data: {
+          mediaAsset_update: { id: 'fc0aac17-fb01-4f7e-a9bc-e3121204125d' },
+          mediaUploadReceipt_update: { idempotencyKey: 'request-1' },
+          mediaUploadAttempt_updateMany: 1,
+          committedQuota: 1,
         },
-      },
-    });
+      });
+    mocks.getOwnedMediaAsset
+      .mockResolvedValueOnce({
+        data: {
+          mediaAsset: {
+            id: 'fc0aac17-fb01-4f7e-a9bc-e3121204125d',
+            ownerUid: 'owner-1',
+            assetType: 'IMAGE',
+            purpose: 'CELESTIAL_PORTRAIT',
+            visibility: 'PRIVATE',
+            status: 'UPLOADING',
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          mediaAsset: {
+            id: 'fc0aac17-fb01-4f7e-a9bc-e3121204125d',
+            ownerUid: 'owner-1',
+            assetType: 'IMAGE',
+            purpose: 'CELESTIAL_PORTRAIT',
+            visibility: 'PRIVATE',
+            status: 'READY',
+          },
+        },
+      });
     const repository = new DataConnectMediaAssetRepository();
 
     await expect(repository.commitToSlot(
@@ -238,7 +255,8 @@ describe('DataConnectMediaAssetRepository', () => {
       id: 'fc0aac17-fb01-4f7e-a9bc-e3121204125d',
       status: 'READY',
     });
-    expect(mocks.commitAccountMediaAsset).toHaveBeenCalledWith({
+    expect(mocks.commitAccountMediaAsset).toHaveBeenCalledTimes(2);
+    expect(mocks.commitAccountMediaAsset).toHaveBeenLastCalledWith({
       id: 'fc0aac17-fb01-4f7e-a9bc-e3121204125d',
       ownerUid: 'owner-1',
       quotaReservationId: '0b3eeea7-88d8-4304-973d-c5d5b4b19146',

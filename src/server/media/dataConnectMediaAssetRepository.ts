@@ -280,13 +280,28 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
   async commitToSlot(ownerUid: string, assetId: string, etag: string | undefined, commit: MediaSlotCommit): Promise<MediaAssetRecord> {
     const association = commit.association;
     if (!association.storyId) {
-      const result = await adminCommitAccountMediaAsset({
+      const variables = {
         id: assetId,
         ownerUid,
         quotaReservationId: commit.quotaReservationId,
         idempotencyKey: commit.idempotencyKey,
         etag: etag ?? null,
-      });
+      };
+      let result: Awaited<ReturnType<typeof adminCommitAccountMediaAsset>> | undefined;
+      let lastError: unknown;
+      for (const delayMs of [0, 100, 300, 750, 1_500]) {
+        if (delayMs > 0) await delay(delayMs);
+        try {
+          result = await adminCommitAccountMediaAsset(variables);
+          break;
+        } catch (error) {
+          lastError = error;
+          if (!isRetryableDataConnectQueryError(error)) throw error;
+          const existing = await this.getOwned(ownerUid, assetId).catch(() => null);
+          if (existing?.status === 'READY') return existing;
+        }
+      }
+      if (!result) throw lastError;
       if (!result.data.mediaAsset_update
         || !result.data.mediaUploadReceipt_update
         || result.data.mediaUploadAttempt_updateMany !== 1
