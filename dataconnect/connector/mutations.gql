@@ -1615,7 +1615,7 @@ mutation AdminCommitMediaAssetToSlot(
         purpose: $purpose
       }
     ) @check(
-      expr: "(this == null && vars.expectedCurrentAssetId == null) || (this != null && this.currentAssetId == vars.expectedCurrentAssetId && this.version == vars.expectedSlotVersion)"
+      expr: "this == null || (this.currentAssetId == vars.expectedCurrentAssetId && this.version == vars.expectedSlotVersion)"
       message: "Media slot expected version is stale"
     ) {
       currentAssetId
