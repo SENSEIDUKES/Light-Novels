@@ -660,9 +660,13 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
       storyId: storyGraph.story.id,
       content: { ...content, storyId: storyGraph.story.clientStoryId ?? content.storyId },
       currentGraph: currentResult.data,
-      expectedSyncRevision: currentResult.data.chapter?.syncRevision ?? null,
+      // The retired chapter mutation advances the parent Story aggregate guard,
+      // not the Chapter row guard. A newly scaffolded chapter intentionally has
+      // no sync revision yet, while its Story already does; comparing the Story
+      // against the Chapter's null revision rejects the first content write.
+      expectedSyncRevision: storyGraph.story.syncRevision ?? null,
       newSyncRevision: syncRevisionFor(ownerUid, operation, context.idempotencyKey),
-      newRevision: revisionAfter(currentResult.data.chapter?.revision),
+      newRevision: revisionAfter(storyGraph.story.revision),
       idempotencyKey: context.idempotencyKey,
       requestHash: hash,
     });

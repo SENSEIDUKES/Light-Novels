@@ -8,6 +8,7 @@ const state = vi.hoisted(() => ({
   profileGraph: null as any,
   storyGraph: null as any,
   seedGraph: null as any,
+  chapterGraph: null as any,
   recoveryCalls: 0,
   receipts: new Map<string, any>(),
   executed: [] as string[],
@@ -68,6 +69,54 @@ function emptySeedGraph(seedId: string, clientSeedId: string) {
   };
 }
 
+function storyGraphWithNewChapter() {
+  const graph = emptyStoryGraph();
+  graph.story.clientStoryId = 'story-client-1';
+  graph.story.syncRevision = 'story-rev-5';
+  graph.story.revision = '5';
+  graph.arcs = [{
+    id: '4c36e07c-66e2-46c9-b4b5-c3b2cd675eee',
+    storyId: graph.story.id,
+    arcNumber: 1,
+    title: 'Volume I',
+    status: 'ACTIVE',
+    createdAt: NOW,
+    updatedAt: NOW,
+  }];
+  graph.chapters = [{
+    id: 'f40966fe-aef8-41f8-b660-c8715695d80e',
+    storyId: graph.story.id,
+    arcId: graph.arcs[0].id,
+    clientChapterId: 'chapter-story-client-1-1',
+    chapterNumber: 1,
+    title: 'Awakening',
+    premise: 'The archive opens.',
+    status: 'UNREAD',
+    syncRevision: null,
+    revision: '0',
+    isSealed: false,
+    hasContinuityFaults: false,
+    createdAt: NOW,
+    updatedAt: NOW,
+  }];
+  return graph;
+}
+
+function newChapterGraph() {
+  return {
+    chapter: {
+      ...storyGraphWithNewChapter().chapters[0],
+      content: null,
+      blocks: [],
+      translations: [],
+      audioManifest: null,
+      voiceClips: [],
+    },
+    fingerprints: [],
+    facts: [],
+  };
+}
+
 vi.mock('../../generated/dataconnect-admin', () => ({
   AccountRole: { USER: 'USER', ADMIN: 'ADMIN', OWNER: 'OWNER' },
   SubscriptionTier: { MORTAL: 'MORTAL', OUTER_SECT: 'OUTER_SECT', INNER_SECT: 'INNER_SECT', SECT_MASTER: 'SECT_MASTER', IMMORTAL: 'IMMORTAL' },
@@ -79,7 +128,7 @@ vi.mock('../../generated/dataconnect-admin', () => ({
   adminConsumeImageGenerationQuota: vi.fn(),
   adminDeleteOwnedGlossaryTerm: vi.fn(), adminDeleteOwnedStory: vi.fn(), adminDeleteOwnedStorySeed: vi.fn(),
   adminDeleteStoryAsAdmin: vi.fn(), adminGetAdminOverview: vi.fn(), adminGetImageQuotaConsumption: vi.fn(),
-  adminGetOwnedChapterContentGraph: vi.fn(),
+  adminGetOwnedChapterContentGraph: vi.fn(async () => ({ data: state.chapterGraph })),
   adminGetOwnedStorySeedGraph: vi.fn(async ({ seedId }: any) => ({
     data: state.seedGraph?.storySeed?.id === seedId ? state.seedGraph : { storySeed: null },
   })),
@@ -105,6 +154,15 @@ function makeRepo() {
       if (name === 'AdminUpsertStorySeedGraph') {
         state.seedGraph = emptySeedGraph(variables.seedId, variables.seed.clientSeedId);
       }
+      if (name === 'AdminUpsertChapterContentGraph') {
+        state.storyGraph.story.syncRevision = variables.newSyncRevision;
+        state.storyGraph.story.revision = variables.newRevision;
+        state.chapterGraph.chapter = {
+          ...state.chapterGraph.chapter,
+          ...variables.chapter,
+          content: variables.content,
+        };
+      }
       return { data: {} };
     },
     loadMediaDescriptor: async () => null,
@@ -116,6 +174,7 @@ describe('canonical profile provisioning', () => {
     state.profileGraph = null;
     state.storyGraph = null;
     state.seedGraph = null;
+    state.chapterGraph = null;
     state.recoveryCalls = 0;
     state.receipts.clear();
     state.executed = [];
@@ -194,5 +253,38 @@ describe('canonical profile provisioning', () => {
 
     expect(state.executed[0]).toBe('AdminUpsertUserProfileGraph');
     expect(state.recoveryCalls).toBe(1);
+  });
+
+  it('guards the first chapter content write with the parent story revision', async () => {
+    state.profileGraph = emptyProfileGraph();
+    state.storyGraph = storyGraphWithNewChapter();
+    state.chapterGraph = newChapterGraph();
+    const repo = makeRepo();
+
+    await expect(repo.saveChapterContent(
+      ownerUid,
+      'story-client-1',
+      {
+        storyId: 'story-client-1',
+        userId: ownerUid,
+        chapterNumber: 1,
+        generatedContent: 'The archive opened beneath a truthful moon.',
+        updatedAt: NOW,
+      },
+      {
+        idempotencyKey: '00000000-0000-4000-8000-000000000003',
+        expected: undefined,
+      },
+    )).resolves.toMatchObject({
+      storyId: 'story-client-1',
+      chapterNumber: 1,
+      generatedContent: 'The archive opened beneath a truthful moon.',
+    });
+
+    const write = state.executedVars.find(
+      entry => entry.name === 'AdminUpsertChapterContentGraph',
+    )!;
+    expect(write.variables.expectedSyncRevision).toBe('story-rev-5');
+    expect(write.variables.newRevision).toBe('6');
   });
 });
