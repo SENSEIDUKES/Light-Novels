@@ -2241,10 +2241,14 @@ export function hydrateUserProfile(graph: ProfileGraph): UserProfile | null {
   };
 }
 
+function defaultUsername(ownerUid: string): string {
+  return `user_${createHash('sha256').update(ownerUid).digest('hex')}`;
+}
+
 function defaultProfile(ownerUid: string, now: string): UserProfile {
   return {
     uid: ownerUid,
-    username: '',
+    username: defaultUsername(ownerUid),
     displayName: '',
     avatarUrl: '',
     preferredLanguage: 'en',
@@ -2371,7 +2375,7 @@ export function mapUserProfileToGraphVariables(
     }),
     profile: row({
       userUid: input.ownerUid,
-      username: value.username,
+      username: value.username?.trim() || defaultUsername(input.ownerUid),
       displayNameColor: value.displayNameColor,
       preferredLanguage: value.preferredLanguage,
       defaultTranslationLanguage: value.defaultTranslationLanguage,

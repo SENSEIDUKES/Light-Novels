@@ -1,6 +1,6 @@
 {
   "framework": "vite",
-  "buildCommand": "vite build && esbuild server-bundle/entry.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=api/index.js",
+  "buildCommand": "vite build && esbuild server-bundle/entry.ts --bundle --platform=node --format=esm --packages=external --main-fields=module,main --sourcemap --outfile=api/index.js",
   "outputDirectory": "dist",
   "routes": [
     {

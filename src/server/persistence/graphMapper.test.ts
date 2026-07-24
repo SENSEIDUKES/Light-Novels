@@ -642,6 +642,32 @@ describe('story seed graph mapping', () => {
 });
 
 describe('user profile graph mapping', () => {
+  it('assigns distinct stable usernames to minimal profiles', () => {
+    const ownerA = mapUserProfileToGraphVariables({
+      ownerUid: 'owner-a',
+      patch: { uid: 'owner-a' },
+      currentGraph: null,
+      ...mutationMetadata(),
+    });
+    const ownerB = mapUserProfileToGraphVariables({
+      ownerUid: 'owner-b',
+      patch: { uid: 'owner-b', username: '   ' },
+      currentGraph: null,
+      ...mutationMetadata(),
+    });
+    const ownerARepeat = mapUserProfileToGraphVariables({
+      ownerUid: 'owner-a',
+      patch: { uid: 'owner-a' },
+      currentGraph: null,
+      ...mutationMetadata(),
+    });
+
+    expect(ownerA.profile.username).toMatch(/^user_[a-f0-9]{64}$/);
+    expect(ownerB.profile.username).toMatch(/^user_[a-f0-9]{64}$/);
+    expect(ownerARepeat.profile.username).toBe(ownerA.profile.username);
+    expect(ownerA.profile.username).not.toBe(ownerB.profile.username);
+  });
+
   it('merges a partial profile update without deleting inventory, effects, progress, or preferences', () => {
     const currentGraph = {
       account: {
