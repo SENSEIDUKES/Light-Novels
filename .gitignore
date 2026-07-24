@@ -25,3 +25,4 @@ dataconnect-ci/.dataconnect/
 skills-lock.json
 
 .vercel/
+.vercel
