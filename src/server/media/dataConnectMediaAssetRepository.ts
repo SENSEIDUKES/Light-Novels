@@ -65,9 +65,25 @@ import type {
 } from './mediaAssetRepository';
 import { validateMediaReservation } from './mediaAssetRepository';
 
+function canonicalUuid(value: string): string {
+  const compact = value.replace(/-/g, '');
+  if (!/^[0-9a-f]{32}$/i.test(compact)) return value;
+  return [
+    compact.slice(0, 8),
+    compact.slice(8, 12),
+    compact.slice(12, 16),
+    compact.slice(16, 20),
+    compact.slice(20),
+  ].join('-');
+}
+
 function mapAsset(value: NonNullable<Awaited<ReturnType<typeof adminGetOwnedMediaAsset>>['data']['mediaAsset']>): MediaAssetRecord {
   return {
     ...value,
+    id: canonicalUuid(value.id),
+    storyId: value.storyId ? canonicalUuid(value.storyId) : value.storyId,
+    generationJobId: value.generationJobId ? canonicalUuid(value.generationJobId) : value.generationJobId,
+    replacesAssetId: value.replacesAssetId ? canonicalUuid(value.replacesAssetId) : value.replacesAssetId,
     assetType: value.assetType,
     visibility: value.visibility,
     status: value.status,

@@ -2209,7 +2209,12 @@ export function hydrateUserProfile(graph: ProfileGraph): UserProfile | null {
     displayName: account.displayName ?? profile.username ?? '',
     displayNameColor: profile.displayNameColor ?? undefined,
     avatarUrl: '',
-    activePortraitId: profile.activePortraitAssetId ?? undefined,
+    activePortraitId: profile.activePortraitAssetId
+      ? profile.activePortraitAssetId.replace(
+          /^([0-9a-f]{8})([0-9a-f]{4})([0-9a-f]{4})([0-9a-f]{4})([0-9a-f]{12})$/i,
+          '$1-$2-$3-$4-$5',
+        )
+      : undefined,
     preferredLanguage: profile.preferredLanguage ?? 'en',
     defaultTranslationLanguage: profile.defaultTranslationLanguage ?? 'en',
     savedStoryCount: profile.savedStoryCount,

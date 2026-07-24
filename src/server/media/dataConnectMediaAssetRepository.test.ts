@@ -106,6 +106,29 @@ describe('DataConnectMediaAssetRepository', () => {
     expect(mocks.getOwnedMediaAsset).toHaveBeenCalledTimes(2);
   });
 
+  it('canonicalizes compact Data Connect UUIDs in media responses', async () => {
+    mocks.getOwnedMediaAsset.mockResolvedValue({
+      data: {
+        mediaAsset: {
+          id: 'fc0aac17fb014f7ea9bce3121204125d',
+          ownerUid: 'owner-1',
+          assetType: 'IMAGE',
+          purpose: 'CELESTIAL_PORTRAIT',
+          visibility: 'PRIVATE',
+          status: 'READY',
+        },
+      },
+    });
+    const repository = new DataConnectMediaAssetRepository();
+
+    await expect(repository.getOwned(
+      'owner-1',
+      'fc0aac17-fb01-4f7e-a9bc-e3121204125d',
+    )).resolves.toMatchObject({
+      id: 'fc0aac17-fb01-4f7e-a9bc-e3121204125d',
+    });
+  });
+
   it('sends an explicit null story scope for account portrait quota reservations', async () => {
     const repository = new DataConnectMediaAssetRepository();
 
