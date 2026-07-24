@@ -31,7 +31,11 @@ create_provider() {
 }
 
 gcloud config set project "$PROJECT_ID" >/dev/null
-gcloud services enable iamcredentials.googleapis.com --project="$PROJECT_ID"
+gcloud services enable \
+  iam.googleapis.com \
+  iamcredentials.googleapis.com \
+  sts.googleapis.com \
+  --project="$PROJECT_ID"
 
 if ! gcloud iam workload-identity-pools describe "$POOL_ID" \
   --project="$PROJECT_ID" --location=global >/dev/null 2>&1; then
