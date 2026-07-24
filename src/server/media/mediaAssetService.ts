@@ -24,6 +24,7 @@ import {
   type MediaObjectStore,
 } from './r2ObjectStore';
 import { assertPermanentMediaMetadata } from './permanentMediaGuard';
+import { logger } from '../logger';
 
 const MAX_ERROR_LENGTH = 1000;
 const DEFAULT_STALE_UPLOAD_AGE_MS = 60 * 60 * 1000;
@@ -565,6 +566,12 @@ export class MediaAssetService {
       }
       etag = confirmed.etag ?? etag;
     } catch (error) {
+      logger.error({
+        err: error,
+        assetId: id,
+        bucket,
+        objectKey,
+      }, 'R2 media upload failed');
       await this.recoverUploadFailure(owner.uid, reservation, error);
       await this.safeReleaseQuota(owner.uid, quotaReservationId);
       const code = error instanceof MediaAssetServiceError ? error.code : 'upload_failed';
