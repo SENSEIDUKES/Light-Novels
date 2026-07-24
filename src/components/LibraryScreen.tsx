@@ -8,8 +8,6 @@ import { getDaoRankData, getAuraTextStyle } from '../lib/qi';
 import { PRESET_CHALLENGES } from '../data/challenges';
 import { auth } from '../lib/firebase';
 
-import { INITIAL_DEMO_STORIES } from '../store/demoStories';
-
 function getStoryChapterStats(story?: Story | null) {
   let totalChapters = 0;
   let readChapters = 0;
@@ -42,28 +40,10 @@ const CELESTIAL_FALLBACK_IMAGES = [
   "https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/images/LIBRARY%20BACKDROPS/LIBRARY_DAYTIME.PNG"
 ];
 
-const PUBLISHED_WORLDS: any[] = INITIAL_DEMO_STORIES.map(story => {
-  let reads = 1200;
-  let createdAt = story.createdAt;
-  if (story.id === 'demo-matrix-1') {
-    reads = 8920;
-    createdAt = new Date(Date.now() - 24 * 3600 * 1000).toISOString(); // 1 day ago
-  } else if (story.id === 'demo-matrix-2') {
-    reads = 4320;
-    createdAt = new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(); // 3 days ago
-  } else if (story.id === 'demo-matrix-3') {
-    reads = 6250;
-    createdAt = new Date(Date.now() - 12 * 3600 * 1000).toISOString(); // 12 hours ago
-  }
-  const { totalChapters } = getStoryChapterStats(story);
-  return {
-    ...story,
-    reads,
-    createdAt,
-    chapterCount: totalChapters,
-    powerStage: story.memory.currentPowerStage,
-  };
-});
+// The previous built-in worlds only persisted story shells; their embedded
+// Chapter 1 prose was never written to the current ChapterContent schema.
+// Keep the catalog empty until published worlds have durable chapter records.
+const PUBLISHED_WORLDS: any[] = [];
 
 export async function openPublishedWorld(
   world: any,
@@ -647,7 +627,7 @@ export const LibraryScreen: React.FC = () => {
                 Awaiting Manifestations
               </h4>
               <p className="text-xs text-neutral-600 max-w-xs mx-auto mb-6">
-                No worlds matching this filter could be found inside the matrix. Try altering your filter parameters.
+                Curated worlds will return after their chapters are published to the current library format.
               </p>
             </div>
           ) : (

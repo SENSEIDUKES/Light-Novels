@@ -7,6 +7,8 @@ const ownerUid = 'user-1';
 const state = vi.hoisted(() => ({
   profileGraph: null as any,
   storyGraph: null as any,
+  seedGraph: null as any,
+  recoveryCalls: 0,
   receipts: new Map<string, any>(),
   executed: [] as string[],
   executedVars: [] as Array<{ name: string; variables: any }>,
@@ -46,6 +48,26 @@ function emptyStoryGraph() {
   };
 }
 
+function emptySeedGraph(seedId: string, clientSeedId: string) {
+  return {
+    storySeed: {
+      id: seedId,
+      ownerUid,
+      legacySeedId: clientSeedId,
+      clientSeedId,
+      title: 'Fresh Blueprint',
+      schemaVersion: 1,
+      syncRevision: 'seed-rev-1',
+      revision: '1',
+      deletedAt: null,
+      createdAt: NOW,
+      updatedAt: NOW,
+      fields: [],
+      entities: [],
+    },
+  };
+}
+
 vi.mock('../../generated/dataconnect-admin', () => ({
   AccountRole: { USER: 'USER', ADMIN: 'ADMIN', OWNER: 'OWNER' },
   SubscriptionTier: { MORTAL: 'MORTAL', OUTER_SECT: 'OUTER_SECT', INNER_SECT: 'INNER_SECT', SECT_MASTER: 'SECT_MASTER', IMMORTAL: 'IMMORTAL' },
@@ -57,9 +79,16 @@ vi.mock('../../generated/dataconnect-admin', () => ({
   adminConsumeImageGenerationQuota: vi.fn(),
   adminDeleteOwnedGlossaryTerm: vi.fn(), adminDeleteOwnedStory: vi.fn(), adminDeleteOwnedStorySeed: vi.fn(),
   adminDeleteStoryAsAdmin: vi.fn(), adminGetAdminOverview: vi.fn(), adminGetImageQuotaConsumption: vi.fn(),
-  adminGetOwnedChapterContentGraph: vi.fn(), adminGetOwnedStorySeedGraph: vi.fn(),
+  adminGetOwnedChapterContentGraph: vi.fn(),
+  adminGetOwnedStorySeedGraph: vi.fn(async ({ seedId }: any) => ({
+    data: state.seedGraph?.storySeed?.id === seedId ? state.seedGraph : { storySeed: null },
+  })),
   adminListOwnedGlossaryTerms: vi.fn(), adminListOwnedStoryCoverSlots: vi.fn(async () => ({ data: { storyCoverSlots: [] } })),
-  adminListOwnedStorySeeds: vi.fn(), adminRecoverPendingUserPortraits: vi.fn(),
+  adminListOwnedStorySeeds: vi.fn(async () => ({ data: { storySeeds: [] } })),
+  adminRecoverPendingUserPortraits: vi.fn(async () => {
+    state.recoveryCalls++;
+    return { data: { recovered: 1 } };
+  }),
   adminSelectUserPortrait: vi.fn(), adminUpdateAccountAccess: vi.fn(),
 }));
 
@@ -73,6 +102,9 @@ function makeRepo() {
       // Reflect provisioning / story creation so read-backs succeed.
       if (name === 'AdminUpsertUserProfileGraph') state.profileGraph = emptyProfileGraph();
       if (name === 'AdminUpsertStoryGraph') state.storyGraph = emptyStoryGraph();
+      if (name === 'AdminUpsertStorySeedGraph') {
+        state.seedGraph = emptySeedGraph(variables.seedId, variables.seed.clientSeedId);
+      }
       return { data: {} };
     },
     loadMediaDescriptor: async () => null,
@@ -83,6 +115,8 @@ describe('canonical profile provisioning', () => {
   beforeEach(() => {
     state.profileGraph = null;
     state.storyGraph = null;
+    state.seedGraph = null;
+    state.recoveryCalls = 0;
     state.receipts.clear();
     state.executed = [];
     state.executedVars = [];
@@ -123,5 +157,42 @@ describe('canonical profile provisioning', () => {
     expect(state.executed).toContain('AdminUpsertStoryGraph');
     expect(state.executed.indexOf('AdminUpsertUserProfileGraph'))
       .toBeLessThan(state.executed.indexOf('AdminUpsertStoryGraph'));
+  });
+
+  it('reads a newly committed seed directly while the list query is still stale', async () => {
+    state.profileGraph = emptyProfileGraph();
+    const repo = makeRepo();
+    const seed: any = {
+      schemaVersion: 1,
+      id: 'seed-client-1',
+      userId: ownerUid,
+      title: 'Fresh Blueprint',
+      intake: { customCharacters: [], customFactions: [] },
+      blueprint: {},
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+
+    await expect(repo.saveSeed(ownerUid, seed, {
+      idempotencyKey: '00000000-0000-4000-8000-000000000001',
+      expected: undefined,
+    })).resolves.toMatchObject({
+      id: 'seed-client-1',
+      userId: ownerUid,
+      title: 'Fresh Blueprint',
+    });
+    expect(state.executed).toContain('AdminUpsertStorySeedGraph');
+  });
+
+  it('provisions the canonical profile before recovering a pending portrait', async () => {
+    const repo = makeRepo();
+
+    await expect(repo.recoverPortraits(
+      ownerUid,
+      '00000000-0000-4000-8000-000000000002',
+    )).resolves.toBe(1);
+
+    expect(state.executed[0]).toBe('AdminUpsertUserProfileGraph');
+    expect(state.recoveryCalls).toBe(1);
   });
 });

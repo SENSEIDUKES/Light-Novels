@@ -120,7 +120,7 @@ describe('cultivator portrait persistence', () => {
 
   it('bounds generation metadata before committing profile state', async () => {
     const portrait = await persistCultivatorPortrait(makeInput({
-      prompt: 'p'.repeat(5001),
+      prompt: 'p'.repeat(12001),
       description: 'd'.repeat(2001),
       daoRank: 'r'.repeat(101),
       daoXp: -10,
@@ -134,6 +134,9 @@ describe('cultivator portrait persistence', () => {
     expect(portrait.generation.daoRank).toHaveLength(100);
     expect(portrait.generation.powerStage).toHaveLength(200);
     expect(portrait.generation.equippedArtifactId).toHaveLength(128);
+    const mediaRequest = mocks.saveMediaAsset.mock.calls[0][0];
+    expect(mediaRequest.association.promptUsed).toHaveLength(12000);
+    expect(mediaRequest.association.label).toHaveLength(500);
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ daoXp: 0 });
   });
 

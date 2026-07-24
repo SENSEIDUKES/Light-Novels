@@ -108,8 +108,8 @@ export async function persistCultivatorPortrait(
       targetKey: input.userId,
       legacyMediaId: generateUUID(),
       entityType: 'portrait',
-      promptUsed: input.prompt,
-      label: input.description,
+      promptUsed: input.prompt.slice(0, 12_000),
+      label: input.description.slice(0, 500),
     },
     idempotencyKey: generateUUID(),
   });

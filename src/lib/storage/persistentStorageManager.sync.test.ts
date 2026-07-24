@@ -259,6 +259,63 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     manager.dispose();
   });
 
+  it('publishes a new story scaffold before its queued Chapter 1 content', async () => {
+    let storedStory: any = null;
+    let storedChapter: any = null;
+    let cloudStoryExists = false;
+    const writeOrder: string[] = [];
+    mocks.idb.getStories.mockImplementation(async () => storedStory ? [storedStory] : []);
+    mocks.idb.getStory.mockImplementation(async () => storedStory);
+    mocks.idb.saveStory.mockImplementation(async (story) => {
+      storedStory = JSON.parse(JSON.stringify(story));
+    });
+    mocks.idb.getChapterContent.mockImplementation(async () => storedChapter);
+    mocks.idb.saveChapterContent.mockImplementation(async (chapter) => {
+      storedChapter = JSON.parse(JSON.stringify(chapter));
+    });
+    mocks.cloud.getStory.mockImplementation(async () => cloudStoryExists ? storedStory : null);
+    mocks.cloud.saveStoryIfUnchanged.mockImplementation(async () => {
+      writeOrder.push('story');
+      cloudStoryExists = true;
+    });
+    mocks.cloud.saveChapterContentIfUnchanged.mockImplementation(async () => {
+      if (!cloudStoryExists) throw new Error('Chapter scaffold is missing');
+      writeOrder.push('chapter');
+    });
+
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    const user = { uid: 'reader' };
+    mocks.auth.currentUser = user;
+    mocks.authCallback?.(user);
+    await vi.waitFor(() => {
+      expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('reader');
+      expect((manager as any).activeSyncPromise).toBeNull();
+    });
+    (manager as any).isCloudAvailable = false;
+
+    await manager.saveStory(makeStory({
+      arcs: [{
+        title: 'Opening Arc',
+        isCompleted: false,
+        chapters: [{ number: 1, title: 'Awakening', premise: '', status: 'unread' }],
+      }],
+    }) as any);
+    await manager.saveChapterContent({
+      storyId: 'shared-story',
+      chapterNumber: 1,
+      generatedContent: 'Chapter 1 body',
+    });
+
+    (manager as any).isCloudAvailable = true;
+    (manager as any).activeSyncUserId = 'reader';
+    await (manager as any).flushSyncQueue();
+
+    expect(writeOrder).toEqual(['story', 'chapter']);
+    expect((manager as any).syncQueue).toEqual([]);
+    manager.dispose();
+  });
+
   it('restores an offline mutation from IndexedDB after reload and acknowledges it after reconnect', async () => {
     let storedStory: any = null;
     mocks.idb.getStories.mockImplementation(async () =>
