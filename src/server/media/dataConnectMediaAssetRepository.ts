@@ -200,7 +200,7 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
   async reserve(owner: MediaOwner, reservation: MediaAssetReservation): Promise<MediaAssetRecord> {
     validateMediaReservation(reservation);
     if (owner.uid !== reservation.ownerUid) throw new Error('Media reservation owner mismatch.');
-    await adminReserveMediaAssetIdempotent({
+    const result = await adminReserveMediaAssetIdempotent({
       id: reservation.id,
       ownerUid: owner.uid,
       storyId: reservation.storyId,
@@ -226,9 +226,29 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
       cacheControl: reservation.cacheControl,
       sourceKind: reservation.sourceKind,
     });
-    const saved = await this.getOwnedAfterWrite(owner.uid, reservation.id);
-    if (!saved) throw new Error('SQL Connect reservation succeeded but could not be read back.');
-    return saved;
+    if (!result.data.mediaAsset_insert
+      || !result.data.storageQuotaReservation_update
+      || !result.data.mediaUploadAttempt_insert
+      || !result.data.mediaUploadReceipt_insert) {
+      throw new Error('SQL Connect did not atomically reserve the media upload.');
+    }
+    // The service only needs confirmation that this transaction committed.
+    // Returning the just-committed reservation avoids treating a stale
+    // immediate query as a failed transaction and abandoning a valid upload.
+    const {
+      sourceKind: _sourceKind,
+      quotaReservationId: _quotaReservationId,
+      idempotencyKey: _idempotencyKey,
+      requestHash: _requestHash,
+      ...record
+    } = reservation;
+    const committedAt = new Date().toISOString();
+    return {
+      ...record,
+      status: 'UPLOADING',
+      createdAt: committedAt,
+      updatedAt: committedAt,
+    };
   }
 
   async getOwned(ownerUid: string, assetId: string): Promise<MediaAssetRecord | null> {
