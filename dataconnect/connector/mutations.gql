@@ -1595,6 +1595,7 @@ mutation AdminCommitMediaAssetToSlot(
   $arcTitle: String
   $label: String
   $position: Int!
+  $allowCreate: Boolean!
   $expectedCurrentAssetId: UUID
   $expectedSlotVersion: Int64
   $newSlotVersion: Int64!
@@ -1615,7 +1616,7 @@ mutation AdminCommitMediaAssetToSlot(
         purpose: $purpose
       }
     ) @check(
-      expr: "this == null || (this.currentAssetId == vars.expectedCurrentAssetId && this.version == vars.expectedSlotVersion)"
+      expr: "vars.allowCreate || (this.currentAssetId == vars.expectedCurrentAssetId && this.version == vars.expectedSlotVersion)"
       message: "Media slot expected version is stale"
     ) {
       currentAssetId

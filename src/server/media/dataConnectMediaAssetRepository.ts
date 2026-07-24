@@ -298,6 +298,7 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
       arcTitle: association.arcTitle ?? null,
       label: association.label ?? null,
       position: commit.position,
+      allowCreate: !commit.expectedCurrentAssetId,
       expectedCurrentAssetId: commit.expectedCurrentAssetId ?? null,
       expectedSlotVersion: commit.expectedSlotVersion ?? null,
       newSlotVersion: commit.newSlotVersion,

@@ -9527,6 +9527,7 @@ export interface AdminCommitMediaAssetToSlotVariables {
   arcTitle?: string | null;
   label?: string | null;
   position: number;
+  allowCreate: boolean;
   expectedCurrentAssetId?: UUIDString | null;
   expectedSlotVersion?: Int64String | null;
   newSlotVersion: Int64String;
@@ -9574,6 +9575,7 @@ const adminCommitMediaAssetToSlotVars: AdminCommitMediaAssetToSlotVariables = {
   arcTitle: ..., // optional
   label: ..., // optional
   position: ..., 
+  allowCreate: ...,
   expectedCurrentAssetId: ..., // optional
   expectedSlotVersion: ..., // optional
   newSlotVersion: ..., 
@@ -9583,7 +9585,7 @@ const adminCommitMediaAssetToSlotVars: AdminCommitMediaAssetToSlotVariables = {
 // You can use the `await` keyword to wait for the promise to resolve.
 const { data } = await adminCommitMediaAssetToSlot(adminCommitMediaAssetToSlotVars);
 // Variables can be defined inline as well.
-const { data } = await adminCommitMediaAssetToSlot({ id: ..., ownerUid: ..., quotaReservationId: ..., idempotencyKey: ..., etag: ..., storyId: ..., chapterId: ..., entityId: ..., targetKind: ..., targetKey: ..., purpose: ..., attachmentId: ..., historyEntityType: ..., clientHistoryId: ..., promptUsed: ..., chapterNumber: ..., arcTitle: ..., label: ..., position: ..., expectedCurrentAssetId: ..., expectedSlotVersion: ..., newSlotVersion: ..., });
+const { data } = await adminCommitMediaAssetToSlot({ id: ..., ownerUid: ..., quotaReservationId: ..., idempotencyKey: ..., etag: ..., storyId: ..., chapterId: ..., entityId: ..., targetKind: ..., targetKey: ..., purpose: ..., attachmentId: ..., historyEntityType: ..., clientHistoryId: ..., promptUsed: ..., chapterNumber: ..., arcTitle: ..., label: ..., position: ..., allowCreate: ..., expectedCurrentAssetId: ..., expectedSlotVersion: ..., newSlotVersion: ..., });
 
 // You can also pass in a `DataConnect` instance to the action shortcut function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -9637,6 +9639,7 @@ const adminCommitMediaAssetToSlotVars: AdminCommitMediaAssetToSlotVariables = {
   arcTitle: ..., // optional
   label: ..., // optional
   position: ..., 
+  allowCreate: ...,
   expectedCurrentAssetId: ..., // optional
   expectedSlotVersion: ..., // optional
   newSlotVersion: ..., 
@@ -9645,7 +9648,7 @@ const adminCommitMediaAssetToSlotVars: AdminCommitMediaAssetToSlotVariables = {
 // Call the `adminCommitMediaAssetToSlotRef()` function to get a reference to the mutation.
 const ref = adminCommitMediaAssetToSlotRef(adminCommitMediaAssetToSlotVars);
 // Variables can be defined inline as well.
-const ref = adminCommitMediaAssetToSlotRef({ id: ..., ownerUid: ..., quotaReservationId: ..., idempotencyKey: ..., etag: ..., storyId: ..., chapterId: ..., entityId: ..., targetKind: ..., targetKey: ..., purpose: ..., attachmentId: ..., historyEntityType: ..., clientHistoryId: ..., promptUsed: ..., chapterNumber: ..., arcTitle: ..., label: ..., position: ..., expectedCurrentAssetId: ..., expectedSlotVersion: ..., newSlotVersion: ..., });
+const ref = adminCommitMediaAssetToSlotRef({ id: ..., ownerUid: ..., quotaReservationId: ..., idempotencyKey: ..., etag: ..., storyId: ..., chapterId: ..., entityId: ..., targetKind: ..., targetKey: ..., purpose: ..., attachmentId: ..., historyEntityType: ..., clientHistoryId: ..., promptUsed: ..., chapterNumber: ..., arcTitle: ..., label: ..., position: ..., allowCreate: ..., expectedCurrentAssetId: ..., expectedSlotVersion: ..., newSlotVersion: ..., });
 
 // You can also pass in a `DataConnect` instance to the `MutationRef` function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -11307,4 +11310,3 @@ executeMutation(ref).then((response) => {
   console.log(data.storyChange_insert);
 });
 ```
-

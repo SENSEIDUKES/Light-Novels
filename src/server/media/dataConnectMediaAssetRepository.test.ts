@@ -188,6 +188,7 @@ describe('DataConnectMediaAssetRepository', () => {
       storyId: null,
       chapterId: null,
       entityId: null,
+      allowCreate: true,
     }));
   });
 });
