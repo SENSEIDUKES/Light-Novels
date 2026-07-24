@@ -457,6 +457,13 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     context: PersistenceMutationContext,
   ): Promise<StoryWorld> {
     if (story.userId && story.userId !== ownerUid) throw taggedError('Story owner mismatch.', 'forbidden');
+    // Opening a built-in story adds it to the owner's library. The story graph
+    // (Story + StoryMember + version guard) references UserAccount through a
+    // non-null foreign key, so the canonical account must exist before this
+    // write — otherwise a user who never opened their profile screen cannot
+    // save any world. Provisioning is idempotent, so this is a cheap no-op once
+    // the account exists.
+    await this.provisionCanonicalProfile(ownerUid);
     const storyId = story.persistenceId
       ? persistenceUuid(story.persistenceId, 'story', story.id)
       : await this.resolveStoryId(ownerUid, story.id)
@@ -751,6 +758,8 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     context: PersistenceMutationContext,
   ): Promise<StorySeed> {
     if (seed.userId !== ownerUid) throw taggedError('Story seed owner mismatch.', 'forbidden');
+    // Story seeds are owner-scoped rows with a non-null UserAccount foreign key.
+    await this.provisionCanonicalProfile(ownerUid);
     const operation = 'UPSERT_STORY_SEED_GRAPH';
     const hash = mutationIntentHash(operation, ownerUid, seed, context.expected);
     if (await this.receipt(ownerUid, context.idempotencyKey, operation, hash)) {
@@ -790,6 +799,8 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     for (const seed of seeds) {
       if (seed.userId !== ownerUid) throw taggedError('Story seed owner mismatch.', 'forbidden');
     }
+    // Owner-scoped seed rows require the canonical UserAccount to exist first.
+    await this.provisionCanonicalProfile(ownerUid);
     if (new Set(seeds.map(seed => seed.id)).size !== seeds.length) {
       throw taggedError('Seed batch contains duplicate client seed IDs.', 'revision_conflict');
     }
@@ -863,8 +874,63 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     }
   }
 
+  /**
+   * Guarantee the canonical UserAccount + UserProfile exist for an
+   * authenticated user. Owner-scoped writes (stories, story-library
+   * membership, seeds) reference UserAccount through a non-null foreign key,
+   * so the account must exist before those writes. Previously the account was
+   * created only lazily by the client profile screen's bootstrap, so a user
+   * who opened a built-in story before ever visiting their profile had no
+   * account and the story graph write failed its owner foreign key.
+   *
+   * Provisioning is idempotent and single-authority: a deterministic
+   * idempotency key means concurrent sign-in reads and story opens converge on
+   * exactly one canonical profile row and never create duplicates. It only
+   * ever creates a missing record — it never overwrites an existing profile,
+   * so an explicit username can never be clobbered by initialization.
+   */
+  private async provisionCanonicalProfile(
+    ownerUid: string,
+    profileExists?: boolean,
+  ): Promise<void> {
+    if (profileExists ?? Boolean((await adminGetUserProfileGraph({ ownerUid })).data.profile)) return;
+    const operation = 'UPSERT_USER_PROFILE_GRAPH';
+    const idempotencyKey = `provision-profile:${ownerUid}`;
+    // Keep the intent hash independent of wall-clock time so concurrent
+    // provisioning callers agree on one idempotency receipt; the real server
+    // time is written to the graph itself. Without an explicit updatedAt the
+    // mapper would fall back to the Unix epoch, stamping every new account and
+    // profile with a 1970 createdAt/updatedAt.
+    const hash = mutationIntentHash(operation, ownerUid, { uid: ownerUid }, undefined);
+    if (await this.receipt(ownerUid, idempotencyKey, operation, hash)) return;
+    const variables = mapUserProfileToGraphVariables({
+      ownerUid,
+      patch: { uid: ownerUid, updatedAt: this.now().toISOString() },
+      currentGraph: null,
+      expectedSyncRevision: null,
+      newSyncRevision: syncRevisionFor(ownerUid, operation, idempotencyKey),
+      newRevision: revisionAfter(null),
+      idempotencyKey,
+      requestHash: hash,
+    });
+    try {
+      await this.runRetired(
+        operation, ownerUid, idempotencyKey,
+        variables as unknown as RetiredMutationVariables, hash,
+      );
+    } catch (error) {
+      // A concurrent provisioning may have won the compare-and-swap; a present
+      // canonical profile is the desired end state either way.
+      if (!(await adminGetUserProfileGraph({ ownerUid })).data.profile) throw error;
+    }
+  }
+
   async getProfile(ownerUid: string): Promise<UserProfile | null> {
-    const result = await adminGetUserProfileGraph({ ownerUid });
+    let result = await adminGetUserProfileGraph({ ownerUid });
+    if (!result.data.profile) {
+      await this.provisionCanonicalProfile(ownerUid, false);
+      result = await adminGetUserProfileGraph({ ownerUid });
+    }
     const profile = hydrateUserProfile(result.data);
     if (!profile?.activePortraitId) return profile;
     const descriptor = await this.loadMediaDescriptor(ownerUid, profile.activePortraitId);
@@ -884,7 +950,17 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
       if (!replay) throw new Error('Profile persistence receipt exists without its graph.');
       return replay;
     }
-    const currentResult = await adminGetUserProfileGraph({ ownerUid });
+    // When the caller did not pin a specific prior revision, route creation
+    // through the single idempotent provisioning path so this save is a
+    // deterministic update of the one canonical record rather than a second
+    // create racing sign-in provisioning. Read first so an already-existing
+    // profile skips provisioning entirely (one query in the common case); an
+    // explicit expectation is honored as-is against the real current state.
+    let currentResult = await adminGetUserProfileGraph({ ownerUid });
+    if (context.expected === undefined && !currentResult.data.profile) {
+      await this.provisionCanonicalProfile(ownerUid, false);
+      currentResult = await adminGetUserProfileGraph({ ownerUid });
+    }
     assertExpected(context.expected, currentResult.data.profile);
     const variables: AdminUpsertUserProfileGraphVariables = mapUserProfileToGraphVariables({
       ownerUid,

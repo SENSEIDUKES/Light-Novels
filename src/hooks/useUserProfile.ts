@@ -513,16 +513,16 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
             premiumTier: isOwner ? 'immortal' : 'mortal',
           };
 
-          // Publish only a profile belonging to the active identity, and do not
-          // start a default write from a queued callback after an account switch.
+          // The canonical account + profile row is provisioned server-side the
+          // first time the profile is read, so the client no longer writes a
+          // default profile here. Doing so was a competing initialization path
+          // that could race with — and overwrite — an explicit username save.
+          // getUserProfile only returns null if that server provisioning did
+          // not complete, in which case we show a local fallback without
+          // persisting it.
           if (!snapshotIsCurrent()) return;
           setProfile(defaultProfile);
           cacheAccountProfile(defaultProfile);
-          void saveUserProfile(defaultProfile).catch(err => {
-            if (!snapshotIsCurrent()) return;
-            console.error("Failed to create profile", err);
-            setError('Unable to create profile data.');
-          });
         }
         setIsLoading(false);
       } catch (err) {

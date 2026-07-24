@@ -181,6 +181,24 @@ function mutationContext(req: Request, expected?: unknown): PersistenceMutationC
   };
 }
 
+// Build the optimistic-concurrency expectation for value mutations (profile,
+// seeds). `undefined` means the caller did not read a prior revision, so no
+// client-supplied assertion is enforced — the repository still runs its own
+// server-side compare-and-swap against the freshly read revision. Fabricating
+// `{ exists: false }` here (the previous behavior) rejected every update of a
+// record that already exists, which broke every username/profile save after
+// the first. An explicit `null` still means "expect this record not to exist".
+function valueMutationExpectation(
+  expectedSyncRevision: string | null | undefined,
+): PersistenceMutationContext['expected'] {
+  if (expectedSyncRevision === undefined) return undefined;
+  return {
+    exists: expectedSyncRevision !== null,
+    updatedAt: null,
+    syncRevision: expectedSyncRevision,
+  };
+}
+
 function assertOwnerField(value: Record<string, unknown>, ownerUid: string): void {
   for (const key of ['uid', 'userId', 'ownerUid']) {
     if (typeof value[key] === 'string' && value[key] !== ownerUid) {
@@ -381,11 +399,7 @@ export function createPersistenceRouter(
       parsed.value as unknown as StorySeed,
       {
         idempotencyKey: parsed.idempotencyKey,
-        expected: {
-          exists: parsed.expectedSyncRevision !== undefined,
-          updatedAt: null,
-          syncRevision: parsed.expectedSyncRevision,
-        },
+        expected: valueMutationExpectation(parsed.expectedSyncRevision),
       },
     );
     res.json({ seed });
@@ -415,11 +429,7 @@ export function createPersistenceRouter(
       parsed.value as Partial<UserProfile>,
       {
         idempotencyKey: parsed.idempotencyKey,
-        expected: {
-          exists: parsed.expectedSyncRevision !== undefined,
-          updatedAt: null,
-          syncRevision: parsed.expectedSyncRevision,
-        },
+        expected: valueMutationExpectation(parsed.expectedSyncRevision),
       },
     );
     res.json({ profile });
