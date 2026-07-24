@@ -2392,8 +2392,6 @@ export interface Chapter_Data {
   mediaSlots_on_chapter?: Omit<MediaSlot_Data, 'chapterId'>[];
   persistenceReceipts_on_chapter?: Omit<PersistenceReceipt_Data, 'chapterId'>[];
   timelineEvents_on_chapter?: Omit<TimelineEvent_Data, 'chapterId'>[];
-  chapterAudioManifest_on_chapter?: Omit<ChapterAudioManifest_Data, 'chapterId'>;
-  chapterContent_on_chapter?: Omit<ChapterContent_Data, 'chapterId'>;
 }
 
 export interface Chapter_Key {
@@ -2559,13 +2557,6 @@ export interface DeleteMyFoundationProbeData {
 
 export interface DeleteMyFoundationProbeVariables {
   id: UUIDString;
-}
-
-export interface FoundationProbe_Data {
-  id?: UUIDString;
-  ownerUid: string;
-  createdAt?: TimestampString;
-  label: string;
 }
 
 export interface FoundationProbe_Key {
@@ -2990,7 +2981,6 @@ export interface MediaAsset_Data {
   storageQuotaReservations_on_asset?: Omit<StorageQuotaReservation_Data, 'assetId'>[];
   userInventoryItems_on_imageAsset?: Omit<UserInventoryItem_Data, 'imageAssetId'>[];
   userProfiles_on_activePortrait?: Omit<UserProfile_Data, 'activePortraitAssetId'>[];
-  userPortrait_on_asset?: Omit<UserPortrait_Data, 'assetId'>;
 }
 
 export interface MediaAsset_Key {
@@ -3512,15 +3502,6 @@ export interface StorySeed_Key {
   __typename?: 'StorySeed_Key';
 }
 
-export interface StoryStorageUsage_Data {
-  storyId: UUIDString;
-  assetCount?: Int64String;
-  ownerUid: string;
-  reservedBytes?: Int64String;
-  updatedAt?: TimestampString;
-  usedBytes?: Int64String;
-}
-
 export interface StoryStorageUsage_Key {
   storyId: UUIDString;
   __typename?: 'StoryStorageUsage_Key';
@@ -3582,9 +3563,6 @@ export interface Story_Data {
   storyRevealBackdrops_on_story?: Omit<StoryRevealBackdrop_Data, 'storyId'>[];
   storyRules_on_story?: Omit<StoryRule_Data, 'storyId'>[];
   timelineEvents_on_story?: Omit<TimelineEvent_Data, 'storyId'>[];
-  storyMemoryState_on_story?: Omit<StoryMemoryState_Data, 'storyId'>;
-  storyPreference_on_story?: Omit<StoryPreference_Data, 'storyId'>;
-  storyStorageUsage_on_story?: Omit<StoryStorageUsage_Data, 'storyId'>;
 }
 
 export interface Story_Key {
@@ -3642,10 +3620,6 @@ export interface UserAccount_Data {
   userPortraits_on_user?: Omit<UserPortrait_Data, 'userUid'>[];
   userProgressEvents_on_user?: Omit<UserProgressEvent_Data, 'userUid'>[];
   userStatusEffects_on_user?: Omit<UserStatusEffect_Data, 'userUid'>[];
-  foundationProbe_on_owner?: Omit<FoundationProbe_Data, 'ownerUid'>;
-  userPreference_on_user?: Omit<UserPreference_Data, 'userUid'>;
-  userProfile_on_user?: Omit<UserProfile_Data, 'userUid'>;
-  userStorageUsage_on_user?: Omit<UserStorageUsage_Data, 'userUid'>;
 }
 
 export interface UserAccount_Key {
@@ -3815,16 +3789,6 @@ export interface UserStatusEffect_Data {
 export interface UserStatusEffect_Key {
   id: UUIDString;
   __typename?: 'UserStatusEffect_Key';
-}
-
-export interface UserStorageUsage_Data {
-  userUid: string;
-  assetCount?: Int64String;
-  hardLimitBytes: Int64String;
-  reservedBytes?: Int64String;
-  revision?: Int64String;
-  updatedAt?: TimestampString;
-  usedBytes?: Int64String;
 }
 
 export interface UserStorageUsage_Key {
