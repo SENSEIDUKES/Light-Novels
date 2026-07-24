@@ -65,27 +65,41 @@ const PUBLISHED_WORLDS: any[] = INITIAL_DEMO_STORIES.map(story => {
   };
 });
 
-async function openPublishedWorld(
+export async function openPublishedWorld(
   world: any,
   setActiveStoryId: (id: string | null) => void,
   setCurrentScreen: (screen: any) => void,
 ) {
   const user = auth.currentUser;
   const finalId = user ? `${world.id}-${user.uid}` : world.id;
-  const { stories: latestStories, saveStories, setAppError } = useAppStore.getState();
+  const { stories: latestStories, setStories, saveStories, setAppError } = useAppStore.getState();
   const existing = latestStories.find(s => s.id === finalId);
   if (!existing) {
+    // `world` comes from PUBLISHED_WORLDS, which layers mocked Library-card
+    // display fields (reads, chapterCount, powerStage) on top of the real
+    // story — strip them so they don't get written into the persisted
+    // record, and stamp a real updatedAt now that this is a durable save.
+    const { reads, chapterCount, powerStage, ...cleanWorld } = world;
     const personalizedWorld: Story = {
-      ...world,
+      ...cleanWorld,
       id: finalId,
-      userId: user?.uid,
+      updatedAt: new Date().toISOString(),
+      ...(user ? { userId: user.uid } : {}),
     };
-    try {
-      await saveStories([personalizedWorld, ...latestStories]);
-    } catch (err) {
-      console.error('Failed to save selected library world to the account:', err);
-      setAppError('Could not save this world to your library. Please try again.');
-      return;
+    if (!user) {
+      // No account to attribute an owner-scoped durable record to (and every
+      // downstream generation step already requires sign-in) — keep this an
+      // in-memory-only selection, same as before this record went through
+      // the account-owned persistence pipeline.
+      setStories([personalizedWorld, ...latestStories]);
+    } else {
+      try {
+        await saveStories([personalizedWorld, ...latestStories]);
+      } catch (err) {
+        console.error('Failed to save selected library world to the account:', err);
+        setAppError('Could not save this world to your library. Please try again.');
+        return;
+      }
     }
   }
   setActiveStoryId(finalId);

@@ -113,6 +113,84 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().activeStoryId).toBeNull();
   });
 
+  it('serializes rapid saveStories calls instead of letting a slower earlier call land after a faster later one', async () => {
+    (auth as any).currentUser = { uid: 'account-a' };
+    const baseStory = {
+      id: 'story-a',
+      persistenceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      userId: 'account-a',
+      title: 'Original',
+      arcs: [],
+      memory: {},
+    } as any;
+    useAppStore.getState().setStories([baseStory]);
+
+    const saveOrder: string[] = [];
+    let releaseFirstWrite!: () => void;
+    vi.mocked(storyStorage.saveStory).mockImplementationOnce(async (s: any) => {
+      // Call A's write hangs until explicitly released below, simulating a
+      // slow durable write for the call that was invoked first.
+      await new Promise<void>((resolve) => { releaseFirstWrite = resolve; });
+      saveOrder.push(s.id + ':A');
+    });
+    vi.mocked(storyStorage.saveStory).mockImplementationOnce(async (s: any) => {
+      saveOrder.push(s.id + ':B');
+    });
+
+    // Call A is invoked first (title -> 'Updated A') but its write hangs.
+    // Call B is invoked immediately after (title -> 'Updated B') and would
+    // resolve first if the two calls were allowed to run concurrently.
+    const callA = useAppStore.getState().saveStories([{ ...baseStory, title: 'Updated A' }]);
+    const callB = useAppStore.getState().saveStories([{ ...baseStory, title: 'Updated B' }]);
+
+    // Give callB every opportunity to race ahead before releasing callA.
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    releaseFirstWrite();
+
+    await Promise.all([callA, callB]);
+
+    // Without serialization, callB's write (immediate) would land before
+    // callA's (deliberately delayed) — and callA finishing afterwards
+    // would overwrite callB's already-committed change. The queue must
+    // preserve invocation order so callB (invoked later) always lands
+    // last and is never clobbered by callA resolving late.
+    expect(saveOrder).toEqual(['story-a:A', 'story-a:B']);
+    expect(useAppStore.getState().stories.find(s => s.id === 'story-a')?.title).toBe('Updated B');
+  });
+
+  it('does not expose a chapter as generated when the durable save transaction fails', async () => {
+    (auth as any).currentUser = { uid: 'account-a' };
+    const originalStory = {
+      id: 'story-a',
+      userId: 'account-a',
+      title: 'T',
+      arcs: [{ title: 'Arc 1', chapters: [{ number: 1, hasContent: false, status: 'unread' }] }],
+      memory: {},
+    } as any;
+    useAppStore.getState().setStories([originalStory]);
+
+    vi.mocked(storyStorage.saveStory).mockRejectedValueOnce(new Error('disk full'));
+
+    const generatedStory = {
+      ...originalStory,
+      arcs: [{
+        title: 'Arc 1',
+        chapters: [{ number: 1, hasContent: true, status: 'read', generatedContent: 'text' }],
+      }],
+    };
+
+    await expect(
+      useAppStore.getState().saveStories([generatedStory]),
+    ).rejects.toThrow('disk full');
+
+    const chapter = useAppStore.getState().stories[0].arcs[0].chapters[0];
+    expect(chapter.hasContent).toBe(false);
+    expect(chapter.status).toBe('unread');
+    expect(chapter.generatedContent).toBeUndefined();
+  });
+
   it('initializes with default state', () => {
     const state = useAppStore.getState();
     expect(state.stories).toEqual([]);

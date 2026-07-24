@@ -73,7 +73,114 @@ export interface StorySyncConflict {
   };
 }
 
-export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set, get) => ({
+export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set, get) => {
+  // saveStories() must not let two calls interleave: each call snapshots
+  // `get().stories`, does async storage work, then commits the result back
+  // to state. Without serialization, a second call can snapshot state
+  // before the first call's commit lands, silently losing the first
+  // call's changes (or interleaving storyStorage's single shared
+  // transaction). Every call is chained onto this tail so call N only
+  // starts once call N-1 has fully settled, success or failure.
+  let saveQueueTail: Promise<void> = Promise.resolve();
+
+  const performSaveStories = async (updated: Story[]): Promise<void> => {
+    const expectedUid = auth.currentUser?.uid;
+    if (!LOCAL_ONLY_MODE) {
+      const foreignStory = updated.find(
+        story => story.userId && story.userId !== expectedUid,
+      );
+      if (foreignStory) {
+        throw new Error(
+          `Cannot publish story ${foreignStory.id} while a different account is active`,
+        );
+      }
+    }
+    const currentStories = get().stories;
+    const activeId = get().activeStoryId;
+    const markedStories = updated.map(inputStory => {
+      const s = ensureStoryPersistenceIdentities(inputStory);
+      if (s.id.startsWith('demo-matrix-') && s.id === activeId) {
+        return { ...s, isEdited: true };
+      }
+      return s;
+    });
+
+    // Find which stories actually changed to avoid massive redundant writes
+    const changedStories = markedStories.filter(newStory => {
+       const oldStory = currentStories.find(s => s.id === newStory.id);
+       if (!oldStory) return true;
+       return JSON.stringify(oldStory) !== JSON.stringify(newStory);
+    });
+
+    if (changedStories.length === 0) {
+      set({ stories: markedStories }); // update state just in case reference changed
+      return;
+    }
+
+    const toSave = changedStories;
+
+    // Generation status (chapter.hasContent, "generated" flags, etc.) lives on
+    // `markedStories` and must not become visible to the reader/Living Codex
+    // until it is durably written — commit to state only after the storage
+    // transaction succeeds, not optimistically beforehand.
+    try {
+      storyStorage.startTransaction();
+      for (const s of toSave) {
+        await storyStorage.saveStory(s);
+      }
+      await storyStorage.commitTransaction();
+      if (!LOCAL_ONLY_MODE && auth.currentUser?.uid !== expectedUid) {
+        set({ stories: [], activeStoryId: null });
+        throw new Error('Active account changed while saving the story library');
+      }
+      set({ stories: markedStories, lastSavedTime: new Date() });
+    } catch (e) {
+      storyStorage.rollbackTransaction();
+      if (!LOCAL_ONLY_MODE && auth.currentUser?.uid !== expectedUid) {
+        set({ stories: [], activeStoryId: null });
+        throw e;
+      }
+      console.error("Celestial local disk write breached, reverting to standard storage cache:", e);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(markedStories));
+      } catch (storageError) {
+        console.warn("Standard storage cache quota exceeded:", storageError);
+        // Attempt a stripped version to save minimal data
+        try {
+          const stripped = markedStories.map(s => {
+            const copy = JSON.parse(JSON.stringify(s));
+            delete copy.imageUrl;
+            delete copy.imageHistory;
+            if (copy.memory) {
+              if (copy.memory.characters) copy.memory.characters.forEach((c: any) => { delete c.imageUrl; delete c.imageHistory; });
+              if (copy.memory.locations) copy.memory.locations.forEach((l: any) => { delete l.imageUrl; delete l.imageHistory; });
+              if (copy.memory.artifacts) copy.memory.artifacts.forEach((a: any) => { delete a.imageUrl; delete a.imageHistory; });
+            }
+            if (copy.arcs) {
+              copy.arcs.forEach((arc: any) => {
+                if (arc.chapters) {
+                  arc.chapters.forEach((ch: any) => {
+                    if (ch.assetManifest) delete ch.assetManifest.heroImage;
+                  });
+                }
+              });
+            }
+            return copy;
+          });
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
+        } catch (stripError) {
+           console.error("Even stripped stories exceeded quota.", stripError);
+        }
+      }
+      // The local-storage copy above is a data-loss backstop only, not a
+      // success path: callers (chapter generation, blueprint/seed saves,
+      // image jobs) must see this failure so they don't report content as
+      // generated when it was never durably persisted.
+      throw e;
+    }
+  };
+
+  return {
   stories: [],
   activeStoryId: null,
   storyToDelete: null,
@@ -210,101 +317,18 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
     }
   },
 
-  saveStories: async (updated: Story[]) => {
-    const expectedUid = auth.currentUser?.uid;
-    if (!LOCAL_ONLY_MODE) {
-      const foreignStory = updated.find(
-        story => story.userId && story.userId !== expectedUid,
-      );
-      if (foreignStory) {
-        throw new Error(
-          `Cannot publish story ${foreignStory.id} while a different account is active`,
-        );
-      }
-    }
-    const currentStories = get().stories;
-    const activeId = get().activeStoryId;
-    const markedStories = updated.map(inputStory => {
-      const s = ensureStoryPersistenceIdentities(inputStory);
-      if (s.id.startsWith('demo-matrix-') && s.id === activeId) {
-        return { ...s, isEdited: true };
-      }
-      return s;
-    });
-
-    // Find which stories actually changed to avoid massive redundant writes
-    const changedStories = markedStories.filter(newStory => {
-       const oldStory = currentStories.find(s => s.id === newStory.id);
-       if (!oldStory) return true;
-       return JSON.stringify(oldStory) !== JSON.stringify(newStory);
-    });
-
-    if (changedStories.length === 0) {
-      set({ stories: markedStories }); // update state just in case reference changed
-      return;
-    }
-
-    const toSave = changedStories;
-
-    // Generation status (chapter.hasContent, "generated" flags, etc.) lives on
-    // `markedStories` and must not become visible to the reader/Living Codex
-    // until it is durably written — commit to state only after the storage
-    // transaction succeeds, not optimistically beforehand.
-    try {
-      storyStorage.startTransaction();
-      for (const s of toSave) {
-        await storyStorage.saveStory(s);
-      }
-      await storyStorage.commitTransaction();
-      if (!LOCAL_ONLY_MODE && auth.currentUser?.uid !== expectedUid) {
-        set({ stories: [], activeStoryId: null });
-        throw new Error('Active account changed while saving the story library');
-      }
-      set({ stories: markedStories, lastSavedTime: new Date() });
-    } catch (e) {
-      storyStorage.rollbackTransaction();
-      if (!LOCAL_ONLY_MODE && auth.currentUser?.uid !== expectedUid) {
-        set({ stories: [], activeStoryId: null });
-        throw e;
-      }
-      console.error("Celestial local disk write breached, reverting to standard storage cache:", e);
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(markedStories));
-      } catch (storageError) {
-        console.warn("Standard storage cache quota exceeded:", storageError);
-        // Attempt a stripped version to save minimal data
-        try {
-          const stripped = markedStories.map(s => {
-            const copy = JSON.parse(JSON.stringify(s));
-            delete copy.imageUrl;
-            delete copy.imageHistory;
-            if (copy.memory) {
-              if (copy.memory.characters) copy.memory.characters.forEach((c: any) => { delete c.imageUrl; delete c.imageHistory; });
-              if (copy.memory.locations) copy.memory.locations.forEach((l: any) => { delete l.imageUrl; delete l.imageHistory; });
-              if (copy.memory.artifacts) copy.memory.artifacts.forEach((a: any) => { delete a.imageUrl; delete a.imageHistory; });
-            }
-            if (copy.arcs) {
-              copy.arcs.forEach((arc: any) => {
-                if (arc.chapters) {
-                  arc.chapters.forEach((ch: any) => {
-                    if (ch.assetManifest) delete ch.assetManifest.heroImage;
-                  });
-                }
-              });
-            }
-            return copy;
-          });
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
-        } catch (stripError) {
-           console.error("Even stripped stories exceeded quota.", stripError);
-        }
-      }
-      // The local-storage copy above is a data-loss backstop only, not a
-      // success path: callers (chapter generation, blueprint/seed saves,
-      // image jobs) must see this failure so they don't report content as
-      // generated when it was never durably persisted.
-      throw e;
-    }
+  saveStories: (updated: Story[]) => {
+    // Chain onto the tail unconditionally (via .then(onFulfilled, onRejected))
+    // so a prior failure never blocks later saves from running.
+    const result = saveQueueTail.then(
+      () => performSaveStories(updated),
+      () => performSaveStories(updated),
+    );
+    // The queue's own continuation must never reject, or every subsequent
+    // queued save would be skipped; callers still get the real outcome
+    // through `result`, returned below.
+    saveQueueTail = result.then(() => undefined, () => undefined);
+    return result;
   },
 
   updateStory: async (storyId: string, updates: Partial<Story>) => {
@@ -645,4 +669,5 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
       console.error("Migration transaction failed:", e);
     }
   }
-});
+  };
+};
