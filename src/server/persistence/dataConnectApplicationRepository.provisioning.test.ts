@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   storyGraph: null as any,
   receipts: new Map<string, any>(),
   executed: [] as string[],
+  executedVars: [] as Array<{ name: string; variables: any }>,
 }));
 
 vi.mock('../firebaseAdmin', () => ({ getFirebaseAdminApp: () => ({}) }));
@@ -66,8 +67,9 @@ import { DataConnectApplicationRepository } from './dataConnectApplicationReposi
 
 function makeRepo() {
   return new DataConnectApplicationRepository({
-    executeRetiredMutation: async (name: string) => {
+    executeRetiredMutation: async (name: string, variables: any) => {
       state.executed.push(name);
+      state.executedVars.push({ name, variables });
       // Reflect provisioning / story creation so read-backs succeed.
       if (name === 'AdminUpsertUserProfileGraph') state.profileGraph = emptyProfileGraph();
       if (name === 'AdminUpsertStoryGraph') state.storyGraph = emptyStoryGraph();
@@ -83,6 +85,7 @@ describe('canonical profile provisioning', () => {
     state.storyGraph = null;
     state.receipts.clear();
     state.executed = [];
+    state.executedVars = [];
   });
 
   it('provisions a canonical account + profile when a new user is first read (sign-in)', async () => {
@@ -90,6 +93,11 @@ describe('canonical profile provisioning', () => {
     const profile = await repo.getProfile(ownerUid);
     expect(profile).toBeTruthy();
     expect(state.executed).toContain('AdminUpsertUserProfileGraph');
+    // The provisioned account + profile must be stamped with the real server
+    // time, not the Unix epoch that the mapper falls back to without one.
+    const provision = state.executedVars.find(e => e.name === 'AdminUpsertUserProfileGraph')!;
+    expect(provision.variables.account.updatedAt).not.toBe('1970-01-01T00:00:00.000Z');
+    expect(new Date(provision.variables.account.updatedAt).getUTCFullYear()).toBeGreaterThan(2000);
   });
 
   it('does not re-provision (or overwrite) when the profile already exists', async () => {

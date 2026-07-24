@@ -889,16 +889,23 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
    * ever creates a missing record — it never overwrites an existing profile,
    * so an explicit username can never be clobbered by initialization.
    */
-  private async provisionCanonicalProfile(ownerUid: string): Promise<void> {
-    if ((await adminGetUserProfileGraph({ ownerUid })).data.profile) return;
+  private async provisionCanonicalProfile(
+    ownerUid: string,
+    profileExists?: boolean,
+  ): Promise<void> {
+    if (profileExists ?? Boolean((await adminGetUserProfileGraph({ ownerUid })).data.profile)) return;
     const operation = 'UPSERT_USER_PROFILE_GRAPH';
     const idempotencyKey = `provision-profile:${ownerUid}`;
-    const patch: Partial<UserProfile> = { uid: ownerUid };
-    const hash = mutationIntentHash(operation, ownerUid, patch, undefined);
+    // Keep the intent hash independent of wall-clock time so concurrent
+    // provisioning callers agree on one idempotency receipt; the real server
+    // time is written to the graph itself. Without an explicit updatedAt the
+    // mapper would fall back to the Unix epoch, stamping every new account and
+    // profile with a 1970 createdAt/updatedAt.
+    const hash = mutationIntentHash(operation, ownerUid, { uid: ownerUid }, undefined);
     if (await this.receipt(ownerUid, idempotencyKey, operation, hash)) return;
     const variables = mapUserProfileToGraphVariables({
       ownerUid,
-      patch,
+      patch: { uid: ownerUid, updatedAt: this.now().toISOString() },
       currentGraph: null,
       expectedSyncRevision: null,
       newSyncRevision: syncRevisionFor(ownerUid, operation, idempotencyKey),
@@ -921,7 +928,7 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
   async getProfile(ownerUid: string): Promise<UserProfile | null> {
     let result = await adminGetUserProfileGraph({ ownerUid });
     if (!result.data.profile) {
-      await this.provisionCanonicalProfile(ownerUid);
+      await this.provisionCanonicalProfile(ownerUid, false);
       result = await adminGetUserProfileGraph({ ownerUid });
     }
     const profile = hydrateUserProfile(result.data);
@@ -946,12 +953,14 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     // When the caller did not pin a specific prior revision, route creation
     // through the single idempotent provisioning path so this save is a
     // deterministic update of the one canonical record rather than a second
-    // create racing sign-in provisioning. An explicit expectation is honored
-    // as-is against the real current state.
-    if (context.expected === undefined) {
-      await this.provisionCanonicalProfile(ownerUid);
+    // create racing sign-in provisioning. Read first so an already-existing
+    // profile skips provisioning entirely (one query in the common case); an
+    // explicit expectation is honored as-is against the real current state.
+    let currentResult = await adminGetUserProfileGraph({ ownerUid });
+    if (context.expected === undefined && !currentResult.data.profile) {
+      await this.provisionCanonicalProfile(ownerUid, false);
+      currentResult = await adminGetUserProfileGraph({ ownerUid });
     }
-    const currentResult = await adminGetUserProfileGraph({ ownerUid });
     assertExpected(context.expected, currentResult.data.profile);
     const variables: AdminUpsertUserProfileGraphVariables = mapUserProfileToGraphVariables({
       ownerUid,
