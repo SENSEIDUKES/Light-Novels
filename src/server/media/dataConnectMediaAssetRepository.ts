@@ -91,6 +91,8 @@ function isRetryableDataConnectQueryError(error: unknown): boolean {
     || error.message.includes('Invalid SQL statement');
 }
 
+const POST_WRITE_RETRY_DELAYS_MS = [0, 100, 300, 750, 1_500, 3_000, 5_000] as const;
+
 export class DataConnectMediaAssetRepository implements MediaAssetRepository {
   constructor() {
     getFirebaseAdminApp();
@@ -289,7 +291,7 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
       };
       let result: Awaited<ReturnType<typeof adminCommitAccountMediaAsset>> | undefined;
       let lastError: unknown;
-      for (const delayMs of [0, 100, 300, 750, 1_500]) {
+      for (const delayMs of POST_WRITE_RETRY_DELAYS_MS) {
         if (delayMs > 0) await delay(delayMs);
         try {
           result = await adminCommitAccountMediaAsset(variables);
@@ -338,7 +340,7 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
     };
     let result: Awaited<ReturnType<typeof adminCommitMediaAssetToSlot>> | undefined;
     let lastError: unknown;
-    for (const delayMs of [0, 100, 300, 750, 1_500]) {
+    for (const delayMs of POST_WRITE_RETRY_DELAYS_MS) {
       if (delayMs > 0) await delay(delayMs);
       try {
         result = await adminCommitMediaAssetToSlot(variables);
