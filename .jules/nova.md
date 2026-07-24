@@ -1,0 +1,3 @@
+## 2024-07-24 - Accessibility labels on Voice generation buttons
+**Learning:** Icon-only buttons and state-toggling buttons (e.g., Play/Stop voice, generate actions) across components often lack `aria-label` attributes. When multiple characters are listed, their 'Play Voice' actions are indistinguishable for screen readers without a descriptive `aria-label` providing context (e.g., character name).
+**Action:** Always ensure descriptive, context-aware `aria-label`s (e.g., including the entity's name) are included to help screen reader users distinguish between multiple similar actions on a page.

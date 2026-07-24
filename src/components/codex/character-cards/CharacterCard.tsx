@@ -165,6 +165,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
             {char.voiceClipUrl ? (
               <button
                 onClick={() => playingVoiceId === char.id ? handleStopVoice() : handlePlayVoice(char.voiceClipUrl!, char.id)}
+                aria-label={playingVoiceId === char.id ? `Stop voice for ${char.name}` : `Play voice for ${char.name}`}
                 className="flex items-center gap-1.5 self-start text-[9px] text-portal uppercase tracking-wider font-mono hover:text-portal/80 transition-colors"
               >
                 {playingVoiceId === char.id ? <Square size={10} fill="currentColor" /> : <Play size={10} fill="currentColor" />}
@@ -174,6 +175,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
               <button
                 onClick={() => handleGenerateVoiceCard(char)}
                 disabled={generatingVoiceId === char.id}
+                aria-label={`Generate voice for ${char.name}`}
                 className="flex items-center gap-1.5 self-start text-[9px] text-human uppercase tracking-wider font-mono hover:text-human/80 transition-colors disabled:opacity-50"
               >
                 {generatingVoiceId === char.id ? <Loader2 size={10} className="animate-spin" /> : <Volume2 size={10} />}
