@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   reserveStorageQuota: vi.fn(),
+  getOwnedMediaAsset: vi.fn(),
 }));
 
 vi.mock('../firebaseAdmin', () => ({ getFirebaseAdminApp: () => ({}) }));
 vi.mock('../../generated/dataconnect-admin', () => ({
   adminReserveStorageQuota: mocks.reserveStorageQuota,
+  adminGetOwnedMediaAsset: mocks.getOwnedMediaAsset,
 }));
 
 import { DataConnectMediaAssetRepository } from './dataConnectMediaAssetRepository';
@@ -15,9 +17,37 @@ import { DataConnectMediaAssetRepository } from './dataConnectMediaAssetReposito
 describe('DataConnectMediaAssetRepository', () => {
   beforeEach(() => {
     mocks.reserveStorageQuota.mockReset();
+    mocks.getOwnedMediaAsset.mockReset();
     mocks.reserveStorageQuota.mockResolvedValue({
       data: { storageQuotaReservation_insert: { id: 'quota-reservation' } },
     });
+  });
+
+  it('retries a direct media read after a committed write', async () => {
+    mocks.getOwnedMediaAsset
+      .mockResolvedValueOnce({ data: { mediaAsset: null } })
+      .mockResolvedValueOnce({
+        data: {
+          mediaAsset: {
+            id: 'fc0aac17-fb01-4f7e-a9bc-e3121204125d',
+            ownerUid: 'owner-1',
+            assetType: 'IMAGE',
+            purpose: 'CELESTIAL_PORTRAIT',
+            visibility: 'PRIVATE',
+            status: 'UPLOADING',
+          },
+        },
+      });
+    const repository = new DataConnectMediaAssetRepository();
+
+    await expect((repository as any).getOwnedAfterWrite(
+      'owner-1',
+      'fc0aac17-fb01-4f7e-a9bc-e3121204125d',
+    )).resolves.toMatchObject({
+      id: 'fc0aac17-fb01-4f7e-a9bc-e3121204125d',
+      status: 'UPLOADING',
+    });
+    expect(mocks.getOwnedMediaAsset).toHaveBeenCalledTimes(2);
   });
 
   it('sends an explicit null story scope for account portrait quota reservations', async () => {

@@ -1,3 +1,4 @@
+import { setTimeout as delay } from 'node:timers/promises';
 import {
   adminAdvanceStoryDeletionJob,
   adminClaimMediaCleanupTask,
@@ -225,7 +226,7 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
       cacheControl: reservation.cacheControl,
       sourceKind: reservation.sourceKind,
     });
-    const saved = await this.getOwned(owner.uid, reservation.id);
+    const saved = await this.getOwnedAfterWrite(owner.uid, reservation.id);
     if (!saved) throw new Error('SQL Connect reservation succeeded but could not be read back.');
     return saved;
   }
@@ -233,6 +234,18 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
   async getOwned(ownerUid: string, assetId: string): Promise<MediaAssetRecord | null> {
     const result = await adminGetOwnedMediaAsset({ ownerUid, id: assetId });
     return result.data.mediaAsset ? mapAsset(result.data.mediaAsset) : null;
+  }
+
+  private async getOwnedAfterWrite(
+    ownerUid: string,
+    assetId: string,
+  ): Promise<MediaAssetRecord | null> {
+    for (const delayMs of [0, 100, 300, 750]) {
+      if (delayMs > 0) await delay(delayMs);
+      const asset = await this.getOwned(ownerUid, assetId);
+      if (asset) return asset;
+    }
+    return null;
   }
 
   async commitToSlot(ownerUid: string, assetId: string, etag: string | undefined, commit: MediaSlotCommit): Promise<MediaAssetRecord> {
@@ -270,7 +283,7 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
       || result.data.committedQuota !== 1) {
       throw new Error('SQL Connect did not atomically commit the media asset and exactly one current slot.');
     }
-    const saved = await this.getOwned(ownerUid, assetId);
+    const saved = await this.getOwnedAfterWrite(ownerUid, assetId);
     if (!saved || saved.status !== 'READY') throw new Error('SQL Connect returned without a ready media asset.');
     return saved;
   }
