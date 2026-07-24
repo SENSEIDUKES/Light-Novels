@@ -64,6 +64,13 @@ describe('DataConnectMediaAssetRepository', () => {
       status: 'UPLOADING',
     });
     expect(mocks.getOwnedMediaAsset).not.toHaveBeenCalled();
+    expect(mocks.reserveMediaAsset).toHaveBeenCalledWith(expect.objectContaining({
+      storyId: null,
+      generationJobId: null,
+      replacesAssetId: null,
+      originalFilename: null,
+      durationMs: null,
+    }));
   });
 
   it('retries a direct media read after a committed write', async () => {
