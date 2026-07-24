@@ -1600,8 +1600,7 @@ mutation AdminCommitMediaAssetToSlot(
   $newSlotVersion: Int64!
 ) @auth(level: NO_ACCESS) @transaction {
   query @redact {
-    asset: mediaAsset(first: { where: { id: { eq: $id }, ownerUid: { eq: $ownerUid } } })
-      @check(expr: "this != null", message: "Asset not found") {
+    asset: mediaAsset(first: { where: { id: { eq: $id }, ownerUid: { eq: $ownerUid } } }) {
       status
       storyId
       story {
