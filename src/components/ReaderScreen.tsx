@@ -562,7 +562,7 @@ export const ReaderScreen: React.FC<{
             arcTitle={
               activeStory.arcs.find((a) =>
                 a.chapters.some((c) => c.number === selectedChapterNum),
-              )?.title || activeStory.arcs[activeStory.arcs.length - 1].title
+              )?.title || activeStory.arcs.at(-1)?.title || ""
             }
             currentPowerStage={activeStory.memory.currentPowerStage}
             onGenerateChapter={handleGenerateChapter}
@@ -581,7 +581,7 @@ export const ReaderScreen: React.FC<{
             handleCheckConsistency={handleCheckConsistency}
           />
 
-          {activeStory.arcs[activeStory.arcs.length - 1].isCompleted && (
+          {activeStory.arcs.at(-1)?.isCompleted && (
             <div className="mt-4 max-w-4xl mx-auto p-4 bg-neutral-950 border border-neutral-900 rounded flex justify-between items-center text-xs">
               <span className="text-neutral-400 font-sans">
                 All chapters of this arc generated! Steer next segment.

@@ -742,6 +742,20 @@ exports.adminUpdateAccountAccess = function adminUpdateAccountAccess(dcOrVars, v
 }
 ;
 
+const adminGrantSystemOwnerRoleRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'AdminGrantSystemOwnerRole', inputVars);
+}
+adminGrantSystemOwnerRoleRef.operationName = 'AdminGrantSystemOwnerRole';
+exports.adminGrantSystemOwnerRoleRef = adminGrantSystemOwnerRoleRef;
+
+exports.adminGrantSystemOwnerRole = function adminGrantSystemOwnerRole(dcOrVars, vars) {
+  const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dcOrVars, vars, true);
+  return executeMutation(adminGrantSystemOwnerRoleRef(dcInstance, inputVars));
+}
+;
+
 const adminDeleteStoryAsAdminRef = (dcOrVars, vars) => {
   const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
   dcInstance._useGeneratedSdk();

@@ -207,7 +207,15 @@ export function useReaderVisuals({
     ] as const;
     for (const { entries, type } of codexEntityGroups) {
       entries?.forEach(entry => {
-        if (entry.name && entry.name.length > 2 && isManifestationEligible(entry)) {
+        // Every named Codex entity is highlighted and hovercard-linked. This
+        // used to be gated on isManifestationEligible, which decides whether an
+        // entity deserves a *generated portrait* — a far stricter, unrelated
+        // policy that requires an existing image or an authored
+        // manifestationImportance block. Most entities have neither, so the
+        // reader lost colour-coded names, hovercards and reveal cards
+        // altogether. Portrait eligibility is enforced where portraits are
+        // actually offered, not here.
+        if (entry.name && entry.name.length > 2) {
           terms.push({ term: entry.name, type, entry });
         }
       });

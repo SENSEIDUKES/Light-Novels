@@ -235,6 +235,8 @@ export interface ProfileGraphWriteInput extends GraphMutationMetadata {
   patch: Partial<UserProfile>;
   /** Profile PATCH semantics depend on preserving rows omitted by the client. */
   currentGraph: ProfileGraph | null;
+  /** Verified ID-token email, recorded on the canonical account row. */
+  ownerEmail?: string;
 }
 
 const UUID_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i;
@@ -2429,7 +2431,10 @@ export function mapUserProfileToGraphVariables(
     ...mutationBase(input.ownerUid, input),
     account: row({
       uid: input.ownerUid,
-      email: input.currentGraph?.account?.email,
+      // Provisioning is the only moment the verified token email is available;
+      // without recording it the account row has no email at all, so nothing
+      // downstream (admin listings, system-owner checks) can identify it.
+      email: input.ownerEmail ?? input.currentGraph?.account?.email,
       displayName: value.displayName,
       updatedAt: now,
     }),

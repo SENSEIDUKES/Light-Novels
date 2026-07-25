@@ -408,6 +408,12 @@ export function adminUpdateAccountAccess(dcOrVarsOrOptions, varsOrOptions, optio
   return dcInstance.executeMutation('AdminUpdateAccountAccess', inputVars, inputOpts);
 }
 
+export function adminGrantSystemOwnerRole(dcOrVarsOrOptions, varsOrOptions, options) {
+  const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
+  dcInstance.useGen(true);
+  return dcInstance.executeMutation('AdminGrantSystemOwnerRole', inputVars, inputOpts);
+}
+
 export function adminDeleteStoryAsAdmin(dcOrVarsOrOptions, varsOrOptions, options) {
   const { dc: dcInstance, vars: inputVars, options: inputOpts} = validateAdminArgs(connectorConfig, dcOrVarsOrOptions, varsOrOptions, options, true, true);
   dcInstance.useGen(true);

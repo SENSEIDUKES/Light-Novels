@@ -19,6 +19,12 @@ const optionalUuid = z.string().uuid().optional().nullable();
 const associationSchema = z.object({
   targetKind: z.string().trim().min(1).max(64),
   targetKey: z.string().trim().min(1).max(160),
+  // `MediaAssociation` carries `purpose`, so the browser client sends it inside
+  // the association object. The schema is strict, so omitting it here rejected
+  // every JSON upload — portrait, Codex manifestation, cover, chapter hero —
+  // with a 400. Accept it; the top-level `purpose` remains authoritative and
+  // overwrites whatever arrives here (see `toSaveRequest`).
+  purpose: z.string().trim().min(1).max(80).optional(),
   storyId: optionalUuid,
   chapterId: optionalUuid,
   entityId: optionalUuid,

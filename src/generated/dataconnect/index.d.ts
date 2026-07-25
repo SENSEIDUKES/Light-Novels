@@ -1581,6 +1581,15 @@ export interface AdminGetUserProfileGraphVariables {
   ownerUid: string;
 }
 
+export interface AdminGrantSystemOwnerRoleData {
+  userAccount_update?: UserAccount_Key | null;
+}
+
+export interface AdminGrantSystemOwnerRoleVariables {
+  ownerUid: string;
+  email: string;
+}
+
 export interface AdminListExpiredStoryTombstonesData {
   storyDeletionJobs: ({
     id: UUIDString;
@@ -4315,6 +4324,18 @@ export const adminUpdateAccountAccessRef: AdminUpdateAccountAccessRef;
 
 export function adminUpdateAccountAccess(vars: AdminUpdateAccountAccessVariables): MutationPromise<AdminUpdateAccountAccessData, AdminUpdateAccountAccessVariables>;
 export function adminUpdateAccountAccess(dc: DataConnect, vars: AdminUpdateAccountAccessVariables): MutationPromise<AdminUpdateAccountAccessData, AdminUpdateAccountAccessVariables>;
+
+interface AdminGrantSystemOwnerRoleRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: AdminGrantSystemOwnerRoleVariables): MutationRef<AdminGrantSystemOwnerRoleData, AdminGrantSystemOwnerRoleVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: AdminGrantSystemOwnerRoleVariables): MutationRef<AdminGrantSystemOwnerRoleData, AdminGrantSystemOwnerRoleVariables>;
+  operationName: string;
+}
+export const adminGrantSystemOwnerRoleRef: AdminGrantSystemOwnerRoleRef;
+
+export function adminGrantSystemOwnerRole(vars: AdminGrantSystemOwnerRoleVariables): MutationPromise<AdminGrantSystemOwnerRoleData, AdminGrantSystemOwnerRoleVariables>;
+export function adminGrantSystemOwnerRole(dc: DataConnect, vars: AdminGrantSystemOwnerRoleVariables): MutationPromise<AdminGrantSystemOwnerRoleData, AdminGrantSystemOwnerRoleVariables>;
 
 interface AdminDeleteStoryAsAdminRef {
   /* Allow users to create refs without passing in DataConnect */
