@@ -9559,10 +9559,10 @@ import { connectorConfig, adminCommitMediaAssetToSlot, AdminCommitMediaAssetToSl
 
 // The `AdminCommitMediaAssetToSlot` mutation requires an argument of type `AdminCommitMediaAssetToSlotVariables`:
 const adminCommitMediaAssetToSlotVars: AdminCommitMediaAssetToSlotVariables = {
-  id: ...,
-  ownerUid: ...,
-  quotaReservationId: ...,
-  idempotencyKey: ...,
+  id: ..., 
+  ownerUid: ..., 
+  quotaReservationId: ..., 
+  idempotencyKey: ..., 
   etag: ..., // optional
   storyId: ..., // optional
   chapterId: ..., // optional
@@ -9578,7 +9578,7 @@ const adminCommitMediaAssetToSlotVars: AdminCommitMediaAssetToSlotVariables = {
   arcTitle: ..., // optional
   label: ..., // optional
   position: ..., 
-  requestedBytes: ...,
+  requestedBytes: ..., 
   expectedCurrentAssetId: ..., // optional
   expectedSlotVersion: ..., // optional
   newSlotVersion: ..., 
@@ -9627,10 +9627,10 @@ import { connectorConfig, adminCommitMediaAssetToSlotRef, AdminCommitMediaAssetT
 
 // The `AdminCommitMediaAssetToSlot` mutation requires an argument of type `AdminCommitMediaAssetToSlotVariables`:
 const adminCommitMediaAssetToSlotVars: AdminCommitMediaAssetToSlotVariables = {
-  id: ...,
-  ownerUid: ...,
-  quotaReservationId: ...,
-  idempotencyKey: ...,
+  id: ..., 
+  ownerUid: ..., 
+  quotaReservationId: ..., 
+  idempotencyKey: ..., 
   etag: ..., // optional
   storyId: ..., // optional
   chapterId: ..., // optional
@@ -9646,7 +9646,7 @@ const adminCommitMediaAssetToSlotVars: AdminCommitMediaAssetToSlotVariables = {
   arcTitle: ..., // optional
   label: ..., // optional
   position: ..., 
-  requestedBytes: ...,
+  requestedBytes: ..., 
   expectedCurrentAssetId: ..., // optional
   expectedSlotVersion: ..., // optional
   newSlotVersion: ..., 
@@ -9758,7 +9758,7 @@ const adminCommitAccountMediaAssetVars: AdminCommitAccountMediaAssetVariables = 
   quotaReservationId: ..., 
   idempotencyKey: ..., 
   etag: ..., // optional
-  requestedBytes: ...,
+  requestedBytes: ..., 
 };
 
 // Call the `adminCommitAccountMediaAsset()` function to execute the mutation.
@@ -9801,7 +9801,7 @@ const adminCommitAccountMediaAssetVars: AdminCommitAccountMediaAssetVariables = 
   quotaReservationId: ..., 
   idempotencyKey: ..., 
   etag: ..., // optional
-  requestedBytes: ...,
+  requestedBytes: ..., 
 };
 
 // Call the `adminCommitAccountMediaAssetRef()` function to get a reference to the mutation.
@@ -11465,3 +11465,4 @@ executeMutation(ref).then((response) => {
   console.log(data.storyChange_insert);
 });
 ```
+
