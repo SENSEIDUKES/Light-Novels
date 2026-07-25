@@ -2749,23 +2749,29 @@ export class PersistentStorageManager implements StorageAdapter {
         throw new Error("Cannot delete a story that belongs to another account");
       }
       const ownerId = existing?.userId ?? currentUserId;
-
-      try {
-        await this.localAdapter.deleteStory(id);
-        if (existing) {
-          await this.localAdapter.saveStory({
+      const tombstone = existing
+        ? {
             ...existing,
             userId: ownerId,
             deleted: true,
             updatedAt: this.nextRevisionTimestamp(existing.updatedAt),
-          });
+          }
+        : null;
+
+      // Lay down a reversible tombstone first, but keep the chapter bodies and
+      // any pending mutations intact until the durable delete is queued. The
+      // local adapter's deleteStory removes the story *and its chapter bodies*,
+      // and discardPendingMutationsForStory drops unsynced edits — neither is
+      // recoverable by the rollback, so both must wait until after the commit.
+      if (tombstone) {
+        try {
+          await this.localAdapter.saveStory(tombstone);
+        } catch (e) {
+          console.error("Failed to tombstone story locally:", e);
+          throw e;
         }
-      } catch (e) {
-        console.error("Failed to tombstone story locally:", e);
-        throw e;
       }
 
-      await this.discardPendingMutationsForStory(id, ownerId);
       // Deletions use the same durable outbox as writes. The cloud adapter keeps
       // a tombstone after removing chapter bodies, preventing stale devices from
       // treating an intentional deletion as a new local-only story.
@@ -2777,15 +2783,34 @@ export class PersistentStorageManager implements StorageAdapter {
           userId: ownerId,
         });
       } catch (e) {
-        // Keep the local tombstone and its queued delete atomic. Restore the
-        // story to its last-synced state so a delete that never queued cannot
-        // hide a record that still exists on the server.
+        // The delete never reached the durable queue: undo the tombstone so the
+        // story reappears with its still-intact chapters and pending edits,
+        // rather than being hidden by a delete that will never propagate.
         await this.restoreLocalStory(id, existing);
         console.error(
           "Failed to queue the story deletion; restored the local story:",
           e,
         );
         throw e;
+      }
+
+      // The deletion is durably queued and the server is authoritative, so the
+      // remaining local work is best-effort cleanup. Drop superseded write tasks
+      // and remove the chapter bodies while retaining the tombstone. A failure
+      // here must not surface as a delete failure or trigger a rollback (which
+      // would resurrect a story the queue is about to delete). It runs under the
+      // story lock, so no flush can interleave before the cleanup completes.
+      try {
+        await this.discardPendingMutationsForStory(id, ownerId);
+        if (tombstone) {
+          await this.localAdapter.deleteStory(id);
+          await this.localAdapter.saveStory(tombstone);
+        }
+      } catch (cleanupError) {
+        console.warn(
+          "Story deletion queued, but local chapter cleanup failed:",
+          cleanupError,
+        );
       }
     });
   }
