@@ -9,9 +9,14 @@ const mocks = vi.hoisted(() => ({
     getStories: vi.fn(),
     getStory: vi.fn(),
     saveStory: vi.fn(),
+    deleteStory: vi.fn(),
     getChapterContent: vi.fn(),
     saveChapterContent: vi.fn(),
+    deleteChapterContent: vi.fn(),
   },
+  // When set, the real-guard outbox mock rejects enqueues for this operation,
+  // simulating a transient IndexedDB write failure so rollback can be exercised.
+  failEnqueueOperation: null as string | null,
   local: {
     init: vi.fn(),
     setAccountScope: vi.fn(),
@@ -77,6 +82,14 @@ vi.mock('../foundation/cache/indexedDbFoundationCache', async (importActual) => 
     }
 
     async enqueueOutbox(input: any) {
+      if (
+        mocks.failEnqueueOperation &&
+        input.operation === mocks.failEnqueueOperation
+      ) {
+        throw new Error(
+          `Simulated outbox write failure for ${input.operation}`,
+        );
+      }
       const id = input.id ?? input.idempotencyKey;
       const existing = this.rows.get(id);
       if (existing) return existing;
@@ -183,6 +196,7 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     localStorage.clear();
     mocks.outboxByOwner.clear();
     mocks.claimedLeases = [];
+    mocks.failEnqueueOperation = null;
     mocks.auth.currentUser = null;
     mocks.authCallback = null;
     mocks.idb.init.mockResolvedValue(undefined);
@@ -190,8 +204,10 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     mocks.idb.getStories.mockResolvedValue([]);
     mocks.idb.getStory.mockResolvedValue(null);
     mocks.idb.saveStory.mockResolvedValue(undefined);
+    mocks.idb.deleteStory.mockResolvedValue(undefined);
     mocks.idb.getChapterContent.mockResolvedValue(null);
     mocks.idb.saveChapterContent.mockResolvedValue(undefined);
+    mocks.idb.deleteChapterContent.mockResolvedValue(undefined);
     mocks.local.init.mockResolvedValue(undefined);
     mocks.local.setAccountScope.mockReturnValue(undefined);
     mocks.local.getStories.mockResolvedValue([]);
@@ -1080,6 +1096,212 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
 
     await expect(read).resolves.toBeNull();
     expect(mocks.idb.saveChapterContent).not.toHaveBeenCalled();
+    manager.dispose();
+  });
+
+  it('rolls back a new local story shell when its durable sync enqueue fails', async () => {
+    let storedStory: any = null;
+    mocks.idb.getStories.mockImplementation(async () =>
+      storedStory ? [storedStory] : [],
+    );
+    mocks.idb.getStory.mockImplementation(async () => storedStory);
+    mocks.idb.saveStory.mockImplementation(async (story) => {
+      storedStory = JSON.parse(JSON.stringify(story));
+    });
+    mocks.idb.deleteStory.mockImplementation(async () => {
+      storedStory = null;
+    });
+    mocks.auth.currentUser = { uid: 'reader' };
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    (manager as any).isCloudAvailable = false;
+
+    mocks.failEnqueueOperation = 'storage.sync.story';
+    await expect(manager.saveStory(makeStory() as any)).rejects.toThrow();
+
+    // A failed enqueue must not leave an unsynced shell that reads back as
+    // "saved" yet never reaches the cloud (the Accept-Blueprint orphan).
+    expect(storedStory).toBeNull();
+    expect(mocks.idb.deleteStory).toHaveBeenCalledWith('shared-story');
+    expect(mocks.outboxByOwner.get('reader')?.size ?? 0).toBe(0);
+    manager.dispose();
+  });
+
+  it('restores the previous story when a re-save enqueue fails', async () => {
+    let storedStory: any = null;
+    mocks.idb.getStories.mockImplementation(async () =>
+      storedStory ? [storedStory] : [],
+    );
+    mocks.idb.getStory.mockImplementation(async () => storedStory);
+    mocks.idb.saveStory.mockImplementation(async (story) => {
+      storedStory = JSON.parse(JSON.stringify(story));
+    });
+    mocks.idb.deleteStory.mockImplementation(async () => {
+      storedStory = null;
+    });
+    mocks.auth.currentUser = { uid: 'reader' };
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    (manager as any).isCloudAvailable = false;
+
+    await manager.saveStory(makeStory({ title: 'Original' }) as any);
+    expect(storedStory.title).toBe('Original');
+
+    mocks.failEnqueueOperation = 'storage.sync.story';
+    await expect(
+      manager.saveStory(makeStory({ title: 'Edited' }) as any),
+    ).rejects.toThrow();
+
+    // The failed edit reverts to the last durably-synced version rather than
+    // leaving a locally-modified record that never syncs.
+    expect(storedStory.title).toBe('Original');
+    expect(mocks.idb.deleteStory).not.toHaveBeenCalled();
+    manager.dispose();
+  });
+
+  it('rolls back a new local chapter body when its durable sync enqueue fails', async () => {
+    let storedStory: any = null;
+    let storedChapter: any = null;
+    mocks.idb.getStories.mockImplementation(async () =>
+      storedStory ? [storedStory] : [],
+    );
+    mocks.idb.getStory.mockImplementation(async () => storedStory);
+    mocks.idb.saveStory.mockImplementation(async (story) => {
+      storedStory = JSON.parse(JSON.stringify(story));
+    });
+    mocks.idb.getChapterContent.mockImplementation(async () => storedChapter);
+    mocks.idb.saveChapterContent.mockImplementation(async (chapter) => {
+      storedChapter = JSON.parse(JSON.stringify(chapter));
+    });
+    mocks.idb.deleteChapterContent.mockImplementation(async () => {
+      storedChapter = null;
+    });
+    mocks.auth.currentUser = { uid: 'reader' };
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    (manager as any).isCloudAvailable = false;
+
+    await manager.saveStory(
+      makeStory({
+        arcs: [
+          {
+            title: 'Arc',
+            isCompleted: false,
+            chapters: [{ number: 1, title: 'Ch1', premise: '', status: 'unread' }],
+          },
+        ],
+      }) as any,
+    );
+
+    mocks.failEnqueueOperation = 'storage.sync.chapter';
+    await expect(
+      manager.saveChapterContent({
+        storyId: 'shared-story',
+        chapterNumber: 1,
+        generatedContent: 'Chapter 1 body',
+      } as any),
+    ).rejects.toThrow();
+
+    // Required initial Chapter 1 state must not persist locally without a
+    // queued sync, which would show the chapter as saved yet lose it on reload.
+    expect(storedChapter).toBeNull();
+    expect(mocks.idb.deleteChapterContent).toHaveBeenCalledWith('shared-story', 1);
+    const chapterRows = [
+      ...(mocks.outboxByOwner.get('reader')?.values() ?? []),
+    ].filter((row) => row.operation === 'storage.sync.chapter');
+    expect(chapterRows).toHaveLength(0);
+    manager.dispose();
+  });
+
+  it('preserves chapter bodies and restores the story when a delete enqueue fails', async () => {
+    let storedStory: any = null;
+    let storedChapter: any = null;
+    mocks.idb.getStories.mockImplementation(async () =>
+      storedStory && !storedStory.deleted ? [storedStory] : [],
+    );
+    mocks.idb.getStory.mockImplementation(async () => storedStory);
+    mocks.idb.saveStory.mockImplementation(async (story) => {
+      storedStory = JSON.parse(JSON.stringify(story));
+    });
+    mocks.idb.deleteStory.mockImplementation(async () => {
+      storedStory = null;
+      storedChapter = null;
+    });
+    mocks.idb.getChapterContent.mockImplementation(async () => storedChapter);
+    mocks.idb.saveChapterContent.mockImplementation(async (chapter) => {
+      storedChapter = JSON.parse(JSON.stringify(chapter));
+    });
+    mocks.auth.currentUser = { uid: 'reader' };
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    (manager as any).isCloudAvailable = false;
+
+    await manager.saveStory(makeStory({ title: 'Keep me' }) as any);
+    await manager.saveChapterContent({
+      storyId: 'shared-story',
+      chapterNumber: 1,
+      generatedContent: 'Chapter 1 body',
+    } as any);
+    expect(storedChapter).not.toBeNull();
+
+    mocks.failEnqueueOperation = 'storage.sync.delete_story';
+    await expect(manager.deleteStory('shared-story')).rejects.toThrow();
+
+    // A delete that never queued must not destroy chapter bodies or leave a
+    // tombstone: nothing destructive runs until the delete is durably queued.
+    expect(storedChapter).not.toBeNull();
+    expect(storedChapter.generatedContent).toBe('Chapter 1 body');
+    expect(storedStory).not.toBeNull();
+    expect(storedStory.deleted).toBeFalsy();
+    expect(mocks.idb.deleteStory).not.toHaveBeenCalled();
+    const deleteRows = [
+      ...(mocks.outboxByOwner.get('reader')?.values() ?? []),
+    ].filter((row) => row.operation === 'storage.sync.delete_story');
+    expect(deleteRows).toHaveLength(0);
+    manager.dispose();
+  });
+
+  it('tombstones and clears chapters only after the delete is durably queued', async () => {
+    let storedStory: any = null;
+    let storedChapter: any = null;
+    mocks.idb.getStories.mockImplementation(async () =>
+      storedStory && !storedStory.deleted ? [storedStory] : [],
+    );
+    mocks.idb.getStory.mockImplementation(async () => storedStory);
+    mocks.idb.saveStory.mockImplementation(async (story) => {
+      storedStory = JSON.parse(JSON.stringify(story));
+    });
+    mocks.idb.deleteStory.mockImplementation(async () => {
+      storedStory = null;
+      storedChapter = null;
+    });
+    mocks.idb.getChapterContent.mockImplementation(async () => storedChapter);
+    mocks.idb.saveChapterContent.mockImplementation(async (chapter) => {
+      storedChapter = JSON.parse(JSON.stringify(chapter));
+    });
+    mocks.auth.currentUser = { uid: 'reader' };
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    (manager as any).isCloudAvailable = false;
+
+    await manager.saveStory(makeStory() as any);
+    await manager.saveChapterContent({
+      storyId: 'shared-story',
+      chapterNumber: 1,
+      generatedContent: 'body',
+    } as any);
+
+    await manager.deleteStory('shared-story');
+
+    // The durable delete is queued, the chapter bodies are cleared, and a
+    // deletion tombstone remains for cross-device propagation.
+    const deleteRows = [
+      ...(mocks.outboxByOwner.get('reader')?.values() ?? []),
+    ].filter((row) => row.operation === 'storage.sync.delete_story');
+    expect(deleteRows).toHaveLength(1);
+    expect(mocks.idb.deleteStory).toHaveBeenCalledWith('shared-story');
+    expect(storedStory?.deleted).toBe(true);
+    expect(storedChapter).toBeNull();
     manager.dispose();
   });
 });

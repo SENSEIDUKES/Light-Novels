@@ -32,6 +32,12 @@ export interface StorageAdapter {
     clearAll?(): Promise<void>;
     getChapterContent(storyId: string, chapterNumber: number): Promise<ChapterContent | null>;
     saveChapterContent(content: ChapterContent): Promise<void>;
+    /**
+     * Remove a single chapter body. Used to roll a local write back when its
+     * durable outbox enqueue fails, so a chapter can never persist locally
+     * without a queued sync. Optional: adapters that predate this stay usable.
+     */
+    deleteChapterContent?(storyId: string, chapterNumber: number): Promise<void>;
     /** Complete owner-tagged chapter enumeration used only for adapter migration. */
     getAllChapterContents?(): Promise<AccountScopedChapterContent[]>;
     getAudioBlob?(url: string): Promise<Blob | null>;
