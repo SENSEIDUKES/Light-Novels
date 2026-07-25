@@ -1,4 +1,11 @@
 # SEIHouse Celestial Scroll — Story Model System Prompt
+
+> **Reference prompt document, not the runtime source of truth.** Current
+> generation routes compose their prompts from `src/server/prompts.ts` and the
+> request/context pipeline. This file is useful for narrative-contract review,
+> but changing it alone does not alter production generation behavior. Verify
+> any proposed contract change against the active route and prompt tests.
+
 This system prompt is tailored for **OpenRouter** models (such as *Claude 3.5 Sonnet*, *DeepSeek-Chat/DeepSeek-V3*, *Gemini 2.5 Pro*, or *Llama-3 70B*) to act as the primary **Chapter Generation & Narrative Writing Engine** for the SEIHouse cultivation platform.
 
 ---

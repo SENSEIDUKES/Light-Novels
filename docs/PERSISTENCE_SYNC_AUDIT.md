@@ -1,11 +1,19 @@
 # Celestial Library — Persistence & Synchronization Audit
 
-Scope: repository-wide audit of user-data create/save/reload/sync/restore after the
-Data Connect / Postgres cutover. Investigation only — **no fixes applied**. Every
-Critical/Confirmed finding below was proven by code inspection and, for the priority
-error, by an executed reproduction against the real `IndexedDbFoundationCache`.
+> **Historical incident audit — July 24, 2026.** The priority outbox defect
+> documented here was fixed and merged in PR #191 on July 25, 2026. The fix
+> makes the IndexedDB JSON guard match `JSON.stringify` for object properties
+> set to `undefined`, strips undefined task fields before enqueueing, and adds
+> regression coverage. This file preserves the investigation and reproduction;
+> it is not a statement that story persistence is currently blocked.
 
-Priority: the **Accept Blueprint & Start Matrix** "Celestial Disruption" error.
+Scope: repository-wide audit of user-data create/save/reload/sync/restore after the
+Data Connect / Postgres cutover. At the time of the audit, no fixes had yet been
+applied. Every Critical/Confirmed finding below was proven by code inspection and,
+for the priority error, by an executed reproduction against the real
+`IndexedDbFoundationCache`.
+
+Historical priority: the **Accept Blueprint & Start Matrix** "Celestial Disruption" error.
 
 ---
 

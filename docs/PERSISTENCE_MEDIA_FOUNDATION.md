@@ -6,6 +6,11 @@
 > the integration guidance below: PostgreSQL/Data Connect and R2 are now the
 > active persistence paths, while Firestore and Firebase Storage have been
 > retired from application persistence.
+>
+> **Do not follow the phase-one statements below as current setup guidance.**
+> They intentionally describe the pre-cutover additive design, including the
+> then-active Firestore/Firebase Storage paths. Keep this file as design
+> history; use the cutover guide and `.env.example` for the current system.
 
 ## Phase-one scope
 
