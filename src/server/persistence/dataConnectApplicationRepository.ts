@@ -40,9 +40,11 @@ import { getFirebaseAdminApp } from '../firebaseAdmin';
 import type { MediaAssetDescriptor } from '../../contracts/mediaAssets';
 import type {
   ApplicationPersistenceRepository,
+  ChapterWriteResult,
   PersistenceAdminOverview,
   PersistenceMutationContext,
   PortraitSelectionInput,
+  StoryRevisionStamp,
 } from './applicationPersistenceRepository';
 import {
   hydrateChapterContent,
@@ -621,20 +623,39 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     }
   }
 
-  async getChapterContent(ownerUid: string, storyId: string, chapterNumber: number) {
+  /**
+   * Read one chapter body together with the parent story's current revision.
+   * The chapter mutation advances the Story aggregate in the same transaction,
+   * so the browser replica needs both to stay level with the cloud.
+   */
+  private async chapterContentWithParentRevision(
+    ownerUid: string,
+    storyId: string,
+    chapterNumber: number,
+  ): Promise<ChapterWriteResult | { content: null; story: StoryRevisionStamp | null }> {
     const graph = await this.storyGraph(ownerUid, storyId);
     const chapter = graph?.chapters.find(value => value.chapterNumber === chapterNumber);
-    if (!graph?.story || !chapter || graph.story.status === 'DELETED') return null;
+    const story = graph?.story
+      ? { updatedAt: graph.story.updatedAt, syncRevision: graph.story.syncRevision ?? null }
+      : null;
+    if (!graph?.story || !chapter || graph.story.status === 'DELETED') {
+      return { content: null, story };
+    }
     const result = await adminGetOwnedChapterContentGraph({
       ownerUid,
       storyId: graph.story.id,
       chapterId: chapter.id,
     });
-    return this.hydrateChapter(
+    const content = await this.hydrateChapter(
       ownerUid,
       result.data,
       graph.story.clientStoryId ?? graph.story.legacyStoryId ?? graph.story.id,
     );
+    return content ? { content, story } : { content: null, story };
+  }
+
+  async getChapterContent(ownerUid: string, storyId: string, chapterNumber: number) {
+    return (await this.chapterContentWithParentRevision(ownerUid, storyId, chapterNumber)).content;
   }
 
   async saveChapterContent(
@@ -654,9 +675,15 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
       context.expected,
     );
     if (await this.receipt(ownerUid, context.idempotencyKey, operation, hash)) {
-      const replay = await this.getChapterContent(ownerUid, storyId, content.chapterNumber);
-      if (!replay) throw new Error('Chapter persistence receipt exists without its content graph.');
-      return replay;
+      const replay = await this.chapterContentWithParentRevision(
+        ownerUid,
+        storyId,
+        content.chapterNumber,
+      );
+      if (!replay.content) {
+        throw new Error('Chapter persistence receipt exists without its content graph.');
+      }
+      return replay as ChapterWriteResult;
     }
     const storyGraph = await this.storyGraph(ownerUid, storyId);
     const chapter = storyGraph?.chapters.find(value => value.chapterNumber === content.chapterNumber);
@@ -686,9 +713,13 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
       operation, ownerUid, context.idempotencyKey,
       variables as unknown as RetiredMutationVariables, hash,
     );
-    const saved = await this.getChapterContent(ownerUid, storyGraph.story.id, content.chapterNumber);
-    if (!saved) throw new Error('Chapter content committed but could not be read back.');
-    return saved;
+    const saved = await this.chapterContentWithParentRevision(
+      ownerUid,
+      storyGraph.story.id,
+      content.chapterNumber,
+    );
+    if (!saved.content) throw new Error('Chapter content committed but could not be read back.');
+    return saved as ChapterWriteResult;
   }
 
   async listGlossary(ownerUid: string, storyId: string): Promise<LoreGlossary[]> {

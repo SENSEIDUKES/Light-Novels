@@ -45,6 +45,10 @@ describe('persistenceRouter', () => {
         durationMs: 4.5,
       }),
       saveProfile: vi.fn().mockResolvedValue({ uid: ownerUid, username: 'Saved' }),
+      saveChapterContent: vi.fn().mockResolvedValue({
+        content: { storyId: story.id, chapterNumber: 1, generatedContent: 'Body' },
+        story: { updatedAt: '2026-07-22T11:00:00.000Z', syncRevision: 'story-rev-2' },
+      }),
     } as unknown as ApplicationPersistenceRepository;
     const app = express();
     app.use(createPersistenceRouter({
@@ -219,6 +223,32 @@ describe('persistenceRouter', () => {
         expected: { exists: true, updatedAt: null, syncRevision: 'remote-revision' },
       },
     );
+  });
+
+  it('returns the parent story revision a chapter write advanced', async () => {
+    // The chapter mutation bumps the Story aggregate in the same transaction.
+    // Reporting it lets the browser replica stay level with the cloud instead of
+    // deferring every later story write as "the cloud is newer".
+    const response = await fetch(
+      `${baseUrl}/api/persistence/stories/${story.id}/chapters/1`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: 'Bearer valid-token',
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'stable-chapter-key',
+        },
+        body: JSON.stringify({
+          content: { storyId: story.id, chapterNumber: 1, generatedContent: 'Body' },
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      content: { chapterNumber: 1 },
+      story: { updatedAt: '2026-07-22T11:00:00.000Z', syncRevision: 'story-rev-2' },
+    });
   });
 
   it('treats an explicit null revision expectation as "expect no existing record"', async () => {

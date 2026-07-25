@@ -169,6 +169,38 @@ describe('DataConnectStorageAdapter', () => {
     expect(new Headers(writeInit.headers).get('Idempotency-Key')).toMatch(SHA256_KEY);
   });
 
+  it('reports the parent story revision advanced by a chapter write', async () => {
+    // The chapter mutation rewrites the parent Story aggregate in the same
+    // transaction. The browser replica adopts this revision so it does not fall
+    // behind the cloud and defer every later story write as "the cloud is newer".
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({
+        content: chapter,
+        story: { updatedAt: '2026-07-25T10:00:00.000Z', syncRevision: 'story-rev-9' },
+      }))
+      .mockResolvedValueOnce(jsonResponse({ content: chapter }));
+
+    await expect(
+      adapter.saveChapterContentIfUnchanged(chapter, {
+        exists: true,
+        updatedAt: null,
+        syncRevision: null,
+      }),
+    ).resolves.toEqual({
+      updatedAt: '2026-07-25T10:00:00.000Z',
+      syncRevision: 'story-rev-9',
+    });
+
+    // An endpoint that does not report one yields null so the caller can fall back.
+    await expect(
+      adapter.saveChapterContentIfUnchanged(chapter, {
+        exists: true,
+        updatedAt: null,
+        syncRevision: null,
+      }),
+    ).resolves.toBeNull();
+  });
+
   it('implements glossary list, single-save, batch-save, and delete routes', async () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ terms: [glossaryTerm] }))

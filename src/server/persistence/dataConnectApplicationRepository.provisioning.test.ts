@@ -294,9 +294,14 @@ describe('canonical profile provisioning', () => {
         expected: undefined,
       },
     )).resolves.toMatchObject({
-      storyId: 'story-client-1',
-      chapterNumber: 1,
-      generatedContent: 'The archive opened beneath a truthful moon.',
+      content: {
+        storyId: 'story-client-1',
+        chapterNumber: 1,
+        generatedContent: 'The archive opened beneath a truthful moon.',
+      },
+      // The chapter mutation advances the parent Story aggregate, so the write
+      // reports the new revision for the browser replica to adopt.
+      story: { updatedAt: expect.any(String) },
     });
 
     const write = state.executedVars.find(

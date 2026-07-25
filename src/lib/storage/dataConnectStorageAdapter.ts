@@ -1,5 +1,9 @@
 import type { ChapterContent, LoreGlossary, StoryWorld } from '../../types';
-import type { CloudRevisionExpectation, StorageAdapter } from './types';
+import type {
+  CloudRevisionExpectation,
+  ParentStoryRevision,
+  StorageAdapter,
+} from './types';
 import { createStoryPatch } from './storyPatch';
 
 const DEFAULT_BASE_URL = '/api/persistence';
@@ -283,6 +287,21 @@ function requireGlossaryTerm(value: unknown): LoreGlossary {
   return value as unknown as LoreGlossary;
 }
 
+/**
+ * The chapter mutation advances the parent Story aggregate in the same
+ * transaction, so its response reports the new story revision. An older
+ * deployment that omits it yields null and the caller falls back to a read.
+ */
+function parseParentStoryRevision(payload: unknown): ParentStoryRevision | null {
+  if (!isRecord(payload)) return null;
+  const story = payload.story;
+  if (!isRecord(story) || typeof story.updatedAt !== 'string' || !story.updatedAt) return null;
+  return {
+    updatedAt: story.updatedAt,
+    syncRevision: typeof story.syncRevision === 'string' ? story.syncRevision : null,
+  };
+}
+
 function responseMessage(payload: unknown, fallback: string): string {
   if (isRecord(payload)) {
     if (typeof payload.error === 'string' && payload.error) return payload.error;
@@ -388,11 +407,15 @@ export class DataConnectStorageAdapter implements StorageAdapter {
     await this.putChapter(content);
   }
 
+  /**
+   * Returns the parent story revision the chapter mutation advanced in the same
+   * PostgreSQL transaction, or null when the endpoint did not report one.
+   */
   async saveChapterContentIfUnchanged(
     content: ChapterContent,
     expected: CloudRevisionExpectation,
-  ): Promise<void> {
-    await this.putChapter(content, expected);
+  ): Promise<ParentStoryRevision | null> {
+    return this.putChapter(content, expected);
   }
 
   async getLoreGlossary(storyId: string): Promise<LoreGlossary[]> {
@@ -465,9 +488,9 @@ export class DataConnectStorageAdapter implements StorageAdapter {
   private async putChapter(
     content: ChapterContent,
     expected?: CloudRevisionExpectation,
-  ): Promise<void> {
+  ): Promise<ParentStoryRevision | null> {
     const persistedContent = preparePermanentPersistencePayload(content, this.temporaryMediaHosts);
-    await this.request(this.chapterPath(content.storyId, content.chapterNumber), {
+    const payload = await this.request(this.chapterPath(content.storyId, content.chapterNumber), {
       method: 'PUT',
       body: JSON.stringify(
         expected === undefined
@@ -475,6 +498,7 @@ export class DataConnectStorageAdapter implements StorageAdapter {
           : { content: persistedContent, expected },
       ),
     });
+    return parseParentStoryRevision(payload);
   }
 
   private chapterPath(storyId: string, chapterNumber: number): string {
