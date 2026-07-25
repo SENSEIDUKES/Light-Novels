@@ -135,9 +135,7 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
     // transaction succeeds, not optimistically beforehand.
     try {
       storyStorage.startTransaction();
-      for (const s of toSave) {
-        await storyStorage.saveStory(s);
-      }
+      await Promise.all(toSave.map(s => storyStorage.saveStory(s)));
       await storyStorage.commitTransaction();
       if (!LOCAL_ONLY_MODE && auth.currentUser?.uid !== expectedUid) {
         set({ stories: [], activeStoryId: null });
