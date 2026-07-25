@@ -149,6 +149,59 @@ describe("PrivateMediaResolver", () => {
     expect(revokeObjectUrl).toHaveBeenCalledWith("blob:cached-cover");
   });
 
+  // The local story replica stores descriptors with a blanked delivery URL,
+  // because a signed URL must never be persisted. Those descriptors are still
+  // valid asset references and must resolve, or every Codex image that is not
+  // already blob-cached disappears after a reload or a sign-out/sign-in.
+  it("re-signs a replicated private descriptor whose delivery URL was blanked", async () => {
+    const cache = cacheStub();
+    const fresh = { ...descriptor, deliveryUrl: "https://signed.example/fresh" };
+    const getDescriptor = vi.fn().mockResolvedValue(fresh);
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response("cover", { status: 200, headers: { "content-type": "image/png" } }),
+    );
+    const resolver = new PrivateMediaResolver({
+      ownerUid: "owner-a",
+      cache,
+      getDescriptor,
+      fetch: fetchMock,
+      // Well before the recorded expiry: only the blank URL may trigger a refresh.
+      now: () => Date.parse("2026-07-22T00:01:00.000Z"),
+      createObjectUrl,
+      revokeObjectUrl,
+    });
+
+    const result = await resolver.resolve({ ...descriptor, deliveryUrl: "" });
+
+    expect(getDescriptor).toHaveBeenCalledWith(descriptor.id);
+    expect(fetchMock).toHaveBeenCalledWith(fresh.deliveryUrl, { credentials: "omit" });
+    expect(result).toMatchObject({ url: "blob:cached-cover", source: "network" });
+  });
+
+  it("re-signs a replicated public descriptor whose delivery URL was blanked", async () => {
+    const publicDescriptor = { ...descriptor, visibility: "PUBLIC" as const };
+    const getDescriptor = vi.fn().mockResolvedValue({
+      ...publicDescriptor,
+      deliveryUrl: "https://cdn.example/public.png",
+    });
+    const resolver = new PrivateMediaResolver({
+      ownerUid: "owner-a",
+      cache: cacheStub(),
+      getDescriptor,
+      fetch: vi.fn(),
+      createObjectUrl,
+      revokeObjectUrl,
+    });
+
+    await expect(
+      resolver.resolve({ ...publicDescriptor, deliveryUrl: "" }),
+    ).resolves.toMatchObject({
+      url: "https://cdn.example/public.png",
+      source: "public",
+    });
+    expect(getDescriptor).toHaveBeenCalledWith(descriptor.id);
+  });
+
   it("keeps caches account-scoped", () => {
     const first = new PrivateMediaResolver({
       ownerUid: "owner-a",

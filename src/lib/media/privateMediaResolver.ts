@@ -34,6 +34,10 @@ function identity(descriptor: MediaAssetDescriptor) {
 
 function isNearlyExpired(descriptor: MediaAssetDescriptor, now: number): boolean {
   if (descriptor.visibility !== "PRIVATE") return false;
+  // The local story replica deliberately stores descriptors with a blanked
+  // delivery URL (a signed URL must never be persisted). Such a descriptor is
+  // still a valid asset reference — it just needs a fresh signature before use.
+  if (!descriptor.deliveryUrl?.trim()) return true;
   const expiresAt = descriptor.deliveryUrlExpiresAt
     ? Date.parse(descriptor.deliveryUrlExpiresAt)
     : Number.NaN;
@@ -84,10 +88,15 @@ export class PrivateMediaResolver {
 
   async resolve(input: MediaAssetDescriptor): Promise<ResolvedPrivateMedia> {
     if (input.visibility !== "PRIVATE") {
+      // A locally replicated descriptor has its delivery URL blanked, so a
+      // public asset also needs one refresh before it can be rendered.
+      const descriptor = input.deliveryUrl?.trim()
+        ? input
+        : await this.getDescriptor(input.id);
       return {
-        assetId: input.id,
-        descriptor: input,
-        url: input.deliveryUrl,
+        assetId: descriptor.id,
+        descriptor,
+        url: descriptor.deliveryUrl,
         source: "public",
       };
     }

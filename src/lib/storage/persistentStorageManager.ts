@@ -2,6 +2,7 @@ import { StorageAdapter } from "./types";
 import { StoryWorld, ChapterContent } from "../../types";
 import {
   type CloudRevisionExpectation,
+  type ParentStoryRevision,
   SyncProgress,
   SyncStatus,
   SyncTask,
@@ -918,6 +919,111 @@ export class PersistentStorageManager implements StorageAdapter {
     this.deepStoryIdsRequested.add(storyId);
   }
 
+  /**
+   * Upload one chapter body and adopt the parent story revision that the
+   * PostgreSQL chapter mutation advanced in the same transaction.
+   *
+   * The mutation rewrites `story.syncRevision` and stamps `story.updatedAt`
+   * with server time. Without adopting it, the local replica stays behind the
+   * cloud forever: every later story write (a Codex image association, a
+   * bookmark) is deferred as "the cloud is newer" and then discarded by the
+   * cloud re-read, and the next chapter body is stuck behind that blocked story
+   * task — so no further chapter blocks or immersion metadata ever reach the
+   * cloud. This is NOT the retired heartbeat: no parent story is written to the
+   * cloud and no second outbox row is queued; only the local replica is
+   * levelled with the revision the chapter write already produced.
+   */
+  private async uploadChapterContent(
+    content: ChapterContent,
+    expected: CloudRevisionExpectation,
+    label: string,
+  ): Promise<boolean> {
+    let parentRevision: ParentStoryRevision | null = null;
+    const wrote = await this.cloudWriteIfUnchanged(
+      async () => {
+        parentRevision = await this.cloudAdapter.saveChapterContentIfUnchanged(
+          content,
+          expected,
+        );
+      },
+      label,
+      content.storyId,
+      true,
+    );
+    if (wrote) await this.adoptParentStoryRevision(content.storyId, parentRevision);
+    return wrote;
+  }
+
+  /**
+   * Level the local story record with the revision the cloud produced for it.
+   * Never enqueues a sync task: the cloud already holds this revision.
+   */
+  private async adoptParentStoryRevision(
+    storyId: string,
+    revision: ParentStoryRevision | null,
+  ): Promise<void> {
+    const currentUserId = this.getCurrentUserId();
+    const stamp = revision ?? (await this.readParentStoryRevision(storyId));
+    const stampTime = stamp ? new Date(stamp.updatedAt).getTime() : Number.NaN;
+    if (!stamp || !Number.isFinite(stampTime)) return;
+
+    const local = await this.localAdapter.getStory(storyId);
+    if (!local || local.deleted) return;
+    // Never stamp another account's record if auth moved during the upload.
+    if (currentUserId && local.userId && local.userId !== currentUserId) return;
+    if (!LOCAL_ONLY_MODE && this.getCurrentUserId() !== currentUserId) return;
+    const localTime = local.updatedAt ? new Date(local.updatedAt).getTime() : Number.NaN;
+    // A local edit made after this upload is genuinely newer than the parent
+    // bump; its own queued story task publishes it, so never stamp it backwards.
+    if (Number.isFinite(localTime) && localTime > stampTime) return;
+    if (
+      local.updatedAt === stamp.updatedAt &&
+      (local.syncRevision ?? null) === stamp.syncRevision
+    ) {
+      this.rememberCloudRevision(local);
+      return;
+    }
+
+    const stamped: StoryWorld = {
+      ...local,
+      updatedAt: stamp.updatedAt,
+      syncRevision: stamp.syncRevision ?? local.syncRevision,
+    };
+    try {
+      await this.localAdapter.saveStory(stamped);
+    } catch (error) {
+      // A failed stamp only costs one extra reconciliation pass; the chapter
+      // body is already committed, so this must never fail the upload.
+      console.warn(
+        "Chapter uploaded, but the local parent story revision could not be levelled.",
+        error,
+      );
+      return;
+    }
+    this.rememberCloudRevision(stamped);
+  }
+
+  /** Fallback for endpoints that do not report the parent revision yet. */
+  private async readParentStoryRevision(
+    storyId: string,
+  ): Promise<ParentStoryRevision | null> {
+    try {
+      const cloudStory = await this.cloudAdapter.getStory(storyId);
+      return cloudStory?.updatedAt
+        ? {
+            updatedAt: cloudStory.updatedAt,
+            syncRevision: cloudStory.syncRevision ?? null,
+          }
+        : null;
+    } catch (error) {
+      console.warn(
+        "Could not read the parent story revision after a chapter upload.",
+        error,
+      );
+      return null;
+    }
+  }
+
   private async ensureStorySyncRevision(story: StoryWorld): Promise<StoryWorld> {
     if (story.syncRevision) return story;
     const prepared = { ...story, syncRevision: this.createSyncRevision() };
@@ -1113,15 +1219,10 @@ export class PersistentStorageManager implements StorageAdapter {
 
                   const preparedChapter =
                     await this.ensureChapterSyncRevision(localChapter);
-                  const wrote = await this.cloudWriteIfUnchanged(
-                    () =>
-                      this.cloudAdapter.saveChapterContentIfUnchanged(
-                        preparedChapter,
-                        this.cloudExpectation(cloudChapter),
-                      ),
+                  const wrote = await this.uploadChapterContent(
+                    preparedChapter,
+                    this.cloudExpectation(cloudChapter),
                     `chapter:${task.storyId}#${task.chapterNumber}`,
-                    task.storyId,
-                    true,
                   );
                   return !wrote;
                 },
@@ -1541,7 +1642,15 @@ export class PersistentStorageManager implements StorageAdapter {
       deleted: summary.deleted,
       persistenceHydration:
         local.persistenceHydration === "summary" ? "summary" : "full",
-      mediaDescriptors: summary.mediaDescriptors ?? local.mediaDescriptors,
+      // The catalog summary only carries the story cover, so it must be layered
+      // over the local descriptor map, never replace it. Replacing it dropped
+      // every Codex entity/chapter-hero descriptor from the local replica, and
+      // those descriptors are the only way to resolve their delivery URLs —
+      // the cached entities themselves hold an asset id and no URL.
+      mediaDescriptors:
+        summary.mediaDescriptors || local.mediaDescriptors
+          ? { ...(local.mediaDescriptors ?? {}), ...(summary.mediaDescriptors ?? {}) }
+          : undefined,
     };
   }
 
@@ -1889,15 +1998,10 @@ export class PersistentStorageManager implements StorageAdapter {
       if (!cloudContent) {
         const preparedContent =
           await this.ensureChapterSyncRevision(localContent);
-        const uploaded = await this.cloudWriteIfUnchanged(
-          () =>
-            this.cloudAdapter.saveChapterContentIfUnchanged(
-              preparedContent,
-              this.cloudExpectation(null),
-            ),
+        const uploaded = await this.uploadChapterContent(
+          preparedContent,
+          this.cloudExpectation(null),
           `repair-chapter:${storyId}#${chapterNumber}`,
-          storyId,
-          true,
         );
         if (uploaded && pendingTask) await this.acknowledgeTask(pendingTask);
         return uploaded;
@@ -1927,15 +2031,10 @@ export class PersistentStorageManager implements StorageAdapter {
       ) {
         const preparedContent =
           await this.ensureChapterSyncRevision(localContent);
-        const uploaded = await this.cloudWriteIfUnchanged(
-          () =>
-            this.cloudAdapter.saveChapterContentIfUnchanged(
-              preparedContent,
-              this.cloudExpectation(cloudContent),
-            ),
+        const uploaded = await this.uploadChapterContent(
+          preparedContent,
+          this.cloudExpectation(cloudContent),
           `sync-chapter:${storyId}#${chapterNumber}`,
-          storyId,
-          true,
         );
         if (!uploaded) return false;
         if (pendingTask) await this.acknowledgeTask(pendingTask);
@@ -1963,15 +2062,10 @@ export class PersistentStorageManager implements StorageAdapter {
         } else {
           const preparedContent =
             await this.ensureChapterSyncRevision(localContent);
-          const uploaded = await this.cloudWriteIfUnchanged(
-            () =>
-              this.cloudAdapter.saveChapterContentIfUnchanged(
-                preparedContent,
-                this.cloudExpectation(cloudContent),
-              ),
+          const uploaded = await this.uploadChapterContent(
+            preparedContent,
+            this.cloudExpectation(cloudContent),
             `sync-chapter:${storyId}#${chapterNumber}`,
-            storyId,
-            true,
           );
           if (!uploaded) return false;
         }

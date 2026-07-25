@@ -9,6 +9,16 @@ export interface CloudRevisionExpectation {
 }
 
 /**
+ * Parent-story revision reported by a chapter write. The PostgreSQL chapter
+ * mutation advances the Story aggregate in the same transaction, so the local
+ * replica must adopt the new revision instead of silently falling behind it.
+ */
+export interface ParentStoryRevision {
+    updatedAt: string;
+    syncRevision: string | null;
+}
+
+/**
  * StorageAdapter defines the contract for persistent story memory.
  * This separates the storage logic from UI/logic components,
  * enabling easy drop-in cloud synchronization in the future.

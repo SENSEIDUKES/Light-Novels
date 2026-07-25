@@ -308,13 +308,16 @@ export function createPersistenceRouter(
     }
     assertOwnerField(parsed.content, res.locals.ownerUid);
     const repository = await dependencies.getRepository();
-    const content = await repository.saveChapterContent(
+    const saved = await repository.saveChapterContent(
       res.locals.ownerUid,
       storyId,
       parsed.content as unknown as ChapterContent,
       mutationContext(req, parsed.expected),
     );
-    res.json({ content });
+    // `story` reports the parent revision the chapter mutation advanced in the
+    // same transaction. The browser replica adopts it so its local story does
+    // not silently fall behind the cloud after every chapter upload.
+    res.json({ content: saved.content, story: saved.story });
   }));
 
   router.get('/api/persistence/stories/:storyId/glossary', asyncRoute(async (req, res) => {
