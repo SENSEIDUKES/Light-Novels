@@ -1720,21 +1720,24 @@ export function hydrateChapterContent(graph: ChapterGraph): ChapterContent | nul
  * an empty string) used to hydrate as contentless and the reader never asked
  * for its body. Any real prose or block now produces a hash.
  */
-function chapterContentHash(content: ChapterContent): string | undefined {
-  const blocks = [...(content.blocks ?? []), ...(content.archivedBlocks ?? [])];
+function chapterContentHash(
+  content: ChapterContent,
+  blocks: readonly GraphRow[],
+): string | undefined {
   const prose = content.generatedContent ?? '';
   if (!prose.trim() && blocks.length === 0) return undefined;
-  return createHash('sha256')
-    .update(JSON.stringify([
-      prose,
-      blocks.map(block => [block.id, block.type, block.text]),
-    ]))
-    .digest('hex');
+  // Hash the block rows about to be written, not the raw input: they carry
+  // every persisted field (system events, world cards, scene metadata,
+  // speaker/mode annotations) with transient media already stripped and a
+  // fixed key order, so an edit that touches only annotations still changes
+  // the hash while a re-save of identical content does not.
+  return createHash('sha256').update(JSON.stringify([prose, blocks])).digest('hex');
 }
 
 function chapterRowFromCurrent(
   current: NonNullable<ChapterGraph['chapter']>,
   content: ChapterContent,
+  blocks: readonly GraphRow[],
   syncRevision: string,
   revision: string,
 ): GraphRow {
@@ -1750,7 +1753,7 @@ function chapterRowFromCurrent(
     status: current.status,
     summary: content.summary ?? current.summary,
     episodicSummary: content.episodicSummary ?? current.episodicSummary,
-    contentHash: chapterContentHash(content) ?? current.contentHash,
+    contentHash: chapterContentHash(content, blocks) ?? current.contentHash,
     versionId: current.versionId,
     syncRevision,
     revision,
@@ -1954,6 +1957,7 @@ export function mapChapterContentToGraphVariables(
     chapter: chapterRowFromCurrent(
       chapter,
       input.content,
+      blocks,
       input.newSyncRevision,
       int64(input.newRevision),
     ),

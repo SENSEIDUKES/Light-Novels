@@ -677,7 +677,24 @@ describe('chapter content graph mapping', () => {
         ...mutationMetadata(),
       }).chapter.contentHash;
 
-    expect(hashFor({ generatedContent: 'Rewritten prose.' })).not.toBe(hashFor({}));
+    const baseline = hashFor({});
+    expect(hashFor({ generatedContent: 'Rewritten prose.' })).not.toBe(baseline);
+    // An edit that touches only annotations still changes the hash: the block
+    // rows about to be written are hashed, not just their id/type/text.
+    expect(hashFor({
+      blocks: [{
+        ...content.blocks![0],
+        system: { kind: 'level_up', title: 'LEVEL UP' },
+      }],
+    })).not.toBe(baseline);
+    expect(hashFor({
+      blocks: [{
+        ...content.blocks![0],
+        metadata: { ...content.blocks![0].metadata, speakerName: 'Kang' },
+      }],
+    })).not.toBe(baseline);
+    // Re-saving identical content must not churn the hash.
+    expect(hashFor({})).toBe(baseline);
     // A scaffold with no body must not mint a hash that fakes content.
     expect(hashFor({ generatedContent: '   ', blocks: [], archivedBlocks: [] }))
       .toBe(currentGraph.chapter!.contentHash ?? undefined);
