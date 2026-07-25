@@ -30,6 +30,12 @@ describe("resolveReaderOpeningChapter", () => {
     expect(resolveReaderOpeningChapter(story)).toBe(1);
   });
 
+  it("falls back to Chapter 1 for a partially loaded legacy story", () => {
+    expect(resolveReaderOpeningChapter(undefined)).toBe(1);
+    expect(resolveReaderOpeningChapter({ arcs: null as any })).toBe(1);
+    expect(resolveReaderOpeningChapter({ arcs: [{ chapters: null } as any] })).toBe(1);
+  });
+
   it("reopens a story with only Chapter 1 generated at Chapter 1", () => {
     const story = storyWithChapters([
       chapter(1, { hasContent: true, status: "read" }),

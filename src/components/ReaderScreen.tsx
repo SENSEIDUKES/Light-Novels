@@ -126,6 +126,7 @@ export const ReaderScreen: React.FC<{
     Record<number, ChapterContent>
   >({});
   const [localChapterCacheStoryId, setLocalChapterCacheStoryId] = useState<string | null>(null);
+  const selectedChapterCachedContent = localChapterCache[selectedChapterNum];
   const pendingFetches = React.useRef<Set<string>>(new Set());
   const recapCheckedForStoryId = React.useRef<string | null>(null);
 
@@ -359,7 +360,7 @@ export const ReaderScreen: React.FC<{
       ) {
         const hasCachedContent = (
           localChapterCacheStoryId === activeStory.id
-          && Boolean(localChapterCache[selectedChapterNum])
+          && Boolean(selectedChapterCachedContent)
         );
         if (
           !hasCachedContent &&
@@ -386,7 +387,13 @@ export const ReaderScreen: React.FC<{
         }
       }
     }
-  }, [activeStory, currentScreen, selectedChapterNum, localChapterCache, localChapterCacheStoryId]);
+  }, [
+    activeStory,
+    currentScreen,
+    selectedChapterNum,
+    selectedChapterCachedContent,
+    localChapterCacheStoryId,
+  ]);
 
   if (currentScreen !== "reader") return null;
 

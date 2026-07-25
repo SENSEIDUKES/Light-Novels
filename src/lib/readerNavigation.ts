@@ -9,9 +9,12 @@ import { Chapter, StoryWorld } from "../types";
  * that would only render a manifestation prompt.  If no chapter has been
  * generated yet, the first planned chapter is the genuine next step.
  */
-export function resolveReaderOpeningChapter(story: Pick<StoryWorld, "arcs">): number {
-  const chapters = story.arcs
-    .flatMap((arc) => arc.chapters)
+export function resolveReaderOpeningChapter(
+  story: Partial<Pick<StoryWorld, "arcs">> | null | undefined,
+): number {
+  const arcs = Array.isArray(story?.arcs) ? story.arcs : [];
+  const chapters = arcs
+    .flatMap((arc) => Array.isArray(arc?.chapters) ? arc.chapters : [])
     .filter((chapter): chapter is Chapter => Boolean(chapter && Number.isFinite(chapter.number)))
     .sort((left, right) => left.number - right.number);
 
