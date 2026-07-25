@@ -14,6 +14,7 @@ import type {
   CosmicArtifact,
   GeneratedImage,
   LoreGlossary,
+  SceneFingerprint,
   StoryArc,
   StoryBlock,
   StoryMemory,
@@ -559,7 +560,19 @@ function hydrateChapterScaffold(
     title: chapter.title,
     premise: chapter.premise ?? '',
     status: lowerEnum(chapter.status, 'unlocked') as Chapter['status'],
-    hasContent: Boolean(chapter.contentHash || chapter.versionId || chapter.summary),
+    // A body may leave no summary behind (a placeholder summary is persisted as
+    // an empty string), so the hash is the primary evidence. READ/SEALED are
+    // only reached after generation, which keeps rows written before chapter
+    // writes recorded a hash from hydrating as contentless — the reader skips
+    // fetching a body it believes does not exist.
+    hasContent: Boolean(
+      chapter.contentHash
+      || chapter.versionId
+      || chapter.summary
+      || chapter.isSealed
+      || chapter.status === 'READ'
+      || chapter.status === 'SEALED',
+    ),
     isSealed: chapter.isSealed,
     contentHash: chapter.contentHash ?? undefined,
     sealedAt: chapter.sealedAt ? Date.parse(chapter.sealedAt) : undefined,
@@ -578,7 +591,26 @@ function hydrateChapterScaffold(
           evidence: chapter.contractEvidence ?? '',
           openingMatched: chapter.contractOpeningMatched ?? false,
         },
+    // Fingerprints belong to the scaffold by design: contract building and
+    // duplicate detection read them without loading any chapter body.
+    sceneFingerprints: scaffoldFingerprints(chapter.id, graph),
   };
+}
+
+function scaffoldFingerprints(
+  chapterId: string,
+  graph: StoryGraph,
+): SceneFingerprint[] | undefined {
+  const fingerprints = (graph.sceneFingerprints ?? [])
+    .filter(fingerprint => fingerprint.chapterId === chapterId)
+    .map(fingerprint => ({
+      actionType: lowerEnum(fingerprint.actionType, 'other') as SceneFingerprint['actionType'],
+      participants: fingerprint.participants,
+      location: fingerprint.location ?? undefined,
+      outcome: fingerprint.outcome,
+      chapterNumber: fingerprint.chapterNumber,
+    }));
+  return fingerprints.length > 0 ? fingerprints : undefined;
 }
 
 /** Hydrate the browser StoryWorld aggregate from normalized relational rows. */
@@ -1681,9 +1713,31 @@ export function hydrateChapterContent(graph: ChapterGraph): ChapterContent | nul
   };
 }
 
+/**
+ * Fingerprint of the body a chapter write is committing. `hasContent` is
+ * derived from `contentHash || versionId || summary` when a scaffold hydrates,
+ * so a chapter whose summary was suppressed (a placeholder summary persists as
+ * an empty string) used to hydrate as contentless and the reader never asked
+ * for its body. Any real prose or block now produces a hash.
+ */
+function chapterContentHash(
+  content: ChapterContent,
+  blocks: readonly GraphRow[],
+): string | undefined {
+  const prose = content.generatedContent ?? '';
+  if (!prose.trim() && blocks.length === 0) return undefined;
+  // Hash the block rows about to be written, not the raw input: they carry
+  // every persisted field (system events, world cards, scene metadata,
+  // speaker/mode annotations) with transient media already stripped and a
+  // fixed key order, so an edit that touches only annotations still changes
+  // the hash while a re-save of identical content does not.
+  return createHash('sha256').update(JSON.stringify([prose, blocks])).digest('hex');
+}
+
 function chapterRowFromCurrent(
   current: NonNullable<ChapterGraph['chapter']>,
   content: ChapterContent,
+  blocks: readonly GraphRow[],
   syncRevision: string,
   revision: string,
 ): GraphRow {
@@ -1699,7 +1753,7 @@ function chapterRowFromCurrent(
     status: current.status,
     summary: content.summary ?? current.summary,
     episodicSummary: content.episodicSummary ?? current.episodicSummary,
-    contentHash: current.contentHash,
+    contentHash: chapterContentHash(content, blocks) ?? current.contentHash,
     versionId: current.versionId,
     syncRevision,
     revision,
@@ -1903,6 +1957,7 @@ export function mapChapterContentToGraphVariables(
     chapter: chapterRowFromCurrent(
       chapter,
       input.content,
+      blocks,
       input.newSyncRevision,
       int64(input.newRevision),
     ),

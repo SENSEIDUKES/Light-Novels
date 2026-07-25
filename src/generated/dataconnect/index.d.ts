@@ -1054,6 +1054,14 @@ export interface AdminGetOwnedStoryGraphData {
     createdAt: TimestampString;
     updatedAt: TimestampString;
   } & StoryArc_Key)[];
+  sceneFingerprints: ({
+    chapterId: UUIDString;
+    chapterNumber: number;
+    actionType: string;
+    location?: string | null;
+    outcome: string;
+    participants: string[];
+  })[];
   chapters: ({
     id: UUIDString;
     storyId: UUIDString;

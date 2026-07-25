@@ -3287,6 +3287,14 @@ export interface AdminGetOwnedStoryGraphData {
     createdAt: TimestampString;
     updatedAt: TimestampString;
   } & StoryArc_Key)[];
+  sceneFingerprints: ({
+    chapterId: UUIDString;
+    chapterNumber: number;
+    actionType: string;
+    location?: string | null;
+    outcome: string;
+    participants: string[];
+  })[];
   chapters: ({
     id: UUIDString;
     storyId: UUIDString;
@@ -3598,6 +3606,7 @@ console.log(data.memoryWarnings);
 console.log(data.rules);
 console.log(data.revealBackdrops);
 console.log(data.arcs);
+console.log(data.sceneFingerprints);
 console.log(data.chapters);
 console.log(data.codexEntities);
 console.log(data.codexRelationships);
@@ -3626,6 +3635,7 @@ adminGetOwnedStoryGraph(adminGetOwnedStoryGraphVars).then((response) => {
   console.log(data.rules);
   console.log(data.revealBackdrops);
   console.log(data.arcs);
+  console.log(data.sceneFingerprints);
   console.log(data.chapters);
   console.log(data.codexEntities);
   console.log(data.codexRelationships);
@@ -3678,6 +3688,7 @@ console.log(data.memoryWarnings);
 console.log(data.rules);
 console.log(data.revealBackdrops);
 console.log(data.arcs);
+console.log(data.sceneFingerprints);
 console.log(data.chapters);
 console.log(data.codexEntities);
 console.log(data.codexRelationships);
@@ -3706,6 +3717,7 @@ executeQuery(ref).then((response) => {
   console.log(data.rules);
   console.log(data.revealBackdrops);
   console.log(data.arcs);
+  console.log(data.sceneFingerprints);
   console.log(data.chapters);
   console.log(data.codexEntities);
   console.log(data.codexRelationships);
