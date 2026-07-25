@@ -87,6 +87,36 @@ describe('useStoryEngine', () => {
     expect(awardQi).toHaveBeenCalledWith('chapter_finished');
   });
 
+  it('handleToggleRead guards against race conditions on rapid double clicks', async () => {
+    const { result } = renderHook(() => useStoryEngine());
+    const saveStoriesMock = useAppStore.getState().saveStories;
+    const { awardQi } = await import('../lib/qi');
+
+    // We simulate rapid clicks by calling the handler twice concurrently.
+    // To make sure state behaves correctly during the double call, we configure
+    // saveStoriesMock to actually update the zustand store state synchronously,
+    // mimicking the actual saveStories behavior.
+    (saveStoriesMock as any).mockImplementation((updated: any) => {
+      useAppStore.setState({ stories: updated });
+    });
+
+    await act(async () => {
+      await Promise.all([
+        result.current.handleToggleRead(1),
+        result.current.handleToggleRead(1),
+      ]);
+    });
+
+    // The first call marks it as 'read' and awards Qi.
+    // The second call reads the fresh state, sees it as 'read', and toggles it back to 'unread'
+    // without awarding Qi again!
+    expect(awardQi).toHaveBeenCalledTimes(1);
+
+    const finalStories = useAppStore.getState().stories;
+    // Toggled back to unread by the second click
+    expect(finalStories[0].arcs[0].chapters[0].status).toBe('unread');
+  });
+
   it('handleToggleRead toggles read to unread', async () => {
     const { result } = renderHook(() => useStoryEngine());
     const saveStoriesMock = useAppStore.getState().saveStories;
