@@ -30,6 +30,9 @@ export class CultivatorPortraitCommitDeferredError extends Error {
   }
 }
 
+const boundedText = (value: unknown, maximumLength: number): string =>
+  typeof value === 'string' ? value.slice(0, maximumLength) : '';
+
 async function profileHeaders(): Promise<Record<string, string>> {
   const user = auth.currentUser;
   if (!user) throw new Error('Sign in to save a Celestial Portrait.');
@@ -48,11 +51,11 @@ async function activatePortrait(
     headers: await profileHeaders(),
     body: JSON.stringify({
       assetId: portrait.id,
-      prompt: input.prompt.slice(0, 5_000),
-      description: input.description.slice(0, 2_000),
-      daoRank: input.daoRank.slice(0, 100),
+      prompt: boundedText(input.prompt, 5_000),
+      description: boundedText(input.description, 2_000),
+      daoRank: boundedText(input.daoRank, 100),
       daoXp: Number.isFinite(input.daoXp) ? Math.max(0, Math.floor(input.daoXp)) : 0,
-      powerStage: input.powerStage.slice(0, 200),
+      powerStage: boundedText(input.powerStage, 200),
       equippedArtifactId: input.equippedArtifactId?.slice(0, 128) ?? null,
       usedReferenceImage: input.usedReferenceImage,
       customization: portrait.customization,
@@ -108,8 +111,8 @@ export async function persistCultivatorPortrait(
       targetKey: input.userId,
       legacyMediaId: generateUUID(),
       entityType: 'portrait',
-      promptUsed: input.prompt.slice(0, 12_000),
-      label: input.description.slice(0, 500),
+      promptUsed: boundedText(input.prompt, 12_000),
+      label: boundedText(input.description, 500),
     },
     idempotencyKey: generateUUID(),
   });
@@ -129,11 +132,11 @@ export async function persistCultivatorPortrait(
     createdAt,
     updatedAt: createdAt,
     generation: {
-      prompt: input.prompt.slice(0, 5_000),
-      description: input.description.slice(0, 2_000),
-      daoRank: input.daoRank.slice(0, 100),
+      prompt: boundedText(input.prompt, 5_000),
+      description: boundedText(input.description, 2_000),
+      daoRank: boundedText(input.daoRank, 100),
       daoXp: Number.isFinite(input.daoXp) ? Math.max(0, Math.floor(input.daoXp)) : 0,
-      powerStage: input.powerStage.slice(0, 200),
+      powerStage: boundedText(input.powerStage, 200),
       equippedArtifactId: input.equippedArtifactId?.slice(0, 128) ?? null,
       usedReferenceImage: input.usedReferenceImage,
     },

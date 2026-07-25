@@ -9,8 +9,17 @@ import { ensureStoryPersistenceIdentities } from '../lib/persistence';
 
 const STORAGE_KEY = '@seihouse/fiction-generator-stories-v2';
 let storageInitVersion = 0;
-const isObsoleteDefaultStory = (story: Story): boolean =>
-  story.id.startsWith('demo-matrix-') || story.id.startsWith('challenge-');
+const isObsoleteDefaultStory = (story: Story): boolean => {
+  const hasLegacyDefaultId =
+    story.id.startsWith('demo-matrix-') || story.id.startsWith('challenge-');
+  if (!hasLegacyDefaultId || story.isEdited || story.currentChapterNumber > 1) return false;
+  if ((story.lastReadChapter ?? 0) > 0 || (story.bookmarks?.length ?? 0) > 0) return false;
+  return !story.arcs.some(arc => arc.chapters.some(chapter =>
+    chapter.hasContent ||
+    Boolean(chapter.generatedContent) ||
+    chapter.status === 'read',
+  ));
+};
 
 const nextResolutionCheckpoint = (...timestamps: Array<string | undefined>): string => {
   const latest = timestamps.reduce((maximum, timestamp) => {

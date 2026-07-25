@@ -140,6 +140,18 @@ describe('cultivator portrait persistence', () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ daoXp: 0 });
   });
 
+  it('treats missing runtime text metadata as empty instead of throwing', async () => {
+    const portrait = await persistCultivatorPortrait(makeInput({
+      prompt: null as unknown as string,
+      description: undefined as unknown as string,
+    }));
+
+    expect(portrait.generation).toMatchObject({ prompt: '', description: '' });
+    expect(mocks.saveMediaAsset).toHaveBeenCalledWith(expect.objectContaining({
+      association: expect.objectContaining({ promptUsed: '', label: '' }),
+    }));
+  });
+
   it('rejects an unauthenticated or cross-account request before uploading', async () => {
     mocks.auth.currentUser = null;
     await expect(persistCultivatorPortrait(makeInput())).rejects.toThrow('does not own');

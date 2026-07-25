@@ -66,7 +66,19 @@ import {
 } from './mediaDeliveryHydrator';
 
 const PAGE_SIZE = 200;
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_PATTERN = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[1-8][0-9a-f]{3}-?[89ab][0-9a-f]{3}-?[0-9a-f]{12}$/i;
+
+function canonicalUuid(value: string): string {
+  const compact = value.replace(/-/g, '');
+  if (!UUID_PATTERN.test(compact)) return value;
+  return [
+    compact.slice(0, 8),
+    compact.slice(8, 12),
+    compact.slice(12, 16),
+    compact.slice(16, 20),
+    compact.slice(20),
+  ].join('-');
+}
 
 type RetiredMutationVariables = Record<string, unknown>;
 type RetiredMutationExecutor = (
@@ -354,7 +366,7 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
 
   private storyIdCandidates(storyId: string): string[] {
     return [...new Set([
-      ...(UUID_PATTERN.test(storyId) ? [storyId] : []),
+      ...(UUID_PATTERN.test(storyId) ? [canonicalUuid(storyId)] : []),
       persistenceUuid(storyId, 'story', storyId),
     ])];
   }

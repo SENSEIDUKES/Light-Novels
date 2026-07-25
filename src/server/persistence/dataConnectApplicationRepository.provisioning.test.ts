@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({
   seedGraph: null as any,
   chapterGraph: null as any,
   recoveryCalls: 0,
+  storyReadIds: [] as string[],
   receipts: new Map<string, any>(),
   executed: [] as string[],
   executedVars: [] as Array<{ name: string; variables: any }>,
@@ -122,7 +123,10 @@ vi.mock('../../generated/dataconnect-admin', () => ({
   SubscriptionTier: { MORTAL: 'MORTAL', OUTER_SECT: 'OUTER_SECT', INNER_SECT: 'INNER_SECT', SECT_MASTER: 'SECT_MASTER', IMMORTAL: 'IMMORTAL' },
   connectorConfig: {},
   adminGetUserProfileGraph: vi.fn(async () => ({ data: state.profileGraph ?? { profile: null, account: null, preferences: [], inventory: [], statusEffects: [], progressEvents: [] } })),
-  adminGetOwnedStoryGraph: vi.fn(async () => ({ data: state.storyGraph ?? { story: null } })),
+  adminGetOwnedStoryGraph: vi.fn(async ({ storyId }: any) => {
+    state.storyReadIds.push(storyId);
+    return { data: state.storyGraph ?? { story: null } };
+  }),
   adminGetPersistenceReceipt: vi.fn(async ({ idempotencyKey }: any) => ({ data: { persistenceReceipt: state.receipts.get(idempotencyKey) ?? null } })),
   adminListOwnedStories: vi.fn(async () => ({ data: { stories: [] } })),
   adminConsumeImageGenerationQuota: vi.fn(),
@@ -176,6 +180,7 @@ describe('canonical profile provisioning', () => {
     state.seedGraph = null;
     state.chapterGraph = null;
     state.recoveryCalls = 0;
+    state.storyReadIds = [];
     state.receipts.clear();
     state.executed = [];
     state.executedVars = [];
@@ -216,6 +221,19 @@ describe('canonical profile provisioning', () => {
     expect(state.executed).toContain('AdminUpsertStoryGraph');
     expect(state.executed.indexOf('AdminUpsertUserProfileGraph'))
       .toBeLessThan(state.executed.indexOf('AdminUpsertStoryGraph'));
+  });
+
+  it('canonicalizes compact UUIDs before direct story lookup', async () => {
+    state.profileGraph = emptyProfileGraph();
+    state.storyGraph = emptyStoryGraph();
+    const repo = makeRepo();
+
+    await expect(repo.getStory(
+      ownerUid,
+      '770b6a28d1ed4d4d926a86e592ef656d',
+    )).resolves.toBeTruthy();
+
+    expect(state.storyReadIds[0]).toBe('770b6a28-d1ed-4d4d-926a-86e592ef656d');
   });
 
   it('reads a newly committed seed directly while the list query is still stale', async () => {

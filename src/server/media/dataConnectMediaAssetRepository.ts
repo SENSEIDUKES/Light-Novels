@@ -65,7 +65,11 @@ import type {
 } from './mediaAssetRepository';
 import { validateMediaReservation } from './mediaAssetRepository';
 
-function canonicalUuid(value: string): string {
+function canonicalUuid(value: string): string;
+function canonicalUuid(value: null): null;
+function canonicalUuid(value: undefined): undefined;
+function canonicalUuid(value: string | null | undefined): string | null | undefined {
+  if (typeof value !== 'string') return value;
   const compact = value.replace(/-/g, '');
   if (!/^[0-9a-f]{32}$/i.test(compact)) return value;
   return [

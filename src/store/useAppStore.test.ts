@@ -338,18 +338,21 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().stories).toHaveLength(0);
   });
 
-  it('removes obsolete default stories without hiding valid account stories', async () => {
+  it('preserves edited default-derived stories while removing only obsolete shells', async () => {
     const store = useAppStore.getState();
     // mock user
     auth.currentUser = { uid: 'user1' };
     vi.mocked(storyStorage.getStories).mockResolvedValue([
       { id: 'demo-matrix-user1', isEdited: true, currentChapterNumber: 2, arcs: [], memory: {} } as any,
+      { id: 'demo-matrix-shell-user1', isEdited: false, currentChapterNumber: 1, arcs: [], memory: {} } as any,
       { id: 'valid-story', userId: 'user1', currentChapterNumber: 1, arcs: [], memory: {} } as any,
     ]);
     
     await store.initStorage();
-    expect(storyStorage.deleteStory).toHaveBeenCalledWith('demo-matrix-user1');
+    expect(storyStorage.deleteStory).toHaveBeenCalledWith('demo-matrix-shell-user1');
+    expect(storyStorage.deleteStory).not.toHaveBeenCalledWith('demo-matrix-user1');
     expect(useAppStore.getState().stories).toEqual([
+      expect.objectContaining({ id: 'demo-matrix-user1' }),
       expect.objectContaining({ id: 'valid-story' }),
     ]);
   });
@@ -372,8 +375,8 @@ describe('useAppStore', () => {
       privateAStory,
       {
         id: 'demo-matrix-legacy',
-        isEdited: true,
-        currentChapterNumber: 2,
+        isEdited: false,
+        currentChapterNumber: 1,
         arcs: [],
         memory: {},
       } as any,
