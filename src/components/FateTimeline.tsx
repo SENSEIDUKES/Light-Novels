@@ -200,11 +200,11 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
   const activeChapters = flatNodes.find(n => n.story.id === activeStoryId);
   const activeChapterCount = activeChapters ? getStoryChapterCount(activeChapters.story) : 0;
 
-  const goToStory = (storyId: string) => {
+  const goToStory = (storyId: string, chapterNumber?: number) => {
     const story = stories.find((candidate) => candidate.id === storyId);
     if (!story) return;
     setActiveStoryId(storyId);
-    setSelectedChapterNum(resolveReaderOpeningChapter(story));
+    setSelectedChapterNum(chapterNumber ?? resolveReaderOpeningChapter(story));
     onClose();
     setCurrentScreen('reader');
   };
@@ -428,10 +428,10 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();
-                              goToStory(node.story.id);
+                              goToStory(node.story.id, c);
                             }
                           }}
-                          onClick={() => goToStory(node.story.id)}
+                          onClick={() => goToStory(node.story.id, c)}
                         >
                           <span
                             className="block rounded-full transition-all"
@@ -590,7 +590,7 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
                               <button
                                 key={row.key}
                                 type="button"
-                                onClick={() => goToStory(row.storyId)}
+                                onClick={() => goToStory(row.storyId, row.chapterNumber)}
                                 className="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-black/50 border border-white/8 hover:border-portal/40 hover:bg-black/70 transition-all text-left group"
                               >
                                 <span
