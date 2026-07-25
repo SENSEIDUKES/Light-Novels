@@ -125,7 +125,9 @@ export const ReaderScreen: React.FC<{
   const [localChapterCache, setLocalChapterCache] = useState<
     Record<number, ChapterContent>
   >({});
-  const pendingFetches = React.useRef<Set<number>>(new Set());
+  const [localChapterCacheStoryId, setLocalChapterCacheStoryId] = useState<string | null>(null);
+  const selectedChapterCachedContent = localChapterCache[selectedChapterNum];
+  const pendingFetches = React.useRef<Set<string>>(new Set());
   const recapCheckedForStoryId = React.useRef<string | null>(null);
 
   // Reading time tracking state
@@ -236,8 +238,17 @@ export const ReaderScreen: React.FC<{
 
   // Word count calculations
   const chaptersWithLoadedContent = React.useMemo(() => {
-    return buildReaderChapters(activeStory, streamingChapter, localChapterCache);
-  }, [activeStory, streamingChapter, localChapterCache]);
+    const cacheForActiveStory = localChapterCacheStoryId === activeStory?.id
+      ? localChapterCache
+      : {};
+    return buildReaderChapters(activeStory, streamingChapter, cacheForActiveStory);
+  }, [activeStory, streamingChapter, localChapterCache, localChapterCacheStoryId]);
+
+  useEffect(() => {
+    pendingFetches.current.clear();
+    setLocalChapterCache({});
+    setLocalChapterCacheStoryId(activeStoryId);
+  }, [activeStoryId]);
 
   const getChapterWordCount = React.useCallback((ch: Chapter): number => {
     if (ch.blocks && ch.blocks.length > 0) {
@@ -347,29 +358,42 @@ export const ReaderScreen: React.FC<{
         !currentChapter.generatedContent &&
         (!currentChapter.blocks || currentChapter.blocks.length === 0)
       ) {
+        const hasCachedContent = (
+          localChapterCacheStoryId === activeStory.id
+          && Boolean(selectedChapterCachedContent)
+        );
         if (
-          !localChapterCache[selectedChapterNum] &&
-          !pendingFetches.current.has(selectedChapterNum)
+          !hasCachedContent &&
+          !pendingFetches.current.has(`${activeStory.id}:${selectedChapterNum}`)
         ) {
-          pendingFetches.current.add(selectedChapterNum);
+          const storyId = activeStory.id;
+          const cacheKey = `${storyId}:${selectedChapterNum}`;
+          pendingFetches.current.add(cacheKey);
           storyStorage
-            .getChapterContent(activeStory.id, selectedChapterNum)
+            .getChapterContent(storyId, selectedChapterNum)
             .then((content) => {
-              if (content) {
+              if (content && useAppStore.getState().activeStoryId === storyId) {
                 setLocalChapterCache((prev) => ({
                   ...prev,
                   [selectedChapterNum]: content,
                 }));
+                setLocalChapterCacheStoryId(storyId);
               }
             })
             .catch(console.error)
             .finally(() => {
-              pendingFetches.current.delete(selectedChapterNum);
+              pendingFetches.current.delete(cacheKey);
             });
         }
       }
     }
-  }, [activeStory, currentScreen, selectedChapterNum, localChapterCache]);
+  }, [
+    activeStory,
+    currentScreen,
+    selectedChapterNum,
+    selectedChapterCachedContent,
+    localChapterCacheStoryId,
+  ]);
 
   if (currentScreen !== "reader") return null;
 

@@ -24,6 +24,7 @@ import { FateTimeline } from "./FateTimeline";
 import { storyStorage } from "../lib/storage";
 import { getAuraTextStyle } from "../lib/qi";
 import { vibrate } from "../lib/vibration";
+import { resolveReaderOpeningChapter } from "../lib/readerNavigation";
 
 export const StoryDetailScreen: React.FC<{
   handleGenerateCover: (customModifier?: string) => Promise<
@@ -886,20 +887,7 @@ export const StoryDetailScreen: React.FC<{
               }}
               onClick={() => {
                 vibrate("softTap");
-                if (
-                  activeStory.lastReadChapter &&
-                  activeStory.lastReadChapter > 0
-                ) {
-                  setSelectedChapterNum(activeStory.lastReadChapter);
-                } else {
-                  const lastCh =
-                    activeStory.arcs[activeStory.arcs.length - 1].chapters.find(
-                      (c) => !(c.hasContent || !!c.generatedContent),
-                    )?.number ||
-                    activeStory.arcs[activeStory.arcs.length - 1].chapters[0]
-                      .number;
-                  setSelectedChapterNum(lastCh);
-                }
+                setSelectedChapterNum(resolveReaderOpeningChapter(activeStory));
                 setCurrentScreen("reader");
               }}
               className="group w-full sm:w-auto px-6 py-2.5 bg-signal hover:bg-white text-void font-sc font-bold uppercase tracking-widest rounded-full transition-all duration-300 flex items-center justify-center space-x-2 text-xs shadow-lg active:scale-95"

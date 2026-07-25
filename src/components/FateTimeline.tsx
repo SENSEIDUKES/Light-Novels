@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, GitBranch, Star, Search, ChevronRight, Compass, Play, ListTree } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { StoryWorld } from '../types';
+import { resolveReaderOpeningChapter } from '../lib/readerNavigation';
 
 interface FateTimelineProps {
   isOpen: boolean;
@@ -34,6 +35,7 @@ const FORK_ORDER: BranchKey[] = ['purple', 'red', 'gold', 'gray'];
 export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, activeStoryId }) => {
   const stories = useAppStore(state => state.stories);
   const setActiveStoryId = useAppStore(state => state.setActiveStoryId);
+  const setSelectedChapterNum = useAppStore(state => state.setSelectedChapterNum);
   const setCurrentScreen = useAppStore(state => state.setCurrentScreen);
 
   // UI-only local state (no persistent/global state introduced).
@@ -198,8 +200,11 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
   const activeChapters = flatNodes.find(n => n.story.id === activeStoryId);
   const activeChapterCount = activeChapters ? getStoryChapterCount(activeChapters.story) : 0;
 
-  const goToStory = (storyId: string) => {
+  const goToStory = (storyId: string, chapterNumber?: number) => {
+    const story = stories.find((candidate) => candidate.id === storyId);
+    if (!story) return;
     setActiveStoryId(storyId);
+    setSelectedChapterNum(chapterNumber ?? resolveReaderOpeningChapter(story));
     onClose();
     setCurrentScreen('reader');
   };
@@ -423,10 +428,10 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();
-                              goToStory(node.story.id);
+                              goToStory(node.story.id, c);
                             }
                           }}
-                          onClick={() => goToStory(node.story.id)}
+                          onClick={() => goToStory(node.story.id, c)}
                         >
                           <span
                             className="block rounded-full transition-all"
@@ -585,7 +590,7 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
                               <button
                                 key={row.key}
                                 type="button"
-                                onClick={() => goToStory(row.storyId)}
+                                onClick={() => goToStory(row.storyId, row.chapterNumber)}
                                 className="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-black/50 border border-white/8 hover:border-portal/40 hover:bg-black/70 transition-all text-left group"
                               >
                                 <span

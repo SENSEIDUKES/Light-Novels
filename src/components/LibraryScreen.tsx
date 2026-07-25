@@ -7,6 +7,7 @@ import { Story } from '../types';
 import { getDaoRankData, getAuraTextStyle } from '../lib/qi';
 import { PRESET_CHALLENGES } from '../data/challenges';
 import { auth } from '../lib/firebase';
+import { resolveReaderOpeningChapter } from '../lib/readerNavigation';
 
 function getStoryChapterStats(story?: Story | null) {
   let totalChapters = 0;
@@ -166,16 +167,8 @@ export const LibraryScreen: React.FC = () => {
   const handleResumeReading = (story: Story) => {
     setActiveStoryId(story.id);
     useAppStore.setState({ activeStoryId: story.id });
-    
-    let resumeChapterNum = 1;
-    const flatChapters = story.arcs.flatMap(arc => arc.chapters).sort((a,b) => a.number - b.number);
-    const unreadChapter = flatChapters.find(c => c.status !== 'read');
-    if (unreadChapter) {
-      resumeChapterNum = unreadChapter.number;
-    } else if (flatChapters.length > 0) {
-      resumeChapterNum = flatChapters[flatChapters.length - 1].number;
-    }
-    useAppStore.setState({ selectedChapterNum: resumeChapterNum });
+
+    useAppStore.setState({ selectedChapterNum: resolveReaderOpeningChapter(story) });
     setCurrentScreen('reader');
   };
 
