@@ -831,16 +831,28 @@ export default function ReaderChamber({
       : "reading-focus-dimmed";
   };
 
+  const getParticleCount = () => {
+    switch (currentPrefs.particleIntensity) {
+      case 'off': return 0;
+      case 'low': return 15;
+      case 'high': return 80;
+      default: return 40; // 'default' or undefined
+    }
+  };
+  const particleCount = getParticleCount();
+
   return (
     <div
       className={`flex flex-col min-h-[85dvh] rounded-t-xl transition-colors duration-500 relative overflow-hidden ${getThemeClasses()} ${isShaking ? "animate-screen-shake" : ""}`}
       id="reader-chamber-root"
     >
-      <ParticleSystem
-        count={40}
-        className="opacity-20 pointer-events-none mix-blend-screen z-0 transition-colors duration-500"
-        color={getParticleColor()}
-      />
+      {particleCount > 0 && (
+        <ParticleSystem
+          count={particleCount}
+          className="opacity-20 pointer-events-none mix-blend-screen z-0 transition-colors duration-500"
+          color={getParticleColor()}
+        />
+      )}
 
       {/* HEADER: Readability & Chapter Title */}
       {!isReaderFullscreen && (
