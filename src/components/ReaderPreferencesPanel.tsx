@@ -209,18 +209,34 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
           </section>
 
           <section className="space-y-6 rounded-xl border border-neutral-800 bg-[#070a0d]/80 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.2)]">
-            <PreferenceGroup label="Ambient Particles" icon={<Sparkles size={13} />} summary={currentPrefs.ambientParticles || 'normal'}>
+            <PreferenceGroup
+              label="Ambient Particles"
+              icon={<Sparkles size={13} />}
+              summary={
+                { hidden: 'Hidden', normal: 'Normal', radiant: 'Radiant' }[
+                  currentPrefs.ambientParticles || 'normal'
+                ]
+              }
+            >
               <div className="grid gap-1.5">
                 {[
                   { value: 'hidden', label: 'Hidden' },
                   { value: 'normal', label: 'Normal' },
                   { value: 'radiant', label: 'Radiant' }
-                ].map((opt) => (
-                  <button key={opt.value} type="button" onClick={() => handleUpdatePreference('ambientParticles', opt.value as ReaderPreferences['ambientParticles'])} className={choiceClass((currentPrefs.ambientParticles || 'normal') === opt.value)}>
-                    <span>{opt.label}</span>
-                    {(currentPrefs.ambientParticles || 'normal') === opt.value ? <Check size={12} /> : null}
-                  </button>
-                ))}
+                ].map((opt) => {
+                  const isActive = (currentPrefs.ambientParticles || 'normal') === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => handleUpdatePreference('ambientParticles', opt.value as ReaderPreferences['ambientParticles'])}
+                      className={choiceClass(isActive)}
+                    >
+                      <span>{opt.label}</span>
+                      {isActive ? <Check size={12} /> : null}
+                    </button>
+                  );
+                })}
               </div>
             </PreferenceGroup>
           </section>
