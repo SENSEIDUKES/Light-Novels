@@ -851,6 +851,7 @@ export interface ReaderPreferences {
   themeOverride?: "void" | "crimson" | "abyss" | "sepia" | "emerald";
   colorPaletteId?: "default" | "protanopia" | "deuteranopia" | "tritanopia" | "high_contrast_dark";
   highlightStyle?: "full" | "underline" | "tint";
+  ambientParticles?: "hidden" | "normal" | "radiant";
 }
 
 export interface ReaderAccessibilitySettings {

@@ -836,11 +836,13 @@ export default function ReaderChamber({
       className={`flex flex-col min-h-[85dvh] rounded-t-xl transition-colors duration-500 relative overflow-hidden ${getThemeClasses()} ${isShaking ? "animate-screen-shake" : ""}`}
       id="reader-chamber-root"
     >
-      <ParticleSystem
-        count={40}
-        className="opacity-20 pointer-events-none mix-blend-screen z-0 transition-colors duration-500"
-        color={getParticleColor()}
-      />
+      {currentPrefs.ambientParticles !== "hidden" && (
+        <ParticleSystem
+          count={currentPrefs.ambientParticles === "radiant" ? 80 : 40}
+          className={`${currentPrefs.ambientParticles === "radiant" ? "opacity-40" : "opacity-20"} pointer-events-none mix-blend-screen z-0 transition-colors duration-500`}
+          color={getParticleColor()}
+        />
+      )}
 
       {/* HEADER: Readability & Chapter Title */}
       {!isReaderFullscreen && (
