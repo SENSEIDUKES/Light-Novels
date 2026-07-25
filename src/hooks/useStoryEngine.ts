@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { StoryMemory, StoryWorld } from '../types';
 import { awardQi } from '../lib/qi';
@@ -25,6 +26,8 @@ export const useStoryEngine = () => {
   const { handleGenerateBlueprint, handleStartStory } = useStoryGeneration();
   const { handleGenerateCover, handleApplyCover } = useVisualAssets();
   const { handleCheckConsistency, handleSealChapter } = useChapterSealing();
+
+  const isTogglingReadRef = useRef(false);
 
   /**
    * Replaces the story's memory explicitly.
@@ -57,10 +60,13 @@ export const useStoryEngine = () => {
   };
 
   const handleToggleRead = async (charNum: number) => {
-    const state = useAppStore.getState();
-    const activeStory = state.stories.find(s => s.id === state.activeStoryId);
-    if (!activeStory) return;
-    const updated = state.stories.map(s => {
+    if (isTogglingReadRef.current) return;
+    isTogglingReadRef.current = true;
+    try {
+      const state = useAppStore.getState();
+      const activeStory = state.stories.find(s => s.id === state.activeStoryId);
+      if (!activeStory) return;
+      const updated = state.stories.map(s => {
       if (s.id === activeStory.id) {
         return {
           ...s,
@@ -85,10 +91,13 @@ export const useStoryEngine = () => {
           })),
           updatedAt: new Date().toISOString()
         };
-      }
-      return s;
-    });
-    await state.saveStories(updated);
+        }
+        return s;
+      });
+      await state.saveStories(updated);
+    } finally {
+      isTogglingReadRef.current = false;
+    }
   };
 
   return {
