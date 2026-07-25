@@ -1865,18 +1865,14 @@ export class PersistentStorageManager implements StorageAdapter {
     }
 
     if (localTime > cloudTime) {
-      if (
-        this.syncQueue.some(
-          (task) =>
-            task.type === "chapter" &&
-            task.storyId === localStory.id &&
-            task.userId === (localStory.userId ?? this.getCurrentUserId()),
-        )
-      ) {
-        // Existing parent documents can wait: publish the chapter body first,
-        // then let the queued story task act as the realtime heartbeat.
-        return "ok";
-      }
+      // Publish the newer local story unconditionally. This used to defer to a
+      // queued chapter task, expecting the retired heartbeat's trailing story
+      // write to carry the parent up afterwards; with that write gone, deferring
+      // left a story ahead of the cloud with nothing left to publish it. The
+      // ordering constraint runs the other way — chapter content needs its
+      // relational story scaffold first — so a story write here is always safe,
+      // and a pending story task that follows finds the revisions already level
+      // and acknowledges without a second write.
       const preparedStory = await this.ensureStorySyncRevision(localStory);
       const cloudPayload = JSON.parse(JSON.stringify(preparedStory));
       const ok = await this.cloudWriteIfUnchanged(

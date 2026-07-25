@@ -618,6 +618,55 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     });
   });
 
+  it('publishes a newer local story even while a chapter body is queued', async () => {
+    // This branch used to defer to the retired heartbeat's trailing parent
+    // write. With that write gone, deferring left the local story permanently
+    // ahead of the cloud with nothing left to publish it. The ordering
+    // constraint runs the other way: a chapter body needs its story scaffold.
+    let storedStory: any = null;
+    let storedChapter: any = null;
+    mocks.idb.getStories.mockImplementation(async () => (storedStory ? [storedStory] : []));
+    mocks.idb.getStory.mockImplementation(async () => storedStory);
+    mocks.idb.saveStory.mockImplementation(async (story: any) => {
+      storedStory = JSON.parse(JSON.stringify(story));
+    });
+    mocks.idb.getChapterContent.mockImplementation(async () => storedChapter);
+    mocks.idb.saveChapterContent.mockImplementation(async (content: any) => {
+      storedChapter = JSON.parse(JSON.stringify(content));
+    });
+
+    mocks.auth.currentUser = { uid: 'reader' };
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    await vi.waitFor(() => expect((manager as any).activeSyncPromise).toBeNull());
+    (manager as any).activeSyncUserId = 'reader';
+    (manager as any).isCloudAvailable = false;
+
+    await manager.saveChapterContent({
+      storyId: 'shared-story',
+      chapterNumber: 1,
+      generatedContent: 'Body',
+    } as any);
+    storedStory = makeStory({ updatedAt: '2026-02-01T00:00:00.000Z' }) as any;
+    expect((manager as any).syncQueue).toEqual([
+      expect.objectContaining({ type: 'chapter' }),
+    ]);
+
+    (manager as any).isCloudAvailable = true;
+    const outcome = await (manager as any).reconcileStory(
+      storedStory,
+      makeStory({ updatedAt: '2026-01-01T00:00:00.000Z', syncRevision: 'cloud-rev' }),
+    );
+
+    expect(outcome).toBe('ok');
+    expect(mocks.cloud.saveStoryIfUnchanged).toHaveBeenCalledTimes(1);
+    expect(mocks.cloud.saveStoryIfUnchanged.mock.calls[0][0]).toMatchObject({
+      id: 'shared-story',
+      updatedAt: '2026-02-01T00:00:00.000Z',
+    });
+    manager.dispose();
+  });
+
   it('keeps Codex media descriptors when a catalog summary is merged over a story', () => {
     // listStories() returns compact summaries that only carry the story cover.
     // Replacing the local descriptor map with that summary map erased every

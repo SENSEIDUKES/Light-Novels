@@ -201,6 +201,100 @@ describe('DataConnectStorageAdapter', () => {
     ).resolves.toBeNull();
   });
 
+  // A world card routinely carries a provider preview URL that the chapter
+  // graph drops on write anyway. Rejecting the payload lost the entire body —
+  // prose, system events, every immersion annotation — with no repair path.
+  it('drops a transient worldCard image instead of failing the chapter save', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ content: chapter }));
+    const preview = 'https://image.pollinations.ai/prompt/lin';
+
+    await adapter.saveChapterContentIfUnchanged(
+      {
+        ...chapter,
+        blocks: [{
+          id: 'block-1',
+          type: 'system',
+          text: '[Level Up]',
+          system: { kind: 'level_up', title: 'LEVEL UP' },
+          worldCard: {
+            entityType: 'character',
+            entityName: 'Lin',
+            displayTitle: 'Lin',
+            imageUrl: preview,
+          },
+        }],
+      } as unknown as ChapterContent,
+      { exists: true, updatedAt: null, syncRevision: null },
+    );
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body.content.blocks[0].worldCard).not.toHaveProperty('imageUrl');
+    // Only the offending field is dropped: the block and its event survive.
+    expect(body.content.blocks[0]).toMatchObject({
+      id: 'block-1',
+      text: '[Level Up]',
+      system: { kind: 'level_up', title: 'LEVEL UP' },
+      worldCard: { entityName: 'Lin', displayTitle: 'Lin' },
+    });
+    expect(JSON.stringify(body)).not.toContain(preview);
+  });
+
+  it('still rejects a chapter body carrying embedded binary media', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ content: chapter }));
+
+    await expect(adapter.saveChapterContentIfUnchanged(
+      {
+        ...chapter,
+        blocks: [{
+          id: 'block-1',
+          type: 'prose',
+          text: 'Body',
+          // Not a known transient media field, so it must still fail loudly.
+          metadata: { audioSignature: 'data:image/png;base64,iVBORw0KGgo=' },
+        }],
+      } as unknown as ChapterContent,
+      { exists: true, updatedAt: null, syncRevision: null },
+    )).rejects.toBeInstanceOf(PermanentPersistencePayloadError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps a story patch free of delivery-field noise', async () => {
+    // The baseline is the server-hydrated story (live signed URLs); the payload
+    // is the prepared one (URLs stripped, descriptors blanked). Diffing them
+    // raw restated a remove/replace for every delivery field on every write,
+    // burning the bounded patch budget a real edit needs.
+    const hydrated = {
+      id: story.id,
+      title: 'The First Story',
+      updatedAt: '2026-07-25T10:00:00.000Z',
+      syncRevision: 'rev-1',
+      coverAssetId: 'asset-cover-1',
+      imageUrl: 'https://r2.example/cover.png?X-Amz-Signature=abc',
+      mediaDescriptors: {
+        'asset-cover-1': { id: 'asset-cover-1', deliveryUrl: 'https://r2.example/cover.png?X-Amz-Signature=abc' },
+      },
+      memory: { characters: [{ id: 'lin', name: 'Lin', imageAssetId: 'asset-lin-1', imageUrl: 'https://r2.example/lin.png?X-Amz-Signature=xyz' }] },
+    } as unknown as StoryWorld;
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ story: hydrated }))
+      .mockResolvedValueOnce(jsonResponse({ story: hydrated }));
+
+    await adapter.getStory(story.id);
+    await adapter.saveStoryIfUnchanged(
+      {
+        ...hydrated,
+        title: 'Renamed',
+        imageUrl: undefined,
+        mediaDescriptors: { 'asset-cover-1': { id: 'asset-cover-1', deliveryUrl: '' } },
+        memory: { characters: [{ id: 'lin', name: 'Lin', imageAssetId: 'asset-lin-1' }] },
+      } as unknown as StoryWorld,
+      { exists: true, updatedAt: hydrated.updatedAt, syncRevision: 'rev-1' },
+    );
+
+    const body = JSON.parse(fetchMock.mock.calls[1][1].body as string);
+    expect(body.patch).toEqual([{ op: 'replace', path: '/title', value: 'Renamed' }]);
+  });
+
   it('implements glossary list, single-save, batch-save, and delete routes', async () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ terms: [glossaryTerm] }))
