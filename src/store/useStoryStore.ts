@@ -238,8 +238,14 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
       if (!hydrated || hydrated.persistenceHydration === 'summary') return;
       if (!LOCAL_ONLY_MODE && auth.currentUser?.uid !== expectedUid) return;
       set({
+        // Re-check the hydration state inside the map, not before the await: a
+        // completed generation or a background sync may have replaced the
+        // summary while this read was in flight, and that copy is newer than
+        // the one being applied here.
         stories: get().stories.map(story =>
-          story.id === storyId ? { ...story, ...hydrated } : story,
+          story.id === storyId && story.persistenceHydration === 'summary'
+            ? { ...story, ...hydrated }
+            : story,
         ),
       });
     } catch (error) {
