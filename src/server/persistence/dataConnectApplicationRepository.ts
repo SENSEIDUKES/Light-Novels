@@ -66,6 +66,19 @@ import {
 } from './mediaDeliveryHydrator';
 
 const PAGE_SIZE = 200;
+const UUID_PATTERN = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[1-8][0-9a-f]{3}-?[89ab][0-9a-f]{3}-?[0-9a-f]{12}$/i;
+
+function canonicalUuid(value: string): string {
+  const compact = value.replace(/-/g, '');
+  if (!UUID_PATTERN.test(compact)) return value;
+  return [
+    compact.slice(0, 8),
+    compact.slice(8, 12),
+    compact.slice(12, 16),
+    compact.slice(16, 20),
+    compact.slice(20),
+  ].join('-');
+}
 
 type RetiredMutationVariables = Record<string, unknown>;
 type RetiredMutationExecutor = (
@@ -351,7 +364,18 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     return null;
   }
 
+  private storyIdCandidates(storyId: string): string[] {
+    return [...new Set([
+      ...(UUID_PATTERN.test(storyId) ? [canonicalUuid(storyId)] : []),
+      persistenceUuid(storyId, 'story', storyId),
+    ])];
+  }
+
   private async resolveStoryId(ownerUid: string, storyId: string): Promise<string | null> {
+    for (const candidate of this.storyIdCandidates(storyId)) {
+      const direct = await adminGetOwnedStoryGraph({ ownerUid, storyId: candidate });
+      if (direct.data.story) return direct.data.story.id;
+    }
     const match = (await this.listStoryRows(ownerUid)).find(row =>
       row.id === storyId || row.clientStoryId === storyId || row.legacyStoryId === storyId,
     );
@@ -359,6 +383,10 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
   }
 
   private async storyGraph(ownerUid: string, storyId: string): Promise<AdminGetOwnedStoryGraphData | null> {
+    for (const candidate of this.storyIdCandidates(storyId)) {
+      const direct = await adminGetOwnedStoryGraph({ ownerUid, storyId: candidate });
+      if (direct.data.story) return direct.data;
+    }
     const resolved = await this.resolveStoryId(ownerUid, storyId);
     if (!resolved) return null;
     const result = await adminGetOwnedStoryGraph({ ownerUid, storyId: resolved });
@@ -644,9 +672,13 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
       storyId: storyGraph.story.id,
       content: { ...content, storyId: storyGraph.story.clientStoryId ?? content.storyId },
       currentGraph: currentResult.data,
-      expectedSyncRevision: currentResult.data.chapter?.syncRevision ?? null,
+      // The retired chapter mutation advances the parent Story aggregate guard,
+      // not the Chapter row guard. A newly scaffolded chapter intentionally has
+      // no sync revision yet, while its Story already does; comparing the Story
+      // against the Chapter's null revision rejects the first content write.
+      expectedSyncRevision: storyGraph.story.syncRevision ?? null,
       newSyncRevision: syncRevisionFor(ownerUid, operation, context.idempotencyKey),
-      newRevision: revisionAfter(currentResult.data.chapter?.revision),
+      newRevision: revisionAfter(storyGraph.story.revision),
       idempotencyKey: context.idempotencyKey,
       requestHash: hash,
     });
@@ -736,6 +768,20 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     return result.data.storySeed && !result.data.storySeed.deletedAt ? result.data : null;
   }
 
+  private async readSeedAfterWrite(
+    ownerUid: string,
+    seedId: string,
+  ): Promise<StorySeed | null> {
+    for (const delayMs of [0, 100, 300, 750]) {
+      if (delayMs > 0) await delay(delayMs);
+      const result = await adminGetOwnedStorySeedGraph({ ownerUid, seedId });
+      if (result.data.storySeed && !result.data.storySeed.deletedAt) {
+        return hydrateStorySeed(result.data);
+      }
+    }
+    return null;
+  }
+
   async listSeeds(ownerUid: string): Promise<StorySeed[]> {
     const rows = (await this.listSeedRows(ownerUid)).filter(row => !row.deletedAt);
     const seeds = await Promise.all(rows.map(async row => {
@@ -762,13 +808,13 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     await this.provisionCanonicalProfile(ownerUid);
     const operation = 'UPSERT_STORY_SEED_GRAPH';
     const hash = mutationIntentHash(operation, ownerUid, seed, context.expected);
+    const seedId = await this.resolveSeedId(ownerUid, seed.id)
+      ?? persistenceUuid(seed.id, 'seed', ownerUid);
     if (await this.receipt(ownerUid, context.idempotencyKey, operation, hash)) {
-      const replay = await this.getSeed(ownerUid, seed.id);
+      const replay = await this.readSeedAfterWrite(ownerUid, seedId);
       if (!replay) throw new Error('Story seed persistence receipt exists without its graph.');
       return replay;
     }
-    const seedId = await this.resolveSeedId(ownerUid, seed.id)
-      ?? persistenceUuid(seed.id, 'seed', ownerUid);
     const currentResult = await adminGetOwnedStorySeedGraph({ ownerUid, seedId });
     const current = currentResult.data.storySeed ? currentResult.data : null;
     if (current?.storySeed.deletedAt) {
@@ -789,7 +835,7 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
       operation, ownerUid, context.idempotencyKey,
       variables as unknown as RetiredMutationVariables, hash,
     );
-    const saved = await this.getSeed(ownerUid, seedId);
+    const saved = await this.readSeedAfterWrite(ownerUid, seedId);
     if (!saved) throw new Error('Story seed committed but could not be read back.');
     return saved;
   }
@@ -1058,12 +1104,14 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
   }
 
   async recoverPortraits(ownerUid: string, idempotencyKey: string): Promise<number> {
-    if (await this.receipt(ownerUid, idempotencyKey, 'RECOVER_USER_PORTRAITS')) return 0;
+    const operation = 'RECOVER_PENDING_USER_PORTRAITS';
+    await this.provisionCanonicalProfile(ownerUid);
+    if (await this.receipt(ownerUid, idempotencyKey, operation)) return 0;
     try {
       const result = await adminRecoverPendingUserPortraits({ ownerUid, idempotencyKey });
       return result.data.recovered ?? 0;
     } catch (error) {
-      if (await this.receipt(ownerUid, idempotencyKey, 'RECOVER_USER_PORTRAITS')) return 0;
+      if (await this.receipt(ownerUid, idempotencyKey, operation)) return 0;
       throw error;
     }
   }

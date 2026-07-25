@@ -1595,6 +1595,7 @@ mutation AdminCommitMediaAssetToSlot(
   $arcTitle: String
   $label: String
   $position: Int!
+  $requestedBytes: Int64!
   $expectedCurrentAssetId: UUID
   $expectedSlotVersion: Int64
   $newSlotVersion: Int64!
@@ -1680,37 +1681,88 @@ mutation AdminCommitMediaAssetToSlot(
     key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
     data: { status: "succeeded", updatedAt_expr: "request.time" }
   )
-  committedQuota: _execute(
+  committedReservation: _executeReturningFirst(
     sql: """
-      WITH committed AS (
-        UPDATE storage_quota_reservation
-        SET status = 'COMMITTED', completed_at = NOW(), updated_at = NOW()
-        WHERE id = $1 AND owner_uid = $2 AND asset_id = $3 AND status = 'RESERVED'
-        RETURNING requested_bytes, story_id
-      ), story_usage AS (
-        INSERT INTO story_storage_usage (
-          story_id, owner_uid, used_bytes, reserved_bytes, asset_count, updated_at
-        )
-        SELECT committed.story_id, $2, committed.requested_bytes, 0, 1, NOW()
-        FROM committed
-        WHERE committed.story_id IS NOT NULL
-        ON CONFLICT (story_id) DO UPDATE SET
-          used_bytes = story_storage_usage.used_bytes + EXCLUDED.used_bytes,
-          asset_count = story_storage_usage.asset_count + 1,
-          updated_at = NOW()
-        RETURNING story_id
+      UPDATE storage_quota_reservation
+      SET status = 'COMMITTED', completed_at = NOW(), updated_at = NOW()
+      WHERE id = $1 AND owner_uid = $2 AND asset_id = $3
+        AND requested_bytes = $4 AND status = 'RESERVED'
+      RETURNING id
+    """
+    params: [$quotaReservationId, $ownerUid, $id, $requestedBytes]
+  ) @check(expr: "this != null", message: "Quota reservation could not be committed")
+  storyUsage: _executeReturningFirst(
+    sql: """
+      INSERT INTO story_storage_usage (
+        story_id, owner_uid, used_bytes, reserved_bytes, asset_count, updated_at
       )
+      VALUES ($1, $2, $3, 0, 1, NOW())
+      ON CONFLICT (story_id) DO UPDATE SET
+        used_bytes = story_storage_usage.used_bytes + EXCLUDED.used_bytes,
+        asset_count = story_storage_usage.asset_count + 1,
+        updated_at = NOW()
+      RETURNING story_id
+    """
+    params: [$storyId, $ownerUid, $requestedBytes]
+  ) @check(expr: "this != null", message: "Story quota usage could not be committed")
+  committedQuota: _executeReturningFirst(
+    sql: """
       UPDATE user_storage_usage AS usage
-      SET reserved_bytes = GREATEST(0, usage.reserved_bytes - committed.requested_bytes),
-          used_bytes = usage.used_bytes + committed.requested_bytes,
+      SET reserved_bytes = GREATEST(0, usage.reserved_bytes - $2),
+          used_bytes = usage.used_bytes + $2,
           asset_count = usage.asset_count + 1,
           revision = usage.revision + 1,
           updated_at = NOW()
-      FROM committed
-      WHERE usage.user_uid = $2
+      WHERE usage.user_uid = $1
+      RETURNING usage.user_uid
     """
-    params: [$quotaReservationId, $ownerUid, $id]
-  ) @check(expr: "this == 1", message: "Quota reservation could not be committed")
+    params: [$ownerUid, $requestedBytes]
+  ) @check(expr: "this != null", message: "Quota reservation could not be committed")
+}
+
+mutation AdminCommitAccountMediaAsset(
+  $id: UUID!
+  $ownerUid: String!
+  $quotaReservationId: UUID!
+  $idempotencyKey: String!
+  $etag: String
+  $requestedBytes: Int64!
+) @auth(level: NO_ACCESS) @transaction {
+  mediaAsset_update(
+    id: $id
+    data: { status: READY, etag: $etag, readyAt_expr: "request.time", updatedAt_expr: "request.time" }
+  )
+  mediaUploadAttempt_updateMany(
+    where: { assetId: { eq: $id }, status: { eq: "uploading" } }
+    data: { status: "succeeded", completedAt_expr: "request.time" }
+  )
+  mediaUploadReceipt_update(
+    key: { ownerUid: $ownerUid, idempotencyKey: $idempotencyKey }
+    data: { status: "succeeded", updatedAt_expr: "request.time" }
+  )
+  committedReservation: _executeReturningFirst(
+    sql: """
+      UPDATE storage_quota_reservation
+      SET status = 'COMMITTED', completed_at = NOW(), updated_at = NOW()
+      WHERE id = $1 AND owner_uid = $2 AND asset_id = $3
+        AND requested_bytes = $4 AND status = 'RESERVED'
+      RETURNING id
+    """
+    params: [$quotaReservationId, $ownerUid, $id, $requestedBytes]
+  ) @check(expr: "this != null", message: "Quota reservation could not be committed")
+  committedQuota: _executeReturningFirst(
+    sql: """
+      UPDATE user_storage_usage AS usage
+      SET reserved_bytes = GREATEST(0, usage.reserved_bytes - $2),
+          used_bytes = usage.used_bytes + $2,
+          asset_count = usage.asset_count + 1,
+          revision = usage.revision + 1,
+          updated_at = NOW()
+      WHERE usage.user_uid = $1
+      RETURNING usage.user_uid
+    """
+    params: [$ownerUid, $requestedBytes]
+  ) @check(expr: "this != null", message: "Quota reservation could not be committed")
 }
 
 mutation AdminSelectOwnedMediaSlotAsset(

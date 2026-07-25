@@ -338,17 +338,23 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().stories).toHaveLength(0);
   });
 
-  it('initStorage works with user', async () => {
+  it('preserves edited default-derived stories while removing only obsolete shells', async () => {
     const store = useAppStore.getState();
     // mock user
     auth.currentUser = { uid: 'user1' };
     vi.mocked(storyStorage.getStories).mockResolvedValue([
-      { id: 'demo-matrix-test', isEdited: true, currentChapterNumber: 2, arcs: [], memory: {} } as any
+      { id: 'demo-matrix-user1', isEdited: true, currentChapterNumber: 2, arcs: [], memory: {} } as any,
+      { id: 'demo-matrix-shell-user1', isEdited: false, currentChapterNumber: 1, arcs: [], memory: {} } as any,
+      { id: 'valid-story', userId: 'user1', currentChapterNumber: 1, arcs: [], memory: {} } as any,
     ]);
     
     await store.initStorage();
-    // Should migrate test demo
-    expect(storyStorage.deleteStory).toHaveBeenCalledWith('demo-matrix-test');
+    expect(storyStorage.deleteStory).toHaveBeenCalledWith('demo-matrix-shell-user1');
+    expect(storyStorage.deleteStory).not.toHaveBeenCalledWith('demo-matrix-user1');
+    expect(useAppStore.getState().stories).toEqual([
+      expect.objectContaining({ id: 'demo-matrix-user1' }),
+      expect.objectContaining({ id: 'valid-story' }),
+    ]);
   });
 
   it('does not republish an old account library when demo migration finishes after auth changes', async () => {
@@ -369,8 +375,8 @@ describe('useAppStore', () => {
       privateAStory,
       {
         id: 'demo-matrix-legacy',
-        isEdited: true,
-        currentChapterNumber: 2,
+        isEdited: false,
+        currentChapterNumber: 1,
         arcs: [],
         memory: {},
       } as any,
@@ -396,6 +402,21 @@ describe('useAppStore', () => {
     
     await store.migrateOrDiscardDemoStories({ uid: 'user2' } as any);
     expect(storyStorage.deleteStory).toHaveBeenCalledWith('demo-matrix-discard');
+  });
+
+  it('removes obsolete challenge story shells while preserving the live challenge feature', async () => {
+    const store = useAppStore.getState();
+    store.setStories([
+      { id: 'challenge-prince-die-user2', currentChapterNumber: 1, arcs: [], memory: {} } as any,
+      { id: 'authored-story', userId: 'user2', currentChapterNumber: 1, arcs: [], memory: {} } as any,
+    ]);
+
+    await store.migrateOrDiscardDemoStories({ uid: 'user2' } as any);
+
+    expect(storyStorage.deleteStory).toHaveBeenCalledWith('challenge-prince-die-user2');
+    expect(useAppStore.getState().stories).toEqual([
+      expect.objectContaining({ id: 'authored-story' }),
+    ]);
   });
 
   it('resolves a cloud conflict and refreshes stories after syncing', async () => {

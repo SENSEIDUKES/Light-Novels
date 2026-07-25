@@ -204,6 +204,23 @@ export interface AdminClaimStoryDeletionJobVariables {
   stage: StoryDeletionStageKind;
 }
 
+export interface AdminCommitAccountMediaAssetData {
+  mediaAsset_update?: MediaAsset_Key | null;
+  mediaUploadAttempt_updateMany: number;
+  mediaUploadReceipt_update?: MediaUploadReceipt_Key | null;
+  committedReservation?: unknown | null;
+  committedQuota?: unknown | null;
+}
+
+export interface AdminCommitAccountMediaAssetVariables {
+  id: UUIDString;
+  ownerUid: string;
+  quotaReservationId: UUIDString;
+  idempotencyKey: string;
+  etag?: string | null;
+  requestedBytes: Int64String;
+}
+
 export interface AdminCommitMediaAssetReadyData {
   assetReady?: MediaAsset_Key | null;
   mediaAttachment_insert: MediaAttachment_Key;
@@ -254,7 +271,9 @@ export interface AdminCommitMediaAssetToSlotData {
   mediaSlot_upsert: MediaSlot_Key;
   mediaUploadAttempt_updateMany: number;
   mediaUploadReceipt_update?: MediaUploadReceipt_Key | null;
-  committedQuota?: number | null;
+  committedReservation?: unknown | null;
+  storyUsage?: unknown | null;
+  committedQuota?: unknown | null;
 }
 
 export interface AdminCommitMediaAssetToSlotVariables {
@@ -277,6 +296,7 @@ export interface AdminCommitMediaAssetToSlotVariables {
   arcTitle?: string | null;
   label?: string | null;
   position: number;
+  requestedBytes: Int64String;
   expectedCurrentAssetId?: UUIDString | null;
   expectedSlotVersion?: Int64String | null;
   newSlotVersion: Int64String;
@@ -2883,6 +2903,11 @@ export function adminReserveMediaAssetIdempotent(vars: AdminReserveMediaAssetIde
 export function adminCommitMediaAssetToSlot(dc: DataConnect, vars: AdminCommitMediaAssetToSlotVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminCommitMediaAssetToSlotData>>;
 /** Generated Node Admin SDK operation action function for the 'AdminCommitMediaAssetToSlot' Mutation. Allow users to pass in custom DataConnect instances. */
 export function adminCommitMediaAssetToSlot(vars: AdminCommitMediaAssetToSlotVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminCommitMediaAssetToSlotData>>;
+
+/** Generated Node Admin SDK operation action function for the 'AdminCommitAccountMediaAsset' Mutation. Allow users to execute without passing in DataConnect. */
+export function adminCommitAccountMediaAsset(dc: DataConnect, vars: AdminCommitAccountMediaAssetVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminCommitAccountMediaAssetData>>;
+/** Generated Node Admin SDK operation action function for the 'AdminCommitAccountMediaAsset' Mutation. Allow users to pass in custom DataConnect instances. */
+export function adminCommitAccountMediaAsset(vars: AdminCommitAccountMediaAssetVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminCommitAccountMediaAssetData>>;
 
 /** Generated Node Admin SDK operation action function for the 'AdminSelectOwnedMediaSlotAsset' Mutation. Allow users to execute without passing in DataConnect. */
 export function adminSelectOwnedMediaSlotAsset(dc: DataConnect, vars: AdminSelectOwnedMediaSlotAssetVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminSelectOwnedMediaSlotAssetData>>;

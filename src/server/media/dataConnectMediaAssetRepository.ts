@@ -1,7 +1,9 @@
+import { setTimeout as delay } from 'node:timers/promises';
 import {
   adminAdvanceStoryDeletionJob,
   adminClaimMediaCleanupTask,
   adminClaimStoryDeletionJob,
+  adminCommitAccountMediaAsset,
   adminCommitMediaAssetToSlot,
   adminCompleteMediaCleanup,
   adminCompleteMediaDeletionIntent,
@@ -63,9 +65,29 @@ import type {
 } from './mediaAssetRepository';
 import { validateMediaReservation } from './mediaAssetRepository';
 
+function canonicalUuid(value: string): string;
+function canonicalUuid(value: null): null;
+function canonicalUuid(value: undefined): undefined;
+function canonicalUuid(value: string | null | undefined): string | null | undefined {
+  if (typeof value !== 'string') return value;
+  const compact = value.replace(/-/g, '');
+  if (!/^[0-9a-f]{32}$/i.test(compact)) return value;
+  return [
+    compact.slice(0, 8),
+    compact.slice(8, 12),
+    compact.slice(12, 16),
+    compact.slice(16, 20),
+    compact.slice(20),
+  ].join('-');
+}
+
 function mapAsset(value: NonNullable<Awaited<ReturnType<typeof adminGetOwnedMediaAsset>>['data']['mediaAsset']>): MediaAssetRecord {
   return {
     ...value,
+    id: canonicalUuid(value.id),
+    storyId: value.storyId ? canonicalUuid(value.storyId) : value.storyId,
+    generationJobId: value.generationJobId ? canonicalUuid(value.generationJobId) : value.generationJobId,
+    replacesAssetId: value.replacesAssetId ? canonicalUuid(value.replacesAssetId) : value.replacesAssetId,
     assetType: value.assetType,
     visibility: value.visibility,
     status: value.status,
@@ -80,6 +102,16 @@ function matchesAssociationScope(
     && (value.chapterId ?? null) === (association.chapterId ?? null)
     && (value.entityId ?? null) === (association.entityId ?? null);
 }
+
+function isRetryableDataConnectQueryError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const candidate = error as Error & { code?: string; errorInfo?: { code?: string } };
+  return candidate.code === 'data-connect/query-error'
+    || candidate.errorInfo?.code === 'data-connect/query-error'
+    || error.message.includes('Invalid SQL statement');
+}
+
+const POST_WRITE_RETRY_DELAYS_MS = [0, 100, 300, 750, 1_500, 3_000, 5_000] as const;
 
 export class DataConnectMediaAssetRepository implements MediaAssetRepository {
   constructor() {
@@ -177,7 +209,10 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
     const result = await adminReserveStorageQuota({
       reservationId: reservation.id,
       ownerUid,
-      storyId: reservation.storyId,
+      // Data Connect nullable variables must be explicit. Omitting storyId as
+      // JavaScript undefined makes the generated operation produce an invalid
+      // SQL statement for account-scoped slots such as profile portraits.
+      storyId: reservation.storyId ?? null,
       idempotencyKey: reservation.idempotencyKey,
       requestedBytes: reservation.requestedBytes,
       hardLimitBytes: reservation.hardLimitBytes,
@@ -196,12 +231,12 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
   async reserve(owner: MediaOwner, reservation: MediaAssetReservation): Promise<MediaAssetRecord> {
     validateMediaReservation(reservation);
     if (owner.uid !== reservation.ownerUid) throw new Error('Media reservation owner mismatch.');
-    await adminReserveMediaAssetIdempotent({
+    const result = await adminReserveMediaAssetIdempotent({
       id: reservation.id,
       ownerUid: owner.uid,
-      storyId: reservation.storyId,
-      generationJobId: reservation.generationJobId,
-      replacesAssetId: reservation.replacesAssetId,
+      storyId: reservation.storyId ?? null,
+      generationJobId: reservation.generationJobId ?? null,
+      replacesAssetId: reservation.replacesAssetId ?? null,
       quotaReservationId: reservation.quotaReservationId,
       idempotencyKey: reservation.idempotencyKey,
       requestHash: reservation.requestHash,
@@ -210,21 +245,41 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
       visibility: reservation.visibility as SqlMediaVisibility,
       bucket: reservation.bucket,
       objectKey: reservation.objectKey,
-      originalFilename: reservation.originalFilename,
+      originalFilename: reservation.originalFilename ?? null,
       mimeType: reservation.mimeType,
       extension: reservation.extension,
       byteSize: reservation.byteSize,
       checksumSha256: reservation.checksumSha256,
-      width: reservation.width,
-      height: reservation.height,
-      durationMs: reservation.durationMs,
+      width: reservation.width ?? null,
+      height: reservation.height ?? null,
+      durationMs: reservation.durationMs ?? null,
       version: reservation.version,
       cacheControl: reservation.cacheControl,
       sourceKind: reservation.sourceKind,
     });
-    const saved = await this.getOwned(owner.uid, reservation.id);
-    if (!saved) throw new Error('SQL Connect reservation succeeded but could not be read back.');
-    return saved;
+    if (!result.data.mediaAsset_insert
+      || !result.data.storageQuotaReservation_update
+      || !result.data.mediaUploadAttempt_insert
+      || !result.data.mediaUploadReceipt_insert) {
+      throw new Error('SQL Connect did not atomically reserve the media upload.');
+    }
+    // The service only needs confirmation that this transaction committed.
+    // Returning the just-committed reservation avoids treating a stale
+    // immediate query as a failed transaction and abandoning a valid upload.
+    const {
+      sourceKind: _sourceKind,
+      quotaReservationId: _quotaReservationId,
+      idempotencyKey: _idempotencyKey,
+      requestHash: _requestHash,
+      ...record
+    } = reservation;
+    const committedAt = new Date().toISOString();
+    return {
+      ...record,
+      status: 'UPLOADING',
+      createdAt: committedAt,
+      updatedAt: committedAt,
+    };
   }
 
   async getOwned(ownerUid: string, assetId: string): Promise<MediaAssetRecord | null> {
@@ -232,42 +287,109 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
     return result.data.mediaAsset ? mapAsset(result.data.mediaAsset) : null;
   }
 
+  private async getOwnedAfterWrite(
+    ownerUid: string,
+    assetId: string,
+  ): Promise<MediaAssetRecord | null> {
+    for (const delayMs of [0, 100, 300, 750]) {
+      if (delayMs > 0) await delay(delayMs);
+      const asset = await this.getOwned(ownerUid, assetId);
+      if (asset) return asset;
+    }
+    return null;
+  }
+
   async commitToSlot(ownerUid: string, assetId: string, etag: string | undefined, commit: MediaSlotCommit): Promise<MediaAssetRecord> {
     const association = commit.association;
-    const result = await adminCommitMediaAssetToSlot({
+    if (!association.storyId) {
+      const variables = {
+        id: assetId,
+        ownerUid,
+        quotaReservationId: commit.quotaReservationId,
+        idempotencyKey: commit.idempotencyKey,
+        etag: etag ?? null,
+        requestedBytes: commit.requestedBytes,
+      };
+      let result: Awaited<ReturnType<typeof adminCommitAccountMediaAsset>> | undefined;
+      let lastError: unknown;
+      for (const delayMs of POST_WRITE_RETRY_DELAYS_MS) {
+        if (delayMs > 0) await delay(delayMs);
+        try {
+          result = await adminCommitAccountMediaAsset(variables);
+          break;
+        } catch (error) {
+          lastError = error;
+          if (!isRetryableDataConnectQueryError(error)) throw error;
+          const existing = await this.getOwned(ownerUid, assetId).catch(() => null);
+          if (existing?.status === 'READY') return existing;
+        }
+      }
+      if (!result) throw lastError;
+      if (!result.data.mediaAsset_update
+        || !result.data.mediaUploadReceipt_update
+        || result.data.mediaUploadAttempt_updateMany !== 1
+        || !result.data.committedReservation
+        || !result.data.committedQuota) {
+        throw new Error('SQL Connect did not atomically commit the account media asset.');
+      }
+      const saved = await this.getOwnedAfterWrite(ownerUid, assetId);
+      if (!saved || saved.status !== 'READY') throw new Error('SQL Connect returned without a ready account media asset.');
+      return saved;
+    }
+    const variables = {
       id: assetId,
       ownerUid,
       quotaReservationId: commit.quotaReservationId,
       idempotencyKey: commit.idempotencyKey,
-      etag,
-      storyId: association.storyId,
-      chapterId: association.chapterId,
-      entityId: association.entityId,
+      etag: etag ?? null,
+      storyId: association.storyId ?? null,
+      chapterId: association.chapterId ?? null,
+      entityId: association.entityId ?? null,
       targetKind: association.targetKind,
       targetKey: association.targetKey,
       purpose: association.purpose,
       attachmentId: commit.attachmentId,
-      historyEntityType: association.entityType,
-      clientHistoryId: association.clientHistoryId ?? association.legacyMediaId,
-      promptUsed: association.promptUsed,
-      chapterNumber: association.chapterNumber,
-      arcTitle: association.arcTitle,
-      label: association.label,
+      historyEntityType: association.entityType ?? null,
+      clientHistoryId: association.clientHistoryId ?? association.legacyMediaId ?? null,
+      promptUsed: association.promptUsed ?? null,
+      chapterNumber: association.chapterNumber ?? null,
+      arcTitle: association.arcTitle ?? null,
+      label: association.label ?? null,
       position: commit.position,
-      expectedCurrentAssetId: commit.expectedCurrentAssetId,
-      expectedSlotVersion: commit.expectedSlotVersion,
+      requestedBytes: commit.requestedBytes,
+      expectedCurrentAssetId: commit.expectedCurrentAssetId ?? null,
+      expectedSlotVersion: commit.expectedSlotVersion ?? null,
       newSlotVersion: commit.newSlotVersion,
-    });
+    };
+    let result: Awaited<ReturnType<typeof adminCommitMediaAssetToSlot>> | undefined;
+    let lastError: unknown;
+    for (const delayMs of POST_WRITE_RETRY_DELAYS_MS) {
+      if (delayMs > 0) await delay(delayMs);
+      try {
+        result = await adminCommitMediaAssetToSlot(variables);
+        break;
+      } catch (error) {
+        lastError = error;
+        if (!isRetryableDataConnectQueryError(error)) throw error;
+        // The transaction may have committed even if its response was lost.
+        // Returning an already-ready asset keeps this retry idempotent.
+        const existing = await this.getOwned(ownerUid, assetId).catch(() => null);
+        if (existing?.status === 'READY') return existing;
+      }
+    }
+    if (!result) throw lastError;
     const expectedCurrentUpdates = commit.expectedCurrentAssetId ? 1 : 0;
     if (!result.data.mediaAsset_update
       || !result.data.mediaSlot_upsert
       || !result.data.mediaUploadReceipt_update
       || result.data.mediaAttachment_updateMany !== expectedCurrentUpdates
       || result.data.mediaUploadAttempt_updateMany !== 1
-      || result.data.committedQuota !== 1) {
+      || !result.data.committedReservation
+      || !result.data.storyUsage
+      || !result.data.committedQuota) {
       throw new Error('SQL Connect did not atomically commit the media asset and exactly one current slot.');
     }
-    const saved = await this.getOwned(ownerUid, assetId);
+    const saved = await this.getOwnedAfterWrite(ownerUid, assetId);
     if (!saved || saved.status !== 'READY') throw new Error('SQL Connect returned without a ready media asset.');
     return saved;
   }
@@ -285,9 +407,9 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
     const result = await adminSelectOwnedMediaSlotAsset({
       assetId,
       ownerUid,
-      storyId: association.storyId,
-      chapterId: association.chapterId,
-      entityId: association.entityId,
+      storyId: association.storyId ?? null,
+      chapterId: association.chapterId ?? null,
+      entityId: association.entityId ?? null,
       targetKind: association.targetKind,
       targetKey: association.targetKey,
       purpose: association.purpose,

@@ -244,6 +244,23 @@ export interface AdminClaimStoryDeletionJobVariables {
   stage: StoryDeletionStageKind;
 }
 
+export interface AdminCommitAccountMediaAssetData {
+  mediaAsset_update?: MediaAsset_Key | null;
+  mediaUploadAttempt_updateMany: number;
+  mediaUploadReceipt_update?: MediaUploadReceipt_Key | null;
+  committedReservation?: unknown | null;
+  committedQuota?: unknown | null;
+}
+
+export interface AdminCommitAccountMediaAssetVariables {
+  id: UUIDString;
+  ownerUid: string;
+  quotaReservationId: UUIDString;
+  idempotencyKey: string;
+  etag?: string | null;
+  requestedBytes: Int64String;
+}
+
 export interface AdminCommitMediaAssetReadyData {
   assetReady?: MediaAsset_Key | null;
   mediaAttachment_insert: MediaAttachment_Key;
@@ -294,7 +311,9 @@ export interface AdminCommitMediaAssetToSlotData {
   mediaSlot_upsert: MediaSlot_Key;
   mediaUploadAttempt_updateMany: number;
   mediaUploadReceipt_update?: MediaUploadReceipt_Key | null;
-  committedQuota?: number | null;
+  committedReservation?: unknown | null;
+  storyUsage?: unknown | null;
+  committedQuota?: unknown | null;
 }
 
 export interface AdminCommitMediaAssetToSlotVariables {
@@ -317,6 +336,7 @@ export interface AdminCommitMediaAssetToSlotVariables {
   arcTitle?: string | null;
   label?: string | null;
   position: number;
+  requestedBytes: Int64String;
   expectedCurrentAssetId?: UUIDString | null;
   expectedSlotVersion?: Int64String | null;
   newSlotVersion: Int64String;
@@ -4143,6 +4163,18 @@ export const adminCommitMediaAssetToSlotRef: AdminCommitMediaAssetToSlotRef;
 
 export function adminCommitMediaAssetToSlot(vars: AdminCommitMediaAssetToSlotVariables): MutationPromise<AdminCommitMediaAssetToSlotData, AdminCommitMediaAssetToSlotVariables>;
 export function adminCommitMediaAssetToSlot(dc: DataConnect, vars: AdminCommitMediaAssetToSlotVariables): MutationPromise<AdminCommitMediaAssetToSlotData, AdminCommitMediaAssetToSlotVariables>;
+
+interface AdminCommitAccountMediaAssetRef {
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: AdminCommitAccountMediaAssetVariables): MutationRef<AdminCommitAccountMediaAssetData, AdminCommitAccountMediaAssetVariables>;
+  /* Allow users to pass in custom DataConnect instances */
+  (dc: DataConnect, vars: AdminCommitAccountMediaAssetVariables): MutationRef<AdminCommitAccountMediaAssetData, AdminCommitAccountMediaAssetVariables>;
+  operationName: string;
+}
+export const adminCommitAccountMediaAssetRef: AdminCommitAccountMediaAssetRef;
+
+export function adminCommitAccountMediaAsset(vars: AdminCommitAccountMediaAssetVariables): MutationPromise<AdminCommitAccountMediaAssetData, AdminCommitAccountMediaAssetVariables>;
+export function adminCommitAccountMediaAsset(dc: DataConnect, vars: AdminCommitAccountMediaAssetVariables): MutationPromise<AdminCommitAccountMediaAssetData, AdminCommitAccountMediaAssetVariables>;
 
 interface AdminSelectOwnedMediaSlotAssetRef {
   /* Allow users to create refs without passing in DataConnect */

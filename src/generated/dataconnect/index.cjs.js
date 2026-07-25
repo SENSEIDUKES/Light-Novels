@@ -574,6 +574,20 @@ exports.adminCommitMediaAssetToSlot = function adminCommitMediaAssetToSlot(dcOrV
 }
 ;
 
+const adminCommitAccountMediaAssetRef = (dcOrVars, vars) => {
+  const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
+  dcInstance._useGeneratedSdk();
+  return mutationRef(dcInstance, 'AdminCommitAccountMediaAsset', inputVars);
+}
+adminCommitAccountMediaAssetRef.operationName = 'AdminCommitAccountMediaAsset';
+exports.adminCommitAccountMediaAssetRef = adminCommitAccountMediaAssetRef;
+
+exports.adminCommitAccountMediaAsset = function adminCommitAccountMediaAsset(dcOrVars, vars) {
+  const { dc: dcInstance, vars: inputVars } = validateArgs(connectorConfig, dcOrVars, vars, true);
+  return executeMutation(adminCommitAccountMediaAssetRef(dcInstance, inputVars));
+}
+;
+
 const adminSelectOwnedMediaSlotAssetRef = (dcOrVars, vars) => {
   const { dc: dcInstance, vars: inputVars} = validateArgs(connectorConfig, dcOrVars, vars, true);
   dcInstance._useGeneratedSdk();

@@ -3,13 +3,23 @@ import { Story, Chapter, ChapterContent, DraftRecoverySession, AppUser } from '.
 import { storyStorage } from '../lib/storage';
 import { AppState } from './useAppStore';
 import { auth, LOCAL_ONLY_MODE } from '../lib/firebase';
-import { getRandomDemoStory } from './demoStories';
 import { secureStorage } from '../lib/encryption';
 import { mergeStories } from '../lib/merge';
 import { ensureStoryPersistenceIdentities } from '../lib/persistence';
 
 const STORAGE_KEY = '@seihouse/fiction-generator-stories-v2';
 let storageInitVersion = 0;
+const isObsoleteDefaultStory = (story: Story): boolean => {
+  const hasLegacyDefaultId =
+    story.id.startsWith('demo-matrix-') || story.id.startsWith('challenge-');
+  if (!hasLegacyDefaultId || story.isEdited || story.currentChapterNumber > 1) return false;
+  if ((story.lastReadChapter ?? 0) > 0 || (story.bookmarks?.length ?? 0) > 0) return false;
+  return !story.arcs.some(arc => arc.chapters.some(chapter =>
+    chapter.hasContent ||
+    Boolean(chapter.generatedContent) ||
+    chapter.status === 'read',
+  ));
+};
 
 const nextResolutionCheckpoint = (...timestamps: Array<string | undefined>): string => {
   const latest = timestamps.reduce((maximum, timestamp) => {
@@ -504,87 +514,28 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
 
       let loaded = await storyStorage.getStories();
       if (!initIsCurrent()) return;
-      const user = auth.currentUser;
-      
-      if (loaded && loaded.length > 0) {
-        if (user) {
-          const unmigratedDemos = loaded.filter(s => 
-            (s.id.startsWith('demo-matrix-') || s.id.startsWith('challenge-')) && !s.id.includes(user.uid)
-          );
-          if (unmigratedDemos.length > 0) {
-            let updatedLoaded: Story[] = [...loaded];
-            let changed = false;
-            
-            storyStorage.startTransaction();
-            try {
-              for (const demo of unmigratedDemos) {
-                const isWorkedOn = demo.isEdited || demo.currentChapterNumber > 1 || demo.arcs.some(arc => 
-                  arc.chapters.some(ch => ch.number > 1 && (ch.status === 'read' || ch.hasContent || ch.generatedContent))
-                );
-                
-                if (isWorkedOn) {
-                  const userDemoId = demo.id.startsWith('demo-matrix-') 
-                    ? `demo-matrix-${user.uid}` 
-                    : `${demo.id}-${user.uid}`;
-                  updatedLoaded = updatedLoaded.map(s => {
-                    if (s.id === demo.id) {
-                      return { ...s, id: userDemoId, userId: user.uid };
-                    }
-                    return s;
-                  });
-                  await storyStorage.deleteStory(demo.id);
-                  if (!initIsCurrent()) {
-                    storyStorage.rollbackTransaction();
-                    return;
-                  }
-                  changed = true;
-                } else {
-                  updatedLoaded = updatedLoaded.filter(s => s.id !== demo.id);
-                  await storyStorage.deleteStory(demo.id);
-                  if (!initIsCurrent()) {
-                    storyStorage.rollbackTransaction();
-                    return;
-                  }
-                  changed = true;
-                }
-              }
-              
-              if (changed) {
-                loaded = updatedLoaded;
-                for (const s of loaded) {
-                  await storyStorage.saveStory(s);
-                  if (!initIsCurrent()) {
-                    storyStorage.rollbackTransaction();
-                    return;
-                  }
-                }
-                await storyStorage.commitTransaction();
-                if (!initIsCurrent()) return;
-              } else {
-                storyStorage.rollbackTransaction();
-              }
-            } catch (err) {
+      const obsoleteDefaults = loaded.filter(isObsoleteDefaultStory);
+      if (obsoleteDefaults.length > 0) {
+        storyStorage.startTransaction();
+        try {
+          for (const story of obsoleteDefaults) {
+            await storyStorage.deleteStory(story.id);
+            if (!initIsCurrent()) {
               storyStorage.rollbackTransaction();
-              console.error("Failed to migrate demo stories during init", err);
-              if (!initIsCurrent()) return;
+              return;
             }
           }
-        }
-        if (!initIsCurrent()) return;
-        set({ stories: loaded });
-      } else {
-        if (user && storyStorage.getSyncStatus() === 'synced') {
-          const randomDemo = getRandomDemoStory();
-          randomDemo.id = `demo-matrix-${user.uid}`;
-          randomDemo.userId = user.uid;
-          await storyStorage.saveStory(randomDemo);
+          await storyStorage.commitTransaction();
           if (!initIsCurrent()) return;
-          set({ stories: [randomDemo] });
-        } else {
+        } catch (err) {
+          storyStorage.rollbackTransaction();
+          console.error("Failed to remove obsolete default stories during init", err);
           if (!initIsCurrent()) return;
-          set({ stories: [] });
         }
       }
+      loaded = loaded.filter(story => !isObsoleteDefaultStory(story));
+      if (!initIsCurrent()) return;
+      set({ stories: loaded });
     } catch (e) {
       console.error("Persistent story memory failed to initialize, reverting to local fallback:", e);
       if (!initIsCurrent()) return;
@@ -611,62 +562,25 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
 
   migrateOrDiscardDemoStories: async (user: AppUser | null) => {
     if (!user) return;
-    const { stories, activeStoryId, saveStories, setActiveStoryId, setCurrentScreen } = get();
-    
-    const unmigratedDemos = stories.filter(s => 
-      (s.id.startsWith('demo-matrix-') || s.id.startsWith('challenge-')) && !s.id.includes(user.uid)
-    );
-    if (unmigratedDemos.length === 0) return;
-    
-    let updatedStories = [...stories];
-    let updatedActiveId = activeStoryId;
-    let changed = false;
-    
+    const { stories, activeStoryId, setActiveStoryId, setCurrentScreen } = get();
+    const obsoleteDefaults = stories.filter(isObsoleteDefaultStory);
+    if (obsoleteDefaults.length === 0) return;
+    const obsoleteIds = new Set(obsoleteDefaults.map(story => story.id));
+    const updatedStories = stories.filter(story => !obsoleteIds.has(story.id));
     storyStorage.startTransaction();
     try {
-      for (const demo of unmigratedDemos) {
-        const isWorkedOn = demo.isEdited || demo.currentChapterNumber > 1 || demo.arcs.some(arc => 
-          arc.chapters.some(ch => ch.number > 1 && (ch.status === 'read' || ch.hasContent || ch.generatedContent))
-        );
-        
-        if (isWorkedOn) {
-          const userDemoId = demo.id.startsWith('demo-matrix-') 
-            ? `demo-matrix-${user.uid}` 
-            : `${demo.id}-${user.uid}`;
-          updatedStories = updatedStories.map(s => {
-            if (s.id === demo.id) {
-              return { ...s, id: userDemoId, userId: user.uid };
-            }
-            return s;
-          });
-          if (updatedActiveId === demo.id) {
-            updatedActiveId = userDemoId;
-          }
-          await storyStorage.deleteStory(demo.id);
-          changed = true;
-        } else {
-          updatedStories = updatedStories.filter(s => s.id !== demo.id);
-          if (updatedActiveId === demo.id) {
-            updatedActiveId = null;
-            setCurrentScreen('home');
-          }
-          await storyStorage.deleteStory(demo.id);
-          changed = true;
-        }
+      for (const story of obsoleteDefaults) {
+        await storyStorage.deleteStory(story.id);
       }
-      
-      if (changed) {
-        if (activeStoryId !== updatedActiveId) {
-          setActiveStoryId(updatedActiveId);
-        }
-        await storyStorage.commitTransaction();
-        await saveStories(updatedStories);
-      } else {
-        storyStorage.rollbackTransaction();
+      if (activeStoryId && obsoleteIds.has(activeStoryId)) {
+        setActiveStoryId(null);
+        setCurrentScreen('home');
       }
+      await storyStorage.commitTransaction();
+      set({ stories: updatedStories });
     } catch (e) {
       storyStorage.rollbackTransaction();
-      console.error("Migration transaction failed:", e);
+      console.error("Obsolete default story cleanup failed:", e);
     }
   }
   };
