@@ -266,8 +266,10 @@ Install dependencies, then copy the environment template:
 
 ```bash
 npm ci
-Copy-Item .env.example .env # PowerShell
+cp .env.example .env
 ```
+
+On PowerShell, use `Copy-Item .env.example .env` for the second command.
 
 [`.env.example`](.env.example) is the authoritative configuration list. Live
 generation needs at least one AI provider credential. Authenticated

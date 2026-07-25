@@ -26,9 +26,11 @@ before changing a user-data or media flow.
 
 ```bash
 npm ci
-Copy-Item .env.example .env # PowerShell
+cp .env.example .env
 npm run dev
 ```
+
+On PowerShell, use `Copy-Item .env.example .env` before starting the app.
 
 Keep provider keys, R2 secrets, and deployment credentials out of source
 control. `.env.example` documents the required variable groups. Firebase
