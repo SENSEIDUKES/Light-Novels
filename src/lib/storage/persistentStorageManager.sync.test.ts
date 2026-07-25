@@ -579,6 +579,25 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
       manager.dispose();
     });
 
+    it('skips the local write when the replica is already level with the stamp', async () => {
+      const { state } = chapterBumpingCloud();
+      const manager = await signedInManager();
+
+      await manager.saveStory(libraryStory());
+      await (manager as any).flushSyncQueue();
+      mocks.idb.saveStory.mockClear();
+
+      // An endpoint that reports no revision leaves the local token in place,
+      // so a matching timestamp means there is nothing to write.
+      await (manager as any).adoptParentStoryRevision('story-1', {
+        updatedAt: state.story.updatedAt,
+        syncRevision: null,
+      });
+
+      expect(mocks.idb.saveStory).not.toHaveBeenCalled();
+      manager.dispose();
+    });
+
     it('never stamps a local story edit that landed after the chapter upload backwards', async () => {
       const { state } = chapterBumpingCloud();
       const manager = await signedInManager();

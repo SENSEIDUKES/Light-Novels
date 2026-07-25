@@ -976,9 +976,13 @@ export class PersistentStorageManager implements StorageAdapter {
     // A local edit made after this upload is genuinely newer than the parent
     // bump; its own queued story task publishes it, so never stamp it backwards.
     if (Number.isFinite(localTime) && localTime > stampTime) return;
+    // Compare against the revision actually being written, not the reported
+    // one: an endpoint that reports no revision leaves the local token in
+    // place, so the record can already be level and need no write at all.
+    const targetSyncRevision = stamp.syncRevision ?? local.syncRevision;
     if (
       local.updatedAt === stamp.updatedAt &&
-      (local.syncRevision ?? null) === stamp.syncRevision
+      local.syncRevision === targetSyncRevision
     ) {
       this.rememberCloudRevision(local);
       return;
@@ -987,7 +991,7 @@ export class PersistentStorageManager implements StorageAdapter {
     const stamped: StoryWorld = {
       ...local,
       updatedAt: stamp.updatedAt,
-      syncRevision: stamp.syncRevision ?? local.syncRevision,
+      syncRevision: targetSyncRevision,
     };
     try {
       await this.localAdapter.saveStory(stamped);
