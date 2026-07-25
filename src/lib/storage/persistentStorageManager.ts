@@ -360,6 +360,14 @@ export class PersistentStorageManager implements StorageAdapter {
 
   private durableTaskPayload(task: SyncTask): DurableSyncTask {
     const { attempts: _attempts, ...payload } = task;
+    // Never enqueue keys whose value is `undefined`. The durable IndexedDB
+    // outbox stores the payload as JSON, where an explicit `undefined` (e.g.
+    // `requiresPostChapterHeartbeat` on a non-heartbeat write, or an unowned
+    // task's `userId`) has no representation. Dropping them here keeps stored
+    // payloads minimal and matches the JSON round-trip the cache performs.
+    for (const key of Object.keys(payload) as (keyof DurableSyncTask)[]) {
+      if (payload[key] === undefined) delete payload[key];
+    }
     return payload;
   }
 

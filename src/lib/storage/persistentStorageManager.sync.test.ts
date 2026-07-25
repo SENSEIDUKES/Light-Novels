@@ -55,7 +55,17 @@ vi.mock('./dataConnectStorageAdapter', () => ({
     constructor() { return mocks.cloud as any; }
   },
 }));
-vi.mock('../foundation/cache/indexedDbFoundationCache', () => ({
+vi.mock('../foundation/cache/indexedDbFoundationCache', async (importActual) => {
+  // Reuse the REAL serialization guard so producer↔consumer payload mismatches
+  // (e.g. a property explicitly set to `undefined`) surface in these mocked unit
+  // tests exactly as they would in the production IndexedDB cache, instead of
+  // being silently swallowed by a lenient JSON.parse(JSON.stringify(...)).
+  const actual = await importActual<
+    typeof import('../foundation/cache/indexedDbFoundationCache')
+  >();
+  const { snapshotJsonValue } = actual;
+  return {
+  ...actual,
   IndexedDbFoundationCache: class {
     ownerUid: string;
     rows: Map<string, any>;
@@ -76,7 +86,7 @@ vi.mock('../foundation/cache/indexedDbFoundationCache', () => ({
         ownerUid: this.ownerUid,
         id,
         operation: input.operation,
-        payload: JSON.parse(JSON.stringify(input.payload)),
+        payload: snapshotJsonValue(input.payload, 'outbox payload').value,
         idempotencyKey: input.idempotencyKey,
         state: 'PENDING',
         attempts: 0,
@@ -129,7 +139,8 @@ vi.mock('../foundation/cache/indexedDbFoundationCache', () => ({
 
     close() {}
   },
-}));
+  };
+});
 vi.mock('../firebase', () => ({
   auth: mocks.auth,
   LOCAL_ONLY_MODE: false,
