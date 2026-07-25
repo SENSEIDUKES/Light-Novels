@@ -240,6 +240,56 @@ describe("IndexedDbFoundationCache", () => {
     });
   });
 
+  it("enqueues a durable story SyncTask whose optional fields are undefined", async () => {
+    // Regression for the "outbox payload contains a non-JSON value at
+    // $.requiresPostChapterHeartbeat" outage: a non-heartbeat story write and an
+    // unowned task carry optional properties set to `undefined`. JSON.stringify
+    // drops those, so the guard must accept the payload (dropping the keys)
+    // rather than rejecting the write. Before the repair this threw and stranded
+    // every enqueueTask-based StoryWorld write.
+    const cache = makeCache(new MemoryIndexedDbFactory(), "owner");
+    const durableTaskPayload = {
+      type: "story",
+      storyId: "story-1",
+      timestamp: 123,
+      userId: undefined,
+      generation: 1,
+      idempotencyKey: "key-1",
+      requiresPostChapterHeartbeat: undefined,
+    };
+
+    const queued = await cache.enqueueOutbox({
+      id: "key-1",
+      operation: "storage.sync.story",
+      payload: durableTaskPayload,
+      idempotencyKey: "key-1",
+    });
+
+    // The undefined keys are dropped (matching JSON serialization); the rest survives.
+    expect(queued.payload).toEqual({
+      type: "story",
+      storyId: "story-1",
+      timestamp: 123,
+      generation: 1,
+      idempotencyKey: "key-1",
+    });
+    expect("requiresPostChapterHeartbeat" in (queued.payload as object)).toBe(false);
+    expect("userId" in (queued.payload as object)).toBe(false);
+    await expect(cache.getRecoveryBundle()).resolves.toMatchObject({
+      outbox: [expect.objectContaining({ id: "key-1" })],
+    });
+  });
+
+  it("still rejects genuinely non-serializable outbox payloads", async () => {
+    // The undefined tolerance above must not weaken the guard for real hazards.
+    const cache = makeCache(new MemoryIndexedDbFactory(), "owner");
+    await expect(cache.enqueueOutbox({
+      operation: "storage.sync.story",
+      payload: { blob: new Blob(["x"]) },
+      idempotencyKey: "binary",
+    })).rejects.toThrow(/non-plain object/);
+  });
+
   it("recovers idempotent outbox work with leases, retries, and checkpoints", async () => {
     const indexedDB = new MemoryIndexedDbFactory();
     let now = 100;

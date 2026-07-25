@@ -852,7 +852,7 @@ function requireNonNegative(value: number, label: string): number {
   return value;
 }
 
-function snapshotJsonValue<T>(value: T, label: string): { value: T; byteSize: number } {
+export function snapshotJsonValue<T>(value: T, label: string): { value: T; byteSize: number } {
   assertJsonCompatible(value, label);
   const serialized = JSON.stringify(value);
   return {
@@ -901,6 +901,12 @@ function assertJsonCompatible(
     throw new TypeError(`${label} contains symbol-keyed data at ${path}`);
   }
   for (const [key, entry] of Object.entries(value)) {
+    // An object property set to `undefined` is dropped by JSON.stringify (the
+    // very serializer this guard fronts). Skip it so the guard stays consistent
+    // with its own round-trip instead of rejecting a value it would silently
+    // discard — otherwise optional fields like `requiresPostChapterHeartbeat`
+    // or an unset `userId` would strand every outbox write.
+    if (entry === undefined) continue;
     assertJsonCompatible(entry, label, `${path}.${key}`, seen);
   }
   seen.delete(value);
