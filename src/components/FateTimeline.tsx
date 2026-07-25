@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, GitBranch, Star, Search, ChevronRight, Compass, Play, ListTree } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { StoryWorld } from '../types';
+import { resolveReaderOpeningChapter } from '../lib/readerNavigation';
 
 interface FateTimelineProps {
   isOpen: boolean;
@@ -34,6 +35,7 @@ const FORK_ORDER: BranchKey[] = ['purple', 'red', 'gold', 'gray'];
 export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, activeStoryId }) => {
   const stories = useAppStore(state => state.stories);
   const setActiveStoryId = useAppStore(state => state.setActiveStoryId);
+  const setSelectedChapterNum = useAppStore(state => state.setSelectedChapterNum);
   const setCurrentScreen = useAppStore(state => state.setCurrentScreen);
 
   // UI-only local state (no persistent/global state introduced).
@@ -199,7 +201,10 @@ export const FateTimeline: React.FC<FateTimelineProps> = ({ isOpen, onClose, act
   const activeChapterCount = activeChapters ? getStoryChapterCount(activeChapters.story) : 0;
 
   const goToStory = (storyId: string) => {
+    const story = stories.find((candidate) => candidate.id === storyId);
+    if (!story) return;
     setActiveStoryId(storyId);
+    setSelectedChapterNum(resolveReaderOpeningChapter(story));
     onClose();
     setCurrentScreen('reader');
   };
