@@ -1,120 +1,307 @@
-# SEIHOUSE — Light Novels & Immersive Causal Narrative Engine
+# SEIHOUSE — Celestial Library & SEN
 
-An immersive, premium AI-powered webnovel, light novel reader, and active translation engine inspired by **WebNovel**, **Wuxiaworld**, **Qidian rankings**, and dark fantasy cultivation fiction. Driven by a meaning-first, deep-synthesis generative model pipeline, **SEIHOUSE** serves as a modern time capsule for artistic expressions and creative narrative realms.
+**Last updated: July 25, 2026**
 
-It empowers readers to dynamically manifest new celestial worlds, forge illustrated visual cards, program sequential destiny directions, and read dynamically generated scrolls synchronized with real-time sound cues, vocal synthesize chants, and immersive progression systems.
+Celestial Library is SEIHOUSE's living light-novel studio: a place to shape a
+world, write its future with AI, read it as an immersive serial, and watch its
+people, places, relics, and consequences become part of a persistent story
+memory. It is built for cultivation fantasy, LitRPG, romance, mystery, cozy
+fiction, and any serial story that benefits from a world that remembers.
+
+**SEN** is the immersive reading mode inside the Celestial Library. In the
+codebase it is `readerMode: "sen"`: narration keeps the active paragraph in
+focus and can coordinate cinematic scrolling and visual reveals. SEN is not a
+separate product or backend; it is the most focused way to enter a story.
 
 ---
 
 ## 🌌 Brand Philosophy, Color Palette & Identity
 
-**MISSION**: *"SEIHouse exists to make a better time capsule and translator of artistic expression. A meaning-first creator infrastructure company for music and narrative fiction."*
+**MISSION**: *“SEIHouse exists to make a better time capsule and translator of
+artistic expression: meaning-first creator infrastructure for music and
+narrative fiction.”*
 
-*   🖤 **Foundation / Void & Depth** (`#000000`): The absolute canvas. Represents the infinite ink background from which narrative possibilities, ancient scripts, and cosmos are born.
-*   ⬜ **Signal / Clarity** (`#FAFAFA`): Pristine transmission. Standardizes long-form comfort on parchment-feel content cards with ultimate legibility and high contrast.
-*   🩸 **Human / Emotional Core** (`#8B0000`): Deep crimson accents representing spiritual trials, ancestral cores, bloodlines, breakthroughs, and the passion of mortal cultivation.
-*   🌐 **Portal / Consciousness Signal** (`#04ACFF`): High-fidelity turquoise flare that anchors holographic windows, system alerts, loading transitions, and multi-model matrix gates.
+- 🖤 **Foundation / Void & Depth** (`#000000`) — the dark canvas beneath an
+  endless library of worlds.
+- ⬜ **Signal / Clarity** (`#FAFAFA`) — calm, legible scripture for long-form
+  reading.
+- 🩸 **Human / Emotional Core** (`#8B0000`) — trials, bloodlines,
+  breakthroughs, and consequence.
+- 🌐 **Portal / Consciousness Signal** (`#04ACFF`) — the light of systems,
+  Codex knowledge, and active imagination.
 
-### 🎭 Aesthetic Typography
-To balance narrative voice with modern user interface ergonomics, SEIHOUSE utilizes a strict three-tier font system:
-1.  **Emotional Headers & Grand Arc Titles**: *Alegreya* & *Alegreya SC* (Weight 500-700) — invoking an ancient, weight-bearing, divine-ritual scribe style with deep tracking.
-2.  **UI/System Overlays & Holorails**: *Rubik* & *Rubik Oblique* (Weight 300-500) — optimizing razor-sharp readability for touch targets, numeric power levels, and settings panels.
-3.  **Reading Viewport & Scripture Core**: *Noto Serif* (Weight 200-400) — tailored for continuous high-contrast light-on-dark immersion with custom text line-heights, character indents, and proportional margins.
-
----
-
-## 🏛️ Comprehensive Narrative Engine Architecture
-
-SEIHOUSE operates on a fully integrated state loops structure. Rather than generating stateless, drifting story text, it coordinates world memory, active vector similarity indices, and character status updates.
-
-- **The Alchemical Blueprinting Engine**: Creates cohesive world states before writing words. Architectures a `WorldBlueprint` state containing structured schemas (power levels, relationships) guiding the LLM prior to text generation.
-- **Causal Retrieval-Augmented Generation (RAG) & Memory Loops**: Prevents AI forgetfulness by constantly retrieving past summaries. Uses `text-embedding-004` to project chapter summaries into vector representations, retrieving matched context via similarity search for state-aware prompts.
-- **State-Synchronized Akasha Ledger**: Tracks your characters, ranks, and world rules dynamically. A React state-store parsing live JSON `memoryUpdates` emitted during block generations, mutating the `LivingCodex.tsx` matrix (Daoists, Laws, Karma) in real-time.
-- **Destiny Steering & Model Provider Router**: Halts the stream at boundaries to inject predictive prompts. Exposes `routingConfig` for seamless API switching across Gemini, OpenRouter, or Ollama to let users pick the next story arc direction or swap AI models.
-- **Picture Manifestations (Entity Forgery)**: Generates highly consistent visual art for your world. The system wraps user prompts with stable background styles and seeds into image generation tools to forge 'Manifested' character portraits, mythical beast visualizations, and sect locations, ensuring visual aesthetics adhere perfectly to your custom universe.
+The visual system pairs Alegreya/Alegreya SC for grand titles, Rubik for
+controls and systems, and Noto Serif for the reading surface. The goal is not
+to make a database look mystical; it is to make a serious reading and creation
+space feel like a place worth returning to.
 
 ---
 
-## 📖 Scripture Meridian Chamber (The Immersive Reader)
+## 🏛️ The Celestial Library Experience
 
-The primary interaction mode is styled as an ancient scriptures chamber:
+### Create a world, then give it a future
 
-- **Narrative Ambient Audio**: Plays environmental sounds synced with the text via `audioSignature` triggers.
-- **Immersive Game-Like System Prompts & Alerts**: Displays LitRPG-style in-text holographic notifications natively injected from the LLM. It renders animated Framer Motion components over the raw text for stat screens, level-ups, or sudden destiny shifts.
-- **Semantic Entity Color Highlighting**: An adaptive color system that parses codex terms and dynamically highlights words in the reading viewport based on entity type (e.g., green for allies, deep red for enemies, violet for lovers, gold for legendary items) using targeted CSS classes.
-- **Triple-Cast Chant Vocalizer (Web API TTS) & Active Text Highlighting**: A dynamic three-voice Web Speech TTS casting system. The narrator reads the prose, a dedicated MC voice speaks the protagonist's dialogue, and a distinct side-character voice covers all other interactions (rivals, love interests, masters). It parses paragraph speaker metadata in real-time to split text blocks into distinct character chunks. Additionally, the reader features active **TTS Highlighting** that syncs and highlights the exact sentence or phrase currently being narrated.
-- **Bilingual Translation Gateway**: A highly robust, multi-layer translation pipeline. It primarily leverages a DeepL API proxy alongside custom context-aware terminology glossaries to enforce strict, accurate translations of niche world-building or cultivation terms. It also features an automatic fallback to an LLM-based translation agent (e.g., Gemini) ensuring uninterrupted multilingual reading across all deployed languages.
+**For readers and creators.** Start with the kind of story you want to enter:
+premise, genre, world, protagonist, custom characters and factions, power
+system, plot controls, content preferences, and the details that make a realm
+feel yours. The Library turns that intake into a reviewable world blueprint,
+then into an opening story that can keep growing chapter by chapter.
+
+**For developers.** `CreationPortal` composes the structured intake and calls
+the blueprint and initial-story generation flows. A **Story Seed** preserves
+the intake plus blueprint for a signed-in account, so a world can be reused,
+imported, exported, or shared where native sharing is available. Seeds are
+first-class account data, not just a browser form snapshot.
+
+### Generate chapters without losing the thread
+
+**For readers and creators.** A new chapter is more than a wall of generated
+text. It arrives as a sequence of readable story blocks, carries forward what
+the world knows, produces summaries and meaningful updates, and can be checked
+before it is sealed into the chronicle. When inspiration is flowing, **Generate
+next five** continues a sequence without asking the story to forget the
+chapters it just wrote.
+
+**For developers.** The active Context Engine is v2. The chapter pipeline
+builds compact story-aware context, streams structured blocks, extracts
+metadata, runs continuity checks, and persists generated content. Five-chapter
+generation is a sequential batch with recorded item state, so completed work,
+failures, and a later resume are visible instead of hidden inside one large
+provider response.
+
+### Guide a destiny instead of only consuming it
+
+**For readers and creators.** **Steer Story Fate** gives the next arc an
+intent—darker, more romantic, more dangerous, or entirely your own. **Alter
+Fate** lets you fork at a chapter and discover what happens when the chosen
+path changes, while keeping the original timeline intact.
+
+**For developers.** Arc steering asks the planner for new chapter premises and
+updates the story's next arc. Alter Fate creates a new story branch with the
+prior chapters and bookmarks up to the selected point, then generates forward
+from that branch. Fate locks protect a chapter while a generation batch makes
+a fork unsafe.
 
 ---
 
-## ⚔️ Immersive Progression & Economy (The Dao Ranks)
+## 📖 Reader Chamber — The Scripture Meridian
 
-SEIHOUSE features a deep meta-progression system that turns reading into an RPG-like experience.
+**For readers.** The Reader Chamber is the heart of the Library: a long-form
+reading space with chapter navigation, bookmarks, restore position, semantic
+Codex highlights, World Cards, system panels, glossary access, full-screen
+reading, and the choice to simply read or let the story perform itself. Normal,
+teleprompter, basic narration, and SEN modes meet different moods without
+turning the novel into a game UI.
 
-- **The Dao Ranks**: Users ascend through 9 distinct ranks, from *Mortal Reader* to *Dao Master*, simply by reading chapters, generating worlds, and maintaining reading streaks.
-- **Aura Visualizer**: As users rank up, they unlock profile aesthetics, ranging from the 'Sect Entrance Aura' to the 'Transcendental Master Matrix' (animated gradient CSS text styling).
-- **Multi-Dimensional Qi Economy**: 
-  - **Dao XP / Heavenly Qi**: Standard progression gained through positive interaction.
-  - **Demonic Qi**: Generated passively if the user falls under specific cursed or demonic status effects (e.g., 'Demonic Corruption' or 'Curse of the Cursed Tome').
-  - **Sect Qi**: Experience aligned with multiplayer and faction contributions.
+**For developers.** `ReaderChamber` composes the viewport, controls,
+translation, playback, visual reveals, cinematic scroll, and reader
+preferences. The reader supports keyboard shortcuts, labelled controls,
+focus-management components, responsive Codex navigation, swipe navigation,
+and device-supported haptics. Typography and atmosphere are story preferences,
+not scattered component state: font, scale, spacing, alignment, themes,
+highlights, and player style travel with the reader experience.
+
+### Read across moments and devices
+
+**For readers.** A return to the Library should feel like opening a book where
+you left a ribbon. Cached stories remain readable offline, and changes made
+while disconnected can return when the connection does.
+
+**For developers.** The app is a Vite PWA with an auto-updating service worker
+and selected runtime caches. Story data has an owner-scoped IndexedDB replica
+and durable mutation outbox. It is a resilience layer, not a second permanent
+library: AI generation and fresh private-media delivery still require their
+network services, and the cloud record remains authoritative after
+reconciliation.
 
 ---
 
-## 🔮 Active Loot Drop System (Cosmic Artifacts)
+## 🔮 The Living Codex
 
-Reading directly yields tangible, persistent account-wide rewards. 
-The internal `dropEngine` parses dynamic events embedded within the AI's generated chapter text to spawn loot:
+**For readers.** The Living Codex is the companion book inside every story. It
+does not just list names: it turns the living shape of a novel into something
+you can inspect, remember, and edit. Meet its current chambers:
 
-- **Karmic Tokens**: Looted when the AI generates a significant character encounter.
-- **Beast Cores**: Forged when a mythical beast is defeated or tamed in the story text.
-- **Fatebreaker Talismans & Calamity Shards**: Rewarded when the reader uses Destiny Steering to avert doom or when they plunge their character into cursed timelines.
+| Chamber | What it reveals |
+| --- | --- |
+| **Portraits** | Characters, beasts, locations, factions, visual recaps, and image history. |
+| **Karma** | Relationships, mysteries, and unresolved plot threads. |
+| **Power Rankings** | Power stages, abilities, and cultivation analytics. |
+| **Artifacts** | Relics and their lasting story state. |
+| **Fate** | Timeline, consequence, and world-molding controls. |
+| **Lore** | Glossary, story rules, arcs, and supporting knowledge. |
+
+**For developers.** The generation pipeline applies structured memory updates
+to story state; the Codex renders that state through specialized sections for
+characters, locations, factions, relations, threads, artifacts, Fate, and
+glossary data. Author-controlled Codex context remains explicit—developers
+should preserve `contextPriority` and `authorContextNote`, and should not let a
+model silently invent aliases.
+
+### World Cards and manifestations
+
+**For readers.** A major first appearance deserves more than a noun in a
+paragraph. **World Cards** give a character, creature, artifact, faction,
+location, system event, or Fate event a moment of ceremony. **Manifestations**
+let story-significant people, beasts, places, factions, and relics become
+visuals; momentous chapters can receive a hero image, and every story can
+forge a cover that fits its own world.
+
+**For developers.** Cards are structured generation output with visible copy,
+semantic sound intent, and a short `audioText`; models do not select asset
+filenames, URLs, or storage keys. The client resolves the intent through the
+curated catalog. Manifestation eligibility deliberately filters incidental
+details, while image generation is quota protected and preserves the resulting
+asset/history relationship. Covers, chapter-hero images, manifestations, and
+cultivator portraits use the same permanent-media path.
 
 ---
 
-## 🛡️ Cloud Persistence, Sects, & Security
+## ⚔️ Fate, Relics, and Cultivation
 
-- **Sect Alignments**: Fully functional `SectsScreen` allows users to join multiplayer factions, pooling their Sect Qi and competing on leaderboards.
-- **Celestial Library Synchronization**: PostgreSQL/Data Connect stores structured account, story, chapter, codex, glossary, and seed state. IndexedDB is a disposable offline cache with a durable mutation outbox, and conflict-safe reconciliation restores libraries across devices.
-- **Telemetry-Derived Encryption (BYOK)**: A local-first client obfuscation mechanism derives a client-side AES-GCM key by hashing local device telemetry. It provides "Bring-Your-Own-Key" shoulder-surfing protection for API keys directly in the browser's `secureStorage`.
-- **Authenticated Ownership Boundaries**: Firebase Authentication identifies the caller; trusted server routes enforce ownership before Data Connect mutations, while permanent generated media is stored in Cloudflare R2 with PostgreSQL metadata.
+**For readers.** Celestial Library makes consequence visible without forcing
+every genre into LitRPG. Fate results and timelines show how a choice changes a
+path. Relics carry ownership and condition. The cultivator profile records Dao
+progression, ranks, aura expression, inventory rewards, and status effects as
+you read and act inside the Library.
+
+**For developers.** Fate, power, artifact, relationship, thread, and timeline
+state are represented in the story memory/Codex model and updated through the
+chapter and steering flows. Keep durable relic state distinct from a temporary
+mention in prose; the manifestation gate and continuity checks are deliberately
+conservative. Existing Sects and challenge screens are present, but a complete
+community marketplace or contribution economy is not a shipped claim.
 
 ---
 
-## 🚀 Setup & Local Execution
+## 🎧 Audio, Narration, Translation, and Visual Atmosphere
 
-### 📋 Prerequisites & Key Integration
-Configure API keys inside `.env` or in the in-app **Secrets Settings Panel**:
-*   `GEMINI_API_KEY`: Powering vector embeddings and default narrative/visual streams.
-*   `OPENROUTER_API_KEY` (Optional): Bridging secondary models.
-*   `DEEPL_AUTH_KEY` (Optional): Powering instant translation glossaries.
+### A score for the story, not noise around it
 
-Create `.env` using `.env.example` as a template:
-```env
-GEMINI_API_KEY=your_key_here
-OPENROUTER_API_KEY=
-DEEPL_AUTH_KEY=
+**For readers.** Music can follow the pressure of a scene, atmosphere can hold
+rain, wind, or a cavern's hush, and rare moments can land with a deliberate
+cue. Every channel has its own control, including master audio, music,
+atmosphere, and one-shot effects; a pinned track is available when you want to
+keep a mood longer.
+
+**For developers.** Scene scoring, looping atmosphere, and card/cinematic
+one-shots are separate systems. The audio conductor resolves semantic narrative
+metadata against a curated catalog and crossfades appropriate tracks and beds.
+Unsupported cues intentionally stay silent rather than triggering synthetic or
+guessed sounds. Preserve the `assetFamily`/role distinction: a card's one-shot
+is not a looping atmosphere bed.
+
+### Voices and translations
+
+**For readers.** The Reader Chamber can narrate a chapter with distinct
+narrator, protagonist, and side-character voices, highlight the active text,
+and move the cinematic reading surface with the voice. Chapters can also be
+translated while retaining their story-specific terminology where the selected
+provider supports it.
+
+**For developers.** Reader-wide narration uses the browser Web Speech API.
+Kokoro belongs to the separate generated character-voice-card path and does
+not replace browser narration; current preset coverage is English and Spanish.
+Translation stores a chapter result by language, tries DeepL with a temporary
+glossary when available, and falls back to the configured text-generation
+route. Browser voice availability, provider credentials, quota, and target
+language all remain real constraints.
+
+---
+
+## 🛡️ A Library That Remembers
+
+**For readers.** Sign in to keep your worlds, Seeds, Codex, progress,
+translations, images, profile, and media connected to your account. The
+experience is designed so a cover, portrait, or chapter memory belongs to the
+world it came from—not to a transient browser tab.
+
+**For developers.** Firebase Authentication provides the account session.
+Structured application records live in PostgreSQL through Firebase Data
+Connect; permanent user-owned media lives in private Cloudflare R2; IndexedDB
+is the local cache/outbox; and the curated audio catalog remains separate in
+checked-in/public R2 namespaces. Postgres stores relational state and media
+metadata, never permanent media bodies. Firestore and Firebase Storage are not
+active application persistence paths.
+
+This is intentionally brief. The ownership rules, media lifecycle, deletion
+jobs, quota behavior, and deployment credentials are documented in
+[PERSISTENCE_MEDIA_CUTOVER.md](docs/PERSISTENCE_MEDIA_CUTOVER.md).
+
+---
+
+## ✨ What is ready, what is growing
+
+### Ready in the application
+
+Story creation and Seeds; streamed chapter and sequential-batch generation;
+Reader Chamber modes and preferences; Living Codex; Fate steering and forks;
+cover, hero, portrait, and manifestation media; curated scene audio; browser
+narration; translation routes; account-backed persistence; and offline
+cache/outbox behavior are implemented in this repository.
+
+### Dependent on the reader's environment
+
+Live AI text, image, translation, and Kokoro voice results require configured
+providers and may be limited by availability, quota, or language support.
+Browser narration depends on device voices. Deployed persistence/media flows
+need their protected Firebase, Data Connect, Workload Identity, and R2
+configuration; emulator coverage is not a substitute for a configured hosted
+environment.
+
+### Still growing
+
+Full CJK, RTL, complex-script, and multilingual TTS support is not complete;
+see the [language expansion audit](glossary/language_expansion_audit.md).
+Community marketplace, broad sect-economy, and contribution-hall behavior are
+future product work, not promises made by the current screens.
+
+---
+
+## 🚀 Development
+
+### Setup
+
+Install dependencies, then copy the environment template:
+
+```bash
+npm ci
+Copy-Item .env.example .env # PowerShell
 ```
 
-### 💻 Local Run
-1.  **Install dependencies**:
-    ```bash
-    npm install
-    ```
-2.  **Start development server** (Runs multi-model backend server combined with Vite on port `3000`):
-    ```bash
-    npm run dev
-    ```
-3.  **Build production package**:
-    ```bash
-    npm run build
-    ```
-4.  **Execute production server**:
-    ```bash
-    npm run start
-    ```
+[`.env.example`](.env.example) is the authoritative configuration list. Live
+generation needs at least one AI provider credential. Authenticated
+persistence/media integration needs Firebase/Data Connect and R2 server-side
+configuration. Never commit provider keys, R2 secrets, or a service-account
+private key.
 
----
+### Local commands
 
-*“Carve your own destiny. Defy the heavens. Master the infinite scroll.”* — **SEIHOUSE**
+```bash
+npm run dev                 # Express API + Vite on port 3000
+npm run build               # production client and Node server bundle
+npm run start               # run the production bundle locally
+npm run lint                # ESLint + TypeScript
+npm test                    # Vitest
+npm run test:coverage       # coverage suite
+npm run test:e2e            # Playwright critical paths
+npm run dataconnect:compile # Data Connect SDK/schema verification
+npm run test:foundation:e2e # Auth/Data Connect ownership suite
+```
 
-*Began on: 06/22/2026* | *Last updated: 07/06/2026*
+`npm run test:foundation:r2:live` and
+`npm run foundation:media:maintenance` touch real infrastructure. Use only the
+documented protected environment and disposable records.
+
+### Deployment and deeper documentation
+
+Vercel serves the Vite client and bundles `server-bundle/entry.ts` for `/api/*`.
+For infrastructure, security, and operational detail, start with:
+
+- [Persistence and media cutover](docs/PERSISTENCE_MEDIA_CUTOVER.md)
+- [Contributing guide](CONTRIBUTING.md)
+- [Security model](security_spec.md)
+- [Test and verification map](TEST_COVERAGE_AUDIT.md)
+
+> *“Carve your own destiny. Defy the heavens. Master the infinite scroll.”* —
+> **SEIHOUSE**

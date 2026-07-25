@@ -1,33 +1,72 @@
-# Contributing to SEIHOUSE
+# Contributing to SEIHOUSE / Celestial Library
 
-Welcome to the SEIHOUSE project! This guide is to help you get acquainted with our folder structure and feature addition pipeline.
+Celestial Library is a React/Vite client with an Express API, Firebase
+Authentication, Firebase Data Connect/PostgreSQL persistence, private
+Cloudflare R2 media, and an IndexedDB offline cache/outbox. Read the
+[README](README.md) and [persistence/media cutover guide](docs/PERSISTENCE_MEDIA_CUTOVER.md)
+before changing a user-data or media flow.
 
-## Folder Structure
+## Repository map
 
-Our codebase is organized to support a robust, scalable React application combined with a full-stack Node.js server.
+- `src/components/` — reader, library, creation, profile, and Living Codex UI.
+- `src/features/creation/` — Story Seed and story-intake forms.
+- `src/hooks/` — client orchestration for generation, reader behavior, Codex,
+  media, and profile actions.
+- `src/lib/` — shared contracts, audio catalogs, persistence client/cache,
+  storage adapters, and browser helpers.
+- `src/server/` — Express routes, prompts, auth/admin setup, persistence
+  repositories, R2 media services, and validation schemas.
+- `dataconnect/` — Data Connect schema and operations. Generated client and
+  Admin SDK output lives under `src/generated/`.
+- `server-bundle/entry.ts` — Vercel serverless entrypoint. `src/server.ts` is
+  the local development/production Node entrypoint.
+- `e2e/` — Playwright critical-path tests.
 
-- **`/` (Root)**: Contains configuration files (like `package.json`, `vite.config.ts`, `tsconfig.json`).
-- **`/src/`**: Contains the React codebase, main Node backend entry point (`src/server.ts`), and the AI routing layer (`src/aiRouter.ts`).
-- **`/src/components/`**: React functional components for the UI. Subfolders like `/src/components/codex/` hold domain-specific features.
-- **`/src/features/`**: Large modular chunks of the app (e.g., `/creation/` holds everything related to setting up a new story).
-- **`/src/hooks/`**: Custom React hooks housing core business logic, API calls, and state derivations.
-- **`/src/lib/`**: Standalone libraries, helpers, Firebase config, audio processing logic, and persistence logic.
-- **`/src/server/`**: Supporting files for the Node backend, including AI prompt templates and parsing helpers.
-- **`/src/store/`**: Global state management configuration using Zustand.
-- **`/src/types.ts`**: Global TypeScript definitions defining the schemas for `Story`, `Chapter`, etc.
+## Local setup
 
-## How to Add New Features
+```bash
+npm ci
+Copy-Item .env.example .env # PowerShell
+npm run dev
+```
 
-1. **Identify the Scope**: Does the feature require backend changes? Does it need AI models? 
-2. **Define Types First**: Start by updating `src/types.ts` with any new interfaces or enum modifications needed.
-3. **Write Backend (if required)**: Add the API route in `src/server.ts` or `src/aiRouter.ts`. Provide appropriate prompts in `src/server/prompts.ts`.
-4. **Update the Store**: If global state is necessary, add actions and state variables to `src/store/useAppStore.ts`.
-5. **Create/Update Hooks**: Keep components clean. Encapsulate data-fetching and AI invocation logic into hooks within `src/hooks/`. Ensure JSDoc comments are provided for exported functions.
-6. **Implement the UI**: Add or modify UI elements in `src/components/`. Follow our aesthetic guidelines (Tailwind CSS, clean aesthetics, responsive layouts).
-7. **Test**: Run locally with `npm run dev` and ensure everything integrates seamlessly.
+Keep provider keys, R2 secrets, and deployment credentials out of source
+control. `.env.example` documents the required variable groups. Firebase
+Authentication is active, but Firestore and Firebase Storage are not active
+application persistence services; use Data Connect and the server persistence
+API for structured data, and the media API for permanent user media.
 
-## Coding Standards
+## Working conventions
 
-- **TypeScript**: Use strict typing. Avoid `any` where possible.
-- **Styling**: Tailwind CSS is the standard. Follow the established color and typography palette.
-- **Documentation**: Provide JSDoc comments for complex logic, state slices, and hooks.
+1. Start with the relevant types and existing contract/tests. A story or Codex
+   change often touches `src/types.ts`, graph mapping, persistence, and the UI.
+2. Keep business logic in hooks/lib/server modules; keep components focused on
+   presentation and interaction.
+3. Do not write directly to Data Connect from a new browser feature unless the
+   existing authorization pattern explicitly calls for it. Product persistence
+   flows use authenticated server routes, owner checks, revisions, and
+   idempotency.
+4. Send permanent generated/uploaded media through the media service. Persist
+   the asset ID and metadata, not a provider URL, base64 payload, or R2 secret.
+5. Preserve the curated audio contract: model output is semantic; catalog IDs,
+   URLs, and playback resolution stay client-side.
+6. Keep accessibility intentional: use native controls where possible, label
+   icon-only controls, preserve keyboard paths, and test mobile layouts.
+
+## Checks before review
+
+Run the smallest relevant tests while iterating, then run the appropriate
+repository checks:
+
+```bash
+npm run lint
+npm test
+npm run build
+npm run dataconnect:compile        # when schema/operations/generated SDKs change
+npm run test:foundation:e2e        # when Auth/Data Connect ownership or persistence changes
+npm run test:e2e                   # when a critical browser path changes
+```
+
+Live R2 tests and maintenance commands affect real infrastructure. Use only
+the documented protected environment and disposable records; never use them as
+a shortcut for broad production cleanup.
