@@ -1,0 +1,7 @@
+✦ Nova: Added missing aria-labels to icon-only "Trash2" buttons for improved accessibility
+
+🧭 Problem: Several icon-only "delete" or "release" buttons across the application (using the Trash2 icon) were missing descriptive `aria-label` attributes, making their purpose unclear to screen reader users.
+✦ Improvement: Added appropriate, context-aware `aria-label` attributes to these icon-only buttons (e.g. "Release Anchor", "Release bookmark", "Purge link", "Purge Spirit [Name]").
+👤 User Impact: Screen reader users can now clearly understand the destructive actions associated with these buttons, preventing accidental deletions and improving overall accessibility.
+✅ Verification: Tested via unit tests and verified code statically to ensure `aria-label` attributes were added without altering any visual layouts or behavior.
+🧱 Scope: Changes were strictly limited to adding `aria-label`s to existing `Trash2` buttons. No layout or logical changes were introduced.

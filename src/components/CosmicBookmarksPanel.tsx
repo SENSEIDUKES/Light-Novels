@@ -145,6 +145,7 @@ export const CosmicBookmarksPanel: React.FC<CosmicBookmarksPanelProps> = ({
                             }
                             className="text-neutral-600 hover:text-red-500 text-[10px] font-sc font-bold uppercase tracking-wider flex items-center space-x-1"
                             title="Shed memory anchor"
+                            aria-label="Release bookmark"
                           >
                             <Trash2 size={12} />
                             <span>Release</span>
