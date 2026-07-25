@@ -643,7 +643,20 @@ export class PersistentStorageManager implements StorageAdapter {
     // tab crashes between those writes, reload deduplication keeps the newest
     // generation and cleans up the older row.
     await this.persistTask(queuedTask);
-    if (existing) await this.completePersistedTask(existing);
+    if (existing) {
+      // Removing the superseded generation is best-effort cleanup: reload
+      // deduplication keeps the newest generation and discards this stale row.
+      // A failure here must not surface as an enqueue failure, or callers would
+      // roll back a local write whose sync task is already durably queued.
+      try {
+        await this.completePersistedTask(existing);
+      } catch (cleanupError) {
+        console.warn(
+          "Failed to remove a superseded outbox generation; reload will reconcile it.",
+          cleanupError,
+        );
+      }
+    }
     const existingIndex = existing
       ? this.syncQueue.findIndex(
           (candidate) => candidate.idempotencyKey === existing.idempotencyKey,
@@ -2544,6 +2557,54 @@ export class PersistentStorageManager implements StorageAdapter {
     return story ? this.hydrateCurrentMedia(story) : null;
   }
 
+  /**
+   * Undo a local story write whose durable sync task could not be queued so the
+   * local record and its outbox entry stay atomic. A story that persisted
+   * locally without a queued sync would read back as "saved" yet never reach
+   * the cloud. Restores the prior snapshot, or removes a freshly created shell.
+   */
+  private async restoreLocalStory(
+    storyId: string,
+    previous: StoryWorld | null,
+  ): Promise<void> {
+    try {
+      if (previous) {
+        await this.localAdapter.saveStory(previous);
+      } else {
+        await this.localAdapter.deleteStory(storyId);
+      }
+    } catch (rollbackError) {
+      console.error(
+        "Failed to roll back the local story after a sync-enqueue failure:",
+        rollbackError,
+      );
+    }
+  }
+
+  /**
+   * Undo a local chapter write whose durable sync task could not be queued.
+   * Restores the prior body, or removes a freshly written one when the adapter
+   * supports single-chapter deletion.
+   */
+  private async restoreLocalChapter(
+    storyId: string,
+    chapterNumber: number,
+    previous: ChapterContent | null,
+  ): Promise<void> {
+    try {
+      if (previous) {
+        await this.localAdapter.saveChapterContent(previous);
+      } else if (this.localAdapter.deleteChapterContent) {
+        await this.localAdapter.deleteChapterContent(storyId, chapterNumber);
+      }
+    } catch (rollbackError) {
+      console.error(
+        "Failed to roll back the local chapter after a sync-enqueue failure:",
+        rollbackError,
+      );
+    }
+  }
+
   async saveStory(story: StoryWorld): Promise<void> {
     const currentUserId = this.getCurrentUserId();
     await this.awaitAccountScope(currentUserId);
@@ -2650,12 +2711,24 @@ export class PersistentStorageManager implements StorageAdapter {
         throw e;
       }
 
-      await this.enqueueTask({
-        type: "story",
-        storyId: strippedStory.id,
-        timestamp: Date.now(),
-        userId: strippedStory.userId,
-      });
+      try {
+        await this.enqueueTask({
+          type: "story",
+          storyId: strippedStory.id,
+          timestamp: Date.now(),
+          userId: strippedStory.userId,
+        });
+      } catch (e) {
+        // The local record and its durable sync task must commit together.
+        // Roll the local write back to its prior state so a failed enqueue can
+        // never leave an unsynced shell that reads back as "saved".
+        await this.restoreLocalStory(strippedStory.id, existingLocal);
+        console.error(
+          "Failed to queue the story sync; rolled back the local story write:",
+          e,
+        );
+        throw e;
+      }
     });
   }
 
@@ -2696,12 +2769,24 @@ export class PersistentStorageManager implements StorageAdapter {
       // Deletions use the same durable outbox as writes. The cloud adapter keeps
       // a tombstone after removing chapter bodies, preventing stale devices from
       // treating an intentional deletion as a new local-only story.
-      await this.enqueueTask({
-        type: "delete_story",
-        storyId: id,
-        timestamp: Date.now(),
-        userId: ownerId,
-      });
+      try {
+        await this.enqueueTask({
+          type: "delete_story",
+          storyId: id,
+          timestamp: Date.now(),
+          userId: ownerId,
+        });
+      } catch (e) {
+        // Keep the local tombstone and its queued delete atomic. Restore the
+        // story to its last-synced state so a delete that never queued cannot
+        // hide a record that still exists on the server.
+        await this.restoreLocalStory(id, existing);
+        console.error(
+          "Failed to queue the story deletion; restored the local story:",
+          e,
+        );
+        throw e;
+      }
     });
   }
 
@@ -2880,13 +2965,29 @@ export class PersistentStorageManager implements StorageAdapter {
           throw e;
         }
 
-        await this.enqueueTask({
-          type: "chapter",
-          storyId: stampedContent.storyId,
-          chapterNumber: stampedContent.chapterNumber,
-          timestamp: Date.now(),
-          userId: parentStory?.userId ?? currentUserId,
-        });
+        try {
+          await this.enqueueTask({
+            type: "chapter",
+            storyId: stampedContent.storyId,
+            chapterNumber: stampedContent.chapterNumber,
+            timestamp: Date.now(),
+            userId: parentStory?.userId ?? currentUserId,
+          });
+        } catch (e) {
+          // Keep the local body and its queued sync atomic so a chapter can
+          // never persist locally without a queued sync (which would show the
+          // chapter as saved yet never reach a second device).
+          await this.restoreLocalChapter(
+            content.storyId,
+            content.chapterNumber,
+            existingContent,
+          );
+          console.error(
+            "Failed to queue the chapter sync; rolled back the local chapter write:",
+            e,
+          );
+          throw e;
+        }
       },
     );
 
@@ -2905,6 +3006,14 @@ export class PersistentStorageManager implements StorageAdapter {
     };
     try {
       await this.localAdapter.saveStory(heartbeat);
+    } catch (error) {
+      console.error(
+        "Chapter saved, but its story sync heartbeat local write failed:",
+        error,
+      );
+      throw error;
+    }
+    try {
       await this.enqueueTask({
         type: "story",
         storyId: heartbeat.id,
@@ -2913,6 +3022,10 @@ export class PersistentStorageManager implements StorageAdapter {
         requiresPostChapterHeartbeat: true,
       });
     } catch (error) {
+      // Revert the parent's local revision bump so its local state never runs
+      // ahead of the cloud without a queued sync. The chapter task's own flush
+      // still issues the post-chapter heartbeat, so devices are still notified.
+      await this.restoreLocalStory(heartbeat.id, parentStory);
       console.error("Chapter saved, but its story sync heartbeat failed:", error);
       throw error;
     }

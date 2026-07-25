@@ -204,6 +204,27 @@ export class InMemoryFallbackAdapter implements StorageAdapter {
         }
     }
 
+    async deleteChapterContent(storyId: string, chapterNumber: number): Promise<void> {
+        const scope = this.accountScope;
+        let accountId = typeof scope === "string" ? scope : undefined;
+        if (scope === undefined) {
+          accountId = this.stories
+            .filter((story) => story.id === storyId)
+            .sort(
+              (a, b) =>
+                new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+            )[0]?.userId;
+        }
+        this.chapters = this.chapters.filter(
+          (chapter) =>
+            !(
+              chapter.accountId === accountId &&
+              chapter.content.storyId === storyId &&
+              chapter.content.chapterNumber === chapterNumber
+            ),
+        );
+    }
+
     async getAllChapterContents(): Promise<AccountScopedChapterContent[]> {
         return this.chapters.map(({ accountId: userId, content }) => ({
           userId,

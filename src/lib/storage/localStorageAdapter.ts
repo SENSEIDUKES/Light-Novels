@@ -725,6 +725,36 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
     }
   }
 
+  async deleteChapterContent(
+    storyId: string,
+    chapterNumber: number,
+  ): Promise<void> {
+    const scope = this.accountScope;
+    try {
+      let accountId = typeof scope === "string" ? scope : undefined;
+      if (scope === undefined) {
+        accountId = this.getStoriesForScope(scope).find(
+          (story) => story.id === storyId,
+        )?.userId;
+      }
+      // Remove the row from the same bucket saveChapterContent wrote it to.
+      const targetKey = accountId
+        ? this.chaptersKeyFor(accountId)
+        : this.chaptersStorageKey;
+      const chapters = this.readArray<ChapterContent>(targetKey);
+      const remaining = chapters.filter(
+        (chapter) =>
+          chapter.storyId !== storyId || chapter.chapterNumber !== chapterNumber,
+      );
+      if (remaining.length !== chapters.length) {
+        localStorage.setItem(targetKey, JSON.stringify(remaining));
+      }
+    } catch (error) {
+      console.error("LocalStorage delete error:", error);
+      throw error;
+    }
+  }
+
   async getAllChapterContents(): Promise<AccountScopedChapterContent[]> {
     const stories = this.getStoriesForScope(undefined);
     const ownersByStoryId = new Map<string, Set<string | undefined>>();

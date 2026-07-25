@@ -580,6 +580,28 @@ export class IndexedDBStorageAdapter implements StorageAdapter {
         });
     }
 
+    async deleteChapterContent(storyId: string, chapterNumber: number): Promise<void> {
+        const scope = this.accountScope;
+        const db = await this.getDB();
+        let accountId = typeof scope === "string" ? scope : undefined;
+        if (scope === undefined) {
+          accountId = (await this.getStoryForScope(storyId, scope, db))?.userId;
+        }
+        // Mirror saveChapterContent's key derivation so the row written under the
+        // current scope is the exact row removed on rollback.
+        const key: [string, number] = [
+          accountId ? scopedKey(accountId, storyId) : storyId,
+          chapterNumber,
+        ];
+        return new Promise((resolve, reject) => {
+          const transaction = db.transaction(this.chaptersStoreName, 'readwrite');
+          transaction.objectStore(this.chaptersStoreName).delete(key);
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(transaction.error);
+          transaction.onabort = () => reject(transaction.error);
+        });
+    }
+
     async getAllChapterContents(): Promise<AccountScopedChapterContent[]> {
         const db = await this.getDB();
         const [stories, chapters] = await Promise.all([
