@@ -1541,6 +1541,15 @@ export interface AdminGetUserProfileGraphVariables {
   ownerUid: string;
 }
 
+export interface AdminGrantSystemOwnerRoleData {
+  userAccount_update?: UserAccount_Key | null;
+}
+
+export interface AdminGrantSystemOwnerRoleVariables {
+  ownerUid: string;
+  email: string;
+}
+
 export interface AdminListExpiredStoryTombstonesData {
   storyDeletionJobs: ({
     id: UUIDString;
@@ -2971,6 +2980,11 @@ export function adminRecoverPendingUserPortraits(vars: AdminRecoverPendingUserPo
 export function adminUpdateAccountAccess(dc: DataConnect, vars: AdminUpdateAccountAccessVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminUpdateAccountAccessData>>;
 /** Generated Node Admin SDK operation action function for the 'AdminUpdateAccountAccess' Mutation. Allow users to pass in custom DataConnect instances. */
 export function adminUpdateAccountAccess(vars: AdminUpdateAccountAccessVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminUpdateAccountAccessData>>;
+
+/** Generated Node Admin SDK operation action function for the 'AdminGrantSystemOwnerRole' Mutation. Allow users to execute without passing in DataConnect. */
+export function adminGrantSystemOwnerRole(dc: DataConnect, vars: AdminGrantSystemOwnerRoleVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminGrantSystemOwnerRoleData>>;
+/** Generated Node Admin SDK operation action function for the 'AdminGrantSystemOwnerRole' Mutation. Allow users to pass in custom DataConnect instances. */
+export function adminGrantSystemOwnerRole(vars: AdminGrantSystemOwnerRoleVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminGrantSystemOwnerRoleData>>;
 
 /** Generated Node Admin SDK operation action function for the 'AdminDeleteStoryAsAdmin' Mutation. Allow users to execute without passing in DataConnect. */
 export function adminDeleteStoryAsAdmin(dc: DataConnect, vars: AdminDeleteStoryAsAdminVariables, options?: OperationOptions): Promise<ExecuteOperationResponse<AdminDeleteStoryAsAdminData>>;

@@ -489,29 +489,25 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
         const stored = await getUserProfile();
         if (!snapshotIsCurrent()) return;
         if (stored) {
+          // The stored profile is authoritative for role and tier. The client
+          // used to promote owner emails here, which rendered the admin
+          // surfaces while every admin query still failed PostgreSQL's
+          // userAccount.role check — an unexplainable error for the one user
+          // who is actually the owner. The server now assigns OWNER from the
+          // verified ID-token email when it provisions the account row.
           const data: UserProfileType = {
             ...stored,
             uid: expectedUid,
           };
 
-          // Auto-bootstrap Owner role and Immortal tier for owner emails.
-          const email = currentUser.email?.toLowerCase();
-          if (email === 'amaurylindy@gmail.com' || email === 'seihouseproductions@gmail.com') {
-            data.role = 'owner';
-            data.premiumTier = 'immortal';
-          }
-
           cacheAccountProfile(data);
           setProfile(data);
           setError('');
         } else {
-          const email = currentUser.email?.toLowerCase();
-          const isOwner = email === 'amaurylindy@gmail.com' || email === 'seihouseproductions@gmail.com';
-          const defaultProfile: UserProfileType = {
-            ...createAccountProfileFallback(currentUser),
-            role: isOwner ? 'owner' : 'user',
-            premiumTier: isOwner ? 'immortal' : 'mortal',
-          };
+          // A read-only placeholder shown while server provisioning completes.
+          // It deliberately claims no elevated role: an admin surface it opened
+          // would fail every call it made.
+          const defaultProfile: UserProfileType = createAccountProfileFallback(currentUser);
 
           // The canonical account + profile row is provisioned server-side the
           // first time the profile is read, so the client no longer writes a

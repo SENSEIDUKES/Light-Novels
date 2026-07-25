@@ -25,6 +25,7 @@ import {
 } from './r2ObjectStore';
 import { assertPermanentMediaMetadata } from './permanentMediaGuard';
 import { logger } from '../logger';
+import { isSystemOwnerEmail } from '../systemOwners';
 
 const MAX_ERROR_LENGTH = 1000;
 const DEFAULT_STALE_UPLOAD_AGE_MS = 60 * 60 * 1000;
@@ -78,11 +79,10 @@ export interface MediaStorageReport {
 const DEFAULT_MAX_USER_STORAGE_BYTES = 500n * 1024n * 1024n;
 const DEFAULT_MAX_USER_ASSET_COUNT = 5000;
 const DEFAULT_MAX_UPLOADS_PER_MINUTE = 30;
-const SYSTEM_OWNER_EMAILS = new Set(['amaurylindy@gmail.com', 'seihouseproductions@gmail.com']);
 
 function isPrivilegedOwner(owner: MediaOwner): boolean {
   if (owner.role === 'owner' || owner.role === 'admin') return true;
-  if (owner.email && SYSTEM_OWNER_EMAILS.has(owner.email.toLowerCase())) return true;
+  if (isSystemOwnerEmail(owner.email)) return true;
   return false;
 }
 

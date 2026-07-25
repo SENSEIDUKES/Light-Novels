@@ -15,6 +15,7 @@ import { ManifestHeroImage } from './ManifestHeroImage';
 import { anchorAttributes } from '../lib/cinematicScroll/anchors';
 import { ContextInspector } from './ContextInspector';
 import { getReaderTypography, getReadingDirection } from '../lib/readerTypography';
+import { isManifestationEligible } from '../lib/manifestationEligibility';
 
 const FALLBACK_BACKDROPS = [
   "https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/images/LIBRARY%20BACKDROPS/LIBRARY_THUNDER.PNG",
@@ -526,7 +527,11 @@ export function ReaderViewport({
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
                                   </div>
                                 ) : (
-                                  revealTerm.type !== 'faction' && (
+                                  // Portrait generation stays gated on the
+                                  // editorial manifestation policy; name
+                                  // highlighting and hovercards do not.
+                                  revealTerm.type !== 'faction'
+                                  && isManifestationEligible(revealTerm.entry) && (
                                     <button
                                        tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleManifestReveal(revealTerm.entry, revealTerm.type)}
                                       disabled={generatingRevealId === revealTerm.entry.id}

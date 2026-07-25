@@ -16,6 +16,7 @@ import {
   adminGetOwnedStorySeedGraph,
   adminGetPersistenceReceipt,
   adminGetUserProfileGraph,
+  adminGrantSystemOwnerRole,
   adminListOwnedGlossaryTerms,
   adminListOwnedStories,
   adminListOwnedStoryCoverSlots,
@@ -37,6 +38,8 @@ import type {
 } from '../../types';
 import { applyStoryPatch, type StoryPatchOperation } from '../../lib/storage/storyPatch';
 import { getFirebaseAdminApp } from '../firebaseAdmin';
+import { logger } from '../logger';
+import { isSystemOwnerEmail } from '../systemOwners';
 import type { MediaAssetDescriptor } from '../../contracts/mediaAssets';
 import type {
   ApplicationPersistenceRepository,
@@ -966,9 +969,25 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
    * ever creates a missing record — it never overwrites an existing profile,
    * so an explicit username can never be clobbered by initialization.
    */
+  /**
+   * Grant the OWNER role to a verified system-owner account. Idempotent, and
+   * deliberately independent of AdminUpdateAccountAccess, which requires an
+   * actor who is already an admin — that is unreachable until this has run.
+   */
+  private async grantSystemOwnerRole(ownerUid: string, email: string): Promise<void> {
+    try {
+      await adminGrantSystemOwnerRole({ ownerUid, email: email.trim().toLowerCase() });
+    } catch (error) {
+      // Never block a profile read on this: the account is still usable, it
+      // simply keeps its current role until the next read retries.
+      logger.error({ err: error, ownerUid }, 'Failed to grant the system owner role');
+    }
+  }
+
   private async provisionCanonicalProfile(
     ownerUid: string,
     profileExists?: boolean,
+    ownerEmail?: string,
   ): Promise<void> {
     if (profileExists ?? Boolean((await adminGetUserProfileGraph({ ownerUid })).data.profile)) return;
     const operation = 'UPSERT_USER_PROFILE_GRAPH';
@@ -982,6 +1001,7 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     if (await this.receipt(ownerUid, idempotencyKey, operation, hash)) return;
     const variables = mapUserProfileToGraphVariables({
       ownerUid,
+      ownerEmail,
       patch: { uid: ownerUid, updatedAt: this.now().toISOString() },
       currentGraph: null,
       expectedSyncRevision: null,
@@ -1000,12 +1020,25 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
       // canonical profile is the desired end state either way.
       if (!(await adminGetUserProfileGraph({ ownerUid })).data.profile) throw error;
     }
+    // The account row exists only after provisioning, so the role grant follows it.
+    if (isSystemOwnerEmail(ownerEmail)) {
+      await this.grantSystemOwnerRole(ownerUid, ownerEmail!);
+    }
   }
 
-  async getProfile(ownerUid: string): Promise<UserProfile | null> {
+  async getProfile(ownerUid: string, ownerEmail?: string): Promise<UserProfile | null> {
     let result = await adminGetUserProfileGraph({ ownerUid });
     if (!result.data.profile) {
-      await this.provisionCanonicalProfile(ownerUid, false);
+      await this.provisionCanonicalProfile(ownerUid, false, ownerEmail);
+      result = await adminGetUserProfileGraph({ ownerUid });
+    } else if (
+      ownerEmail
+      && isSystemOwnerEmail(ownerEmail)
+      && result.data.account?.role !== AccountRole.OWNER
+    ) {
+      // A system owner whose account row predates this rule, or was created by
+      // a path without the token email, still needs the role PostgreSQL checks.
+      await this.grantSystemOwnerRole(ownerUid, ownerEmail);
       result = await adminGetUserProfileGraph({ ownerUid });
     }
     const profile = hydrateUserProfile(result.data);
@@ -1148,7 +1181,11 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
   }
 
   async getAdminOverview(actorUid: string): Promise<PersistenceAdminOverview> {
-    const result = await adminGetAdminOverview({ actorUid, limit: 1000 });
+    // Route the read through the shared classifier so "Administrator access
+    // required" reaches the client as a 403 with its real message instead of an
+    // opaque 500 that reads as an outage.
+    const result = await adminGetAdminOverview({ actorUid, limit: 1000 })
+      .catch(normalizePersistenceError);
     const profiles = new Map(result.data.profiles.map(profile => [profile.userUid, profile]));
     return {
       users: result.data.accounts.map(account => {

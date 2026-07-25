@@ -119,7 +119,12 @@ export interface ApplicationPersistenceRepository {
   ): Promise<StorySeed[]>;
   deleteSeed(ownerUid: string, seedId: string, idempotencyKey: string): Promise<void>;
 
-  getProfile(ownerUid: string): Promise<UserProfile | null>;
+  /**
+   * `ownerEmail` must come from a verified ID token. It provisions the account
+   * row's email and, for a system-owner address, its OWNER role, so admin
+   * authorization is decided by PostgreSQL rather than by the browser.
+   */
+  getProfile(ownerUid: string, ownerEmail?: string): Promise<UserProfile | null>;
   saveProfile(
     ownerUid: string,
     patch: Partial<UserProfile>,

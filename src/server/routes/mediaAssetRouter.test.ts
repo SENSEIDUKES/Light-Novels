@@ -151,6 +151,75 @@ describe('foundation media asset routes', () => {
     );
   });
 
+  // `MediaAssociation` carries `purpose`, so the browser client sends it inside
+  // the association object. The strict schema omitted it, which rejected every
+  // JSON media upload with a 400 — portrait, Codex manifestation, cover, hero.
+  it('accepts the association purpose the browser client sends', async () => {
+    const response = await fetch(`${baseUrl}/api/foundation/media-assets`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer valid-token',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        assetType: 'IMAGE',
+        purpose: 'CELESTIAL_PORTRAIT',
+        idempotencyKey: '11111111-1111-4111-8111-111111111111',
+        association: {
+          targetKind: 'PORTRAIT',
+          targetKey: 'owner-a',
+          purpose: 'CELESTIAL_PORTRAIT',
+          legacyMediaId: '22222222-2222-4222-8222-222222222222',
+          entityType: 'portrait',
+        },
+        source: { kind: 'data-url', dataUrl: 'data:image/png;base64,iVBORw0KGgo=' },
+      }),
+    });
+
+    expect(response.status).toBe(201);
+    // The top-level purpose stays authoritative regardless of what arrives
+    // inside the association.
+    expect(service.save).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        purpose: 'CELESTIAL_PORTRAIT',
+        association: expect.objectContaining({
+          purpose: 'CELESTIAL_PORTRAIT',
+          targetKind: 'PORTRAIT',
+        }),
+      }),
+    );
+  });
+
+  it('lets the top-level purpose win over a conflicting association purpose', async () => {
+    const response = await fetch(`${baseUrl}/api/foundation/media-assets`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer valid-token',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        assetType: 'IMAGE',
+        purpose: 'STORY_COVER',
+        idempotencyKey: '33333333-3333-4333-8333-333333333333',
+        association: {
+          targetKind: 'STORY',
+          targetKey: 'story-a',
+          purpose: 'MANIFESTATION',
+        },
+        source: { kind: 'data-url', dataUrl: 'data:image/png;base64,iVBORw0KGgo=' },
+      }),
+    });
+
+    expect(response.status).toBe(201);
+    expect(service.save).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        association: expect.objectContaining({ purpose: 'STORY_COVER' }),
+      }),
+    );
+  });
+
   it('rejects owner injection and unknown JSON fields', async () => {
     const response = await fetch(`${baseUrl}/api/foundation/media-assets`, {
       method: 'POST',

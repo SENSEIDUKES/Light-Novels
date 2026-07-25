@@ -309,14 +309,13 @@ function App() {
             .then((storedProfile) => {
               if (!snapshotIsCurrent()) return;
               if (storedProfile) {
+                // Role and tier come from the server, which assigns OWNER from
+                // the verified ID-token email. Promoting the account here only
+                // unlocked UI whose every request PostgreSQL then rejected.
                 const data = {
                   ...storedProfile,
                   uid: expectedUid,
                 };
-                if (user.email && ['amaurylindy@gmail.com', 'seihouseproductions@gmail.com'].includes(user.email.toLowerCase())) {
-                  data.premiumTier = 'immortal';
-                  data.role = 'owner';
-                }
                 cacheAccountProfile(data);
                 store_setUserProfile(data);
                 void retryPendingCultivatorPortraits(expectedUid);

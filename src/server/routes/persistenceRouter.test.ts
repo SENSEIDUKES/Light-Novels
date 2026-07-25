@@ -52,7 +52,10 @@ describe('persistenceRouter', () => {
     } as unknown as ApplicationPersistenceRepository;
     const app = express();
     app.use(createPersistenceRouter({
-      verifyIdToken: vi.fn().mockResolvedValue({ uid: ownerUid }),
+      verifyIdToken: vi.fn().mockResolvedValue({
+        uid: ownerUid,
+        email: `${ownerUid}@example.test`,
+      }),
       getRepository: () => repository,
     }));
     server = createServer(app);
@@ -223,6 +226,37 @@ describe('persistenceRouter', () => {
         expected: { exists: true, updatedAt: null, syncRevision: 'remote-revision' },
       },
     );
+  });
+
+  it('reports an admin authorization failure as forbidden, not a generic outage', async () => {
+    // The switchboard showed only "The persistence operation could not be
+    // completed." for what was really a role check — indistinguishable from a
+    // real outage, and impossible for the user to act on.
+    repository.getAdminOverview = vi.fn().mockRejectedValue(
+      Object.assign(new Error('Administrator access required'), { code: 'forbidden' }),
+    );
+
+    const response = await fetch(`${baseUrl}/api/persistence/admin/overview`, {
+      headers: { Authorization: 'Bearer valid-token' },
+    });
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'forbidden' },
+    });
+  });
+
+  it('passes the verified token email to the profile read', async () => {
+    // The account row's OWNER role is assigned from this email, so it must
+    // reach the repository — the browser is never trusted for its own role.
+    repository.getProfile = vi.fn().mockResolvedValue({ uid: ownerUid, username: 'Owner' });
+
+    const response = await fetch(`${baseUrl}/api/persistence/profile`, {
+      headers: { Authorization: 'Bearer valid-token' },
+    });
+
+    expect(response.status).toBe(200);
+    expect(repository.getProfile).toHaveBeenCalledWith(ownerUid, 'reader-a@example.test');
   });
 
   it('returns the parent story revision a chapter write advanced', async () => {

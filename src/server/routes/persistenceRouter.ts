@@ -97,10 +97,12 @@ const portraitSchema = z.object({
 
 interface PersistenceLocals {
   ownerUid: string;
+  /** Verified token email; the only accepted evidence of a system-owner account. */
+  ownerEmail?: string;
 }
 
 export interface PersistenceRouteDependencies {
-  verifyIdToken(token: string): Promise<{ uid: string }>;
+  verifyIdToken(token: string): Promise<{ uid: string; email?: string }>;
   getRepository(): Promise<ApplicationPersistenceRepository> | ApplicationPersistenceRepository;
 }
 
@@ -120,7 +122,7 @@ async function getDefaultRepository(): Promise<ApplicationPersistenceRepository>
 const defaultDependencies: PersistenceRouteDependencies = {
   async verifyIdToken(token) {
     const decoded = await getAuth(getFirebaseAdminApp()).verifyIdToken(token, true);
-    return { uid: decoded.uid };
+    return { uid: decoded.uid, email: decoded.email };
   },
   getRepository: getDefaultRepository,
 };
@@ -148,6 +150,7 @@ function authenticate(dependencies: PersistenceRouteDependencies) {
       const token = await dependencies.verifyIdToken(match[1]);
       if (!token.uid || token.uid.length > 128) throw new Error('Invalid Firebase uid.');
       res.locals.ownerUid = token.uid;
+      res.locals.ownerEmail = token.email;
       next();
     } catch {
       sendError(res, 401, 'invalid_token', 'The Firebase ID token is invalid or revoked.');
@@ -420,7 +423,12 @@ export function createPersistenceRouter(
 
   router.get('/api/persistence/profile', asyncRoute(async (_req, res) => {
     const repository = await dependencies.getRepository();
-    res.json({ profile: await repository.getProfile(res.locals.ownerUid) });
+    // The verified token email is the only accepted evidence of a system-owner
+    // account, and it is applied to the canonical account row here so every
+    // later admin check reads a role PostgreSQL actually holds.
+    res.json({
+      profile: await repository.getProfile(res.locals.ownerUid, res.locals.ownerEmail),
+    });
   }));
 
   router.put('/api/persistence/profile', asyncRoute(async (req, res) => {
