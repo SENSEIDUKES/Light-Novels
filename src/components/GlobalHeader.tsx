@@ -33,11 +33,18 @@ export const GlobalHeader: React.FC = () => {
         setIsHubOpen(false);
       }
     };
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsHubOpen(false);
+      }
+    };
     if (isHubOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscapeKey);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscapeKey);
     };
   }, [isHubOpen]);
 
