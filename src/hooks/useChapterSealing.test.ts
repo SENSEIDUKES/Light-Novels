@@ -54,8 +54,24 @@ describe('useChapterSealing', () => {
     expect(res).toEqual(['warn']);
   });
 
+  it('handleSealChapter prevents action when isGenerating is true', async () => {
+    useAppStore.setState({
+      isGenerating: true,
+      activeStoryId: 's1',
+      saveStories: vi.fn().mockResolvedValue(true),
+      stories: [{ id: 's1', arcs: [{ chapters: [{ number: 1, generatedContent: 'content', hasContent: true, isSealed: false }] }] }]
+    } as any);
+
+    const { result } = renderHook(() => useChapterSealing());
+    await result.current.handleSealChapter(1);
+
+    const saveStories = useAppStore.getState().saveStories;
+    expect(saveStories).not.toHaveBeenCalled();
+  });
+
   it('handleSealChapter seals the chapter', async () => {
     useAppStore.setState({ 
+      isGenerating: false,
       activeStoryId: 's1', 
       saveStories: vi.fn().mockResolvedValue(true),
       stories: [{ id: 's1', arcs: [{ chapters: [{ number: 1, generatedContent: 'content', hasContent: true, isSealed: false }] }] }]

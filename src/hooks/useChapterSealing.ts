@@ -41,6 +41,10 @@ export const useChapterSealing = () => {
   };
 
   const handleSealChapter = async (chapterNumber: number) => {
+    if (useAppStore.getState().isGenerating) {
+      console.warn('Cannot seal chapter while generation is in progress.');
+      return;
+    }
     const activeStory = store_stories.find((s) => s.id === store_activeStoryId);
     if (!activeStory) return;
 

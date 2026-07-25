@@ -72,7 +72,20 @@ describe('useStoryEngine', () => {
     expect(updatedStories[0].title).toBe('New Title');
   });
 
+  it('handleToggleRead prevents state changes if isGenerating is true', async () => {
+    useAppStore.setState({ isGenerating: true });
+    const { result } = renderHook(() => useStoryEngine());
+    const saveStoriesMock = useAppStore.getState().saveStories;
+
+    await act(async () => {
+      await result.current.handleToggleRead(1);
+    });
+
+    expect(saveStoriesMock).not.toHaveBeenCalled();
+  });
+
   it('handleToggleRead toggles unread to read and awards qi', async () => {
+    useAppStore.setState({ isGenerating: false });
     const { result } = renderHook(() => useStoryEngine());
     const saveStoriesMock = useAppStore.getState().saveStories;
     const { awardQi } = await import('../lib/qi');

@@ -57,6 +57,10 @@ export const useStoryEngine = () => {
   };
 
   const handleToggleRead = async (charNum: number) => {
+    if (useAppStore.getState().isGenerating) {
+      console.warn('Cannot toggle read status while generation is in progress.');
+      return;
+    }
     const activeStory = store_stories.find(s => s.id === store_activeStoryId);
     if (!activeStory) return;
     const updated = store_stories.map(s => {
