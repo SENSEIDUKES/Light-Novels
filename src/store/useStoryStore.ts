@@ -150,7 +150,14 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
         set({ stories: [], activeStoryId: null });
         throw e;
       }
-      console.error("Celestial local disk write breached, reverting to standard storage cache:", e);
+      console.error("Celestial local disk write breached:", e);
+      // The raw localStorage backstop below is only ever read back in
+      // device-only mode (initializeApp's fallback). In cloud mode it must
+      // never run: STORAGE_KEY is the legacy *unowned* store, so writing the
+      // signed-in account's library there would let the adapter migration
+      // resurrect stale copies and let a different account later claim them.
+      // The durable outbox is the cloud-mode safety net.
+      if (!LOCAL_ONLY_MODE) throw e;
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(markedStories));
       } catch (storageError) {

@@ -60,11 +60,6 @@ export interface SyncTask {
     idempotencyKey?: string;
     /** Number of failed cloud-sync attempts; retained for diagnostics and retry visibility. */
     attempts?: number;
-    /**
-     * A chapter body was queued with this story. Keep the story task until a
-     * fresh parent write has notified other devices after the chapter upload.
-     */
-    requiresPostChapterHeartbeat?: boolean;
 }
 
 export interface AccountScopedChapterContent {

@@ -191,6 +191,35 @@ describe('useAppStore', () => {
     expect(chapter.generatedContent).toBeUndefined();
   });
 
+  it('never writes a signed-in library to the legacy unowned localStorage key on save failure', async () => {
+    // The legacy v2 key is the unowned store that adapter migration re-imports
+    // and a later account can claim. A cloud-mode save failure must rely on the
+    // durable outbox instead of dumping the account's library there.
+    (auth as any).currentUser = { uid: 'account-a' };
+    const story = {
+      id: 'story-a',
+      userId: 'account-a',
+      title: 'T',
+      arcs: [],
+      memory: {},
+    } as any;
+    useAppStore.getState().setStories([story]);
+    localStorage.removeItem('@seihouse/fiction-generator-stories-v2');
+
+    vi.mocked(storyStorage.commitTransaction).mockRejectedValueOnce(
+      new Error('local write failed'),
+    );
+
+    await expect(
+      useAppStore.getState().saveStories([{ ...story, title: 'Edited' }]),
+    ).rejects.toThrow('local write failed');
+
+    expect(
+      localStorage.getItem('@seihouse/fiction-generator-stories-v2'),
+    ).toBeNull();
+    expect(storyStorage.rollbackTransaction).toHaveBeenCalled();
+  });
+
   it('initializes with default state', () => {
     const state = useAppStore.getState();
     expect(state.stories).toEqual([]);
