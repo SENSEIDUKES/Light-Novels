@@ -567,7 +567,21 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     assertExpected(context.expected, graph.story);
     const current = hydrateStoryWorld(graph);
     if (!current) throw new Error('Owned story graph could not be hydrated for a bounded patch.');
-    const desired = applyStoryPatch(current, patch);
+    // A patch is computed against the browser's snapshot but applied to the
+    // freshly hydrated server story. Derived collections — an entity's
+    // imageHistory, its imageAssetId — are rebuilt from media attachments, so a
+    // replica that accumulated history the cloud never received produces paths
+    // that do not exist here. That is a stale-baseline condition, not a server
+    // fault: report it as such so the client can resend the whole story.
+    let desired: StoryWorld;
+    try {
+      desired = applyStoryPatch(current, patch);
+    } catch (error) {
+      throw taggedError(
+        error instanceof Error ? error.message : 'The story patch could not be applied.',
+        'patch_not_applicable',
+      );
+    }
     if (
       desired.id !== current.id
       || desired.persistenceId !== current.persistenceId
@@ -955,6 +969,23 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
   }
 
   /**
+   * Grant the OWNER role to a verified system-owner account. Idempotent, and
+   * deliberately independent of AdminUpdateAccountAccess, which requires an
+   * actor who is already an admin — that is unreachable until this has run.
+   */
+  private async grantSystemOwnerRole(ownerUid: string, email: string): Promise<boolean> {
+    try {
+      await adminGrantSystemOwnerRole({ ownerUid, email: email.trim().toLowerCase() });
+      return true;
+    } catch (error) {
+      // Never block a profile read on this: the account is still usable, it
+      // simply keeps its current role until the next read retries.
+      logger.error({ err: error, ownerUid }, 'Failed to grant the system owner role');
+      return false;
+    }
+  }
+
+  /**
    * Guarantee the canonical UserAccount + UserProfile exist for an
    * authenticated user. Owner-scoped writes (stories, story-library
    * membership, seeds) reference UserAccount through a non-null foreign key,
@@ -969,21 +1000,6 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
    * ever creates a missing record — it never overwrites an existing profile,
    * so an explicit username can never be clobbered by initialization.
    */
-  /**
-   * Grant the OWNER role to a verified system-owner account. Idempotent, and
-   * deliberately independent of AdminUpdateAccountAccess, which requires an
-   * actor who is already an admin — that is unreachable until this has run.
-   */
-  private async grantSystemOwnerRole(ownerUid: string, email: string): Promise<void> {
-    try {
-      await adminGrantSystemOwnerRole({ ownerUid, email: email.trim().toLowerCase() });
-    } catch (error) {
-      // Never block a profile read on this: the account is still usable, it
-      // simply keeps its current role until the next read retries.
-      logger.error({ err: error, ownerUid }, 'Failed to grant the system owner role');
-    }
-  }
-
   private async provisionCanonicalProfile(
     ownerUid: string,
     profileExists?: boolean,
@@ -1038,8 +1054,10 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     ) {
       // A system owner whose account row predates this rule, or was created by
       // a path without the token email, still needs the role PostgreSQL checks.
-      await this.grantSystemOwnerRole(ownerUid, ownerEmail);
-      result = await adminGetUserProfileGraph({ ownerUid });
+      // Only re-read when the grant actually changed the row.
+      if (await this.grantSystemOwnerRole(ownerUid, ownerEmail)) {
+        result = await adminGetUserProfileGraph({ ownerUid });
+      }
     }
     const profile = hydrateUserProfile(result.data);
     if (!profile?.activePortraitId) return profile;

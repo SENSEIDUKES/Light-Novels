@@ -46,6 +46,8 @@ export interface StorySlice {
 
   setStories: (stories: Story[]) => void;
   setActiveStoryId: (id: string | null) => void;
+  /** Replace a catalog summary with the full story graph before it is read. */
+  hydrateStory: (storyId: string) => Promise<void>;
   setStoryToDelete: (id: string | null) => void;
   setDraftRecoverySession: (session: DraftRecoverySession | null) => void;
   setIsGenerating: (isGenerating: boolean) => void;
@@ -213,7 +215,38 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
   lastSavedTime: null,
 
   setStories: (stories) => set({ stories }),
-  setActiveStoryId: (id) => set({ activeStoryId: id }),
+  setActiveStoryId: (id) => {
+    set({ activeStoryId: id });
+    if (id) void get().hydrateStory(id);
+  },
+
+  /**
+   * Upgrade a catalog summary to the full story before it is read.
+   *
+   * listStories() returns compact summaries — no arcs, no Codex entities — and
+   * nothing else in the UI ever asked for the full record, so a story restored
+   * on a new device stayed empty: no chapters, no codex, no highlighting. The
+   * storage manager already fetches and caches the full graph on demand; this
+   * is the caller it was missing.
+   */
+  hydrateStory: async (storyId: string) => {
+    const existing = get().stories.find(story => story.id === storyId);
+    if (!existing || existing.persistenceHydration !== 'summary') return;
+    const expectedUid = auth.currentUser?.uid;
+    try {
+      const hydrated = await storyStorage.getStory(storyId);
+      if (!hydrated || hydrated.persistenceHydration === 'summary') return;
+      if (!LOCAL_ONLY_MODE && auth.currentUser?.uid !== expectedUid) return;
+      set({
+        stories: get().stories.map(story =>
+          story.id === storyId ? { ...story, ...hydrated } : story,
+        ),
+      });
+    } catch (error) {
+      // The summary still renders; hydration retries the next time it is opened.
+      console.error('Failed to hydrate the full story record:', error);
+    }
+  },
   setStoryToDelete: (id) => set({ storyToDelete: id }),
   setDraftRecoverySession: (session) => set({ draftRecoverySession: session }),
   setIsGenerating: (isGenerating) => set({ isGenerating }),

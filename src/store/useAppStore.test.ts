@@ -13,6 +13,7 @@ vi.mock('../lib/storage', () => ({
     getStories: vi.fn(),
     saveStory: vi.fn(),
     deleteStory: vi.fn().mockResolvedValue(true),
+    getStory: vi.fn(),
     getChapterContent: vi.fn(),
     saveChapterContent: vi.fn(),
     performSync: vi.fn(),
@@ -218,6 +219,60 @@ describe('useAppStore', () => {
       localStorage.getItem('@seihouse/fiction-generator-stories-v2'),
     ).toBeNull();
     expect(storyStorage.rollbackTransaction).toHaveBeenCalled();
+  });
+
+  // listStories() returns compact summaries with no arcs and no Codex entities,
+  // and nothing in the UI ever asked for the full record — so a story restored
+  // on a new device stayed empty: no chapters, no codex, no highlighting.
+  it('upgrades a catalog summary to the full story when it is opened', async () => {
+    const summary = {
+      id: 'summary-story',
+      title: 'Restored',
+      persistenceHydration: 'summary',
+      arcs: [],
+      memory: { characters: [] },
+    };
+    const full = {
+      ...summary,
+      persistenceHydration: 'full',
+      arcs: [{ title: 'Arc', chapters: [{ number: 1 }] }],
+      memory: { characters: [{ id: 'lin', name: 'Lin' }] },
+    };
+    (storyStorage.getStory as any).mockResolvedValue(full);
+    useAppStore.getState().setStories([summary as any]);
+
+    useAppStore.getState().setActiveStoryId('summary-story');
+    await vi.waitFor(() => {
+      expect(useAppStore.getState().stories[0].persistenceHydration).toBe('full');
+    });
+
+    expect(storyStorage.getStory).toHaveBeenCalledWith('summary-story');
+    expect(useAppStore.getState().stories[0].arcs).toHaveLength(1);
+    expect(useAppStore.getState().stories[0].memory.characters).toHaveLength(1);
+  });
+
+  it('does not re-read a story that is already fully hydrated', async () => {
+    useAppStore.getState().setStories([
+      { id: 'full-story', title: 'Full', persistenceHydration: 'full', arcs: [], memory: { characters: [] } } as any,
+    ]);
+
+    useAppStore.getState().setActiveStoryId('full-story');
+    await Promise.resolve();
+
+    expect(storyStorage.getStory).not.toHaveBeenCalled();
+  });
+
+  it('keeps the summary visible when hydration fails', async () => {
+    (storyStorage.getStory as any).mockRejectedValue(new Error('offline'));
+    useAppStore.getState().setStories([
+      { id: 'summary-story', title: 'Restored', persistenceHydration: 'summary', arcs: [], memory: { characters: [] } } as any,
+    ]);
+
+    useAppStore.getState().setActiveStoryId('summary-story');
+    await vi.waitFor(() => expect(storyStorage.getStory).toHaveBeenCalled());
+
+    expect(useAppStore.getState().stories[0].title).toBe('Restored');
+    expect(useAppStore.getState().activeStoryId).toBe('summary-story');
   });
 
   it('initializes with default state', () => {
