@@ -221,8 +221,6 @@ export class PersistentStorageManager implements StorageAdapter {
   // Escalate logging after repeated failures. Tasks remain durable until acknowledged;
   // the threshold is diagnostic, never a reason to discard a user's work.
   private readonly MAX_TASK_ATTEMPTS = 5;
-  private beforeUnloadListener: (() => void) | null = null;
-  private visibilityChangeListener: (() => void) | null = null;
   private onlineListener: (() => void) | null = null;
 
   constructor(options: PersistentStorageManagerOptions = {}) {
@@ -233,24 +231,10 @@ export class PersistentStorageManager implements StorageAdapter {
       ((ownerUid) => new IndexedDbFoundationCache({ ownerUid }));
     this.loadCloudRevisions();
 
-    // The durable queue is the unload guarantee. Never fire a blind cloud write while
+    // Every task is written to the durable outbox at enqueue time, so closing
+    // the tab needs no unload hook. Never fire a blind cloud write while
     // closing: another device may have a newer revision that must be read first.
-    // References are retained so dispose() can remove them (avoids leaks / test pollution).
     if (typeof window !== "undefined") {
-      this.beforeUnloadListener = () => {
-        void this.persistQueueSnapshot();
-      };
-      window.addEventListener("beforeunload", this.beforeUnloadListener);
-      this.visibilityChangeListener = () => {
-        if (typeof document === "undefined") return;
-        if (document.visibilityState === "hidden") {
-          void this.persistQueueSnapshot();
-        }
-      };
-      window.addEventListener(
-        "visibilitychange",
-        this.visibilityChangeListener,
-      );
       this.onlineListener = () => {
         // Reconnect only retries the durable outbox. A whole-library read is an
         // explicit Harmony action so a browser event cannot spend the read budget.
@@ -264,19 +248,9 @@ export class PersistentStorageManager implements StorageAdapter {
   public dispose() {
     this.authTransitionVersion += 1;
     this.isCloudAvailable = false;
-    if (typeof window !== "undefined") {
-      if (this.beforeUnloadListener)
-        window.removeEventListener("beforeunload", this.beforeUnloadListener);
-      if (this.visibilityChangeListener)
-        window.removeEventListener(
-          "visibilitychange",
-          this.visibilityChangeListener,
-        );
-      if (this.onlineListener)
-        window.removeEventListener("online", this.onlineListener);
+    if (typeof window !== "undefined" && this.onlineListener) {
+      window.removeEventListener("online", this.onlineListener);
     }
-    this.beforeUnloadListener = null;
-    this.visibilityChangeListener = null;
     this.onlineListener = null;
     this.authUnsubscribe?.();
     this.authUnsubscribe = null;
@@ -362,9 +336,8 @@ export class PersistentStorageManager implements StorageAdapter {
     const { attempts: _attempts, ...payload } = task;
     // Never enqueue keys whose value is `undefined`. The durable IndexedDB
     // outbox stores the payload as JSON, where an explicit `undefined` (e.g.
-    // `requiresPostChapterHeartbeat` on a non-heartbeat write, or an unowned
-    // task's `userId`) has no representation. Dropping them here keeps stored
-    // payloads minimal and matches the JSON round-trip the cache performs.
+    // an unowned task's `userId`) has no representation. Dropping them here
+    // keeps stored payloads minimal and matches the cache's JSON round-trip.
     for (const key of Object.keys(payload) as (keyof DurableSyncTask)[]) {
       if (payload[key] === undefined) delete payload[key];
     }
@@ -386,20 +359,6 @@ export class PersistentStorageManager implements StorageAdapter {
   private async completePersistedTask(task: SyncTask): Promise<void> {
     if (!task.idempotencyKey) return;
     await this.getOutboxCache(task.userId).completeOutbox(task.idempotencyKey);
-  }
-
-  private async persistQueueSnapshot(): Promise<void> {
-    try {
-      for (let index = 0; index < this.syncQueue.length; index += 1) {
-        const task = this.syncQueue[index];
-        if (!task.idempotencyKey) {
-          this.syncQueue[index] = this.normalizeSyncTask(task);
-        }
-      }
-      await Promise.all(this.syncQueue.map((task) => this.persistTask(task)));
-    } catch (error) {
-      console.warn("Failed to persist the IndexedDB sync outbox.", error);
-    }
   }
 
   private async migrateLegacyQueue(): Promise<void> {
@@ -617,9 +576,6 @@ export class PersistentStorageManager implements StorageAdapter {
         t.chapterNumber === task.chapterNumber &&
         sameAccount(t),
     );
-    const requiresPostChapterHeartbeat = existing
-      ? Boolean(existing.requiresPostChapterHeartbeat && task.requiresPostChapterHeartbeat)
-      : Boolean(task.requiresPostChapterHeartbeat);
     const queuedTask = this.normalizeSyncTask(
       existing
         ? {
@@ -628,13 +584,11 @@ export class PersistentStorageManager implements StorageAdapter {
             attempts: 0,
             userId,
             generation: (existing.generation ?? 1) + 1,
-            requiresPostChapterHeartbeat: requiresPostChapterHeartbeat || undefined,
           }
         : {
             ...task,
             userId,
             generation: 1,
-            requiresPostChapterHeartbeat: requiresPostChapterHeartbeat || undefined,
           },
       generateUUID(),
     );
@@ -980,15 +934,6 @@ export class PersistentStorageManager implements StorageAdapter {
     return prepared;
   }
 
-  /**
-   * The targeted PostgreSQL chapter mutation advances the parent story
-   * revision in the same transaction, so no second graph write is needed.
-   */
-  private async requirePostChapterHeartbeat(storyId: string): Promise<void> {
-    void storyId;
-    this.assertActiveSyncAccount();
-  }
-
   private async flushSyncQueue(
     blockedStoryIds: ReadonlySet<string> = new Set(),
   ): Promise<boolean> {
@@ -1022,7 +967,7 @@ export class PersistentStorageManager implements StorageAdapter {
         while (this.syncQueue.length > 0 && remainingThisPass > 0) {
           // Peek — only remove the task once it is acknowledged, so failures and a
           // circuit-breaker stop leave pending work safely queued for later.
-          let task = this.syncQueue[0];
+          const task = this.syncQueue[0];
           if (task.userId !== userId) {
             this.syncQueue.push(this.syncQueue.shift()!);
             remainingThisPass -= 1;
@@ -1034,13 +979,12 @@ export class PersistentStorageManager implements StorageAdapter {
               (candidate) =>
                 candidate.type === "story" &&
                 candidate.storyId === task.storyId &&
-                candidate.userId === userId &&
-                !candidate.requiresPostChapterHeartbeat,
+                candidate.userId === userId,
             )
           ) {
             // Data Connect chapter content requires the relational story and
-            // chapter scaffold. Promote a real pending story write ahead of its
-            // chapter, while leaving heartbeat-only rows behind the chapter.
+            // chapter scaffold. Promote the pending story write ahead of its
+            // chapter body.
             this.syncQueue.push(this.syncQueue.shift()!);
             continue;
           }
@@ -1051,11 +995,6 @@ export class PersistentStorageManager implements StorageAdapter {
             completedTasksForUser += 1;
             reportSealingProgress();
             continue;
-          }
-          if (!task.idempotencyKey) {
-            task = this.normalizeSyncTask(task);
-            await this.persistTask(task);
-            this.syncQueue[0] = task;
           }
           const claimed = await this.getOutboxCache(task.userId).claimOutbox(
             task.idempotencyKey!,
@@ -1072,61 +1011,56 @@ export class PersistentStorageManager implements StorageAdapter {
 
           try {
             if (task.type === "story") {
-              if (task.requiresPostChapterHeartbeat) {
-                // The chapter mutation advances the existing parent revision.
-                blocked = false;
-              } else {
-                blocked = await this.withRecordLock(
-                  this.storyLockKey(task.storyId),
-                  async () => {
-                    const localStory = await this.localAdapter.getStory(task.storyId);
-                    if (!localStory) {
-                      throw new Error(
-                        `Pending story payload ${task.storyId} is unavailable locally`,
-                      );
-                    }
-                    const cloudStory = await this.cloudAdapter.getStory(task.storyId);
-                    this.assertCurrentAccount(userId);
-                    if (
-                      cloudStory?.deleted ||
-                      (cloudStory?.updatedAt &&
-                        (!localStory.updatedAt ||
-                          new Date(cloudStory.updatedAt).getTime() >
-                            new Date(localStory.updatedAt).getTime()))
-                    ) {
-                      // The queue can outlive the cloud snapshot that preceded it.
-                      // Reconcile the newer remote value before attempting a write.
-                      this.requestCloudReread(task.storyId);
+              blocked = await this.withRecordLock(
+                this.storyLockKey(task.storyId),
+                async () => {
+                  const localStory = await this.localAdapter.getStory(task.storyId);
+                  if (!localStory) {
+                    throw new Error(
+                      `Pending story payload ${task.storyId} is unavailable locally`,
+                    );
+                  }
+                  const cloudStory = await this.cloudAdapter.getStory(task.storyId);
+                  this.assertCurrentAccount(userId);
+                  if (
+                    cloudStory?.deleted ||
+                    (cloudStory?.updatedAt &&
+                      (!localStory.updatedAt ||
+                        new Date(cloudStory.updatedAt).getTime() >
+                          new Date(localStory.updatedAt).getTime()))
+                  ) {
+                    // The queue can outlive the cloud snapshot that preceded it.
+                    // Reconcile the newer remote value before attempting a write.
+                    this.requestCloudReread(task.storyId);
+                    return true;
+                  }
+                  if (
+                    cloudStory?.updatedAt &&
+                    cloudStory.updatedAt === localStory.updatedAt
+                  ) {
+                    if (cloudStory.syncRevision !== localStory.syncRevision) {
+                      this.handleSyncConflict(localStory, cloudStory);
                       return true;
                     }
-                    if (
-                      cloudStory?.updatedAt &&
-                      cloudStory.updatedAt === localStory.updatedAt
-                    ) {
-                      if (cloudStory.syncRevision !== localStory.syncRevision) {
-                        this.handleSyncConflict(localStory, cloudStory);
-                        return true;
-                      }
-                      this.rememberCloudRevision(cloudStory);
-                      return false;
-                    }
+                    this.rememberCloudRevision(cloudStory);
+                    return false;
+                  }
 
-                    const preparedStory = await this.ensureStorySyncRevision(localStory);
-                    const cloudPayload = JSON.parse(JSON.stringify(preparedStory));
-                    const wrote = await this.cloudWriteIfUnchanged(
-                      () =>
-                        this.cloudAdapter.saveStoryIfUnchanged(
-                          cloudPayload,
-                          this.cloudExpectation(cloudStory),
-                        ),
-                      `story:${task.storyId}`,
-                      task.storyId,
-                    );
-                    if (wrote) this.rememberCloudRevision(cloudPayload);
-                    return !wrote;
-                  },
-                );
-              }
+                  const preparedStory = await this.ensureStorySyncRevision(localStory);
+                  const cloudPayload = JSON.parse(JSON.stringify(preparedStory));
+                  const wrote = await this.cloudWriteIfUnchanged(
+                    () =>
+                      this.cloudAdapter.saveStoryIfUnchanged(
+                        cloudPayload,
+                        this.cloudExpectation(cloudStory),
+                      ),
+                    `story:${task.storyId}`,
+                    task.storyId,
+                  );
+                  if (wrote) this.rememberCloudRevision(cloudPayload);
+                  return !wrote;
+                },
+              );
             } else if (
               task.type === "chapter" &&
               task.chapterNumber !== undefined
@@ -1174,7 +1108,6 @@ export class PersistentStorageManager implements StorageAdapter {
                       );
                       return true;
                     }
-                    await this.requirePostChapterHeartbeat(task.storyId);
                     return false;
                   }
 
@@ -1190,9 +1123,6 @@ export class PersistentStorageManager implements StorageAdapter {
                     task.storyId,
                     true,
                   );
-                  if (wrote) {
-                    await this.requirePostChapterHeartbeat(task.storyId);
-                  }
                   return !wrote;
                 },
               );
@@ -1969,10 +1899,7 @@ export class PersistentStorageManager implements StorageAdapter {
           storyId,
           true,
         );
-        if (uploaded) {
-          await this.requirePostChapterHeartbeat(storyId);
-          if (pendingTask) await this.acknowledgeTask(pendingTask);
-        }
+        if (uploaded && pendingTask) await this.acknowledgeTask(pendingTask);
         return uploaded;
       }
 
@@ -2011,7 +1938,6 @@ export class PersistentStorageManager implements StorageAdapter {
           true,
         );
         if (!uploaded) return false;
-        await this.requirePostChapterHeartbeat(storyId);
         if (pendingTask) await this.acknowledgeTask(pendingTask);
       } else if (pendingTask) {
         // Legacy chapter records may not have timestamps. A pending durable task
@@ -2048,7 +1974,6 @@ export class PersistentStorageManager implements StorageAdapter {
             true,
           );
           if (!uploaded) return false;
-          await this.requirePostChapterHeartbeat(storyId);
         }
         await this.acknowledgeTask(pendingTask);
       }
@@ -2280,11 +2205,7 @@ export class PersistentStorageManager implements StorageAdapter {
                 task.storyId === storyId &&
                 task.userId === userId,
             );
-            if (
-              receipt &&
-              !hasPendingChapter &&
-              !receipt.requiresPostChapterHeartbeat
-            ) {
+            if (receipt && !hasPendingChapter) {
               await this.acknowledgeTask(receipt);
             }
           }
@@ -2682,7 +2603,6 @@ export class PersistentStorageManager implements StorageAdapter {
                   content,
                   currentUserId,
                   strippedStory,
-                  false,
                 );
               }
 
@@ -2941,7 +2861,6 @@ export class PersistentStorageManager implements StorageAdapter {
         content,
         currentUserId,
         parentStory,
-        true,
       );
     });
   }
@@ -2951,7 +2870,6 @@ export class PersistentStorageManager implements StorageAdapter {
     content: ChapterContent,
     currentUserId: string | undefined,
     parentStory: StoryWorld | null,
-    bumpParentHeartbeat: boolean,
   ): Promise<void> {
     if (parentStory?.deleted) {
       throw new Error("Cannot save a chapter for a deleted story");
@@ -2964,7 +2882,6 @@ export class PersistentStorageManager implements StorageAdapter {
       throw new Error("Cannot save a chapter that belongs to another account");
     }
 
-    let stampedContent!: ChapterContent;
     await this.withRecordLock(
       this.chapterLockKey(content.storyId, content.chapterNumber),
       async () => {
@@ -2972,7 +2889,7 @@ export class PersistentStorageManager implements StorageAdapter {
           content.storyId,
           content.chapterNumber,
         );
-        stampedContent = {
+        const stampedContent: ChapterContent = {
           ...JSON.parse(JSON.stringify(content)),
           syncRevision: this.createSyncRevision(),
           updatedAt: this.nextRevisionTimestamp(
@@ -3015,45 +2932,9 @@ export class PersistentStorageManager implements StorageAdapter {
         }
       },
     );
-
-    if (!bumpParentHeartbeat || !parentStory) return;
-
-    // Chapter documents do not have their own realtime query. Bump the parent
-    // story so other open devices receive a targeted snapshot after the body.
-    const heartbeat: StoryWorld = {
-      ...parentStory,
-      userId: parentStory.userId ?? currentUserId,
-      syncRevision: this.createSyncRevision(),
-      updatedAt: this.nextRevisionTimestamp(
-        parentStory.updatedAt,
-        stampedContent.updatedAt,
-      ),
-    };
-    try {
-      await this.localAdapter.saveStory(heartbeat);
-    } catch (error) {
-      console.error(
-        "Chapter saved, but its story sync heartbeat local write failed:",
-        error,
-      );
-      throw error;
-    }
-    try {
-      await this.enqueueTask({
-        type: "story",
-        storyId: heartbeat.id,
-        timestamp: Date.now(),
-        userId: heartbeat.userId,
-        requiresPostChapterHeartbeat: true,
-      });
-    } catch (error) {
-      // Revert the parent's local revision bump so its local state never runs
-      // ahead of the cloud without a queued sync. The chapter task's own flush
-      // still issues the post-chapter heartbeat, so devices are still notified.
-      await this.restoreLocalStory(heartbeat.id, parentStory);
-      console.error("Chapter saved, but its story sync heartbeat failed:", error);
-      throw error;
-    }
+    // No parent-story write is needed here: the targeted PostgreSQL chapter
+    // mutation advances the parent story revision in the same transaction, and
+    // other devices pick that up through catalog reconciliation.
   }
 
   async clearAll(): Promise<void> {

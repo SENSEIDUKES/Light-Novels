@@ -343,6 +343,53 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     manager.dispose();
   });
 
+  it('queues exactly one durable outbox row for a chapter save and leaves the parent story alone', async () => {
+    // The PostgreSQL chapter mutation advances the parent story revision in the
+    // same transaction, so a chapter save must not rewrite the parent locally or
+    // queue any second (heartbeat) story row.
+    let storedStory: any = null;
+    let storedChapter: any = null;
+    mocks.idb.getStories.mockImplementation(async () => storedStory ? [storedStory] : []);
+    mocks.idb.getStory.mockImplementation(async () => storedStory);
+    mocks.idb.saveStory.mockImplementation(async (story) => {
+      storedStory = JSON.parse(JSON.stringify(story));
+    });
+    mocks.idb.getChapterContent.mockImplementation(async () => storedChapter);
+    mocks.idb.saveChapterContent.mockImplementation(async (chapter) => {
+      storedChapter = JSON.parse(JSON.stringify(chapter));
+    });
+
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    const user = { uid: 'reader' };
+    mocks.auth.currentUser = user;
+    mocks.authCallback?.(user);
+    await vi.waitFor(() => {
+      expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('reader');
+      expect((manager as any).activeSyncPromise).toBeNull();
+    });
+    (manager as any).isCloudAvailable = false;
+
+    storedStory = makeStory();
+    const parentBefore = JSON.parse(JSON.stringify(storedStory));
+    mocks.idb.saveStory.mockClear();
+
+    await manager.saveChapterContent({
+      storyId: 'shared-story',
+      chapterNumber: 1,
+      generatedContent: 'Chapter body',
+    });
+
+    const rows = [...(mocks.outboxByOwner.get('reader')?.values() ?? [])];
+    expect(rows.map((row) => row.operation)).toEqual(['storage.sync.chapter']);
+    expect((manager as any).syncQueue).toEqual([
+      expect.objectContaining({ type: 'chapter', storyId: 'shared-story', chapterNumber: 1 }),
+    ]);
+    expect(mocks.idb.saveStory).not.toHaveBeenCalled();
+    expect(storedStory).toEqual(parentBefore);
+    manager.dispose();
+  });
+
   it('restores an offline mutation from IndexedDB after reload and acknowledges it after reconnect', async () => {
     let storedStory: any = null;
     mocks.idb.getStories.mockImplementation(async () =>

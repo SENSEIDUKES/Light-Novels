@@ -865,7 +865,10 @@ describe('PersistentStorageManager', () => {
       ]);
     });
 
-    it('relies on the chapter mutation parent heartbeat without a second story save', async () => {
+    it('saves a chapter body without touching or republishing the parent story', async () => {
+      // The PostgreSQL chapter mutation advances the parent story revision in
+      // the same transaction, so a chapter save must queue exactly one chapter
+      // task: no local parent rewrite and no second story upload.
       const localAdapter = (manager as any).localAdapter;
       const cloudAdapter = (manager as any).cloudAdapter;
       const baseTimestamp = new Date(Date.now() - 60_000).toISOString();
@@ -894,15 +897,17 @@ describe('PersistentStorageManager', () => {
         chapterNumber: 1,
         generatedContent: 'Written on this device.',
       });
-      const heartbeat = await localAdapter.getStory(story.id);
-      expect(new Date(heartbeat.updatedAt).getTime()).toBeGreaterThan(
-        new Date(baseTimestamp).getTime(),
-      );
+      const parentAfterSave = await localAdapter.getStory(story.id);
+      expect(parentAfterSave.updatedAt).toBe(baseTimestamp);
+      expect((manager as any).syncQueue).toEqual([
+        expect.objectContaining({ type: 'chapter', storyId: story.id, chapterNumber: 1 }),
+      ]);
 
       await manager.performSync({ deep: true });
 
       expect(cloudAdapter.saveChapterContent).toHaveBeenCalledTimes(1);
       expect(cloudAdapter.saveStory).not.toHaveBeenCalled();
+      expect((manager as any).syncQueue).toEqual([]);
     });
 
     it('does not republish a new parent after its chapter mutation heartbeat', async () => {
@@ -1158,12 +1163,9 @@ describe('PersistentStorageManager', () => {
         chapterNumber: 1,
         generatedContent: 'Edited while signed out',
       });
-      expect((manager as any).syncQueue).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ type: 'chapter', userId: 'account-a' }),
-          expect.objectContaining({ type: 'story', userId: 'account-a' }),
-        ]),
-      );
+      expect((manager as any).syncQueue).toEqual([
+        expect.objectContaining({ type: 'chapter', userId: 'account-a' }),
+      ]);
 
       await manager.deleteStory(story.id);
       expect((manager as any).syncQueue).toEqual([
