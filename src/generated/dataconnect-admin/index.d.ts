@@ -958,6 +958,7 @@ export interface AdminGetOwnedStoryGraphData {
     fatePressure?: string | null;
     motionCoverActive: boolean;
     assignedRevealBackdropPolicy?: string | null;
+    chapterWritingStyle?: string | null;
     updatedAt: TimestampString;
   } & StoryPreference_Key)[];
   readerPreferences: ({
@@ -1404,6 +1405,7 @@ export interface AdminGetUserProfileGraphData {
     displayNameColor?: string | null;
     preferredLanguage?: string | null;
     defaultTranslationLanguage?: string | null;
+    defaultChapterWritingStyle?: string | null;
     subscriptionTier: SubscriptionTier;
     legacyQi?: Int64String | null;
     daoXp: Int64String;

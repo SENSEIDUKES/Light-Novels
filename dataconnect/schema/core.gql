@@ -127,6 +127,7 @@ type UserProfile @table(key: "userUid") {
   displayNameColor: String
   preferredLanguage: String
   defaultTranslationLanguage: String
+  defaultChapterWritingStyle: String @default(value: "Standard")
   subscriptionTier: SubscriptionTier! @default(value: MORTAL)
   legacyQi: Int64
   daoXp: Int64! @default(value: 0)
@@ -404,6 +405,7 @@ type StoryPreference @table(key: "storyId") {
   fatePressure: String
   motionCoverActive: Boolean! @default(value: false)
   assignedRevealBackdropPolicy: String
+  chapterWritingStyle: String @default(value: "Standard")
   updatedAt: Timestamp! @default(expr: "request.time")
 }
 

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { Request, Response, NextFunction } from "express";
 import { ContextBlock, ContextBlockKind } from "../types";
 import { classifyHistoryBlocks } from "./contextManifest";
+import { CHAPTER_WRITING_STYLE_OPTIONS } from "../lib/chapterWritingStyle";
 
 export const routeConfigSchema = z.object({
   provider: z.string().optional(),
@@ -359,6 +360,7 @@ export const chapterGenerationSchema = z.object({
     .transform((val) => (Array.isArray(val) ? val.join("\n") : val))
     .optional(),
   storyTags: z.array(z.string()).optional(),
+  chapterWritingStyle: z.enum(CHAPTER_WRITING_STYLE_OPTIONS).optional(),
   contextEngine: contextEngineSchema.optional(),
   chapterContract: chapterContractSchema.optional(),
 });

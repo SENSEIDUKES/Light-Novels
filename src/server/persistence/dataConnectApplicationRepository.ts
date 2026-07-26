@@ -1129,6 +1129,7 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
           avatarUrl: '',
           preferredLanguage: 'English',
           defaultTranslationLanguage: 'English',
+          defaultChapterWritingStyle: 'Standard',
           savedStoryCount: profile?.savedStoryCount ?? 0,
           activeStories: [],
           inactiveStories: [],

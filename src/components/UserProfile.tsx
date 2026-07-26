@@ -85,6 +85,8 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     handleRepairPillar,
     handleCheckIn,
     handleLanguageChangeDirect,
+    handleDefaultChapterWritingStyleChange,
+    isSavingChapterWritingStyle,
     handleSave,
     handleChange,
     daoData,
@@ -855,6 +857,8 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
             formData={formData}
             profile={profile}
             handleLanguageChangeDirect={handleLanguageChangeDirect}
+            handleDefaultChapterWritingStyleChange={handleDefaultChapterWritingStyleChange}
+            isSavingChapterWritingStyle={isSavingChapterWritingStyle}
           />
         </div>
       </div>

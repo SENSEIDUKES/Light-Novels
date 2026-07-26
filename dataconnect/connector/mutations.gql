@@ -427,7 +427,7 @@ mutation AdminUpsertStoryGraph(
   $members: [StoryMember_Data!]!
     @allow(fields: "storyId userUid role createdAt")
   $preferences: [StoryPreference_Data!]!
-    @allow(fields: "storyId contextEngine hardcoreFateMode fatePressure motionCoverActive assignedRevealBackdropPolicy updatedAt")
+    @allow(fields: "storyId contextEngine hardcoreFateMode fatePressure motionCoverActive assignedRevealBackdropPolicy chapterWritingStyle updatedAt")
   $readerPreferenceUserUids: [String!]!
   $readerPreferences: [StoryReaderPreference_Data!]!
     @allow(fields: "storyId userUid fontSize fontFamily lineHeight paragraphSpacing lineHeightScale paragraphSpacingScale letterSpacing wordSpacing readingWidth textAlignment contextEngine themeOverride colorPaletteId highlightStyle updatedAt")
@@ -604,7 +604,7 @@ mutation AdminPatchStoryGraph(
     @allow(fields: "storyId userUid role createdAt")
   $deletedMemberUserUids: [String!]!
   $preferences: [StoryPreference_Data!]!
-    @allow(fields: "storyId contextEngine hardcoreFateMode fatePressure motionCoverActive assignedRevealBackdropPolicy updatedAt")
+    @allow(fields: "storyId contextEngine hardcoreFateMode fatePressure motionCoverActive assignedRevealBackdropPolicy chapterWritingStyle updatedAt")
   $readerPreferences: [StoryReaderPreference_Data!]!
     @allow(fields: "storyId userUid fontSize fontFamily lineHeight paragraphSpacing lineHeightScale paragraphSpacingScale letterSpacing wordSpacing readingWidth textAlignment contextEngine themeOverride colorPaletteId highlightStyle updatedAt")
   $deletedReaderPreferenceUserUids: [String!]!
@@ -1050,7 +1050,7 @@ mutation AdminUpsertUserProfileGraph(
   $account: UserAccount_Data!
     @allow(fields: "uid email displayName updatedAt")
   $profile: UserProfile_Data!
-    @allow(fields: "userUid username displayNameColor preferredLanguage defaultTranslationLanguage subscriptionTier legacyQi daoXp daoRank heavenlyQi sectQi demonicQi writingStreak savedStoryCount activePortraitAssetId imageGenerationCount imageQuotaResetAt lastSessionEnd daoPillarStreak daoPillarCracked lastReadDate lastInteractionDate equippedInventoryItemId syncRevision revision lastReadAt createdAt updatedAt")
+    @allow(fields: "userUid username displayNameColor preferredLanguage defaultTranslationLanguage defaultChapterWritingStyle subscriptionTier legacyQi daoXp daoRank heavenlyQi sectQi demonicQi writingStreak savedStoryCount activePortraitAssetId imageGenerationCount imageQuotaResetAt lastSessionEnd daoPillarStreak daoPillarCracked lastReadDate lastInteractionDate equippedInventoryItemId syncRevision revision lastReadAt createdAt updatedAt")
   $preferences: [UserPreference_Data!]!
     @allow(fields: "userUid fontSize fontFamily lineHeightScale paragraphSpacingScale letterSpacing wordSpacing readingWidth textAlignment contextEngine theme colorPaletteId highlightStyle audioMusicVolume audioAtmosphereVolume audioVoiceVolume updatedAt")
   $inventoryIds: [UUID!]!

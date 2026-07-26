@@ -41,6 +41,7 @@ import {
   prepareGenerationContext,
 } from "../generationContext";
 import { logger } from "../logger";
+import { appendChapterWritingStyleInstruction } from "../../lib/chapterWritingStyle";
 export const storyRouter = express.Router();
 
 const normalizeContextEngine = (_value: unknown): ContextEngine =>
@@ -215,6 +216,7 @@ storyRouter.post("/api/generate-chapter-stream", validateBody(chapterGenerationS
       styleBible,
       tropeRules,
       storyTags,
+      chapterWritingStyle,
       contextEngine: requestedContextEngine,
       chapterContract,
     } = req.body;
@@ -330,7 +332,10 @@ storyRouter.post("/api/generate-chapter-stream", validateBody(chapterGenerationS
     });
     const glossaryRules = formatGlossaryForPrompt(glossaryEntries, 8);
 
-    let finalUserPrompt = userPrompt;
+    let finalUserPrompt = appendChapterWritingStyleInstruction(
+      userPrompt,
+      chapterWritingStyle,
+    );
     if (glossaryRules) {
       finalUserPrompt = glossaryRules + "\n\n" + finalUserPrompt;
     }
@@ -511,6 +516,7 @@ storyRouter.post("/api/generate-chapter", validateBody(chapterGenerationSchema),
       styleBible,
       tropeRules,
       storyTags,
+      chapterWritingStyle,
       contextEngine: requestedContextEngine,
       chapterContract,
     } = req.body;
@@ -626,7 +632,10 @@ storyRouter.post("/api/generate-chapter", validateBody(chapterGenerationSchema),
     });
     const glossaryRules = formatGlossaryForPrompt(glossaryEntries, 8);
 
-    let finalUserPrompt = userPrompt;
+    let finalUserPrompt = appendChapterWritingStyleInstruction(
+      userPrompt,
+      chapterWritingStyle,
+    );
     if (glossaryRules) {
       finalUserPrompt = glossaryRules + "\n\n" + finalUserPrompt;
     }

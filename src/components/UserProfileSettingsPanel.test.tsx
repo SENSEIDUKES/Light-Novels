@@ -21,6 +21,8 @@ const renderPanel = (syncStatus: string) => render(
     formData={{}}
     profile={null}
     handleLanguageChangeDirect={vi.fn()}
+    handleDefaultChapterWritingStyleChange={vi.fn()}
+    isSavingChapterWritingStyle={false}
   />
 );
 
@@ -50,5 +52,44 @@ describe('UserProfileSettingsPanel harmony control', () => {
     renderPanel(syncStatus);
 
     expect(screen.getByRole('button', { name: `Harmony: ${detail}` })).toBeDefined();
+  });
+
+  it('offers the four chapter writing style defaults', () => {
+    const handleStyleChange = vi.fn();
+    render(
+      <UserProfileSettingsPanel
+        syncStatus="synced"
+        lastSavedTime={null}
+        formData={{ defaultChapterWritingStyle: 'Clear Reading' }}
+        profile={{
+          uid: 'reader',
+          username: 'reader',
+          displayName: 'Reader',
+          avatarUrl: '',
+          preferredLanguage: 'English',
+          defaultTranslationLanguage: 'English',
+          savedStoryCount: 0,
+          activeStories: [],
+          inactiveStories: [],
+          joinedDate: '2026-07-01T00:00:00.000Z',
+          updatedAt: '2026-07-01T00:00:00.000Z',
+        }}
+        handleLanguageChangeDirect={vi.fn()}
+        handleDefaultChapterWritingStyleChange={handleStyleChange}
+        isSavingChapterWritingStyle={false}
+      />,
+    );
+
+    const select = screen.getByLabelText('Default Chapter Writing Style');
+    expect(screen.getAllByRole('option').map(option => option.textContent)).toEqual(
+      expect.arrayContaining([
+        'Standard',
+        'Clear Reading',
+        'Easy Read',
+        'Literal Reading',
+      ]),
+    );
+    fireEvent.change(select, { target: { value: 'Literal Reading' } });
+    expect(handleStyleChange).toHaveBeenCalledWith('Literal Reading');
   });
 });

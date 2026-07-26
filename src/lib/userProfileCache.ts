@@ -11,6 +11,7 @@ type CachedAccountProfile = Pick<
   | 'avatarUrl'
   | 'preferredLanguage'
   | 'defaultTranslationLanguage'
+  | 'defaultChapterWritingStyle'
   | 'joinedDate'
   | 'updatedAt'
 > & Partial<Pick<
@@ -56,6 +57,7 @@ export const cacheAccountProfile = (profile: UserProfile): void => {
     avatarUrl: profile.activePortraitId ? '' : profile.avatarUrl,
     preferredLanguage: profile.preferredLanguage,
     defaultTranslationLanguage: profile.defaultTranslationLanguage,
+    defaultChapterWritingStyle: profile.defaultChapterWritingStyle,
     joinedDate: profile.joinedDate,
     updatedAt: profile.updatedAt,
     displayNameColor: profile.displayNameColor,
@@ -104,6 +106,7 @@ export const createAccountProfileFallback = (user: AppUser): UserProfile => {
     avatarMediaDescriptor: cachedProfile?.avatarMediaDescriptor,
     preferredLanguage: cachedProfile?.preferredLanguage || 'English',
     defaultTranslationLanguage: cachedProfile?.defaultTranslationLanguage || 'English',
+    defaultChapterWritingStyle: cachedProfile?.defaultChapterWritingStyle || 'Standard',
     savedStoryCount: 0,
     activeStories: [],
     inactiveStories: [],

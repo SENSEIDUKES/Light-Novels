@@ -9,6 +9,7 @@ import {
   normalizeCodexSurface,
   stripAuthorControlledCodexFields,
 } from '../lib/codexContext';
+import { normalizeChapterWritingStyle } from '../lib/chapterWritingStyle';
 
 const GENERATED_CHARACTER_STATUSES = new Set<Character['status']>([
   'alive',
@@ -193,6 +194,9 @@ export const useStoryGeneration = () => {
         blueprint: blueprint,
         hardcoreFateMode: !!intake.hardcoreFateMode,
         fatePressure: intake.fatePressure || 'Balanced',
+        chapterWritingStyle: normalizeChapterWritingStyle(
+          currentStoreState.userProfile?.defaultChapterWritingStyle,
+        ),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         currentChapterNumber: 1,

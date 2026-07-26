@@ -64,6 +64,7 @@ function storyGraph(): AdminGetOwnedStoryGraphData {
       storyId: STORY_ID,
       hardcoreFateMode: false,
       motionCoverActive: false,
+      chapterWritingStyle: 'Clear Reading',
       updatedAt: NOW,
     }],
     readerPreferences: [],
@@ -284,6 +285,7 @@ describe('story graph mapping', () => {
       id: 'story-client',
       persistenceId: STORY_ID,
       coverAssetId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      chapterWritingStyle: 'Clear Reading',
       memory: {
         powerSystem: 'Moon Qi',
         characters: [{ id: 'lin', imageAssetId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' }],
@@ -317,6 +319,9 @@ describe('story graph mapping', () => {
       'timelineEventIds', 'timelineEvents',
     ].sort());
     expect(variables.story).toMatchObject({ id: STORY_ID, title: 'Moon Archive Revised' });
+    expect(variables.preferences).toEqual([
+      expect.objectContaining({ chapterWritingStyle: 'Clear Reading' }),
+    ]);
     expect(variables.glossaryTerms).toHaveLength(1);
     expect(variables.generationJobs).toHaveLength(1);
     expect(variables.generationEvents).toHaveLength(1);
@@ -677,6 +682,7 @@ describe('user profile graph mapping', () => {
       },
       profile: {
         userUid: 'owner-a', username: 'reader', subscriptionTier: 'MORTAL',
+        defaultChapterWritingStyle: 'Literal Reading',
         daoXp: '10', heavenlyQi: '2', sectQi: '3', demonicQi: '0', writingStreak: 1,
         savedStoryCount: 2, imageGenerationCount: 3, daoPillarStreak: 1,
         daoPillarCracked: false, syncRevision: 'revision-before', revision: '7',
@@ -704,6 +710,7 @@ describe('user profile graph mapping', () => {
     } as unknown as AdminGetUserProfileGraphData;
     expect(hydrateUserProfile(currentGraph)).toMatchObject({
       uid: 'owner-a',
+      defaultChapterWritingStyle: 'Literal Reading',
       cosmicInventory: [{ id: 'artifact-client', name: 'Moon Token' }],
       activeStatusEffects: [{ id: 'effect-client', sourceArtifactId: 'artifact-client' }],
     });
@@ -721,6 +728,9 @@ describe('user profile graph mapping', () => {
     expect(variables.account).toMatchObject({
       email: 'reader@example.com',
       displayName: 'Reader Revised',
+    });
+    expect(variables.profile).toMatchObject({
+      defaultChapterWritingStyle: 'Literal Reading',
     });
     expect(variables.inventory).toHaveLength(1);
     expect(variables.effects).toHaveLength(1);

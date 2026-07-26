@@ -37,7 +37,8 @@ export const streamChapterBlocks = async (
       routingConfig,
       styleBible: activeStory.blueprint?.styleBible,
       tropeRules: activeStory.blueprint?.tropeRules,
-      storyTags: activeStory.intake?.storyTags
+      storyTags: activeStory.intake?.storyTags,
+      chapterWritingStyle: activeStory.chapterWritingStyle
     })
   });
 

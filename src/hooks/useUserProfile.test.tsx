@@ -156,6 +156,24 @@ describe('useUserProfile PostgreSQL persistence', () => {
       .toContain('Profile account-a');
   });
 
+  it('saves the default chapter writing style on the profile', async () => {
+    const { result } = renderProfile();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.handleDefaultChapterWritingStyleChange('Clear Reading');
+    });
+
+    expect(persistenceMocks.saveUserProfile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        uid: 'account-a',
+        defaultChapterWritingStyle: 'Clear Reading',
+      }),
+    );
+    expect(result.current.profile?.defaultChapterWritingStyle).toBe('Clear Reading');
+    expect(storeMocks.state.userProfile?.defaultChapterWritingStyle).toBe('Clear Reading');
+  });
+
   it('shows a local fallback profile without writing when the account has no row', async () => {
     // The canonical account + profile row is provisioned server-side the first
     // time the profile is read, so the client no longer performs its own
