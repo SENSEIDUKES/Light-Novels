@@ -83,7 +83,7 @@ export const useChapterSealing = () => {
     await handleUpdateStoryDirect({ ...activeStory, arcs: newArcs });
     awardQi('chapter_sealed');
     
-    // Scan sealed chapter content for artifacts
+    // Scan sealed chapter content for artifacts if it contains major milestones
     const sealedCh = newArcs.flatMap(a => a.chapters).find(c => c.number === chapterNumber);
     if (sealedCh) {
       const fullText = (sealedCh.generatedContent || "") + " " + (sealedCh.blocks || []).map((b: any) => b.text).join(" ");
@@ -93,11 +93,6 @@ export const useChapterSealing = () => {
         });
       });
     }
-    
-    // Unlock Mirror of Karmic Reflections artifact on first chapter seal
-    unlockCosmicArtifact('chapter_seal', activeStory.id, activeStory.title).catch((err) => {
-      console.error('Failed to unlock Chapter Seal artifact:', err);
-    });
   };
 
   return {
