@@ -38,6 +38,7 @@ const mocks = vi.hoisted(() => ({
   outboxByOwner: new Map<string, Map<string, any>>(),
   claimedLeases: [] as number[],
   onAuthStateChanged: vi.fn(),
+  resolveMedia: vi.fn(),
 }));
 
 vi.mock('./indexedDBAdapter', () => ({
@@ -55,11 +56,20 @@ vi.mock('./inMemoryAdapter', () => ({
     constructor() { return mocks.memory as any; }
   },
 }));
-vi.mock('./dataConnectStorageAdapter', () => ({
-  DataConnectStorageAdapter: class {
-    constructor() { return mocks.cloud as any; }
-  },
-}));
+// Keep the REAL payload helpers. They are what guarantee that a cloud record
+// cached into the offline replica carries no signed delivery link, which is the
+// whole reason the replica write path is allowed to skip media resolution.
+vi.mock('./dataConnectStorageAdapter', async (importActual) => {
+  const actual = await importActual<
+    typeof import('./dataConnectStorageAdapter')
+  >();
+  return {
+    ...actual,
+    DataConnectStorageAdapter: class {
+      constructor() { return mocks.cloud as any; }
+    },
+  };
+});
 vi.mock('../foundation/cache/indexedDbFoundationCache', async (importActual) => {
   // Reuse the REAL serialization guard so producer↔consumer payload mismatches
   // (e.g. a property explicitly set to `undefined`) surface in these mocked unit
@@ -154,6 +164,10 @@ vi.mock('../foundation/cache/indexedDbFoundationCache', async (importActual) => 
   },
   };
 });
+vi.mock('../media/privateMediaResolver', () => ({
+  resolveMediaAssetForDisplay: mocks.resolveMedia,
+  resetPrivateMediaResolver: vi.fn(),
+}));
 vi.mock('../firebase', () => ({
   auth: mocks.auth,
   LOCAL_ONLY_MODE: false,
@@ -224,6 +238,12 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
       mocks.authCallback = callback;
       return vi.fn();
     });
+    mocks.resolveMedia.mockImplementation(async (descriptor: any) => ({
+      assetId: descriptor.id,
+      descriptor,
+      url: `resolved:${descriptor.id}`,
+      source: 'network',
+    }));
   });
 
   it('hydrates once on sign-in without rescanning on reconnect, focus, or visibility changes', async () => {
@@ -723,10 +743,15 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     const restoredTab = new PersistentStorageManager();
     await restoredTab.init();
 
-    expect(mocks.cloud.saveStoryIfUnchanged).toHaveBeenCalledWith(
-      expect.objectContaining({ title: 'Saved offline' }),
-      expect.any(Object),
-    );
+    // Recovery runs in the background now, so the assertions wait for the pass
+    // instead of relying on init() having already completed it.
+    await vi.waitFor(() => {
+      expect(mocks.cloud.saveStoryIfUnchanged).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Saved offline' }),
+        expect.any(Object),
+      );
+      expect((restoredTab as any).activeSyncPromise).toBeNull();
+    });
     expect(mocks.outboxByOwner.get('reader')?.has(persistedId)).toBe(false);
     expect((restoredTab as any).syncQueue).toEqual([]);
     restoredTab.dispose();
@@ -839,7 +864,11 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     manager.dispose();
   });
 
-  it('hydrates a restored account before initialization completes', async () => {
+  it('completes initialization without waiting for the restored account catalog', async () => {
+    // Harmony must never gate the first paint. init() scopes the local replica
+    // and returns; the PostgreSQL catalog is reconciled in the background. When
+    // this awaited the catalog pass, the app sat on the loading veil until the
+    // whole library had been pulled.
     mocks.auth.currentUser = { uid: 'restored-reader' };
     let releaseCloud!: (stories: any[]) => void;
     mocks.cloud.getStories.mockReturnValueOnce(new Promise<any[]>((resolve) => {
@@ -847,17 +876,220 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     }));
     const manager = new PersistentStorageManager();
 
-    let initialized = false;
-    const initialization = manager.init().then(() => {
-      initialized = true;
-    });
-    await vi.waitFor(() => expect(mocks.cloud.getStories).toHaveBeenCalledTimes(1));
-    expect(initialized).toBe(false);
-    releaseCloud([]);
-    await initialization;
+    await manager.init();
 
+    // The catalog read is still in flight, yet the library is already readable.
+    expect(mocks.cloud.getStories).toHaveBeenCalledTimes(1);
     expect(mocks.idb.setAccountScope).toHaveBeenCalledWith('restored-reader');
-    expect(initialized).toBe(true);
+    await expect(manager.getStories()).resolves.toEqual([]);
+
+    releaseCloud([]);
+    await vi.waitFor(() => {
+      expect((manager as any).activeSyncPromise).toBeNull();
+    });
+    manager.dispose();
+  });
+
+  it('renders an existing PostgreSQL library without waiting for the rest of the pass', async () => {
+    // The user-facing regression: opening the app with an existing library left
+    // the Library empty for minutes. init() awaited a full catalog pass, and the
+    // pass only published anything once it had also sealed every chapter body
+    // and drained the outbox.
+    const remote = [1, 2, 3].map((index) => makeStory({
+      id: `remote-${index}`,
+      userId: 'reader',
+      title: `Scroll ${index}`,
+      mcName: `Hero ${index}`,
+      persistenceHydration: 'summary',
+      coverAssetId: `cover-${index}`,
+      mediaDescriptors: {
+        [`cover-${index}`]: {
+          id: `cover-${index}`,
+          deliveryUrl: `https://media.example.com/cover-${index}?X-Amz-Signature=abc`,
+        },
+      },
+    }));
+    const storedStories = new Map<string, any>();
+    mocks.idb.getStories.mockImplementation(async () => [...storedStories.values()]);
+    mocks.idb.getStory.mockImplementation(async (id: string) => storedStories.get(id) ?? null);
+    mocks.idb.saveStory.mockImplementation(async (story: any) => {
+      storedStories.set(story.id, JSON.parse(JSON.stringify(story)));
+    });
+    mocks.cloud.getStories.mockResolvedValue(remote);
+    mocks.auth.currentUser = { uid: 'reader' };
+
+    const manager = new PersistentStorageManager();
+    let libraryAtCatalogPublish: any[] = [];
+    const unsubscribe = manager.subscribeToCatalogUpdates(() => {
+      libraryAtCatalogPublish = [...storedStories.values()];
+    });
+
+    // Boot no longer blocks on Harmony at all.
+    await manager.init();
+    await vi.waitFor(() => expect(libraryAtCatalogPublish.length).toBe(3));
+
+    // The cards the Library renders are already complete at that first publish.
+    expect(libraryAtCatalogPublish.map((story) => story.title).sort()).toEqual([
+      'Scroll 1', 'Scroll 2', 'Scroll 3',
+    ]);
+    expect(libraryAtCatalogPublish.map((story) => story.coverAssetId).sort()).toEqual([
+      'cover-1', 'cover-2', 'cover-3',
+    ]);
+    expect(libraryAtCatalogPublish.map((story) => story.mcName).sort()).toEqual([
+      'Hero 1', 'Hero 2', 'Hero 3',
+    ]);
+
+    // And nothing slower than the catalog was needed to get there.
+    expect(mocks.cloud.getChapterContent).not.toHaveBeenCalled();
+    expect(mocks.resolveMedia).not.toHaveBeenCalled();
+
+    // Covers resolve on the read path that actually renders them.
+    const rendered = await manager.getStories();
+    expect(rendered.map((story) => story.imageUrl).sort()).toEqual([
+      'resolved:cover-1', 'resolved:cover-2', 'resolved:cover-3',
+    ]);
+
+    unsubscribe();
+    manager.dispose();
+  });
+
+  it('runs Harmony automatically after a local save and coalesces a burst into one pass', async () => {
+    // Harmony was demoted to a manual button only because Firebase billed every
+    // reconciliation read against a daily quota. On PostgreSQL a save
+    // reconciles the catalog on its own again.
+    let storedStory: any = null;
+    mocks.idb.getStories.mockImplementation(async () => (storedStory ? [storedStory] : []));
+    mocks.idb.getStory.mockImplementation(async () => storedStory);
+    mocks.idb.saveStory.mockImplementation(async (story) => {
+      storedStory = JSON.parse(JSON.stringify(story));
+    });
+    mocks.auth.currentUser = { uid: 'reader' };
+
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    await vi.waitFor(() => expect((manager as any).activeSyncPromise).toBeNull());
+
+    const performSync = vi
+      .spyOn(manager, 'performSync')
+      .mockResolvedValue(undefined);
+
+    vi.useFakeTimers();
+    try {
+      // The automatic-Harmony interval has lapsed since the boot pass.
+      (manager as any).lastCatalogSyncStartedAt = Date.now() - 60_000;
+
+      await manager.saveStory(makeStory({ title: 'First' }) as any);
+      await manager.saveStory(makeStory({ title: 'Second' }) as any);
+      await manager.saveStory(makeStory({ title: 'Third' }) as any);
+      await vi.advanceTimersByTimeAsync(4_000);
+
+      // Three saves, one Harmony pass — and it reconciles the catalog.
+      expect(performSync).toHaveBeenCalledTimes(1);
+      expect(performSync).toHaveBeenCalledWith({ catalog: true, deep: false });
+
+      // A save that lands right after a catalog pass must not chain a second
+      // one; it degrades to sealing the queued record.
+      (manager as any).lastCatalogSyncStartedAt = Date.now();
+      await manager.saveStory(makeStory({ title: 'Fourth' }) as any);
+      await vi.advanceTimersByTimeAsync(4_000);
+
+      expect(performSync).toHaveBeenCalledTimes(2);
+      expect(performSync).toHaveBeenLastCalledWith({ catalog: false, deep: false });
+    } finally {
+      vi.useRealTimers();
+    }
+    manager.dispose();
+  });
+
+  it('leaves chapter bodies to on-demand loading during an automatic pass', async () => {
+    const story = makeStory({
+      id: 'library-story',
+      userId: 'reader',
+      arcs: [{
+        title: 'Opening Arc',
+        isCompleted: false,
+        chapters: [{ number: 1, title: 'One', premise: '', status: 'unread', hasContent: true }],
+      }],
+    });
+    mocks.idb.getStories.mockResolvedValue([story]);
+    mocks.idb.getStory.mockResolvedValue(story);
+    mocks.cloud.getStories.mockResolvedValue([story]);
+    // This device has the catalog but not the body — the state a returning
+    // reader is in. Pre-pulling every referenced body made a Library load cost
+    // one PostgreSQL round trip per chapter.
+    mocks.idb.getChapterContent.mockResolvedValue(null);
+    mocks.auth.currentUser = { uid: 'reader' };
+
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    await vi.waitFor(() => expect((manager as any).activeSyncPromise).toBeNull());
+
+    expect(mocks.cloud.getStories).toHaveBeenCalled();
+    expect(mocks.cloud.getChapterContent).not.toHaveBeenCalled();
+
+    // An explicit Harmony still audits every referenced body.
+    await manager.performSync({ catalog: true, deep: true });
+    expect(mocks.cloud.getChapterContent).toHaveBeenCalledWith('library-story', 1);
+    manager.dispose();
+  });
+
+  it('caches a downloaded cloud story without downloading its media', async () => {
+    mocks.cloud.getStories.mockResolvedValue([
+      makeStory({
+        id: 'remote-1',
+        userId: 'reader',
+        persistenceHydration: 'summary',
+        coverAssetId: 'cover-1',
+        mediaDescriptors: {
+          'cover-1': {
+            id: 'cover-1',
+            deliveryUrl: 'https://media.example.com/cover-1?X-Amz-Signature=abc&X-Amz-Expires=900',
+          },
+        },
+      }),
+    ]);
+    mocks.auth.currentUser = { uid: 'reader' };
+
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    await vi.waitFor(() => expect((manager as any).activeSyncPromise).toBeNull());
+
+    // Caching the catalog must not fetch a single R2 object. Resolving media
+    // here downloaded every cover, portrait and hero image of every story
+    // before the Library could render.
+    expect(mocks.resolveMedia).not.toHaveBeenCalled();
+
+    const cached = mocks.idb.saveStory.mock.calls.at(-1)?.[0];
+    expect(cached.id).toBe('remote-1');
+    expect(cached.coverAssetId).toBe('cover-1');
+    // The replica keeps the asset id and never a signed delivery link.
+    expect(cached.mediaDescriptors['cover-1'].deliveryUrl).toBe('');
+    manager.dispose();
+  });
+
+  it('publishes the catalog before sealing chapter bodies and draining the outbox', async () => {
+    mocks.auth.currentUser = { uid: 'restored-reader' };
+    mocks.cloud.getStories.mockResolvedValue([makeStory({ id: 'remote-1', userId: 'restored-reader' })]);
+    const manager = new PersistentStorageManager();
+
+    const order: string[] = [];
+    const unsubscribe = manager.subscribeToCatalogUpdates(() => order.push('catalog'));
+    vi.spyOn(manager as any, 'reconcileChapters').mockImplementation(async () => {
+      order.push('chapters');
+      return 0;
+    });
+    vi.spyOn(manager as any, 'flushSyncQueue').mockImplementation(async () => {
+      order.push('outbox');
+      return true;
+    });
+
+    await manager.init();
+    await vi.waitFor(() => {
+      expect((manager as any).activeSyncPromise).toBeNull();
+    });
+
+    expect(order).toEqual(['catalog', 'chapters', 'outbox']);
+    unsubscribe();
     manager.dispose();
   });
 

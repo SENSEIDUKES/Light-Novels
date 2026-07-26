@@ -101,6 +101,22 @@ export const LibraryScreen: React.FC = () => {
   const [videoPlaying, setVideoPlaying] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const [activeTab, setActiveTab] = useState<'featured' | 'my-library' | 'challenges'>(stories.length === 0 ? 'featured' : 'my-library');
+  // The library is published as Harmony reconciles it with PostgreSQL rather
+  // than before the first paint, so this screen can mount with an empty store
+  // on a device whose offline replica is cold. Reveal My Library the moment the
+  // catalog lands — but never yank the user off a tab they chose themselves.
+  const readerChoseTab = useRef(false);
+  const chooseTab = (tab: 'featured' | 'my-library' | 'challenges') => {
+    readerChoseTab.current = true;
+    setActiveTab(tab);
+  };
+  useEffect(() => {
+    if (readerChoseTab.current || stories.length === 0) return;
+    setActiveTab('my-library');
+  }, [stories.length]);
+  // An empty store while Harmony is still fetching the catalog is "not loaded
+  // yet", not "you have no stories".
+  const isLibraryLoading = stories.length === 0 && syncStatus === 'syncing';
   const heroVideoRef = useRef<HTMLVideoElement>(null);
 
   // Rotate backup celestial library images every 6 seconds
@@ -265,7 +281,7 @@ export const LibraryScreen: React.FC = () => {
 
       <div className="flex space-x-4 sm:space-x-6 border-b border-neutral-900 mt-8 mb-6 overflow-x-auto custom-scrollbar pb-1">
         <button 
-           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setActiveTab('featured')}
+           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => chooseTab('featured')}
           className={`pb-3 px-1 text-xs sm:text-sm whitespace-nowrap font-sc font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 ${
             activeTab === 'featured' ? 'border-portal text-portal' : 'border-transparent text-neutral-500 hover:text-neutral-300'
           }`}
@@ -273,7 +289,7 @@ export const LibraryScreen: React.FC = () => {
           Immortal Hub
         </button>
         <button 
-          onClick={() => setActiveTab('my-library')}
+          onClick={() => chooseTab('my-library')}
           className={`pb-3 px-1 text-xs sm:text-sm whitespace-nowrap font-sc font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 flex items-center gap-2 ${
             activeTab === 'my-library' ? 'border-gold-accent text-gold-accent' : 'border-transparent text-neutral-500 hover:text-neutral-300'
           }`}
@@ -283,7 +299,7 @@ export const LibraryScreen: React.FC = () => {
           {syncStatus === 'error' && <div className="ml-1 w-2 h-2 rounded-full bg-red-500" title="Sync Pending (Offline or Quota)" />}
         </button>
         <button 
-          onClick={() => setActiveTab('challenges')}
+          onClick={() => chooseTab('challenges')}
           className={`pb-3 px-1 text-xs sm:text-sm whitespace-nowrap font-sc font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 ${
             activeTab === 'challenges' ? 'border-portal text-portal' : 'border-transparent text-neutral-500 hover:text-neutral-300'
           }`}
@@ -378,7 +394,21 @@ export const LibraryScreen: React.FC = () => {
             </div>
           )}
 
-          {stories.length === 0 ? (
+          {isLibraryLoading ? (
+            <div
+              className="text-center py-20 bg-[#111] border border-neutral-900 rounded-lg max-w-lg mx-auto shadow-inner"
+              role="status"
+              aria-live="polite"
+            >
+              <BookOpen size={40} className="text-neutral-800 mx-auto mb-4 animate-pulse" />
+              <h4 className="font-sc font-semibold text-neutral-400 text-sm uppercase tracking-wider mb-1">
+                Opening the Story Vault
+              </h4>
+              <p className="text-xs text-neutral-600 max-w-xs mx-auto">
+                Harmony is retrieving your scrolls. Your cards appear as soon as they arrive.
+              </p>
+            </div>
+          ) : stories.length === 0 ? (
             <div className="text-center py-20 bg-[#111] border border-neutral-900 rounded-lg max-w-lg mx-auto shadow-inner">
               <BookOpen size={40} className="text-neutral-800 mx-auto mb-4 animate-bounce" />
               <h4 className="font-sc font-semibold text-neutral-400 text-sm uppercase tracking-wider mb-1">

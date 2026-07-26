@@ -266,6 +266,26 @@ export function preparePermanentPersistencePayload<T>(
   return prepared;
 }
 
+/**
+ * Shape a cloud DTO for the local offline replica.
+ *
+ * The replica stores asset *ids*, never signed delivery links, so blanking the
+ * short-lived `deliveryUrl` projections is all a cloud record needs before it
+ * can be cached. This deliberately does no media resolution: downloading every
+ * referenced R2 object just to compute URLs that the read path re-derives (and
+ * that `stripCanonicalDeliveryUrls` then discards for canonical assets) turned
+ * a Library load into one blob download per asset per story.
+ */
+export function prepareCloudReplicaPayload<T>(
+  value: T,
+  temporaryMediaHosts: readonly string[] = DEFAULT_TEMPORARY_MEDIA_HOSTS,
+): T {
+  return preparePermanentPersistencePayload(
+    blankDeliveryProjections(value, new WeakMap<object, unknown>()) as T,
+    temporaryMediaHosts,
+  );
+}
+
 /** Media fields the chapter graph drops on write; never story state. */
 const TRANSIENT_MEDIA_KEYS = new Set([
   'imageUrl',
