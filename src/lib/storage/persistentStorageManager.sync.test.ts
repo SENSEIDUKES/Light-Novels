@@ -1070,6 +1070,12 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
   it('publishes the catalog before sealing chapter bodies and draining the outbox', async () => {
     mocks.auth.currentUser = { uid: 'restored-reader' };
     mocks.cloud.getStories.mockResolvedValue([makeStory({ id: 'remote-1', userId: 'restored-reader' })]);
+    const storedStories = new Map<string, any>();
+    mocks.idb.getStories.mockImplementation(async () => [...storedStories.values()]);
+    mocks.idb.getStory.mockImplementation(async (id: string) => storedStories.get(id) ?? null);
+    mocks.idb.saveStory.mockImplementation(async (story: any) => {
+      storedStories.set(story.id, JSON.parse(JSON.stringify(story)));
+    });
     const manager = new PersistentStorageManager();
 
     const order: string[] = [];
@@ -1090,6 +1096,69 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
 
     expect(order).toEqual(['catalog', 'chapters', 'outbox']);
     unsubscribe();
+    manager.dispose();
+  });
+
+  it('does not republish an unchanged catalog after a no-op Harmony pass', async () => {
+    const storedStory = makeStory({ id: 'unchanged', userId: 'restored-reader' });
+    mocks.idb.getStories.mockResolvedValue([storedStory]);
+    mocks.idb.getStory.mockResolvedValue(storedStory);
+    mocks.cloud.getStories.mockResolvedValue([storedStory]);
+    mocks.auth.currentUser = { uid: 'restored-reader' };
+    const manager = new PersistentStorageManager();
+    const onCatalogUpdated = vi.fn();
+    const unsubscribe = manager.subscribeToCatalogUpdates(onCatalogUpdated);
+
+    await manager.init();
+    await vi.waitFor(() => {
+      expect((manager as any).activeSyncPromise).toBeNull();
+    });
+
+    expect(onCatalogUpdated).not.toHaveBeenCalled();
+    unsubscribe();
+    manager.dispose();
+  });
+
+  it('keeps a newer local story when summary hydration races with a local save', async () => {
+    const summary = makeStory({
+      id: 'racing-story',
+      persistenceHydration: 'summary',
+      title: 'Catalog summary',
+    });
+    const newerLocal = makeStory({
+      id: 'racing-story',
+      persistenceHydration: 'full',
+      title: 'Newer local edit',
+      updatedAt: '2026-01-03T00:00:00.000Z',
+    });
+    const cloudStory = makeStory({
+      id: 'racing-story',
+      persistenceHydration: 'full',
+      title: 'Cloud body',
+    });
+    let storedStory: any = summary;
+    let releaseCloudRead: (story: any) => void;
+    mocks.idb.getStory.mockImplementation(async () => storedStory);
+    mocks.idb.saveStory.mockImplementation(async (story: any) => {
+      storedStory = JSON.parse(JSON.stringify(story));
+    });
+    mocks.auth.currentUser = { uid: 'reader' };
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    await vi.waitFor(() => expect((manager as any).activeSyncPromise).toBeNull());
+    (manager as any).isCloudAvailable = true;
+    mocks.cloud.getStory.mockImplementation(
+      () => new Promise<any>((resolve) => { releaseCloudRead = resolve; }),
+    );
+    mocks.idb.saveStory.mockClear();
+
+    const hydrated = manager.getStory('racing-story');
+    await vi.waitFor(() => expect(mocks.cloud.getStory).toHaveBeenCalledWith('racing-story'));
+    storedStory = newerLocal;
+    releaseCloudRead!(cloudStory);
+
+    await expect(hydrated).resolves.toMatchObject({ title: 'Newer local edit' });
+    expect(mocks.idb.saveStory).not.toHaveBeenCalled();
     manager.dispose();
   });
 

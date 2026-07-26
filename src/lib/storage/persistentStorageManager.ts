@@ -2314,6 +2314,9 @@ export class PersistentStorageManager implements StorageAdapter {
       }
       const cloudMap = new Map(cloudStories.map((s) => [s.id, s]));
       const localMap = new Map(localStories.map((s) => [s.id, s]));
+      const catalogBefore = new Map(
+        storiesToCatalogue.map((story) => [story.id, JSON.stringify(story)]),
+      );
 
       // Always download the cloud union first. A broken local upload must never
       // prevent unrelated cloud-only stories from appearing on this device.
@@ -2392,8 +2395,15 @@ export class PersistentStorageManager implements StorageAdapter {
       this.assertCurrentAccount(userId);
       // The catalog is now level with PostgreSQL. Publish it before the far
       // slower chapter-body and outbox phases so the Library renders its real
-      // cards — cover, title, progress — instead of waiting for the pass.
-      this.notifyCatalogUpdated();
+      // cards — cover, title, progress — instead of waiting for the pass. A
+      // no-op pass does not need to make the Library resolve every descriptor
+      // again, though.
+      const catalogChanged =
+        catalogBefore.size !== harmonizedStories.length ||
+        harmonizedStories.some(
+          (story) => catalogBefore.get(story.id) !== JSON.stringify(story),
+        );
+      if (catalogChanged) this.notifyCatalogUpdated();
       if (
         (await this.reconcileChapters(
           harmonizedStories,
@@ -2634,11 +2644,19 @@ export class PersistentStorageManager implements StorageAdapter {
           ...hydrated,
           persistenceHydration: "full" as const,
         });
-        await this.localAdapter.saveStory(cacheable);
-        this.rememberCloudRevision(cacheable);
-        // The single hydration below covers this record too; hydrating here as
-        // well resolved every asset twice on the story-open path.
-        story = cacheable;
+        // A local save or Harmony pass may have changed this record while the
+        // cloud read was in flight. Only replace the summary we set out to
+        // hydrate; never clobber a newer local payload.
+        const currentLocal = await this.localAdapter.getStory(id);
+        if (currentLocal?.persistenceHydration === "summary") {
+          await this.localAdapter.saveStory(cacheable);
+          this.rememberCloudRevision(cacheable);
+          // The single hydration below covers this record too; hydrating here
+          // as well resolved every asset twice on the story-open path.
+          story = cacheable;
+        } else if (currentLocal) {
+          story = currentLocal;
+        }
       }
     }
     return story ? this.hydrateCurrentMedia(story) : null;

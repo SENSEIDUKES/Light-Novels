@@ -417,7 +417,7 @@ function App() {
         ) return;
         console.error('Failed to refresh stories after Harmony sync:', error);
         store_setAppError(
-          'Harmony completed, but the refreshed library could not be loaded on this device. Your saved data was left unchanged and sync will retry automatically.',
+          'Harmony could not load the refreshed library on this device. Your saved data was left unchanged and sync will retry automatically.',
         );
       }
     };

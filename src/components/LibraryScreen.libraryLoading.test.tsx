@@ -15,7 +15,18 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock('../store/useAppStore', () => ({
-  useAppStore: (selector: any) => selector(state.current),
+  useAppStore: Object.assign(
+    (selector: any) => selector(state.current),
+    {
+      getState: () => state.current,
+      setState: (partial: any) => {
+        state.current = {
+          ...state.current,
+          ...(typeof partial === 'function' ? partial(state.current) : partial),
+        };
+      },
+    },
+  ),
 }));
 
 function makeStory(id: string, title: string) {
@@ -62,6 +73,16 @@ describe('LibraryScreen while Harmony is still retrieving the catalog', () => {
 
     expect(screen.getByText('No Stories Found')).toBeDefined();
     expect(screen.queryByText('Opening the Story Vault')).toBeNull();
+  });
+
+  it('shows a retrieval state during the initial idle-to-syncing handoff', () => {
+    state.current = { ...state.current, stories: [], syncStatus: 'idle' };
+
+    render(<LibraryScreen />);
+    openMyLibrary();
+
+    expect(screen.getByText('Opening the Story Vault')).toBeDefined();
+    expect(screen.queryByText('No Stories Found')).toBeNull();
   });
 
   it('reveals My Library when the catalog arrives after the screen has mounted', () => {
