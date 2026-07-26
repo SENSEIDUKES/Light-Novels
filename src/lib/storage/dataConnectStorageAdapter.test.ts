@@ -169,6 +169,77 @@ describe('DataConnectStorageAdapter', () => {
     expect(new Headers(writeInit.headers).get('Idempotency-Key')).toMatch(SHA256_KEY);
   });
 
+  // The server rebuilds an entity's imageHistory and imageAssetId from media
+  // attachments, so a replica holding history the cloud never received emits
+  // patch paths the server cannot walk. That surfaced as "the persistence
+  // operation could not be completed" on every Codex manifestation.
+  it('resends the whole story when a patch no longer fits the stored story', async () => {
+    const hydrated = {
+      id: story.id,
+      title: 'The First Story',
+      updatedAt: '2026-07-25T10:00:00.000Z',
+      syncRevision: 'rev-1',
+      memory: { characters: [{ id: 'lin', name: 'Lin', imageHistory: [] }] },
+    } as unknown as StoryWorld;
+    const manifested = {
+      ...hydrated,
+      memory: {
+        characters: [{
+          id: 'lin',
+          name: 'Lin',
+          imageAssetId: 'asset-lin-1',
+          imageHistory: [{ id: 'h1', assetId: 'asset-lin-1', isCurrent: true }],
+        }],
+      },
+    } as unknown as StoryWorld;
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ story: hydrated }))
+      .mockResolvedValueOnce(jsonResponse(
+        { error: { code: 'patch_not_applicable', message: 'Story patch path does not exist.' } },
+        409,
+      ))
+      .mockResolvedValueOnce(jsonResponse({ story: manifested }));
+
+    await adapter.getStory(story.id);
+    await adapter.saveStoryIfUnchanged(manifested, {
+      exists: true,
+      updatedAt: hydrated.updatedAt,
+      syncRevision: 'rev-1',
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const retry = JSON.parse((fetchMock.mock.calls[2][1] as RequestInit).body as string);
+    expect(retry).not.toHaveProperty('patch');
+    expect(retry.story.memory.characters[0].imageAssetId).toBe('asset-lin-1');
+  });
+
+  it('still surfaces a losing compare-and-swap as a revision conflict', async () => {
+    // A 409 without the patch code is a genuine concurrency loss: it must be
+    // re-read, never blindly overwritten by a full-story resend.
+    fetchMock.mockResolvedValue(jsonResponse(
+      { error: { code: 'revision_conflict', message: 'The remote record changed.' } },
+      409,
+    ));
+
+    await expect(adapter.saveStoryIfUnchanged(story, {
+      exists: true,
+      updatedAt: null,
+      syncRevision: 'rev-1',
+    })).rejects.toMatchObject({ code: 'sync/revision-changed' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('surfaces the persistence router error message instead of a generic fallback', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(
+      { error: { code: 'forbidden', message: 'Administrator access required' } },
+      403,
+    ));
+
+    await expect(adapter.getStory(story.id)).rejects.toMatchObject({
+      message: 'Administrator access required',
+    });
+  });
+
   it('reports the parent story revision advanced by a chapter write', async () => {
     // The chapter mutation rewrites the parent Story aggregate in the same
     // transaction. The browser replica adopts this revision so it does not fall

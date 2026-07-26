@@ -228,6 +228,35 @@ describe('persistenceRouter', () => {
     );
   });
 
+  it('reports an inapplicable story patch as a recoverable conflict, not a 500', async () => {
+    // The client resends the whole story on this code. Reported as a 500 it was
+    // indistinguishable from an outage, so every Codex manifestation failed
+    // permanently with "the persistence operation could not be completed".
+    repository.patchStory = vi.fn().mockRejectedValue(
+      Object.assign(new Error('Story patch path does not exist.'), {
+        code: 'patch_not_applicable',
+      }),
+    );
+
+    const response = await fetch(`${baseUrl}/api/persistence/stories/${story.id}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: 'Bearer valid-token',
+        'Content-Type': 'application/json',
+        'Idempotency-Key': 'stable-patch-key',
+      },
+      body: JSON.stringify({
+        patch: [{ op: 'add', path: '/memory/characters/0/imageHistory/2', value: {} }],
+        expected: { exists: true, updatedAt: null, syncRevision: 'rev-1' },
+      }),
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'patch_not_applicable' },
+    });
+  });
+
   it('reports an admin authorization failure as forbidden, not a generic outage', async () => {
     // The switchboard showed only "The persistence operation could not be
     // completed." for what was really a role check — indistinguishable from a

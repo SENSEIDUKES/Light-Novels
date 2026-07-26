@@ -420,9 +420,18 @@ function parseParentStoryRevision(payload: unknown): ParentStoryRevision | null 
   };
 }
 
+function isPatchNotApplicable(error: unknown): boolean {
+  return error instanceof DataConnectStorageError && error.code === 'persistence/patch-not-applicable';
+}
+
 function responseMessage(payload: unknown, fallback: string): string {
   if (isRecord(payload)) {
     if (typeof payload.error === 'string' && payload.error) return payload.error;
+    // The persistence router answers with { error: { code, message } }, so the
+    // real reason was previously discarded in favour of the generic fallback.
+    if (isRecord(payload.error) && typeof payload.error.message === 'string' && payload.error.message) {
+      return payload.error.message;
+    }
     if (typeof payload.message === 'string' && payload.message) return payload.message;
   }
   return fallback;
@@ -587,20 +596,37 @@ export class DataConnectStorageAdapter implements StorageAdapter {
         )
       : null;
     if (patch?.length === 0 && expected === undefined) return;
-    const payload = await this.request(`/stories/${encodeURIComponent(story.id)}`, {
-      method: 'PUT',
-      body: JSON.stringify(
-        patch
-          ? { patch, expected: expected ?? {
-              exists: true,
-              updatedAt: baseline?.updatedAt ?? null,
-              syncRevision: baseline?.syncRevision ?? null,
-            } }
-          : expected === undefined
-            ? { story: persistedStory }
-            : { story: persistedStory, expected },
-      ),
-    });
+    const fullBody = expected === undefined
+      ? { story: persistedStory }
+      : { story: persistedStory, expected };
+    const path = `/stories/${encodeURIComponent(story.id)}`;
+
+    let payload: unknown;
+    try {
+      payload = await this.request(path, {
+        method: 'PUT',
+        body: JSON.stringify(
+          patch
+            ? { patch, expected: expected ?? {
+                exists: true,
+                updatedAt: baseline?.updatedAt ?? null,
+                syncRevision: baseline?.syncRevision ?? null,
+              } }
+            : fullBody,
+        ),
+      });
+    } catch (error) {
+      // The patch is an optimization over a full write, never a requirement.
+      // Derived server collections (an entity's imageHistory, its
+      // imageAssetId) are rebuilt from media attachments, so a replica holding
+      // history the cloud never received emits paths the server cannot walk.
+      // Resending the whole story is always applicable and repairs the drift,
+      // instead of surfacing "the persistence operation could not be
+      // completed" on every Codex manifestation from then on.
+      if (!patch || !isPatchNotApplicable(error)) throw error;
+      this.storySnapshots.delete(story.id);
+      payload = await this.request(path, { method: 'PUT', body: JSON.stringify(fullBody) });
+    }
     const saved = requireEnvelope(payload, 'story');
     this.storySnapshots.set(
       story.id,
@@ -710,9 +736,17 @@ export class DataConnectStorageAdapter implements StorageAdapter {
     }
 
     if (response.status === 409) {
+      // A stale patch baseline is recoverable by resending the whole story and
+      // must not be mistaken for a losing compare-and-swap, which instead
+      // requires re-reading the cloud record first.
+      const code = isRecord(payload) && isRecord(payload.error)
+        ? payload.error.code
+        : undefined;
       throw new DataConnectStorageError(
         responseMessage(payload, 'Cloud record changed after synchronization read'),
-        'sync/revision-changed',
+        code === 'patch_not_applicable'
+          ? 'persistence/patch-not-applicable'
+          : 'sync/revision-changed',
         response.status,
       );
     }
