@@ -27,8 +27,8 @@ describe('Drop Engine', () => {
     title: 'The Grand Ascendancy'
   };
 
-  describe('1. worldCard Signals', () => {
-    it('should drop a CosmicArtifact for a character worldCard', async () => {
+  describe('1. Selective worldCard Signals', () => {
+    it('should ignore routine character and location worldCards', async () => {
       const chapter: Chapter = {
         number: 1,
         title: 'The Awakening',
@@ -46,72 +46,43 @@ describe('Drop Engine', () => {
               quote: 'My lotus flower shall bloom in blood.',
               audioType: 'tts_line'
             }
-          }
-        ]
-      };
-
-      const drops = await processChapterDrops(chapter, mockStory);
-      expect(drops).toHaveLength(1);
-      
-      const drop = drops[0];
-      expect(drop.name).toBe('Karmic Token: Lady Mei');
-      expect(drop.rarity).toBe('Rare');
-      expect(drop.attributeBoost).toBe('+10% Lady Mei Affinity');
-      expect(drop.milestoneType).toBe('codex_linked');
-      expect(drop.milestoneName).toBe('Character Fate Encounter');
-      expect(drop.description).toContain('Lady Mei of the Lotus Sect'); // from quote fallback, but we passed quote 'My lotus flower shall bloom in blood.'
-      expect(drop.description).toContain('My lotus flower shall bloom in blood.');
-      expect(unlockCosmicArtifact).toHaveBeenCalled();
-    });
-
-    it('should drop a CosmicArtifact for a creature/beast worldCard', async () => {
-      const chapter: Chapter = {
-        number: 1,
-        title: 'The Beast',
-        premise: 'A wild tiger appears.',
-        status: 'unlocked',
-        blocks: [
+          },
           {
             id: 'b2',
             type: 'paragraph',
-            text: 'A shadow leaped from the bushes.',
+            text: 'They reached the peak.',
             worldCard: {
-              entityType: 'creature',
-              entityName: 'Spotted Shadow Leopard',
-              displayTitle: 'Lethal Leopard',
-              quote: 'Grrrr...',
-              audioType: 'roar'
+              entityType: 'location',
+              entityName: 'Cloud Peak',
+              displayTitle: 'Cloud Peak Summit'
             }
           }
         ]
       };
 
       const drops = await processChapterDrops(chapter, mockStory);
-      expect(drops).toHaveLength(1);
-      
-      const drop = drops[0];
-      expect(drop.name).toBe('Beast Core: Spotted Shadow Leopard');
-      expect(drop.rarity).toBe('Rare');
-      expect(drop.attributeBoost).toBe('+12% Beast Resonance');
-      expect(drop.milestoneType).toBe('codex_linked');
+      expect(drops).toHaveLength(0);
+      expect(unlockCosmicArtifact).not.toHaveBeenCalled();
     });
 
-    it('should drop a CosmicArtifact for a location worldCard', async () => {
+    it('should drop a CosmicArtifact for Legendary/Mythic artifact awakenings', async () => {
       const chapter: Chapter = {
-        number: 2,
-        title: 'The Sacred Mountain',
-        premise: 'Ascending the peaks.',
+        number: 1,
+        title: 'The Awakening',
+        premise: 'A divine artifact awakens.',
         status: 'unlocked',
         blocks: [
           {
             id: 'b3',
             type: 'paragraph',
-            text: 'The summit towered above them.',
+            text: 'The sword awakened with celestial radiance.',
             worldCard: {
-              entityType: 'location',
-              entityName: 'Cloud Pillar Summit',
-              displayTitle: 'Cloud Pillar Peak',
-              audioType: 'signature'
+              entityType: 'artifact',
+              entityName: 'Heavenly Void Sword',
+              displayTitle: 'Supreme Relic',
+              quote: 'Shatter the sky.',
+              rarity: 'Legendary',
+              sound: { assetFamily: 'relic' }
             }
           }
         ]
@@ -119,43 +90,17 @@ describe('Drop Engine', () => {
 
       const drops = await processChapterDrops(chapter, mockStory);
       expect(drops).toHaveLength(1);
+      
       const drop = drops[0];
-      expect(drop.name).toBe('Spatial Anchor: Cloud Pillar Summit');
-      expect(drop.rarity).toBe('Common');
-      expect(drop.attributeBoost).toBe('+8% Realm Stability');
+      expect(drop.name).toBe('Heavenly Void Sword');
+      expect(drop.rarity).toBe('Legendary');
+      expect(drop.milestoneType).toBe('codex_linked');
+      expect(unlockCosmicArtifact).toHaveBeenCalled();
     });
   });
 
-  describe('2. system Signals', () => {
-    it('should drop a CosmicArtifact on skill_acquired system event', async () => {
-      const chapter: Chapter = {
-        number: 3,
-        title: 'Martial Skill',
-        premise: 'Learning new forms.',
-        status: 'unlocked',
-        blocks: [
-          {
-            id: 'b4',
-            type: 'system',
-            text: 'You have acquired Jade Palm!',
-            system: {
-              kind: 'skill_acquired',
-              title: 'Nine-Fold Jade Palm',
-              rarity: 'Legendary'
-            }
-          }
-        ]
-      };
-
-      const drops = await processChapterDrops(chapter, mockStory);
-      expect(drops).toHaveLength(1);
-      const drop = drops[0];
-      expect(drop.name).toBe('Jade Scroll: Nine-Fold Jade Palm');
-      expect(drop.rarity).toBe('Legendary');
-      expect(drop.attributeBoost).toBe('+15% Technique Mastery');
-    });
-
-    it('should drop a CosmicArtifact on level_up system event', async () => {
+  describe('2. Major system Signals', () => {
+    it('should drop a CosmicArtifact on major level_up system event', async () => {
       const chapter: Chapter = {
         number: 4,
         title: 'Breakthrough',
@@ -168,7 +113,7 @@ describe('Drop Engine', () => {
             text: 'Breakthrough achieved!',
             system: {
               kind: 'level_up',
-              title: 'Qi Condensation Tier 9'
+              title: 'Golden Core Stage'
             }
           }
         ]
@@ -177,13 +122,39 @@ describe('Drop Engine', () => {
       const drops = await processChapterDrops(chapter, mockStory);
       expect(drops).toHaveLength(1);
       const drop = drops[0];
-      expect(drop.name).toBe('Celestial Breakthrough Pill: Qi Condensation Tier 9');
-      expect(drop.rarity).toBe('Rare');
-      expect(drop.attributeBoost).toBe('+20% Base Qi');
+      expect(drop.name).toBe('Realm Breakthrough Elixir: Golden Core Stage');
+      expect(drop.rarity).toBe('Legendary');
+    });
+
+    it('should drop a CosmicArtifact for Legendary skill acquisition', async () => {
+      const chapter: Chapter = {
+        number: 3,
+        title: 'Supreme Skill',
+        premise: 'Learning legendary techniques.',
+        status: 'unlocked',
+        blocks: [
+          {
+            id: 'b4',
+            type: 'system',
+            text: 'You have acquired supreme technique!',
+            system: {
+              kind: 'skill_acquired',
+              title: 'Nine-Fold Heavenly Palm',
+              rarity: 'Legendary'
+            }
+          }
+        ]
+      };
+
+      const drops = await processChapterDrops(chapter, mockStory);
+      expect(drops).toHaveLength(1);
+      const drop = drops[0];
+      expect(drop.name).toBe('Esoteric Jade Scroll: Nine-Fold Heavenly Palm');
+      expect(drop.rarity).toBe('Legendary');
     });
   });
 
-  describe('3. fateResult Signals', () => {
+  describe('3. Major fateResult Signals', () => {
     it('should drop a high-tier Fatebreaker Talisman on FATE AVERTED outcome', async () => {
       const chapter: Chapter = {
         number: 5,
@@ -201,10 +172,7 @@ describe('Drop Engine', () => {
               fateResult: {
                 outcome: 'FATE AVERTED',
                 timelineScar: 'The Elder is silenced forever.',
-                permanentCosts: ['Severe spiritual exhaustion'],
-                newStoryState: 'Outer Wilderness Master',
-                newActiveStats: ['+200 Qi'],
-                genreShift: 'Wuxia Epic'
+                permanentCosts: ['Severe spiritual exhaustion']
               }
             }
           }
@@ -216,13 +184,12 @@ describe('Drop Engine', () => {
       const drop = drops[0];
       expect(drop.name).toBe('Fatebreaker Talisman');
       expect(drop.rarity).toBe('Legendary');
-      expect(drop.description).toContain('The Elder is silenced forever.');
       expect(drop.attributeBoost).toBe('+30% Karma Shield');
     });
   });
 
-  describe('4. beast Signals', () => {
-    it('should drop a CosmicArtifact based on a beastEvent signal in metadata', async () => {
+  describe('4. Major beast Signals', () => {
+    it('should drop a CosmicArtifact for Boss, Calamity, or Mythic beast defeats', async () => {
       const chapter: Chapter = {
         number: 6,
         title: 'The Great Wyrm',
@@ -232,18 +199,15 @@ describe('Drop Engine', () => {
           {
             id: 'b7',
             type: 'paragraph',
-            text: 'The sky turned red as the dragon roared.',
+            text: 'The sky turned red as the dragon was vanquished.',
             metadata: {
               beastEvent: {
-                type: 'reveal',
+                type: 'death',
                 profile: {
                   size: 'giant',
                   bodyType: 'dragon',
                   element: 'fire',
-                  movement: 'flying',
-                  intelligence: 'ancient',
-                  threatTier: 'boss',
-                  signatureSound: 'roar'
+                  threatTier: 'boss'
                 }
               }
             }
@@ -254,10 +218,36 @@ describe('Drop Engine', () => {
       const drops = await processChapterDrops(chapter, mockStory);
       expect(drops).toHaveLength(1);
       const drop = drops[0];
-      expect(drop.name).toBe('Fire Dragon Essence');
+      expect(drop.name).toBe('Boss Fire Dragon Core');
       expect(drop.rarity).toBe('Epic');
-      expect(drop.description).toContain('Derived from a giant boss beast');
-      expect(drop.attributeBoost).toBe('+15% Fire Resonance');
+    });
+
+    it('should ignore common beast encounters', async () => {
+      const chapter: Chapter = {
+        number: 7,
+        title: 'Common Hunting',
+        premise: 'Hunting weak beasts.',
+        status: 'unlocked',
+        blocks: [
+          {
+            id: 'b8',
+            type: 'paragraph',
+            text: 'A wild wolf appeared.',
+            metadata: {
+              beastEvent: {
+                type: 'reveal',
+                profile: {
+                  bodyType: 'mammal',
+                  threatTier: 'common'
+                }
+              }
+            }
+          }
+        ]
+      };
+
+      const drops = await processChapterDrops(chapter, mockStory);
+      expect(drops).toHaveLength(0);
     });
   });
 });

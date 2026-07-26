@@ -270,21 +270,58 @@ export async function unlockCosmicArtifact(
   
   const id = `art-${artifactKey || 'custom'}-${Date.now()}`;
   const rewards = getArtifactRewards(baseArtifact.rarity);
+  
+  // Construct eventKey for robust deduplication across reloads / replays
+  const eventKey = baseArtifact.eventKey || (artifactKey ? artifactKey : `${baseArtifact.sourceStoryId || 'global'}_ch${baseArtifact.sourceChapterNumber || 0}_${baseArtifact.name}`);
+  
   const newArtifact: CosmicArtifact = {
     ...baseArtifact,
     id,
+    eventKey,
     unlockedAt: now,
     offeringWeekId: getCurrentOfferingWeekId(),
     gatheredAt: now,
     status: "unsubmitted",
-    rewardValueQi: rewards.qi,
-    rewardValueSectMerit: rewards.sectMerit
+    rewardValueQi: baseArtifact.rewardValueQi ?? rewards.qi,
+    rewardValueSectMerit: baseArtifact.rewardValueSectMerit ?? rewards.sectMerit
   };
+
+  // Provide a clean default specialUnlock if not explicitly defined
+  if (!newArtifact.specialUnlock) {
+    if (newArtifact.rarity === 'Transcendent' || newArtifact.rarity === 'Mythic') {
+      newArtifact.specialUnlock = {
+        type: 'cosmetic',
+        label: `${newArtifact.name} Aura & Theme`,
+        description: `Unlocks unique ${newArtifact.rarity} cosmic visual aura and profile theme.`
+      };
+    } else if (newArtifact.rarity === 'Legendary') {
+      newArtifact.specialUnlock = {
+        type: 'badge',
+        label: `Badge: ${newArtifact.name}`,
+        description: 'Exclusive cultivation achievement badge for your profile.'
+      };
+    } else if (newArtifact.rarity === 'Epic') {
+      newArtifact.specialUnlock = {
+        type: 'customization',
+        label: `Reader Customization: ${newArtifact.name}`,
+        description: 'Unlocks custom reader theme accents and codex styling.'
+      };
+    } else {
+      newArtifact.specialUnlock = {
+        type: 'profile_item',
+        label: `Cave Item: ${newArtifact.name}`,
+        description: 'Unlocks a decorative item for your cultivator cave.'
+      };
+    }
+  }
   
-  // Check duplicates to avoid multi-award
+  // Check duplicates to avoid multi-award across reloads, replays, or duplicate triggers
   const checkDuplicate = (list: CosmicArtifact[]) => {
     if (artifactKey) {
-      return list.some(a => a.name === newArtifact.name);
+      return list.some(a => a.name === newArtifact.name || a.eventKey === newArtifact.eventKey);
+    }
+    if (newArtifact.eventKey) {
+      return list.some(a => a.eventKey === newArtifact.eventKey || (a.name === newArtifact.name && a.sourceStoryId === newArtifact.sourceStoryId));
     }
     return list.some(a => a.name === newArtifact.name && a.sourceStoryId === newArtifact.sourceStoryId);
   };
@@ -508,145 +545,157 @@ export async function scanChapterForArtifacts(
   text: string,
   metadata?: any
 ): Promise<void> {
-  const normalized = text.toLowerCase();
-  
-  const cuePayload = metadata?.cuePayload;
   const blocks = metadata?.blocks || [];
 
-  // 1. Arc Entry Reward (Minor Relic / Badge / Codex Stamp) - 1 every arc (early arc)
-  // Assuming an arc is roughly 6 chapters. We trigger this on chapter 1, 7, 13, etc.
-  if (chapterNumber % 6 === 1) {
-    let zoneName = "New Territory";
-    // Try to find a location entity
-    const locationEntity = blocks.flatMap((b: any) => b.metadata?.entities || []).find((e: any) => e.type === 'location' || e.type === 'faction');
-    if (locationEntity && locationEntity.name) {
-      zoneName = locationEntity.name;
-    }
-    await unlockCosmicArtifact({
-      name: `Codex Stamp: Entered ${zoneName}`,
-      description: `A minor relic confirming your entry into ${zoneName}. It resonates with the local Qi.`,
-      rarity: 'Common',
-      attributeBoost: '+5% Environmental Affinity',
-      sourceStoryId: storyId,
-      sourceStoryTitle: storyTitle,
-      milestoneType: 'chapter_seal',
-      milestoneName: 'Arc Entry'
-    }, storyId, storyTitle);
-  }
-
-  // 2. Arc Climax Reward (Arc Relic) - 1 per arc
-  // We trigger this around chapter 5, 11, 17, etc.
-  if (chapterNumber % 6 === 5) {
-    let relicName = "Fragment of the Unknown Core";
-    // Try to find an artifact or beast entity
+  // 1. Arc Climax Reward (Arc Relic) - Awarded strictly at major arc climaxes (e.g. chapter 6, 12, 18, etc.)
+  if (chapterNumber > 0 && chapterNumber % 6 === 0) {
+    let relicName = "Fragment of the Arc Core";
     const climaxEntity = blocks.flatMap((b: any) => b.metadata?.entities || []).find((e: any) => e.type === 'artifact' || e.type === 'beast');
     if (climaxEntity && climaxEntity.name) {
       relicName = climaxEntity.name;
     }
     await unlockCosmicArtifact({
-      name: `Relic Acquired: ${relicName}`,
-      description: `The main reward of this arc. The heavy emotional payoff from surviving the climax.`,
+      name: `Arc Relic: ${relicName}`,
+      description: `The grand reward for completing this story arc and triumphing over its core trials.`,
       rarity: 'Epic',
       attributeBoost: '+15% Arc Resonance',
       sourceStoryId: storyId,
       sourceStoryTitle: storyTitle,
+      sourceChapterNumber: chapterNumber,
+      eventKey: `${storyId}_arc_climax_ch${chapterNumber}`,
       milestoneType: 'challenge_complete',
-      milestoneName: 'Arc Climax'
+      milestoneName: 'Arc Climax Completion',
+      specialUnlock: {
+        type: 'badge',
+        label: `Arc ${Math.ceil(chapterNumber / 6)} Master Badge`,
+        description: 'Badge awarded for conquering a complete story arc.'
+      }
     }, storyId, storyTitle);
   }
 
-  // 3. Boss Scene / Major Audio (Manifestation Card)
-  const isBossScene = 
-    normalized.includes('boss fight') ||
-    normalized.includes('villain') ||
-    normalized.includes('dragon roar') ||
-    (cuePayload?.danger && cuePayload.danger > 75) ||
-    blocks.some((b: any) => b.metadata?.sceneType === 'boss-fight' || b.metadata?.danger > 8);
+  // 2. Major Boss Defeat (Requires explicit major boss defeat metadata)
+  const isMajorBossDefeat = blocks.some((b: any) => 
+    b.metadata?.sceneType === 'major-boss-defeat' || 
+    b.metadata?.bossDefeated === true ||
+    (b.metadata?.sceneType === 'boss-fight' && b.metadata?.danger >= 9)
+  );
 
-  if (isBossScene) {
+  if (isMajorBossDefeat) {
     await unlockCosmicArtifact({
-      name: "Manifestation Card: Adversary's Roar",
-      description: "A major manifestation card captured from a powerful adversary or boss scene.",
+      name: "Trophy of Primordial Conquest",
+      description: "A colossal relic forged from the fallen core of a major story nemesis.",
       rarity: 'Legendary',
-      attributeBoost: '+20% Combat Will',
+      attributeBoost: '+25% Sovereign Dominance',
       sourceStoryId: storyId,
       sourceStoryTitle: storyTitle,
-      milestoneType: 'chapter_seal',
-      milestoneName: 'Boss Confrontation'
-    }, storyId, storyTitle);
-  }
-
-  // 4. Optional Hidden Reward (Secret Title / Condition)
-  // Triggered by secrets, specific prompt types, or fate survival
-  const hasHiddenSecret = 
-    normalized.includes('secret') || 
-    normalized.includes('hidden') || 
-    normalized.includes('perfect survival') ||
-    blocks.some((b: any) => b.system?.promptType === 'mystery' || b.system?.promptType === 'fate_event');
-
-  if (hasHiddenSecret) {
-    let secretName = "One Who Walked the Hidden Path";
-    const mysteryEntity = blocks.flatMap((b: any) => b.metadata?.entities || []).find((e: any) => e.type === 'mystery' || e.type === 'artifact');
-    if (mysteryEntity && mysteryEntity.name) {
-      secretName = `Secret Title: Witness of ${mysteryEntity.name}`;
-    }
-    await unlockCosmicArtifact({
-      name: secretName,
-      description: "An optional hidden reward for uncovering a secret, making a special choice, or surviving a tough fate route.",
-      rarity: 'Epic',
-      attributeBoost: '+15% Truth Comprehension',
-      sourceStoryId: storyId,
-      sourceStoryTitle: storyTitle,
+      sourceChapterNumber: chapterNumber,
+      eventKey: `${storyId}_boss_defeat_ch${chapterNumber}`,
       milestoneType: 'challenge_complete',
-      milestoneName: 'Hidden Secret'
+      milestoneName: 'Major Boss Victory',
+      specialUnlock: {
+        type: 'cosmetic',
+        label: 'Vanquisher Aura',
+        description: 'Unlocks a glowing vanquisher aura around your cultivator avatar.'
+      }
     }, storyId, storyTitle);
   }
 
-  // 5. Mythic / Profile-defining Relic (1 every 3-5 arcs -> ~every 24 chapters)
-  if (chapterNumber % 24 === 0 && chapterNumber > 0) {
+  // 3. World-Changing Secret / Fate Objective (Requires explicit fate avert or major secret flag)
+  const hasFateObjectiveAverted = blocks.some((b: any) => 
+    b.system?.fateResult?.outcome === 'FATE AVERTED' ||
+    b.metadata?.majorSecretDiscovered === true
+  );
+
+  if (hasFateObjectiveAverted) {
     await unlockCosmicArtifact({
-      name: "Heaven-Defying Fatebreaker Seal",
-      description: "A mythic relic defining your profile, awarded for surviving multiple arduous arcs and defying fate itself.",
-      rarity: 'Mythic',
+      name: "Fatebreaker's Cosmic Seal",
+      description: "An ancient seal awarded for averting predetermined doom and uncovering a world-altering secret.",
+      rarity: 'Legendary',
       attributeBoost: '+30% Fate Resistance',
       sourceStoryId: storyId,
       sourceStoryTitle: storyTitle,
-      milestoneType: 'rank_up',
-      milestoneName: 'Saga Milestone'
+      sourceChapterNumber: chapterNumber,
+      eventKey: `${storyId}_fate_averted_ch${chapterNumber}`,
+      milestoneType: 'challenge_complete',
+      milestoneName: 'Fate Objective Accomplished',
+      specialUnlock: {
+        type: 'sen_workshop',
+        label: 'SEN Workshop Access: Fate Editing',
+        description: 'Unlocks advanced steering options in the SEN Workshop.'
+      }
     }, storyId, storyTitle);
   }
 
-  // 6. Legendary Completion Title (1 per major saga -> ~every 60 chapters)
-  if (chapterNumber % 60 === 0 && chapterNumber > 0) {
+  // 4. Mythic / Profile-defining Relic (1 every 24 chapters)
+  if (chapterNumber > 0 && chapterNumber % 24 === 0) {
     await unlockCosmicArtifact({
-      name: "Legendary Title: Witness of the Grand Saga",
-      description: "A legendary completion title. You have witnessed the rise and fall of sects, empires, and gods across a major saga.",
+      name: "Heaven-Defying Saga Seal",
+      description: "A mythic relic defining your profile, awarded for surviving multiple arduous arcs and defying fate itself.",
+      rarity: 'Mythic',
+      attributeBoost: '+40% Fate Resistance',
+      sourceStoryId: storyId,
+      sourceStoryTitle: storyTitle,
+      sourceChapterNumber: chapterNumber,
+      eventKey: `${storyId}_saga_milestone_ch${chapterNumber}`,
+      milestoneType: 'rank_up',
+      milestoneName: 'Saga Milestone',
+      specialUnlock: {
+        type: 'theme',
+        label: 'Profile Theme: Heavenly Cosmos',
+        description: 'Unlocks the premium Heavenly Cosmos profile background and border.'
+      }
+    }, storyId, storyTitle);
+  }
+
+  // 5. Legendary Completion Title (1 every 60 chapters)
+  if (chapterNumber > 0 && chapterNumber % 60 === 0) {
+    await unlockCosmicArtifact({
+      name: "Grand Saga Witness Seal",
+      description: "A transcendent completion relic. You have witnessed the rise and fall of sects, empires, and gods across a major saga.",
       rarity: 'Transcendent',
       attributeBoost: '+50% Dao Comprehension',
       sourceStoryId: storyId,
       sourceStoryTitle: storyTitle,
+      sourceChapterNumber: chapterNumber,
+      eventKey: `${storyId}_grand_saga_ch${chapterNumber}`,
       milestoneType: 'rank_up',
-      milestoneName: 'Saga Completion'
+      milestoneName: 'Grand Saga Completion',
+      specialUnlock: {
+        type: 'customization',
+        label: 'Transcendent Codex & Reader Customization',
+        description: 'Unlocks transcendent golden typography and codex styling.'
+      }
     }, storyId, storyTitle);
   }
 
-  // Scan for newly-forged unique artifacts in the blocks
+  // 6. Scan for newly-awakened Legendary/Mythic artifacts in worldCard blocks
   for (const block of blocks) {
-    if (block.worldCard?.entityType === 'artifact' && block.worldCard.entityName) {
+    if (
+      block.worldCard?.entityType === 'artifact' && 
+      block.worldCard.entityName &&
+      (block.worldCard.sound?.assetFamily === 'relic' || block.worldCard.rarity === 'Legendary' || block.worldCard.rarity === 'Mythic')
+    ) {
       await unlockCosmicArtifact({
         name: block.worldCard.entityName,
-        description: block.worldCard.quote || `A rare and powerful relic of historical significance, manifested from the fate lines of your story.`,
-        rarity: 'Epic',
-        attributeBoost: `+15% ${block.worldCard.entityName} Resonance`,
+        description: block.worldCard.quote || `A rare and legendary relic of historical significance awakened in your story.`,
+        rarity: block.worldCard.rarity || 'Legendary',
+        attributeBoost: `+20% ${block.worldCard.entityName} Resonance`,
         sourceStoryId: storyId,
         sourceStoryTitle: storyTitle,
+        sourceChapterNumber: chapterNumber,
+        eventKey: `${storyId}_awakened_relic_${block.worldCard.entityName.toLowerCase().replace(/\s+/g, '_')}`,
         milestoneType: 'codex_linked',
-        milestoneName: 'Codex Artifact Discovery'
+        milestoneName: 'Legendary Artifact Awakening',
+        specialUnlock: {
+          type: 'profile_item',
+          label: `Cave Item: ${block.worldCard.entityName}`,
+          description: `Display ${block.worldCard.entityName} in your cultivator cave.`
+        }
       }, storyId, storyTitle);
     }
   }
 
-  // Call the new Drop Engine to process all other block-based drops (worldCard, system, fateResult, beast)
+  // Call Drop Engine to process remaining selective block-based drops
   try {
     const { processChapterDrops } = await import('./dropEngine');
     await processChapterDrops(metadata || { blocks }, { id: storyId, title: storyTitle });
