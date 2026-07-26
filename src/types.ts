@@ -30,6 +30,12 @@ export interface ActiveStatusEffect {
   isUnlockedReward?: boolean;
 }
 
+export interface SpecialUnlockDef {
+  type: "cosmetic" | "sen_workshop" | "customization" | "profile_item" | "badge" | "theme" | "other";
+  label: string;
+  description?: string;
+}
+
 export interface CosmicArtifact {
   id: string;
   name: string;
@@ -37,6 +43,8 @@ export interface CosmicArtifact {
   unlockedAt: string;
   sourceStoryId?: string;
   sourceStoryTitle?: string;
+  sourceChapterNumber?: number;
+  eventKey?: string;
   milestoneType:
     | "chapter_seal"
     | "rank_up"
@@ -49,6 +57,9 @@ export interface CosmicArtifact {
   rarity: "Common" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Transcendent";
   attributeBoost?: string;
   statusEffectDef?: StatusEffectDef;
+  
+  // Flexible Special Unlock field supporting interchangeable future rewards
+  specialUnlock?: SpecialUnlockDef | string;
   
   // Weekly Offering System
   offeringWeekId?: string;
