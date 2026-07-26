@@ -223,9 +223,15 @@ export const StoryDetailScreen: React.FC<{
       (c) => c.hasContent || !!c.generatedContent,
     );
 
-  const allChaptersGenerated = activeStory.arcs.every(arc => 
-    arc.chapters.every(c => c.hasContent || !!c.generatedContent)
-  );
+  // A story whose arcs have not been generated yet (a seed opened straight from
+  // the library, or a catalog summary that has not been hydrated) has no arcs.
+  // `[].every()` is vacuously true, so guard it — an empty story must never
+  // report that every chapter is generated or that it reached its ending.
+  const allChaptersGenerated =
+    activeStory.arcs.length > 0 &&
+    activeStory.arcs.every(arc =>
+      arc.chapters.every(c => c.hasContent || !!c.generatedContent)
+    );
   const savedChapterWritingStyle = normalizeChapterWritingStyle(
     activeStory.chapterWritingStyle,
   );
@@ -980,7 +986,7 @@ export const StoryDetailScreen: React.FC<{
                 Current Arc
               </p>
               <p className="font-mono text-signal text-sm mt-1 truncate">
-                {activeStory.arcs[activeStory.arcs.length - 1].title}
+                {activeStory.arcs.at(-1)?.title ?? "Not yet charted"}
               </p>
             </div>
             <div>

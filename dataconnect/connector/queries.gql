@@ -715,6 +715,19 @@ query AdminGetOwnedStoryGraph($ownerUid: String!, $storyId: UUID!) @auth(level: 
     createdAt
     updatedAt
   }
+  # Compact scene fingerprints ride the always-loaded scaffold so contract
+  # building and duplicate detection never have to load a chapter body.
+  sceneFingerprints: chapterSceneFingerprints(
+    where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
+    orderBy: [{ chapterNumber: ASC }, { createdAt: ASC }]
+  ) {
+    chapterId
+    chapterNumber
+    actionType
+    location
+    outcome
+    participants
+  }
   chapters(
     where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }
     orderBy: [{ chapterNumber: ASC }]

@@ -28,12 +28,6 @@ type CachedAccountProfile = Pick<
 
 const cacheKey = (uid: string) => `${ACCOUNT_PROFILE_CACHE_PREFIX}${encodeURIComponent(uid)}`;
 
-const isOwnerEmail = (email: string | null) => {
-  const normalizedEmail = email?.toLowerCase();
-  return normalizedEmail === 'amaurylindy@gmail.com'
-    || normalizedEmail === 'seihouseproductions@gmail.com';
-};
-
 const isCachedAccountProfile = (value: unknown, uid: string): value is CachedAccountProfile => {
   if (!value || typeof value !== 'object') return false;
   const profile = value as Partial<CachedAccountProfile>;
@@ -93,7 +87,6 @@ export const readCachedAccountProfile = (uid: string): CachedAccountProfile | nu
 
 export const createAccountProfileFallback = (user: AppUser): UserProfile => {
   const cachedProfile = readCachedAccountProfile(user.uid);
-  const owner = isOwnerEmail(user.email);
   const now = new Date().toISOString();
 
   return {
@@ -112,8 +105,11 @@ export const createAccountProfileFallback = (user: AppUser): UserProfile => {
     inactiveStories: [],
     joinedDate: cachedProfile?.joinedDate || now,
     updatedAt: cachedProfile?.updatedAt || now,
-    role: owner ? 'owner' : 'user',
-    premiumTier: owner ? 'immortal' : 'mortal',
+    // The offline placeholder never claims an elevated role: every admin
+    // surface it would unlock is authorized against PostgreSQL, which assigns
+    // the role from the verified ID-token email.
+    role: 'user',
+    premiumTier: 'mortal',
     dao_xp: cachedProfile?.dao_xp,
     dao_rank: cachedProfile?.dao_rank,
     qi: cachedProfile?.qi,

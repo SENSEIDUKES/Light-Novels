@@ -185,12 +185,46 @@ describe('useUserProfile PostgreSQL persistence', () => {
     const { result } = renderProfile(owner);
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
+    // The placeholder claims no elevated role even for a system-owner email.
+    // The client used to promote itself here, which unlocked admin surfaces
+    // whose every request PostgreSQL then rejected against userAccount.role.
+    // The role is assigned server-side from the verified ID-token email.
     expect(result.current.profile).toMatchObject({
       uid: 'owner-account',
-      role: 'owner',
-      premiumTier: 'immortal',
+      role: 'user',
+      premiumTier: 'mortal',
     });
     expect(persistenceMocks.saveUserProfile).not.toHaveBeenCalled();
+  });
+
+  it('trusts the stored role instead of promoting a system-owner email', async () => {
+    persistenceMocks.getUserProfile.mockResolvedValue({
+      uid: 'owner-account',
+      username: 'owner',
+      displayName: 'Owner',
+      role: 'owner',
+      premiumTier: 'immortal',
+    } as never);
+    const owner = makeUser('owner-account', 'amaurylindy@gmail.com');
+    const { result } = renderProfile(owner);
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.profile).toMatchObject({ role: 'owner', premiumTier: 'immortal' });
+  });
+
+  it('does not invent an owner role when the server reports a plain user', async () => {
+    persistenceMocks.getUserProfile.mockResolvedValue({
+      uid: 'owner-account',
+      username: 'owner',
+      displayName: 'Owner',
+      role: 'user',
+      premiumTier: 'mortal',
+    } as never);
+    const owner = makeUser('owner-account', 'amaurylindy@gmail.com');
+    const { result } = renderProfile(owner);
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.profile).toMatchObject({ role: 'user', premiumTier: 'mortal' });
   });
 
   it('ignores a late account A read after switching directly to account B', async () => {

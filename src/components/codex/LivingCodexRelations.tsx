@@ -489,6 +489,7 @@ export function LivingCodexRelations({
                            tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setDeletePrompt({ id: bond.id, type: 'relationship' })}
                           className="p-1 px-1.5 text-neutral-500 hover:text-human hover:bg-neutral-900 rounded transition-colors"
                           title="Purge link"
+                          aria-label="Purge link"
                         >
                           <Trash2 size={12} />
                         </button>

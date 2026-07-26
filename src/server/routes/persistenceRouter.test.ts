@@ -45,10 +45,17 @@ describe('persistenceRouter', () => {
         durationMs: 4.5,
       }),
       saveProfile: vi.fn().mockResolvedValue({ uid: ownerUid, username: 'Saved' }),
+      saveChapterContent: vi.fn().mockResolvedValue({
+        content: { storyId: story.id, chapterNumber: 1, generatedContent: 'Body' },
+        story: { updatedAt: '2026-07-22T11:00:00.000Z', syncRevision: 'story-rev-2' },
+      }),
     } as unknown as ApplicationPersistenceRepository;
     const app = express();
     app.use(createPersistenceRouter({
-      verifyIdToken: vi.fn().mockResolvedValue({ uid: ownerUid }),
+      verifyIdToken: vi.fn().mockResolvedValue({
+        uid: ownerUid,
+        email: `${ownerUid}@example.test`,
+      }),
       getRepository: () => repository,
     }));
     server = createServer(app);
@@ -219,6 +226,63 @@ describe('persistenceRouter', () => {
         expected: { exists: true, updatedAt: null, syncRevision: 'remote-revision' },
       },
     );
+  });
+
+  it('reports an admin authorization failure as forbidden, not a generic outage', async () => {
+    // The switchboard showed only "The persistence operation could not be
+    // completed." for what was really a role check — indistinguishable from a
+    // real outage, and impossible for the user to act on.
+    repository.getAdminOverview = vi.fn().mockRejectedValue(
+      Object.assign(new Error('Administrator access required'), { code: 'forbidden' }),
+    );
+
+    const response = await fetch(`${baseUrl}/api/persistence/admin/overview`, {
+      headers: { Authorization: 'Bearer valid-token' },
+    });
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'forbidden' },
+    });
+  });
+
+  it('passes the verified token email to the profile read', async () => {
+    // The account row's OWNER role is assigned from this email, so it must
+    // reach the repository — the browser is never trusted for its own role.
+    repository.getProfile = vi.fn().mockResolvedValue({ uid: ownerUid, username: 'Owner' });
+
+    const response = await fetch(`${baseUrl}/api/persistence/profile`, {
+      headers: { Authorization: 'Bearer valid-token' },
+    });
+
+    expect(response.status).toBe(200);
+    expect(repository.getProfile).toHaveBeenCalledWith(ownerUid, 'reader-a@example.test');
+  });
+
+  it('returns the parent story revision a chapter write advanced', async () => {
+    // The chapter mutation bumps the Story aggregate in the same transaction.
+    // Reporting it lets the browser replica stay level with the cloud instead of
+    // deferring every later story write as "the cloud is newer".
+    const response = await fetch(
+      `${baseUrl}/api/persistence/stories/${story.id}/chapters/1`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: 'Bearer valid-token',
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'stable-chapter-key',
+        },
+        body: JSON.stringify({
+          content: { storyId: story.id, chapterNumber: 1, generatedContent: 'Body' },
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      content: { chapterNumber: 1 },
+      story: { updatedAt: '2026-07-22T11:00:00.000Z', syncRevision: 'story-rev-2' },
+    });
   });
 
   it('treats an explicit null revision expectation as "expect no existing record"', async () => {

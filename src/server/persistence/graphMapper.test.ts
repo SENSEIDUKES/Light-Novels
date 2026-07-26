@@ -87,6 +87,14 @@ function storyGraph(): AdminGetOwnedStoryGraphData {
       createdAt: NOW,
       updatedAt: NOW,
     }],
+    sceneFingerprints: [{
+      chapterId: CHAPTER_ID,
+      chapterNumber: 1,
+      actionType: 'BREAKTHROUGH',
+      location: 'Moon Terrace',
+      outcome: 'Lin breaks through',
+      participants: ['Lin'],
+    }],
     chapters: [{
       id: CHAPTER_ID,
       storyId: STORY_ID,
@@ -334,6 +342,76 @@ describe('story graph mapping', () => {
     expect(JSON.stringify(variables)).not.toContain('imageUrl');
   });
 
+  it('keeps scene fingerprints on the always-loaded chapter scaffold', () => {
+    // Contract building and duplicate detection read fingerprints without
+    // loading a chapter body, so they must survive scaffold hydration.
+    const story = hydrateStoryWorld(storyGraph())!;
+    const chapter = story.arcs[0].chapters[0];
+
+    expect(chapter.sceneFingerprints).toEqual([{
+      actionType: 'breakthrough',
+      participants: ['Lin'],
+      location: 'Moon Terrace',
+      outcome: 'Lin breaks through',
+      chapterNumber: 1,
+    }]);
+  });
+
+  it('attaches each fingerprint only to the chapter that produced it', () => {
+    const graph = storyGraph();
+    const otherChapterId = '33333333-3333-4333-8333-999999999999';
+    graph.chapters = [
+      graph.chapters[0],
+      { ...graph.chapters[0], id: otherChapterId, chapterNumber: 2, clientChapterId: 'chapter-client-2' },
+    ];
+    graph.sceneFingerprints = [
+      ...graph.sceneFingerprints,
+      {
+        chapterId: otherChapterId,
+        chapterNumber: 2,
+        actionType: 'DUEL',
+        location: null,
+        outcome: 'Lin wins',
+        participants: ['Lin', 'Kang'],
+      },
+    ];
+
+    const chapters = hydrateStoryWorld(graph)!.arcs.flatMap(arc => arc.chapters);
+    expect(chapters[0].sceneFingerprints).toHaveLength(1);
+    expect(chapters[1].sceneFingerprints).toEqual([
+      expect.objectContaining({ actionType: 'duel', location: undefined, chapterNumber: 2 }),
+    ]);
+  });
+
+  it('hydrates a body-bearing chapter as content even without a summary', () => {
+    const graph = storyGraph();
+    // A row written before chapter writes recorded a hash: no hash, no version,
+    // no summary — only the READ status that generation leaves behind.
+    graph.chapters = [{
+      ...graph.chapters[0],
+      status: 'READ',
+      summary: null,
+      contentHash: null,
+      versionId: null,
+    } as (typeof graph.chapters)[number]];
+
+    expect(hydrateStoryWorld(graph)!.arcs[0].chapters[0].hasContent).toBe(true);
+  });
+
+  it('leaves an ungenerated scaffold chapter without content', () => {
+    const graph = storyGraph();
+    graph.chapters = [{
+      ...graph.chapters[0],
+      status: 'UNREAD',
+      summary: null,
+      contentHash: null,
+      versionId: null,
+      isSealed: false,
+    } as (typeof graph.chapters)[number]];
+
+    expect(hydrateStoryWorld(graph)!.arcs[0].chapters[0].hasContent).toBe(false);
+  });
+
   it('derives stable UUIDs for legacy client IDs', () => {
     expect(persistenceUuid('legacy-id', 'story')).toBe(persistenceUuid('legacy-id', 'story'));
     expect(persistenceUuid('legacy-id', 'story')).not.toBe(persistenceUuid('other-id', 'story'));
@@ -572,6 +650,59 @@ describe('chapter content graph mapping', () => {
       music: { mood: 'mystery', trackId: 'catalog-track' },
       worldCard: expect.not.objectContaining({ imageUrl: expect.anything() }),
     });
+  });
+
+  // `hasContent` is derived from `contentHash || versionId || summary`. A
+  // placeholder summary persists as an empty string, so without a hash the
+  // scaffold hydrated as contentless and the reader never fetched the body.
+  it('records a content hash so a summary-less body still hydrates as content', () => {
+    const currentGraph = chapterGraph();
+    const content = hydrateChapterContent(currentGraph)!;
+    const variables = mapChapterContentToGraphVariables({
+      ownerUid: 'owner-a',
+      storyId: STORY_ID,
+      content: { ...content, summary: '', episodicSummary: '' },
+      currentGraph,
+      ...mutationMetadata(),
+    });
+
+    expect(variables.chapter.contentHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(variables.chapter.summary).toBe('');
+  });
+
+  it('changes the content hash when the body changes and leaves an empty body unhashed', () => {
+    const currentGraph = chapterGraph();
+    const content = hydrateChapterContent(currentGraph)!;
+    const hashFor = (override: Partial<ChapterContent>) =>
+      mapChapterContentToGraphVariables({
+        ownerUid: 'owner-a',
+        storyId: STORY_ID,
+        content: { ...content, ...override },
+        currentGraph,
+        ...mutationMetadata(),
+      }).chapter.contentHash;
+
+    const baseline = hashFor({});
+    expect(hashFor({ generatedContent: 'Rewritten prose.' })).not.toBe(baseline);
+    // An edit that touches only annotations still changes the hash: the block
+    // rows about to be written are hashed, not just their id/type/text.
+    expect(hashFor({
+      blocks: [{
+        ...content.blocks![0],
+        system: { kind: 'level_up', title: 'LEVEL UP' },
+      }],
+    })).not.toBe(baseline);
+    expect(hashFor({
+      blocks: [{
+        ...content.blocks![0],
+        metadata: { ...content.blocks![0].metadata, speakerName: 'Kang' },
+      }],
+    })).not.toBe(baseline);
+    // Re-saving identical content must not churn the hash.
+    expect(hashFor({})).toBe(baseline);
+    // A scaffold with no body must not mint a hash that fakes content.
+    expect(hashFor({ generatedContent: '   ', blocks: [], archivedBlocks: [] }))
+      .toBe(currentGraph.chapter!.contentHash ?? undefined);
   });
 });
 

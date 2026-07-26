@@ -16,6 +16,7 @@ import {
   adminGetOwnedStorySeedGraph,
   adminGetPersistenceReceipt,
   adminGetUserProfileGraph,
+  adminGrantSystemOwnerRole,
   adminListOwnedGlossaryTerms,
   adminListOwnedStories,
   adminListOwnedStoryCoverSlots,
@@ -37,12 +38,16 @@ import type {
 } from '../../types';
 import { applyStoryPatch, type StoryPatchOperation } from '../../lib/storage/storyPatch';
 import { getFirebaseAdminApp } from '../firebaseAdmin';
+import { logger } from '../logger';
+import { isSystemOwnerEmail } from '../systemOwners';
 import type { MediaAssetDescriptor } from '../../contracts/mediaAssets';
 import type {
   ApplicationPersistenceRepository,
+  ChapterWriteResult,
   PersistenceAdminOverview,
   PersistenceMutationContext,
   PortraitSelectionInput,
+  StoryRevisionStamp,
 } from './applicationPersistenceRepository';
 import {
   hydrateChapterContent,
@@ -621,20 +626,39 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     }
   }
 
-  async getChapterContent(ownerUid: string, storyId: string, chapterNumber: number) {
+  /**
+   * Read one chapter body together with the parent story's current revision.
+   * The chapter mutation advances the Story aggregate in the same transaction,
+   * so the browser replica needs both to stay level with the cloud.
+   */
+  private async chapterContentWithParentRevision(
+    ownerUid: string,
+    storyId: string,
+    chapterNumber: number,
+  ): Promise<ChapterWriteResult | { content: null; story: StoryRevisionStamp | null }> {
     const graph = await this.storyGraph(ownerUid, storyId);
     const chapter = graph?.chapters.find(value => value.chapterNumber === chapterNumber);
-    if (!graph?.story || !chapter || graph.story.status === 'DELETED') return null;
+    const story = graph?.story
+      ? { updatedAt: graph.story.updatedAt, syncRevision: graph.story.syncRevision ?? null }
+      : null;
+    if (!graph?.story || !chapter || graph.story.status === 'DELETED') {
+      return { content: null, story };
+    }
     const result = await adminGetOwnedChapterContentGraph({
       ownerUid,
       storyId: graph.story.id,
       chapterId: chapter.id,
     });
-    return this.hydrateChapter(
+    const content = await this.hydrateChapter(
       ownerUid,
       result.data,
       graph.story.clientStoryId ?? graph.story.legacyStoryId ?? graph.story.id,
     );
+    return content ? { content, story } : { content: null, story };
+  }
+
+  async getChapterContent(ownerUid: string, storyId: string, chapterNumber: number) {
+    return (await this.chapterContentWithParentRevision(ownerUid, storyId, chapterNumber)).content;
   }
 
   async saveChapterContent(
@@ -654,9 +678,15 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
       context.expected,
     );
     if (await this.receipt(ownerUid, context.idempotencyKey, operation, hash)) {
-      const replay = await this.getChapterContent(ownerUid, storyId, content.chapterNumber);
-      if (!replay) throw new Error('Chapter persistence receipt exists without its content graph.');
-      return replay;
+      const replay = await this.chapterContentWithParentRevision(
+        ownerUid,
+        storyId,
+        content.chapterNumber,
+      );
+      if (!replay.content) {
+        throw new Error('Chapter persistence receipt exists without its content graph.');
+      }
+      return replay as ChapterWriteResult;
     }
     const storyGraph = await this.storyGraph(ownerUid, storyId);
     const chapter = storyGraph?.chapters.find(value => value.chapterNumber === content.chapterNumber);
@@ -686,9 +716,13 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
       operation, ownerUid, context.idempotencyKey,
       variables as unknown as RetiredMutationVariables, hash,
     );
-    const saved = await this.getChapterContent(ownerUid, storyGraph.story.id, content.chapterNumber);
-    if (!saved) throw new Error('Chapter content committed but could not be read back.');
-    return saved;
+    const saved = await this.chapterContentWithParentRevision(
+      ownerUid,
+      storyGraph.story.id,
+      content.chapterNumber,
+    );
+    if (!saved.content) throw new Error('Chapter content committed but could not be read back.');
+    return saved as ChapterWriteResult;
   }
 
   async listGlossary(ownerUid: string, storyId: string): Promise<LoreGlossary[]> {
@@ -935,9 +969,25 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
    * ever creates a missing record — it never overwrites an existing profile,
    * so an explicit username can never be clobbered by initialization.
    */
+  /**
+   * Grant the OWNER role to a verified system-owner account. Idempotent, and
+   * deliberately independent of AdminUpdateAccountAccess, which requires an
+   * actor who is already an admin — that is unreachable until this has run.
+   */
+  private async grantSystemOwnerRole(ownerUid: string, email: string): Promise<void> {
+    try {
+      await adminGrantSystemOwnerRole({ ownerUid, email: email.trim().toLowerCase() });
+    } catch (error) {
+      // Never block a profile read on this: the account is still usable, it
+      // simply keeps its current role until the next read retries.
+      logger.error({ err: error, ownerUid }, 'Failed to grant the system owner role');
+    }
+  }
+
   private async provisionCanonicalProfile(
     ownerUid: string,
     profileExists?: boolean,
+    ownerEmail?: string,
   ): Promise<void> {
     if (profileExists ?? Boolean((await adminGetUserProfileGraph({ ownerUid })).data.profile)) return;
     const operation = 'UPSERT_USER_PROFILE_GRAPH';
@@ -951,6 +1001,7 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     if (await this.receipt(ownerUid, idempotencyKey, operation, hash)) return;
     const variables = mapUserProfileToGraphVariables({
       ownerUid,
+      ownerEmail,
       patch: { uid: ownerUid, updatedAt: this.now().toISOString() },
       currentGraph: null,
       expectedSyncRevision: null,
@@ -969,12 +1020,25 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
       // canonical profile is the desired end state either way.
       if (!(await adminGetUserProfileGraph({ ownerUid })).data.profile) throw error;
     }
+    // The account row exists only after provisioning, so the role grant follows it.
+    if (isSystemOwnerEmail(ownerEmail)) {
+      await this.grantSystemOwnerRole(ownerUid, ownerEmail!);
+    }
   }
 
-  async getProfile(ownerUid: string): Promise<UserProfile | null> {
+  async getProfile(ownerUid: string, ownerEmail?: string): Promise<UserProfile | null> {
     let result = await adminGetUserProfileGraph({ ownerUid });
     if (!result.data.profile) {
-      await this.provisionCanonicalProfile(ownerUid, false);
+      await this.provisionCanonicalProfile(ownerUid, false, ownerEmail);
+      result = await adminGetUserProfileGraph({ ownerUid });
+    } else if (
+      ownerEmail
+      && isSystemOwnerEmail(ownerEmail)
+      && result.data.account?.role !== AccountRole.OWNER
+    ) {
+      // A system owner whose account row predates this rule, or was created by
+      // a path without the token email, still needs the role PostgreSQL checks.
+      await this.grantSystemOwnerRole(ownerUid, ownerEmail);
       result = await adminGetUserProfileGraph({ ownerUid });
     }
     const profile = hydrateUserProfile(result.data);
@@ -1117,7 +1181,11 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
   }
 
   async getAdminOverview(actorUid: string): Promise<PersistenceAdminOverview> {
-    const result = await adminGetAdminOverview({ actorUid, limit: 1000 });
+    // Route the read through the shared classifier so "Administrator access
+    // required" reaches the client as a 403 with its real message instead of an
+    // opaque 500 that reads as an outage.
+    const result = await adminGetAdminOverview({ actorUid, limit: 1000 })
+      .catch(normalizePersistenceError);
     const profiles = new Map(result.data.profiles.map(profile => [profile.userUid, profile]));
     return {
       users: result.data.accounts.map(account => {

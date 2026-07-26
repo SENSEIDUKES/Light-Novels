@@ -20,6 +20,22 @@ export interface StoryPatchResult {
   durationMs: number;
 }
 
+/**
+ * Parent-story revision observed after a write. The chapter mutation advances
+ * the Story aggregate in the same transaction, so callers must be able to learn
+ * the new revision without re-reading the whole story graph.
+ */
+export interface StoryRevisionStamp {
+  updatedAt: string;
+  syncRevision: string | null;
+}
+
+export interface ChapterWriteResult {
+  content: ChapterContent;
+  /** Story revision after the chapter mutation, or null when it is unknown. */
+  story: StoryRevisionStamp | null;
+}
+
 export interface PersistenceAdminOverview {
   users: UserProfile[];
   stories: Array<{
@@ -78,7 +94,7 @@ export interface ApplicationPersistenceRepository {
     storyId: string,
     content: ChapterContent,
     context: PersistenceMutationContext,
-  ): Promise<ChapterContent>;
+  ): Promise<ChapterWriteResult>;
 
   listGlossary(ownerUid: string, storyId: string): Promise<LoreGlossary[]>;
   saveGlossaryTerms(
@@ -103,7 +119,12 @@ export interface ApplicationPersistenceRepository {
   ): Promise<StorySeed[]>;
   deleteSeed(ownerUid: string, seedId: string, idempotencyKey: string): Promise<void>;
 
-  getProfile(ownerUid: string): Promise<UserProfile | null>;
+  /**
+   * `ownerEmail` must come from a verified ID token. It provisions the account
+   * row's email and, for a system-owner address, its OWNER role, so admin
+   * authorization is decided by PostgreSQL rather than by the browser.
+   */
+  getProfile(ownerUid: string, ownerEmail?: string): Promise<UserProfile | null>;
   saveProfile(
     ownerUid: string,
     patch: Partial<UserProfile>,

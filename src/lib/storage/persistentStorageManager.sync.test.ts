@@ -390,6 +390,312 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     manager.dispose();
   });
 
+  describe('parent story revision advanced by a chapter upload', () => {
+    // AdminUpsertChapterContentGraph rewrites the parent story's syncRevision and
+    // stamps story.updatedAt with SERVER time in the same transaction. Every case
+    // below asserts the local replica adopts that revision, because a replica that
+    // stays behind makes the story task defer forever ("the cloud is newer"), which
+    // also strands the chapter body queued behind it.
+    function chapterBumpingCloud() {
+      const state = {
+        story: null as any,
+        chapters: new Map<number, any>(),
+        reportRevision: true,
+      };
+      mocks.idb.getStories.mockImplementation(async () => (state.story ? [state.story] : []));
+      mocks.idb.getStory.mockImplementation(async () => state.story);
+      mocks.idb.saveStory.mockImplementation(async (story: any) => {
+        state.story = JSON.parse(JSON.stringify(story));
+      });
+      const localChapters = new Map<number, any>();
+      mocks.idb.getChapterContent.mockImplementation(
+        async (_id: string, number: number) => localChapters.get(number) ?? null,
+      );
+      mocks.idb.saveChapterContent.mockImplementation(async (content: any) => {
+        localChapters.set(content.chapterNumber, JSON.parse(JSON.stringify(content)));
+      });
+      const cloud = { story: null as any };
+      mocks.cloud.getStory.mockImplementation(async () => cloud.story);
+      mocks.cloud.getChapterContent.mockImplementation(
+        async (_id: string, number: number) => state.chapters.get(number) ?? null,
+      );
+      mocks.cloud.saveStoryIfUnchanged.mockImplementation(async (story: any) => {
+        cloud.story = JSON.parse(JSON.stringify(story));
+      });
+      mocks.cloud.saveChapterContentIfUnchanged.mockImplementation(async (content: any) => {
+        state.chapters.set(content.chapterNumber, JSON.parse(JSON.stringify(content)));
+        const serverRevision = {
+          updatedAt: new Date(Date.now() + 60_000).toISOString(),
+          syncRevision: `server-rev-${content.chapterNumber}`,
+        };
+        cloud.story = { ...cloud.story, ...serverRevision };
+        return state.reportRevision ? serverRevision : undefined;
+      });
+      return { state, cloud };
+    }
+
+    function libraryStory(overrides: Record<string, unknown> = {}) {
+      return makeStory({
+        id: 'story-1',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        memory: {
+          powerSystem: '',
+          currentPowerStage: '',
+          worldRules: [],
+          characters: [{ id: 'char-1', name: 'Li Wei', description: '' }],
+          unresolvedPlotThreads: [],
+          resolvedPlotThreads: [],
+        },
+        arcs: [{
+          title: 'Arc',
+          isCompleted: false,
+          chapters: [
+            { number: 1, title: 'One', premise: '', status: 'unread' },
+            { number: 2, title: 'Two', premise: '', status: 'unread' },
+          ],
+        }],
+        ...overrides,
+      }) as any;
+    }
+
+    async function signedInManager() {
+      mocks.auth.currentUser = { uid: 'reader' };
+      const manager = new PersistentStorageManager();
+      await manager.init();
+      await vi.waitFor(() => expect((manager as any).activeSyncPromise).toBeNull());
+      (manager as any).activeSyncUserId = 'reader';
+      return manager;
+    }
+
+    it('publishes a Codex image association queued after a chapter upload', async () => {
+      const { state } = chapterBumpingCloud();
+      const manager = await signedInManager();
+
+      await manager.saveStory(libraryStory());
+      await manager.saveChapterContent({
+        storyId: 'story-1',
+        chapterNumber: 1,
+        generatedContent: 'Body',
+        blocks: [{ id: 'b1', type: 'dialogue', text: 'Hi', metadata: { speakerName: 'Li Wei' } }],
+      } as any);
+      await (manager as any).flushSyncQueue();
+      expect((manager as any).syncQueue).toEqual([]);
+
+      // Manifesting a Codex portrait is an ordinary story edit.
+      mocks.cloud.saveStoryIfUnchanged.mockClear();
+      const withPortrait = JSON.parse(JSON.stringify(state.story));
+      withPortrait.memory.characters[0].imageAssetId = 'asset-1';
+      await manager.saveStory(withPortrait);
+      await (manager as any).flushSyncQueue();
+
+      expect(mocks.cloud.saveStoryIfUnchanged).toHaveBeenCalledTimes(1);
+      expect(mocks.cloud.saveStoryIfUnchanged.mock.calls[0][0].memory.characters[0].imageAssetId)
+        .toBe('asset-1');
+      expect((manager as any).syncQueue).toEqual([]);
+      manager.dispose();
+    });
+
+    it('keeps uploading later chapter bodies with their immersion blocks', async () => {
+      const { state } = chapterBumpingCloud();
+      const manager = await signedInManager();
+
+      const afterChapterOne = libraryStory();
+      afterChapterOne.arcs[0].chapters[0] = {
+        ...afterChapterOne.arcs[0].chapters[0],
+        _isNewContent: true,
+        generatedContent: 'One',
+        blocks: [{ id: 'b1', type: 'dialogue', text: 'Hi', metadata: { speakerName: 'Li Wei' } }],
+      };
+      await manager.saveStory(afterChapterOne);
+      await (manager as any).flushSyncQueue();
+      expect(state.chapters.get(1)?.blocks).toHaveLength(1);
+
+      const afterChapterTwo = JSON.parse(JSON.stringify(state.story));
+      afterChapterTwo.arcs[0].chapters[1] = {
+        ...afterChapterTwo.arcs[0].chapters[1],
+        _isNewContent: true,
+        generatedContent: 'Two',
+        blocks: [{
+          id: 'b2',
+          type: 'system',
+          text: '[Level Up]',
+          system: { kind: 'level_up', title: 'LEVEL UP' },
+        }],
+      };
+      await manager.saveStory(afterChapterTwo);
+      await (manager as any).flushSyncQueue();
+
+      expect(state.chapters.get(2)?.blocks).toEqual([
+        expect.objectContaining({ system: { kind: 'level_up', title: 'LEVEL UP' } }),
+      ]);
+      expect((manager as any).syncQueue).toEqual([]);
+      manager.dispose();
+    });
+
+    it('adopts the reported revision without a second story read or a parent upload', async () => {
+      const { state, cloud } = chapterBumpingCloud();
+      const manager = await signedInManager();
+
+      await manager.saveStory(libraryStory());
+      await (manager as any).flushSyncQueue();
+      mocks.cloud.getStory.mockClear();
+      mocks.cloud.saveStoryIfUnchanged.mockClear();
+
+      await manager.saveChapterContent({
+        storyId: 'story-1',
+        chapterNumber: 1,
+        generatedContent: 'Body',
+      } as any);
+      await (manager as any).flushSyncQueue();
+
+      expect(state.story.updatedAt).toBe(cloud.story.updatedAt);
+      expect(state.story.syncRevision).toBe('server-rev-1');
+      // Levelling the replica is local only: no parent story is re-uploaded and
+      // no second (heartbeat) outbox row is queued.
+      expect(mocks.cloud.saveStoryIfUnchanged).not.toHaveBeenCalled();
+      expect([...(mocks.outboxByOwner.get('reader')?.values() ?? [])]).toEqual([]);
+      // The write reported the new revision, so no extra story read was spent.
+      expect(mocks.cloud.getStory).not.toHaveBeenCalled();
+      manager.dispose();
+    });
+
+    it('falls back to a targeted story read when the write reports no revision', async () => {
+      const { state, cloud } = chapterBumpingCloud();
+      state.reportRevision = false;
+      const manager = await signedInManager();
+
+      await manager.saveStory(libraryStory());
+      await (manager as any).flushSyncQueue();
+
+      await manager.saveChapterContent({
+        storyId: 'story-1',
+        chapterNumber: 1,
+        generatedContent: 'Body',
+      } as any);
+      await (manager as any).flushSyncQueue();
+
+      expect(state.story.updatedAt).toBe(cloud.story.updatedAt);
+      expect(state.story.syncRevision).toBe('server-rev-1');
+      manager.dispose();
+    });
+
+    it('skips the local write when the replica is already level with the stamp', async () => {
+      const { state } = chapterBumpingCloud();
+      const manager = await signedInManager();
+
+      await manager.saveStory(libraryStory());
+      await (manager as any).flushSyncQueue();
+      mocks.idb.saveStory.mockClear();
+
+      // An endpoint that reports no revision leaves the local token in place,
+      // so a matching timestamp means there is nothing to write.
+      await (manager as any).adoptParentStoryRevision('story-1', {
+        updatedAt: state.story.updatedAt,
+        syncRevision: null,
+      });
+
+      expect(mocks.idb.saveStory).not.toHaveBeenCalled();
+      manager.dispose();
+    });
+
+    it('never stamps a local story edit that landed after the chapter upload backwards', async () => {
+      const { state } = chapterBumpingCloud();
+      const manager = await signedInManager();
+      const newer = new Date(Date.now() + 5 * 60_000).toISOString();
+
+      await manager.saveStory(libraryStory());
+      await (manager as any).flushSyncQueue();
+      state.story = { ...state.story, updatedAt: newer, syncRevision: 'local-newer' };
+
+      await (manager as any).adoptParentStoryRevision('story-1', {
+        updatedAt: new Date(Date.now() + 60_000).toISOString(),
+        syncRevision: 'server-rev-1',
+      });
+
+      expect(state.story.updatedAt).toBe(newer);
+      expect(state.story.syncRevision).toBe('local-newer');
+      manager.dispose();
+    });
+  });
+
+  it('publishes a newer local story even while a chapter body is queued', async () => {
+    // This branch used to defer to the retired heartbeat's trailing parent
+    // write. With that write gone, deferring left the local story permanently
+    // ahead of the cloud with nothing left to publish it. The ordering
+    // constraint runs the other way: a chapter body needs its story scaffold.
+    let storedStory: any = null;
+    let storedChapter: any = null;
+    mocks.idb.getStories.mockImplementation(async () => (storedStory ? [storedStory] : []));
+    mocks.idb.getStory.mockImplementation(async () => storedStory);
+    mocks.idb.saveStory.mockImplementation(async (story: any) => {
+      storedStory = JSON.parse(JSON.stringify(story));
+    });
+    mocks.idb.getChapterContent.mockImplementation(async () => storedChapter);
+    mocks.idb.saveChapterContent.mockImplementation(async (content: any) => {
+      storedChapter = JSON.parse(JSON.stringify(content));
+    });
+
+    mocks.auth.currentUser = { uid: 'reader' };
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    await vi.waitFor(() => expect((manager as any).activeSyncPromise).toBeNull());
+    (manager as any).activeSyncUserId = 'reader';
+    (manager as any).isCloudAvailable = false;
+
+    await manager.saveChapterContent({
+      storyId: 'shared-story',
+      chapterNumber: 1,
+      generatedContent: 'Body',
+    } as any);
+    storedStory = makeStory({ updatedAt: '2026-02-01T00:00:00.000Z' }) as any;
+    expect((manager as any).syncQueue).toEqual([
+      expect.objectContaining({ type: 'chapter' }),
+    ]);
+
+    (manager as any).isCloudAvailable = true;
+    const outcome = await (manager as any).reconcileStory(
+      storedStory,
+      makeStory({ updatedAt: '2026-01-01T00:00:00.000Z', syncRevision: 'cloud-rev' }),
+    );
+
+    expect(outcome).toBe('ok');
+    expect(mocks.cloud.saveStoryIfUnchanged).toHaveBeenCalledTimes(1);
+    expect(mocks.cloud.saveStoryIfUnchanged.mock.calls[0][0]).toMatchObject({
+      id: 'shared-story',
+      updatedAt: '2026-02-01T00:00:00.000Z',
+    });
+    manager.dispose();
+  });
+
+  it('keeps Codex media descriptors when a catalog summary is merged over a story', () => {
+    // listStories() returns compact summaries that only carry the story cover.
+    // Replacing the local descriptor map with that summary map erased every
+    // Codex entity descriptor, and those descriptors are the only way to resolve
+    // an entity's delivery URL: the replicated entity holds an asset id and no URL.
+    const manager = new PersistentStorageManager();
+    const local = makeStory({
+      mediaDescriptors: {
+        'cover-1': { id: 'cover-1', deliveryUrl: '' },
+        'portrait-1': { id: 'portrait-1', deliveryUrl: '' },
+      },
+    }) as any;
+    const summary = makeStory({
+      persistenceHydration: 'summary',
+      coverAssetId: 'cover-2',
+      mediaDescriptors: { 'cover-2': { id: 'cover-2', deliveryUrl: 'https://signed/cover-2' } },
+    }) as any;
+
+    const merged = (manager as any).mergeCatalogSummary(local, summary);
+
+    expect(Object.keys(merged.mediaDescriptors).sort()).toEqual([
+      'cover-1',
+      'cover-2',
+      'portrait-1',
+    ]);
+    expect(merged.mediaDescriptors['cover-2'].deliveryUrl).toBe('https://signed/cover-2');
+    manager.dispose();
+  });
+
   it('restores an offline mutation from IndexedDB after reload and acknowledges it after reconnect', async () => {
     let storedStory: any = null;
     mocks.idb.getStories.mockImplementation(async () =>

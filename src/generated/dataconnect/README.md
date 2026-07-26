@@ -89,6 +89,7 @@ This README will guide you through the process of using the generated JavaScript
   - [*AdminConsumeImageGenerationQuota*](#adminconsumeimagegenerationquota)
   - [*AdminRecoverPendingUserPortraits*](#adminrecoverpendinguserportraits)
   - [*AdminUpdateAccountAccess*](#adminupdateaccountaccess)
+  - [*AdminGrantSystemOwnerRole*](#admingrantsystemownerrole)
   - [*AdminDeleteStoryAsAdmin*](#admindeletestoryasadmin)
 
 # Accessing the connector
@@ -3288,6 +3289,14 @@ export interface AdminGetOwnedStoryGraphData {
     createdAt: TimestampString;
     updatedAt: TimestampString;
   } & StoryArc_Key)[];
+  sceneFingerprints: ({
+    chapterId: UUIDString;
+    chapterNumber: number;
+    actionType: string;
+    location?: string | null;
+    outcome: string;
+    participants: string[];
+  })[];
   chapters: ({
     id: UUIDString;
     storyId: UUIDString;
@@ -3599,6 +3608,7 @@ console.log(data.memoryWarnings);
 console.log(data.rules);
 console.log(data.revealBackdrops);
 console.log(data.arcs);
+console.log(data.sceneFingerprints);
 console.log(data.chapters);
 console.log(data.codexEntities);
 console.log(data.codexRelationships);
@@ -3627,6 +3637,7 @@ adminGetOwnedStoryGraph(adminGetOwnedStoryGraphVars).then((response) => {
   console.log(data.rules);
   console.log(data.revealBackdrops);
   console.log(data.arcs);
+  console.log(data.sceneFingerprints);
   console.log(data.chapters);
   console.log(data.codexEntities);
   console.log(data.codexRelationships);
@@ -3679,6 +3690,7 @@ console.log(data.memoryWarnings);
 console.log(data.rules);
 console.log(data.revealBackdrops);
 console.log(data.arcs);
+console.log(data.sceneFingerprints);
 console.log(data.chapters);
 console.log(data.codexEntities);
 console.log(data.codexRelationships);
@@ -3707,6 +3719,7 @@ executeQuery(ref).then((response) => {
   console.log(data.rules);
   console.log(data.revealBackdrops);
   console.log(data.arcs);
+  console.log(data.sceneFingerprints);
   console.log(data.chapters);
   console.log(data.codexEntities);
   console.log(data.codexRelationships);
@@ -11310,6 +11323,118 @@ executeMutation(ref).then((response) => {
   console.log(data.userAccount_update);
   console.log(data.userProfile_update);
   console.log(data.persistenceReceipt_insert);
+});
+```
+
+## AdminGrantSystemOwnerRole
+You can execute the `AdminGrantSystemOwnerRole` mutation using the following action shortcut function, or by calling `executeMutation()` after calling the following `MutationRef` function, both of which are defined in [dataconnect/index.d.ts](./index.d.ts):
+```typescript
+adminGrantSystemOwnerRole(vars: AdminGrantSystemOwnerRoleVariables): MutationPromise<AdminGrantSystemOwnerRoleData, AdminGrantSystemOwnerRoleVariables>;
+
+interface AdminGrantSystemOwnerRoleRef {
+  ...
+  /* Allow users to create refs without passing in DataConnect */
+  (vars: AdminGrantSystemOwnerRoleVariables): MutationRef<AdminGrantSystemOwnerRoleData, AdminGrantSystemOwnerRoleVariables>;
+}
+export const adminGrantSystemOwnerRoleRef: AdminGrantSystemOwnerRoleRef;
+```
+You can also pass in a `DataConnect` instance to the action shortcut function or `MutationRef` function.
+```typescript
+adminGrantSystemOwnerRole(dc: DataConnect, vars: AdminGrantSystemOwnerRoleVariables): MutationPromise<AdminGrantSystemOwnerRoleData, AdminGrantSystemOwnerRoleVariables>;
+
+interface AdminGrantSystemOwnerRoleRef {
+  ...
+  (dc: DataConnect, vars: AdminGrantSystemOwnerRoleVariables): MutationRef<AdminGrantSystemOwnerRoleData, AdminGrantSystemOwnerRoleVariables>;
+}
+export const adminGrantSystemOwnerRoleRef: AdminGrantSystemOwnerRoleRef;
+```
+
+If you need the name of the operation without creating a ref, you can retrieve the operation name by calling the `operationName` property on the adminGrantSystemOwnerRoleRef:
+```typescript
+const name = adminGrantSystemOwnerRoleRef.operationName;
+console.log(name);
+```
+
+### Variables
+The `AdminGrantSystemOwnerRole` mutation requires an argument of type `AdminGrantSystemOwnerRoleVariables`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
+
+```typescript
+export interface AdminGrantSystemOwnerRoleVariables {
+  ownerUid: string;
+  email: string;
+}
+```
+### Return Type
+Recall that executing the `AdminGrantSystemOwnerRole` mutation returns a `MutationPromise` that resolves to an object with a `data` property.
+
+The `data` property is an object of type `AdminGrantSystemOwnerRoleData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
+```typescript
+export interface AdminGrantSystemOwnerRoleData {
+  userAccount_update?: UserAccount_Key | null;
+}
+```
+### Using `AdminGrantSystemOwnerRole`'s action shortcut function
+
+```typescript
+import { getDataConnect } from 'firebase/data-connect';
+import { connectorConfig, adminGrantSystemOwnerRole, AdminGrantSystemOwnerRoleVariables } from '@seihouse/celestial-library-dataconnect';
+
+// The `AdminGrantSystemOwnerRole` mutation requires an argument of type `AdminGrantSystemOwnerRoleVariables`:
+const adminGrantSystemOwnerRoleVars: AdminGrantSystemOwnerRoleVariables = {
+  ownerUid: ..., 
+  email: ..., 
+};
+
+// Call the `adminGrantSystemOwnerRole()` function to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await adminGrantSystemOwnerRole(adminGrantSystemOwnerRoleVars);
+// Variables can be defined inline as well.
+const { data } = await adminGrantSystemOwnerRole({ ownerUid: ..., email: ..., });
+
+// You can also pass in a `DataConnect` instance to the action shortcut function.
+const dataConnect = getDataConnect(connectorConfig);
+const { data } = await adminGrantSystemOwnerRole(dataConnect, adminGrantSystemOwnerRoleVars);
+
+console.log(data.userAccount_update);
+
+// Or, you can use the `Promise` API.
+adminGrantSystemOwnerRole(adminGrantSystemOwnerRoleVars).then((response) => {
+  const data = response.data;
+  console.log(data.userAccount_update);
+});
+```
+
+### Using `AdminGrantSystemOwnerRole`'s `MutationRef` function
+
+```typescript
+import { getDataConnect, executeMutation } from 'firebase/data-connect';
+import { connectorConfig, adminGrantSystemOwnerRoleRef, AdminGrantSystemOwnerRoleVariables } from '@seihouse/celestial-library-dataconnect';
+
+// The `AdminGrantSystemOwnerRole` mutation requires an argument of type `AdminGrantSystemOwnerRoleVariables`:
+const adminGrantSystemOwnerRoleVars: AdminGrantSystemOwnerRoleVariables = {
+  ownerUid: ..., 
+  email: ..., 
+};
+
+// Call the `adminGrantSystemOwnerRoleRef()` function to get a reference to the mutation.
+const ref = adminGrantSystemOwnerRoleRef(adminGrantSystemOwnerRoleVars);
+// Variables can be defined inline as well.
+const ref = adminGrantSystemOwnerRoleRef({ ownerUid: ..., email: ..., });
+
+// You can also pass in a `DataConnect` instance to the `MutationRef` function.
+const dataConnect = getDataConnect(connectorConfig);
+const ref = adminGrantSystemOwnerRoleRef(dataConnect, adminGrantSystemOwnerRoleVars);
+
+// Call `executeMutation()` on the reference to execute the mutation.
+// You can use the `await` keyword to wait for the promise to resolve.
+const { data } = await executeMutation(ref);
+
+console.log(data.userAccount_update);
+
+// Or, you can use the `Promise` API.
+executeMutation(ref).then((response) => {
+  const data = response.data;
+  console.log(data.userAccount_update);
 });
 ```
 

@@ -1,5 +1,9 @@
 import type { ChapterContent, LoreGlossary, StoryWorld } from '../../types';
-import type { CloudRevisionExpectation, StorageAdapter } from './types';
+import type {
+  CloudRevisionExpectation,
+  ParentStoryRevision,
+  StorageAdapter,
+} from './types';
 import { createStoryPatch } from './storyPatch';
 
 const DEFAULT_BASE_URL = '/api/persistence';
@@ -99,6 +103,53 @@ function stripCanonicalDeliveryUrls(
   }
 
   return copy;
+}
+
+/**
+ * Blank every signed delivery URL so two copies of the same story compare
+ * equal. A descriptor's `deliveryUrl` is a short-lived projection of its asset
+ * id, not story state: the local replica stores it blanked while a baseline
+ * read straight from the cloud carries a live signature.
+ */
+function blankDeliveryProjections(
+  value: unknown,
+  seen: WeakMap<object, unknown>,
+): unknown {
+  if (value === null || typeof value !== 'object' || isBinaryValue(value)) return value;
+  const cached = seen.get(value);
+  if (cached !== undefined) return cached;
+
+  if (Array.isArray(value)) {
+    const copy: unknown[] = [];
+    seen.set(value, copy);
+    value.forEach((entry) => copy.push(blankDeliveryProjections(entry, seen)));
+    return copy;
+  }
+
+  const source = value as JsonRecord;
+  const copy: JsonRecord = {};
+  seen.set(value, copy);
+  for (const [key, entry] of Object.entries(source)) {
+    copy[key] = key === 'deliveryUrl' && typeof entry === 'string'
+      ? ''
+      : blankDeliveryProjections(entry, seen);
+  }
+  return copy;
+}
+
+/**
+ * Canonical shape for patch diffing only. Applying the same delivery-field
+ * normalization to both sides keeps a patch to the fields that actually
+ * changed, instead of restating a `remove` for every hydrated `imageUrl` and a
+ * `replace` for every signed `deliveryUrl` on every single story write. Those
+ * operations are pure noise and they consume the bounded patch budget, which a
+ * large legitimate edit needs.
+ */
+export function normalizeStoryPatchShape<T>(value: T): T {
+  return blankDeliveryProjections(
+    stripCanonicalDeliveryUrls(value, new WeakMap<object, unknown>()),
+    new WeakMap<object, unknown>(),
+  ) as T;
 }
 
 function isBinaryValue(value: unknown): boolean {
@@ -215,6 +266,77 @@ export function preparePermanentPersistencePayload<T>(
   return prepared;
 }
 
+/** Media fields the chapter graph drops on write; never story state. */
+const TRANSIENT_MEDIA_KEYS = new Set([
+  'imageUrl',
+  'customUrl',
+  'audioUrl',
+  'voiceClipUrl',
+  'providerUrl',
+]);
+
+function isTransientMediaValue(
+  value: unknown,
+  temporaryMediaHosts: readonly string[],
+): boolean {
+  if (typeof value !== 'string') return false;
+  const compact = value.replace(/\s/g, '');
+  return (
+    EMBEDDED_MEDIA_PREFIX.test(value)
+    || (isCanonicalBase64(compact)
+      && (MEDIA_BASE64_MAGIC.test(compact) || compact.length >= MIN_SUSPICIOUS_BASE64_LENGTH))
+    || isTemporaryProviderUrl(value.trim(), temporaryMediaHosts)
+  );
+}
+
+function dropTransientMedia(
+  value: unknown,
+  temporaryMediaHosts: readonly string[],
+  seen: WeakMap<object, unknown>,
+): unknown {
+  if (value === null || typeof value !== 'object' || isBinaryValue(value)) return value;
+  const cached = seen.get(value);
+  if (cached !== undefined) return cached;
+
+  if (Array.isArray(value)) {
+    const copy: unknown[] = [];
+    seen.set(value, copy);
+    value.forEach((entry) => copy.push(dropTransientMedia(entry, temporaryMediaHosts, seen)));
+    return copy;
+  }
+
+  const source = value as JsonRecord;
+  const copy: JsonRecord = {};
+  seen.set(value, copy);
+  for (const [key, entry] of Object.entries(source)) {
+    if (TRANSIENT_MEDIA_KEYS.has(key) && isTransientMediaValue(entry, temporaryMediaHosts)) {
+      continue;
+    }
+    copy[key] = dropTransientMedia(entry, temporaryMediaHosts, seen);
+  }
+  return copy;
+}
+
+/**
+ * Prepare a chapter body for PostgreSQL.
+ *
+ * A block's `worldCard.imageUrl` routinely holds a provider preview that the
+ * reader renders inline and the chapter graph drops on write anyway
+ * (`stripTransientAny`). Failing the whole write over it lost the entire
+ * chapter body — prose, system events, every immersion annotation — with no
+ * repair path. Drop just those transient media fields, then assert as usual so
+ * any other non-permanent payload still fails loudly.
+ */
+export function prepareChapterPersistencePayload<T>(
+  value: T,
+  temporaryMediaHosts: readonly string[] = DEFAULT_TEMPORARY_MEDIA_HOSTS,
+): T {
+  return preparePermanentPersistencePayload(
+    dropTransientMedia(value, temporaryMediaHosts, new WeakMap<object, unknown>()) as T,
+    temporaryMediaHosts,
+  );
+}
+
 async function createMutationKey(
   ownerUid: string,
   method: string,
@@ -281,6 +403,21 @@ function requireGlossaryTerm(value: unknown): LoreGlossary {
     );
   }
   return value as unknown as LoreGlossary;
+}
+
+/**
+ * The chapter mutation advances the parent Story aggregate in the same
+ * transaction, so its response reports the new story revision. An older
+ * deployment that omits it yields null and the caller falls back to a read.
+ */
+function parseParentStoryRevision(payload: unknown): ParentStoryRevision | null {
+  if (!isRecord(payload)) return null;
+  const story = payload.story;
+  if (!isRecord(story) || typeof story.updatedAt !== 'string' || !story.updatedAt) return null;
+  return {
+    updatedAt: story.updatedAt,
+    syncRevision: typeof story.syncRevision === 'string' ? story.syncRevision : null,
+  };
 }
 
 function responseMessage(payload: unknown, fallback: string): string {
@@ -388,11 +525,15 @@ export class DataConnectStorageAdapter implements StorageAdapter {
     await this.putChapter(content);
   }
 
+  /**
+   * Returns the parent story revision the chapter mutation advanced in the same
+   * PostgreSQL transaction, or null when the endpoint did not report one.
+   */
   async saveChapterContentIfUnchanged(
     content: ChapterContent,
     expected: CloudRevisionExpectation,
-  ): Promise<void> {
-    await this.putChapter(content, expected);
+  ): Promise<ParentStoryRevision | null> {
+    return this.putChapter(content, expected);
   }
 
   async getLoreGlossary(storyId: string): Promise<LoreGlossary[]> {
@@ -439,7 +580,12 @@ export class DataConnectStorageAdapter implements StorageAdapter {
     ) {
       baseline = (await this.getStory(story.id)) ?? undefined;
     }
-    const patch = baseline ? createStoryPatch(baseline, persistedStory) : null;
+    const patch = baseline
+      ? createStoryPatch(
+          normalizeStoryPatchShape(baseline),
+          normalizeStoryPatchShape(persistedStory),
+        )
+      : null;
     if (patch?.length === 0 && expected === undefined) return;
     const payload = await this.request(`/stories/${encodeURIComponent(story.id)}`, {
       method: 'PUT',
@@ -465,9 +611,9 @@ export class DataConnectStorageAdapter implements StorageAdapter {
   private async putChapter(
     content: ChapterContent,
     expected?: CloudRevisionExpectation,
-  ): Promise<void> {
-    const persistedContent = preparePermanentPersistencePayload(content, this.temporaryMediaHosts);
-    await this.request(this.chapterPath(content.storyId, content.chapterNumber), {
+  ): Promise<ParentStoryRevision | null> {
+    const persistedContent = prepareChapterPersistencePayload(content, this.temporaryMediaHosts);
+    const payload = await this.request(this.chapterPath(content.storyId, content.chapterNumber), {
       method: 'PUT',
       body: JSON.stringify(
         expected === undefined
@@ -475,6 +621,7 @@ export class DataConnectStorageAdapter implements StorageAdapter {
           : { content: persistedContent, expected },
       ),
     });
+    return parseParentStoryRevision(payload);
   }
 
   private chapterPath(storyId: string, chapterNumber: number): string {

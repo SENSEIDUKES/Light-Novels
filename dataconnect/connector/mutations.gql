@@ -2559,6 +2559,26 @@ mutation AdminUpdateAccountAccess(
   )
 }
 
+# Bootstrap the OWNER role for a system-owner account. AdminUpdateAccountAccess
+# requires an actor who is already an admin, which no account can be until this
+# runs once. The caller is the trusted server, which grants this only after
+# matching a verified ID-token email against its system-owner list.
+mutation AdminGrantSystemOwnerRole(
+  $ownerUid: String!
+  $email: String!
+) @auth(level: NO_ACCESS) @transaction {
+  query @redact {
+    target: userAccount(key: { uid: $ownerUid })
+      @check(expr: "this != null", message: "Target account not found") {
+      uid
+    }
+  }
+  userAccount_update(
+    key: { uid: $ownerUid }
+    data: { role: OWNER, email: $email, updatedAt_expr: "request.time" }
+  )
+}
+
 mutation AdminDeleteStoryAsAdmin(
   $actorUid: String!
   $ownerUid: String!
