@@ -35,20 +35,31 @@ export const useStoryExporter = () => {
       const exportData = JSON.parse(JSON.stringify(story));
       
       if (exportData.arcs) {
+        const fetchPromises: Promise<any>[] = [];
+        const chaptersToFetch: any[] = [];
+
         for (const arc of exportData.arcs) {
           for (const chapter of arc.chapters) {
             if (chapter.hasContent) {
-              const content = await storyStorage.getChapterContent(story.id, chapter.number);
-              if (content) {
-                chapter.generatedContent ||= content.generatedContent;
-                if (!chapter.blocks?.length) chapter.blocks = content.blocks;
-                chapter.archivedBlocks = content.archivedBlocks;
-                chapter.summary ||= content.summary;
-                chapter.episodicSummary = content.episodicSummary;
-                chapter.statsChangeMessage ||= content.statsChangeMessage;
-                chapter.cuePayload ||= content.cuePayload;
-              }
+              chaptersToFetch.push(chapter);
+              fetchPromises.push(storyStorage.getChapterContent(story.id, chapter.number));
             }
+          }
+        }
+
+        const contents = await Promise.all(fetchPromises);
+
+        for (let i = 0; i < chaptersToFetch.length; i++) {
+          const chapter = chaptersToFetch[i];
+          const content = contents[i];
+          if (content) {
+            chapter.generatedContent ||= content.generatedContent;
+            if (!chapter.blocks?.length) chapter.blocks = content.blocks;
+            chapter.archivedBlocks = content.archivedBlocks;
+            chapter.summary ||= content.summary;
+            chapter.episodicSummary = content.episodicSummary;
+            chapter.statsChangeMessage ||= content.statsChangeMessage;
+            chapter.cuePayload ||= content.cuePayload;
           }
         }
       }
@@ -158,24 +169,40 @@ export const useStoryExporter = () => {
       let chapterCount = 0;
 
       if (story.arcs) {
+        const fetchPromises: Promise<{ ch: any; content: any }>[] = [];
+
         for (const arc of story.arcs) {
           for (const ch of arc.chapters) {
             if (ch.hasContent || ch.generatedContent) {
-              chapterCount++;
-              
-              let text = ch.generatedContent || "";
-              // if missing, try to fetch it
+              const text = ch.generatedContent || "";
               if (!text && ch.hasContent) {
-                 const content = await storyStorage.getChapterContent(story.id, ch.number);
-                 if (content) text = content.generatedContent;
+                fetchPromises.push(
+                  storyStorage.getChapterContent(story.id, ch.number)
+                    .then(content => ({ ch, content })),
+                );
+              } else {
+                fetchPromises.push(Promise.resolve({ ch, content: null }));
               }
+            }
+          }
+        }
 
-              text = cleanNovelProse(text).replace(/\\n/g, "</p><p>");
-              
-              const chFileName = `chapter${ch.number}.html`;
-              const chId = `chapter${ch.number}`;
-              
-              const xhtml = `<?xml version="1.0" encoding="utf-8"?>
+        const fetchedContents = await Promise.all(fetchPromises);
+
+        for (const { ch, content } of fetchedContents) {
+          chapterCount++;
+
+          let text = ch.generatedContent || "";
+          if (!text && content) {
+            text = content.generatedContent;
+          }
+
+          text = cleanNovelProse(text).replace(/\\n/g, "</p><p>");
+
+          const chFileName = `chapter${ch.number}.html`;
+          const chId = `chapter${ch.number}`;
+
+          const xhtml = `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -187,16 +214,14 @@ export const useStoryExporter = () => {
 </body>
 </html>`;
 
-              textFolder?.file(chFileName, xhtml);
+          textFolder?.file(chFileName, xhtml);
 
-              manifestItems += `<item id="${chId}" href="Text/${chFileName}" media-type="application/xhtml+xml"/>\n`;
-              spineItems += `<itemref idref="${chId}"/>\n`;
-              navPoints += `<navPoint id="navPoint-${chapterCount}" playOrder="${chapterCount}">
+          manifestItems += `<item id="${chId}" href="Text/${chFileName}" media-type="application/xhtml+xml"/>\n`;
+          spineItems += `<itemref idref="${chId}"/>\n`;
+          navPoints += `<navPoint id="navPoint-${chapterCount}" playOrder="${chapterCount}">
   <navLabel><text>Chapter ${ch.number}: ${ch.title.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</text></navLabel>
   <content src="Text/${chFileName}"/>
 </navPoint>\n`;
-            }
-          }
         }
       }
 
