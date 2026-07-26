@@ -2,7 +2,7 @@ import React from 'react';
 import { UserProfile as UserProfileType, Story, AppUser } from '../types';
 import { LOCAL_ONLY_MODE } from "../lib/firebase";
 import { LogOut, Save, User as UserIcon, Calendar, BookOpen, Globe, Cloud, CloudOff, Sliders, Upload, Download, Zap, Keyboard, Flame, Award, Shield, Compass, Key, Sparkles, Search, Sword, HelpCircle } from 'lucide-react';
-import { getDaoRankData, AURA_TIERS, getAuraTextStyle, getAuraGlowStyle } from '../lib/qi';
+import { AURA_TIERS, getAuraColorForXp, getAuraTextStyle, getAuraGlowStyle } from '../lib/qi';
 import { UserProfileAdminPanel } from './UserProfileAdminPanel';
 import { UserProfileSettingsPanel } from './UserProfileSettingsPanel';
 import { UserProfileInventoryPanel } from './UserProfileInventoryPanel';
@@ -105,6 +105,10 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
     generationStep,
   } = useUserProfile({ currentUser, stories, onLogout, onNavigateHome });
   const attunedArtifact = (profile?.cosmicInventory || []).find(a => a.id === profile?.equippedArtifactId);
+  const auraColor = getAuraColorForXp(
+    profile?.displayNameColor,
+    profile?.dao_xp ?? profile?.qi,
+  );
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-8">
@@ -196,7 +200,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
               {/* Top Section - Avatar & Quick Info */}
               <div className="flex flex-col md:flex-row gap-8 md:items-start border-b border-neutral-900/50 pb-10">
                 <div className="flex flex-col items-center flex-shrink-0 md:w-48">
-                  <div className={`w-28 h-28 rounded-full border p-1 relative group transition-all duration-700 ${getAuraGlowStyle(profile?.displayNameColor || '#E5E7EB', profile?.activeStatusEffects)}`}>
+                  <div className={`w-28 h-28 rounded-full border p-1 relative group transition-all duration-700 ${getAuraGlowStyle(auraColor, profile?.activeStatusEffects)}`}>
                     <div className="w-full h-full rounded-full overflow-hidden bg-black flex items-center justify-center relative">
                       {formData.avatarUrl ? (
                         <img src={formData.avatarUrl} alt="Avatar" className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 transition-all duration-500" referrerPolicy="no-referrer" />
@@ -205,7 +209,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                       )}
                       
                       {/* Floating particle animations for Heavenly Chronicler and above */}
-                      {(profile?.displayNameColor === '#FFD700' || profile?.displayNameColor === 'gradient-violet-gold' || profile?.displayNameColor === 'animated-custom') && (
+                      {(auraColor === '#FFD700' || auraColor === 'gradient-violet-gold' || auraColor === 'animated-custom') && (
                         <div className="absolute inset-0 bg-black/10 pointer-events-none mix-blend-screen overflow-hidden">
                           <div className="absolute bottom-1 inset-x-0 h-8 flex justify-around opacity-75">
                             <span className="w-1 h-1 rounded-full bg-yellow-400 animate-ping" style={{ animationDuration: '3s' }}></span>
@@ -401,7 +405,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                       ) : (
                         <div className="text-xl font-sans">
                           {(() => {
-                            const styleObj = getAuraTextStyle(profile?.displayNameColor, profile?.activeStatusEffects);
+                            const styleObj = getAuraTextStyle(auraColor, profile?.activeStatusEffects);
                             return (
                               <span className={styleObj.className || 'text-signal'} style={styleObj.style}>
                                 {profile?.username || 'Anonymous Cultivator'}
@@ -602,7 +606,7 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                         <div className="flex items-center justify-between bg-black/30 border border-neutral-900/50 p-3.5 rounded-lg">
                           <div className="text-lg font-serif italic flex items-center">
                             {(() => {
-                              const styleObj = getAuraTextStyle(profile?.displayNameColor, profile?.activeStatusEffects);
+                              const styleObj = getAuraTextStyle(auraColor, profile?.activeStatusEffects);
                               return (
                                 <span className={styleObj.className} style={styleObj.style}>
                                   {profile?.displayName || 'Unknown Ascendant'}

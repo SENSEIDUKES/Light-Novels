@@ -229,6 +229,49 @@ describe('useUserProfile PostgreSQL persistence', () => {
     expect(result.current.isSavingChapterWritingStyle).toBe(false);
   });
 
+  it('ignores a late profile save after switching accounts', async () => {
+    const pendingSave = deferred<UserProfile>();
+    persistenceMocks.saveUserProfile.mockReturnValueOnce(pendingSave.promise);
+    persistenceMocks.getUserProfile
+      .mockResolvedValueOnce(makeProfile('account-a'))
+      .mockResolvedValueOnce(makeProfile('account-b'));
+    const { result, rerender } = renderProfile();
+    await waitFor(() => expect(result.current.profile?.uid).toBe('account-a'));
+
+    act(() => {
+      result.current.setFormData({
+        ...result.current.profile,
+        username: 'renamed-account-a',
+      });
+    });
+    let savePromise!: Promise<void>;
+    act(() => {
+      savePromise = result.current.handleSave();
+    });
+    await waitFor(() => expect(persistenceMocks.saveUserProfile).toHaveBeenCalled());
+
+    rerender({ currentUser: makeUser('account-b') });
+    await waitFor(() => expect(result.current.profile?.uid).toBe('account-b'));
+    const storeUpdatesBeforeStaleSaveSettles =
+      storeMocks.state.setUserProfile.mock.calls.length;
+
+    await act(async () => {
+      pendingSave.resolve(makeProfile('account-a', {
+        username: 'renamed-account-a',
+      }));
+      await savePromise;
+    });
+
+    expect(result.current.profile).toMatchObject({
+      uid: 'account-b',
+      username: 'account-b',
+    });
+    expect(storeMocks.state.setUserProfile).toHaveBeenCalledTimes(
+      storeUpdatesBeforeStaleSaveSettles,
+    );
+    expect(result.current.isLoading).toBe(false);
+  });
+
   it('shows a local fallback profile without writing when the account has no row', async () => {
     // The canonical account + profile row is provisioned server-side the first
     // time the profile is read, so the client no longer performs its own

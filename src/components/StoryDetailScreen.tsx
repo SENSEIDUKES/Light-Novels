@@ -24,7 +24,7 @@ import { useAppStore } from "../store/useAppStore";
 import { DestinyChoicePanel } from "./DestinyChoicePanel";
 import { FateTimeline } from "./FateTimeline";
 import { storyStorage } from "../lib/storage";
-import { getAuraTextStyle } from "../lib/qi";
+import { getAuraColorForXp, getAuraTextStyle } from "../lib/qi";
 import { vibrate } from "../lib/vibration";
 import { resolveReaderOpeningChapter } from "../lib/readerNavigation";
 import type { ChapterWritingStyle } from "../types";
@@ -917,7 +917,10 @@ export const StoryDetailScreen: React.FC<{
               Written by{" "}
               {(() => {
                 const styleObj = getAuraTextStyle(
-                  userProfile?.displayNameColor,
+                  getAuraColorForXp(
+                    userProfile?.displayNameColor,
+                    userProfile?.dao_xp ?? userProfile?.qi,
+                  ),
                   userProfile?.activeStatusEffects,
                 );
                 return (

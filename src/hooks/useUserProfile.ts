@@ -38,17 +38,37 @@ interface UseUserProfileProps {
   onNavigateHome: () => void;
 }
 
-const syncStoreProfile = (profileData: UserProfileType) => {
+const profileTime = (profileData: UserProfileType): number => {
+  const timestamp = Date.parse(profileData.updatedAt || '');
+  return Number.isFinite(timestamp) ? timestamp : 0;
+};
+
+const profileXp = (profileData: UserProfileType): number => (
+  profileData.dao_xp ?? profileData.qi ?? 0
+);
+
+const syncStoreProfile = (profileData: UserProfileType): UserProfileType => {
   if (typeof useAppStore.getState === 'function') {
     const store = useAppStore.getState();
+    const currentStoreProfile = store?.userProfile;
+    if (
+      currentStoreProfile?.uid === profileData.uid
+      && (
+        profileTime(currentStoreProfile) > profileTime(profileData)
+        || profileXp(currentStoreProfile) > profileXp(profileData)
+      )
+    ) {
+      return currentStoreProfile;
+    }
     if (store && typeof store.setUserProfile === 'function') {
       store.setUserProfile(profileData);
-      return;
+      return profileData;
     }
   }
   if (typeof (useAppStore as any).setState === 'function') {
     (useAppStore as any).setState({ userProfile: profileData });
   }
+  return profileData;
 };
 
 export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome }: UseUserProfileProps) {
@@ -525,9 +545,9 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
             currentUser,
           );
 
-          cacheAccountProfile(data);
-          setProfile(data);
-          syncStoreProfile(data);
+          const visibleData = syncStoreProfile(data);
+          cacheAccountProfile(visibleData);
+          setProfile(visibleData);
           setError('');
         } else {
           // A read-only placeholder shown while server provisioning completes.
@@ -543,9 +563,9 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
           // not complete, in which case we show a local fallback without
           // persisting it.
           if (!snapshotIsCurrent()) return;
-          setProfile(defaultProfile);
-          cacheAccountProfile(defaultProfile);
-          syncStoreProfile(defaultProfile);
+          const visibleProfile = syncStoreProfile(defaultProfile);
+          setProfile(visibleProfile);
+          cacheAccountProfile(visibleProfile);
         }
         setIsLoading(false);
       } catch (err) {
@@ -554,9 +574,9 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
         const fallbackProfile = await hydrateCachedAccountPortrait(
           createAccountProfileFallback(currentUser),
         );
-        setProfile(fallbackProfile);
-        setFormData(fallbackProfile);
-        syncStoreProfile(fallbackProfile);
+        const visibleProfile = syncStoreProfile(fallbackProfile);
+        setProfile(visibleProfile);
+        setFormData(visibleProfile);
         setError('');
         setIsLoading(false);
       }
@@ -903,13 +923,14 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
       try {
         localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedLocalProfile));
       } catch(e) {}
-      setProfile(updatedLocalProfile);
-      setFormData(updatedLocalProfile);
-      syncStoreProfile(updatedLocalProfile);
+      const visibleProfile = syncStoreProfile(updatedLocalProfile);
+      setProfile(visibleProfile);
+      setFormData(visibleProfile);
       setIsEditing(false);
       return;
     }
 
+    const expectedUid = currentUser.uid;
     setIsLoading(true);
     try {
       const updates: any = {
@@ -929,18 +950,21 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
         }
       });
 
-      const saved = await saveUserProfile({ uid: currentUser.uid, ...updates });
-      const updatedProfile = { ...profile, ...saved };
+      const saved = await saveUserProfile({ uid: expectedUid, ...updates });
+      if (activeProfileUidRef.current !== expectedUid) return;
+      const updatedProfile = syncStoreProfile({ ...profile, ...saved });
       setProfile(updatedProfile);
       setFormData(updatedProfile);
       cacheAccountProfile(updatedProfile);
-      syncStoreProfile(updatedProfile);
       setIsEditing(false);
       setError('');
     } catch (err: any) {
+      if (activeProfileUidRef.current !== expectedUid) return;
       setError(err.message || 'Failed to save profile');
     } finally {
-      setIsLoading(false);
+      if (activeProfileUidRef.current === expectedUid) {
+        setIsLoading(false);
+      }
     }
   };
 

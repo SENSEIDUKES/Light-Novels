@@ -2490,9 +2490,15 @@ export function mapUserProfileToGraphVariables(
       displayNameColor: value.displayNameColor,
       preferredLanguage: value.preferredLanguage,
       defaultTranslationLanguage: value.defaultTranslationLanguage,
-      defaultChapterWritingStyle: normalizeChapterWritingStyle(
-        value.defaultChapterWritingStyle,
-      ),
+      // Keep ordinary profile patches compatible with the deployed connector
+      // while its AdminUpsertUserProfileGraph manifest is being rolled forward.
+      // The field is optional in UserProfile_Data, and PATCH semantics preserve
+      // the stored value when it is omitted. Sending it on every unrelated Qi
+      // or Dao-name write makes older connector manifests reject the entire
+      // profile mutation as an unexpected variable.
+      defaultChapterWritingStyle: input.patch.defaultChapterWritingStyle === undefined
+        ? undefined
+        : normalizeChapterWritingStyle(value.defaultChapterWritingStyle),
       subscriptionTier: enumValue(value.premiumTier, 'MORTAL'),
       legacyQi: value.qi == null ? undefined : int64(value.qi),
       daoXp: int64(value.dao_xp ?? 0),

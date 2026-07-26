@@ -39,6 +39,8 @@ interface PersistenceErrorPayload {
 export interface PersistenceMutationOptions {
   expectedSyncRevision?: string | null;
   idempotencyKey?: string;
+  /** Allow a small mutation to finish while the page is being hidden/unloaded. */
+  keepalive?: boolean;
 }
 
 function accountChangedError(): PersistenceClientError {
@@ -136,6 +138,7 @@ export async function saveUserProfile(
   const result = await persistenceRequest<{ profile: UserProfile }>('/profile', {
     method: 'PUT',
     body: mutationBody(value, options),
+    keepalive: options.keepalive,
   }, typeof value.uid === 'string' ? value.uid : undefined);
   return result.profile;
 }

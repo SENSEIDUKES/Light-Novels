@@ -1,13 +1,30 @@
 import { auth } from './firebase';
 import { checkAndAwardRankArtifacts } from './artifacts';
-import type { ActiveStatusEffect } from '../types';
+import type { ActiveStatusEffect, UserProfile } from '../types';
 import { useAppStore } from '../store/useAppStore';
-import { saveUserProfile } from './persistence';
-import { readCachedAccountProfile, createAccountProfileFallback } from './userProfileCache';
+import { getUserProfile, saveUserProfile } from './persistence';
+import { cacheAccountProfile } from './userProfileCache';
 
-let pendingProfileUpdates: any = null;
-let profileSyncTimeout: any = null;
-let pendingProfileUid: string | null = null;
+interface PendingProfileSync {
+  updates: Partial<UserProfile>;
+  timeout: ReturnType<typeof setTimeout> | null;
+}
+
+const pendingProfileSyncs = new Map<string, PendingProfileSync>();
+const profileSyncInFlight = new Map<string, Promise<void>>();
+const cultivationAwardInFlight = new Map<string, Promise<void>>();
+
+function queueCultivationAward(uid: string, award: () => Promise<void>): Promise<void> {
+  const previous = cultivationAwardInFlight.get(uid) ?? Promise.resolve();
+  const current = previous.catch(() => undefined).then(award);
+  cultivationAwardInFlight.set(uid, current);
+  void current.finally(() => {
+    if (cultivationAwardInFlight.get(uid) === current) {
+      cultivationAwardInFlight.delete(uid);
+    }
+  });
+  return current;
+}
 
 function getStoreProfile() {
   if (typeof useAppStore.getState === 'function') {
@@ -29,37 +46,103 @@ function updateStoreProfile(profileData: any) {
   }
 }
 
-export async function flushPendingProfileSync() {
-  if (!pendingProfileUpdates || !pendingProfileUid) return;
-  const toSync = pendingProfileUpdates;
-  const uid = pendingProfileUid;
-  pendingProfileUpdates = null;
-  pendingProfileUid = null;
-  if (profileSyncTimeout) clearTimeout(profileSyncTimeout);
-  try {
-    await saveUserProfile({ uid, ...toSync });
-  } catch (err) {
-    console.error('Failed to sync XP to cloud during flush', err);
+async function getAuthoritativeCultivationProfile(uid: string): Promise<UserProfile | null> {
+  const storeProfile = getStoreProfile();
+  if (
+    storeProfile?.uid === uid
+    && Array.isArray(storeProfile.activeStatusEffects)
+  ) {
+    return storeProfile;
   }
+
+  const stored = await getUserProfile();
+  if (auth.currentUser?.uid !== uid || stored?.uid !== uid) return null;
+  updateStoreProfile(stored);
+  cacheAccountProfile(stored);
+  return stored;
 }
 
-function queueProfileSync(updates: any, uid: string) {
-  pendingProfileUid = uid;
-  if (!pendingProfileUpdates) {
-    pendingProfileUpdates = { ...updates };
+function scheduleProfileSync(uid: string, delayMs = 2000) {
+  const pending = pendingProfileSyncs.get(uid);
+  if (!pending) return;
+  if (pending.timeout) clearTimeout(pending.timeout);
+  pending.timeout = setTimeout(() => {
+    void flushPendingProfileSync(uid);
+  }, delayMs);
+}
+
+async function flushProfileSyncForUid(uid: string, keepalive: boolean): Promise<void> {
+  const previous = profileSyncInFlight.get(uid) ?? Promise.resolve();
+  const current = previous.catch(() => undefined).then(async () => {
+    const pending = pendingProfileSyncs.get(uid);
+    if (!pending || auth.currentUser?.uid !== uid) return;
+
+    pendingProfileSyncs.delete(uid);
+    if (pending.timeout) clearTimeout(pending.timeout);
+
+    try {
+      await saveUserProfile(
+        { uid, ...pending.updates },
+        { keepalive },
+      );
+    } catch (err) {
+      // Preserve the newest absolute cultivation snapshot for a later retry
+      // instead of silently dropping progress on a transient failure.
+      const newer = pendingProfileSyncs.get(uid);
+      pendingProfileSyncs.set(uid, {
+        updates: {
+          ...pending.updates,
+          ...newer?.updates,
+        },
+        timeout: newer?.timeout ?? null,
+      });
+      if (auth.currentUser?.uid === uid && !keepalive) {
+        scheduleProfileSync(uid, 5000);
+      }
+      console.error('Failed to sync XP to cloud during flush', err);
+    }
+  });
+
+  profileSyncInFlight.set(uid, current);
+  void current.finally(() => {
+    if (profileSyncInFlight.get(uid) === current) {
+      profileSyncInFlight.delete(uid);
+    }
+  });
+  return current;
+}
+
+export async function flushPendingProfileSync(
+  uid?: string,
+  options: { keepalive?: boolean } = {},
+) {
+  const uids = uid ? [uid] : Array.from(pendingProfileSyncs.keys());
+  await Promise.all(uids.map(pendingUid => (
+    flushProfileSyncForUid(pendingUid, options.keepalive === true)
+  )));
+}
+
+function queueProfileSync(updates: Partial<UserProfile>, uid: string) {
+  const pending = pendingProfileSyncs.get(uid);
+  if (pending) {
+    pending.updates = { ...pending.updates, ...updates };
   } else {
-    pendingProfileUpdates = { ...pendingProfileUpdates, ...updates };
+    pendingProfileSyncs.set(uid, {
+      updates: { ...updates },
+      timeout: null,
+    });
   }
-  
-  if (profileSyncTimeout) clearTimeout(profileSyncTimeout);
-  profileSyncTimeout = setTimeout(async () => {
-    await flushPendingProfileSync();
-  }, 2000); // 2 second debounce for batching writes
+
+  scheduleProfileSync(uid);
 }
 
 if (typeof window !== 'undefined') {
-  window.addEventListener('beforeunload', () => { void flushPendingProfileSync(); });
-  window.addEventListener('pagehide', () => { void flushPendingProfileSync(); });
+  const flushActiveProfileOnTeardown = () => {
+    const uid = auth.currentUser?.uid;
+    if (uid) void flushPendingProfileSync(uid, { keepalive: true });
+  };
+  window.addEventListener('beforeunload', flushActiveProfileOnTeardown);
+  window.addEventListener('pagehide', flushActiveProfileOnTeardown);
 }
 
 export const DAO_RANKS = [
@@ -157,7 +240,9 @@ export async function awardQi(event: QiEvent, sourceId?: string, sourceType?: st
   const amount = QI_VALUES[event];
   if (!amount) return;
 
-  try {
+  return queueCultivationAward(user.uid, async () => {
+   try {
+    if (auth.currentUser?.uid !== user.uid) return;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const startOfDayStr = today.toISOString();
@@ -173,19 +258,8 @@ export async function awardQi(event: QiEvent, sourceId?: string, sourceType?: st
        localStorage.setItem(key, (currentCount + 1).toString());
     }
 
-    let data = getStoreProfile();
-    if (!data) {
-      const cached = user ? readCachedAccountProfile(user.uid) : null;
-      if (cached) {
-        data = cached as any;
-        updateStoreProfile(cached);
-      } else if (user) {
-        const fallback = createAccountProfileFallback(user);
-        data = fallback;
-        updateStoreProfile(fallback);
-      }
-    }
-    if (!data) return;
+    const data = await getAuthoritativeCultivationProfile(user.uid);
+    if (!data || auth.currentUser?.uid !== user.uid) return;
     
     // Support migrating from `qi` to `dao_xp`
     let currentXp = data?.dao_xp;
@@ -330,14 +404,17 @@ export async function awardQi(event: QiEvent, sourceId?: string, sourceType?: st
     };
     
     // Update local immediately for instantaneous UI updates
-    updateStoreProfile({ ...data, ...userUpdates });
+    const updatedProfile = { ...data, ...userUpdates };
+    updateStoreProfile(updatedProfile);
+    cacheAccountProfile(updatedProfile);
     
     // Queue one owner-scoped PostgreSQL profile mutation for the burst.
     queueProfileSync(userUpdates, user.uid);
 
-  } catch (error) {
+   } catch (error) {
     console.error('Failed to award Qi:', error);
-  }
+   }
+  });
 }
 
 export interface AuraTier {
@@ -448,6 +525,20 @@ export const AURA_TIERS: AuraTier[] = [
   }
 ];
 
+export function getAuraColorForXp(
+  explicitColor: string | undefined,
+  xp: number | undefined,
+): string {
+  if (explicitColor) return explicitColor;
+  const currentXp = Number.isFinite(xp) ? Math.max(0, xp ?? 0) : 0;
+  let unlockedColor = AURA_TIERS[0].colorHex;
+  for (const tier of AURA_TIERS) {
+    if (currentXp < tier.unlockedAt) break;
+    unlockedColor = tier.colorHex;
+  }
+  return unlockedColor;
+}
+
 export function getAuraTextStyle(
   colorHexOrAura?: string,
   activeStatusEffects?: ActiveStatusEffect[]
@@ -533,20 +624,11 @@ export async function awardDirectQi(amount: number, reason: string) {
   if (!user) return; 
   if (!amount || amount <= 0) return;
 
-  try {
-    let data = getStoreProfile();
-    if (!data) {
-      const cached = user ? readCachedAccountProfile(user.uid) : null;
-      if (cached) {
-        data = cached as any;
-        updateStoreProfile(cached);
-      } else if (user) {
-        const fallback = createAccountProfileFallback(user);
-        data = fallback;
-        updateStoreProfile(fallback);
-      }
-    }
-    if (!data) return;
+  return queueCultivationAward(user.uid, async () => {
+   try {
+    if (auth.currentUser?.uid !== user.uid) return;
+    const data = await getAuthoritativeCultivationProfile(user.uid);
+    if (!data || auth.currentUser?.uid !== user.uid) return;
     
     let currentXp = data?.dao_xp;
     if (currentXp === undefined && data?.qi !== undefined) {
@@ -635,12 +717,15 @@ export async function awardDirectQi(amount: number, reason: string) {
       updatedAt: new Date().toISOString()
     };
     
-    updateStoreProfile({ ...data, ...userUpdates });
+    const updatedProfile = { ...data, ...userUpdates };
+    updateStoreProfile(updatedProfile);
+    cacheAccountProfile(updatedProfile);
     queueProfileSync(userUpdates, user.uid);
 
-  } catch (error) {
+   } catch (error) {
     console.error('Failed to award direct Qi:', error);
-  }
+   }
+  });
 }
 
 
