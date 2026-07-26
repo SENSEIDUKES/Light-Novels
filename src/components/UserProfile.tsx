@@ -399,7 +399,16 @@ export default function UserProfile({ currentUser, stories, onLogout, onNavigate
                           placeholder="Enter Dao Name"
                         />
                       ) : (
-                        <div className="text-xl text-signal font-sans">{profile?.username}</div>
+                        <div className="text-xl font-sans">
+                          {(() => {
+                            const styleObj = getAuraTextStyle(profile?.displayNameColor, profile?.activeStatusEffects);
+                            return (
+                              <span className={styleObj.className || 'text-signal'} style={styleObj.style}>
+                                {profile?.username || 'Anonymous Cultivator'}
+                              </span>
+                            );
+                          })()}
+                        </div>
                       )}
                     </div>
                     <div>

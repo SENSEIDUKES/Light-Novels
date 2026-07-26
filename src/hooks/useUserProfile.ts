@@ -38,6 +38,19 @@ interface UseUserProfileProps {
   onNavigateHome: () => void;
 }
 
+const syncStoreProfile = (profileData: UserProfileType) => {
+  if (typeof useAppStore.getState === 'function') {
+    const store = useAppStore.getState();
+    if (store && typeof store.setUserProfile === 'function') {
+      store.setUserProfile(profileData);
+      return;
+    }
+  }
+  if (typeof (useAppStore as any).setState === 'function') {
+    (useAppStore as any).setState({ userProfile: profileData });
+  }
+};
+
 export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome }: UseUserProfileProps) {
   const syncStatus = useAppStore(state => state.syncStatus);
   const setIsShortcutsOpen = useAppStore(state => state.setIsShortcutsOpen);
@@ -514,6 +527,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
 
           cacheAccountProfile(data);
           setProfile(data);
+          syncStoreProfile(data);
           setError('');
         } else {
           // A read-only placeholder shown while server provisioning completes.
@@ -531,6 +545,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
           if (!snapshotIsCurrent()) return;
           setProfile(defaultProfile);
           cacheAccountProfile(defaultProfile);
+          syncStoreProfile(defaultProfile);
         }
         setIsLoading(false);
       } catch (err) {
@@ -541,6 +556,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
         );
         setProfile(fallbackProfile);
         setFormData(fallbackProfile);
+        syncStoreProfile(fallbackProfile);
         setError('');
         setIsLoading(false);
       }
@@ -873,17 +889,24 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
         console.warn("Failed to parse local profile:", e);
       }
       const updatedLocalProfile = {
+        ...profile,
         ...localProfile,
         uid: 'anonymous',
+        username: formData.username || profile?.username || 'Mortal Reader',
+        displayName: formData.displayName || profile?.displayName || 'Mortal Reader',
+        displayNameColor: formData.displayNameColor || profile?.displayNameColor || '#E5E7EB',
+        avatarUrl: formData.avatarUrl || profile?.avatarUrl || '',
         preferredLanguage: preferredLang,
         defaultTranslationLanguage: defaultTransLang,
         updatedAt: new Date().toISOString()
-      };
+      } as UserProfileType;
       try {
         localStorage.setItem('seihouse-local-user-profile', JSON.stringify(updatedLocalProfile));
       } catch(e) {}
-      setProfile(updatedLocalProfile as UserProfileType);
-      useAppStore.setState({ userProfile: updatedLocalProfile as UserProfileType });
+      setProfile(updatedLocalProfile);
+      setFormData(updatedLocalProfile);
+      syncStoreProfile(updatedLocalProfile);
+      setIsEditing(false);
       return;
     }
 
@@ -906,7 +929,12 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
         }
       });
 
-      await saveUserProfile({ uid: currentUser.uid, ...updates });
+      const saved = await saveUserProfile({ uid: currentUser.uid, ...updates });
+      const updatedProfile = { ...profile, ...saved };
+      setProfile(updatedProfile);
+      setFormData(updatedProfile);
+      cacheAccountProfile(updatedProfile);
+      syncStoreProfile(updatedProfile);
       setIsEditing(false);
       setError('');
     } catch (err: any) {

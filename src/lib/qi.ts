@@ -3,11 +3,48 @@ import { checkAndAwardRankArtifacts } from './artifacts';
 import type { ActiveStatusEffect } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { saveUserProfile } from './persistence';
+import { readCachedAccountProfile, createAccountProfileFallback } from './userProfileCache';
 
 let pendingProfileUpdates: any = null;
 let profileSyncTimeout: any = null;
+let pendingProfileUid: string | null = null;
+
+function getStoreProfile() {
+  if (typeof useAppStore.getState === 'function') {
+    return useAppStore.getState()?.userProfile ?? null;
+  }
+  return (useAppStore as any)?.userProfile ?? null;
+}
+
+function updateStoreProfile(profileData: any) {
+  if (typeof useAppStore.getState === 'function') {
+    const store = useAppStore.getState();
+    if (store && typeof store.setUserProfile === 'function') {
+      store.setUserProfile(profileData);
+      return;
+    }
+  }
+  if (typeof (useAppStore as any).setState === 'function') {
+    (useAppStore as any).setState({ userProfile: profileData });
+  }
+}
+
+export async function flushPendingProfileSync() {
+  if (!pendingProfileUpdates || !pendingProfileUid) return;
+  const toSync = pendingProfileUpdates;
+  const uid = pendingProfileUid;
+  pendingProfileUpdates = null;
+  pendingProfileUid = null;
+  if (profileSyncTimeout) clearTimeout(profileSyncTimeout);
+  try {
+    await saveUserProfile({ uid, ...toSync });
+  } catch (err) {
+    console.error('Failed to sync XP to cloud during flush', err);
+  }
+}
 
 function queueProfileSync(updates: any, uid: string) {
+  pendingProfileUid = uid;
   if (!pendingProfileUpdates) {
     pendingProfileUpdates = { ...updates };
   } else {
@@ -16,14 +53,13 @@ function queueProfileSync(updates: any, uid: string) {
   
   if (profileSyncTimeout) clearTimeout(profileSyncTimeout);
   profileSyncTimeout = setTimeout(async () => {
-    const toSync = pendingProfileUpdates;
-    pendingProfileUpdates = null;
-    try {
-      await saveUserProfile({ uid, ...toSync });
-    } catch (err) {
-      console.error('Failed to sync XP to cloud', err);
-    }
-  }, 10000); // 10 second debounce for batching writes
+    await flushPendingProfileSync();
+  }, 2000); // 2 second debounce for batching writes
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => { void flushPendingProfileSync(); });
+  window.addEventListener('pagehide', () => { void flushPendingProfileSync(); });
 }
 
 export const DAO_RANKS = [
@@ -137,9 +173,19 @@ export async function awardQi(event: QiEvent, sourceId?: string, sourceType?: st
        localStorage.setItem(key, (currentCount + 1).toString());
     }
 
-    // Instead of directly querying the cloud, rely on the locally loaded profile
-    const data = useAppStore.getState().userProfile;
-    if (!data) return; // If profile isn't loaded yet, we can't reliably update it in-memory
+    let data = getStoreProfile();
+    if (!data) {
+      const cached = user ? readCachedAccountProfile(user.uid) : null;
+      if (cached) {
+        data = cached as any;
+        updateStoreProfile(cached);
+      } else if (user) {
+        const fallback = createAccountProfileFallback(user);
+        data = fallback;
+        updateStoreProfile(fallback);
+      }
+    }
+    if (!data) return;
     
     // Support migrating from `qi` to `dao_xp`
     let currentXp = data?.dao_xp;
@@ -284,7 +330,7 @@ export async function awardQi(event: QiEvent, sourceId?: string, sourceType?: st
     };
     
     // Update local immediately for instantaneous UI updates
-    useAppStore.getState().setUserProfile({ ...data, ...userUpdates });
+    updateStoreProfile({ ...data, ...userUpdates });
     
     // Queue one owner-scoped PostgreSQL profile mutation for the burst.
     queueProfileSync(userUpdates, user.uid);
@@ -488,7 +534,18 @@ export async function awardDirectQi(amount: number, reason: string) {
   if (!amount || amount <= 0) return;
 
   try {
-    const data = useAppStore.getState().userProfile;
+    let data = getStoreProfile();
+    if (!data) {
+      const cached = user ? readCachedAccountProfile(user.uid) : null;
+      if (cached) {
+        data = cached as any;
+        updateStoreProfile(cached);
+      } else if (user) {
+        const fallback = createAccountProfileFallback(user);
+        data = fallback;
+        updateStoreProfile(fallback);
+      }
+    }
     if (!data) return;
     
     let currentXp = data?.dao_xp;
@@ -578,7 +635,7 @@ export async function awardDirectQi(amount: number, reason: string) {
       updatedAt: new Date().toISOString()
     };
     
-    useAppStore.getState().setUserProfile({ ...data, ...userUpdates });
+    updateStoreProfile({ ...data, ...userUpdates });
     queueProfileSync(userUpdates, user.uid);
 
   } catch (error) {
