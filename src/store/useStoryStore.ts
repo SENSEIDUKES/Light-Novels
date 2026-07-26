@@ -135,7 +135,18 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
     // transaction succeeds, not optimistically beforehand.
     try {
       storyStorage.startTransaction();
-      await Promise.all(toSave.map(s => storyStorage.saveStory(s)));
+      // Do not roll back while another concurrent write is still using this
+      // transaction. Promise.all rejects on the first failure, while the
+      // remaining writes continue in the background.
+      const results = await Promise.allSettled(
+        toSave.map(s => storyStorage.saveStory(s)),
+      );
+      const failedSave = results.find(
+        (result): result is PromiseRejectedResult => result.status === 'rejected',
+      );
+      if (failedSave) {
+        throw failedSave.reason;
+      }
       await storyStorage.commitTransaction();
       if (!LOCAL_ONLY_MODE && auth.currentUser?.uid !== expectedUid) {
         set({ stories: [], activeStoryId: null });
