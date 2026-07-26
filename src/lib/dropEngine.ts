@@ -1,6 +1,19 @@
 import { Chapter, CosmicArtifact } from '../types';
 import { unlockCosmicArtifact } from './artifacts';
 
+function normalizeArtifactRarity(value: unknown): CosmicArtifact['rarity'] | null {
+  const rarity = String(value ?? '').trim().toLowerCase();
+  const rarities: Record<string, CosmicArtifact['rarity']> = {
+    common: 'Common',
+    rare: 'Rare',
+    epic: 'Epic',
+    legendary: 'Legendary',
+    mythic: 'Mythic',
+    transcendent: 'Transcendent',
+  };
+  return rarities[rarity] ?? null;
+}
+
 /**
  * Scans a chapter's blocks and converts found signals (worldCard, system, fateResult, beast)
  * into actual CosmicArtifact drops, unlocking them for the user profile.
@@ -24,16 +37,19 @@ export async function processChapterDrops(
       const entityName = card.entityName;
       const displayTitle = card.displayTitle || '';
       const quote = card.quote || card.audioText || '';
+      const rarity = normalizeArtifactRarity(card.rarity);
 
-      if (entityType === 'artifact' && (card.sound?.assetFamily === 'relic' || card.rarity === 'Legendary' || card.rarity === 'Mythic')) {
+      if (entityType === 'artifact' && (rarity === 'Legendary' || rarity === 'Mythic')) {
         const descPrefix = displayTitle ? `${displayTitle}. ` : '';
         const drop: Omit<CosmicArtifact, 'id' | 'unlockedAt'> = {
           name: entityName,
           description: `${descPrefix}${quote || 'A legendary relic of historical significance manifested in your story.'}`,
-          rarity: (card.rarity as CosmicArtifact['rarity']) || 'Legendary',
+          rarity,
           attributeBoost: `+20% ${entityName} Resonance`,
           sourceStoryId: story.id,
           sourceStoryTitle: story.title,
+          sourceChapterNumber: chapter.number,
+          eventKey: `${story.id}_awakened_relic_${entityName.toLowerCase().replace(/\s+/g, '_')}_ch${chapter.number}`,
           milestoneType: 'codex_linked',
           milestoneName: 'Legendary Artifact Discovery',
           imageUrl: card.imageUrl,
@@ -110,6 +126,8 @@ export async function processChapterDrops(
             attributeBoost: '+30% Karma Shield',
             sourceStoryId: story.id,
             sourceStoryTitle: story.title,
+            sourceChapterNumber: chapter.number,
+            eventKey: `${story.id}_fate_averted_ch${chapter.number}`,
             milestoneType: 'challenge_complete',
             milestoneName: 'Fate Shattered',
             specialUnlock: {
@@ -148,9 +166,9 @@ export async function processChapterDrops(
     if (beastEvent && beastEvent.profile) {
       const type = beastEvent.type || 'encounter';
       const profile = beastEvent.profile;
-      const threatTier = profile.threatTier || 'common';
+      const threatTier = String(profile.threatTier || 'common').toLowerCase();
 
-      if (['boss', 'calamity', 'mythic'].includes(threatTier.toLowerCase())) {
+      if (['boss', 'calamity', 'mythic'].includes(threatTier)) {
         const element = profile.element || 'none';
         const bodyType = profile.bodyType || 'beast';
         const capElement = element !== 'none' ? element.charAt(0).toUpperCase() + element.slice(1) : '';

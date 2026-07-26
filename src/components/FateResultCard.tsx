@@ -81,17 +81,23 @@ export const FateResultCard = React.memo(function FateResultCard({ data }: FateR
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-black/40 p-4 rounded-xl border border-inherit/20 backdrop-blur-sm">
-              <h3 className="uppercase tracking-[0.2em] opacity-80 mb-2 text-xs md:text-sm font-bold">New Story State</h3>
-              <p className="font-bold text-portal text-base">{data.newStoryState}</p>
-            </div>
+          {(data.newStoryState || data.genreShift) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {data.newStoryState && (
+                <div className="bg-black/40 p-4 rounded-xl border border-inherit/20 backdrop-blur-sm">
+                  <h3 className="uppercase tracking-[0.2em] opacity-80 mb-2 text-xs md:text-sm font-bold">New Story State</h3>
+                  <p className="font-bold text-portal text-base">{data.newStoryState}</p>
+                </div>
+              )}
 
-            <div className="bg-black/40 p-4 rounded-xl border border-inherit/20 backdrop-blur-sm">
-              <h3 className="uppercase tracking-[0.2em] opacity-80 mb-2 text-xs md:text-sm font-bold">Genre Shift</h3>
-              <p className="font-bold text-purple-400 text-base">{data.genreShift}</p>
+              {data.genreShift && (
+                <div className="bg-black/40 p-4 rounded-xl border border-inherit/20 backdrop-blur-sm">
+                  <h3 className="uppercase tracking-[0.2em] opacity-80 mb-2 text-xs md:text-sm font-bold">Genre Shift</h3>
+                  <p className="font-bold text-purple-400 text-base">{data.genreShift}</p>
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
           {data.newActiveStats && data.newActiveStats.length > 0 && (
             <div className="bg-black/40 p-4 rounded-xl border border-inherit/20 backdrop-blur-sm">

@@ -47,7 +47,7 @@ export interface UISlice {
   setAutoPlayNarration: (autoPlay: boolean) => void;
 }
 
-export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => ({
+export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get) => ({
   currentScreen: 'home',
   selectedChapterNum: 1,
   nexusTab: 'reader',
@@ -79,14 +79,10 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => (
     pendingRelicQueue: [...state.pendingRelicQueue, artifact]
   })),
   popPendingRelic: () => {
-    let popped: CosmicArtifact | null = null;
-    set((state) => {
-      if (state.pendingRelicQueue.length === 0) return state;
-      const [first, ...rest] = state.pendingRelicQueue;
-      popped = first;
-      return { pendingRelicQueue: rest };
-    });
-    return popped;
+    const [first, ...rest] = get().pendingRelicQueue;
+    if (first === undefined) return null;
+    set({ pendingRelicQueue: rest });
+    return first;
   },
   setCanShowRelicInReader: (allowed) => set({ canShowRelicInReader: allowed }),
 

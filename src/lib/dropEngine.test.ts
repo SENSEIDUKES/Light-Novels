@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { processChapterDrops } from './dropEngine';
 import { unlockCosmicArtifact } from './artifacts';
-import { Chapter } from '../types';
+import { Chapter, CosmicArtifact } from '../types';
 
 vi.mock('./artifacts', () => ({
   unlockCosmicArtifact: vi.fn(async (artifact) => ({
@@ -96,6 +96,54 @@ describe('Drop Engine', () => {
       expect(drop.rarity).toBe('Legendary');
       expect(drop.milestoneType).toBe('codex_linked');
       expect(unlockCosmicArtifact).toHaveBeenCalled();
+    });
+
+    it('requires Legendary or Mythic rarity even when an artifact has relic audio', async () => {
+      const chapter: Chapter = {
+        number: 2,
+        title: 'Routine Relic',
+        premise: 'A minor artifact hums.',
+        status: 'unlocked',
+        blocks: [{
+          id: 'b4',
+          type: 'paragraph',
+          text: 'A common charm hums.',
+          worldCard: {
+            entityType: 'artifact',
+            entityName: 'Common Charm',
+            displayTitle: 'Minor Trinket',
+            rarity: 'Common',
+            sound: { assetFamily: 'relic' },
+          },
+        }],
+      };
+
+      await expect(processChapterDrops(chapter, mockStory)).resolves.toHaveLength(0);
+      expect(unlockCosmicArtifact).not.toHaveBeenCalled();
+    });
+
+    it('accepts a Mythic artifact without relic audio and normalizes generator casing', async () => {
+      const chapter: Chapter = {
+        number: 3,
+        title: 'Mythic Awakening',
+        premise: 'A mythic artifact awakens.',
+        status: 'unlocked',
+        blocks: [{
+          id: 'b5',
+          type: 'paragraph',
+          text: 'A crown blazes.',
+          worldCard: {
+            entityType: 'artifact',
+            entityName: 'Crown of Stars',
+            displayTitle: 'Mythic Relic',
+            rarity: 'mythic' as CosmicArtifact['rarity'],
+          },
+        }],
+      };
+
+      const drops = await processChapterDrops(chapter, mockStory);
+      expect(drops).toHaveLength(1);
+      expect(drops[0].rarity).toBe('Mythic');
     });
   });
 

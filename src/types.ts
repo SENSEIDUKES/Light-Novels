@@ -192,7 +192,7 @@ export interface BeastSonicProfile {
     | "bird"
     | "mammal"
     | "undead"
-    | string;
+    | (string & {});
   element?:
     | "fire"
     | "ice"
@@ -203,7 +203,7 @@ export interface BeastSonicProfile {
     | "wind"
     | "poison"
     | "none"
-    | string;
+    | (string & {});
   movement?:
     | "crawling"
     | "flying"
@@ -211,9 +211,9 @@ export interface BeastSonicProfile {
     | "teleporting"
     | "stomping"
     | "none"
-    | string;
-  intelligence?: "animal" | "cunning" | "ancient" | "divine" | string;
-  threatTier?: "common" | "elite" | "boss" | "calamity" | "mythic" | string;
+    | (string & {});
+  intelligence?: "animal" | "cunning" | "ancient" | "divine" | (string & {});
+  threatTier?: "common" | "elite" | "boss" | "calamity" | "mythic" | (string & {});
   signatureSound?:
     | "screech"
     | "roar"
@@ -222,7 +222,7 @@ export interface BeastSonicProfile {
     | "pulse"
     | "chant"
     | "silence"
-    | string;
+    | (string & {});
 }
 
 export interface FateResultData {
@@ -253,7 +253,7 @@ export interface WorldCardEvent {
   sound?: WorldCardSoundHints;
   voicePreset?: string;
   codexEntryId?: string;
-  rarity?: string;
+  rarity?: CosmicArtifact["rarity"];
 }
 
 export type RelevanceState =

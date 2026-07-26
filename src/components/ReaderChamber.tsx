@@ -235,20 +235,13 @@ export default function ReaderChamber({
 
   const setCanShowRelicInReader = useAppStore(state => state.setCanShowRelicInReader);
 
-  // Manage relic reveal windowing in Reader Chamber (prevent interrupting active reading / TTS)
   useEffect(() => {
-    if (isPlayingText) {
-      setCanShowRelicInReader?.(false);
-    }
-  }, [isPlayingText, setCanShowRelicInReader]);
-
-  useEffect(() => {
-    // Enable relic reveals on initial chapter load & clean up on unmount/chapter switch
-    setCanShowRelicInReader?.(true);
+    // Narration always wins over scroll position, and a chapter change resets the gate.
+    setCanShowRelicInReader?.(!isPlayingText);
     return () => {
       setCanShowRelicInReader?.(true);
     };
-  }, [selectedChapterNum, setCanShowRelicInReader]);
+  }, [selectedChapterNum, isPlayingText, setCanShowRelicInReader]);
 
   useEffect(() => {
     const el = readerRef.current;
@@ -256,12 +249,17 @@ export default function ReaderChamber({
 
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = el;
-      if (scrollTop + clientHeight >= scrollHeight - 150) {
+      if (isPlayingText) {
+        setCanShowRelicInReader?.(false);
+      } else if (scrollTop + clientHeight >= scrollHeight - 150) {
         // Reached end of chapter
         setCanShowRelicInReader?.(true);
       } else if (scrollTop > 200 && !isPlayingText) {
         // Actively reading middle prose
         setCanShowRelicInReader?.(false);
+      } else {
+        // Returning to the chapter opening is a safe reveal window.
+        setCanShowRelicInReader?.(true);
       }
     };
 

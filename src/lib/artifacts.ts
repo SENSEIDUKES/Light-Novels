@@ -209,6 +209,19 @@ function getArtifactRewards(rarity: CosmicArtifact["rarity"]) {
   }
 }
 
+function normalizeArtifactRarity(value: unknown): CosmicArtifact["rarity"] | null {
+  const rarity = String(value ?? '').trim().toLowerCase();
+  const rarities: Record<string, CosmicArtifact["rarity"]> = {
+    common: 'Common',
+    rare: 'Rare',
+    epic: 'Epic',
+    legendary: 'Legendary',
+    mythic: 'Mythic',
+    transcendent: 'Transcendent',
+  };
+  return rarities[rarity] ?? null;
+}
+
 export async function unlockCosmicArtifact(
   keyOrArtifact: string | Omit<CosmicArtifact, 'id' | 'unlockedAt'>,
   sourceId?: string,
@@ -272,7 +285,9 @@ export async function unlockCosmicArtifact(
   const rewards = getArtifactRewards(baseArtifact.rarity);
   
   // Construct eventKey for robust deduplication across reloads / replays
-  const eventKey = baseArtifact.eventKey || (artifactKey ? artifactKey : `${baseArtifact.sourceStoryId || 'global'}_ch${baseArtifact.sourceChapterNumber || 0}_${baseArtifact.name}`);
+  const eventKey = baseArtifact.eventKey || (artifactKey
+    ? `${baseArtifact.sourceStoryId || sourceId || 'global'}_template_${artifactKey}`
+    : `${baseArtifact.sourceStoryId || sourceId || 'global'}${baseArtifact.sourceChapterNumber === undefined ? '' : `_ch${baseArtifact.sourceChapterNumber}`}_${baseArtifact.name}`);
   
   const newArtifact: CosmicArtifact = {
     ...baseArtifact,
@@ -317,13 +332,15 @@ export async function unlockCosmicArtifact(
   
   // Check duplicates to avoid multi-award across reloads, replays, or duplicate triggers
   const checkDuplicate = (list: CosmicArtifact[]) => {
-    if (artifactKey) {
-      return list.some(a => a.name === newArtifact.name || a.eventKey === newArtifact.eventKey);
-    }
-    if (newArtifact.eventKey) {
-      return list.some(a => a.eventKey === newArtifact.eventKey || (a.name === newArtifact.name && a.sourceStoryId === newArtifact.sourceStoryId));
-    }
-    return list.some(a => a.name === newArtifact.name && a.sourceStoryId === newArtifact.sourceStoryId);
+    return list.some((artifact) => {
+      if (artifact.eventKey) return artifact.eventKey === newArtifact.eventKey;
+
+      // Legacy artifacts may not have an event key. Compare their full available source identity.
+      return artifact.name === newArtifact.name
+        && artifact.sourceStoryId === newArtifact.sourceStoryId
+        && (newArtifact.sourceChapterNumber === undefined
+          || artifact.sourceChapterNumber === newArtifact.sourceChapterNumber);
+    });
   };
   
   if (user) {
@@ -670,20 +687,21 @@ export async function scanChapterForArtifacts(
 
   // 6. Scan for newly-awakened Legendary/Mythic artifacts in worldCard blocks
   for (const block of blocks) {
+    const rarity = normalizeArtifactRarity(block.worldCard?.rarity);
     if (
       block.worldCard?.entityType === 'artifact' && 
       block.worldCard.entityName &&
-      (block.worldCard.sound?.assetFamily === 'relic' || block.worldCard.rarity === 'Legendary' || block.worldCard.rarity === 'Mythic')
+      (rarity === 'Legendary' || rarity === 'Mythic')
     ) {
       await unlockCosmicArtifact({
         name: block.worldCard.entityName,
         description: block.worldCard.quote || `A rare and legendary relic of historical significance awakened in your story.`,
-        rarity: block.worldCard.rarity || 'Legendary',
+        rarity,
         attributeBoost: `+20% ${block.worldCard.entityName} Resonance`,
         sourceStoryId: storyId,
         sourceStoryTitle: storyTitle,
         sourceChapterNumber: chapterNumber,
-        eventKey: `${storyId}_awakened_relic_${block.worldCard.entityName.toLowerCase().replace(/\s+/g, '_')}`,
+        eventKey: `${storyId}_awakened_relic_${block.worldCard.entityName.toLowerCase().replace(/\s+/g, '_')}_ch${chapterNumber}`,
         milestoneType: 'codex_linked',
         milestoneName: 'Legendary Artifact Awakening',
         specialUnlock: {
@@ -698,7 +716,7 @@ export async function scanChapterForArtifacts(
   // Call Drop Engine to process remaining selective block-based drops
   try {
     const { processChapterDrops } = await import('./dropEngine');
-    await processChapterDrops(metadata || { blocks }, { id: storyId, title: storyTitle });
+    await processChapterDrops({ ...metadata, number: chapterNumber, blocks }, { id: storyId, title: storyTitle });
   } catch (err) {
     console.error("Failed to run Drop Engine during scanChapterForArtifacts:", err);
   }

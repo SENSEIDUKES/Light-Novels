@@ -124,9 +124,10 @@ export const ModalsAndToasts: React.FC = () => {
   const currentScreen = useAppStore(state => state.currentScreen);
   const canShowRelicInReader = useAppStore(state => state.canShowRelicInReader);
   const popPendingRelic = useAppStore(state => state.popPendingRelic);
+  const pendingRelicCount = useAppStore(state => state.pendingRelicQueue.length);
 
   useEffect(() => {
-    if (!unlockedArtifactAlert) {
+    if (!unlockedArtifactAlert && pendingRelicCount > 0) {
       const isReader = currentScreen === 'reader';
       if (!isReader || canShowRelicInReader) {
         const nextArtifact = popPendingRelic();
@@ -137,7 +138,7 @@ export const ModalsAndToasts: React.FC = () => {
         }
       }
     }
-  }, [unlockedArtifactAlert, currentScreen, canShowRelicInReader, popPendingRelic]);
+  }, [unlockedArtifactAlert, currentScreen, canShowRelicInReader, popPendingRelic, pendingRelicCount]);
 
   useEffect(() => {
     fetch('/api/router-presets')
@@ -792,7 +793,7 @@ export const ModalsAndToasts: React.FC = () => {
                       </div>
                     </div>
                     <div className="px-3 py-1 bg-amber-500/15 border border-amber-500/40 rounded-lg text-sm font-bold font-mono text-amber-300">
-                      +{unlockedArtifactAlert.rewardValueQi || 100} Qi
+                      +{unlockedArtifactAlert.rewardValueQi ?? 100} Qi
                     </div>
                   </div>
 
