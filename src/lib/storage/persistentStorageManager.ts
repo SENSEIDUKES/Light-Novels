@@ -10,7 +10,7 @@ import {
 import { LocalStorageFallbackAdapter } from "./localStorageAdapter";
 import {
   DataConnectStorageAdapter,
-  preparePermanentPersistencePayload,
+  prepareCloudReplicaPayload,
 } from "./dataConnectStorageAdapter";
 import { auth } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -175,6 +175,7 @@ export class PersistentStorageManager implements StorageAdapter {
     total: 0,
   };
   private progressSubscribers: ((progress: SyncProgress) => void)[] = [];
+  private catalogSubscribers: (() => void)[] = [];
   private syncQueue: SyncTask[] = [];
   private readonly legacyQueueKey = "@seihouse/sync-queue";
   private readonly legacyQueueQuarantineKey = "@seihouse/sync-queue-invalid";
@@ -210,6 +211,19 @@ export class PersistentStorageManager implements StorageAdapter {
   // bursty activity (chapter generation, image manifests, reading-stat flushes).
   private flushTimer: any = null;
   private readonly FLUSH_DEBOUNCE_MS = 4000;
+
+  // --- Automatic Harmony ---
+  // Harmony was demoted to a manual button because the retired Firebase backend
+  // billed every reconciliation read against a daily document quota. PostgreSQL
+  // has no such quota, so a save reconciles the catalog automatically again.
+  // Two guards keep it from becoming chatty: the flush debounce above collapses
+  // a burst of saves into one pass, and a catalog pass may not run more often
+  // than this interval — a longer burst degrades to an outbox-only flush rather
+  // than chaining full passes. Browser events (reconnect, focus, visibility)
+  // deliberately never escalate to a catalog pass; only a real local mutation
+  // does, so rerenders, retries and reloads cannot re-trigger Harmony.
+  private readonly AUTO_HARMONY_MIN_INTERVAL_MS = 30_000;
+  private lastCatalogSyncStartedAt = 0;
 
   // --- Daily cloud-write circuit breaker ---
   // A hard safety net: every cloud write is counted for the day. If the count ever exceeds
@@ -763,9 +777,14 @@ export class PersistentStorageManager implements StorageAdapter {
     if (this.flushTimer) return; // a flush is already scheduled within the window
     this.flushTimer = setTimeout(() => {
       this.flushTimer = null;
-      // Normal saves only need their queued story/chapter checked and sealed.
-      // Catalog reconciliation is reserved for a deliberate Harmony activation.
-      void this.performSync({ catalog: false, deep: false });
+      // A local mutation runs Harmony automatically: the queued record is
+      // sealed and the catalog is reconciled in the same pass, so a story
+      // created here is durable and level with PostgreSQL without the user
+      // pressing anything. The interval guard keeps a long burst of saves from
+      // chaining catalog passes; those degrade to an outbox-only flush.
+      const catalog =
+        Date.now() - this.lastCatalogSyncStartedAt >= this.AUTO_HARMONY_MIN_INTERVAL_MS;
+      void this.performSync({ catalog, deep: false });
     }, this.FLUSH_DEBOUNCE_MS);
   }
 
@@ -1322,6 +1341,30 @@ export class PersistentStorageManager implements StorageAdapter {
     };
   }
 
+  /**
+   * Fires as soon as the story catalog on this device is level with PostgreSQL,
+   * which happens well before a pass finishes sealing chapter bodies and
+   * draining the outbox. The Library only needs the catalog, so waiting for the
+   * terminal `synced`/`error` status to publish it kept a fully reconciled
+   * library invisible for the rest of the pass.
+   */
+  subscribeToCatalogUpdates(callback: () => void) {
+    this.catalogSubscribers.push(callback);
+    return () => {
+      this.catalogSubscribers = this.catalogSubscribers.filter((cb) => cb !== callback);
+    };
+  }
+
+  private notifyCatalogUpdated() {
+    for (const callback of [...this.catalogSubscribers]) {
+      try {
+        callback();
+      } catch (error) {
+        console.error("A Harmony catalog subscriber failed:", error);
+      }
+    }
+  }
+
   public getSyncStatus(): SyncStatus {
     return this.syncStatus;
   }
@@ -1384,8 +1427,13 @@ export class PersistentStorageManager implements StorageAdapter {
 
     this.isCloudAvailable = true;
     this.setStatus("idle");
-    // A restored account must see its PostgreSQL library on a clean browser.
-    await this.performSync({ catalog: true, deep: false });
+    // A restored account must see its PostgreSQL library on a clean browser,
+    // but this promise is `accountTransitionPromise` — every getStories/
+    // getStory/saveStory awaits it through `awaitAccountScope`. Awaiting the
+    // catalog pass here made the first Library read block until the entire
+    // library had finished reconciling. The scope is switched; publish the
+    // catalog in the background.
+    void this.performSync({ catalog: true, deep: false });
   }
 
   async init(): Promise<void> {
@@ -1543,7 +1591,12 @@ export class PersistentStorageManager implements StorageAdapter {
       } else if (auth.currentUser) {
         this.isCloudAvailable = true;
         this.setStatus("idle");
-        await this.performSync({ catalog: true, deep: false });
+        // Harmony must never gate the first paint. The local replica is already
+        // scoped and readable at this point, so the PostgreSQL catalog is
+        // reconciled in the background and published as it lands. Awaiting it
+        // here held the whole app on the loading veil until every story,
+        // chapter body and media object had been pulled.
+        void this.performSync({ catalog: true, deep: false });
       }
 
       this.authUnsubscribe?.();
@@ -1715,12 +1768,18 @@ export class PersistentStorageManager implements StorageAdapter {
     return clone;
   }
 
-  private async prepareCloudStoryForLocalCache(
-    story: StoryWorld,
-  ): Promise<StoryWorld> {
-    return preparePermanentPersistencePayload(
-      await this.hydrateCurrentMedia(story),
-    );
+  /**
+   * Shape a cloud story for the offline replica.
+   *
+   * This used to run full media hydration first, which downloaded every
+   * referenced R2 object (cover, Codex portraits, chapter heroes, voice clips)
+   * for every story being cached — the dominant cost of a cold Library load.
+   * None of that work survived: the replica keeps asset ids, and the delivery
+   * URLs hydration produced were stripped again on the very next line. Read
+   * paths (`getStories`/`getStory`) still hydrate what is actually rendered.
+   */
+  private prepareCloudStoryForLocalCache(story: StoryWorld): StoryWorld {
+    return prepareCloudReplicaPayload(story);
   }
 
   private handleSyncConflict(
@@ -1855,7 +1914,7 @@ export class PersistentStorageManager implements StorageAdapter {
         this.handleSyncConflict(localStory, cloudStory);
         return "conflict";
       }
-      await this.localAdapter.saveStory(await this.prepareCloudStoryForLocalCache(
+      await this.localAdapter.saveStory(this.prepareCloudStoryForLocalCache(
         cloudStory.persistenceHydration === "summary"
           ? this.mergeCatalogSummary(localStory, cloudStory)
           : cloudStory,
@@ -1898,7 +1957,7 @@ export class PersistentStorageManager implements StorageAdapter {
           // requests a trailing pass; never overwrite that newer local payload.
           return "blocked";
         }
-        await this.localAdapter.saveStory(await this.prepareCloudStoryForLocalCache(
+        await this.localAdapter.saveStory(this.prepareCloudStoryForLocalCache(
           cloudStory.persistenceHydration === "summary"
             ? this.mergeCatalogSummary(localStory, cloudStory)
             : cloudStory,
@@ -1936,7 +1995,7 @@ export class PersistentStorageManager implements StorageAdapter {
             await this.applyCloudTombstone(cloudStory);
           } else {
             await this.localAdapter.saveStory(
-              await this.prepareCloudStoryForLocalCache(cloudStory),
+              this.prepareCloudStoryForLocalCache(cloudStory),
             );
             this.rememberCloudRevision(cloudStory);
           }
@@ -2123,6 +2182,18 @@ export class PersistentStorageManager implements StorageAdapter {
             (chapter.hasContent || chapter.generatedContent)
           ) {
             seen.add(chapter.number);
+            // A shallow pass exists to seal queued work, not to audit the
+            // library. Visiting every referenced chapter turned an ordinary
+            // Library load into one local read — and, for any body this device
+            // has not cached yet, one PostgreSQL round trip — per chapter.
+            // Bodies are fetched on demand when a chapter is opened, and an
+            // explicit Harmony still performs the full deep audit.
+            if (
+              !shouldReadCloud &&
+              !this.findPendingTask("chapter", story.id, chapter.number)
+            ) {
+              continue;
+            }
             jobs.push(() =>
               this.withRecordLock(
                 this.storyLockKey(story.id),
@@ -2243,6 +2314,9 @@ export class PersistentStorageManager implements StorageAdapter {
       }
       const cloudMap = new Map(cloudStories.map((s) => [s.id, s]));
       const localMap = new Map(localStories.map((s) => [s.id, s]));
+      const catalogBefore = new Map(
+        storiesToCatalogue.map((story) => [story.id, JSON.stringify(story)]),
+      );
 
       // Always download the cloud union first. A broken local upload must never
       // prevent unrelated cloud-only stories from appearing on this device.
@@ -2319,6 +2393,17 @@ export class PersistentStorageManager implements StorageAdapter {
         (story) => !story.userId || story.userId === userId,
       );
       this.assertCurrentAccount(userId);
+      // The catalog is now level with PostgreSQL. Publish it before the far
+      // slower chapter-body and outbox phases so the Library renders its real
+      // cards — cover, title, progress — instead of waiting for the pass. A
+      // no-op pass does not need to make the Library resolve every descriptor
+      // again, though.
+      const catalogChanged =
+        catalogBefore.size !== harmonizedStories.length ||
+        harmonizedStories.some(
+          (story) => catalogBefore.get(story.id) !== JSON.stringify(story),
+        );
+      if (catalogChanged) this.notifyCatalogUpdated();
       if (
         (await this.reconcileChapters(
           harmonizedStories,
@@ -2439,6 +2524,7 @@ export class PersistentStorageManager implements StorageAdapter {
             this.deepStoryIdsRequested.clear();
           }
           if (syncCatalog) {
+            this.lastCatalogSyncStartedAt = Date.now();
             await this.performSyncPass(deep, deepStoryIds);
           } else {
             await this.performOutboxPass();
@@ -2554,19 +2640,23 @@ export class PersistentStorageManager implements StorageAdapter {
       const hydrated = await this.cloudAdapter.getStory(id);
       this.assertCurrentAccount(currentUserId);
       if (hydrated) {
-        const cacheable = preparePermanentPersistencePayload({
+        const cacheable = this.prepareCloudStoryForLocalCache({
           ...hydrated,
           persistenceHydration: "full" as const,
-          mediaDescriptors: Object.fromEntries(
-            Object.entries(hydrated.mediaDescriptors ?? {}).map(([assetId, descriptor]) => [
-              assetId,
-              { ...descriptor, deliveryUrl: "" },
-            ]),
-          ),
         });
-        await this.localAdapter.saveStory(cacheable);
-        this.rememberCloudRevision(cacheable);
-        story = await this.hydrateCurrentMedia(cacheable);
+        // A local save or Harmony pass may have changed this record while the
+        // cloud read was in flight. Only replace the summary we set out to
+        // hydrate; never clobber a newer local payload.
+        const currentLocal = await this.localAdapter.getStory(id);
+        if (currentLocal?.persistenceHydration === "summary") {
+          await this.localAdapter.saveStory(cacheable);
+          this.rememberCloudRevision(cacheable);
+          // The single hydration below covers this record too; hydrating here
+          // as well resolved every asset twice on the story-open path.
+          story = cacheable;
+        } else if (currentLocal) {
+          story = currentLocal;
+        }
       }
     }
     return story ? this.hydrateCurrentMedia(story) : null;

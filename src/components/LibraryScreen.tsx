@@ -92,6 +92,7 @@ export const LibraryScreen: React.FC = () => {
   const currentScreen = useAppStore(state => state.currentScreen);
     const setCurrentScreen = useAppStore(state => state.setCurrentScreen);
     const stories = useAppStore(state => state.stories);
+    const libraryStories = Array.isArray(stories) ? stories : [];
     const setActiveStoryId = useAppStore(state => state.setActiveStoryId);
     const setStoryToDelete = useAppStore(state => state.setStoryToDelete);
     const userProfile = useAppStore(state => state.userProfile);
@@ -100,7 +101,24 @@ export const LibraryScreen: React.FC = () => {
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [videoPlaying, setVideoPlaying] = useState(false);
   const [videoError, setVideoError] = useState(false);
-  const [activeTab, setActiveTab] = useState<'featured' | 'my-library' | 'challenges'>(stories.length === 0 ? 'featured' : 'my-library');
+  const [activeTab, setActiveTab] = useState<'featured' | 'my-library' | 'challenges'>(libraryStories.length === 0 ? 'featured' : 'my-library');
+  // The library is published as Harmony reconciles it with PostgreSQL rather
+  // than before the first paint, so this screen can mount with an empty store
+  // on a device whose offline replica is cold. Reveal My Library the moment the
+  // catalog lands — but never yank the user off a tab they chose themselves.
+  const readerChoseTab = useRef(false);
+  const chooseTab = (tab: 'featured' | 'my-library' | 'challenges') => {
+    readerChoseTab.current = true;
+    setActiveTab(tab);
+  };
+  useEffect(() => {
+    if (readerChoseTab.current || libraryStories.length === 0) return;
+    setActiveTab('my-library');
+  }, [libraryStories.length]);
+  // An empty store while Harmony is still fetching the catalog is "not loaded
+  // yet", not "you have no stories".
+  const isLibraryLoading =
+    libraryStories.length === 0 && (syncStatus === 'idle' || syncStatus === 'syncing');
   const heroVideoRef = useRef<HTMLVideoElement>(null);
 
   // Rotate backup celestial library images every 6 seconds
@@ -157,7 +175,7 @@ export const LibraryScreen: React.FC = () => {
     return 0;
   });
 
-  const sortedStoriesByDate = [...stories].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  const sortedStoriesByDate = [...libraryStories].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   const mostRecentStory = sortedStoriesByDate.length > 0 ? sortedStoriesByDate[0] : null;
 
   const handleDeleteStory = (id: string, e: React.MouseEvent) => {
@@ -265,7 +283,7 @@ export const LibraryScreen: React.FC = () => {
 
       <div className="flex space-x-4 sm:space-x-6 border-b border-neutral-900 mt-8 mb-6 overflow-x-auto custom-scrollbar pb-1">
         <button 
-           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setActiveTab('featured')}
+           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => chooseTab('featured')}
           className={`pb-3 px-1 text-xs sm:text-sm whitespace-nowrap font-sc font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 ${
             activeTab === 'featured' ? 'border-portal text-portal' : 'border-transparent text-neutral-500 hover:text-neutral-300'
           }`}
@@ -273,17 +291,17 @@ export const LibraryScreen: React.FC = () => {
           Immortal Hub
         </button>
         <button 
-          onClick={() => setActiveTab('my-library')}
+          onClick={() => chooseTab('my-library')}
           className={`pb-3 px-1 text-xs sm:text-sm whitespace-nowrap font-sc font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 flex items-center gap-2 ${
             activeTab === 'my-library' ? 'border-gold-accent text-gold-accent' : 'border-transparent text-neutral-500 hover:text-neutral-300'
           }`}
         >
-          My Library {stories.length > 0 && `(${stories.length})`}
+          My Library {libraryStories.length > 0 && `(${libraryStories.length})`}
           {syncStatus === 'syncing' && <div className="ml-1 w-2 h-2 rounded-full bg-portal animate-pulse" title="Syncing..." />}
           {syncStatus === 'error' && <div className="ml-1 w-2 h-2 rounded-full bg-red-500" title="Sync Pending (Offline or Quota)" />}
         </button>
         <button 
-          onClick={() => setActiveTab('challenges')}
+          onClick={() => chooseTab('challenges')}
           className={`pb-3 px-1 text-xs sm:text-sm whitespace-nowrap font-sc font-bold uppercase tracking-wider border-b-2 transition-all shrink-0 ${
             activeTab === 'challenges' ? 'border-portal text-portal' : 'border-transparent text-neutral-500 hover:text-neutral-300'
           }`}
@@ -378,7 +396,21 @@ export const LibraryScreen: React.FC = () => {
             </div>
           )}
 
-          {stories.length === 0 ? (
+          {isLibraryLoading ? (
+            <div
+              className="text-center py-20 bg-[#111] border border-neutral-900 rounded-lg max-w-lg mx-auto shadow-inner"
+              role="status"
+              aria-live="polite"
+            >
+              <BookOpen size={40} className="text-neutral-800 mx-auto mb-4 animate-pulse" />
+              <h4 className="font-sc font-semibold text-neutral-400 text-sm uppercase tracking-wider mb-1">
+                Opening the Story Vault
+              </h4>
+              <p className="text-xs text-neutral-600 max-w-xs mx-auto">
+                Harmony is retrieving your scrolls. Your cards appear as soon as they arrive.
+              </p>
+            </div>
+          ) : libraryStories.length === 0 ? (
             <div className="text-center py-20 bg-[#111] border border-neutral-900 rounded-lg max-w-lg mx-auto shadow-inner">
               <BookOpen size={40} className="text-neutral-800 mx-auto mb-4 animate-bounce" />
               <h4 className="font-sc font-semibold text-neutral-400 text-sm uppercase tracking-wider mb-1">
@@ -396,7 +428,7 @@ export const LibraryScreen: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6">
-              {stories.map((story) => {
+              {libraryStories.map((story) => {
                 const { totalChapters, readChapters, generated } = getStoryChapterStats(story);
                 const progressPercent = totalChapters > 0 ? Math.round((readChapters / totalChapters) * 100) : 0;
                 
@@ -629,7 +661,7 @@ export const LibraryScreen: React.FC = () => {
               {filteredAndSortedWorlds.map((world) => {
                 const user = auth.currentUser;
                 const finalId = user ? `${world.id}-${user.uid}` : world.id;
-                const inLibraryStory = stories.find(s => s.id === finalId || s.id === world.id);
+                const inLibraryStory = libraryStories.find(s => s.id === finalId || s.id === world.id);
                 const isWorldRecentlyRead = inLibraryStory && mostRecentStory && inLibraryStory.id === mostRecentStory.id;
                 const isWorldDraft = inLibraryStory ? inLibraryStory.arcs.some(arc => arc.chapters.some(c => !c.isSealed)) : false;
 

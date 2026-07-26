@@ -753,6 +753,49 @@ describe('PersistentStorageManager', () => {
 
       await manager.performSync();
 
+      // An automatic pass reconciles the catalog only. Pre-pulling every
+      // referenced body cost one PostgreSQL round trip per chapter and was the
+      // bulk of a cold Library load.
+      expect(cloudAdapter.getChapterContent).not.toHaveBeenCalled();
+
+      // The body is still hydrated — on demand, when the chapter is opened.
+      await expect(
+        manager.getChapterContent(cloudStory.id, 1),
+      ).resolves.toEqual(cloudChapter);
+      await expect(
+        localAdapter.getChapterContent(cloudStory.id, 1),
+      ).resolves.toEqual(cloudChapter);
+    });
+
+    it('pre-pulls cloud chapter content during an explicit deep Harmony', async () => {
+      const localAdapter = (manager as any).localAdapter;
+      const cloudAdapter = (manager as any).cloudAdapter;
+      const cloudStory = {
+        ...makeStory('deep_chapter_download'),
+        arcs: [{
+          title: 'Arc',
+          isCompleted: false,
+          chapters: [{
+            number: 1,
+            title: 'Chapter 1',
+            premise: 'Begin',
+            status: 'read',
+            hasContent: true,
+          }],
+        }],
+      };
+      const cloudChapter: ChapterContent = {
+        storyId: cloudStory.id,
+        chapterNumber: 1,
+        generatedContent: 'Recovered from the shared cloud.',
+        updatedAt: new Date().toISOString(),
+      };
+      cloudAdapter.getStories = vi.fn().mockResolvedValue([cloudStory]);
+      cloudAdapter.getChapterContent = vi.fn().mockResolvedValue(cloudChapter);
+      (manager as any).isCloudAvailable = true;
+
+      await manager.performSync({ deep: true });
+
       await expect(
         localAdapter.getChapterContent(cloudStory.id, 1),
       ).resolves.toEqual(cloudChapter);

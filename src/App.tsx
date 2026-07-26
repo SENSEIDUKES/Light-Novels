@@ -345,77 +345,95 @@ function App() {
 
     let syncRefreshVersion = 0;
     let syncSubscriberDisposed = false;
-    const unsubSync = storyStorage.subscribe(async (status) => {
+
+    // Republish the library from local storage. Harmony calls this twice per
+    // pass: once the moment the catalog is level with PostgreSQL (so the real
+    // cards render immediately) and again when the pass reaches a terminal
+    // status. Both share the same account/selection guards, so a late refresh
+    // can never publish a previous account's library or clobber a newer store.
+    const refreshLibraryFromStorage = async () => {
       const refreshVersion = ++syncRefreshVersion;
-      store_setSyncStatus(status);
-      if (status === 'synced' || status === 'error') {
-        const refreshUserId = auth.currentUser?.uid ?? null;
-        const refreshStartState = useAppStore.getState();
-        const refreshSourceState: StoryRefreshGuardState = {
-          stories: refreshStartState.stories,
-          activeStoryId: refreshStartState.activeStoryId,
-          selectedChapterNum: refreshStartState.selectedChapterNum,
-        };
-        try {
-          // Reload after every completed/partial pass so a failed upload cannot hide
-          // unrelated stories that were successfully pulled from the cloud. Story
-          // metadata is stored separately from chapter bodies, so preserve hydrated
-          // reader content and explicitly refresh the active chapter before publishing
-          // the new store state.
-          const freshStories = await storyStorage.getStories();
-          const refreshed = await refreshActiveChapterAfterMetadataSync({
-            freshStories,
-            currentStories: refreshSourceState.stories,
-            activeStoryId: refreshSourceState.activeStoryId,
-            selectedChapterNumber: refreshSourceState.selectedChapterNum,
-            loadChapter: (storyId, chapterNumber) =>
-              storyStorage.getChapterContent(storyId, chapterNumber),
+      const refreshUserId = auth.currentUser?.uid ?? null;
+      const refreshStartState = useAppStore.getState();
+      const refreshSourceState: StoryRefreshGuardState = {
+        stories: refreshStartState.stories,
+        activeStoryId: refreshStartState.activeStoryId,
+        selectedChapterNum: refreshStartState.selectedChapterNum,
+      };
+      try {
+        // Reload after every completed/partial pass so a failed upload cannot hide
+        // unrelated stories that were successfully pulled from the cloud. Story
+        // metadata is stored separately from chapter bodies, so preserve hydrated
+        // reader content and explicitly refresh the active chapter before publishing
+        // the new store state.
+        const freshStories = await storyStorage.getStories();
+        const refreshed = await refreshActiveChapterAfterMetadataSync({
+          freshStories,
+          currentStories: refreshSourceState.stories,
+          activeStoryId: refreshSourceState.activeStoryId,
+          selectedChapterNumber: refreshSourceState.selectedChapterNum,
+          loadChapter: (storyId, chapterNumber) =>
+            storyStorage.getChapterContent(storyId, chapterNumber),
+        });
+
+        const latestState = useAppStore.getState();
+
+        if (
+          syncSubscriberDisposed ||
+          refreshVersion !== syncRefreshVersion ||
+          (auth.currentUser?.uid ?? null) !== refreshUserId ||
+          !isStoryRefreshStillCurrent(refreshSourceState, latestState)
+        ) return;
+        store_setStories(refreshed.stories);
+
+        // Auth may resolve after local storage initialization. Run the legacy
+        // demo migration only after the correct account-scoped library is loaded.
+        if (auth.currentUser && auth.currentUser.uid === refreshUserId) {
+          void store_migrateOrDiscardDemoStories(auth.currentUser).catch((error) => {
+            console.error('Failed to migrate legacy demo stories after Harmony sync:', error);
           });
+        }
 
-          const latestState = useAppStore.getState();
-
-          if (
-            syncSubscriberDisposed ||
-            refreshVersion !== syncRefreshVersion ||
-            (auth.currentUser?.uid ?? null) !== refreshUserId ||
-            !isStoryRefreshStillCurrent(refreshSourceState, latestState)
-          ) return;
-          store_setStories(refreshed.stories);
-
-          // Auth may resolve after local storage initialization. Run the legacy
-          // demo migration only after the correct account-scoped library is loaded.
-          if (auth.currentUser && auth.currentUser.uid === refreshUserId) {
-            void store_migrateOrDiscardDemoStories(auth.currentUser).catch((error) => {
-              console.error('Failed to migrate legacy demo stories after Harmony sync:', error);
-            });
-          }
-
-          const activeSelectionStillMatches =
-            latestState.activeStoryId === refreshSourceState.activeStoryId &&
-            latestState.selectedChapterNum === refreshSourceState.selectedChapterNum;
-          if (activeSelectionStillMatches && refreshed.unavailable) {
-            const storyTitle = refreshed.stories.find(
-              story => story.id === refreshSourceState.activeStoryId,
-            )?.title || 'the active story';
-            store_setAppError(
-              `Harmony refreshed ${storyTitle}, but Chapter ${refreshSourceState.selectedChapterNum} is marked as generated and its content is currently unavailable from local or cloud storage. No chapter metadata was changed; sync will retry automatically.`,
-            );
-          } else if (activeSelectionStillMatches && refreshed.loadFailed) {
-            store_setAppError(
-              `Harmony refreshed the library, but could not refresh Chapter ${refreshSourceState.selectedChapterNum}. Its saved chapter metadata was left unchanged and sync will retry automatically.`,
-            );
-          }
-        } catch (error) {
-          if (
-            syncSubscriberDisposed ||
-            refreshVersion !== syncRefreshVersion ||
-            (auth.currentUser?.uid ?? null) !== refreshUserId
-          ) return;
-          console.error('Failed to refresh stories after Harmony sync:', error);
+        const activeSelectionStillMatches =
+          latestState.activeStoryId === refreshSourceState.activeStoryId &&
+          latestState.selectedChapterNum === refreshSourceState.selectedChapterNum;
+        if (activeSelectionStillMatches && refreshed.unavailable) {
+          const storyTitle = refreshed.stories.find(
+            story => story.id === refreshSourceState.activeStoryId,
+          )?.title || 'the active story';
           store_setAppError(
-            'Harmony completed, but the refreshed library could not be loaded on this device. Your saved data was left unchanged and sync will retry automatically.',
+            `Harmony refreshed ${storyTitle}, but Chapter ${refreshSourceState.selectedChapterNum} is marked as generated and its content is currently unavailable from local or cloud storage. No chapter metadata was changed; sync will retry automatically.`,
+          );
+        } else if (activeSelectionStillMatches && refreshed.loadFailed) {
+          store_setAppError(
+            `Harmony refreshed the library, but could not refresh Chapter ${refreshSourceState.selectedChapterNum}. Its saved chapter metadata was left unchanged and sync will retry automatically.`,
           );
         }
+      } catch (error) {
+        if (
+          syncSubscriberDisposed ||
+          refreshVersion !== syncRefreshVersion ||
+          (auth.currentUser?.uid ?? null) !== refreshUserId
+        ) return;
+        console.error('Failed to refresh stories after Harmony sync:', error);
+        store_setAppError(
+          'Harmony could not load the refreshed library on this device. Your saved data was left unchanged and sync will retry automatically.',
+        );
+      }
+    };
+
+    // The catalog is level with PostgreSQL long before Harmony finishes sealing
+    // chapter bodies and draining the outbox. Render the library then, rather
+    // than holding every card back until the whole pass reaches a terminal
+    // status.
+    const unsubCatalog = storyStorage.subscribeToCatalogUpdates(() => {
+      void refreshLibraryFromStorage();
+    });
+
+    const unsubSync = storyStorage.subscribe((status) => {
+      store_setSyncStatus(status);
+      if (status === 'synced' || status === 'error') {
+        void refreshLibraryFromStorage();
       }
     });
 
@@ -425,6 +443,7 @@ function App() {
       profileSubscriptionVersion += 1;
       unsubAuth();
       unsubSync();
+      unsubCatalog();
       unsubProgress();
     };
     // Note: These Zustand store actions are guaranteed stable.
