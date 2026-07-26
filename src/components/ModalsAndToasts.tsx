@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import FocusLock from 'react-focus-lock';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertCircle, X, Sliders, Award, Shield, Sparkles, Compass, Globe, Key, Zap, RefreshCw, Save } from 'lucide-react';
@@ -68,6 +68,7 @@ export const ModalsAndToasts: React.FC = () => {
   const [loadingModels, setLoadingModels] = useState<Record<string, boolean>>({});
   const [deleteText, setDeleteText] = useState('');
   const [unlockedArtifactAlert, setUnlockedArtifactAlert] = useState<any | null>(null);
+  const activeArtifactAlertRef = useRef<any | null>(null);
   const [isArtifactRevealed, setIsArtifactRevealed] = useState(false);
   const [ollamaStatus, setOllamaStatus] = useState<'checking' | 'connected' | 'disconnected' | 'idle'>('idle');
 
@@ -79,7 +80,6 @@ export const ModalsAndToasts: React.FC = () => {
 
   useEffect(() => {
     let revealTimer: NodeJS.Timeout;
-    let dismissTimer: NodeJS.Timeout;
 
     if (unlockedArtifactAlert) {
       if (!isArtifactRevealed) {
@@ -87,33 +87,66 @@ export const ModalsAndToasts: React.FC = () => {
           vibrate('heavyTap');
           setIsArtifactRevealed(true);
         }, 3000);
-      } else {
-        dismissTimer = setTimeout(() => {
-          setUnlockedArtifactAlert(null);
-        }, 5000);
       }
     }
 
     return () => {
       clearTimeout(revealTimer);
-      clearTimeout(dismissTimer);
     };
   }, [unlockedArtifactAlert, isArtifactRevealed]);
 
+  const dismissArtifactAlert = () => {
+    activeArtifactAlertRef.current = null;
+    setUnlockedArtifactAlert(null);
+  };
+
+  // Handle live artifact unlock events with Reader timing awareness
   useEffect(() => {
     const handleArtifactUnlocked = (e: Event) => {
       const customEvent = e as CustomEvent;
-      if (customEvent.detail && customEvent.detail.artifact) {
+      const artifact = customEvent.detail?.artifact;
+      if (!artifact) return;
+
+      const state = useAppStore.getState();
+      const isReader = state.currentScreen === 'reader';
+      const allowedInReader = state.canShowRelicInReader;
+
+      if (activeArtifactAlertRef.current || (isReader && !allowedInReader)) {
+        state.enqueueRelicReveal(artifact);
+      } else {
+        activeArtifactAlertRef.current = artifact;
         setIsArtifactRevealed(false);
-        setUnlockedArtifactAlert(customEvent.detail.artifact);
+        setUnlockedArtifactAlert(artifact);
         vibrate('success');
       }
     };
+
     window.addEventListener('seihouse-artifact-unlocked', handleArtifactUnlocked);
     return () => {
       window.removeEventListener('seihouse-artifact-unlocked', handleArtifactUnlocked);
     };
   }, []);
+
+  // Flush pending relic queue when unlockedArtifactAlert is cleared and reader allows reveal
+  const currentScreen = useAppStore(state => state.currentScreen);
+  const canShowRelicInReader = useAppStore(state => state.canShowRelicInReader);
+  const popPendingRelic = useAppStore(state => state.popPendingRelic);
+  const pendingRelicCount = useAppStore(state => state.pendingRelicQueue.length);
+
+  useEffect(() => {
+    if (!activeArtifactAlertRef.current && pendingRelicCount > 0) {
+      const isReader = currentScreen === 'reader';
+      if (!isReader || canShowRelicInReader) {
+        const nextArtifact = popPendingRelic();
+        if (nextArtifact) {
+          activeArtifactAlertRef.current = nextArtifact;
+          setIsArtifactRevealed(false);
+          setUnlockedArtifactAlert(nextArtifact);
+          vibrate('success');
+        }
+      }
+    }
+  }, [unlockedArtifactAlert, currentScreen, canShowRelicInReader, popPendingRelic, pendingRelicCount]);
 
   useEffect(() => {
     fetch('/api/router-presets')
@@ -627,7 +660,7 @@ export const ModalsAndToasts: React.FC = () => {
               className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md"
               onClick={() => {
                 if (isArtifactRevealed) {
-                  setUnlockedArtifactAlert(null);
+                  dismissArtifactAlert();
                 }
               }}
             >
@@ -643,8 +676,8 @@ export const ModalsAndToasts: React.FC = () => {
               {!isArtifactRevealed ? (
                 <motion.div
                   key="mystery-relic"
-                  initial={{ scale: 0.8, y: 50, opacity: 0, rotateY: 180 }}
-                  animate={{ scale: 1, y: 0, opacity: 1, rotateY: 180 }}
+                  initial={{ scale: 0.8, y: 50, opacity: 0 }}
+                  animate={{ scale: 1, y: 0, opacity: 1 }}
                   exit={{ scale: 1.1, opacity: 0, rotateY: 90 }}
                   transition={{ type: "spring", damping: 20, stiffness: 100 }}
                   className="relative group cursor-pointer"
@@ -669,10 +702,10 @@ export const ModalsAndToasts: React.FC = () => {
               ) : (
                 <motion.div
                   key="revealed-relic"
-                  initial={{ scale: 0.9, rotateY: -90, opacity: 0 }}
-                  animate={{ scale: 1, rotateY: 0, opacity: 1 }}
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: "spring", damping: 25, stiffness: 180 }}
-                  className="relative bg-neutral-950 border border-amber-500/30 rounded-3xl p-8 max-w-md w-full text-center z-10 shadow-[0_0_80px_rgba(245,158,11,0.25)] overflow-hidden"
+                  className="relative bg-neutral-950 border border-amber-500/30 rounded-3xl p-6 md:p-8 max-w-md w-full text-center z-10 shadow-[0_0_80px_rgba(245,158,11,0.25)] overflow-hidden max-h-[90vh] overflow-y-auto"
                   onClick={(e) => e.stopPropagation()}
                 >
                 {/* Aura border glow based on rarity */}
@@ -693,108 +726,120 @@ export const ModalsAndToasts: React.FC = () => {
                 {/* Sparkling Background Grid effect */}
                 <div className="absolute inset-0 bg-[linear-gradient(to_right,#161616_1px,transparent_1px),linear-gradient(to_bottom,#161616_1px,transparent_1px)] bg-[size:24px_24px] opacity-30 pointer-events-none"></div>
 
-                <div className="space-y-6 relative z-10">
-                  {/* Event Title */}
-                  <div className="space-y-1">
-                    <span className="text-[11px] uppercase font-bold tracking-[0.25em] text-amber-400 font-sc block animate-pulse drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]">
-                      ☯ You've been Rewarded by The Dao ☯
-                    </span>
-                    <h2 className="font-display text-2xl font-black bg-clip-text text-transparent bg-gradient-to-b from-white via-neutral-200 to-neutral-400 leading-tight uppercase tracking-wide">
-                      Cosmic Relic Unlocked
-                    </h2>
-                  </div>
+                <div className="space-y-5 relative z-10">
+                  {/* 1. What the user received (Visual Icon, Relic Name & Rarity Tag) */}
+                  <div className="space-y-3">
+                    <div className="relative w-24 h-24 mx-auto flex items-center justify-center">
+                      <div className="absolute inset-0 rounded-full border border-neutral-900 animate-spin" style={{ animationDuration: '20s' }}></div>
+                      <div className="absolute inset-2 rounded-full border border-dashed border-neutral-850 animate-spin" style={{ animationDuration: '10s' }}></div>
+                      <div className="absolute inset-3 bg-black/90 rounded-full border border-neutral-900 flex items-center justify-center shadow-inner">
+                        {(() => {
+                          const name = unlockedArtifactAlert.name.toLowerCase();
+                          const rarity = unlockedArtifactAlert.rarity;
+                          const size = 36;
+                          let className = "";
+                          
+                          if (rarity === 'Transcendent') className = "text-cyan-400 animate-pulse drop-shadow-[0_0_12px_rgba(6,182,212,0.7)]";
+                          else if (rarity === 'Mythic') className = "text-red-500 animate-pulse drop-shadow-[0_0_10px_rgba(220,38,38,0.6)]";
+                          else if (rarity === 'Legendary') className = "text-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]";
+                          else if (rarity === 'Epic') className = "text-purple-400";
+                          else if (rarity === 'Rare') className = "text-emerald-400";
+                          else className = "text-neutral-500";
 
-                  {/* Pulsing Central Portal displaying the relic */}
-                  <div className="relative w-28 h-28 mx-auto flex items-center justify-center">
-                    {/* Ring auras */}
-                    <div className="absolute inset-0 rounded-full border border-neutral-900 animate-spin" style={{ animationDuration: '20s' }}></div>
-                    <div className="absolute inset-2 rounded-full border border-dashed border-neutral-850 animate-spin" style={{ animationDuration: '10s' }}></div>
-                    <div className="absolute inset-4 bg-black/80 rounded-full border border-neutral-900 flex items-center justify-center shadow-inner">
-                      {(() => {
-                        const name = unlockedArtifactAlert.name.toLowerCase();
-                        const rarity = unlockedArtifactAlert.rarity;
-                        const size = 38;
-                        let className = "";
-                        
-                        if (rarity === 'Transcendent') className = "text-cyan-400 animate-pulse drop-shadow-[0_0_12px_rgba(6,182,212,0.7)]";
-                        else if (rarity === 'Mythic') className = "text-red-500 animate-pulse drop-shadow-[0_0_10px_rgba(220,38,38,0.6)]";
-                        else if (rarity === 'Legendary') className = "text-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]";
-                        else if (rarity === 'Epic') className = "text-purple-400";
-                        else if (rarity === 'Rare') className = "text-emerald-400";
-                        else className = "text-neutral-500";
+                          if (name.includes('medallion') || name.includes('badge')) return <Award size={size} className={className} />;
+                          if (name.includes('seal') || name.includes('signet')) return <Shield size={size} className={className} />;
+                          if (name.includes('gourd') || name.includes('nectar') || name.includes('cauldron') || name.includes('potion')) return <Zap size={size} className={className} />;
+                          if (name.includes('spindle') || name.includes('thread') || name.includes('matrix')) return <RefreshCw size={size} className={className} />;
+                          if (name.includes('pen') || name.includes('brush') || name.includes('scribe')) return <Save size={size} className={className} />;
+                          if (name.includes('crown') || name.includes('circlet') || name.includes('tiara')) return <Sliders size={size} className={className} />;
+                          if (name.includes('compass')) return <Compass size={size} className={className} />;
+                          if (name.includes('mirror')) return <Globe size={size} className={className} />;
+                          if (name.includes('key')) return <Key size={size} className={className} />;
+                          return <Sparkles size={size} className={className} />;
+                        })()}
+                      </div>
+                    </div>
 
-                        if (name.includes('medallion') || name.includes('badge')) return <Award size={size} className={className} />;
-                        if (name.includes('seal') || name.includes('signet')) return <Shield size={size} className={className} />;
-                        if (name.includes('gourd') || name.includes('nectar') || name.includes('cauldron') || name.includes('potion')) return <Zap size={size} className={className} />;
-                        if (name.includes('spindle') || name.includes('thread') || name.includes('matrix')) return <RefreshCw size={size} className={className} />;
-                        if (name.includes('pen') || name.includes('brush') || name.includes('scribe')) return <Save size={size} className={className} />;
-                        if (name.includes('crown') || name.includes('circlet') || name.includes('tiara')) return <Sliders size={size} className={className} />;
-                        if (name.includes('compass')) return <Compass size={size} className={className} />;
-                        if (name.includes('mirror')) return <Globe size={size} className={className} />;
-                        if (name.includes('key')) return <Key size={size} className={className} />;
-                        return <Sparkles size={size} className={className} />;
-                      })()}
+                    <div className="space-y-1">
+                      <span className={`inline-block text-[9px] uppercase font-bold tracking-widest font-mono px-3 py-0.5 rounded-full border ${
+                        unlockedArtifactAlert.rarity === 'Transcendent' 
+                          ? 'text-cyan-400 border-cyan-950 bg-cyan-950/20' 
+                          : unlockedArtifactAlert.rarity === 'Mythic' 
+                          ? 'text-red-400 border-red-950 bg-red-950/20' 
+                          : unlockedArtifactAlert.rarity === 'Legendary' 
+                          ? 'text-amber-400 border-amber-950 bg-amber-950/20'
+                          : unlockedArtifactAlert.rarity === 'Epic'
+                          ? 'text-purple-400 border-purple-950 bg-purple-950/20'
+                          : unlockedArtifactAlert.rarity === 'Rare'
+                          ? 'text-emerald-400 border-emerald-950 bg-emerald-950/20'
+                          : 'text-neutral-400 border-neutral-900 bg-neutral-900/30'
+                      }`}>
+                        {unlockedArtifactAlert.rarity} Relic
+                      </span>
+                      <h3 className="font-sans font-semibold text-xl text-signal tracking-wide">
+                        {unlockedArtifactAlert.name}
+                      </h3>
                     </div>
                   </div>
 
-                  {/* Relic Name & Rarity tag */}
-                  <div className="space-y-2">
-                    <span className={`inline-block text-[9px] uppercase font-bold tracking-widest font-mono px-3 py-1 rounded-full border ${
-                      unlockedArtifactAlert.rarity === 'Transcendent' 
-                        ? 'text-cyan-400 border-cyan-950 bg-cyan-950/20' 
-                        : unlockedArtifactAlert.rarity === 'Mythic' 
-                        ? 'text-red-400 border-red-950 bg-red-950/20' 
-                        : unlockedArtifactAlert.rarity === 'Legendary' 
-                        ? 'text-amber-400 border-amber-950 bg-amber-950/20'
-                        : unlockedArtifactAlert.rarity === 'Epic'
-                        ? 'text-purple-400 border-purple-950 bg-purple-950/20'
-                        : unlockedArtifactAlert.rarity === 'Rare'
-                        ? 'text-emerald-400 border-emerald-950 bg-emerald-950/20'
-                        : 'text-neutral-400 border-neutral-900 bg-neutral-900/30'
-                    }`}>
-                      {unlockedArtifactAlert.rarity} Relic
-                    </span>
-                    <h3 className="font-sans font-semibold text-lg text-signal">
-                      {unlockedArtifactAlert.name}
-                    </h3>
-                  </div>
-
-                  {/* Lore / Story description */}
-                  <div className="bg-black/60 border border-neutral-950 p-4 rounded-2xl relative">
-                    <p className="text-xs font-serif text-neutral-400 leading-relaxed italic">
+                  {/* 2. Short description / lore (concise & secondary) */}
+                  {unlockedArtifactAlert.description && (
+                    <p className="text-xs font-serif text-neutral-400 leading-relaxed italic px-2">
                       "{unlockedArtifactAlert.description}"
                     </p>
-                  </div>
-
-                  {/* Meridian Attribute Boost */}
-                  <div className="bg-neutral-950/40 border border-neutral-900/60 p-3.5 rounded-xl flex items-center justify-between">
-                    <div className="text-left">
-                      <span className="text-[8px] uppercase font-bold tracking-wider text-neutral-500 font-sc">Karmic Resonance</span>
-                      <p className="text-[10px] text-neutral-400 font-sans mt-0.5">Soul-meridian boost added</p>
-                    </div>
-                    <div className="px-3 py-1.5 bg-portal/10 border border-portal/30 rounded-lg text-xs font-bold font-mono text-portal animate-pulse flex items-center gap-1">
-                      <Sparkles size={11} />
-                      <span>{unlockedArtifactAlert.attributeBoost}</span>
-                    </div>
-                  </div>
-
-                  {/* Milestone Origin */}
-                  {unlockedArtifactAlert.sourceStoryTitle && (
-                    <p className="text-[10px] text-neutral-500 font-mono">
-                      Catalyst: {unlockedArtifactAlert.milestoneName} in <span className="text-neutral-400 font-sans">{unlockedArtifactAlert.sourceStoryTitle}</span>
-                    </p>
                   )}
+
+                  {/* 3. The Qi reward (visually distinct) */}
+                  <div className="bg-amber-950/20 border border-amber-500/30 p-3.5 rounded-xl flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-left">
+                      <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                        <Zap size={16} />
+                      </div>
+                      <div>
+                        <span className="text-[9px] uppercase font-bold tracking-wider text-amber-400 font-mono block">Qi Reward</span>
+                        <span className="text-[11px] text-neutral-300 font-sans">Cultivation Energy</span>
+                      </div>
+                    </div>
+                    <div className="px-3 py-1 bg-amber-500/15 border border-amber-500/40 rounded-lg text-sm font-bold font-mono text-amber-300">
+                      +{unlockedArtifactAlert.rewardValueQi ?? 100} Qi
+                    </div>
+                  </div>
+
+                  {/* 4. Flexible Special Unlock field (visually distinct) */}
+                  {(() => {
+                    const unlock = unlockedArtifactAlert.specialUnlock;
+                    const label = typeof unlock === 'object' && unlock?.label ? unlock.label : (typeof unlock === 'string' ? unlock : (unlockedArtifactAlert.attributeBoost || 'Profile Badge Unlocked'));
+                    
+                    return (
+                      <div className="bg-cyan-950/20 border border-cyan-500/30 p-3.5 rounded-xl flex items-center justify-between text-left">
+                        <div className="flex items-center gap-2 min-w-0 pr-2">
+                          <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+                            <Sparkles size={16} />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-[9px] uppercase font-bold tracking-wider text-cyan-400 font-mono block">Special Unlock</span>
+                            <p className="text-xs font-semibold text-cyan-200 font-sans truncate">{label}</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] text-cyan-300/80 font-mono shrink-0 bg-cyan-950/50 px-2.5 py-1 rounded-md border border-cyan-500/20">
+                          Unlocked
+                        </span>
+                      </div>
+                    );
+                  })()}
 
                   {/* Actions */}
                   <button
                     type="button"
-                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-                      setUnlockedArtifactAlert(null);
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
+                    onClick={() => {
+                      dismissArtifactAlert();
                       vibrate('softTap');
                     }}
-                    className="w-full py-3 bg-portal/10 border border-portal/40 text-portal font-sc font-bold uppercase tracking-widest text-xs rounded-full hover:bg-portal hover:text-void transition-all duration-300 shadow-[0_0_20px_rgba(4,172,255,0.15)] hover:shadow-[0_0_30px_rgba(4,172,255,0.3)]"
+                    className="w-full py-3 bg-portal/10 border border-portal/40 text-portal font-sc font-bold uppercase tracking-widest text-xs rounded-full hover:bg-portal hover:text-void transition-all duration-300 shadow-[0_0_20px_rgba(4,172,255,0.15)] hover:shadow-[0_0_30px_rgba(4,172,255,0.3)] mt-2"
                   >
-                    Merge Relic with Soul-Meridian
+                    Claim Relic
                   </button>
                 </div>
               </motion.div>

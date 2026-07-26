@@ -27,6 +27,19 @@ describe('FateResultCard', () => {
     expect(getByText('Lost arm')).toBeDefined();
   });
 
+  it('omits optional consequence sections when they are absent', () => {
+    const data: FateResultData = {
+      outcome: 'FATE SCARRED',
+      timelineScar: 'A wound in destiny remains.',
+      permanentCosts: [],
+    };
+
+    const { queryByText } = render(<FateResultCard data={data} />);
+    expect(queryByText('New Story State')).toBeNull();
+    expect(queryByText('Genre Shift')).toBeNull();
+    expect(queryByText('New Active Stats')).toBeNull();
+  });
+
   it('renders DOOM MANIFESTED correctly', () => {
     const data: FateResultData = {
       outcome: 'DOOM MANIFESTED',

@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import { MultiModelRouting, StreamingChapter } from '../types';
+import { CosmicArtifact, MultiModelRouting, StreamingChapter } from '../types';
 import { AppState } from './useAppStore';
 
 export interface UISlice {
@@ -23,13 +23,14 @@ export interface UISlice {
     autoScroll: boolean;
   };
   streamingChapter: StreamingChapter | null;
-  /**
-   * Listening-mode intent. When true, a newly-manifested / newly-selected
-   * chapter auto-starts narration so the user doesn't re-press play each time.
-   * Deliberately NOT persisted — it resets on reload so a cold page load never
-   * tries to autoplay audio without a fresh user gesture.
-   */
   autoPlayNarration: boolean;
+  
+  // Relic Reveal Timing & Queue State
+  pendingRelicQueue: CosmicArtifact[];
+  canShowRelicInReader: boolean;
+  enqueueRelicReveal: (artifact: CosmicArtifact) => void;
+  popPendingRelic: () => CosmicArtifact | null;
+  setCanShowRelicInReader: (allowed: boolean) => void;
 
   setCurrentScreen: (screen: 'home' | 'detail' | 'reader' | 'codex' | 'creator' | 'profile' | 'pricing' | 'challenge' | 'sects') => void;
   setSelectedChapterNum: (num: number) => void;
@@ -46,7 +47,7 @@ export interface UISlice {
   setAutoPlayNarration: (autoPlay: boolean) => void;
 }
 
-export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => ({
+export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get) => ({
   currentScreen: 'home',
   selectedChapterNum: 1,
   nexusTab: 'reader',
@@ -71,6 +72,19 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set) => (
   },
   streamingChapter: null,
   autoPlayNarration: false,
+
+  pendingRelicQueue: [],
+  canShowRelicInReader: true,
+  enqueueRelicReveal: (artifact) => set((state) => ({
+    pendingRelicQueue: [...state.pendingRelicQueue, artifact]
+  })),
+  popPendingRelic: () => {
+    const [first, ...rest] = get().pendingRelicQueue;
+    if (first === undefined) return null;
+    set({ pendingRelicQueue: rest });
+    return first;
+  },
+  setCanShowRelicInReader: (allowed) => set({ canShowRelicInReader: allowed }),
 
   setCurrentScreen: (screen) => set({ currentScreen: screen }),
   setSelectedChapterNum: (num) => set({ selectedChapterNum: num }),

@@ -233,6 +233,46 @@ export default function ReaderChamber({
     ),
   });
 
+  const setCanShowRelicInReader = useAppStore(state => state.setCanShowRelicInReader);
+
+  useEffect(() => {
+    // Narration always wins over scroll position, and a chapter change resets the gate.
+    setCanShowRelicInReader?.(!isPlayingText);
+    return () => {
+      setCanShowRelicInReader?.(true);
+    };
+  }, [selectedChapterNum, isPlayingText, setCanShowRelicInReader]);
+
+  useEffect(() => {
+    const el = readerRef.current;
+    if (!el) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = el;
+      const currentAllowed = useAppStore.getState().canShowRelicInReader;
+      let nextAllowed = true;
+
+      if (isPlayingText) {
+        nextAllowed = false;
+      } else if (scrollTop + clientHeight >= scrollHeight - 150) {
+        // Reached end of chapter
+        nextAllowed = true;
+      } else if (scrollTop > 200) {
+        // Actively reading middle prose
+        nextAllowed = false;
+      }
+
+      if (currentAllowed !== nextAllowed) {
+        setCanShowRelicInReader?.(nextAllowed);
+      }
+    };
+
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      el.removeEventListener('scroll', handleScroll);
+    };
+  }, [selectedChapterNum, isPlayingText, setCanShowRelicInReader]);
+
   // --- atmospheric audio (just reference, no actual addition needed here)
   const isReaderFullscreen = useAppStore((state) => state.isReaderFullscreen);
   const setIsReaderFullscreen = useAppStore(
