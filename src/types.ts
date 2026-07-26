@@ -182,42 +182,78 @@ export interface GeneratedImage {
 }
 
 export interface BeastSonicProfile {
-  size: "tiny" | "human-sized" | "giant" | "world-scale";
-  bodyType:
+  size?: "tiny" | "small" | "medium" | "large" | "giant" | "colossal";
+  bodyType?:
+    | "spirit"
+    | "dragon"
+    | "cosmic"
     | "insect"
     | "serpent"
     | "bird"
     | "mammal"
-    | "spirit"
     | "undead"
-    | "dragon"
-    | "cosmic";
-  element:
-    | "lightning"
+    | string;
+  element?:
     | "fire"
     | "ice"
+    | "lightning"
+    | "earth"
     | "void"
     | "blood"
     | "wind"
     | "poison"
-    | "none";
-  movement:
+    | "none"
+    | string;
+  movement?:
     | "crawling"
     | "flying"
     | "burrowing"
     | "teleporting"
     | "stomping"
-    | "none";
-  intelligence: "animal" | "cunning" | "ancient" | "divine";
-  threatTier: "common" | "elite" | "boss" | "calamity" | "mythic";
-  signatureSound:
+    | "none"
+    | string;
+  intelligence?: "animal" | "cunning" | "ancient" | "divine" | string;
+  threatTier?: "common" | "elite" | "boss" | "calamity" | "mythic" | string;
+  signatureSound?:
     | "screech"
     | "roar"
     | "chitter"
     | "hum"
     | "pulse"
     | "chant"
-    | "silence";
+    | "silence"
+    | string;
+}
+
+export interface FateResultData {
+  outcome: "FATE AVERTED" | "FATE SCARRED" | "DOOM MANIFESTED";
+  timelineScar: string;
+  permanentCosts: string[];
+  newStoryState?: string;
+  newActiveStats?: string[];
+  genreShift?: string;
+}
+
+export interface WorldCardEvent {
+  id?: string;
+  entityType:
+    | "character"
+    | "creature"
+    | "artifact"
+    | "location"
+    | "faction"
+    | "system"
+    | "fate_event";
+  entityName: string;
+  displayTitle: string;
+  imageUrl?: string;
+  quote?: string;
+  audioText?: string;
+  audioType?: "tts_line" | WorldCardSoundRole;
+  sound?: WorldCardSoundHints;
+  voicePreset?: string;
+  codexEntryId?: string;
+  rarity?: string;
 }
 
 export type RelevanceState =
@@ -446,15 +482,6 @@ export interface StoryBlockMetadata {
   };
 }
 
-export interface FateResultData {
-  outcome: "FATE AVERTED" | "FATE SCARRED" | "DOOM MANIFESTED";
-  timelineScar: string;
-  permanentCosts: string[];
-  newStoryState: string;
-  newActiveStats: string[];
-  genreShift: string;
-}
-
 export interface SystemEvent {
   kind:
     | "status"
@@ -539,27 +566,6 @@ export interface WorldCardSoundHints {
   weaponType?: string;
   artifactCategory?: string;
   tags?: string[];
-}
-
-export interface WorldCardEvent {
-  id?: string;
-  entityType:
-    | "character"
-    | "creature"
-    | "artifact"
-    | "location"
-    | "faction"
-    | "system"
-    | "fate_event";
-  entityName: string;
-  displayTitle: string;
-  imageUrl?: string;
-  quote?: string;
-  audioText?: string;
-  audioType: "tts_line" | WorldCardSoundRole;
-  sound?: WorldCardSoundHints;
-  voicePreset?: string;
-  codexEntryId?: string;
 }
 
 export interface StoryBlock {

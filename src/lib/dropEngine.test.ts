@@ -202,7 +202,7 @@ describe('Drop Engine', () => {
             text: 'The sky turned red as the dragon was vanquished.',
             metadata: {
               beastEvent: {
-                type: 'defeat',
+                type: 'death',
                 profile: {
                   size: 'giant',
                   bodyType: 'dragon',
@@ -235,9 +235,9 @@ describe('Drop Engine', () => {
             text: 'A wild wolf appeared.',
             metadata: {
               beastEvent: {
-                type: 'encounter',
+                type: 'reveal',
                 profile: {
-                  bodyType: 'wolf',
+                  bodyType: 'mammal',
                   threatTier: 'common'
                 }
               }

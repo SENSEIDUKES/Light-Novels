@@ -30,7 +30,7 @@ export async function processChapterDrops(
         const drop: Omit<CosmicArtifact, 'id' | 'unlockedAt'> = {
           name: entityName,
           description: `${descPrefix}${quote || 'A legendary relic of historical significance manifested in your story.'}`,
-          rarity: card.rarity || 'Legendary',
+          rarity: (card.rarity as CosmicArtifact['rarity']) || 'Legendary',
           attributeBoost: `+20% ${entityName} Resonance`,
           sourceStoryId: story.id,
           sourceStoryTitle: story.title,
