@@ -8,4 +8,9 @@ describe('ParticleSystem', () => {
     const { container } = render(<ParticleSystem count={10} />);
     expect(container).toBeDefined();
   });
+
+  it('renders nothing when count is 0', () => {
+    const { container } = render(<ParticleSystem count={0} />);
+    expect(container.firstChild).toBeNull();
+  });
 });

@@ -814,6 +814,14 @@ export default function ReaderChamber({
     return "bg-[#d4af37]"; // default gold for void
   };
 
+  const getParticleCount = () => {
+    const intensity = currentPrefs.particleIntensity || "standard";
+    if (intensity === "off") return 0;
+    if (intensity === "muted") return 15;
+    if (intensity === "astral") return 80;
+    return 40; // standard / default
+  };
+
   const getHeaderThemeClasses = () => {
     const t = currentPrefs.themeOverride || "void";
     if (t === "crimson") return "bg-[#1a0808]/80 border-[#8B0000]/30";
@@ -837,7 +845,7 @@ export default function ReaderChamber({
       id="reader-chamber-root"
     >
       <ParticleSystem
-        count={40}
+        count={getParticleCount()}
         className="opacity-20 pointer-events-none mix-blend-screen z-0 transition-colors duration-500"
         color={getParticleColor()}
       />

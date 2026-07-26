@@ -150,6 +150,10 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     };
   }, [particles, resolvedColor]);
 
+  if (count === 0) {
+    return null;
+  }
+
   return (
     <>
       <div ref={colorRef} className={`hidden ${color}`} />

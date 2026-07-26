@@ -71,4 +71,19 @@ describe('ReaderPreferencesPanel', () => {
     expect(fontToggle.getAttribute('aria-expanded')).toBe('true');
     expect(screen.getByRole('button', { name: 'Rubik (Sans)' })).toBeDefined();
   });
+
+  it('renders and updates the celestial particles preferences', () => {
+    const handleUpdatePreference = vi.fn();
+    render(
+      <ReaderPreferencesPanel
+        currentPrefs={{ fontFamily: 'serif', fontSize: 'lg', lineHeight: 'relaxed', paragraphSpacing: 'normal', themeOverride: 'void', particleIntensity: 'standard' }}
+        handleUpdatePreference={handleUpdatePreference}
+        onResetTypography={vi.fn()}
+      />
+    );
+
+    // Click the Quiet Breeze option
+    fireEvent.click(screen.getByRole('button', { name: 'Quiet Breeze' }));
+    expect(handleUpdatePreference).toHaveBeenCalledWith('particleIntensity', 'muted');
+  });
 });

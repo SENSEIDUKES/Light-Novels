@@ -860,6 +860,7 @@ export interface ReaderPreferences {
   colorPaletteId?: "default" | "protanopia" | "deuteranopia" | "tritanopia" | "high_contrast_dark";
   highlightStyle?: "full" | "underline" | "tint";
   playerStyle?: "vinyl" | "minimal" | "ethereal";
+  particleIntensity?: "off" | "muted" | "standard" | "astral";
 }
 
 export interface ReaderAccessibilitySettings {

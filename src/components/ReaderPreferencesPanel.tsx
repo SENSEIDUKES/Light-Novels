@@ -8,6 +8,7 @@ import {
   Play,
   RotateCcw,
   Sliders,
+  Sparkles,
   Type,
 } from 'lucide-react';
 import { ReaderPreferences } from '../types';
@@ -31,6 +32,13 @@ const PLAYER_STYLE_OPTIONS = [
   { value: 'vinyl', label: 'Classic Vinyl' },
   { value: 'minimal', label: 'Minimal Core' },
   { value: 'ethereal', label: 'Ethereal Pulse' },
+] as const;
+
+const PARTICLE_INTENSITY_OPTIONS = [
+  { value: 'off', label: 'Muted Essence' },
+  { value: 'muted', label: 'Quiet Breeze' },
+  { value: 'standard', label: 'Celestial Glow' },
+  { value: 'astral', label: 'Astral Shower' },
 ] as const;
 
 type NumericTypographyPreference =
@@ -208,6 +216,21 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
                   <button key={theme} type="button" onClick={() => handleUpdatePreference('themeOverride', theme)} className={choiceClass((currentPrefs.themeOverride || 'void') === theme)}>
                     <span>{theme}</span>
                     {(currentPrefs.themeOverride || 'void') === theme ? <Check size={12} /> : null}
+                  </button>
+                ))}
+              </div>
+            </PreferenceGroup>
+
+            <PreferenceGroup
+              label="Celestial Particles"
+              icon={<Sparkles size={13} />}
+              summary={PARTICLE_INTENSITY_OPTIONS.find(option => option.value === (currentPrefs.particleIntensity || 'standard'))?.label}
+            >
+              <div className="grid gap-1.5">
+                {PARTICLE_INTENSITY_OPTIONS.map(option => (
+                  <button key={option.value} type="button" onClick={() => handleUpdatePreference('particleIntensity', option.value)} className={choiceClass((currentPrefs.particleIntensity || 'standard') === option.value)}>
+                    <span>{option.label}</span>
+                    {(currentPrefs.particleIntensity || 'standard') === option.value ? <Check size={12} /> : null}
                   </button>
                 ))}
               </div>
