@@ -161,6 +161,37 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().stories.find(s => s.id === 'story-a')?.title).toBe('Updated B');
   });
 
+  it('waits for every concurrent write to settle before rolling back a failed transaction', async () => {
+    const originalStories = [
+      { id: 'first', title: 'First', arcs: [], memory: {} },
+      { id: 'second', title: 'Second', arcs: [], memory: {} },
+    ] as any[];
+    useAppStore.getState().setStories(originalStories);
+
+    let releaseSecondSave!: () => void;
+    vi.mocked(storyStorage.saveStory).mockImplementation((story: any) => {
+      if (story.id === 'first') {
+        return Promise.reject(new Error('first write failed'));
+      }
+      return new Promise<void>(resolve => {
+        releaseSecondSave = resolve;
+      });
+    });
+
+    const saving = useAppStore.getState().saveStories([
+      { ...originalStories[0], title: 'Updated first' },
+      { ...originalStories[1], title: 'Updated second' },
+    ]);
+
+    await vi.waitFor(() => expect(storyStorage.saveStory).toHaveBeenCalledTimes(2));
+    expect(storyStorage.rollbackTransaction).not.toHaveBeenCalled();
+
+    releaseSecondSave();
+
+    await expect(saving).rejects.toThrow('first write failed');
+    expect(storyStorage.rollbackTransaction).toHaveBeenCalledOnce();
+  });
+
   it('does not expose a chapter as generated when the durable save transaction fails', async () => {
     (auth as any).currentUser = { uid: 'account-a' };
     const originalStory = {
