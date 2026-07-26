@@ -70,6 +70,19 @@ describe('collectCodexTerms', () => {
     expect(terms.find(term => term.term === 'Shadow')?.entry.id).toBe('c1');
   });
 
+  it('survives a malformed replica instead of throwing while rendering', () => {
+    const terms = collectCodexTerms(memory({
+      characters: [
+        { id: 'c1', name: 'Ye Mo', aliases: 'Young Master Ye' },
+        { id: 'c2', name: 'Su Yan', aliases: null },
+        null,
+      ] as any,
+      // A collection that is not an array at all.
+      locations: { id: 'l1', name: 'Sky Altar' } as any,
+    }));
+    expect(terms.map(term => term.term).sort()).toEqual(['Su Yan', 'Ye Mo']);
+  });
+
   it('drops entries too short to match usefully', () => {
     const terms = collectCodexTerms(memory({ characters: [{ id: 'c', name: 'Ye' }] as any }));
     expect(terms).toHaveLength(0);

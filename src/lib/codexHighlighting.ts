@@ -81,16 +81,21 @@ export function collectCodexTerms(memory: StoryMemory | undefined): CodexTerm[] 
     terms.push({ term: trimmed, type, entry, isCanonicalName });
   };
 
+  // A malformed replica must not take the reader down with it: a story that
+  // arrives from an import, an older local cache, or a partial hydration can
+  // hold a non-array where a collection or an alias list is expected, and a
+  // bare `.forEach` on it throws while rendering the chapter.
+  const each = (value: unknown, visit: (item: any) => void) => {
+    if (Array.isArray(value)) value.forEach(visit);
+  };
+
   // Canonical names claim their text before aliases, so an alias that collides
   // with another entity's real name never steals that entity's colour.
   for (const { entries, type } of groups) {
-    (entries as any[] | undefined)?.forEach(entry => push(entry?.name, type, entry, true));
+    each(entries, entry => push(entry?.name, type, entry, true));
   }
   for (const { entries, type } of groups) {
-    (entries as any[] | undefined)?.forEach(entry => {
-      (entry?.aliases as unknown[] | undefined)?.forEach(alias =>
-        push(alias, type, entry, false));
-    });
+    each(entries, entry => each(entry?.aliases, alias => push(alias, type, entry, false)));
   }
 
   return terms.sort((left, right) => right.term.length - left.term.length);
