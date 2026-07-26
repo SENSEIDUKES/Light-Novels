@@ -233,44 +233,6 @@ export default function ReaderChamber({
     ),
   });
 
-  const setCanShowRelicInReader = useAppStore(state => state.setCanShowRelicInReader);
-
-  // Manage relic reveal windowing in Reader Chamber (prevent interrupting active reading / TTS)
-  useEffect(() => {
-    if (isPlayingText) {
-      setCanShowRelicInReader?.(false);
-    }
-  }, [isPlayingText, setCanShowRelicInReader]);
-
-  useEffect(() => {
-    // Enable relic reveals on initial chapter load & clean up on unmount/chapter switch
-    setCanShowRelicInReader?.(true);
-    return () => {
-      setCanShowRelicInReader?.(true);
-    };
-  }, [selectedChapterNum, setCanShowRelicInReader]);
-
-  useEffect(() => {
-    const el = readerRef.current;
-    if (!el) return;
-
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = el;
-      if (scrollTop + clientHeight >= scrollHeight - 150) {
-        // Reached end of chapter
-        setCanShowRelicInReader?.(true);
-      } else if (scrollTop > 200 && !isPlayingText) {
-        // Actively reading middle prose
-        setCanShowRelicInReader?.(false);
-      }
-    };
-
-    el.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      el.removeEventListener('scroll', handleScroll);
-    };
-  }, [selectedChapterNum, isPlayingText, setCanShowRelicInReader]);
-
   // --- atmospheric audio (just reference, no actual addition needed here)
   const isReaderFullscreen = useAppStore((state) => state.isReaderFullscreen);
   const setIsReaderFullscreen = useAppStore(

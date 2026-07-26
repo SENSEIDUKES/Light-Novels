@@ -3,22 +3,12 @@ import { render } from '@testing-library/react';
 import ReaderChamber from './ReaderChamber';
 
 vi.mock('../store/useAppStore', () => ({
-  useAppStore: (selector?: any) => {
-    const state = {
-      activeStoryId: 'test-story',
-      stories: [{ id: 'test-story', title: 'Test', arcs: [{ chapters: [{ number: 1, title: 'Ch 1', status: 'read' }] }] }],
-      updateChapterContent: vi.fn(),
-      sealChapter: vi.fn(),
-      canShowRelicInReader: true,
-      pendingRelicQueue: [],
-      enqueueRelicReveal: vi.fn(),
-      popPendingRelic: vi.fn(() => null),
-      setCanShowRelicInReader: vi.fn(),
-      immersion: { imagePopups: true, master: true, autoScroll: true },
-      audioMix: { master: 1, bgm: 1, sfx: 1 }
-    };
-    return typeof selector === 'function' ? selector(state) : state;
-  }
+  useAppStore: () => ({
+    activeStoryId: 'test-story',
+    stories: [{ id: 'test-story', title: 'Test', arcs: [{ chapters: [{ number: 1, title: 'Ch 1', status: 'read' }] }] }],
+    updateChapterContent: vi.fn(),
+    sealChapter: vi.fn(),
+  })
 }));
 
 describe('ReaderChamber', () => {

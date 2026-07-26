@@ -22,12 +22,7 @@ vi.mock('../store/useAppStore', () => ({
       isReaderFullscreen: false,
       currentUser: { uid: '123' },
       immersion: { imagePopups: true, defaultVoices: {} },
-      updateStory: vi.fn(),
-      canShowRelicInReader: true,
-      pendingRelicQueue: [],
-      enqueueRelicReveal: vi.fn(),
-      popPendingRelic: vi.fn(() => null),
-      setCanShowRelicInReader: vi.fn(),
+      updateStory: vi.fn()
     };
     return selector ? selector(state) : state;
   }

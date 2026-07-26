@@ -22,12 +22,6 @@ const { useAppStoreMock } = vi.hoisted(() => {
     setReaderMode: vi.fn(),
     themeMode: 'dark',
     setThemeMode: vi.fn(),
-    currentScreen: 'home',
-    canShowRelicInReader: true,
-    pendingRelicQueue: [],
-    enqueueRelicReveal: vi.fn(),
-    popPendingRelic: vi.fn(() => null),
-    setCanShowRelicInReader: vi.fn(),
     routingConfig: {
       storyMaker: { provider: 'google' },
       imageGenerator: { provider: 'google' }
