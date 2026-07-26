@@ -157,6 +157,8 @@ export const ThreadsPanel: React.FC<ThreadsPanelProps> = ({ memory, onUpdateMemo
                     type="button"
                     onClick={() => setDeletePrompt({ id: idx, type: 'thread' })}
                     className="text-neutral-600 hover:text-red-500 p-0.5"
+                    aria-label="Delete thread"
+                    title="Delete thread"
                   >
                     <X size={10} />
                   </button>
