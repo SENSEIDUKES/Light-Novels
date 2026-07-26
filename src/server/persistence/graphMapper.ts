@@ -1115,7 +1115,10 @@ export function mapStoryWorldToGraphVariables(input: StoryGraphWriteInput): Admi
     fatePressure: story.fatePressure,
     motionCoverActive: story.motionCoverActive ?? false,
     assignedRevealBackdropPolicy: currentGraph?.preferences[0]?.assignedRevealBackdropPolicy,
-    chapterWritingStyle: normalizeChapterWritingStyle(story.chapterWritingStyle),
+    chapterWritingStyle: normalizeChapterWritingStyle(
+      story.chapterWritingStyle
+        ?? currentGraph?.preferences[0]?.chapterWritingStyle,
+    ),
     updatedAt: story.updatedAt,
   })];
   const preservedOtherReaderPreferences = (currentGraph?.readerPreferences ?? [])

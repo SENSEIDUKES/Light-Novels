@@ -6164,6 +6164,7 @@ export interface AdminGetAdminOverviewData {
     userUid: string;
     username?: string | null;
     subscriptionTier: SubscriptionTier;
+    defaultChapterWritingStyle?: string | null;
     legacyQi?: Int64String | null;
     daoXp: Int64String;
     daoRank?: string | null;

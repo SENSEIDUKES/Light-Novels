@@ -173,6 +173,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
     setPortraitDesc('');
     setIsGeneratingPortrait(false);
     setIsSavingPortrait(false);
+    setIsSavingChapterWritingStyle(false);
     setGeneratedPortraitUrl('');
     setGeneratedPortraitPrompt('');
     setPortraitError('');

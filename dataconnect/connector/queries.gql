@@ -1803,6 +1803,7 @@ query AdminGetAdminOverview($actorUid: String!, $limit: Int = 1000)
     userUid
     username
     subscriptionTier
+    defaultChapterWritingStyle
     legacyQi
     daoXp
     daoRank

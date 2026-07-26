@@ -308,7 +308,11 @@ describe('story graph mapping', () => {
 
     const variables = mapStoryWorldToGraphVariables({
       ownerUid: 'owner-a',
-      story: { ...story!, title: 'Moon Archive Revised' },
+      story: {
+        ...story!,
+        title: 'Moon Archive Revised',
+        chapterWritingStyle: undefined,
+      },
       currentGraph,
       ...mutationMetadata(),
     });

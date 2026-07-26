@@ -93,6 +93,7 @@ const makeProfile = (uid: string, overrides: Partial<UserProfile> = {}): UserPro
   avatarUrl: '',
   preferredLanguage: 'English',
   defaultTranslationLanguage: 'English',
+  defaultChapterWritingStyle: 'Standard',
   savedStoryCount: 0,
   activeStories: [],
   inactiveStories: [],
@@ -172,6 +173,60 @@ describe('useUserProfile PostgreSQL persistence', () => {
     );
     expect(result.current.profile?.defaultChapterWritingStyle).toBe('Clear Reading');
     expect(storeMocks.state.userProfile?.defaultChapterWritingStyle).toBe('Clear Reading');
+    expect(result.current.isSavingChapterWritingStyle).toBe(false);
+  });
+
+  it('rolls back the default chapter writing style when persistence fails', async () => {
+    persistenceMocks.saveUserProfile.mockRejectedValueOnce(new Error('Style save failed.'));
+    const { result } = renderProfile();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.handleDefaultChapterWritingStyleChange('Easy Read');
+    });
+
+    expect(result.current.profile?.defaultChapterWritingStyle).toBe('Standard');
+    expect(storeMocks.state.userProfile?.defaultChapterWritingStyle).toBe('Standard');
+    expect(result.current.error).toBe('Style save failed.');
+    expect(result.current.isSavingChapterWritingStyle).toBe(false);
+  });
+
+  it('resets style saving state and ignores a stale save after switching accounts', async () => {
+    const pendingSave = deferred<UserProfile>();
+    persistenceMocks.saveUserProfile.mockReturnValueOnce(pendingSave.promise);
+    persistenceMocks.getUserProfile
+      .mockResolvedValueOnce(makeProfile('account-a'))
+      .mockResolvedValueOnce(makeProfile('account-b'));
+    const { result, rerender } = renderProfile();
+    await waitFor(() => expect(result.current.profile?.uid).toBe('account-a'));
+
+    let savePromise!: Promise<void>;
+    act(() => {
+      savePromise = result.current.handleDefaultChapterWritingStyleChange('Literal Reading');
+    });
+    await waitFor(() => expect(result.current.isSavingChapterWritingStyle).toBe(true));
+
+    rerender({ currentUser: makeUser('account-b') });
+    await waitFor(() => expect(result.current.profile?.uid).toBe('account-b'));
+    expect(result.current.isSavingChapterWritingStyle).toBe(false);
+    const storeUpdatesBeforeStaleSaveSettles =
+      storeMocks.state.setUserProfile.mock.calls.length;
+
+    await act(async () => {
+      pendingSave.resolve(makeProfile('account-a', {
+        defaultChapterWritingStyle: 'Literal Reading',
+      }));
+      await savePromise;
+    });
+
+    expect(result.current.profile).toMatchObject({
+      uid: 'account-b',
+      defaultChapterWritingStyle: 'Standard',
+    });
+    expect(storeMocks.state.setUserProfile).toHaveBeenCalledTimes(
+      storeUpdatesBeforeStaleSaveSettles,
+    );
+    expect(result.current.isSavingChapterWritingStyle).toBe(false);
   });
 
   it('shows a local fallback profile without writing when the account has no row', async () => {

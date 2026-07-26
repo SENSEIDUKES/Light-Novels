@@ -37,6 +37,7 @@ import type {
   UserProfile,
 } from '../../types';
 import { applyStoryPatch, type StoryPatchOperation } from '../../lib/storage/storyPatch';
+import { normalizeChapterWritingStyle } from '../../lib/chapterWritingStyle';
 import { getFirebaseAdminApp } from '../firebaseAdmin';
 import { logger } from '../logger';
 import { isSystemOwnerEmail } from '../systemOwners';
@@ -1197,7 +1198,9 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
           avatarUrl: '',
           preferredLanguage: 'English',
           defaultTranslationLanguage: 'English',
-          defaultChapterWritingStyle: 'Standard',
+          defaultChapterWritingStyle: normalizeChapterWritingStyle(
+            profile?.defaultChapterWritingStyle,
+          ),
           savedStoryCount: profile?.savedStoryCount ?? 0,
           activeStories: [],
           inactiveStories: [],
