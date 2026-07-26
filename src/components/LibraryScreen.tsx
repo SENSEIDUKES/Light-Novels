@@ -4,7 +4,7 @@ import { Sparkles, BookOpen, Trash2, Play, Globe, Eye } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { ParticleSystem } from './ParticleSystem';
 import { Story } from '../types';
-import { getDaoRankData, getAuraTextStyle } from '../lib/qi';
+import { getAuraColorForXp, getDaoRankData, getAuraTextStyle } from '../lib/qi';
 import { PRESET_CHALLENGES } from '../data/challenges';
 import { auth } from '../lib/firebase';
 import { resolveReaderOpeningChapter } from '../lib/readerNavigation';
@@ -337,7 +337,13 @@ export const LibraryScreen: React.FC = () => {
                   {userProfile ? (
                     <p className="text-[10px] text-portal/80 font-sc tracking-widest uppercase truncate font-bold mt-1">
                       By {(() => {
-                        const styleObj = getAuraTextStyle(userProfile.displayNameColor, userProfile.activeStatusEffects);
+                        const styleObj = getAuraTextStyle(
+                          getAuraColorForXp(
+                            userProfile.displayNameColor,
+                            userProfile.dao_xp ?? userProfile.qi,
+                          ),
+                          userProfile.activeStatusEffects,
+                        );
                         return (
                           <span className={styleObj.className} style={styleObj.style}>
                             {userProfile.displayName || userProfile.username}
@@ -507,7 +513,13 @@ export const LibraryScreen: React.FC = () => {
                       {userProfile ? (
                         <p className="text-[10px] text-portal/80 font-sc tracking-widest uppercase truncate font-bold mt-0.5">
                           By {(() => {
-                            const styleObj = getAuraTextStyle(userProfile.displayNameColor, userProfile.activeStatusEffects);
+                            const styleObj = getAuraTextStyle(
+                              getAuraColorForXp(
+                                userProfile.displayNameColor,
+                                userProfile.dao_xp ?? userProfile.qi,
+                              ),
+                              userProfile.activeStatusEffects,
+                            );
                             return (
                               <span className={styleObj.className} style={styleObj.style}>
                                 {userProfile.displayName || userProfile.username}

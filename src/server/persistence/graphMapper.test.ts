@@ -907,12 +907,26 @@ describe('user profile graph mapping', () => {
       email: 'reader@example.com',
       displayName: 'Reader Revised',
     });
-    expect(variables.profile).toMatchObject({
-      defaultChapterWritingStyle: 'Literal Reading',
-    });
+    expect(variables.profile).not.toHaveProperty('defaultChapterWritingStyle');
     expect(variables.inventory).toHaveLength(1);
     expect(variables.effects).toHaveLength(1);
     expect(variables.progressEvents).toHaveLength(1);
     expect(variables.preferences).toEqual([expect.objectContaining({ theme: 'void' })]);
+  });
+
+  it('includes the chapter writing style only when that preference is explicitly patched', () => {
+    const variables = mapUserProfileToGraphVariables({
+      ownerUid: 'owner-a',
+      patch: {
+        uid: 'owner-a',
+        defaultChapterWritingStyle: 'Clear Reading',
+      },
+      currentGraph: null,
+      ...mutationMetadata(),
+    });
+
+    expect(variables.profile).toMatchObject({
+      defaultChapterWritingStyle: 'Clear Reading',
+    });
   });
 });
