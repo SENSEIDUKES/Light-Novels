@@ -31,6 +31,7 @@ import { cinematicEffectGovernor } from "../lib/effects/cinematicEffectGovernor"
 import { useReadingPosition } from "../hooks/useReadingPosition";
 import { getFateLockMessage } from '../hooks/chapterPipeline/chapterBatch';
 import { DEFAULT_READER_TYPOGRAPHY } from '../lib/readerTypography';
+import { createCodexHighlighter, splitByCodexTerms } from '../lib/codexHighlighting';
 
 interface ReaderChamberProps {
   chapters: Chapter[];
@@ -122,22 +123,16 @@ export default function ReaderChamber({
     activeStory,
     readerMode });
 
-  const codexMap = useMemo(() => {
-    const map = new Map<string, any>();
-    codexTerms?.forEach(t => {
-      if (typeof t?.term === "string" && !map.has(t.term)) {
-        map.set(t.term, t);
-      }
-    });
-    return map;
-  }, [codexTerms]);
-  const highlightRegex = useMemo(() => {
-    if (!codexTerms || codexTerms.length === 0) return null;
-    const validTerms = codexTerms.filter(t => typeof t?.term === "string" && t.term.trim() !== "");
-    if (validTerms.length === 0) return null;
-    const escapedTerms = validTerms.map(t => t.term.replace(/[.*+?^${}()|[\\\ ]]/g, "\\$&"));
-    return new RegExp(`\\b(${escapedTerms.join("|")})\\b`, "g");
-  }, [codexTerms]);
+  // One compiled matcher feeds both the inline colour mapping here and the
+  // reveal-card lookup in the viewport, so a name can never highlight in one
+  // and resolve to nothing in the other.
+  const codexHighlighter = useMemo(
+    () => createCodexHighlighter(
+      (codexTerms ?? []).filter(t => typeof t?.term === "string" && t.term.trim() !== ""),
+    ),
+    [codexTerms],
+  );
+  const highlightRegex = codexHighlighter.regex;
 
 
   // --- Translation States ---
@@ -557,23 +552,28 @@ export default function ReaderChamber({
        );
     }
 
-    const parts = text.split(highlightRegex);
-    if (parts.length === 1) return <>{text}</>;
-    
+    const segments = splitByCodexTerms(text, codexHighlighter);
+    if (segments.length === 1) return <>{text}</>;
+
     return (
       <>
-        {parts.map((part, i) => {
-          if (i % 2 !== 0) {
-            const matchedEntry = codexMap.get(part);
-            if (matchedEntry) {
-              return <CodexHovercard key={i} term={part} type={matchedEntry.type} entry={matchedEntry.entry}>{part}</CodexHovercard>;
-            }
-          }
-          return <React.Fragment key={i}>{part}</React.Fragment>;
-        })}
+        {segments.map((segment, i) => (
+          segment.match
+            ? (
+              <CodexHovercard
+                key={i}
+                term={segment.text}
+                type={segment.match.type}
+                entry={segment.match.entry}
+              >
+                {segment.text}
+              </CodexHovercard>
+            )
+            : <React.Fragment key={i}>{segment.text}</React.Fragment>
+        ))}
       </>
     );
-  }, [activeChunks, codexMap, codexTerms.length, currentChunkIndex, highlightRegex, isPausedText, isPlayingText]);
+  }, [activeChunks, codexHighlighter, codexTerms.length, currentChunkIndex, highlightRegex, isPausedText, isPlayingText]);
 
 
   // --- Swipe Navigation States ---

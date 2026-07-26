@@ -20,6 +20,7 @@ import {
   cacheAccountProfile,
   createAccountProfileFallback,
   hydrateCachedAccountPortrait,
+  withIdentityAvatar,
 } from '../lib/userProfileCache';
 import {
   deletePersistenceAdminStory,
@@ -503,10 +504,13 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
           // userAccount.role check — an unexplainable error for the one user
           // who is actually the owner. The server now assigns OWNER from the
           // verified ID-token email when it provisions the account row.
-          const data: UserProfileType = {
-            ...stored,
-            uid: expectedUid,
-          };
+          // PostgreSQL owns the profile record but not the identity avatar,
+          // which stays with Firebase Authentication. Merge it back before the
+          // snapshot replaces the photo sign-in already rendered.
+          const data: UserProfileType = withIdentityAvatar(
+            { ...stored, uid: expectedUid },
+            currentUser,
+          );
 
           cacheAccountProfile(data);
           setProfile(data);

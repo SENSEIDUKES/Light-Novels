@@ -102,7 +102,7 @@ export function useCodexVoiceCards({ memory, onUpdateMemory }: UseCodexVoiceCard
         purpose: MEDIA_PURPOSE.VOICE_CARD,
         association: {
           targetKind: MEDIA_TARGET_KIND.CHARACTER,
-          targetKey: char.id,
+          targetKey: entityId,
           storyId,
           entityId,
           entityType: 'character',

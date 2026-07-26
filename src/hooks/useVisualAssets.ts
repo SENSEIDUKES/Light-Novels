@@ -87,7 +87,9 @@ export const useVisualAssets = () => {
       purpose: MEDIA_PURPOSE.STORY_COVER,
       association: {
         targetKind: MEDIA_TARGET_KIND.STORY,
-        targetKey: activeStory.id,
+        // Media slots are addressed by the canonical relational id, never the
+        // client-facing story id.
+        targetKey: storyId,
         storyId,
         legacyMediaId,
         entityType: 'cover',

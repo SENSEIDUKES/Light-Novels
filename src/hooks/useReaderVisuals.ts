@@ -6,7 +6,7 @@ import { dispatchNarrativeCue, NarrativeCueEventType } from '../lib/narrativeCue
 import { cinematicEffectGovernor } from '../lib/effects/cinematicEffectGovernor';
 import { isHighConfidenceAutoCue } from '../lib/audio/autoCuePolicy';
 import { useAudioMix } from './audio/useAudioMix';
-import { isManifestationEligible } from '../lib/manifestationEligibility';
+import { collectCodexTerms } from '../lib/codexHighlighting';
 
 export function useReaderVisuals({
   selectedChapter,
@@ -195,33 +195,17 @@ export function useReaderVisuals({
     audioMix,
   ]);
 
-  // Codex terms memo for semantic highlighting
-  const codexTerms = useMemo(() => {
-    const terms: Array<{ term: string; type: 'character'|'faction'|'artifact'|'location'; entry: any }> = [];
-    if (!activeStory?.memory) return terms;
-    const codexEntityGroups = [
-      { entries: activeStory.memory.characters, type: 'character' },
-      { entries: activeStory.memory.factions, type: 'faction' },
-      { entries: activeStory.memory.artifacts, type: 'artifact' },
-      { entries: activeStory.memory.locations, type: 'location' },
-    ] as const;
-    for (const { entries, type } of codexEntityGroups) {
-      entries?.forEach(entry => {
-        // Every named Codex entity is highlighted and hovercard-linked. This
-        // used to be gated on isManifestationEligible, which decides whether an
-        // entity deserves a *generated portrait* — a far stricter, unrelated
-        // policy that requires an existing image or an authored
-        // manifestationImportance block. Most entities have neither, so the
-        // reader lost colour-coded names, hovercards and reveal cards
-        // altogether. Portrait eligibility is enforced where portraits are
-        // actually offered, not here.
-        if (entry.name && entry.name.length > 2) {
-          terms.push({ term: entry.name, type, entry });
-        }
-      });
-    }
-    return terms.sort((a, b) => b.term.length - a.term.length);
-  }, [activeStory.memory]);
+  // Codex terms memo for semantic highlighting.
+  //
+  // Every named Codex entity — and every alias it was persisted with — is
+  // highlighted and hovercard-linked. This used to be gated on
+  // isManifestationEligible, which decides whether an entity deserves a
+  // *generated portrait*: a far stricter, unrelated policy. Portrait
+  // eligibility is enforced where portraits are actually offered, not here.
+  const codexTerms = useMemo(
+    () => collectCodexTerms(activeStory?.memory),
+    [activeStory?.memory],
+  );
 
   return {
     handleManifestReveal,

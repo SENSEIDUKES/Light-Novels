@@ -1,3 +1,4 @@
+import { isSameAssetId } from '../../contracts/assetIdentity';
 import type { MediaAssetDescriptor } from '../../contracts/mediaAssets';
 import type { BaseCodexEntry, GeneratedImage, StoryWorld, UserProfile } from '../../types';
 
@@ -119,7 +120,10 @@ export function hydrateProfilePortraitDelivery(
   profile: UserProfile,
   descriptor: MediaAssetDescriptor | null,
 ): UserProfile {
-  if (!descriptor || profile.activePortraitId !== descriptor.id) return profile;
+  // `activePortraitId` is re-hyphenated when the profile row is hydrated while
+  // the descriptor keeps the media row's own UUID form, so a strict `!==`
+  // rejected the account's real portrait and returned a blank avatar.
+  if (!descriptor || !isSameAssetId(profile.activePortraitId, descriptor.id)) return profile;
   return {
     ...profile,
     avatarUrl: descriptor.deliveryUrl,

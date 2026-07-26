@@ -16,6 +16,7 @@ import { anchorAttributes } from '../lib/cinematicScroll/anchors';
 import { ContextInspector } from './ContextInspector';
 import { getReaderTypography, getReadingDirection } from '../lib/readerTypography';
 import { isManifestationEligible } from '../lib/manifestationEligibility';
+import { createCodexHighlighter } from '../lib/codexHighlighting';
 
 const FALLBACK_BACKDROPS = [
   "https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/images/LIBRARY%20BACKDROPS/LIBRARY_THUNDER.PNG",
@@ -174,18 +175,12 @@ export function ReaderViewport({
     && (resumableBatch.status === 'paused' || resumableBatch.status === 'failed')
     && resumableBatch.chapterNumbers.find(number => !resumableBatch.completedChapterNumbers.includes(number)) === selectedChapter.number,
   );
-  const codexMap = React.useMemo(() => {
-    const map = new Map<string, any>();
-    codexTerms?.forEach(t => {
-      if (typeof t?.term === 'string') {
-        const termLower = t.term.toLowerCase();
-        if (!map.has(termLower)) {
-          map.set(termLower, t);
-        }
-      }
-    });
-    return map;
-  }, [codexTerms]);
+  // Reveal cards resolve the same term index the inline highlighting uses, so
+  // an entity named by an alias reaches its own card and colour.
+  const codexHighlighter = React.useMemo(
+    () => createCodexHighlighter(codexTerms ?? []),
+    [codexTerms],
+  );
 
   const bookmarkMap = React.useMemo(() => {
     const map = new Map<number, Bookmark>();
@@ -214,7 +209,7 @@ export function ReaderViewport({
         (ent) => ent.mention === "reveal"
       );
       if (revealEntity) {
-        const matched = codexMap.get(revealEntity.name.toLowerCase());
+        const matched = codexHighlighter.resolve(revealEntity.name);
         if (matched && matched.entry) {
           const id = matched.entry.id;
           const currentAssign = existingAssignments[id] || newAssignments[id];
@@ -243,7 +238,7 @@ export function ReaderViewport({
         },
       });
     }
-  }, [selectedChapter?.blocks, activeStory, codexMap, updateStory]);
+  }, [selectedChapter?.blocks, activeStory, codexHighlighter, updateStory]);
 
   return (
     // Vertical scrolling is owned by the document — this container only lays
@@ -469,7 +464,7 @@ export function ReaderViewport({
                         let revealTerm: any = undefined;
                         const revealEntity = block.metadata?.entities?.find(ent => {
                           if (ent.mention !== 'reveal') return false;
-                          const matched = codexMap.get(ent.name.toLowerCase());
+                          const matched = codexHighlighter.resolve(ent.name);
                           if (matched && matched.entry) {
                             revealTerm = matched;
                             return true;

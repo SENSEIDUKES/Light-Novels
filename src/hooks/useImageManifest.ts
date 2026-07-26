@@ -90,7 +90,12 @@ export function useImageManifest() {
           purpose: MEDIA_PURPOSE.MANIFESTATION,
           association: {
             targetKind,
-            targetKey: id,
+            // The media slot is keyed by (owner, targetKind, targetKey,
+            // purpose) and the server requires the canonical relational id.
+            // A story-local stable key was rejected outright, and two stories
+            // owned by the same account can reuse the same stable key, so it
+            // could never have addressed one slot either.
+            targetKey: entityPersistenceId,
             storyId: storyPersistenceId,
             entityId: entityPersistenceId,
             legacyMediaId,
@@ -249,7 +254,7 @@ export function useImageManifest() {
           purpose: MEDIA_PURPOSE.CHAPTER_HERO,
           association: {
             targetKind: MEDIA_TARGET_KIND.CHAPTER,
-            targetKey: `${activeStory.id}:${chapterNumber}`,
+            targetKey: chapterPersistenceId,
             storyId: storyPersistenceId,
             chapterId: chapterPersistenceId,
             legacyMediaId,

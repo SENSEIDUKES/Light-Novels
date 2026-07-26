@@ -20,7 +20,8 @@ interface CodexContextType {
   pushNotification: (msg: string) => void;
   getPowerRankScore: (powerStr: string | undefined) => { score: number; title: string };
   handleAwakenCardImage: (id: string, type: 'character' | 'location' | 'artifact' | 'beast', entity: any) => Promise<void>;
-  handleRevertImage: (id: string, type: 'character' | 'location' | 'artifact' | 'beast', newUrl: string) => void;
+  /** `historyId` is the durable `GeneratedImage.id`, never a rendered URL. */
+  handleRevertImage: (id: string, type: 'character' | 'location' | 'artifact' | 'beast', historyId: string) => void;
   previews: Record<string, any>;
   setPreviews: React.Dispatch<React.SetStateAction<Record<string, any>>>;
   generatingId: string | null;

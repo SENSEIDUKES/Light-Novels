@@ -132,4 +132,51 @@ describe('useReaderVisuals', () => {
     ]);
     expect(result.current.codexTerms.map(term => term.type)).toContain("location");
   });
+
+  // Aliases are extracted, persisted as their own Codex rows and hydrated back,
+  // but the reader only ever offered canonical names — so an entity introduced
+  // by its alias read as plain prose with no colour, hovercard or reveal card.
+  it('highlights persisted aliases against the entity that owns them', () => {
+    const rival = {
+      id: "char-2",
+      name: "Ye Mo",
+      role: "Antagonist",
+      description: "",
+      relationshipToMC: "Rival",
+      status: "alive" as const,
+      aliases: ["Young Master Ye"],
+    };
+    const activeStory = {
+      id: "story-1",
+      title: "Title",
+      genre: "Cultivation",
+      mcName: "Li Qiye",
+      customPremise: "",
+      createdAt: "",
+      updatedAt: "",
+      currentChapterNumber: 1,
+      arcs: [],
+      memory: {
+        powerSystem: "Qi",
+        currentPowerStage: "Foundation",
+        worldRules: [],
+        characters: [rival],
+        locations: [{ id: "loc-1", name: "Sky Terrace", description: "", aliases: ["the Terrace"] }],
+        unresolvedPlotThreads: [],
+        resolvedPlotThreads: [],
+      },
+    } as never;
+
+    const { result } = renderHook(() => useReaderVisuals({
+      selectedChapter: { number: 1, title: "Ch 1", premise: "", status: "unread" as const },
+      activeStory,
+      readerMode: "standard",
+    }));
+
+    const aliasTerm = result.current.codexTerms.find(term => term.term === "Young Master Ye");
+    expect(aliasTerm).toMatchObject({ type: "character", isCanonicalName: false });
+    expect(aliasTerm?.entry).toBe(rival);
+    expect(result.current.codexTerms.find(term => term.term === "the Terrace")?.type)
+      .toBe("location");
+  });
 });

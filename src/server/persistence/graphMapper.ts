@@ -411,6 +411,40 @@ function attributeMap(
   }));
 }
 
+/**
+ * `manifestationImportance` is a structured editorial record on the browser
+ * type but a plain `String` column in the Codex table. Handing the object
+ * straight to Data Connect made the whole story-graph mutation fail variable
+ * coercion, so no Codex change reached PostgreSQL once any entity carried the
+ * block: portraits could not be manifested and the reader kept re-reading a
+ * stale Codex. Persist it as JSON text and decode it on the way back.
+ */
+function encodeManifestationImportance(
+  value: BaseCodexEntry['manifestationImportance'],
+): string | undefined {
+  if (value == null) return undefined;
+  if (typeof value === 'string') return value;
+  return JSON.stringify(value);
+}
+
+function decodeManifestationImportance(
+  value: unknown,
+): BaseCodexEntry['manifestationImportance'] {
+  if (value == null) return undefined;
+  if (typeof value === 'object') return value as BaseCodexEntry['manifestationImportance'];
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return isObject(parsed)
+      ? (parsed as unknown as BaseCodexEntry['manifestationImportance'])
+      : undefined;
+  } catch {
+    // Rows written before the column carried JSON hold an unparseable label.
+    // Dropping it only costs the automatic-portrait hint, never entity data.
+    return undefined;
+  }
+}
+
 function codexBase(entity: StoryGraph['codexEntities'][number]): BaseCodexEntry {
   return {
     persistenceId: entity.id,
@@ -422,7 +456,7 @@ function codexBase(entity: StoryGraph['codexEntities'][number]): BaseCodexEntry 
     lastMajorInvolvement: entity.lastMajorInvolvementChapter ?? undefined,
     currentRelevance: entity.currentRelevance ?? undefined,
     toneMemory: entity.toneMemory ?? undefined,
-    manifestationImportance: entity.manifestationImportance as unknown as BaseCodexEntry['manifestationImportance'],
+    manifestationImportance: decodeManifestationImportance(entity.manifestationImportance),
     pendingEvolution: entity.pendingEvolution,
     arcAccumulation: entity.arcAccumulation ?? undefined,
     provenance: {
@@ -890,7 +924,7 @@ function codexWriteRows(
       lastMajorInvolvementChapter: value.lastMajorInvolvement,
       currentRelevance: value.currentRelevance,
       toneMemory: value.toneMemory,
-      manifestationImportance: value.manifestationImportance,
+      manifestationImportance: encodeManifestationImportance(value.manifestationImportance),
       isUserPinned: provenance?.isUserPinned ?? false,
       pendingEvolution: value.pendingEvolution ?? false,
       evolutionReady: data.evolutionReady ?? false,
