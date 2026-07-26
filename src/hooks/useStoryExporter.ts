@@ -169,36 +169,25 @@ export const useStoryExporter = () => {
       let chapterCount = 0;
 
       if (story.arcs) {
-        const fetchPromises: { ch: any; promise: Promise<any> | null }[] = [];
+        const fetchPromises: Promise<{ ch: any; content: any }>[] = [];
 
         for (const arc of story.arcs) {
           for (const ch of arc.chapters) {
             if (ch.hasContent || ch.generatedContent) {
               const text = ch.generatedContent || "";
               if (!text && ch.hasContent) {
-                fetchPromises.push({
-                  ch,
-                  promise: storyStorage.getChapterContent(story.id, ch.number),
-                });
+                fetchPromises.push(
+                  storyStorage.getChapterContent(story.id, ch.number)
+                    .then(content => ({ ch, content })),
+                );
               } else {
-                fetchPromises.push({
-                  ch,
-                  promise: null,
-                });
+                fetchPromises.push(Promise.resolve({ ch, content: null }));
               }
             }
           }
         }
 
-        const fetchedContents = await Promise.all(
-          fetchPromises.map(async (item) => {
-            if (item.promise) {
-              const content = await item.promise;
-              return { ch: item.ch, content };
-            }
-            return { ch: item.ch, content: null };
-          })
-        );
+        const fetchedContents = await Promise.all(fetchPromises);
 
         for (const { ch, content } of fetchedContents) {
           chapterCount++;
