@@ -30,12 +30,6 @@ export interface ActiveStatusEffect {
   isUnlockedReward?: boolean;
 }
 
-export interface SpecialUnlockDef {
-  type: "cosmetic" | "sen_workshop" | "customization" | "profile_item" | "badge" | "theme" | "other";
-  label: string;
-  description?: string;
-}
-
 export interface CosmicArtifact {
   id: string;
   name: string;
@@ -43,8 +37,6 @@ export interface CosmicArtifact {
   unlockedAt: string;
   sourceStoryId?: string;
   sourceStoryTitle?: string;
-  sourceChapterNumber?: number;
-  eventKey?: string;
   milestoneType:
     | "chapter_seal"
     | "rank_up"
@@ -57,9 +49,6 @@ export interface CosmicArtifact {
   rarity: "Common" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Transcendent";
   attributeBoost?: string;
   statusEffectDef?: StatusEffectDef;
-  
-  // Flexible Special Unlock field supporting interchangeable future rewards
-  specialUnlock?: SpecialUnlockDef | string;
   
   // Weekly Offering System
   offeringWeekId?: string;
@@ -182,78 +171,42 @@ export interface GeneratedImage {
 }
 
 export interface BeastSonicProfile {
-  size?: "tiny" | "small" | "medium" | "large" | "giant" | "colossal";
-  bodyType?:
-    | "spirit"
-    | "dragon"
-    | "cosmic"
+  size: "tiny" | "human-sized" | "giant" | "world-scale";
+  bodyType:
     | "insect"
     | "serpent"
     | "bird"
     | "mammal"
+    | "spirit"
     | "undead"
-    | string;
-  element?:
+    | "dragon"
+    | "cosmic";
+  element:
+    | "lightning"
     | "fire"
     | "ice"
-    | "lightning"
-    | "earth"
     | "void"
     | "blood"
     | "wind"
     | "poison"
-    | "none"
-    | string;
-  movement?:
+    | "none";
+  movement:
     | "crawling"
     | "flying"
     | "burrowing"
     | "teleporting"
     | "stomping"
-    | "none"
-    | string;
-  intelligence?: "animal" | "cunning" | "ancient" | "divine" | string;
-  threatTier?: "common" | "elite" | "boss" | "calamity" | "mythic" | string;
-  signatureSound?:
+    | "none";
+  intelligence: "animal" | "cunning" | "ancient" | "divine";
+  threatTier: "common" | "elite" | "boss" | "calamity" | "mythic";
+  signatureSound:
     | "screech"
     | "roar"
     | "chitter"
     | "hum"
     | "pulse"
     | "chant"
-    | "silence"
-    | string;
-}
-
-export interface FateResultData {
-  outcome: "FATE AVERTED" | "FATE SCARRED" | "DOOM MANIFESTED";
-  timelineScar: string;
-  permanentCosts: string[];
-  newStoryState?: string;
-  newActiveStats?: string[];
-  genreShift?: string;
-}
-
-export interface WorldCardEvent {
-  id?: string;
-  entityType:
-    | "character"
-    | "creature"
-    | "artifact"
-    | "location"
-    | "faction"
-    | "system"
-    | "fate_event";
-  entityName: string;
-  displayTitle: string;
-  imageUrl?: string;
-  quote?: string;
-  audioText?: string;
-  audioType?: "tts_line" | WorldCardSoundRole;
-  sound?: WorldCardSoundHints;
-  voicePreset?: string;
-  codexEntryId?: string;
-  rarity?: string;
+    | "silence";
 }
 
 export type RelevanceState =
@@ -482,6 +435,15 @@ export interface StoryBlockMetadata {
   };
 }
 
+export interface FateResultData {
+  outcome: "FATE AVERTED" | "FATE SCARRED" | "DOOM MANIFESTED";
+  timelineScar: string;
+  permanentCosts: string[];
+  newStoryState: string;
+  newActiveStats: string[];
+  genreShift: string;
+}
+
 export interface SystemEvent {
   kind:
     | "status"
@@ -566,6 +528,27 @@ export interface WorldCardSoundHints {
   weaponType?: string;
   artifactCategory?: string;
   tags?: string[];
+}
+
+export interface WorldCardEvent {
+  id?: string;
+  entityType:
+    | "character"
+    | "creature"
+    | "artifact"
+    | "location"
+    | "faction"
+    | "system"
+    | "fate_event";
+  entityName: string;
+  displayTitle: string;
+  imageUrl?: string;
+  quote?: string;
+  audioText?: string;
+  audioType: "tts_line" | WorldCardSoundRole;
+  sound?: WorldCardSoundHints;
+  voicePreset?: string;
+  codexEntryId?: string;
 }
 
 export interface StoryBlock {
