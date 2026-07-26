@@ -1,3 +1,4 @@
+import { isSameAssetId } from '../../contracts/assetIdentity';
 import { auth } from '../firebase';
 import { generateUUID } from '../id';
 import { resolveMediaAssetForDisplay } from '../media/privateMediaResolver';
@@ -117,7 +118,9 @@ export async function getUserProfile(): Promise<UserProfile | null> {
   const result = await persistenceRequest<{ profile: UserProfile | null }>('/profile');
   const profile = result.profile;
   const descriptor = profile?.avatarMediaDescriptor;
-  if (!profile || !descriptor || descriptor.id !== profile.activePortraitId) return profile;
+  if (!profile || !descriptor || !isSameAssetId(descriptor.id, profile.activePortraitId)) {
+    return profile;
+  }
   const resolved = await resolveMediaAssetForDisplay(descriptor);
   return {
     ...profile,

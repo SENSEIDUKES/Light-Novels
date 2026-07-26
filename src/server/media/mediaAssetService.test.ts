@@ -788,6 +788,32 @@ describe('MediaAssetService', () => {
     });
   });
 
+  it('accepts a Codex manifestation keyed by the canonical entity id and rejects a story-local stable key', async () => {
+    const storyId = '11111111-1111-4111-8111-111111111111';
+    const entityId = '99999999-9999-4999-8999-999999999999';
+    const manifestation = (targetKey: string): SaveMediaAssetRequest => ({
+      ...createRequest(),
+      purpose: 'MANIFESTATION',
+      association: {
+        targetKind: 'CHARACTER',
+        targetKey,
+        purpose: 'MANIFESTATION',
+        storyId,
+        entityId,
+      },
+    });
+
+    // The browser used to send the entity's story-local stable key here, so
+    // every Codex manifestation upload was refused before it reached R2.
+    await expect(
+      service(new FakeRepository(), new FakeObjectStore()).save(OWNER, manifestation('char-ye-mo')),
+    ).rejects.toMatchObject({ code: 'invalid_metadata' });
+
+    const descriptor = await service(new FakeRepository(), new FakeObjectStore())
+      .save(OWNER, manifestation(entityId));
+    expect(descriptor.status).toBe('READY');
+  });
+
   it('rejects malformed relational targets and generation jobs outside the owner scope', async () => {
     const repo = new FakeRepository();
     const store = new FakeObjectStore();

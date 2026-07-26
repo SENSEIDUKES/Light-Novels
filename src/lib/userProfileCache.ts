@@ -1,3 +1,4 @@
+import { isSameAssetId } from '../contracts/assetIdentity';
 import type { AppUser, UserProfile } from '../types';
 import { normalizeChapterWritingStyle } from './chapterWritingStyle';
 import { resolveMediaAssetForDisplay } from './media/privateMediaResolver';
@@ -121,11 +122,32 @@ export const createAccountProfileFallback = (user: AppUser): UserProfile => {
   };
 };
 
+/**
+ * Restore the identity avatar a PostgreSQL profile cannot carry.
+ *
+ * Firebase Authentication stayed the identity authority after the migration,
+ * and the `UserProfile` table deliberately has no identity-avatar column, so
+ * the profile read always answers `avatarUrl: ''`. Applying that snapshot
+ * verbatim replaced the Google account photo the sign-in had already rendered,
+ * which is why it appeared for a second and then vanished. A committed
+ * Celestial Portrait still wins: it is the asset the account selected.
+ */
+export const withIdentityAvatar = (
+  profile: UserProfile,
+  user: AppUser | null,
+): UserProfile => {
+  if (profile.activePortraitId || profile.avatarUrl) return profile;
+  const identityAvatar = readCachedAccountProfile(profile.uid)?.avatarUrl
+    || user?.photoURL
+    || '';
+  return identityAvatar ? { ...profile, avatarUrl: identityAvatar } : profile;
+};
+
 export const hydrateCachedAccountPortrait = async (
   profile: UserProfile,
 ): Promise<UserProfile> => {
   const descriptor = profile.avatarMediaDescriptor;
-  if (!descriptor || descriptor.id !== profile.activePortraitId) return profile;
+  if (!descriptor || !isSameAssetId(descriptor.id, profile.activePortraitId)) return profile;
   try {
     const resolved = await resolveMediaAssetForDisplay(descriptor);
     return {

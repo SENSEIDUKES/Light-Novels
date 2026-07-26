@@ -4,6 +4,7 @@ import {
   cacheAccountProfile,
   createAccountProfileFallback,
   readCachedAccountProfile,
+  withIdentityAvatar,
 } from './userProfileCache';
 
 const user: AppUser = {
@@ -96,6 +97,31 @@ describe('account profile cache', () => {
       role: 'user',
       premiumTier: 'mortal',
     });
+  });
+
+  // PostgreSQL has no identity-avatar column: Firebase Authentication kept
+  // that role after the migration, so the profile read always answers
+  // avatarUrl: ''. Applying that snapshot verbatim wiped the Google account
+  // photo a second after sign-in had rendered it.
+  it('restores the identity photo a stored profile cannot carry', () => {
+    const stored: UserProfile = {
+      ...profile,
+      avatarUrl: '',
+      activePortraitId: undefined,
+      avatarMediaDescriptor: undefined,
+    };
+    expect(withIdentityAvatar(stored, user).avatarUrl).toBe('provider-photo.png');
+  });
+
+  it('prefers the cached identity avatar over the provider photo', () => {
+    cacheAccountProfile({ ...profile, activePortraitId: undefined, avatarUrl: 'cached-photo.png' });
+    const stored: UserProfile = { ...profile, avatarUrl: '', activePortraitId: undefined };
+    expect(withIdentityAvatar(stored, user).avatarUrl).toBe('cached-photo.png');
+  });
+
+  it('never replaces a committed Celestial Portrait with the identity photo', () => {
+    const stored: UserProfile = { ...profile, avatarUrl: '', activePortraitId: 'portrait-1' };
+    expect(withIdentityAvatar(stored, user)).toBe(stored);
   });
 
   it('ignores malformed cache data without crossing account boundaries', () => {

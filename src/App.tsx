@@ -23,7 +23,11 @@ import {
   isStoryRefreshStillCurrent,
   type StoryRefreshGuardState,
 } from './appSessionGuards';
-import { cacheAccountProfile, createAccountProfileFallback } from './lib/userProfileCache';
+import {
+  cacheAccountProfile,
+  createAccountProfileFallback,
+  withIdentityAvatar,
+} from './lib/userProfileCache';
 import { retryPendingCultivatorPortraits } from './services/cultivatorPortraitPersistence';
 import { ensureAccountSeedForStory } from './lib/storySeedStorage';
 import { getUserProfile } from './lib/persistence';
@@ -312,10 +316,14 @@ function App() {
                 // Role and tier come from the server, which assigns OWNER from
                 // the verified ID-token email. Promoting the account here only
                 // unlocked UI whose every request PostgreSQL then rejected.
-                const data = {
-                  ...storedProfile,
-                  uid: expectedUid,
-                };
+                // PostgreSQL has no identity-avatar column — Firebase
+                // Authentication still owns it — so the profile read always
+                // answers with an empty avatarUrl. Merge the account photo
+                // back instead of blanking the one sign-in just rendered.
+                const data = withIdentityAvatar(
+                  { ...storedProfile, uid: expectedUid },
+                  user,
+                );
                 cacheAccountProfile(data);
                 store_setUserProfile(data);
                 void retryPendingCultivatorPortraits(expectedUid);

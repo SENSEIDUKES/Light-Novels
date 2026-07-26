@@ -24,6 +24,16 @@ vi.mock('../store/useAppStore', () => ({
   useAppStore: { getState: mocks.getState },
 }));
 
+vi.mock('../lib/media/privateMediaResolver', () => ({
+  resolveMediaAssetForDisplay: vi.fn(async (descriptor: { id: string }) => ({
+    assetId: descriptor.id,
+    descriptor,
+    url: `blob:${descriptor.id}`,
+    source: 'network' as const,
+  })),
+  discardCachedMedia: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('../lib/id', () => ({
   generateId: () => 'legacy-media-id',
   generateUUID: () => 'idempotency-key',
@@ -67,15 +77,45 @@ describe('useCodexImageEvolution error handling', () => {
     ));
 
     await act(async () => {
-      await result.current.handleRevertImage(
-        'character-1',
-        'character',
-        'https://example.test/previous.png',
-      );
+      await result.current.handleRevertImage('character-1', 'character', 'history-id');
     });
 
     expect(result.current.generationError).toBe('Image is no longer available');
     expect(onUpdateStory).not.toHaveBeenCalled();
+  });
+
+  // A story read only hydrates delivery URLs for the current surface, so every
+  // superseded version comes back with an empty `imageUrl`. Matching on that
+  // URL restored whichever blank version happened to be first.
+  it('reverts to the version identified by its durable history id', async () => {
+    mocks.selectMediaAsset.mockResolvedValue({ id: 'asset-older', deliveryUrl: '' });
+    const onUpdateStory = vi.fn();
+    const story = {
+      ...activeStory,
+      imageHistory: [
+        { id: 'history-older', assetId: 'asset-older', entityId: 'character-1', imageUrl: '' },
+        { id: 'history-newer', assetId: 'asset-newer', entityId: 'character-1', imageUrl: '' },
+      ],
+    };
+    const { result } = renderHook(() => useCodexImageEvolution(
+      memory, story, onUpdateStory, undefined, vi.fn(),
+    ));
+
+    await act(async () => {
+      await result.current.handleRevertImage('character-1', 'character', 'history-older');
+    });
+
+    expect(mocks.selectMediaAsset).toHaveBeenCalledWith('asset-older', expect.objectContaining({
+      targetKind: 'CHARACTER',
+      targetKey: 'character-persistence-id',
+      entityId: 'character-persistence-id',
+    }));
+    const committed = onUpdateStory.mock.calls[0][0];
+    expect(committed.memory.characters[0].imageAssetId).toBe('asset-older');
+    expect(committed.imageHistory.find((image: { id: string }) => image.id === 'history-older').isCurrent)
+      .toBe(true);
+    expect(committed.imageHistory.find((image: { id: string }) => image.id === 'history-newer').isCurrent)
+      .toBe(false);
   });
 
   it('keeps a preview available when saving its media asset fails', async () => {

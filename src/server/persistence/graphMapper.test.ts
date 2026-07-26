@@ -422,6 +422,49 @@ describe('story graph mapping', () => {
     expect(persistenceUuid(`story-${STORY_ID}`, 'story')).toBe(STORY_ID);
   });
 
+  it('writes manifestation importance as JSON text and hydrates it back as a record', () => {
+    const currentGraph = storyGraph();
+    const story = hydrateStoryWorld(currentGraph)!;
+    const importance = {
+      narrativeWeight: 'major' as const,
+      namedStatus: true,
+      recurrence: true,
+      plotRelevance: true,
+    };
+    story.memory.characters[0].manifestationImportance = importance;
+
+    const variables = mapStoryWorldToGraphVariables({
+      ownerUid: 'owner-a',
+      story,
+      currentGraph,
+      ...mutationMetadata(),
+    });
+
+    // The column is a String. Handing Data Connect the structured record made
+    // the whole story-graph mutation fail variable coercion, so no Codex change
+    // reached PostgreSQL once any entity carried the editorial block.
+    const written = variables.codexEntities.find(entity => entity.stableKey === 'lin')!;
+    expect(typeof written.manifestationImportance).toBe('string');
+    expect(JSON.parse(written.manifestationImportance as string)).toEqual(importance);
+
+    const rehydrated = hydrateStoryWorld({
+      ...currentGraph,
+      codexEntities: currentGraph.codexEntities.map(entity => (
+        entity.stableKey === 'lin'
+          ? { ...entity, manifestationImportance: written.manifestationImportance }
+          : entity
+      )),
+    } as AdminGetOwnedStoryGraphData)!;
+    expect(rehydrated.memory.characters[0].manifestationImportance).toEqual(importance);
+  });
+
+  it('drops an unparseable legacy manifestation label instead of returning a broken record', () => {
+    const currentGraph = storyGraph();
+    currentGraph.codexEntities[0].manifestationImportance = 'major';
+    const story = hydrateStoryWorld(currentGraph)!;
+    expect(story.memory.characters[0].manifestationImportance).toBeUndefined();
+  });
+
   it('bounds a one-entity Codex update in a realistic 100-chapter graph', () => {
     const currentGraph = storyGraph();
     currentGraph.chapters = Array.from({ length: 100 }, (_, index) => ({

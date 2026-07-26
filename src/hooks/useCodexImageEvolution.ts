@@ -27,17 +27,26 @@ export function useCodexImageEvolution(
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [previews, setPreviews] = useState<Record<string, { urls: string[], prompt: string, selectedIndex: number, type: 'character' | 'location' | 'artifact' | 'beast' }>>({});
 
-  const handleRevertImage = async (id: string, type: string, newUrl: string) => {
+  /**
+   * Restore a previous manifestation.
+   *
+   * The version is addressed by its durable history id. It used to be matched
+   * on the rendered `imageUrl`, which is a signed projection the server blanks
+   * for every non-current version — so once a story round-tripped through
+   * PostgreSQL every older version shared the same empty URL and reverting
+   * silently restored whichever one happened to be first.
+   */
+  const handleRevertImage = async (id: string, type: string, historyId: string) => {
     try {
       const selectedHistory = activeStory.imageHistory?.find(
-        image => image.entityId === id && image.imageUrl === newUrl,
+        image => image.entityId === id && image.id === historyId,
       );
+      let selectedUrl = selectedHistory?.imageUrl ?? '';
       const entity = type === 'location'
         ? memory.locations?.find(item => item.id === id)
         : type === 'artifact'
           ? memory.artifacts?.find(item => item.id === id)
           : memory.characters?.find(item => item.id === id);
-      let selectedUrl = newUrl;
       if (selectedHistory?.assetId) {
         const targetKind = type === 'location'
           ? MEDIA_TARGET_KIND.LOCATION
@@ -46,14 +55,20 @@ export function useCodexImageEvolution(
             : type === 'beast'
               ? MEDIA_TARGET_KIND.BEAST
               : MEDIA_TARGET_KIND.CHARACTER;
+        const entityPersistenceId = requirePersistenceUuid(
+          entity?.persistenceId ?? entity?.id,
+          `${type} entity`,
+        );
         const descriptor = await selectMediaAsset(selectedHistory.assetId, {
           targetKind,
-          targetKey: id,
+          targetKey: entityPersistenceId,
           purpose: MEDIA_PURPOSE.MANIFESTATION,
           storyId: requirePersistenceUuid(activeStory.persistenceId ?? activeStory.id, 'Story'),
-          entityId: requirePersistenceUuid(entity?.persistenceId ?? entity?.id, `${type} entity`),
+          entityId: entityPersistenceId,
         });
-        selectedUrl = descriptor.deliveryUrl;
+        // Render the cached blob rather than the raw signed URL so a reverted
+        // image keeps working after that short-lived signature expires.
+        selectedUrl = (await resolveMediaAssetForDisplay(descriptor)).url;
       }
       let finalMemory = { ...memory };
       if (type === 'character' || type === 'beast') {
@@ -195,7 +210,7 @@ export function useCodexImageEvolution(
         purpose: MEDIA_PURPOSE.MANIFESTATION,
         association: {
           targetKind,
-          targetKey: id,
+          targetKey: entityPersistenceId,
           storyId: storyPersistenceId,
           entityId: entityPersistenceId,
           legacyMediaId,
