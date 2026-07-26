@@ -203,6 +203,23 @@ function assertExpected(
   }
 }
 
+/**
+ * The revision a reader of `getChapterContent` observed, or null when the
+ * chapter carries no body yet. It must mirror `hydrateChapterContent`, which
+ * reports the content row's revision (falling back to the chapter row's) and
+ * the content row's `updatedAt`.
+ */
+function chapterContentRevision(
+  graph: AdminGetOwnedChapterContentGraphData,
+): { syncRevision?: string | null; updatedAt?: string | null } | null {
+  const chapter = graph.chapter;
+  if (!chapter?.content) return null;
+  return {
+    syncRevision: chapter.content.syncRevision ?? chapter.syncRevision ?? null,
+    updatedAt: chapter.content.updatedAt,
+  };
+}
+
 function glossaryRow(term: LoreGlossary) {
   return {
     id: term.id,
@@ -711,7 +728,14 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
       storyId: storyGraph.story.id,
       chapterId: chapter.id,
     });
-    assertExpected(context.expected, currentResult.data.chapter);
+    // Compare the caller's expectation against the record the caller actually
+    // read: `getChapterContent` hydrates a *body*, and returns null for a
+    // scaffold that has none. Asserting against the scaffold row instead made
+    // every first content write for a newly created chapter fail — the client
+    // correctly sent `{ exists: false }` while the scaffold already existed —
+    // so the chapter never left the durable outbox and the reader lost the
+    // generated prose on reload.
+    assertExpected(context.expected, chapterContentRevision(currentResult.data));
     const variables: AdminUpsertChapterContentGraphVariables = mapChapterContentToGraphVariables({
       ownerUid,
       storyId: storyGraph.story.id,

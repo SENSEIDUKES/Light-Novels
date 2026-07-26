@@ -314,6 +314,24 @@ describe('resolveCardSound — semantic matching', () => {
     }
     expect(resolveCardSoundRole('ceremonial', 'faction')).toBe('chant');
   });
+
+  /**
+   * Regression: `audioType` is optional on WorldCardEvent and generated cards
+   * routinely omit it. Dereferencing it threw inside WorldEntityCard's render
+   * memo, which crashed the whole Reader Chamber.
+   */
+  it('treats a card with no declared audioType as having no sound role', () => {
+    expect(resolveCardSoundRole(undefined)).toBeNull();
+    expect(resolveCardSoundRole('   ')).toBeNull();
+    expect(resolveCardSoundRole(undefined, 'artifact')).toBeNull();
+    expect(
+      resolveCardSound({
+        entityType: 'artifact',
+        entityName: 'Ledger of Names',
+        displayTitle: 'Ledger of Names',
+      }),
+    ).toBeNull();
+  });
 });
 
 describe('resolveCardSound — graceful failure', () => {
