@@ -82,6 +82,7 @@ export const LawsPanel: React.FC<LawsPanelProps> = ({ memory, onUpdateMemory, se
                 onClick={() => setDeletePrompt({ id: idx, type: 'law' })}
                 className="opacity-0 group-hover:opacity-100 text-neutral-600 hover:text-red-500 transition-all"
                 title="Erase Precept"
+                aria-label="Erase Precept"
               >
                 <X size={14} />
               </button>
