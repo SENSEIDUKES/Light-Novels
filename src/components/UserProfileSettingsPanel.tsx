@@ -1,7 +1,14 @@
-import { CloudOff, RefreshCw, Cloud, Globe, Sliders, AlertTriangle } from 'lucide-react';
+import { CloudOff, RefreshCw, Cloud, Globe, Sliders, AlertTriangle, BookOpen } from 'lucide-react';
 import { storyStorage } from '../lib/storage';
-import { UserProfile as UserProfileType } from '../types';
+import {
+  ChapterWritingStyle,
+  UserProfile as UserProfileType,
+} from '../types';
 import { LOCAL_ONLY_MODE, setLocalOnlyMode } from '../lib/firebase';
+import {
+  CHAPTER_WRITING_STYLE_OPTIONS,
+  normalizeChapterWritingStyle,
+} from '../lib/chapterWritingStyle';
 
 interface UserProfileSettingsPanelProps {
   syncStatus: string;
@@ -9,6 +16,8 @@ interface UserProfileSettingsPanelProps {
   formData: Partial<UserProfileType>;
   profile: UserProfileType | null;
   handleLanguageChangeDirect: (name: 'preferredLanguage' | 'defaultTranslationLanguage', value: string) => void;
+  handleDefaultChapterWritingStyleChange: (value: ChapterWritingStyle) => Promise<void>;
+  isSavingChapterWritingStyle: boolean;
 }
 
 export function UserProfileSettingsPanel({
@@ -16,7 +25,9 @@ export function UserProfileSettingsPanel({
   lastSavedTime,
   formData,
   profile,
-  handleLanguageChangeDirect
+  handleLanguageChangeDirect,
+  handleDefaultChapterWritingStyleChange,
+  isSavingChapterWritingStyle,
 }: UserProfileSettingsPanelProps) {
   const isHarmonizing = syncStatus === 'syncing';
   const harmonyDetail = syncStatus === 'offline'
@@ -164,6 +175,44 @@ export function UserProfileSettingsPanel({
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500 text-[9px]">▼</div>
               </div>
             </div>
+          </div>
+
+          <div className="flex flex-col gap-3 rounded-xl border border-neutral-850 bg-black/40 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-3.5">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+              <div className="shrink-0 rounded-lg bg-neutral-900/50 p-2">
+                <BookOpen size={13} className="text-jade-accent" />
+              </div>
+              <div className="flex min-w-0 flex-col">
+                <label
+                  htmlFor="default-chapter-writing-style"
+                  className="font-sc text-[9px] font-bold uppercase tracking-widest text-neutral-400 sm:text-[10px]"
+                >
+                  Default Chapter Writing Style
+                </label>
+                <span className="font-sans text-[8px] text-neutral-500">
+                  Used when a new story is created
+                </span>
+              </div>
+            </div>
+            <select
+              id="default-chapter-writing-style"
+              value={normalizeChapterWritingStyle(
+                formData.defaultChapterWritingStyle
+                  ?? profile?.defaultChapterWritingStyle,
+              )}
+              onChange={(event) => {
+                void handleDefaultChapterWritingStyleChange(
+                  event.target.value as ChapterWritingStyle,
+                );
+              }}
+              disabled={!profile || isSavingChapterWritingStyle}
+              aria-busy={isSavingChapterWritingStyle}
+              className="w-full cursor-pointer rounded border border-neutral-800 bg-black px-3 py-2 font-sans text-[11px] text-signal outline-none transition-all hover:border-jade-accent/50 focus:border-jade-accent disabled:cursor-wait disabled:opacity-60 sm:w-44"
+            >
+              {CHAPTER_WRITING_STYLE_OPTIONS.map(style => (
+                <option key={style} value={style}>{style}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>

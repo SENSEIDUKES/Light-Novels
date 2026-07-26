@@ -643,6 +643,7 @@ query AdminGetOwnedStoryGraph($ownerUid: String!, $storyId: UUID!) @auth(level: 
     fatePressure
     motionCoverActive
     assignedRevealBackdropPolicy
+    chapterWritingStyle
     updatedAt
   }
   readerPreferences: storyReaderPreferences(
@@ -1300,6 +1301,7 @@ query AdminGetUserProfileGraph($ownerUid: String!) @auth(level: NO_ACCESS) {
     displayNameColor
     preferredLanguage
     defaultTranslationLanguage
+    defaultChapterWritingStyle
     subscriptionTier
     legacyQi
     daoXp
@@ -1801,6 +1803,7 @@ query AdminGetAdminOverview($actorUid: String!, $limit: Int = 1000)
     userUid
     username
     subscriptionTier
+    defaultChapterWritingStyle
     legacyQi
     daoXp
     daoRank

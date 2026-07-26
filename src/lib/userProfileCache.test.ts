@@ -35,6 +35,7 @@ const profile: UserProfile = {
   },
   preferredLanguage: 'Japanese',
   defaultTranslationLanguage: 'English',
+  defaultChapterWritingStyle: 'Easy Read',
   savedStoryCount: 3,
   activeStories: ['story-1'],
   inactiveStories: [],
@@ -64,7 +65,27 @@ describe('account profile cache', () => {
         deliveryUrl: '',
       }),
       preferredLanguage: 'Japanese',
+      defaultChapterWritingStyle: 'Easy Read',
     });
+  });
+
+  it('normalizes an invalid cached writing style to Standard', () => {
+    localStorage.setItem(
+      'seihouse-account-profile-cache-v1:account-a',
+      JSON.stringify({
+        uid: 'account-a',
+        username: 'reader',
+        displayName: 'Reader',
+        avatarUrl: '',
+        preferredLanguage: 'English',
+        defaultTranslationLanguage: 'English',
+        defaultChapterWritingStyle: 'Unknown',
+        joinedDate: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-07-14T00:00:00.000Z',
+      }),
+    );
+
+    expect(createAccountProfileFallback(user).defaultChapterWritingStyle).toBe('Standard');
   });
 
   it('falls back to the identity-provider photo when no account profile is cached', () => {

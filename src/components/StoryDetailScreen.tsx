@@ -17,6 +17,8 @@ import {
   Compass,
   CloudDownload,
   Film,
+  Settings,
+  AlertTriangle,
 } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import { DestinyChoicePanel } from "./DestinyChoicePanel";
@@ -25,6 +27,11 @@ import { storyStorage } from "../lib/storage";
 import { getAuraTextStyle } from "../lib/qi";
 import { vibrate } from "../lib/vibration";
 import { resolveReaderOpeningChapter } from "../lib/readerNavigation";
+import type { ChapterWritingStyle } from "../types";
+import {
+  CHAPTER_WRITING_STYLE_OPTIONS,
+  normalizeChapterWritingStyle,
+} from "../lib/chapterWritingStyle";
 
 export const StoryDetailScreen: React.FC<{
   handleGenerateCover: (customModifier?: string) => Promise<
@@ -63,6 +70,10 @@ export const StoryDetailScreen: React.FC<{
   } | null>(null);
   const [customPromptModifier, setCustomPromptModifier] = useState<string>("");
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isStorySettingsOpen, setIsStorySettingsOpen] = useState(false);
+  const [draftChapterWritingStyle, setDraftChapterWritingStyle] =
+    useState<ChapterWritingStyle>("Standard");
+  const [isSavingStorySettings, setIsSavingStorySettings] = useState(false);
   const [isDownloadingOffline, setIsDownloadingOffline] = useState(false);
   const [offlineProgress, setOfflineProgress] = useState({
     current: 0,
@@ -221,6 +232,41 @@ export const StoryDetailScreen: React.FC<{
     activeStory.arcs.every(arc =>
       arc.chapters.every(c => c.hasContent || !!c.generatedContent)
     );
+  const savedChapterWritingStyle = normalizeChapterWritingStyle(
+    activeStory.chapterWritingStyle,
+  );
+  const chapterWritingStyleChanged =
+    draftChapterWritingStyle !== savedChapterWritingStyle;
+  const hasGeneratedChapters = activeStory.arcs.some(arc =>
+    arc.chapters.some(chapter => chapter.hasContent || Boolean(chapter.generatedContent)),
+  );
+  const handleSaveStorySettings = async () => {
+    if (!chapterWritingStyleChanged || isSavingStorySettings) {
+      setIsStorySettingsOpen(false);
+      return;
+    }
+
+    setIsSavingStorySettings(true);
+    const updatedAt = new Date().toISOString();
+    const updatedStories = stories.map(story =>
+      story.id === activeStory.id
+        ? {
+            ...story,
+            chapterWritingStyle: draftChapterWritingStyle,
+            updatedAt,
+          }
+        : story,
+    );
+    try {
+      await saveStories(updatedStories);
+      setIsStorySettingsOpen(false);
+    } catch (error) {
+      console.error("Failed to save chapter writing style:", error);
+      setAppError("The story writing style could not be saved. Please try again.");
+    } finally {
+      setIsSavingStorySettings(false);
+    }
+  };
   const hasReachedEnding = allChaptersGenerated || (activeStory.arcs.length > 0 && activeStory.arcs[activeStory.arcs.length - 1].isCompleted);
   const userQi = userProfile?.dao_xp || userProfile?.qi || 0;
   const isSage = userQi >= 12000;
@@ -263,6 +309,106 @@ export const StoryDetailScreen: React.FC<{
         onClose={() => setIsTimelineOpen(false)}
         activeStoryId={activeStoryId || ""}
       />
+
+      <AnimatePresence>
+        {isStorySettingsOpen && (
+          <FocusLock>
+            <motion.div
+              key="story-settings-modal-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md"
+              role="presentation"
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget && !isSavingStorySettings) {
+                  setIsStorySettingsOpen(false);
+                }
+              }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96, y: 12 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 12 }}
+                className="w-full max-w-md rounded-xl border border-neutral-800 bg-[#050505] p-6 shadow-2xl"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="story-settings-title"
+              >
+                <div className="mb-5 flex items-center gap-3">
+                  <Settings size={18} className="text-portal" />
+                  <div>
+                    <h2
+                      id="story-settings-title"
+                      className="font-sc text-sm font-bold uppercase tracking-widest text-signal"
+                    >
+                      Story Settings
+                    </h2>
+                    <p className="mt-1 font-sans text-[11px] text-neutral-500">
+                      Changes apply to future chapter generations.
+                    </p>
+                  </div>
+                </div>
+
+                <label
+                  htmlFor="story-chapter-writing-style"
+                  className="mb-2 block font-sc text-[10px] font-bold uppercase tracking-widest text-neutral-400"
+                >
+                  Chapter Writing Style
+                </label>
+                <select
+                  id="story-chapter-writing-style"
+                  value={draftChapterWritingStyle}
+                  onChange={event =>
+                    setDraftChapterWritingStyle(
+                      event.target.value as ChapterWritingStyle,
+                    )
+                  }
+                  disabled={isSavingStorySettings}
+                  className="w-full rounded border border-neutral-800 bg-black px-3 py-2.5 font-sans text-sm text-signal outline-none transition-colors focus:border-portal disabled:cursor-wait disabled:opacity-60"
+                >
+                  {CHAPTER_WRITING_STYLE_OPTIONS.map(style => (
+                    <option key={style} value={style}>{style}</option>
+                  ))}
+                </select>
+
+                {chapterWritingStyleChanged && hasGeneratedChapters && (
+                  <div
+                    className="mt-4 flex items-start gap-2 rounded border border-amber-800/60 bg-amber-950/20 p-3 font-sans text-[11px] leading-relaxed text-amber-200"
+                    role="alert"
+                  >
+                    <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+                    <span>
+                      Existing chapters will stay unchanged. Future chapters may have a different prose style.
+                    </span>
+                  </div>
+                )}
+
+                <div className="mt-6 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsStorySettingsOpen(false)}
+                    disabled={isSavingStorySettings}
+                    className="rounded border border-neutral-800 px-4 py-2 font-mono text-[10px] uppercase tracking-wider text-neutral-400 transition-colors hover:text-signal disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleSaveStorySettings();
+                    }}
+                    disabled={isSavingStorySettings}
+                    className="rounded bg-portal px-4 py-2 font-sc text-[10px] font-bold uppercase tracking-widest text-void transition-colors hover:bg-portal/90 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {isSavingStorySettings ? "Saving…" : "Save"}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          </FocusLock>
+        )}
+      </AnimatePresence>
 
       {/* Unified Export Tome Modal */}
       <AnimatePresence>
@@ -989,6 +1135,18 @@ export const StoryDetailScreen: React.FC<{
                     className="absolute left-0 mt-2 w-56 rounded bg-neutral-950 border border-neutral-800 shadow-xl z-50 overflow-hidden divide-y divide-neutral-900"
                   >
                     <div className="py-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDraftChapterWritingStyle(savedChapterWritingStyle);
+                          setIsStoryMenuOpen(false);
+                          setIsStorySettingsOpen(true);
+                        }}
+                        className="flex w-full items-center space-x-2 px-4 py-2.5 text-left font-sc text-xs font-bold uppercase tracking-wider text-neutral-300 transition-colors hover:bg-neutral-900 hover:text-portal"
+                      >
+                        <Settings size={14} className="text-portal" />
+                        <span>Story Settings</span>
+                      </button>
                       <button
                         tabIndex={0}
                         onKeyDown={(e) => {

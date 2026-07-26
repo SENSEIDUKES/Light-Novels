@@ -154,6 +154,29 @@ describe("storyRouter context manifest contract", () => {
     }));
   });
 
+  it.each([
+    ["/api/generate-chapter-stream", mocks.routeTextGenerationStream],
+    ["/api/generate-chapter", mocks.routeTextGeneration],
+  ])("adds the saved writing style only to the %s chapter prompt", async (path, routeMock) => {
+    const handler = getHandler(path);
+    const { response } = createResponse();
+
+    await handler(
+      {
+        body: {
+          ...requestBody,
+          chapterWritingStyle: "Easy Read",
+        },
+        header: vi.fn(),
+      },
+      response,
+    );
+
+    const prompt = routeMock.mock.calls[0][2];
+    expect(prompt).toContain("CHAPTER WRITING STYLE");
+    expect(prompt).toContain("Write this chapter in an adult Easy Read style.");
+  });
+
   it("keeps v2 active for legacy v1 requests and string history", async () => {
     const handler = getHandler("/api/generate-chapter");
     const firstResponse = createResponse().response;

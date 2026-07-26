@@ -93,6 +93,12 @@ export interface CultivatorPortraitAsset {
   customization: CultivatorPortraitCustomization;
 }
 
+export type ChapterWritingStyle =
+  | "Standard"
+  | "Clear Reading"
+  | "Easy Read"
+  | "Literal Reading";
+
 export interface UserProfile {
   uid: string;
   username: string;
@@ -105,6 +111,8 @@ export interface UserProfile {
   avatarMediaDescriptor?: import("./contracts/mediaAssets").MediaAssetDescriptor;
   preferredLanguage: string;
   defaultTranslationLanguage: string;
+  /** Default copied onto newly created stories; existing stories keep their saved value. */
+  defaultChapterWritingStyle?: ChapterWritingStyle;
   savedStoryCount: number;
   activeStories: string[];
   inactiveStories: string[];
@@ -1043,6 +1051,8 @@ export interface StoryWorld {
   motionCoverActive?: boolean; // Alternative video covers active state
   hardcoreFateMode?: boolean;
   fatePressure?: "Relaxed" | "Balanced" | "Hardcore" | "Dao Master";
+  /** Applies only to future chapter prose generation. */
+  chapterWritingStyle?: ChapterWritingStyle;
   deleted?: boolean; // Soft delete for synchronization
 
   // Local-first persistent storage properties

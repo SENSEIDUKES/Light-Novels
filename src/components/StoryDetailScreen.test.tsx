@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { StoryDetailScreen } from './StoryDetailScreen';
 
-const state = vi.hoisted(() => ({
+const storeMocks = vi.hoisted(() => ({
   story: null as any,
+  saveStories: vi.fn().mockResolvedValue(undefined),
+  setAppError: vi.fn(),
 }));
 
 vi.mock('../store/useAppStore', () => ({
@@ -11,11 +13,12 @@ vi.mock('../store/useAppStore', () => ({
     currentScreen: 'detail',
     setCurrentScreen: vi.fn(),
     activeStoryId: 'test-story',
-    stories: [state.story],
+    stories: [storeMocks.story],
     isGenerating: false,
     setSelectedChapterNum: vi.fn(),
     userProfile: { qi: 0 },
-    saveStories: vi.fn(),
+    saveStories: storeMocks.saveStories,
+    setAppError: storeMocks.setAppError,
   }),
 }));
 
@@ -23,9 +26,17 @@ function makeStory(overrides: Record<string, unknown> = {}) {
   return {
     id: 'test-story',
     title: 'Test',
+    genre: 'Fantasy',
+    mcName: 'Lin',
+    customPremise: 'A gate opens.',
     createdAt: '2023-01-01T00:00:00Z',
+    updatedAt: '2023-01-01T00:00:00Z',
+    chapterWritingStyle: 'Standard',
     arcs: [{ title: 'Arc 1', chapters: [] }],
-    memory: { unresolvedPlotThreads: [] },
+    memory: {
+      currentPowerStage: 'Mortal',
+      unresolvedPlotThreads: [],
+    },
     ...overrides,
   };
 }
@@ -46,7 +57,9 @@ function renderScreen() {
 
 describe('StoryDetailScreen', () => {
   beforeEach(() => {
-    state.story = makeStory();
+    vi.clearAllMocks();
+    storeMocks.saveStories.mockResolvedValue(undefined);
+    storeMocks.story = makeStory();
   });
 
   it('renders without crashing', () => {
@@ -59,7 +72,7 @@ describe('StoryDetailScreen', () => {
   // Reading arcs[arcs.length - 1].title threw, and the ErrorBoundary replaced
   // the whole app with a rendering-error screen.
   it('renders a story that has no arcs yet', () => {
-    state.story = makeStory({ arcs: [] });
+    storeMocks.story = makeStory({ arcs: [] });
 
     expect(() => renderScreen()).not.toThrow();
     expect(screen.getByText('Not yet charted')).toBeDefined();
@@ -68,9 +81,37 @@ describe('StoryDetailScreen', () => {
   it('does not claim an arcless story reached its ending', () => {
     // `[].every()` is vacuously true, so an empty story used to report that
     // every chapter was generated and that it had reached its ending.
-    state.story = makeStory({ arcs: [] });
+    storeMocks.story = makeStory({ arcs: [] });
     renderScreen();
 
     expect(screen.queryByText(/Ascend/i)).toBeNull();
+  });
+
+  it('warns before changing the saved style for future chapters', async () => {
+    storeMocks.story = makeStory({
+      arcs: [{
+        title: 'Arc 1',
+        chapters: [{ number: 1, title: 'Opening', status: 'read', hasContent: true }],
+      }],
+    });
+    renderScreen();
+
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Story Settings' }));
+    fireEvent.change(screen.getByLabelText('Chapter Writing Style'), {
+      target: { value: 'Easy Read' },
+    });
+
+    expect(screen.getByRole('alert').textContent).toContain(
+      'Existing chapters will stay unchanged',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(storeMocks.saveStories).toHaveBeenCalledWith([
+      expect.objectContaining({
+        id: 'test-story',
+        chapterWritingStyle: 'Easy Read',
+      }),
+    ]));
   });
 });

@@ -26,6 +26,7 @@ describe('useStoryGeneration', () => {
     state = {
       isGenerating: false,
       stories: [{ id: 'existing-story' }],
+      userProfile: { defaultChapterWritingStyle: 'Easy Read' },
       routingConfig: { storyMaker: { provider: 'gemini' } },
       saveStories: vi.fn().mockResolvedValue(undefined),
       setActiveStoryId: vi.fn(),
@@ -106,6 +107,7 @@ describe('useStoryGeneration', () => {
       genre: 'Xianxia',
       mcName: 'Lin',
       currentChapterNumber: 1,
+      chapterWritingStyle: 'Easy Read',
       arcs: [{ title: 'The Jade Gate', chapters: [{ number: 1, status: 'unread' }] }],
       memory: {
         powerSystem: 'Cultivation',

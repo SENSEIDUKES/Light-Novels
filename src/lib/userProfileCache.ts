@@ -1,4 +1,5 @@
 import type { AppUser, UserProfile } from '../types';
+import { normalizeChapterWritingStyle } from './chapterWritingStyle';
 import { resolveMediaAssetForDisplay } from './media/privateMediaResolver';
 
 const ACCOUNT_PROFILE_CACHE_PREFIX = 'seihouse-account-profile-cache-v1:';
@@ -11,6 +12,7 @@ type CachedAccountProfile = Pick<
   | 'avatarUrl'
   | 'preferredLanguage'
   | 'defaultTranslationLanguage'
+  | 'defaultChapterWritingStyle'
   | 'joinedDate'
   | 'updatedAt'
 > & Partial<Pick<
@@ -50,6 +52,7 @@ export const cacheAccountProfile = (profile: UserProfile): void => {
     avatarUrl: profile.activePortraitId ? '' : profile.avatarUrl,
     preferredLanguage: profile.preferredLanguage,
     defaultTranslationLanguage: profile.defaultTranslationLanguage,
+    defaultChapterWritingStyle: profile.defaultChapterWritingStyle,
     joinedDate: profile.joinedDate,
     updatedAt: profile.updatedAt,
     displayNameColor: profile.displayNameColor,
@@ -97,6 +100,9 @@ export const createAccountProfileFallback = (user: AppUser): UserProfile => {
     avatarMediaDescriptor: cachedProfile?.avatarMediaDescriptor,
     preferredLanguage: cachedProfile?.preferredLanguage || 'English',
     defaultTranslationLanguage: cachedProfile?.defaultTranslationLanguage || 'English',
+    defaultChapterWritingStyle: normalizeChapterWritingStyle(
+      cachedProfile?.defaultChapterWritingStyle,
+    ),
     savedStoryCount: 0,
     activeStories: [],
     inactiveStories: [],

@@ -8,6 +8,7 @@ const story = {
   genre: "Xianxia",
   mcName: "Lin",
   customPremise: "A journey",
+  chapterWritingStyle: "Literal Reading",
   memory: {
     powerSystem: "Ranks",
     currentPowerStage: "First",
@@ -152,5 +153,6 @@ describe("streamChapterBlocks", () => {
       String(vi.mocked(fetch).mock.calls[0][1]?.body),
     );
     expect(requestBody.contextEngine).toBe("v2");
+    expect(requestBody.chapterWritingStyle).toBe("Literal Reading");
   });
 });

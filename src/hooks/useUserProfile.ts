@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { UserProfile as UserProfileType, Story, AppUser } from '../types';
+import {
+  UserProfile as UserProfileType,
+  Story,
+  AppUser,
+  ChapterWritingStyle,
+} from '../types';
 import { auth } from '../lib/firebase';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { useAppStore } from '../store/useAppStore';
@@ -23,6 +28,7 @@ import {
   saveUserProfile,
   updatePersistenceAdminAccount,
 } from '../lib/persistence';
+import { normalizeChapterWritingStyle } from '../lib/chapterWritingStyle';
 
 interface UseUserProfileProps {
   currentUser: AppUser | null;
@@ -71,6 +77,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
   // Language safeguard states
   const [pendingLanguageChange, setPendingLanguageChange] = useState<{ preferred: string, translation: string, prevPreferred: string, prevTranslation: string } | null>(null);
   const [countdown, setCountdown] = useState(30);
+  const [isSavingChapterWritingStyle, setIsSavingChapterWritingStyle] = useState(false);
 
   useEffect(() => {
     if (!pendingLanguageChange) return;
@@ -166,6 +173,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
     setPortraitDesc('');
     setIsGeneratingPortrait(false);
     setIsSavingPortrait(false);
+    setIsSavingChapterWritingStyle(false);
     setGeneratedPortraitUrl('');
     setGeneratedPortraitPrompt('');
     setPortraitError('');
@@ -571,6 +579,9 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
         avatarUrl: localProfile?.avatarUrl || '',
         preferredLanguage: localProfile?.preferredLanguage || 'English',
         defaultTranslationLanguage: localProfile?.defaultTranslationLanguage || 'English',
+        defaultChapterWritingStyle: normalizeChapterWritingStyle(
+          localProfile?.defaultChapterWritingStyle,
+        ),
         savedStoryCount: 0,
         activeStories: [],
         inactiveStories: [],
@@ -934,6 +945,83 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
     }
   };
 
+  const handleDefaultChapterWritingStyleChange = async (
+    value: ChapterWritingStyle,
+  ) => {
+    if (!profile || isSavingChapterWritingStyle) return;
+    const nextStyle = normalizeChapterWritingStyle(value);
+    const previousStyle = normalizeChapterWritingStyle(
+      profile.defaultChapterWritingStyle,
+    );
+    if (nextStyle === previousStyle) return;
+
+    const optimisticProfile: UserProfileType = {
+      ...profile,
+      defaultChapterWritingStyle: nextStyle,
+      updatedAt: new Date().toISOString(),
+    };
+    setProfile(optimisticProfile);
+    setFormData(previous => ({
+      ...previous,
+      defaultChapterWritingStyle: nextStyle,
+    }));
+    useAppStore.getState().setUserProfile(optimisticProfile);
+    setIsSavingChapterWritingStyle(true);
+    setError('');
+
+    try {
+      if (!currentUser) {
+        const serialized = localStorage.getItem('seihouse-local-user-profile');
+        const localProfile = serialized ? JSON.parse(serialized) : {};
+        localStorage.setItem(
+          'seihouse-local-user-profile',
+          JSON.stringify({
+            ...localProfile,
+            defaultChapterWritingStyle: nextStyle,
+            updatedAt: optimisticProfile.updatedAt,
+          }),
+        );
+        return;
+      }
+
+      const expectedUid = currentUser.uid;
+      const saved = await saveUserProfile({
+        uid: expectedUid,
+        defaultChapterWritingStyle: nextStyle,
+        updatedAt: optimisticProfile.updatedAt,
+      });
+      if (activeProfileUidRef.current !== expectedUid) return;
+      const savedProfile = { ...optimisticProfile, ...saved, uid: expectedUid };
+      setProfile(savedProfile);
+      setFormData(previous => ({
+        ...previous,
+        defaultChapterWritingStyle: nextStyle,
+        updatedAt: savedProfile.updatedAt,
+      }));
+      useAppStore.getState().setUserProfile(savedProfile);
+      cacheAccountProfile(savedProfile);
+    } catch (saveError) {
+      if (currentUser && activeProfileUidRef.current !== currentUser.uid) return;
+      const restoredProfile = {
+        ...optimisticProfile,
+        defaultChapterWritingStyle: previousStyle,
+      };
+      setProfile(restoredProfile);
+      setFormData(previous => ({
+        ...previous,
+        defaultChapterWritingStyle: previousStyle,
+      }));
+      useAppStore.getState().setUserProfile(restoredProfile);
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : 'Failed to save the default chapter writing style.',
+      );
+    } finally {
+      setIsSavingChapterWritingStyle(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!currentUser || !profile) return;
 
@@ -1031,6 +1119,8 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
     handleRepairPillar,
     handleCheckIn,
     handleLanguageChangeDirect,
+    handleDefaultChapterWritingStyleChange,
+    isSavingChapterWritingStyle,
     handleSave,
     handleChange,
     daoData,

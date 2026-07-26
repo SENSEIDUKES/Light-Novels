@@ -8,6 +8,7 @@ import { getDaoRankData, getAuraTextStyle } from '../lib/qi';
 import { PRESET_CHALLENGES } from '../data/challenges';
 import { auth } from '../lib/firebase';
 import { resolveReaderOpeningChapter } from '../lib/readerNavigation';
+import { normalizeChapterWritingStyle } from '../lib/chapterWritingStyle';
 
 function getStoryChapterStats(story?: Story | null) {
   let totalChapters = 0;
@@ -668,6 +669,9 @@ export const LibraryScreen: React.FC = () => {
                         <div className="flex flex-wrap gap-1">
                           <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-[#00A86B] px-1.5 py-0.5 bg-black/80 border border-neutral-800 rounded inline-block">
                             {world.genre}
+                          </span>
+                          <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-portal px-1.5 py-0.5 bg-black/80 border border-neutral-800 rounded inline-block">
+                            {normalizeChapterWritingStyle(world.chapterWritingStyle)}
                           </span>
                         </div>
                         <div className="flex flex-wrap gap-1 mt-0.5">

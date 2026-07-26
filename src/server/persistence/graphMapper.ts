@@ -22,6 +22,7 @@ import type {
   StoryWorld,
   UserProfile,
 } from '../../types';
+import { normalizeChapterWritingStyle } from '../../lib/chapterWritingStyle';
 import { assertPermanentMediaMetadata } from '../media/permanentMediaGuard';
 
 type GraphRow = Record<string, unknown>;
@@ -717,6 +718,9 @@ export function hydrateStoryWorld(graph: StoryGraph): StoryWorld | null {
     motionCoverActive: graph.preferences[0]?.motionCoverActive ?? false,
     hardcoreFateMode: graph.preferences[0]?.hardcoreFateMode ?? false,
     fatePressure: graph.preferences[0]?.fatePressure as StoryWorld['fatePressure'],
+    chapterWritingStyle: normalizeChapterWritingStyle(
+      graph.preferences[0]?.chapterWritingStyle,
+    ),
     deleted: source.status === 'DELETED' || source.deletedAt != null,
     relationships: graph.codexRelationships.map(relationship => ({
       id: relationship.id,
@@ -1111,6 +1115,10 @@ export function mapStoryWorldToGraphVariables(input: StoryGraphWriteInput): Admi
     fatePressure: story.fatePressure,
     motionCoverActive: story.motionCoverActive ?? false,
     assignedRevealBackdropPolicy: currentGraph?.preferences[0]?.assignedRevealBackdropPolicy,
+    chapterWritingStyle: normalizeChapterWritingStyle(
+      story.chapterWritingStyle
+        ?? currentGraph?.preferences[0]?.chapterWritingStyle,
+    ),
     updatedAt: story.updatedAt,
   })];
   const preservedOtherReaderPreferences = (currentGraph?.readerPreferences ?? [])
@@ -2274,6 +2282,9 @@ export function hydrateUserProfile(graph: ProfileGraph): UserProfile | null {
       : undefined,
     preferredLanguage: profile.preferredLanguage ?? 'en',
     defaultTranslationLanguage: profile.defaultTranslationLanguage ?? 'en',
+    defaultChapterWritingStyle: normalizeChapterWritingStyle(
+      profile.defaultChapterWritingStyle,
+    ),
     savedStoryCount: profile.savedStoryCount,
     activeStories: [],
     inactiveStories: [],
@@ -2315,6 +2326,7 @@ function defaultProfile(ownerUid: string, now: string): UserProfile {
     avatarUrl: '',
     preferredLanguage: 'en',
     defaultTranslationLanguage: 'en',
+    defaultChapterWritingStyle: 'Standard',
     savedStoryCount: 0,
     activeStories: [],
     inactiveStories: [],
@@ -2444,6 +2456,9 @@ export function mapUserProfileToGraphVariables(
       displayNameColor: value.displayNameColor,
       preferredLanguage: value.preferredLanguage,
       defaultTranslationLanguage: value.defaultTranslationLanguage,
+      defaultChapterWritingStyle: normalizeChapterWritingStyle(
+        value.defaultChapterWritingStyle,
+      ),
       subscriptionTier: enumValue(value.premiumTier, 'MORTAL'),
       legacyQi: value.qi == null ? undefined : int64(value.qi),
       daoXp: int64(value.dao_xp ?? 0),
