@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import FocusLock from 'react-focus-lock';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertCircle, X, Sliders, Award, Shield, Sparkles, Compass, Globe, Key, Zap, RefreshCw, Save } from 'lucide-react';
@@ -68,6 +68,7 @@ export const ModalsAndToasts: React.FC = () => {
   const [loadingModels, setLoadingModels] = useState<Record<string, boolean>>({});
   const [deleteText, setDeleteText] = useState('');
   const [unlockedArtifactAlert, setUnlockedArtifactAlert] = useState<any | null>(null);
+  const activeArtifactAlertRef = useRef<any | null>(null);
   const [isArtifactRevealed, setIsArtifactRevealed] = useState(false);
   const [ollamaStatus, setOllamaStatus] = useState<'checking' | 'connected' | 'disconnected' | 'idle'>('idle');
 
@@ -94,6 +95,11 @@ export const ModalsAndToasts: React.FC = () => {
     };
   }, [unlockedArtifactAlert, isArtifactRevealed]);
 
+  const dismissArtifactAlert = () => {
+    activeArtifactAlertRef.current = null;
+    setUnlockedArtifactAlert(null);
+  };
+
   // Handle live artifact unlock events with Reader timing awareness
   useEffect(() => {
     const handleArtifactUnlocked = (e: Event) => {
@@ -105,9 +111,10 @@ export const ModalsAndToasts: React.FC = () => {
       const isReader = state.currentScreen === 'reader';
       const allowedInReader = state.canShowRelicInReader;
 
-      if (isReader && !allowedInReader) {
+      if (activeArtifactAlertRef.current || (isReader && !allowedInReader)) {
         state.enqueueRelicReveal(artifact);
       } else {
+        activeArtifactAlertRef.current = artifact;
         setIsArtifactRevealed(false);
         setUnlockedArtifactAlert(artifact);
         vibrate('success');
@@ -127,11 +134,12 @@ export const ModalsAndToasts: React.FC = () => {
   const pendingRelicCount = useAppStore(state => state.pendingRelicQueue.length);
 
   useEffect(() => {
-    if (!unlockedArtifactAlert && pendingRelicCount > 0) {
+    if (!activeArtifactAlertRef.current && pendingRelicCount > 0) {
       const isReader = currentScreen === 'reader';
       if (!isReader || canShowRelicInReader) {
         const nextArtifact = popPendingRelic();
         if (nextArtifact) {
+          activeArtifactAlertRef.current = nextArtifact;
           setIsArtifactRevealed(false);
           setUnlockedArtifactAlert(nextArtifact);
           vibrate('success');
@@ -652,7 +660,7 @@ export const ModalsAndToasts: React.FC = () => {
               className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md"
               onClick={() => {
                 if (isArtifactRevealed) {
-                  setUnlockedArtifactAlert(null);
+                  dismissArtifactAlert();
                 }
               }}
             >
@@ -826,7 +834,7 @@ export const ModalsAndToasts: React.FC = () => {
                     tabIndex={0}
                     onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
                     onClick={() => {
-                      setUnlockedArtifactAlert(null);
+                      dismissArtifactAlert();
                       vibrate('softTap');
                     }}
                     className="w-full py-3 bg-portal/10 border border-portal/40 text-portal font-sc font-bold uppercase tracking-widest text-xs rounded-full hover:bg-portal hover:text-void transition-all duration-300 shadow-[0_0_20px_rgba(4,172,255,0.15)] hover:shadow-[0_0_30px_rgba(4,172,255,0.3)] mt-2"

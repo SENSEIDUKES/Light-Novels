@@ -249,17 +249,21 @@ export default function ReaderChamber({
 
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = el;
+      const currentAllowed = useAppStore.getState().canShowRelicInReader;
+      let nextAllowed = true;
+
       if (isPlayingText) {
-        setCanShowRelicInReader?.(false);
+        nextAllowed = false;
       } else if (scrollTop + clientHeight >= scrollHeight - 150) {
         // Reached end of chapter
-        setCanShowRelicInReader?.(true);
-      } else if (scrollTop > 200 && !isPlayingText) {
+        nextAllowed = true;
+      } else if (scrollTop > 200) {
         // Actively reading middle prose
-        setCanShowRelicInReader?.(false);
-      } else {
-        // Returning to the chapter opening is a safe reveal window.
-        setCanShowRelicInReader?.(true);
+        nextAllowed = false;
+      }
+
+      if (currentAllowed !== nextAllowed) {
+        setCanShowRelicInReader?.(nextAllowed);
       }
     };
 
