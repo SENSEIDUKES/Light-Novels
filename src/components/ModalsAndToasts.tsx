@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import FocusLock from 'react-focus-lock';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { AlertCircle, X, Sliders, Award, Shield, Sparkles, Compass, Globe, Key, Zap, RefreshCw, Save } from 'lucide-react';
 import { vibrate } from '../lib/vibration';
 import { useAppStore } from '../store/useAppStore';
@@ -11,11 +11,14 @@ import { CelestialParticleShower } from './CelestialParticleShower';
 import { SyncConflictModal } from './SyncConflictModal';
 
 type RarityTheme = {
+  /** Raw accent hex used for sigil strokes, auras, and glow. */
+  hex: string;
   glowColor: string; textColor: string; titleColor: string;
   dotClass: string; sparkleClass: string; borderGlow: string; buttonHover: string;
 };
 
 const NEUTRAL_THEME: RarityTheme = {
+  hex: '#e5e7eb',
   glowColor: 'rgba(255,255,255,0.8)',
   textColor: 'text-neutral-200',
   titleColor: 'text-neutral-200',
@@ -26,12 +29,64 @@ const NEUTRAL_THEME: RarityTheme = {
 };
 
 const RARITY_THEMES: Record<string, RarityTheme> = {
-  Transcendent: { glowColor: "rgba(34,211,238,0.7)", textColor: "text-cyan-200", titleColor: "text-cyan-100", dotClass: "bg-cyan-200 shadow-[0_0_8px_rgba(34,211,238,0.8)]", sparkleClass: "text-cyan-700/80", borderGlow: "border-cyan-500/40 shadow-[0_0_20px_rgba(34,211,238,0.15)]", buttonHover: "hover:border-cyan-500/60 hover:shadow-[0_0_15px_rgba(34,211,238,0.2)]" },
-  Mythic: { glowColor: "rgba(239,68,68,0.7)", textColor: "text-red-200", titleColor: "text-red-100", dotClass: "bg-red-200 shadow-[0_0_8px_rgba(239,68,68,0.8)]", sparkleClass: "text-red-800/80", borderGlow: "border-red-500/40 shadow-[0_0_20px_rgba(239,68,68,0.15)]", buttonHover: "hover:border-red-500/60 hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]" },
-  Legendary: { glowColor: "rgba(245,158,11,0.7)", textColor: "text-amber-200", titleColor: "text-amber-100", dotClass: "bg-amber-200 shadow-[0_0_8px_rgba(245,158,11,0.8)]", sparkleClass: "text-amber-700/60", borderGlow: "border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.15)]", buttonHover: "hover:border-amber-500/60 hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]" },
-  Epic: { glowColor: "rgba(168,85,247,0.7)", textColor: "text-purple-200", titleColor: "text-purple-100", dotClass: "bg-purple-200 shadow-[0_0_8px_rgba(168,85,247,0.8)]", sparkleClass: "text-purple-800/80", borderGlow: "border-purple-500/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]", buttonHover: "hover:border-purple-500/60 hover:shadow-[0_0_15px_rgba(168,85,247,0.2)]" },
-  Rare: { glowColor: "rgba(16,185,129,0.7)", textColor: "text-emerald-200", titleColor: "text-emerald-100", dotClass: "bg-emerald-200 shadow-[0_0_8px_rgba(16,185,129,0.8)]", sparkleClass: "text-emerald-800/80", borderGlow: "border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.15)]", buttonHover: "hover:border-emerald-500/60 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)]" },
+  Transcendent: { hex: "#22d3ee", glowColor: "rgba(34,211,238,0.7)", textColor: "text-cyan-200", titleColor: "text-cyan-100", dotClass: "bg-cyan-200 shadow-[0_0_8px_rgba(34,211,238,0.8)]", sparkleClass: "text-cyan-700/80", borderGlow: "border-cyan-500/40 shadow-[0_0_20px_rgba(34,211,238,0.15)]", buttonHover: "hover:border-cyan-500/60 hover:shadow-[0_0_15px_rgba(34,211,238,0.2)]" },
+  Mythic: { hex: "#ef4444", glowColor: "rgba(239,68,68,0.7)", textColor: "text-red-200", titleColor: "text-red-100", dotClass: "bg-red-200 shadow-[0_0_8px_rgba(239,68,68,0.8)]", sparkleClass: "text-red-800/80", borderGlow: "border-red-500/40 shadow-[0_0_20px_rgba(239,68,68,0.15)]", buttonHover: "hover:border-red-500/60 hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]" },
+  Legendary: { hex: "#f59e0b", glowColor: "rgba(245,158,11,0.7)", textColor: "text-amber-200", titleColor: "text-amber-100", dotClass: "bg-amber-200 shadow-[0_0_8px_rgba(245,158,11,0.8)]", sparkleClass: "text-amber-700/60", borderGlow: "border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.15)]", buttonHover: "hover:border-amber-500/60 hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]" },
+  Epic: { hex: "#a855f7", glowColor: "rgba(168,85,247,0.7)", textColor: "text-purple-200", titleColor: "text-purple-100", dotClass: "bg-purple-200 shadow-[0_0_8px_rgba(168,85,247,0.8)]", sparkleClass: "text-purple-800/80", borderGlow: "border-purple-500/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]", buttonHover: "hover:border-purple-500/60 hover:shadow-[0_0_15px_rgba(168,85,247,0.2)]" },
+  Rare: { hex: "#10b981", glowColor: "rgba(16,185,129,0.7)", textColor: "text-emerald-200", titleColor: "text-emerald-100", dotClass: "bg-emerald-200 shadow-[0_0_8px_rgba(16,185,129,0.8)]", sparkleClass: "text-emerald-800/80", borderGlow: "border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.15)]", buttonHover: "hover:border-emerald-500/60 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)]" },
 };
+
+const RELIC_SIGIL_CSS = `
+  .relic-sigil-spin { transform-box: view-box; transform-origin: 120px 120px; animation: relic-sigil-rotate 90s linear infinite; }
+  .relic-sigil-spin-rev { transform-box: view-box; transform-origin: 120px 120px; animation: relic-sigil-rotate-rev 60s linear infinite; }
+  @keyframes relic-sigil-rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes relic-sigil-rotate-rev { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
+  .relic-twinkle { animation: relic-twinkle 2.8s ease-in-out infinite; }
+  @keyframes relic-twinkle { 0%, 100% { opacity: 0.15; transform: scale(0.7); } 50% { opacity: 1; transform: scale(1.15); } }
+  .relic-breathe { animation: relic-breathe 4.5s ease-in-out infinite; }
+  @keyframes relic-breathe { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+  .relic-claim-btn { transition: box-shadow 0.5s ease, filter 0.5s ease; }
+  .relic-claim-btn:hover { box-shadow: 0 0 30px var(--relic-hex-glow, rgba(255,255,255,0.25)); filter: brightness(1.12); }
+  .relic-claim-btn:focus-visible { outline: 2px solid var(--relic-hex-glow, rgba(255,255,255,0.4)); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    .relic-sigil-spin, .relic-sigil-spin-rev, .relic-twinkle, .relic-breathe { animation: none; }
+  }
+`;
+
+const RELIC_TICKS = Array.from({ length: 36 }, (_, i) => {
+  const a = (i * 10 * Math.PI) / 180;
+  const long = i % 9 === 0;
+  const r1 = long ? 84 : 88;
+  return (
+    <line
+      key={i}
+      x1={120 + Math.cos(a) * r1}
+      y1={120 + Math.sin(a) * r1}
+      x2={120 + Math.cos(a) * 92}
+      y2={120 + Math.sin(a) * 92}
+      strokeWidth={long ? 0.8 : 0.4}
+      opacity={long ? 0.7 : 0.45}
+    />
+  );
+});
+
+const RELIC_ICON_MAP: Array<{ keywords: string[]; Icon: React.ComponentType<{ size?: number; strokeWidth?: number }> }> = [
+  { keywords: ['medallion', 'badge'], Icon: Award },
+  { keywords: ['seal', 'signet'], Icon: Shield },
+  { keywords: ['gourd', 'nectar', 'cauldron', 'potion'], Icon: Zap },
+  { keywords: ['spindle', 'thread', 'matrix'], Icon: RefreshCw },
+  { keywords: ['pen', 'brush', 'scribe'], Icon: Save },
+  { keywords: ['crown', 'circlet', 'tiara'], Icon: Sliders },
+  { keywords: ['compass'], Icon: Compass },
+  { keywords: ['mirror'], Icon: Globe },
+  { keywords: ['key'], Icon: Key },
+];
+
+function getRelicIcon(relicName?: string): React.ComponentType<{ size?: number; strokeWidth?: number }> {
+  const name = (relicName ?? '').toLowerCase();
+  const match = RELIC_ICON_MAP.find(entry => entry.keywords.some(kw => name.includes(kw)));
+  return match ? match.Icon : Compass;
+}
 
 const DEFAULT_PRESETS = {
   storyMaker: {
@@ -57,6 +112,7 @@ const DEFAULT_PRESETS = {
 };
 
 export const ModalsAndToasts: React.FC = () => {
+  const shouldReduceMotion = useReducedMotion();
   const isSettingsOpen = useAppStore(state => state.isSettingsOpen);
     const setIsSettingsOpen = useAppStore(state => state.setIsSettingsOpen);
     const routingConfig = useAppStore(state => state.routingConfig);
@@ -699,10 +755,10 @@ export const ModalsAndToasts: React.FC = () => {
               {!isArtifactRevealed ? (
                 <motion.div
                   key="mystery-relic"
-                  initial={{ scale: 0.8, y: 50, opacity: 0 }}
-                  animate={{ scale: 1, y: 0, opacity: 1 }}
-                  exit={{ scale: 1.1, opacity: 0, rotateY: 90 }}
-                  transition={{ type: "spring", damping: 20, stiffness: 100 }}
+                  initial={shouldReduceMotion ? { opacity: 0 } : { scale: 0.8, y: 50, opacity: 0 }}
+                  animate={shouldReduceMotion ? { opacity: 1 } : { scale: 1, y: 0, opacity: 1 }}
+                  exit={shouldReduceMotion ? { opacity: 0 } : { scale: 1.1, opacity: 0, rotateY: 90 }}
+                  transition={shouldReduceMotion ? { duration: 0 } : { type: "spring", damping: 20, stiffness: 100 }}
                   className="relative group cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -713,155 +769,243 @@ export const ModalsAndToasts: React.FC = () => {
                   {/* Glowing aura around mystery card */}
                   <div className="absolute -inset-4 bg-portal/30 rounded-full blur-2xl group-hover:bg-portal/50 transition-colors duration-500 animate-pulse" />
                   
-                  <div className="relative w-64 h-96 bg-neutral-950 border border-portal/50 rounded-2xl shadow-[0_0_50px_rgba(4,172,255,0.3)] flex flex-col items-center justify-center overflow-hidden">
+                  <div className="relative w-52 h-72 sm:w-56 sm:h-80 bg-neutral-950 border border-portal/50 rounded-2xl shadow-[0_0_50px_rgba(4,172,255,0.3)] flex flex-col items-center justify-center overflow-hidden">
                     <div className="absolute inset-0 bg-[linear-gradient(to_right,#161616_1px,transparent_1px),linear-gradient(to_bottom,#161616_1px,transparent_1px)] bg-[size:12px_12px] opacity-20" />
-                    <Sparkles className="text-portal w-16 h-16 mb-6 animate-pulse" />
-                    <span className="font-sc font-bold text-portal text-xl uppercase tracking-widest animate-pulse drop-shadow-[0_0_8px_rgba(4,172,255,0.8)]">
+                    <Sparkles className="text-portal w-12 h-12 mb-4 animate-pulse" />
+                    <span className="font-sc font-bold text-portal text-lg uppercase tracking-widest animate-pulse drop-shadow-[0_0_8px_rgba(4,172,255,0.8)]">
                       Claim Relic
                     </span>
-                    <p className="text-neutral-500 font-mono text-xs mt-4 uppercase tracking-widest opacity-60">Tap to Reveal</p>
+                    <p className="text-neutral-500 font-mono text-[11px] mt-3 uppercase tracking-widest opacity-60">Tap to Reveal</p>
                   </div>
                 </motion.div>
               ) : (
                 <motion.div
                   key="revealed-relic"
-                  initial={{ scale: 0.95, opacity: 0, y: 10 }}
-                  animate={{ scale: 1, opacity: 1, y: 0 }}
-                  transition={{ type: "spring", damping: 25, stiffness: 180 }}
-                  className="relative bg-[#09090b] border border-neutral-800/80 rounded-[2rem] p-8 max-w-[400px] w-full text-center z-10 shadow-2xl overflow-hidden"
+                  initial={shouldReduceMotion ? { opacity: 0 } : { scale: 0.9, opacity: 0, rotateY: -55 }}
+                  animate={shouldReduceMotion ? { opacity: 1 } : { scale: 1, opacity: 1, rotateY: 0 }}
+                  transition={shouldReduceMotion ? { duration: 0 } : { type: "spring", damping: 22, stiffness: 150 }}
+                  className="relative max-w-[300px] sm:max-w-[340px] w-full z-10"
+                  style={{ transformPerspective: 1200 }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   {(() => {
                     const rarity = unlockedArtifactAlert.rarity;
-                    const { glowColor, textColor, titleColor, dotClass, sparkleClass, borderGlow, buttonHover } = RARITY_THEMES[rarity] ?? NEUTRAL_THEME;
+                    const theme = RARITY_THEMES[rarity] ?? NEUTRAL_THEME;
+                    const { hex, titleColor } = theme;
 
                     return (
                       <>
-                        {/* Subtle Top Gradient for depth */}
-                        <div className="absolute top-0 inset-x-0 h-40 bg-gradient-to-b from-neutral-800/20 to-transparent pointer-events-none" />
-                        
-                        {/* Subtle starry background inside modal */}
-                        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.03)_0%,transparent_80%)] pointer-events-none" />
+                        <style>{RELIC_SIGIL_CSS}</style>
 
-                        <div className="space-y-6 relative z-10 flex flex-col items-center">
-                          
-                          {/* 1. Rarity Label */}
-                          <div className="flex items-center justify-center gap-3">
-                            <Sparkles size={10} className={sparkleClass} strokeWidth={1.5} />
-                            <span className="text-[10px] uppercase tracking-[0.25em] text-neutral-400 font-serif">
-                              {rarity ? `${rarity} Relic` : 'Relic'}
-                            </span>
-                            <Sparkles size={10} className={sparkleClass} strokeWidth={1.5} />
-                          </div>
+                        {/* Rarity aura bleeding out from behind the card */}
+                        <div
+                          aria-hidden
+                          className="absolute -inset-10 pointer-events-none relic-breathe"
+                          style={{ background: `radial-gradient(ellipse at 50% 36%, ${hex}2e 0%, transparent 62%)` }}
+                        />
 
-                          {/* 2. Center Geometric Emblem */}
-                          <div className="relative w-56 h-56 mx-auto flex items-center justify-center my-6">
-                            {/* Cross hairs */}
-                            <div className="absolute w-[1px] h-full bg-gradient-to-b from-transparent via-neutral-600/40 to-transparent" />
-                            <div className="absolute h-[1px] w-full bg-gradient-to-r from-transparent via-neutral-600/40 to-transparent" />
-                            
-                            {/* Outer Circle */}
-                            <div className="absolute w-full h-full rounded-full border border-neutral-700/30" />
-                            {/* Inner Circles */}
-                            <div className="absolute w-44 h-44 rounded-full border-[0.5px] border-neutral-500/40" />
-                            <div className="absolute w-32 h-32 rounded-full border-[0.5px] border-neutral-400/50" />
-                            <div className={`absolute w-20 h-20 rounded-full border ${borderGlow}`} />
-                            
-                            {/* The Diamond */}
-                            <div className="absolute w-32 h-32 border border-neutral-400/40 rotate-45" />
-                            
-                            {/* Glowing nodes on the diamond */}
-                            <div className={`absolute top-[2.75rem] w-1 h-1 rounded-full ${dotClass}`} />
-                            <div className={`absolute bottom-[2.75rem] w-1 h-1 rounded-full ${dotClass}`} />
-                            <div className={`absolute left-[2.75rem] w-1 h-1 rounded-full ${dotClass}`} />
-                            <div className={`absolute right-[2.75rem] w-1 h-1 rounded-full ${dotClass}`} />
+                        <div
+                          className="relative bg-[#060607]/95 rounded-[1.5rem] px-5 pt-6 pb-5 sm:px-6 sm:pt-7 sm:pb-6 text-center max-h-[92dvh] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-neutral-800"
+                          style={{
+                            border: `1px solid ${hex}45`,
+                            boxShadow: `0 0 50px ${hex}26, inset 0 0 70px rgba(0,0,0,0.65)`,
+                          }}
+                        >
+                          {/* Inner hairline frame */}
+                          <div aria-hidden className="absolute inset-[5px] rounded-[1.2rem] pointer-events-none" style={{ border: `1px solid ${hex}1c` }} />
+                          {/* Top sheen */}
+                          <div aria-hidden className="absolute top-0 inset-x-0 h-44 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none" />
 
-                            {/* Sparkles around outer circle */}
-                            <Sparkles size={10} className={`absolute top-0 ${sparkleClass}`} />
-                            <Sparkles size={10} className={`absolute bottom-0 ${sparkleClass}`} />
-                            <Sparkles size={10} className={`absolute left-0 ${sparkleClass}`} />
-                            <Sparkles size={10} className={`absolute right-0 ${sparkleClass}`} />
+                          <div className="relative z-10 flex flex-col items-center">
 
-                            {/* The Icon */}
-                            <div 
-                              className={`relative z-10 flex items-center justify-center ${textColor}`}
-                              style={{ filter: `drop-shadow(0 0 12px ${glowColor})` }}
-                            >
-                              {(() => {
-                                const name = (unlockedArtifactAlert.name ?? '').toLowerCase();
-                                const size = 32;
-                                if (name.includes('medallion') || name.includes('badge')) return <Award size={size} strokeWidth={1} />;
-                                if (name.includes('seal') || name.includes('signet')) return <Shield size={size} strokeWidth={1} />;
-                                if (name.includes('gourd') || name.includes('nectar') || name.includes('cauldron') || name.includes('potion')) return <Zap size={size} strokeWidth={1} />;
-                                if (name.includes('spindle') || name.includes('thread') || name.includes('matrix')) return <RefreshCw size={size} strokeWidth={1} />;
-                                if (name.includes('pen') || name.includes('brush') || name.includes('scribe')) return <Save size={size} strokeWidth={1} />;
-                                if (name.includes('crown') || name.includes('circlet') || name.includes('tiara')) return <Sliders size={size} strokeWidth={1} />;
-                                if (name.includes('compass')) return <Compass size={size} strokeWidth={1} />;
-                                if (name.includes('mirror')) return <Globe size={size} strokeWidth={1} />;
-                                if (name.includes('key')) return <Key size={size} strokeWidth={1} />;
-                                return <Compass size={size} strokeWidth={1} />; // Default to compass
-                              })()}
+                            {/* 1. Rarity label */}
+                            <div className="flex items-center justify-center gap-2.5 w-full">
+                              <div className="h-px w-7" style={{ background: `linear-gradient(to right, transparent, ${hex}66)` }} />
+                              <Sparkles size={11} strokeWidth={1.5} style={{ color: hex, filter: `drop-shadow(0 0 5px ${hex})` }} />
+                              <span
+                                className="text-[10px] uppercase tracking-[0.35em] font-serif whitespace-nowrap"
+                                style={{ color: `${hex}d9`, textShadow: `0 0 14px ${hex}66` }}
+                              >
+                                {rarity ? `${rarity} Relic` : 'Relic'}
+                              </span>
+                              <Sparkles size={11} strokeWidth={1.5} style={{ color: hex, filter: `drop-shadow(0 0 5px ${hex})` }} />
+                              <div className="h-px w-7" style={{ background: `linear-gradient(to left, transparent, ${hex}66)` }} />
                             </div>
-                          </div>
 
-                          {/* 3. Title & Description */}
-                          <div className="text-center space-y-4 px-2 w-full pt-2">
-                            <h3 className={`font-serif text-[26px] tracking-wide font-normal ${titleColor}`}>
+                            {/* 2. Ornate relic sigil */}
+                            <motion.div
+                              initial={shouldReduceMotion ? { opacity: 0 } : { scale: 0.55, opacity: 0 }}
+                              animate={shouldReduceMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
+                              transition={shouldReduceMotion ? { duration: 0 } : { delay: 0.25, type: "spring", damping: 18, stiffness: 120 }}
+                              className="relative w-44 h-44 sm:w-52 sm:h-52 my-4 sm:my-5 flex items-center justify-center"
+                            >
+                              {/* Halo behind the sigil */}
+                              <div
+                                aria-hidden
+                                className="absolute inset-4 rounded-full relic-breathe"
+                                style={{ background: `radial-gradient(circle, ${hex}21 0%, transparent 68%)` }}
+                              />
+                              {/* Horizontal flare beam */}
+                              <div
+                                aria-hidden
+                                className="absolute -left-4 -right-4 top-1/2 h-px -translate-y-1/2"
+                                style={{ background: `linear-gradient(to right, transparent, ${hex}59 22%, ${hex}59 78%, transparent)` }}
+                              />
+
+                              <svg
+                                viewBox="0 0 240 240"
+                                className="relative w-full h-full"
+                                fill="none"
+                                stroke="currentColor"
+                                style={{ color: hex, filter: `drop-shadow(0 0 9px ${hex}80)` }}
+                                aria-hidden
+                              >
+                                {/* Slow-spinning outer assembly */}
+                                <g className="relic-sigil-spin" opacity="0.6">
+                                  <circle cx="120" cy="120" r="112" strokeWidth="0.5" strokeDasharray="1 7" />
+                                  <circle cx="120" cy="120" r="103" strokeWidth="0.7" />
+                                  <path d="M120 34 L206 120 L120 206 L34 120 Z" strokeWidth="0.8" opacity="0.85" />
+                                  <circle cx="120" cy="34" r="2" fill="currentColor" stroke="none" />
+                                  <circle cx="206" cy="120" r="2" fill="currentColor" stroke="none" />
+                                  <circle cx="120" cy="206" r="2" fill="currentColor" stroke="none" />
+                                  <circle cx="34" cy="120" r="2" fill="currentColor" stroke="none" />
+                                </g>
+
+                                {/* Counter-rotating tick ring */}
+                                <g className="relic-sigil-spin-rev" opacity="0.55">
+                                  <circle cx="120" cy="120" r="92" strokeWidth="0.4" />
+                                  {RELIC_TICKS}
+                                </g>
+
+                                {/* Static core */}
+                                <g opacity="0.9">
+                                  {/* Axis hairlines */}
+                                  <line x1="120" y1="10" x2="120" y2="58" strokeWidth="0.5" opacity="0.55" />
+                                  <line x1="120" y1="182" x2="120" y2="230" strokeWidth="0.5" opacity="0.55" />
+                                  <line x1="10" y1="120" x2="58" y2="120" strokeWidth="0.5" opacity="0.55" />
+                                  <line x1="182" y1="120" x2="230" y2="120" strokeWidth="0.5" opacity="0.55" />
+                                  {/* Axis crowns */}
+                                  <circle cx="120" cy="20" r="3.2" strokeWidth="0.7" />
+                                  <circle cx="120" cy="220" r="3.2" strokeWidth="0.7" />
+                                  <circle cx="20" cy="120" r="3.2" strokeWidth="0.7" />
+                                  <circle cx="220" cy="120" r="3.2" strokeWidth="0.7" />
+                                  <circle cx="120" cy="20" r="1" fill="currentColor" stroke="none" />
+                                  <circle cx="120" cy="220" r="1" fill="currentColor" stroke="none" />
+                                  <circle cx="20" cy="120" r="1" fill="currentColor" stroke="none" />
+                                  <circle cx="220" cy="120" r="1" fill="currentColor" stroke="none" />
+                                  {/* Inner rings */}
+                                  <circle cx="120" cy="120" r="58" strokeWidth="0.8" />
+                                  <circle cx="120" cy="120" r="51" strokeWidth="0.45" strokeDasharray="3 2.5" opacity="0.7" />
+                                  {/* Axis beads near the core */}
+                                  <circle cx="120" cy="66" r="2.6" strokeWidth="0.7" />
+                                  <circle cx="120" cy="174" r="2.6" strokeWidth="0.7" />
+                                  <circle cx="66" cy="120" r="2.6" strokeWidth="0.7" />
+                                  <circle cx="174" cy="120" r="2.6" strokeWidth="0.7" />
+                                  {/* Eight-point compass star */}
+                                  <path
+                                    d="M120 74 L127.5 112.5 L166 120 L127.5 127.5 L120 166 L112.5 127.5 L74 120 L112.5 112.5 Z"
+                                    strokeWidth="1"
+                                    strokeLinejoin="round"
+                                  />
+                                  <path
+                                    d="M120 90 L126.6 113.4 L150 120 L126.6 126.6 L120 150 L113.4 126.6 L90 120 L113.4 113.4 Z"
+                                    strokeWidth="0.5"
+                                    opacity="0.65"
+                                    transform="rotate(45 120 120)"
+                                  />
+                                </g>
+                              </svg>
+
+                              {/* Relic-type icon at the heart of the star */}
+                              <div
+                                className="absolute inset-0 flex items-center justify-center"
+                                style={{ color: hex, filter: `drop-shadow(0 0 8px ${hex})` }}
+                              >
+                                {(() => {
+                                  const RelicIcon = getRelicIcon(unlockedArtifactAlert.name);
+                                  return <RelicIcon size={15} strokeWidth={1} />;
+                                })()}
+                              </div>
+
+                              {/* Twinkling motes orbiting the sigil */}
+                              <Sparkles size={9} className="absolute relic-twinkle" style={{ top: '2%', left: '47%', color: hex }} strokeWidth={1.5} />
+                              <Sparkles size={7} className="absolute relic-twinkle" style={{ top: '26%', right: '-2%', color: hex, animationDelay: '0.9s' }} strokeWidth={1.5} />
+                              <Sparkles size={8} className="absolute relic-twinkle" style={{ bottom: '8%', left: '-3%', color: hex, animationDelay: '1.6s' }} strokeWidth={1.5} />
+                              <Sparkles size={6} className="absolute relic-twinkle" style={{ bottom: '0%', right: '24%', color: hex, animationDelay: '0.4s' }} strokeWidth={1.5} />
+                            </motion.div>
+
+                            {/* 3. Title & lore */}
+                            <h3
+                              className={`font-serif text-[19px] sm:text-[21px] leading-snug tracking-wide font-normal ${titleColor}`}
+                              style={{ textShadow: `0 0 24px ${hex}45` }}
+                            >
                               {unlockedArtifactAlert.name}
                             </h3>
-                            
-                            <div className="w-16 h-[1px] bg-neutral-700/80 mx-auto my-2" />
-                            
-                            <p className="text-xs font-serif text-neutral-400 leading-relaxed px-4 opacity-90">
+
+                            <div className="flex items-center justify-center gap-2.5 my-3">
+                              <div className="h-px w-12" style={{ background: `linear-gradient(to right, transparent, ${hex}59)` }} />
+                              <div className="w-1.5 h-1.5 rotate-45" style={{ border: `1px solid ${hex}a6`, boxShadow: `0 0 7px ${hex}73` }} />
+                              <div className="h-px w-12" style={{ background: `linear-gradient(to left, transparent, ${hex}59)` }} />
+                            </div>
+
+                            <p className="text-xs sm:text-[13px] font-serif italic text-neutral-400 leading-relaxed px-2 max-w-[260px]">
                               {unlockedArtifactAlert.description || "Records marked by the Library are never truly forgotten."}
                             </p>
-                          </div>
 
-                          {/* 4. The Stats Box (Qi + Unlock) */}
-                          <div className="w-full bg-neutral-950/80 border border-neutral-800/60 rounded-[1.25rem] p-4 flex items-center justify-between mt-4 shadow-inner">
-                            <div className="flex items-center gap-3 w-1/2 justify-center border-r border-neutral-800/80">
-                              <Sparkles size={14} className={sparkleClass} />
-                              <span className="text-sm text-neutral-300 font-serif tracking-wide">+{unlockedArtifactAlert.rewardValueQi ?? 10} Qi</span>
-                            </div>
-                            
-                            <div className="flex items-center gap-3 w-1/2 justify-center pl-2">
-                              {/* Custom Arch Icon */}
-                              <svg className={sparkleClass + " w-4 h-4"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                <path d="M5 22v-8a7 7 0 0 1 14 0v8M12 7v5" strokeLinecap="round" strokeLinejoin="round"/>
-                                <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
-                                <path d="M3 22h18" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                              <span className="text-xs text-neutral-400 font-serif tracking-wide truncate pr-2">
+                            {/* 4. The Stats Box (Qi + Unlock) */}
+                            <div
+                              className="w-full mt-4 sm:mt-5 rounded-xl bg-black/50 flex items-stretch overflow-hidden"
+                              style={{ border: `1px solid ${hex}30`, boxShadow: `inset 0 0 26px rgba(0,0,0,0.65), 0 0 18px ${hex}14` }}
+                            >
+                              <div className="flex-1 shrink-0 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-1.5" style={{ borderRight: `1px solid ${hex}24` }}>
+                                <Sparkles size={14} style={{ color: hex, filter: `drop-shadow(0 0 6px ${hex})` }} />
+                                <span className="text-sm text-neutral-200 font-serif tracking-wide">+{unlockedArtifactAlert.rewardValueQi ?? 10} Qi</span>
+                              </div>
+                              <div className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-2">
+                                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: hex, filter: `drop-shadow(0 0 5px ${hex}80)` }}>
+                                  <path d="M5 22v-8a7 7 0 0 1 14 0v8M12 7v5" strokeLinecap="round" strokeLinejoin="round"/>
+                                  <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+                                  <path d="M3 22h18" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
                                 {(() => {
                                   const unlock = unlockedArtifactAlert.specialUnlock;
-                                  if (typeof unlock === 'object' && unlock?.label) return unlock.label;
-                                  if (typeof unlock === 'string') return unlock;
-                                  return "Archived in Relic Cave";
+                                  const unlockText = typeof unlock === 'object' && unlock?.label ? unlock.label : typeof unlock === 'string' ? unlock : "Archived in Relic Cave";
+                                  return (
+                                    <span className="text-xs text-neutral-400 font-serif tracking-wide truncate" title={unlockText}>
+                                      {unlockText}
+                                    </span>
+                                  );
                                 })()}
-                              </span>
+                              </div>
                             </div>
-                          </div>
 
-                          {/* Actions */}
-                          <button
-                            type="button"
-                            tabIndex={0}
-                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
-                            onClick={() => {
-                              dismissArtifactAlert();
-                              vibrate('softTap');
-                            }}
-                            className={`w-full relative mt-4 py-3.5 bg-gradient-to-b from-neutral-800/80 to-[#0e0e11] border border-neutral-700/60 rounded-full group transition-all duration-500 overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.5)] ${buttonHover}`}
-                          >
-                            <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                            <div className="flex items-center justify-center gap-6 relative z-10">
-                              <Sparkles size={12} className={`${sparkleClass} group-hover:text-neutral-200 transition-colors`} />
-                              <span className="font-serif uppercase tracking-[0.2em] text-xs text-neutral-300 group-hover:text-neutral-100 transition-colors">
-                                Claim Relic
-                              </span>
-                              <Sparkles size={12} className={`${sparkleClass} group-hover:text-neutral-200 transition-colors`} />
-                            </div>
-                          </button>
+                            {/* 5. Claim */}
+                            <button
+                              type="button"
+                              tabIndex={0}
+                              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
+                              onClick={() => {
+                                dismissArtifactAlert();
+                                vibrate('softTap');
+                              }}
+                              className="relic-claim-btn w-full relative mt-4 py-2.5 sm:py-3 rounded-full group overflow-hidden"
+                              style={{
+                                border: `1px solid ${hex}59`,
+                                background: 'linear-gradient(to bottom, rgba(255,255,255,0.06), rgba(0,0,0,0.45))',
+                                boxShadow: `0 0 20px ${hex}1f`,
+                                '--relic-hex-glow': `${hex}66`,
+                              } as React.CSSProperties}
+                            >
+                              <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                              <div className="flex items-center justify-center gap-4 relative z-10">
+                                <Sparkles size={12} style={{ color: hex }} className="transition-transform duration-500 group-hover:scale-125" />
+                                <span className="font-serif uppercase tracking-[0.28em] text-xs text-neutral-200 group-hover:text-white transition-colors">
+                                  Claim Relic
+                                </span>
+                                <Sparkles size={12} style={{ color: hex }} className="transition-transform duration-500 group-hover:scale-125" />
+                              </div>
+                            </button>
+                          </div>
                         </div>
                       </>
                     );
