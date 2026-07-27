@@ -39,6 +39,7 @@ vi.mock('../lib/id', () => ({
   generateUUID: () => 'idempotency-key',
 }));
 
+import { resolveMediaAssetForDisplay } from '../lib/media/privateMediaResolver';
 import { useCodexImageEvolution } from './useCodexImageEvolution';
 
 const memory = {
@@ -172,6 +173,77 @@ describe('useCodexImageEvolution error handling', () => {
 
     expect(mocks.selectMediaAsset).not.toHaveBeenCalled();
     expect(onUpdateStory).not.toHaveBeenCalled();
+    expect(result.current.generationError)
+      .toBe('That manifestation is no longer recorded and cannot be restored.');
+  });
+
+  // PostgreSQL returns every superseded version with a blank `imageUrl`; the
+  // `assetId` is the only way to re-sign one. A version carrying neither used
+  // to commit that blank straight onto the entity, erasing the live portrait
+  // the revert was asked to change.
+  it('does not erase the live portrait for a version with no asset and no URL', async () => {
+    const onUpdateStory = vi.fn();
+    const entityMemory = {
+      ...memory,
+      characters: [{
+        id: 'character-1',
+        persistenceId: 'character-persistence-id',
+        imageAssetId: 'asset-live',
+        imageUrl: 'blob:asset-live',
+        imageHistory: [
+          { id: 'history-orphan', entityId: 'character-1', imageUrl: '', isCurrent: false },
+          { id: 'history-live', assetId: 'asset-live', entityId: 'character-1', imageUrl: '', isCurrent: true },
+        ],
+      }],
+    };
+
+    const { result } = renderHook(() => useCodexImageEvolution(
+      entityMemory, { ...activeStory, imageHistory: [] }, onUpdateStory, undefined, vi.fn(),
+    ));
+
+    await act(async () => {
+      await result.current.handleRevertImage('character-1', 'character', 'history-orphan');
+    });
+
+    expect(mocks.selectMediaAsset).not.toHaveBeenCalled();
+    expect(onUpdateStory).not.toHaveBeenCalled();
+    expect(result.current.generationError)
+      .toBe('That manifestation is no longer stored and cannot be restored.');
+  });
+
+  it('does not commit a version whose descriptor resolves to no URL', async () => {
+    mocks.selectMediaAsset.mockResolvedValue({ id: 'asset-older', deliveryUrl: '' });
+    vi.mocked(resolveMediaAssetForDisplay).mockResolvedValueOnce({
+      assetId: 'asset-older',
+      descriptor: { id: 'asset-older' } as never,
+      url: '',
+      source: 'network',
+    });
+    const onUpdateStory = vi.fn();
+    const entityMemory = {
+      ...memory,
+      characters: [{
+        id: 'character-1',
+        persistenceId: 'character-persistence-id',
+        imageAssetId: 'asset-live',
+        imageUrl: 'blob:asset-live',
+        imageHistory: [
+          { id: 'history-older', assetId: 'asset-older', entityId: 'character-1', imageUrl: '', isCurrent: false },
+        ],
+      }],
+    };
+
+    const { result } = renderHook(() => useCodexImageEvolution(
+      entityMemory, { ...activeStory, imageHistory: [] }, onUpdateStory, undefined, vi.fn(),
+    ));
+
+    await act(async () => {
+      await result.current.handleRevertImage('character-1', 'character', 'history-older');
+    });
+
+    expect(onUpdateStory).not.toHaveBeenCalled();
+    expect(result.current.generationError)
+      .toBe('That manifestation could not be resolved and was left unchanged.');
   });
 
   it('keeps a preview available when saving its media asset fails', async () => {

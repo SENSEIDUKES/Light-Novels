@@ -329,10 +329,17 @@ export function LivingCodexCollage({
         const description = entry.description || 'Captured memory core.';
         // History first: it carries the prompt and the inscription date.
         entry.imageHistory?.forEach((img) => {
+          // Borrow the entity's live URL only for the version that genuinely is
+          // the current one. Comparing the ids alone matched two `undefined`s,
+          // so a legacy entry without an asset id adopted the current portrait
+          // and rendered it under an older version's prompt and date.
+          const isCurrentManifestation = Boolean(img.assetId)
+            && Boolean(entry.imageAssetId)
+            && img.assetId === entry.imageAssetId;
           push({
             id: img.id,
             assetId: img.assetId,
-            url: img.imageUrl || (img.assetId === entry.imageAssetId ? entry.imageUrl || '' : ''),
+            url: img.imageUrl || (isCurrentManifestation ? entry.imageUrl || '' : ''),
             title: entry.name,
             subtitle,
             description,

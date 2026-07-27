@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { LivingCodexCollage } from './LivingCodexCollage';
 import type { StoryMemory, StoryWorld } from '../../types';
 
@@ -139,6 +139,88 @@ describe('LivingCodexCollage', () => {
 
     expect(screen.getAllByAltText('Nine Petal Blade')).toHaveLength(1);
     expect(screen.getByText('All Memories (1)')).toBeDefined();
+  });
+
+  it('does not lend the current portrait to an older version that has no asset id', () => {
+    // `img.assetId === entry.imageAssetId` was true for two `undefined`s, so a
+    // legacy history entry adopted the entity's live image and rendered it
+    // under an older version's prompt and date.
+    const memory: StoryMemory = {
+      ...baseMemory,
+      characters: [
+        {
+          id: 'char-1',
+          name: 'Elder Bai',
+          role: 'Mentor',
+          description: 'A frost-robed sect elder.',
+          relationshipToMC: 'Mentor',
+          status: 'alive',
+          imageUrl: 'https://media.example/current.png',
+          imageHistory: [
+            {
+              id: 'hist-legacy',
+              entityId: 'char-1',
+              entityType: 'character',
+              imageUrl: '',
+              promptUsed: 'An older, superseded rendering.',
+              createdAt: '2026-07-02T00:00:00.000Z',
+              isCurrent: false,
+            },
+          ],
+        },
+      ],
+    } as unknown as StoryMemory;
+
+    renderCollage(buildStory({ memory }));
+
+    // The superseded version carries no asset id and no URL of its own, so it
+    // contributes nothing. What it must never do is borrow the live portrait
+    // and present it as that older memory — so the one tile that renders has
+    // to be the entity's current manifestation, not the stale history entry.
+    const rendered = screen.getAllByAltText('Elder Bai');
+    expect(rendered).toHaveLength(1);
+    expect(rendered[0]).toHaveProperty('src', 'https://media.example/current.png');
+
+    fireEvent.click(rendered[0]);
+    expect(screen.queryByText('An older, superseded rendering.')).toBeNull();
+  });
+
+  it('still lends the current portrait to the version that shares its asset id', () => {
+    const memory: StoryMemory = {
+      ...baseMemory,
+      characters: [
+        {
+          id: 'char-1',
+          name: 'Elder Bai',
+          role: 'Mentor',
+          description: 'A frost-robed sect elder.',
+          relationshipToMC: 'Mentor',
+          status: 'alive',
+          imageAssetId: 'asset-current',
+          imageUrl: 'https://media.example/current.png',
+          imageHistory: [
+            {
+              id: 'hist-current',
+              assetId: 'asset-current',
+              entityId: 'char-1',
+              entityType: 'character',
+              imageUrl: '',
+              promptUsed: 'The live rendering.',
+              createdAt: '2026-07-20T00:00:00.000Z',
+              isCurrent: true,
+            },
+          ],
+        },
+      ],
+    } as unknown as StoryMemory;
+
+    renderCollage(buildStory({ memory }));
+
+    expect(screen.getByAltText('Elder Bai')).toHaveProperty(
+      'src',
+      'https://media.example/current.png',
+    );
+    expect(screen.queryByText('Aura Resealing')).toBeNull();
   });
 
   it('renders chapter hero images as scene memories', () => {

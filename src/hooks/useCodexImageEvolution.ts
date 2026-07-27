@@ -54,10 +54,19 @@ export function useCodexImageEvolution(
         );
       if (!selectedHistory) {
         console.error(`No manifestation ${historyId} is recorded for codex entry ${id}.`);
+        setGenerationError('That manifestation is no longer recorded and cannot be restored.');
+        return;
+      }
+      // A superseded version comes back from PostgreSQL with a blank `imageUrl`
+      // — its `assetId` is the only way to re-sign one. A version carrying
+      // neither has nothing to restore, and committing that blank would erase
+      // the live portrait this revert was asked to change.
+      if (!selectedHistory.assetId && !selectedHistory.imageUrl?.trim()) {
+        setGenerationError('That manifestation is no longer stored and cannot be restored.');
         return;
       }
       let selectedUrl = selectedHistory.imageUrl ?? '';
-      if (selectedHistory?.assetId) {
+      if (selectedHistory.assetId) {
         const targetKind = type === 'location'
           ? MEDIA_TARGET_KIND.LOCATION
           : type === 'artifact'
@@ -79,6 +88,12 @@ export function useCodexImageEvolution(
         // Render the cached blob rather than the raw signed URL so a reverted
         // image keeps working after that short-lived signature expires.
         selectedUrl = (await resolveMediaAssetForDisplay(descriptor)).url;
+      }
+      // Resolution can still yield nothing — a descriptor whose delivery URL
+      // could not be signed. Commit only a URL that actually renders.
+      if (!selectedUrl.trim()) {
+        setGenerationError('That manifestation could not be resolved and was left unchanged.');
+        return;
       }
       // The entity's own history is what round-trips, so the restored version
       // has to be marked current there, not only on the story-level copy.
