@@ -71,11 +71,11 @@ function resolveRouteModel(
 // Router default presets
 export const ROUTER_PRESETS = {
   storyMaker: {
-    gemini: ["google/gemini-2.5-flash-lite", "google/gemini-3.1-flash-lite-preview", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
+    gemini: ["google/gemini-3.1-flash-lite", "google/gemini-2.5-flash-lite", "google/gemini-3.1-flash-lite-preview", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
     openrouter: [
       "@preset/light-novel-story",
       "google/gemini-3.1-flash-lite-preview",
-      "google/gemini-2.5-flash-lite",
+      "google/gemini-3.1-flash-lite",
       "deepseek/deepseek-chat",
       "google/gemini-2.5-flash",
       "openai/gpt-3.5-turbo"
@@ -237,7 +237,7 @@ export async function* routeTextGenerationStream(
 
   if (provider === "gemini") {
     const ai = getAIClient(customKeys?.geminiApiKey);
-    const geminiModel = (model || "google/gemini-2.5-flash-lite").replace(/^google\//, "");
+    const geminiModel = (model || "google/gemini-3.1-flash-lite").replace(/^google\//, "");
     try {
       const responseStream = await ai.models.generateContentStream({
         model: geminiModel,
@@ -442,7 +442,7 @@ export async function routeTextGeneration(
     // GOOGLE GEMINI ROUTE
     // -------------------------------------------------------------
     const ai = getAIClient(customKeys?.geminiApiKey);
-    const geminiModel = (model || "google/gemini-2.5-flash-lite").replace(/^google\//, "");
+    const geminiModel = (model || "google/gemini-3.1-flash-lite").replace(/^google\//, "");
     const config: any = {
       systemInstruction: safeSystem,
       responseMimeType: "application/json",
