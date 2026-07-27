@@ -1,5 +1,4 @@
 import { useAppStore } from '../store/useAppStore';
-import { StoryWorld } from '../types';
 import { awardQi } from '../lib/qi';
 import { unlockCosmicArtifact } from '../lib/artifacts';
 import { storyApi } from '../services/api';
@@ -7,15 +6,8 @@ import { generateId, generateUUID } from '../lib/id';
 
 export const useChapterSealing = () => {
   const store_stories = useAppStore(state => state.stories);
-    const store_saveStories = useAppStore(state => state.saveStories);
     const store_activeStoryId = useAppStore(state => state.activeStoryId);
     const store_routingConfig = useAppStore(state => state.routingConfig);
-
-  const handleUpdateStoryDirect = async (updatedStory: StoryWorld) => {
-    updatedStory.updatedAt = new Date().toISOString();
-    const updated = store_stories.map(s => s.id === updatedStory.id ? updatedStory : s);
-    await store_saveStories(updated);
-  };
 
   const handleCheckConsistency = async (chapterNumber: number): Promise<string[]> => {
     const activeStory = store_stories.find(s => s.id === store_activeStoryId);
@@ -80,7 +72,13 @@ export const useChapterSealing = () => {
       return { ...arc, chapters: newChapters };
     }));
 
-    await handleUpdateStoryDirect({ ...activeStory, arcs: newArcs });
+    // Was a hook-local copy of handleUpdateStoryDirect (read stories, swap the
+    // story, saveStories). The store owns that write now.
+    await useAppStore.getState().updateStory(
+      activeStory.id,
+      { arcs: newArcs },
+      { markEdited: false, touchUpdatedAt: true },
+    );
     awardQi('chapter_sealed');
     
     // Scan sealed chapter content for artifacts if it contains major milestones

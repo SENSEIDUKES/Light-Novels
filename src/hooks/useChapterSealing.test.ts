@@ -70,8 +70,18 @@ describe('useChapterSealing', () => {
     
     const saveStories = useAppStore.getState().saveStories;
     expect(saveStories).toHaveBeenCalled();
-    const updatedStory = vi.mocked(saveStories).mock.calls[0][0][0];
+    // The hook no longer hands saveStories a pre-built array; it goes through
+    // the store's updateStory, which enqueues a functional updater so the
+    // patch is applied to whatever state is current at the front of the save
+    // queue. Resolve it here to inspect the story it would commit.
+    const queued = vi.mocked(saveStories).mock.calls[0][0];
+    expect(typeof queued).toBe('function');
+    const updatedStory = (queued as (current: any[]) => any[])(
+      useAppStore.getState().stories,
+    )[0];
     expect(updatedStory.arcs[0].chapters[0].isSealed).toBe(true);
     expect(updatedStory.arcs[0].chapters[0].versionId).toBeDefined();
+    expect(updatedStory.updatedAt).toEqual(expect.any(String));
+    expect(updatedStory.isEdited).toBeFalsy();
   });
 });
