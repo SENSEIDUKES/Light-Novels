@@ -226,4 +226,23 @@ describe('normalizeStoryImageOwnership', () => {
       'Cannot relocate legacy location image orphaned-location',
     );
   });
+
+  it('sanitizes malformed cached collections instead of crashing on them', () => {
+    const malformed = storyWithLegacyCombinedHistory() as unknown as {
+      memory: { characters: unknown; locations: unknown };
+      arcs: unknown;
+      imageHistory: unknown;
+    };
+    malformed.memory.characters = { stale: true };
+    malformed.memory.locations = 'stale';
+    malformed.arcs = { stale: true };
+    malformed.imageHistory = { stale: true };
+
+    expect(() => normalizeStoryImageOwnership(malformed as StoryWorld)).not.toThrow();
+    const normalized = normalizeStoryImageOwnership(malformed as StoryWorld);
+    expect(normalized.memory.characters).toEqual([]);
+    expect(normalized.memory.locations).toEqual([]);
+    expect(normalized.arcs).toEqual([]);
+    expect(normalized.imageHistory).toEqual([]);
+  });
 });

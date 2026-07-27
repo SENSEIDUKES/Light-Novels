@@ -249,11 +249,16 @@ export function LivingCodexCollage({
       return ((pseudoIndex * 9) % 10) - 5;
     };
 
-    // 1. Scene memories from the chapter that owns every hero version.
-    activeStory.arcs?.forEach((arc) => {
-      arc.chapters?.forEach((ch) => {
+    // 1. Scene memories from the chapter that owns every hero version. Cached
+    // and imported stories can predate the array-backed schema, so reject a
+    // malformed container instead of letting one stale record break the album.
+    const arcs = Array.isArray(activeStory.arcs) ? activeStory.arcs : [];
+    arcs.forEach((arc) => {
+      const chapters = Array.isArray(arc.chapters) ? arc.chapters : [];
+      chapters.forEach((ch) => {
         const url = ch.assetManifest?.heroImage;
-        ch.imageHistory?.forEach((img) => {
+        const imageHistory = Array.isArray(ch.imageHistory) ? ch.imageHistory : [];
+        imageHistory.forEach((img) => {
           const isCurrentHero = Boolean(img.assetId)
             && Boolean(ch.heroImageAssetId)
             && img.assetId === ch.heroImageAssetId;
@@ -272,7 +277,7 @@ export function LivingCodexCollage({
           });
         });
         // A legacy/current chapter without history is still a valid scene.
-        if (ch.imageHistory?.length || (!url && !ch.heroImageAssetId)) return;
+        if (imageHistory.length || (!url && !ch.heroImageAssetId)) return;
         push({
           id: `scene-${ch.number}`,
           assetId: ch.heroImageAssetId,
@@ -369,7 +374,8 @@ export function LivingCodexCollage({
 
     // 3. Story-level history owns covers only; Codex and chapter images stay
     //    with their actual owners.
-    activeStory.imageHistory?.filter((img) => img.entityType === 'cover').forEach((img) => {
+    const coverHistory = Array.isArray(activeStory.imageHistory) ? activeStory.imageHistory : [];
+    coverHistory.filter((img) => img.entityType === 'cover').forEach((img) => {
 
       push({
         id: img.id,

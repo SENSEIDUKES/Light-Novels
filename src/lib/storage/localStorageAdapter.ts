@@ -348,8 +348,14 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
 
   private stripStoryAssets(story: StoryWorld): StoryWorld {
     const strippedStory = JSON.parse(JSON.stringify(normalizeStoryImageOwnership(story)));
-    const stripHistoryUrls = (history: any[] | undefined) =>
-      history?.map(({ imageUrl: _imageUrl, ...image }) => image);
+    const stripHistoryUrls = (history: unknown) => {
+      if (!Array.isArray(history)) return history;
+      return history.map((image) => {
+        if (!image || typeof image !== 'object') return image;
+        const { imageUrl: _imageUrl, ...strippedImage } = image;
+        return strippedImage;
+      });
+    };
     delete strippedStory.imageUrl;
     strippedStory.imageHistory = stripHistoryUrls(strippedStory.imageHistory);
     if (strippedStory.memory) {

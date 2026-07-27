@@ -180,8 +180,14 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
         try {
           const stripped = markedStories.map(s => {
             const copy = JSON.parse(JSON.stringify(s));
-            const stripHistoryUrls = (history: any[] | undefined) =>
-              history?.map(({ imageUrl: _imageUrl, ...image }) => image);
+            const stripHistoryUrls = (history: unknown) => {
+              if (!Array.isArray(history)) return history;
+              return history.map((image) => {
+                if (!image || typeof image !== 'object') return image;
+                const { imageUrl: _imageUrl, ...strippedImage } = image;
+                return strippedImage;
+              });
+            };
             delete copy.imageUrl;
             copy.imageHistory = stripHistoryUrls(copy.imageHistory);
             if (copy.memory) {

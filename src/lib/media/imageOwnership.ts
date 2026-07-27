@@ -33,10 +33,14 @@ function mergeHistory(
   existing: GeneratedImage[] | undefined,
   additions: readonly GeneratedImage[],
 ): GeneratedImage[] | undefined {
-  if (!existing?.length && additions.length === 0) return existing;
+  const safeExisting = Array.isArray(existing) ? existing : [];
+  if (safeExisting.length === 0 && additions.length === 0) {
+    return Array.isArray(existing) ? existing : undefined;
+  }
   const merged: GeneratedImage[] = [];
   const seen = new Set<string>();
-  for (const image of [...(existing ?? []), ...additions]) {
+  for (const image of [...safeExisting, ...additions]) {
+    if (!image || typeof image !== 'object' || Array.isArray(image)) continue;
     const key = historyKey(image);
     if (!key || seen.has(key)) continue;
     seen.add(key);
@@ -79,7 +83,11 @@ function sameOwner(owner: ImageOwner, image: GeneratedImage): boolean {
 }
 
 function copyOwners<T extends ImageOwner>(owners: readonly T[] | undefined): T[] {
-  return (owners ?? []).map(owner => ({ ...owner }));
+  return Array.isArray(owners)
+    ? owners
+      .filter((owner): owner is T => Boolean(owner && typeof owner === 'object' && !Array.isArray(owner)))
+      .map(owner => ({ ...owner }))
+    : [];
 }
 
 /**
@@ -96,12 +104,23 @@ export function normalizeStoryImageOwnership(story: StoryWorld): StoryWorld {
   const locations = copyOwners(memory?.locations);
   const artifacts = copyOwners(memory?.artifacts);
   const factions = copyOwners(memory?.factions);
-  const hasArcs = Array.isArray(story.arcs);
-  const arcs = (story.arcs ?? []).map(arc => ({
-    ...arc,
-    chapters: (arc.chapters ?? []).map(chapter => ({ ...chapter })),
-  }));
-  const legacyHistory = story.imageHistory ?? [];
+  const arcs = Array.isArray(story.arcs)
+    ? story.arcs
+      .filter((arc): arc is StoryWorld['arcs'][number] => Boolean(arc && typeof arc === 'object' && !Array.isArray(arc)))
+      .map(arc => ({
+        ...arc,
+        chapters: Array.isArray(arc.chapters)
+          ? arc.chapters
+            .filter((chapter): chapter is ChapterOwner => Boolean(chapter && typeof chapter === 'object' && !Array.isArray(chapter)))
+            .map(chapter => ({ ...chapter }))
+          : [],
+      }))
+    : [];
+  const legacyHistory = Array.isArray(story.imageHistory)
+    ? story.imageHistory.filter((image): image is GeneratedImage => Boolean(
+      image && typeof image === 'object' && !Array.isArray(image),
+    ))
+    : [];
   const isStoryCover = (image: GeneratedImage) => image.entityType === 'cover'
     || (!image.entityType && (!image.entityId
       || image.entityId === story.id
@@ -176,7 +195,7 @@ export function normalizeStoryImageOwnership(story: StoryWorld): StoryWorld {
   const normalizedMemory = memory
     ? { ...memory }
     : undefined;
-  if (normalizedMemory && Array.isArray(memory?.characters)) {
+  if (normalizedMemory && memory?.characters !== undefined) {
     normalizedMemory.characters = characters.map(normalizeOwner);
   }
   if (normalizedMemory && memory?.locations !== undefined) {
@@ -198,6 +217,6 @@ export function normalizeStoryImageOwnership(story: StoryWorld): StoryWorld {
     normalizedStory.imageUrl = currentCover.imageUrl;
   }
   if (normalizedMemory) normalizedStory.memory = normalizedMemory;
-  if (hasArcs) normalizedStory.arcs = normalizedChapters;
+  if (story.arcs !== undefined) normalizedStory.arcs = normalizedChapters;
   return normalizedStory;
 }

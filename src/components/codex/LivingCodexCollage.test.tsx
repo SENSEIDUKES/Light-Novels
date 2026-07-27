@@ -305,6 +305,51 @@ describe('LivingCodexCollage', () => {
     expect(screen.queryByAltText('Unknown Character')).toBeNull();
   });
 
+  it('ignores malformed legacy history containers without breaking valid memories', () => {
+    const story = buildStory({
+      imageHistory: { stale: true } as unknown as StoryWorld['imageHistory'],
+      arcs: [
+        {
+          title: 'Malformed Arc',
+          isCompleted: false,
+          chapters: { stale: true } as unknown as StoryWorld['arcs'][number]['chapters'],
+        },
+        {
+          title: 'Arc I: The Falling Sect',
+          isCompleted: false,
+          chapters: [
+            {
+              number: 2,
+              title: 'Ash on the Steps',
+              summary: 'The sect gates burn.',
+              heroImageAssetId: 'asset-hero-2',
+              assetManifest: { heroImage: 'https://media.example/hero-2.png' },
+              imageHistory: { stale: true } as unknown as NonNullable<StoryWorld['arcs'][number]['chapters'][number]['imageHistory']>,
+            },
+          ],
+        },
+      ],
+    } as unknown as Partial<StoryWorld>);
+
+    renderCollage(story);
+
+    expect(screen.getByAltText('Chapter 2: Ash on the Steps')).toHaveProperty(
+      'src',
+      'https://media.example/hero-2.png',
+    );
+    expect(screen.getByText('All Memories (1)')).toBeDefined();
+  });
+
+  it('treats a non-array arc container as an empty album', () => {
+    const story = buildStory({
+      arcs: { stale: true } as unknown as StoryWorld['arcs'],
+    });
+
+    renderCollage(story);
+
+    expect(screen.getByText('Chronicle Album Empty')).toBeDefined();
+  });
+
   it('shows a placeholder, never a broken image, for an unresolved delivery URL', () => {
     // The cloud hands back an asset id with an empty delivery URL whenever the
     // signed link could not be minted. A bare <img src=""> rendered the
