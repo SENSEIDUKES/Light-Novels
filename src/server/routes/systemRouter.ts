@@ -111,7 +111,7 @@ systemRouter.post("/api/models", validateBody(modelsSchema), async (req, res) =>
         return res.json({
           models: [
             "gemini-3.1-flash-lite-image",
-            "google/gemini-2.5-flash-lite",
+            "google/gemini-3.1-flash-lite",
             "gemini-2.5-flash-image",
             "google/gemini-3.1-flash-lite-image-preview",
             "google/gemini-3.1-flash-lite-preview",

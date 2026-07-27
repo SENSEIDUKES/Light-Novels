@@ -57,7 +57,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
   isShortcutsOpen: false,
   isVeilMinimized: false,
   routingConfig: {
-    storyMaker: { provider: 'gemini', model: 'google/gemini-2.5-flash-lite' },
+    storyMaker: { provider: 'gemini', model: 'google/gemini-3.1-flash-lite' },
     imageGenerator: { provider: 'gemini', model: 'gemini-3.1-flash-lite-image' }
   },
   localGeminiKey: '',

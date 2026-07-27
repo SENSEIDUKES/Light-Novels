@@ -10,14 +10,37 @@ import { secureStorage } from '../lib/encryption';
 import { CelestialParticleShower } from './CelestialParticleShower';
 import { SyncConflictModal } from './SyncConflictModal';
 
+type RarityTheme = {
+  glowColor: string; textColor: string; titleColor: string;
+  dotClass: string; sparkleClass: string; borderGlow: string; buttonHover: string;
+};
+
+const NEUTRAL_THEME: RarityTheme = {
+  glowColor: 'rgba(255,255,255,0.8)',
+  textColor: 'text-neutral-200',
+  titleColor: 'text-neutral-200',
+  dotClass: 'bg-neutral-300 shadow-[0_0_5px_rgba(255,255,255,0.8)]',
+  sparkleClass: 'text-neutral-500',
+  borderGlow: 'border-neutral-300/30 shadow-[0_0_20px_rgba(255,255,255,0.1)]',
+  buttonHover: 'hover:border-neutral-500/80',
+};
+
+const RARITY_THEMES: Record<string, RarityTheme> = {
+  Transcendent: { glowColor: "rgba(34,211,238,0.7)", textColor: "text-cyan-200", titleColor: "text-cyan-100", dotClass: "bg-cyan-200 shadow-[0_0_8px_rgba(34,211,238,0.8)]", sparkleClass: "text-cyan-700/80", borderGlow: "border-cyan-500/40 shadow-[0_0_20px_rgba(34,211,238,0.15)]", buttonHover: "hover:border-cyan-500/60 hover:shadow-[0_0_15px_rgba(34,211,238,0.2)]" },
+  Mythic: { glowColor: "rgba(239,68,68,0.7)", textColor: "text-red-200", titleColor: "text-red-100", dotClass: "bg-red-200 shadow-[0_0_8px_rgba(239,68,68,0.8)]", sparkleClass: "text-red-800/80", borderGlow: "border-red-500/40 shadow-[0_0_20px_rgba(239,68,68,0.15)]", buttonHover: "hover:border-red-500/60 hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]" },
+  Legendary: { glowColor: "rgba(245,158,11,0.7)", textColor: "text-amber-200", titleColor: "text-amber-100", dotClass: "bg-amber-200 shadow-[0_0_8px_rgba(245,158,11,0.8)]", sparkleClass: "text-amber-700/60", borderGlow: "border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.15)]", buttonHover: "hover:border-amber-500/60 hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]" },
+  Epic: { glowColor: "rgba(168,85,247,0.7)", textColor: "text-purple-200", titleColor: "text-purple-100", dotClass: "bg-purple-200 shadow-[0_0_8px_rgba(168,85,247,0.8)]", sparkleClass: "text-purple-800/80", borderGlow: "border-purple-500/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]", buttonHover: "hover:border-purple-500/60 hover:shadow-[0_0_15px_rgba(168,85,247,0.2)]" },
+  Rare: { glowColor: "rgba(16,185,129,0.7)", textColor: "text-emerald-200", titleColor: "text-emerald-100", dotClass: "bg-emerald-200 shadow-[0_0_8px_rgba(16,185,129,0.8)]", sparkleClass: "text-emerald-800/80", borderGlow: "border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.15)]", buttonHover: "hover:border-emerald-500/60 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)]" },
+};
+
 const DEFAULT_PRESETS = {
   storyMaker: {
-    gemini: ["google/gemini-2.5-flash-lite", "google/gemini-3.1-flash-lite-preview", "gemini-3.1-flash-lite-preview", "gemini-3.5-flash", "gemini-3.5-pro", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
+    gemini: ["google/gemini-3.1-flash-lite", "google/gemini-2.5-flash-lite", "google/gemini-3.1-flash-lite-preview", "gemini-3.1-flash-lite-preview", "gemini-3.5-flash", "gemini-3.5-pro", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
     openrouter: [
       "@preset/light-novel-story",
       "google/gemini-3.1-flash-lite-preview",
       "google/gemini-3.5-flash",
-      "google/gemini-2.5-flash-lite",
+      "google/gemini-3.1-flash-lite",
       "meta-llama/llama-3-8b-instruct:free",
       "mistralai/mistral-7b-instruct:free",
       "google/gemma-2-9b-it:free",
@@ -702,147 +725,148 @@ export const ModalsAndToasts: React.FC = () => {
               ) : (
                 <motion.div
                   key="revealed-relic"
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
+                  initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
                   transition={{ type: "spring", damping: 25, stiffness: 180 }}
-                  className="relative bg-neutral-950 border border-amber-500/30 rounded-3xl p-6 md:p-8 max-w-md w-full text-center z-10 shadow-[0_0_80px_rgba(245,158,11,0.25)] overflow-hidden max-h-[90vh] overflow-y-auto"
+                  className="relative bg-[#09090b] border border-neutral-800/80 rounded-[2rem] p-8 max-w-[400px] w-full text-center z-10 shadow-2xl overflow-hidden"
                   onClick={(e) => e.stopPropagation()}
                 >
-                {/* Aura border glow based on rarity */}
-                <div className={`absolute top-0 inset-x-0 h-[4px] ${
-                  unlockedArtifactAlert.rarity === 'Transcendent' 
-                    ? 'bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_15px_rgba(34,211,238,0.5)]' 
-                    : unlockedArtifactAlert.rarity === 'Mythic' 
-                    ? 'bg-gradient-to-r from-transparent via-red-500 to-transparent shadow-[0_0_15px_rgba(239,68,68,0.5)]' 
-                    : unlockedArtifactAlert.rarity === 'Legendary' 
-                    ? 'bg-gradient-to-r from-transparent via-amber-500 to-transparent shadow-[0_0_15px_rgba(245,158,11,0.5)]'
-                    : unlockedArtifactAlert.rarity === 'Epic'
-                    ? 'bg-gradient-to-r from-transparent via-purple-500 to-transparent shadow-[0_0_15px_rgba(168,85,247,0.5)]'
-                    : unlockedArtifactAlert.rarity === 'Rare'
-                    ? 'bg-gradient-to-r from-transparent via-emerald-500 to-transparent shadow-[0_0_15px_rgba(16,185,129,0.5)]'
-                    : 'bg-gradient-to-r from-transparent via-neutral-500 to-transparent'
-                }`}></div>
-
-                {/* Sparkling Background Grid effect */}
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,#161616_1px,transparent_1px),linear-gradient(to_bottom,#161616_1px,transparent_1px)] bg-[size:24px_24px] opacity-30 pointer-events-none"></div>
-
-                <div className="space-y-5 relative z-10">
-                  {/* 1. What the user received (Visual Icon, Relic Name & Rarity Tag) */}
-                  <div className="space-y-3">
-                    <div className="relative w-24 h-24 mx-auto flex items-center justify-center">
-                      <div className="absolute inset-0 rounded-full border border-neutral-900 animate-spin" style={{ animationDuration: '20s' }}></div>
-                      <div className="absolute inset-2 rounded-full border border-dashed border-neutral-850 animate-spin" style={{ animationDuration: '10s' }}></div>
-                      <div className="absolute inset-3 bg-black/90 rounded-full border border-neutral-900 flex items-center justify-center shadow-inner">
-                        {(() => {
-                          const name = unlockedArtifactAlert.name.toLowerCase();
-                          const rarity = unlockedArtifactAlert.rarity;
-                          const size = 36;
-                          let className = "";
-                          
-                          if (rarity === 'Transcendent') className = "text-cyan-400 animate-pulse drop-shadow-[0_0_12px_rgba(6,182,212,0.7)]";
-                          else if (rarity === 'Mythic') className = "text-red-500 animate-pulse drop-shadow-[0_0_10px_rgba(220,38,38,0.6)]";
-                          else if (rarity === 'Legendary') className = "text-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]";
-                          else if (rarity === 'Epic') className = "text-purple-400";
-                          else if (rarity === 'Rare') className = "text-emerald-400";
-                          else className = "text-neutral-500";
-
-                          if (name.includes('medallion') || name.includes('badge')) return <Award size={size} className={className} />;
-                          if (name.includes('seal') || name.includes('signet')) return <Shield size={size} className={className} />;
-                          if (name.includes('gourd') || name.includes('nectar') || name.includes('cauldron') || name.includes('potion')) return <Zap size={size} className={className} />;
-                          if (name.includes('spindle') || name.includes('thread') || name.includes('matrix')) return <RefreshCw size={size} className={className} />;
-                          if (name.includes('pen') || name.includes('brush') || name.includes('scribe')) return <Save size={size} className={className} />;
-                          if (name.includes('crown') || name.includes('circlet') || name.includes('tiara')) return <Sliders size={size} className={className} />;
-                          if (name.includes('compass')) return <Compass size={size} className={className} />;
-                          if (name.includes('mirror')) return <Globe size={size} className={className} />;
-                          if (name.includes('key')) return <Key size={size} className={className} />;
-                          return <Sparkles size={size} className={className} />;
-                        })()}
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <span className={`inline-block text-[9px] uppercase font-bold tracking-widest font-mono px-3 py-0.5 rounded-full border ${
-                        unlockedArtifactAlert.rarity === 'Transcendent' 
-                          ? 'text-cyan-400 border-cyan-950 bg-cyan-950/20' 
-                          : unlockedArtifactAlert.rarity === 'Mythic' 
-                          ? 'text-red-400 border-red-950 bg-red-950/20' 
-                          : unlockedArtifactAlert.rarity === 'Legendary' 
-                          ? 'text-amber-400 border-amber-950 bg-amber-950/20'
-                          : unlockedArtifactAlert.rarity === 'Epic'
-                          ? 'text-purple-400 border-purple-950 bg-purple-950/20'
-                          : unlockedArtifactAlert.rarity === 'Rare'
-                          ? 'text-emerald-400 border-emerald-950 bg-emerald-950/20'
-                          : 'text-neutral-400 border-neutral-900 bg-neutral-900/30'
-                      }`}>
-                        {unlockedArtifactAlert.rarity} Relic
-                      </span>
-                      <h3 className="font-sans font-semibold text-xl text-signal tracking-wide">
-                        {unlockedArtifactAlert.name}
-                      </h3>
-                    </div>
-                  </div>
-
-                  {/* 2. Short description / lore (concise & secondary) */}
-                  {unlockedArtifactAlert.description && (
-                    <p className="text-xs font-serif text-neutral-400 leading-relaxed italic px-2">
-                      "{unlockedArtifactAlert.description}"
-                    </p>
-                  )}
-
-                  {/* 3. The Qi reward (visually distinct) */}
-                  <div className="bg-amber-950/20 border border-amber-500/30 p-3.5 rounded-xl flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-left">
-                      <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
-                        <Zap size={16} />
-                      </div>
-                      <div>
-                        <span className="text-[9px] uppercase font-bold tracking-wider text-amber-400 font-mono block">Qi Reward</span>
-                        <span className="text-[11px] text-neutral-300 font-sans">Cultivation Energy</span>
-                      </div>
-                    </div>
-                    <div className="px-3 py-1 bg-amber-500/15 border border-amber-500/40 rounded-lg text-sm font-bold font-mono text-amber-300">
-                      +{unlockedArtifactAlert.rewardValueQi ?? 100} Qi
-                    </div>
-                  </div>
-
-                  {/* 4. Flexible Special Unlock field (visually distinct) */}
                   {(() => {
-                    const unlock = unlockedArtifactAlert.specialUnlock;
-                    const label = typeof unlock === 'object' && unlock?.label ? unlock.label : (typeof unlock === 'string' ? unlock : (unlockedArtifactAlert.attributeBoost || 'Profile Badge Unlocked'));
-                    
+                    const rarity = unlockedArtifactAlert.rarity;
+                    const { glowColor, textColor, titleColor, dotClass, sparkleClass, borderGlow, buttonHover } = RARITY_THEMES[rarity] ?? NEUTRAL_THEME;
+
                     return (
-                      <div className="bg-cyan-950/20 border border-cyan-500/30 p-3.5 rounded-xl flex items-center justify-between text-left">
-                        <div className="flex items-center gap-2 min-w-0 pr-2">
-                          <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
-                            <Sparkles size={16} />
+                      <>
+                        {/* Subtle Top Gradient for depth */}
+                        <div className="absolute top-0 inset-x-0 h-40 bg-gradient-to-b from-neutral-800/20 to-transparent pointer-events-none" />
+                        
+                        {/* Subtle starry background inside modal */}
+                        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.03)_0%,transparent_80%)] pointer-events-none" />
+
+                        <div className="space-y-6 relative z-10 flex flex-col items-center">
+                          
+                          {/* 1. Rarity Label */}
+                          <div className="flex items-center justify-center gap-3">
+                            <Sparkles size={10} className={sparkleClass} strokeWidth={1.5} />
+                            <span className="text-[10px] uppercase tracking-[0.25em] text-neutral-400 font-serif">
+                              {rarity ? `${rarity} Relic` : 'Relic'}
+                            </span>
+                            <Sparkles size={10} className={sparkleClass} strokeWidth={1.5} />
                           </div>
-                          <div className="min-w-0">
-                            <span className="text-[9px] uppercase font-bold tracking-wider text-cyan-400 font-mono block">Special Unlock</span>
-                            <p className="text-xs font-semibold text-cyan-200 font-sans truncate">{label}</p>
+
+                          {/* 2. Center Geometric Emblem */}
+                          <div className="relative w-56 h-56 mx-auto flex items-center justify-center my-6">
+                            {/* Cross hairs */}
+                            <div className="absolute w-[1px] h-full bg-gradient-to-b from-transparent via-neutral-600/40 to-transparent" />
+                            <div className="absolute h-[1px] w-full bg-gradient-to-r from-transparent via-neutral-600/40 to-transparent" />
+                            
+                            {/* Outer Circle */}
+                            <div className="absolute w-full h-full rounded-full border border-neutral-700/30" />
+                            {/* Inner Circles */}
+                            <div className="absolute w-44 h-44 rounded-full border-[0.5px] border-neutral-500/40" />
+                            <div className="absolute w-32 h-32 rounded-full border-[0.5px] border-neutral-400/50" />
+                            <div className={`absolute w-20 h-20 rounded-full border ${borderGlow}`} />
+                            
+                            {/* The Diamond */}
+                            <div className="absolute w-32 h-32 border border-neutral-400/40 rotate-45" />
+                            
+                            {/* Glowing nodes on the diamond */}
+                            <div className={`absolute top-[2.75rem] w-1 h-1 rounded-full ${dotClass}`} />
+                            <div className={`absolute bottom-[2.75rem] w-1 h-1 rounded-full ${dotClass}`} />
+                            <div className={`absolute left-[2.75rem] w-1 h-1 rounded-full ${dotClass}`} />
+                            <div className={`absolute right-[2.75rem] w-1 h-1 rounded-full ${dotClass}`} />
+
+                            {/* Sparkles around outer circle */}
+                            <Sparkles size={10} className={`absolute top-0 ${sparkleClass}`} />
+                            <Sparkles size={10} className={`absolute bottom-0 ${sparkleClass}`} />
+                            <Sparkles size={10} className={`absolute left-0 ${sparkleClass}`} />
+                            <Sparkles size={10} className={`absolute right-0 ${sparkleClass}`} />
+
+                            {/* The Icon */}
+                            <div 
+                              className={`relative z-10 flex items-center justify-center ${textColor}`}
+                              style={{ filter: `drop-shadow(0 0 12px ${glowColor})` }}
+                            >
+                              {(() => {
+                                const name = (unlockedArtifactAlert.name ?? '').toLowerCase();
+                                const size = 32;
+                                if (name.includes('medallion') || name.includes('badge')) return <Award size={size} strokeWidth={1} />;
+                                if (name.includes('seal') || name.includes('signet')) return <Shield size={size} strokeWidth={1} />;
+                                if (name.includes('gourd') || name.includes('nectar') || name.includes('cauldron') || name.includes('potion')) return <Zap size={size} strokeWidth={1} />;
+                                if (name.includes('spindle') || name.includes('thread') || name.includes('matrix')) return <RefreshCw size={size} strokeWidth={1} />;
+                                if (name.includes('pen') || name.includes('brush') || name.includes('scribe')) return <Save size={size} strokeWidth={1} />;
+                                if (name.includes('crown') || name.includes('circlet') || name.includes('tiara')) return <Sliders size={size} strokeWidth={1} />;
+                                if (name.includes('compass')) return <Compass size={size} strokeWidth={1} />;
+                                if (name.includes('mirror')) return <Globe size={size} strokeWidth={1} />;
+                                if (name.includes('key')) return <Key size={size} strokeWidth={1} />;
+                                return <Compass size={size} strokeWidth={1} />; // Default to compass
+                              })()}
+                            </div>
                           </div>
+
+                          {/* 3. Title & Description */}
+                          <div className="text-center space-y-4 px-2 w-full pt-2">
+                            <h3 className={`font-serif text-[26px] tracking-wide font-normal ${titleColor}`}>
+                              {unlockedArtifactAlert.name}
+                            </h3>
+                            
+                            <div className="w-16 h-[1px] bg-neutral-700/80 mx-auto my-2" />
+                            
+                            <p className="text-xs font-serif text-neutral-400 leading-relaxed px-4 opacity-90">
+                              {unlockedArtifactAlert.description || "Records marked by the Library are never truly forgotten."}
+                            </p>
+                          </div>
+
+                          {/* 4. The Stats Box (Qi + Unlock) */}
+                          <div className="w-full bg-neutral-950/80 border border-neutral-800/60 rounded-[1.25rem] p-4 flex items-center justify-between mt-4 shadow-inner">
+                            <div className="flex items-center gap-3 w-1/2 justify-center border-r border-neutral-800/80">
+                              <Sparkles size={14} className={sparkleClass} />
+                              <span className="text-sm text-neutral-300 font-serif tracking-wide">+{unlockedArtifactAlert.rewardValueQi ?? 10} Qi</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-3 w-1/2 justify-center pl-2">
+                              {/* Custom Arch Icon */}
+                              <svg className={sparkleClass + " w-4 h-4"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <path d="M5 22v-8a7 7 0 0 1 14 0v8M12 7v5" strokeLinecap="round" strokeLinejoin="round"/>
+                                <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+                                <path d="M3 22h18" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                              <span className="text-xs text-neutral-400 font-serif tracking-wide truncate pr-2">
+                                {(() => {
+                                  const unlock = unlockedArtifactAlert.specialUnlock;
+                                  if (typeof unlock === 'object' && unlock?.label) return unlock.label;
+                                  if (typeof unlock === 'string') return unlock;
+                                  return "Archived in Relic Cave";
+                                })()}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <button
+                            type="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
+                            onClick={() => {
+                              dismissArtifactAlert();
+                              vibrate('softTap');
+                            }}
+                            className={`w-full relative mt-4 py-3.5 bg-gradient-to-b from-neutral-800/80 to-[#0e0e11] border border-neutral-700/60 rounded-full group transition-all duration-500 overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.5)] ${buttonHover}`}
+                          >
+                            <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            <div className="flex items-center justify-center gap-6 relative z-10">
+                              <Sparkles size={12} className={`${sparkleClass} group-hover:text-neutral-200 transition-colors`} />
+                              <span className="font-serif uppercase tracking-[0.2em] text-xs text-neutral-300 group-hover:text-neutral-100 transition-colors">
+                                Claim Relic
+                              </span>
+                              <Sparkles size={12} className={`${sparkleClass} group-hover:text-neutral-200 transition-colors`} />
+                            </div>
+                          </button>
                         </div>
-                        <span className="text-[10px] text-cyan-300/80 font-mono shrink-0 bg-cyan-950/50 px-2.5 py-1 rounded-md border border-cyan-500/20">
-                          Unlocked
-                        </span>
-                      </div>
+                      </>
                     );
                   })()}
-
-                  {/* Actions */}
-                  <button
-                    type="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
-                    onClick={() => {
-                      dismissArtifactAlert();
-                      vibrate('softTap');
-                    }}
-                    className="w-full py-3 bg-portal/10 border border-portal/40 text-portal font-sc font-bold uppercase tracking-widest text-xs rounded-full hover:bg-portal hover:text-void transition-all duration-300 shadow-[0_0_20px_rgba(4,172,255,0.15)] hover:shadow-[0_0_30px_rgba(4,172,255,0.3)] mt-2"
-                  >
-                    Claim Relic
-                  </button>
-                </div>
-              </motion.div>
+                </motion.div>
               )}
             </motion.div>
         )}
