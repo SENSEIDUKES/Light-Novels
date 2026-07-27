@@ -28,7 +28,7 @@ export default function AILoadingVeil() {
   const shouldShowFullScreen = isGenerating && !isVeilMinimized;
 
   // Live progress signal, folded into the unified card instead of a separate status box.
-  const passagesWoven = streamingChapter?.blocks?.length || 0;
+const passagesWoven = Array.isArray(streamingChapter?.blocks) ? streamingChapter.blocks.length : 0;
   const isChapterPhase = generationPhase === 'chapter';
   const progressLabel = isChapterPhase
     ? `Chapter ${generatingChapterNum || ''} · ${passagesWoven > 0 ? `${passagesWoven} passages woven` : 'Initiating Cosmic Channel'}`
