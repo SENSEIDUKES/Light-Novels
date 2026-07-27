@@ -10,6 +10,29 @@ import { secureStorage } from '../lib/encryption';
 import { CelestialParticleShower } from './CelestialParticleShower';
 import { SyncConflictModal } from './SyncConflictModal';
 
+type RarityTheme = {
+  glowColor: string; textColor: string; titleColor: string;
+  dotClass: string; sparkleClass: string; borderGlow: string; buttonHover: string;
+};
+
+const NEUTRAL_THEME: RarityTheme = {
+  glowColor: 'rgba(255,255,255,0.8)',
+  textColor: 'text-neutral-200',
+  titleColor: 'text-neutral-200',
+  dotClass: 'bg-neutral-300 shadow-[0_0_5px_rgba(255,255,255,0.8)]',
+  sparkleClass: 'text-neutral-500',
+  borderGlow: 'border-neutral-300/30 shadow-[0_0_20px_rgba(255,255,255,0.1)]',
+  buttonHover: 'hover:border-neutral-500/80',
+};
+
+const RARITY_THEMES: Record<string, RarityTheme> = {
+  Transcendent: { glowColor: "rgba(34,211,238,0.7)", textColor: "text-cyan-200", titleColor: "text-cyan-100", dotClass: "bg-cyan-200 shadow-[0_0_8px_rgba(34,211,238,0.8)]", sparkleClass: "text-cyan-700/80", borderGlow: "border-cyan-500/40 shadow-[0_0_20px_rgba(34,211,238,0.15)]", buttonHover: "hover:border-cyan-500/60 hover:shadow-[0_0_15px_rgba(34,211,238,0.2)]" },
+  Mythic: { glowColor: "rgba(239,68,68,0.7)", textColor: "text-red-200", titleColor: "text-red-100", dotClass: "bg-red-200 shadow-[0_0_8px_rgba(239,68,68,0.8)]", sparkleClass: "text-red-800/80", borderGlow: "border-red-500/40 shadow-[0_0_20px_rgba(239,68,68,0.15)]", buttonHover: "hover:border-red-500/60 hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]" },
+  Legendary: { glowColor: "rgba(245,158,11,0.7)", textColor: "text-amber-200", titleColor: "text-amber-100", dotClass: "bg-amber-200 shadow-[0_0_8px_rgba(245,158,11,0.8)]", sparkleClass: "text-amber-700/60", borderGlow: "border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.15)]", buttonHover: "hover:border-amber-500/60 hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]" },
+  Epic: { glowColor: "rgba(168,85,247,0.7)", textColor: "text-purple-200", titleColor: "text-purple-100", dotClass: "bg-purple-200 shadow-[0_0_8px_rgba(168,85,247,0.8)]", sparkleClass: "text-purple-800/80", borderGlow: "border-purple-500/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]", buttonHover: "hover:border-purple-500/60 hover:shadow-[0_0_15px_rgba(168,85,247,0.2)]" },
+  Rare: { glowColor: "rgba(16,185,129,0.7)", textColor: "text-emerald-200", titleColor: "text-emerald-100", dotClass: "bg-emerald-200 shadow-[0_0_8px_rgba(16,185,129,0.8)]", sparkleClass: "text-emerald-800/80", borderGlow: "border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.15)]", buttonHover: "hover:border-emerald-500/60 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)]" },
+};
+
 const DEFAULT_PRESETS = {
   storyMaker: {
     gemini: ["google/gemini-3.1-flash-lite", "google/gemini-2.5-flash-lite", "google/gemini-3.1-flash-lite-preview", "gemini-3.1-flash-lite-preview", "gemini-3.5-flash", "gemini-3.5-pro", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
@@ -710,19 +733,7 @@ export const ModalsAndToasts: React.FC = () => {
                 >
                   {(() => {
                     const rarity = unlockedArtifactAlert.rarity;
-                    let glowColor = "rgba(255,255,255,0.8)";
-                    let textColor = "text-neutral-200";
-                    let titleColor = "text-neutral-200";
-                    let dotClass = "bg-neutral-300 shadow-[0_0_5px_rgba(255,255,255,0.8)]";
-                    let sparkleClass = "text-neutral-500";
-                    let borderGlow = "border-neutral-300/30 shadow-[0_0_20px_rgba(255,255,255,0.1)]";
-                    let buttonHover = "hover:border-neutral-500/80";
-                    
-                    if (rarity === 'Transcendent') { glowColor = "rgba(34,211,238,0.7)"; textColor = "text-cyan-200"; titleColor = "text-cyan-100"; dotClass = "bg-cyan-200 shadow-[0_0_8px_rgba(34,211,238,0.8)]"; sparkleClass = "text-cyan-700/80"; borderGlow = "border-cyan-500/40 shadow-[0_0_20px_rgba(34,211,238,0.15)]"; buttonHover = "hover:border-cyan-500/60 hover:shadow-[0_0_15px_rgba(34,211,238,0.2)]"; }
-                    else if (rarity === 'Mythic') { glowColor = "rgba(239,68,68,0.7)"; textColor = "text-red-200"; titleColor = "text-red-100"; dotClass = "bg-red-200 shadow-[0_0_8px_rgba(239,68,68,0.8)]"; sparkleClass = "text-red-800/80"; borderGlow = "border-red-500/40 shadow-[0_0_20px_rgba(239,68,68,0.15)]"; buttonHover = "hover:border-red-500/60 hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]"; }
-                    else if (rarity === 'Legendary') { glowColor = "rgba(245,158,11,0.7)"; textColor = "text-amber-200"; titleColor = "text-amber-100"; dotClass = "bg-amber-200 shadow-[0_0_8px_rgba(245,158,11,0.8)]"; sparkleClass = "text-amber-700/60"; borderGlow = "border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.15)]"; buttonHover = "hover:border-amber-500/60 hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]"; }
-                    else if (rarity === 'Epic') { glowColor = "rgba(168,85,247,0.7)"; textColor = "text-purple-200"; titleColor = "text-purple-100"; dotClass = "bg-purple-200 shadow-[0_0_8px_rgba(168,85,247,0.8)]"; sparkleClass = "text-purple-800/80"; borderGlow = "border-purple-500/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]"; buttonHover = "hover:border-purple-500/60 hover:shadow-[0_0_15px_rgba(168,85,247,0.2)]"; }
-                    else if (rarity === 'Rare') { glowColor = "rgba(16,185,129,0.7)"; textColor = "text-emerald-200"; titleColor = "text-emerald-100"; dotClass = "bg-emerald-200 shadow-[0_0_8px_rgba(16,185,129,0.8)]"; sparkleClass = "text-emerald-800/80"; borderGlow = "border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.15)]"; buttonHover = "hover:border-emerald-500/60 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)]"; }
+                    const { glowColor, textColor, titleColor, dotClass, sparkleClass, borderGlow, buttonHover } = RARITY_THEMES[rarity] ?? NEUTRAL_THEME;
 
                     return (
                       <>
@@ -738,7 +749,7 @@ export const ModalsAndToasts: React.FC = () => {
                           <div className="flex items-center justify-center gap-3">
                             <Sparkles size={10} className={sparkleClass} strokeWidth={1.5} />
                             <span className="text-[10px] uppercase tracking-[0.25em] text-neutral-400 font-serif">
-                              {rarity} Relic
+                              {rarity ? `${rarity} Relic` : 'Relic'}
                             </span>
                             <Sparkles size={10} className={sparkleClass} strokeWidth={1.5} />
                           </div>
@@ -777,7 +788,7 @@ export const ModalsAndToasts: React.FC = () => {
                               style={{ filter: `drop-shadow(0 0 12px ${glowColor})` }}
                             >
                               {(() => {
-                                const name = unlockedArtifactAlert.name.toLowerCase();
+                                const name = (unlockedArtifactAlert.name ?? '').toLowerCase();
                                 const size = 32;
                                 if (name.includes('medallion') || name.includes('badge')) return <Award size={size} strokeWidth={1} />;
                                 if (name.includes('seal') || name.includes('signet')) return <Shield size={size} strokeWidth={1} />;
