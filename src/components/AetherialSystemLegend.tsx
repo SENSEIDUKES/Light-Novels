@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { SYSTEM_LEGEND_DISMISSED_STORAGE_KEY } from '../lib/readerLegend';
 import { SYSTEM_COLORS_LEGEND } from '../lib/systemColors';
 
 interface AetherialSystemLegendProps {
@@ -15,6 +16,8 @@ export function AetherialSystemLegend({
 }: AetherialSystemLegendProps) {
   return (
     <motion.div
+      role="region"
+      aria-labelledby="aetherial-system-legend-heading"
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
@@ -24,7 +27,10 @@ export function AetherialSystemLegend({
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-portal text-sm animate-pulse">✦</span>
           <div>
-            <h4 className="font-display font-medium text-xs sm:text-sm text-signal tracking-widest uppercase">
+            <h4
+              id="aetherial-system-legend-heading"
+              className="font-display font-medium text-xs sm:text-sm text-signal tracking-widest uppercase"
+            >
               Aetherial System Codes
             </h4>
             <p className="text-[9px] text-neutral-500 font-sans normal-case leading-snug mt-0.5">Color guide for story system notifications and events.</p>
@@ -44,7 +50,7 @@ export function AetherialSystemLegend({
           </select>
           <button
             tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-              localStorage.setItem("seihouse-system-legend-dismissed", "true");
+              localStorage.setItem(SYSTEM_LEGEND_DISMISSED_STORAGE_KEY, "true");
               setShowLegend(false);
             }}
             className="text-[9px] uppercase font-mono tracking-wider text-portal hover:text-signal transition-colors px-2.5 py-1.5 border border-portal/30 hover:border-portal rounded-sm bg-portal/5 hover:bg-portal/15 cursor-pointer shadow-[0_0_10px_rgba(4,172,255,0.1)]"

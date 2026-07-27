@@ -172,6 +172,7 @@ describe('Story deletion journey', () => {
     const other = await harness.newDevice();
     await harness.signIn(JOURNEY_UID, 'reader@example.com');
     expect((await other.getStories()).map((story) => story.id)).toContain(STORY_ID);
+    const reopenOtherDevice = harness.captureDevice();
 
     // The first device deletes it and publishes the tombstone.
     const owner = await harness.newDevice();
@@ -179,7 +180,7 @@ describe('Story deletion journey', () => {
     await owner.deleteStory(STORY_ID);
     await harness.sync();
 
-    const returning = await harness.reload();
+    const returning = await reopenOtherDevice();
     await harness.signIn(JOURNEY_UID, 'reader@example.com');
     await returning.performSync({ catalog: true, deep: false });
 

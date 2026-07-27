@@ -47,6 +47,11 @@ export interface CelestialHarness {
    * record on the server — a second device, or a cleared cache.
    */
   newDevice(): Promise<PersistentStorageManager>;
+  /**
+   * Capture the active browser profile and return a switcher that reopens that
+   * same IndexedDB/localStorage state later, after another device has run.
+   */
+  captureDevice(): () => Promise<PersistentStorageManager>;
   /** Flush the durable outbox and reconcile the catalog, as Harmony does. */
   sync(options?: { catalog?: boolean; deep?: boolean }): Promise<void>;
   /**
@@ -294,6 +299,28 @@ export async function createCelestialHarness(): Promise<CelestialHarness> {
       localStorage.clear();
       storage = await bootManager();
       return storage;
+    },
+    captureDevice() {
+      const capturedIndexedDb = indexedDb;
+      const capturedLocalStorage = Array.from(
+        { length: localStorage.length },
+        (_, index) => {
+          const key = localStorage.key(index);
+          return key === null ? null : [key, localStorage.getItem(key) ?? ''] as const;
+        },
+      ).filter((entry): entry is readonly [string, string] => entry !== null);
+      return async () => {
+        storage.dispose();
+        resetPrivateMediaResolver();
+        indexedDb = capturedIndexedDb;
+        globalThis.indexedDB = indexedDb as unknown as IDBFactory;
+        localStorage.clear();
+        for (const [key, value] of capturedLocalStorage) {
+          localStorage.setItem(key, value);
+        }
+        storage = await bootManager();
+        return storage;
+      };
     },
     async sync(options) {
       await storage.performSync({
