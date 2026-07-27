@@ -204,6 +204,56 @@ export class MemoryIndexedDbFactory {
   }
 }
 
+interface BlobPlaceholder {
+  __memoryIndexedDbBlob: number;
+}
+
+function isBlobPlaceholder(value: unknown): value is BlobPlaceholder {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as BlobPlaceholder).__memoryIndexedDbBlob === "number"
+  );
+}
+
+function extractBlobs(value: unknown, blobs: Blob[]): unknown {
+  if (typeof Blob !== "undefined" && value instanceof Blob) {
+    blobs.push(value);
+    return { __memoryIndexedDbBlob: blobs.length - 1 } satisfies BlobPlaceholder;
+  }
+  if (Array.isArray(value)) return value.map((entry) => extractBlobs(entry, blobs));
+  if (value !== null && typeof value === "object" && value.constructor === Object) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, extractBlobs(entry, blobs)]),
+    );
+  }
+  return value;
+}
+
+function restoreBlobs(value: unknown, blobs: readonly Blob[]): unknown {
+  if (isBlobPlaceholder(value)) return blobs[value.__memoryIndexedDbBlob];
+  if (Array.isArray(value)) return value.map((entry) => restoreBlobs(entry, blobs));
+  if (value !== null && typeof value === "object" && value.constructor === Object) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, restoreBlobs(entry, blobs)]),
+    );
+  }
+  return value;
+}
+
+/**
+ * Copy a stored row.
+ *
+ * Blobs are carried across by reference rather than through `structuredClone`.
+ * A jsdom `Blob` is not necessarily the `Blob` Node's structured-clone
+ * algorithm recognizes — on some Node versions cloning one throws
+ * `DataCloneError` — and blobs are immutable, so sharing the instance matches
+ * what a real IndexedDB read hands back.
+ */
 function clone<T>(value: T): T {
-  return value === undefined ? value : structuredClone(value);
+  if (value === undefined) return value;
+  const blobs: Blob[] = [];
+  const extracted = extractBlobs(value, blobs);
+  const copied = structuredClone(extracted);
+  return (blobs.length === 0 ? copied : restoreBlobs(copied, blobs)) as T;
 }

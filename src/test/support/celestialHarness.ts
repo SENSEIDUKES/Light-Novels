@@ -17,6 +17,7 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { createPersistenceRouter } from '../../server/routes/persistenceRouter';
 import { DataConnectApplicationRepository } from '../../server/persistence/dataConnectApplicationRepository';
 import { storyStorage } from '../../lib/storage';
@@ -89,6 +90,19 @@ async function startServer(): Promise<string> {
     loadMediaDescriptor: dataConnectStore.loadMediaDescriptor,
   });
   const app = express();
+  // The fixture is a loopback server, but it still authorizes requests, so it
+  // gets the same guard a real one would. The ceiling is far above what a full
+  // journey run needs (a few thousand requests spread over the suite) and low
+  // enough that a runaway client retry loop — the shape of the chapter-write
+  // defect this suite pins — trips it instead of spinning silently.
+  app.use(
+    rateLimit({
+      windowMs: 60_000,
+      max: 20_000,
+      standardHeaders: true,
+      legacyHeaders: false,
+    }),
+  );
   app.use(
     createPersistenceRouter({
       verifyIdToken: async (token) => verifyTestIdToken(token),
@@ -144,6 +158,32 @@ async function startServer(): Promise<string> {
 }
 
 /**
+ * Hand back a body object from this realm.
+ *
+ * The bridge fulfils jsdom's `fetch` with Node's, and on Node 20 the `Blob`
+ * that undici returns is a different constructor from the `Blob` jsdom exposes
+ * to application code. `IndexedDbFoundationCache.putMedia` rejects it with
+ * "blob must be a Blob", so every media resolution failed on CI while passing
+ * on a Node version where the two globals happen to coincide. A real browser
+ * only ever has one Blob, so normalize to the realm-local one.
+ */
+function withRealmBlob(response: Response): Response {
+  const readBlob = response.blob.bind(response);
+  Object.defineProperty(response, 'blob', {
+    configurable: true,
+    value: async () => {
+      // Reconstruct unconditionally rather than branching on `instanceof`:
+      // whether the two globals coincide is a Node-version detail, and a test
+      // suite must not behave differently on the maintainer's machine than in
+      // CI. The copy is a few kilobytes.
+      const body = await readBlob();
+      return new Blob([await body.arrayBuffer()], { type: body.type });
+    },
+  });
+  return response;
+}
+
+/**
  * Route the browser's relative `/api/persistence/...` requests at the local
  * server. The client adapter itself is untouched, so its headers, idempotency
  * keys and error handling are all exercised for real.
@@ -159,7 +199,7 @@ function installFetchBridge(serverOrigin: string): void {
         const clonedBody = await response.clone().text();
         console.error(`[harness] ${init?.method ?? 'GET'} ${absolute} -> ${response.status} ${clonedBody}`);
       }
-      return response;
+      return withRealmBlob(response);
     });
   }) as typeof globalThis.fetch;
 }
