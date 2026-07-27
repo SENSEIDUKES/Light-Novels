@@ -733,13 +733,13 @@ export const ModalsAndToasts: React.FC = () => {
                   {/* Glowing aura around mystery card */}
                   <div className="absolute -inset-4 bg-portal/30 rounded-full blur-2xl group-hover:bg-portal/50 transition-colors duration-500 animate-pulse" />
                   
-                  <div className="relative w-64 h-96 bg-neutral-950 border border-portal/50 rounded-2xl shadow-[0_0_50px_rgba(4,172,255,0.3)] flex flex-col items-center justify-center overflow-hidden">
+                  <div className="relative w-52 h-72 sm:w-56 sm:h-80 bg-neutral-950 border border-portal/50 rounded-2xl shadow-[0_0_50px_rgba(4,172,255,0.3)] flex flex-col items-center justify-center overflow-hidden">
                     <div className="absolute inset-0 bg-[linear-gradient(to_right,#161616_1px,transparent_1px),linear-gradient(to_bottom,#161616_1px,transparent_1px)] bg-[size:12px_12px] opacity-20" />
-                    <Sparkles className="text-portal w-16 h-16 mb-6 animate-pulse" />
-                    <span className="font-sc font-bold text-portal text-xl uppercase tracking-widest animate-pulse drop-shadow-[0_0_8px_rgba(4,172,255,0.8)]">
+                    <Sparkles className="text-portal w-12 h-12 mb-4 animate-pulse" />
+                    <span className="font-sc font-bold text-portal text-lg uppercase tracking-widest animate-pulse drop-shadow-[0_0_8px_rgba(4,172,255,0.8)]">
                       Claim Relic
                     </span>
-                    <p className="text-neutral-500 font-mono text-xs mt-4 uppercase tracking-widest opacity-60">Tap to Reveal</p>
+                    <p className="text-neutral-500 font-mono text-[11px] mt-3 uppercase tracking-widest opacity-60">Tap to Reveal</p>
                   </div>
                 </motion.div>
               ) : (
@@ -748,7 +748,7 @@ export const ModalsAndToasts: React.FC = () => {
                   initial={{ scale: 0.9, opacity: 0, rotateY: -55 }}
                   animate={{ scale: 1, opacity: 1, rotateY: 0 }}
                   transition={{ type: "spring", damping: 22, stiffness: 150 }}
-                  className="relative max-w-[380px] w-full z-10"
+                  className="relative max-w-[300px] sm:max-w-[340px] w-full z-10"
                   style={{ transformPerspective: 1200 }}
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -777,27 +777,27 @@ export const ModalsAndToasts: React.FC = () => {
                         {/* Rarity aura bleeding out from behind the card */}
                         <div
                           aria-hidden
-                          className="absolute -inset-14 pointer-events-none relic-breathe"
+                          className="absolute -inset-10 pointer-events-none relic-breathe"
                           style={{ background: `radial-gradient(ellipse at 50% 36%, ${hex}2e 0%, transparent 62%)` }}
                         />
 
                         <div
-                          className="relative bg-[#060607]/95 rounded-[1.75rem] px-6 pt-8 pb-7 text-center overflow-hidden"
+                          className="relative bg-[#060607]/95 rounded-[1.5rem] px-5 pt-6 pb-5 sm:px-6 sm:pt-7 sm:pb-6 text-center max-h-[92dvh] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-neutral-800"
                           style={{
                             border: `1px solid ${hex}45`,
                             boxShadow: `0 0 50px ${hex}26, inset 0 0 70px rgba(0,0,0,0.65)`,
                           }}
                         >
                           {/* Inner hairline frame */}
-                          <div aria-hidden className="absolute inset-[6px] rounded-[1.45rem] pointer-events-none" style={{ border: `1px solid ${hex}1c` }} />
+                          <div aria-hidden className="absolute inset-[5px] rounded-[1.2rem] pointer-events-none" style={{ border: `1px solid ${hex}1c` }} />
                           {/* Top sheen */}
                           <div aria-hidden className="absolute top-0 inset-x-0 h-44 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none" />
 
                           <div className="relative z-10 flex flex-col items-center">
 
                             {/* 1. Rarity label */}
-                            <div className="flex items-center justify-center gap-3 w-full">
-                              <div className="h-px w-9" style={{ background: `linear-gradient(to right, transparent, ${hex}66)` }} />
+                            <div className="flex items-center justify-center gap-2.5 w-full">
+                              <div className="h-px w-7" style={{ background: `linear-gradient(to right, transparent, ${hex}66)` }} />
                               <Sparkles size={11} strokeWidth={1.5} style={{ color: hex, filter: `drop-shadow(0 0 5px ${hex})` }} />
                               <span
                                 className="text-[10px] uppercase tracking-[0.35em] font-serif whitespace-nowrap"
@@ -806,7 +806,7 @@ export const ModalsAndToasts: React.FC = () => {
                                 {rarity ? `${rarity} Relic` : 'Relic'}
                               </span>
                               <Sparkles size={11} strokeWidth={1.5} style={{ color: hex, filter: `drop-shadow(0 0 5px ${hex})` }} />
-                              <div className="h-px w-9" style={{ background: `linear-gradient(to left, transparent, ${hex}66)` }} />
+                              <div className="h-px w-7" style={{ background: `linear-gradient(to left, transparent, ${hex}66)` }} />
                             </div>
 
                             {/* 2. Ornate relic sigil */}
@@ -814,7 +814,7 @@ export const ModalsAndToasts: React.FC = () => {
                               initial={{ scale: 0.55, opacity: 0 }}
                               animate={{ scale: 1, opacity: 1 }}
                               transition={{ delay: 0.25, type: "spring", damping: 18, stiffness: 120 }}
-                              className="relative w-60 h-60 my-7 flex items-center justify-center"
+                              className="relative w-44 h-44 sm:w-52 sm:h-52 my-4 sm:my-5 flex items-center justify-center"
                             >
                               {/* Halo behind the sigil */}
                               <div
@@ -923,32 +923,32 @@ export const ModalsAndToasts: React.FC = () => {
 
                             {/* 3. Title & lore */}
                             <h3
-                              className={`font-serif text-[25px] leading-snug tracking-wide font-normal ${titleColor}`}
+                              className={`font-serif text-[19px] sm:text-[21px] leading-snug tracking-wide font-normal ${titleColor}`}
                               style={{ textShadow: `0 0 24px ${hex}45` }}
                             >
                               {unlockedArtifactAlert.name}
                             </h3>
 
-                            <div className="flex items-center justify-center gap-2.5 my-4">
+                            <div className="flex items-center justify-center gap-2.5 my-3">
                               <div className="h-px w-12" style={{ background: `linear-gradient(to right, transparent, ${hex}59)` }} />
                               <div className="w-1.5 h-1.5 rotate-45" style={{ border: `1px solid ${hex}a6`, boxShadow: `0 0 7px ${hex}73` }} />
                               <div className="h-px w-12" style={{ background: `linear-gradient(to left, transparent, ${hex}59)` }} />
                             </div>
 
-                            <p className="text-[13px] font-serif italic text-neutral-400 leading-relaxed px-2 max-w-[292px]">
+                            <p className="text-xs sm:text-[13px] font-serif italic text-neutral-400 leading-relaxed px-2 max-w-[260px]">
                               {unlockedArtifactAlert.description || "Records marked by the Library are never truly forgotten."}
                             </p>
 
                             {/* 4. The Stats Box (Qi + Unlock) */}
                             <div
-                              className="w-full mt-6 rounded-2xl bg-black/50 flex items-stretch overflow-hidden"
+                              className="w-full mt-4 sm:mt-5 rounded-xl bg-black/50 flex items-stretch overflow-hidden"
                               style={{ border: `1px solid ${hex}30`, boxShadow: `inset 0 0 26px rgba(0,0,0,0.65), 0 0 18px ${hex}14` }}
                             >
-                              <div className="flex-1 flex items-center justify-center gap-2.5 py-3.5" style={{ borderRight: `1px solid ${hex}24` }}>
+                              <div className="flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3" style={{ borderRight: `1px solid ${hex}24` }}>
                                 <Sparkles size={14} style={{ color: hex, filter: `drop-shadow(0 0 6px ${hex})` }} />
                                 <span className="text-sm text-neutral-200 font-serif tracking-wide">+{unlockedArtifactAlert.rewardValueQi ?? 10} Qi</span>
                               </div>
-                              <div className="flex-1 flex items-center justify-center gap-2.5 py-3.5 px-2">
+                              <div className="flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-2">
                                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: hex, filter: `drop-shadow(0 0 5px ${hex}80)` }}>
                                   <path d="M5 22v-8a7 7 0 0 1 14 0v8M12 7v5" strokeLinecap="round" strokeLinejoin="round"/>
                                   <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
@@ -974,7 +974,7 @@ export const ModalsAndToasts: React.FC = () => {
                                 dismissArtifactAlert();
                                 vibrate('softTap');
                               }}
-                              className="relic-claim-btn w-full relative mt-5 py-3.5 rounded-full group overflow-hidden"
+                              className="relic-claim-btn w-full relative mt-4 py-2.5 sm:py-3 rounded-full group overflow-hidden"
                               style={{
                                 border: `1px solid ${hex}59`,
                                 background: 'linear-gradient(to bottom, rgba(255,255,255,0.06), rgba(0,0,0,0.45))',
@@ -983,7 +983,7 @@ export const ModalsAndToasts: React.FC = () => {
                               } as React.CSSProperties}
                             >
                               <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                              <div className="flex items-center justify-center gap-6 relative z-10">
+                              <div className="flex items-center justify-center gap-4 relative z-10">
                                 <Sparkles size={12} style={{ color: hex }} className="transition-transform duration-500 group-hover:scale-125" />
                                 <span className="font-serif uppercase tracking-[0.28em] text-xs text-neutral-200 group-hover:text-white transition-colors">
                                   Claim Relic
