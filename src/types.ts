@@ -887,6 +887,7 @@ export interface ReaderPreferences {
   highlightStyle?: "full" | "underline" | "tint";
   playerStyle?: "vinyl" | "minimal" | "ethereal";
   particleIntensity?: "off" | "low" | "default" | "high";
+  dividerStyle?: "default" | "celestial" | "sword_qi" | "lotus_path";
 }
 
 export interface ReaderAccessibilitySettings {

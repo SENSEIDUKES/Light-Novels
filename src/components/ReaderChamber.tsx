@@ -325,6 +325,7 @@ export default function ReaderChamber({
     lineHeight: "relaxed",
     paragraphSpacing: "normal",
     themeOverride: "void",
+    dividerStyle: "default",
     ...DEFAULT_READER_TYPOGRAPHY,
   };
 

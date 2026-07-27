@@ -71,4 +71,22 @@ describe('ReaderPreferencesPanel', () => {
     expect(fontToggle.getAttribute('aria-expanded')).toBe('true');
     expect(screen.getByRole('button', { name: 'Rubik (Sans)' })).toBeDefined();
   });
+
+  it('allows customizing the chapter divider style and triggers updates', async () => {
+    const handleUpdatePreference = vi.fn();
+    render(
+      <ReaderPreferencesPanel
+        currentPrefs={{ fontFamily: 'serif', fontSize: 'lg', lineHeight: 'relaxed', paragraphSpacing: 'normal', themeOverride: 'void', dividerStyle: 'default' }}
+        handleUpdatePreference={handleUpdatePreference}
+        onResetTypography={vi.fn()}
+      />,
+    );
+
+    const dividerToggle = screen.getByRole('button', { name: /Chapter Divider/i });
+    expect(dividerToggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('button', { name: /Celestial Crest/i })).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: /Celestial Crest/i }));
+    expect(handleUpdatePreference).toHaveBeenCalledWith('dividerStyle', 'celestial');
+  });
 });

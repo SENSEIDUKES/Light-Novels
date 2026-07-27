@@ -158,6 +158,118 @@ export function ReaderViewport({
 }: ReaderViewportProps) {
   const readingLanguage = activeTranslationContent ? preferredLang : 'en';
   const typography = getReaderTypography(currentPrefs);
+
+  const getThemeAccentColor = (theme: string) => {
+    switch (theme) {
+      case "crimson": return "#8B0000"; // Deep crimson
+      case "abyss": return "#04ACFF";   // Celestial blue
+      case "sepia": return "#8b5a2b";   // Warm brown/gold
+      case "emerald": return "#10B981"; // Serene green
+      default: return "#04ACFF";        // Default void/portal cyan
+    }
+  };
+
+  const getThemeTextClass = (theme: string) => {
+    switch (theme) {
+      case "crimson": return "text-human";
+      case "abyss": return "text-[#04ACFF]";
+      case "sepia": return "text-[#8b5a2b]";
+      case "emerald": return "text-jade-accent";
+      default: return "text-portal";
+    }
+  };
+
+  const renderChapterDivider = () => {
+    const divider = currentPrefs.dividerStyle || "default";
+    if (divider === "default") {
+      // Classic simple line divider to preserve exactly the standard default look
+      return (
+        <div className="w-24 h-[1px] bg-neutral-800/60 mx-auto my-8 animate-fadeIn" />
+      );
+    }
+
+    const theme = currentPrefs.themeOverride || "void";
+    const accentColor = getThemeAccentColor(theme);
+
+    if (divider === "celestial") {
+      return (
+        <div className="flex items-center justify-center gap-4 my-8 opacity-85 select-none animate-fadeIn" aria-hidden="true">
+          {/* Left fading gradient line */}
+          <div className="h-[1px] w-20 sm:w-32 bg-gradient-to-r from-transparent to-current opacity-40" style={{ color: accentColor }} />
+
+          {/* Flanking diamond dots */}
+          <div className="flex items-center gap-1.5" style={{ color: accentColor }}>
+            <div className="w-1.5 h-1.5 rotate-45 border border-current opacity-60" />
+            <div className="w-1 h-1 rotate-45 bg-current opacity-40" />
+          </div>
+
+          {/* Center 8-pointed celestial star or dual diamond */}
+          <div className="relative w-5 h-5 flex items-center justify-center" style={{ color: accentColor }}>
+            <div className="absolute w-4 h-4 rotate-45 border border-current animate-pulse" />
+            <div className="absolute w-2.5 h-2.5 bg-current shadow-[0_0_10px_rgba(4,172,255,0.5)]" />
+          </div>
+
+          {/* Flanking diamond dots */}
+          <div className="flex items-center gap-1.5" style={{ color: accentColor }}>
+            <div className="w-1 h-1 rotate-45 bg-current opacity-40" />
+            <div className="w-1.5 h-1.5 rotate-45 border border-current opacity-60" />
+          </div>
+
+          {/* Right fading gradient line */}
+          <div className="h-[1px] w-20 sm:w-32 bg-gradient-to-l from-transparent to-current opacity-40" style={{ color: accentColor }} />
+        </div>
+      );
+    }
+
+    if (divider === "sword_qi") {
+      return (
+        <div className="flex flex-col items-center justify-center my-8 opacity-90 select-none animate-fadeIn" aria-hidden="true">
+          <div className="relative flex items-center justify-center w-full max-w-[200px] sm:max-w-[320px]">
+            {/* Horizontal line with sharp central focus */}
+            <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-current to-transparent opacity-50" style={{ color: accentColor }} />
+
+            {/* Sharp pulsing central diamond marker */}
+            <div className="absolute w-2.5 h-2.5 rotate-45 bg-current border border-black shadow-[0_0_8px_currentColor] animate-pulse" style={{ color: accentColor }} />
+          </div>
+          {/* Secondary parallel micro-lines */}
+          <div className="flex items-center justify-center gap-8 mt-1.5 w-full max-w-[120px] sm:max-w-[180px]">
+            <div className="h-[1px] w-full bg-gradient-to-r from-transparent to-current opacity-25" style={{ color: accentColor }} />
+            <div className="h-[1px] w-full bg-gradient-to-l from-transparent to-current opacity-25" style={{ color: accentColor }} />
+          </div>
+        </div>
+      );
+    }
+
+    if (divider === "lotus_path") {
+      return (
+        <div className="flex items-center justify-center gap-3 my-8 opacity-80 select-none animate-fadeIn" aria-hidden="true">
+          {/* Soft curving arch left */}
+          <div className="hidden sm:block w-12 h-3 border-b border-r rounded-br-full border-current opacity-20 -translate-y-1.5" style={{ color: accentColor }} />
+
+          <div className="flex items-center gap-1.5" style={{ color: accentColor }}>
+            {/* Droplet dots */}
+            <div className="w-1 h-1 rounded-full bg-current opacity-25" />
+            <div className="w-1.5 h-1.5 rounded-full bg-current opacity-40" />
+
+            {/* Center lotus blossom (represented by triple petal curves) */}
+            <div className="flex items-end gap-0.5 px-0.5">
+              <div className="w-1 h-2.5 rounded-t-full border-l border-t border-current opacity-50 transform -rotate-12" />
+              <div className="w-2 h-3.5 rounded-t-full bg-current opacity-70 shadow-[0_0_6px_rgba(16,185,129,0.3)]" />
+              <div className="w-1 h-2.5 rounded-t-full border-r border-t border-current opacity-50 transform rotate-12" />
+            </div>
+
+            <div className="w-1.5 h-1.5 rounded-full bg-current opacity-40" />
+            <div className="w-1 h-1 rounded-full bg-current opacity-25" />
+          </div>
+
+          {/* Soft curving arch right */}
+          <div className="hidden sm:block w-12 h-3 border-b border-l rounded-bl-full border-current opacity-20 -translate-y-1.5" style={{ color: accentColor }} />
+        </div>
+      );
+    }
+
+    return null;
+  };
   const readerProseStyle = {
     '--reader-line-height': typography.lineHeightScale,
     '--reader-letter-spacing': `${typography.letterSpacing}em`,
@@ -371,6 +483,26 @@ export function ReaderViewport({
                   setShowLegend={setShowLegend}
                 />
               )}
+
+              {/* Premium Customizable Chapter Header */}
+              <div
+                className={`${
+                  currentPrefs.fontFamily === "serif"
+                    ? "font-serif"
+                    : currentPrefs.fontFamily === "sans"
+                      ? "font-sans"
+                      : "font-mono"
+                } text-center mb-12 mt-6 select-none`}
+              >
+                <span className={`font-sc font-semibold text-[10px] tracking-[0.25em] uppercase opacity-70 ${getThemeTextClass(currentPrefs.themeOverride || "void")}`}>
+                  {activeStory.title} • Chapter {selectedChapter.number}
+                </span>
+                <h1 className="font-display font-medium text-2xl sm:text-3xl text-signal mt-2 max-w-2xl mx-auto leading-snug">
+                  {selectedChapter.title}
+                </h1>
+
+                {renderChapterDivider()}
+              </div>
 
               <div
                 className={`${
