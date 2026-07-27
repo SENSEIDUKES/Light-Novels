@@ -43,7 +43,20 @@ import { resolveMediaAssetForDisplay } from '../lib/media/privateMediaResolver';
 import { useCodexImageEvolution } from './useCodexImageEvolution';
 
 const memory = {
-  characters: [{ id: 'character-1', persistenceId: 'character-persistence-id' }],
+  characters: [{
+    id: 'character-1',
+    persistenceId: 'character-persistence-id',
+    imageHistory: [{
+      id: 'history-id',
+      assetId: 'asset-id',
+      entityId: 'character-1',
+      entityType: 'character',
+      imageUrl: 'https://example.test/previous.png',
+      promptUsed: 'An earlier manifestation',
+      createdAt: '2026-07-20T00:00:00.000Z',
+      isCurrent: true,
+    }],
+  }],
   locations: [],
   artifacts: [],
 } as any;
@@ -52,12 +65,7 @@ const activeStory = {
   id: 'story-id',
   persistenceId: 'story-persistence-id',
   currentChapterNumber: 1,
-  imageHistory: [{
-    id: 'history-id',
-    assetId: 'asset-id',
-    entityId: 'character-1',
-    imageUrl: 'https://example.test/previous.png',
-  }],
+  imageHistory: [],
 } as any;
 
 describe('useCodexImageEvolution error handling', () => {
@@ -91,15 +99,19 @@ describe('useCodexImageEvolution error handling', () => {
   it('reverts to the version identified by its durable history id', async () => {
     mocks.selectMediaAsset.mockResolvedValue({ id: 'asset-older', deliveryUrl: '' });
     const onUpdateStory = vi.fn();
-    const story = {
-      ...activeStory,
-      imageHistory: [
-        { id: 'history-older', assetId: 'asset-older', entityId: 'character-1', imageUrl: '' },
-        { id: 'history-newer', assetId: 'asset-newer', entityId: 'character-1', imageUrl: '' },
-      ],
+    const entityMemory = {
+      ...memory,
+      characters: [{
+        id: 'character-1',
+        persistenceId: 'character-persistence-id',
+        imageHistory: [
+          { id: 'history-older', assetId: 'asset-older', entityId: 'character-1', entityType: 'character', imageUrl: '', isCurrent: false },
+          { id: 'history-newer', assetId: 'asset-newer', entityId: 'character-1', entityType: 'character', imageUrl: '', isCurrent: true },
+        ],
+      }],
     };
     const { result } = renderHook(() => useCodexImageEvolution(
-      memory, story, onUpdateStory, undefined, vi.fn(),
+      entityMemory, activeStory, onUpdateStory, undefined, vi.fn(),
     ));
 
     await act(async () => {
@@ -113,10 +125,11 @@ describe('useCodexImageEvolution error handling', () => {
     }));
     const committed = onUpdateStory.mock.calls[0][0];
     expect(committed.memory.characters[0].imageAssetId).toBe('asset-older');
-    expect(committed.imageHistory.find((image: { id: string }) => image.id === 'history-older').isCurrent)
+    expect(committed.memory.characters[0].imageHistory.find((image: { id: string }) => image.id === 'history-older').isCurrent)
       .toBe(true);
-    expect(committed.imageHistory.find((image: { id: string }) => image.id === 'history-newer').isCurrent)
+    expect(committed.memory.characters[0].imageHistory.find((image: { id: string }) => image.id === 'history-newer').isCurrent)
       .toBe(false);
+    expect(committed.imageHistory).toEqual([]);
   });
 
   // PostgreSQL rebuilds the story-level history from STORY-targeted media

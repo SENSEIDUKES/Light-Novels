@@ -6,6 +6,7 @@ import { auth, LOCAL_ONLY_MODE } from '../lib/firebase';
 import { secureStorage } from '../lib/encryption';
 import { mergeStories } from '../lib/merge';
 import { ensureStoryPersistenceIdentities } from '../lib/persistence';
+import { normalizeStoryImageOwnership } from '../lib/media/imageOwnership';
 
 const STORAGE_KEY = '@seihouse/fiction-generator-stories-v2';
 let storageInitVersion = 0;
@@ -110,7 +111,9 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
     const currentStories = get().stories;
     const activeId = get().activeStoryId;
     const markedStories = updated.map(inputStory => {
-      const s = ensureStoryPersistenceIdentities(inputStory);
+      const s = normalizeStoryImageOwnership(
+        ensureStoryPersistenceIdentities(inputStory),
+      );
       if (s.id.startsWith('demo-matrix-') && s.id === activeId) {
         return { ...s, isEdited: true };
       }
@@ -177,18 +180,34 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
         try {
           const stripped = markedStories.map(s => {
             const copy = JSON.parse(JSON.stringify(s));
+            const stripHistoryUrls = (history: any[] | undefined) =>
+              history?.map(({ imageUrl: _imageUrl, ...image }) => image);
             delete copy.imageUrl;
-            delete copy.imageHistory;
+            copy.imageHistory = stripHistoryUrls(copy.imageHistory);
             if (copy.memory) {
-              if (copy.memory.characters) copy.memory.characters.forEach((c: any) => { delete c.imageUrl; delete c.imageHistory; });
-              if (copy.memory.locations) copy.memory.locations.forEach((l: any) => { delete l.imageUrl; delete l.imageHistory; });
-              if (copy.memory.artifacts) copy.memory.artifacts.forEach((a: any) => { delete a.imageUrl; delete a.imageHistory; });
+              if (copy.memory.characters) copy.memory.characters.forEach((c: any) => {
+                delete c.imageUrl;
+                c.imageHistory = stripHistoryUrls(c.imageHistory);
+              });
+              if (copy.memory.locations) copy.memory.locations.forEach((l: any) => {
+                delete l.imageUrl;
+                l.imageHistory = stripHistoryUrls(l.imageHistory);
+              });
+              if (copy.memory.artifacts) copy.memory.artifacts.forEach((a: any) => {
+                delete a.imageUrl;
+                a.imageHistory = stripHistoryUrls(a.imageHistory);
+              });
+              if (copy.memory.factions) copy.memory.factions.forEach((f: any) => {
+                delete f.imageUrl;
+                f.imageHistory = stripHistoryUrls(f.imageHistory);
+              });
             }
             if (copy.arcs) {
               copy.arcs.forEach((arc: any) => {
                 if (arc.chapters) {
                   arc.chapters.forEach((ch: any) => {
                     if (ch.assetManifest) delete ch.assetManifest.heroImage;
+                    ch.imageHistory = stripHistoryUrls(ch.imageHistory);
                   });
                 }
               });
@@ -223,7 +242,9 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
   storageType: 'Initializing...',
   lastSavedTime: null,
 
-  setStories: (stories) => set({ stories }),
+  setStories: (stories) => set({
+    stories: stories.map(normalizeStoryImageOwnership),
+  }),
   setActiveStoryId: (id) => {
     set({ activeStoryId: id });
     if (id) void get().hydrateStory(id);
@@ -253,7 +274,7 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
         // the one being applied here.
         stories: get().stories.map(story =>
           story.id === storyId && story.persistenceHydration === 'summary'
-            ? { ...story, ...hydrated }
+            ? normalizeStoryImageOwnership({ ...story, ...hydrated })
             : story,
         ),
       });
@@ -590,7 +611,7 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
       }
       loaded = loaded.filter(story => !isObsoleteDefaultStory(story));
       if (!initIsCurrent()) return;
-      set({ stories: loaded });
+      set({ stories: loaded.map(normalizeStoryImageOwnership) });
     } catch (e) {
       console.error("Persistent story memory failed to initialize, reverting to local fallback:", e);
       if (!initIsCurrent()) return;
@@ -605,7 +626,7 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
-          set({ stories: JSON.parse(saved) });
+          set({ stories: (JSON.parse(saved) as Story[]).map(normalizeStoryImageOwnership) });
         } else {
           set({ stories: [] });
         }

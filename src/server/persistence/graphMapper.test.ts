@@ -207,6 +207,15 @@ function storyGraph(): AdminGetOwnedStoryGraphData {
         version: '1',
         updatedAt: NOW,
       },
+      {
+        targetKind: 'CHAPTER',
+        targetKey: CHAPTER_ID,
+        chapterId: CHAPTER_ID,
+        purpose: 'CHAPTER_HERO',
+        currentAssetId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+        version: '2',
+        updatedAt: NOW,
+      },
     ],
     mediaAttachments: [{
       id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
@@ -217,6 +226,19 @@ function storyGraph(): AdminGetOwnedStoryGraphData {
       purpose: 'MANIFESTATION',
       clientHistoryId: 'history-lin-1',
       promptUsed: 'Moonlight portrait',
+      position: 0,
+      isCurrent: true,
+      createdAt: NOW,
+    }, {
+      id: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+      assetId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      chapterId: CHAPTER_ID,
+      targetKind: 'CHAPTER',
+      targetKey: CHAPTER_ID,
+      purpose: 'CHAPTER_HERO',
+      clientHistoryId: 'history-chapter-1',
+      promptUsed: 'Moonlit archive awakening',
+      chapterNumber: 1,
       position: 0,
       isCurrent: true,
       createdAt: NOW,
@@ -304,6 +326,17 @@ describe('story graph mapping', () => {
       id: 'history-lin-1',
       assetId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
       imageUrl: '',
+    });
+    expect(story?.arcs[0].chapters[0]).toMatchObject({
+      persistenceId: CHAPTER_ID,
+      heroImageAssetId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      imageHistory: [expect.objectContaining({
+        id: 'history-chapter-1',
+        assetId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+        entityId: CHAPTER_ID,
+        entityType: 'chapterHero',
+        chapterNumber: 1,
+      })],
     });
 
     const variables = mapStoryWorldToGraphVariables({

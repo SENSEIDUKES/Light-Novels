@@ -13,15 +13,14 @@ interface HistoryBearingEntity {
  * `imageHistory` is rebuilt from `targetKind: 'STORY'` attachments alone, so it
  * only ever returns covers from the cloud — filtering it by `entityId` yielded
  * an empty gallery for every portrait as soon as Harmony replaced the local
- * replica with the cloud shape. It is still worth reading, because the browser
- * appends a freshly generated manifestation there before the next sync pass.
+ * replica with the cloud shape. Codex callers therefore never consult the
+ * story record for a portrait; each manifestation is written to its owner.
  *
  * Entries are keyed by canonical asset id where one exists; a delivery URL is
  * transient and the same asset can carry different ones across two reads.
  */
 export function resolveEntityImageHistory(
   entity: HistoryBearingEntity,
-  storyHistory: GeneratedImage[] | undefined,
 ): GeneratedImage[] {
   const merged: GeneratedImage[] = [];
   const seen = new Set<string>();
@@ -34,9 +33,6 @@ export function resolveEntityImageHistory(
   };
 
   entity.imageHistory?.forEach(add);
-  storyHistory?.forEach(image => {
-    if (image.entityId === entity.id) add(image);
-  });
 
   return merged;
 }

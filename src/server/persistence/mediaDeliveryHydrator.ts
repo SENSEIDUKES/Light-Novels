@@ -85,6 +85,9 @@ export function hydrateStoryMediaDelivery(
       .filter(chapter => chapter.persistenceId)
       .map(chapter => [chapter.persistenceId as string, chapter]),
   );
+  for (const chapter of chapters.values()) {
+    chapter.imageHistory = hydrateHistory(chapter.imageHistory, descriptors);
+  }
   for (const attachment of attachments) {
     if (!attachment.isCurrent) continue;
     const url = delivery(descriptors, attachment.assetId);

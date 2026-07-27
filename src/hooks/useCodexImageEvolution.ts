@@ -43,15 +43,10 @@ export function useCodexImageEvolution(
         : type === 'artifact'
           ? memory.artifacts?.find(item => item.id === id)
           : memory.characters?.find(item => item.id === id);
-      // The entity's own history is the durable record; the story-level copy is
-      // rebuilt from STORY-targeted attachments (covers) and only carries a
-      // manifestation the browser appended since the last sync pass. Searching
-      // the story alone could not find the version the gallery offered, and the
-      // revert then blanked the portrait it was meant to restore.
-      const selectedHistory = entity?.imageHistory?.find(image => image.id === historyId)
-        ?? activeStory.imageHistory?.find(
-          image => image.entityId === id && image.id === historyId,
-        );
+      // Manifestation history belongs to its Codex owner. Story history is
+      // cover-only, so consulting it here would revive the old combined-history
+      // model and make a portrait revert mutate the wrong aggregate field.
+      const selectedHistory = entity?.imageHistory?.find(image => image.id === historyId);
       if (!selectedHistory) {
         console.error(`No manifestation ${historyId} is recorded for codex entry ${id}.`);
         setGenerationError('That manifestation is no longer recorded and cannot be restored.');
@@ -96,7 +91,7 @@ export function useCodexImageEvolution(
         return;
       }
       // The entity's own history is what round-trips, so the restored version
-      // has to be marked current there, not only on the story-level copy.
+      // has to be marked current on that owner.
       const revertEntity = <T extends { id: string; imageUrl?: string; imageAssetId?: string; imageHistory?: GeneratedImage[] }>(
         candidate: T,
       ): T => candidate.id === id
@@ -121,18 +116,10 @@ export function useCodexImageEvolution(
         finalMemory = { ...memory, artifacts: (memory.artifacts || []).map(revertEntity) };
       }
 
-      const updatedStoryHistory = activeStory.imageHistory ? activeStory.imageHistory.map(img => {
-        if (img.entityId === id) {
-          return { ...img, imageUrl: img.id === selectedHistory.id ? selectedUrl : img.imageUrl, isCurrent: img.id === selectedHistory.id };
-        }
-        return img;
-      }) : [];
-
       const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
       onUpdateStory({
         ...currentActiveStory,
         memory: finalMemory,
-        imageHistory: updatedStoryHistory
       });
     } catch (error) {
       console.error('Failed to revert the codex image:', error);
@@ -280,26 +267,57 @@ export function useCodexImageEvolution(
         chapterNumber: activeStory.currentChapterNumber
       };
 
-      const currentStoryHistory = activeStory.imageHistory || [];
-      const updatedStoryHistory: GeneratedImage[] = currentStoryHistory
-        .map(img => img.entityId === id ? { ...img, isCurrent: false } : img)
-        .concat(newHistoryItem);
-
       let finalMemory = { ...memory };
 
       if (type === 'character' || type === 'beast') {
         const updated = memory.characters?.map(c =>
-          c.id === id ? { ...c, persistenceId: entityPersistenceId, imageAssetId: asset.id, imageUrl: selectedUrl, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber, arcAccumulation: undefined } : c
+          c.id === id ? {
+            ...c,
+            persistenceId: entityPersistenceId,
+            imageAssetId: asset.id,
+            imageUrl: selectedUrl,
+            imageHistory: (c.imageHistory || [])
+              .map(img => ({ ...img, isCurrent: false }))
+              .concat(newHistoryItem),
+            evolutionReady: false,
+            availableVisualUpdate: false,
+            lastImageChapter: activeStory.currentChapterNumber,
+            arcAccumulation: undefined,
+          } : c
         ) || [];
         finalMemory = { ...memory, characters: updated };
       } else if (type === 'location') {
         const updated = (memory.locations || []).map(l =>
-          l.id === id ? { ...l, persistenceId: entityPersistenceId, imageAssetId: asset.id, imageUrl: selectedUrl, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber, arcAccumulation: undefined } : l
+          l.id === id ? {
+            ...l,
+            persistenceId: entityPersistenceId,
+            imageAssetId: asset.id,
+            imageUrl: selectedUrl,
+            imageHistory: (l.imageHistory || [])
+              .map(img => ({ ...img, isCurrent: false }))
+              .concat(newHistoryItem),
+            evolutionReady: false,
+            availableVisualUpdate: false,
+            lastImageChapter: activeStory.currentChapterNumber,
+            arcAccumulation: undefined,
+          } : l
         );
         finalMemory = { ...memory, locations: updated };
       } else if (type === 'artifact') {
         const updated = (memory.artifacts || []).map(a =>
-          a.id === id ? { ...a, persistenceId: entityPersistenceId, imageAssetId: asset.id, imageUrl: selectedUrl, evolutionReady: false, availableVisualUpdate: false, lastImageChapter: activeStory.currentChapterNumber, arcAccumulation: undefined } : a
+          a.id === id ? {
+            ...a,
+            persistenceId: entityPersistenceId,
+            imageAssetId: asset.id,
+            imageUrl: selectedUrl,
+            imageHistory: (a.imageHistory || [])
+              .map(img => ({ ...img, isCurrent: false }))
+              .concat(newHistoryItem),
+            evolutionReady: false,
+            availableVisualUpdate: false,
+            lastImageChapter: activeStory.currentChapterNumber,
+            arcAccumulation: undefined,
+          } : a
         );
         finalMemory = { ...memory, artifacts: updated };
       }
@@ -309,7 +327,6 @@ export function useCodexImageEvolution(
         ...currentActiveStory,
         persistenceId: storyPersistenceId,
         memory: finalMemory,
-        imageHistory: updatedStoryHistory
       });
 
       setPreviews(prev => {

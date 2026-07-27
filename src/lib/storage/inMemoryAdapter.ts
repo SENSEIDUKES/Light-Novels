@@ -1,5 +1,6 @@
 import { AccountScopedChapterContent, StorageAdapter } from "./types";
 import { StoryWorld, ChapterContent } from "../../types";
+import { normalizeStoryImageOwnership } from "../media/imageOwnership";
 
 export class InMemoryFallbackAdapter implements StorageAdapter {
     name = 'InMemory';
@@ -68,6 +69,7 @@ export class InMemoryFallbackAdapter implements StorageAdapter {
     }
 
     async saveStory(story: StoryWorld): Promise<void> {
+        story = normalizeStoryImageOwnership(story);
         const scope = this.accountScope;
         if (typeof scope === "string" && story.userId && story.userId !== scope) {
           throw new Error("Cannot save a story outside the active account scope");

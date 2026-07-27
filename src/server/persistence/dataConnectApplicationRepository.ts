@@ -586,18 +586,16 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     const current = hydrateStoryWorld(graph);
     if (!current) throw new Error('Owned story graph could not be hydrated for a bounded patch.');
     // A patch is computed against the browser's snapshot but applied to the
-    // freshly hydrated server story. Derived collections — an entity's
-    // imageHistory, its imageAssetId — are rebuilt from media attachments, so a
-    // replica that accumulated history the cloud never received produces paths
-    // that do not exist here. That is a stale-baseline condition, not a server
-    // fault: report it as such so the client can resend the whole story.
+    // freshly hydrated server story. If a path no longer exists on that
+    // snapshot, the caller must reconcile from the newer remote revision before
+    // attempting another mutation.
     let desired: StoryWorld;
     try {
       desired = applyStoryPatch(current, patch);
     } catch (error) {
       throw taggedError(
         error instanceof Error ? error.message : 'The story patch could not be applied.',
-        'patch_not_applicable',
+        'revision_conflict',
       );
     }
     if (

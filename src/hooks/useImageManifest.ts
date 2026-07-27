@@ -125,32 +125,67 @@ export function useImageManifest() {
           chapterNumber: currentChapterNumber
         };
 
-        const currentStoryHistory = activeStory.imageHistory || [];
-        const updatedStoryHistory = currentStoryHistory
-          .map((img: any) => img.entityId === id ? { ...img, isCurrent: false } : img)
-          .concat(newHistoryItem);
-
         const memory = activeStory.memory;
         const updatedMemory = { ...memory };
         if (type === 'character') {
           updatedMemory.characters = memory.characters.map((c: any) => 
-            c.id === id ? { ...c, persistenceId: entityPersistenceId, imageAssetId: asset.id, imageUrl: selectedUrl, imageHistory: (c.imageHistory || []).concat(newHistoryItem) } : c
+            c.id === id ? {
+              ...c,
+              persistenceId: entityPersistenceId,
+              imageAssetId: asset.id,
+              imageUrl: selectedUrl,
+              imageHistory: (c.imageHistory || [])
+                .map((img: any) => ({ ...img, isCurrent: false }))
+                .concat(newHistoryItem),
+            } : c
           );
         } else if (type === 'location') {
           updatedMemory.locations = (memory.locations || []).map((l: any) => 
-            l.id === id ? { ...l, persistenceId: entityPersistenceId, imageAssetId: asset.id, imageUrl: selectedUrl, imageHistory: (l.imageHistory || []).concat(newHistoryItem) } : l
+            l.id === id ? {
+              ...l,
+              persistenceId: entityPersistenceId,
+              imageAssetId: asset.id,
+              imageUrl: selectedUrl,
+              imageHistory: (l.imageHistory || [])
+                .map((img: any) => ({ ...img, isCurrent: false }))
+                .concat(newHistoryItem),
+            } : l
           );
         } else if (type === 'artifact') {
           updatedMemory.artifacts = (memory.artifacts || []).map((a: any) => 
-            a.id === id ? { ...a, persistenceId: entityPersistenceId, imageAssetId: asset.id, imageUrl: selectedUrl, imageHistory: (a.imageHistory || []).concat(newHistoryItem) } : a
+            a.id === id ? {
+              ...a,
+              persistenceId: entityPersistenceId,
+              imageAssetId: asset.id,
+              imageUrl: selectedUrl,
+              imageHistory: (a.imageHistory || [])
+                .map((img: any) => ({ ...img, isCurrent: false }))
+                .concat(newHistoryItem),
+            } : a
           );
         } else if (type === 'beast') {
           updatedMemory.characters = memory.characters.map((c: any) =>
-            c.id === id ? { ...c, persistenceId: entityPersistenceId, imageAssetId: asset.id, imageUrl: selectedUrl, imageHistory: (c.imageHistory || []).concat(newHistoryItem) } : c
+            c.id === id ? {
+              ...c,
+              persistenceId: entityPersistenceId,
+              imageAssetId: asset.id,
+              imageUrl: selectedUrl,
+              imageHistory: (c.imageHistory || [])
+                .map((img: any) => ({ ...img, isCurrent: false }))
+                .concat(newHistoryItem),
+            } : c
           );
         } else if (type === 'faction') {
           updatedMemory.factions = (memory.factions || []).map((f: any) =>
-            f.id === id ? { ...f, persistenceId: entityPersistenceId, imageAssetId: asset.id, imageUrl: selectedUrl, imageHistory: (f.imageHistory || []).concat(newHistoryItem) } : f
+            f.id === id ? {
+              ...f,
+              persistenceId: entityPersistenceId,
+              imageAssetId: asset.id,
+              imageUrl: selectedUrl,
+              imageHistory: (f.imageHistory || [])
+                .map((img: any) => ({ ...img, isCurrent: false }))
+                .concat(newHistoryItem),
+            } : f
           );
         }
 
@@ -160,7 +195,6 @@ export function useImageManifest() {
               ...s,
               persistenceId: storyPersistenceId,
               memory: updatedMemory,
-              imageHistory: updatedStoryHistory,
               updatedAt: new Date().toISOString()
             };
           }
@@ -275,7 +309,7 @@ export function useImageManifest() {
           assetVersion: asset.version,
           checksumSha256: asset.checksumSha256,
           deliveryUrlExpiresAt: asset.deliveryUrlExpiresAt ?? undefined,
-          entityId: `chapter-hero-${chapterNumber}`,
+          entityId: chapterPersistenceId,
           entityType: 'chapterHero' as const,
           imageUrl: selectedUrl,
           promptUsed: promptText,
@@ -283,11 +317,6 @@ export function useImageManifest() {
           isCurrent: true,
           chapterNumber: chapterNumber
         };
-
-        const currentStoryHistory = activeStory.imageHistory || [];
-        const updatedStoryHistory = currentStoryHistory
-          .map((img: any) => img.entityId === `chapter-hero-${chapterNumber}` ? { ...img, isCurrent: false } : img)
-          .concat(newHistoryItem);
 
         const updatedStories = stories.map(s => {
           if (s.id === activeStoryId) {
@@ -299,6 +328,9 @@ export function useImageManifest() {
                     ...ch,
                     persistenceId: chapterPersistenceId,
                     heroImageAssetId: asset.id,
+                    imageHistory: (ch.imageHistory || [])
+                      .map(img => ({ ...img, isCurrent: false }))
+                      .concat(newHistoryItem),
                     assetManifest: {
                       ...(ch.assetManifest || {}),
                       heroImage: selectedUrl
@@ -313,7 +345,6 @@ export function useImageManifest() {
               ...s,
               persistenceId: storyPersistenceId,
               arcs: updatedArcs,
-              imageHistory: updatedStoryHistory,
               updatedAt: new Date().toISOString()
             };
           }

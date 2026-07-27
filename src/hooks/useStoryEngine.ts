@@ -23,7 +23,7 @@ export const useStoryEngine = () => {
   const { handleGenerateChapter, handleGenerateNextFiveChapters } = useChapterGeneration();
   const { handleSteerArc, handleAlterFate } = useArcSteering();
   const { handleGenerateBlueprint, handleStartStory } = useStoryGeneration();
-  const { handleGenerateCover, handleApplyCover } = useVisualAssets();
+  const { handleGenerateCover, handleApplyCover, handleSelectCover } = useVisualAssets();
   const { handleCheckConsistency, handleSealChapter } = useChapterSealing();
 
   /**
@@ -104,6 +104,7 @@ export const useStoryEngine = () => {
     handleUpdateStoryDirect,
     handleToggleRead,
     handleGenerateCover,
-    handleApplyCover
+    handleApplyCover,
+    handleSelectCover,
   };
 };

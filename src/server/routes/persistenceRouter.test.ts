@@ -228,13 +228,12 @@ describe('persistenceRouter', () => {
     );
   });
 
-  it('reports an inapplicable story patch as a recoverable conflict, not a 500', async () => {
-    // The client resends the whole story on this code. Reported as a 500 it was
-    // indistinguishable from an outage, so every Codex manifestation failed
-    // permanently with "the persistence operation could not be completed".
+  it('reports a failed story patch as a revision conflict, not a 500', async () => {
+    // The stale client snapshot must reconcile with the current remote revision
+    // instead of treating a failed JSON Patch application as an outage.
     repository.patchStory = vi.fn().mockRejectedValue(
       Object.assign(new Error('Story patch path does not exist.'), {
-        code: 'patch_not_applicable',
+        code: 'revision_conflict',
       }),
     );
 
@@ -253,7 +252,7 @@ describe('persistenceRouter', () => {
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({
-      error: { code: 'patch_not_applicable' },
+      error: { code: 'revision_conflict' },
     });
   });
 

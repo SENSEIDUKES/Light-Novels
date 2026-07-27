@@ -251,6 +251,60 @@ describe('LivingCodexCollage', () => {
     expect(screen.getByText('Scene Cruxes (1)')).toBeDefined();
   });
 
+  it('uses chapter-owned hero history and ignores stale non-cover story history', () => {
+    const story = buildStory({
+      imageHistory: [{
+        id: 'stale-character-copy',
+        assetId: 'asset-stale-character',
+        entityId: 'char-ghost',
+        entityType: 'character',
+        imageUrl: 'https://media.example/should-not-render.png',
+        promptUsed: 'A stale root copy.',
+        createdAt: '2026-07-20T00:00:00.000Z',
+        isCurrent: false,
+      }],
+      arcs: [{
+        title: 'Arc I: The Falling Sect',
+        isCompleted: false,
+        chapters: [{
+          number: 2,
+          title: 'Ash on the Steps',
+          premise: 'The gates burn.',
+          status: 'read',
+          heroImageAssetId: 'asset-hero-current',
+          assetManifest: { heroImage: 'https://media.example/hero-current.png' },
+          imageHistory: [{
+            id: 'hero-before',
+            assetId: 'asset-hero-before',
+            entityId: 'chapter-2',
+            entityType: 'chapterHero',
+            imageUrl: 'https://media.example/hero-before.png',
+            promptUsed: 'Before the gates burned.',
+            createdAt: '2026-07-20T00:00:00.000Z',
+            isCurrent: false,
+            chapterNumber: 2,
+          }, {
+            id: 'hero-current',
+            assetId: 'asset-hero-current',
+            entityId: 'chapter-2',
+            entityType: 'chapterHero',
+            imageUrl: '',
+            promptUsed: 'The burning gates.',
+            createdAt: '2026-07-21T00:00:00.000Z',
+            isCurrent: true,
+            chapterNumber: 2,
+          }],
+        }],
+      }],
+    } as unknown as Partial<StoryWorld>);
+
+    renderCollage(story);
+
+    expect(screen.getAllByAltText('Chapter 2: Ash on the Steps')).toHaveLength(2);
+    expect(screen.getByText('All Memories (2)')).toBeDefined();
+    expect(screen.queryByAltText('Unknown Character')).toBeNull();
+  });
+
   it('shows a placeholder, never a broken image, for an unresolved delivery URL', () => {
     // The cloud hands back an asset id with an empty delivery URL whenever the
     // signed link could not be minted. A bare <img src=""> rendered the

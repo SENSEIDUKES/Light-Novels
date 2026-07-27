@@ -5,6 +5,10 @@ import { useImageManifest } from './useImageManifest';
 const STORY_UUID = '11111111-1111-4111-8111-111111111111';
 const CHAPTER_UUID = '22222222-2222-4222-8222-222222222222';
 const ENTITY_UUID = '33333333-3333-4333-8333-333333333333';
+const BEAST_UUID = '44444444-4444-4444-8444-444444444444';
+const LOCATION_UUID = '55555555-5555-4555-8555-555555555555';
+const ARTIFACT_UUID = '66666666-6666-4666-8666-666666666666';
+const FACTION_UUID = '77777777-7777-4777-8777-777777777777';
 
 const mocks = vi.hoisted(() => ({
   saveMediaAsset: vi.fn(),
@@ -44,7 +48,13 @@ vi.mock('../store/useAppStore', () => ({
         persistenceId: STORY_UUID,
         currentChapterNumber: 1,
         memory: {
-          characters: [{ id: 'char-ye-mo', persistenceId: ENTITY_UUID, name: 'Ye Mo' }],
+          characters: [
+            { id: 'char-ye-mo', persistenceId: ENTITY_UUID, name: 'Ye Mo' },
+            { id: 'beast-azure', persistenceId: BEAST_UUID, name: 'Azure Serpent', isBeast: true },
+          ],
+          locations: [{ id: 'location-peak', persistenceId: LOCATION_UUID, name: 'Cloud Peak' }],
+          artifacts: [{ id: 'artifact-seal', persistenceId: ARTIFACT_UUID, name: 'Moon Seal' }],
+          factions: [{ id: 'faction-hall', persistenceId: FACTION_UUID, name: 'Moon Hall' }],
         },
         arcs: [{
           chapters: [{ number: 1, title: 'Ch 1', persistenceId: CHAPTER_UUID }],
@@ -106,6 +116,32 @@ describe('useImageManifest', () => {
     expect(mocks.saveStories).toHaveBeenCalled();
   });
 
+  it.each([
+    ['character', { id: 'char-ye-mo', persistenceId: ENTITY_UUID, name: 'Ye Mo', description: 'A rival' }, 'characters', 'char-ye-mo'],
+    ['beast', { id: 'beast-azure', persistenceId: BEAST_UUID, name: 'Azure Serpent', description: 'A spirit beast' }, 'characters', 'beast-azure'],
+    ['location', { id: 'location-peak', persistenceId: LOCATION_UUID, name: 'Cloud Peak', description: 'A dangerous summit' }, 'locations', 'location-peak'],
+    ['artifact', { id: 'artifact-seal', persistenceId: ARTIFACT_UUID, name: 'Moon Seal', description: 'An ancient seal' }, 'artifacts', 'artifact-seal'],
+    ['faction', { id: 'faction-hall', persistenceId: FACTION_UUID, name: 'Moon Hall', description: 'A hidden sect' }, 'factions', 'faction-hall'],
+  ])('writes a %s manifestation only onto its %s owner', async (type, entry, collection, ownerId) => {
+    const { result } = renderHook(() => useImageManifest());
+
+    await act(async () => {
+      await result.current.manifestImage(entry, type);
+    });
+
+    const savedStory = mocks.saveStories.mock.calls[0][0][0];
+    const owner = savedStory.memory[collection].find((candidate: { id: string }) => candidate.id === ownerId);
+    expect(owner.imageHistory).toEqual([
+      expect.objectContaining({
+        assetId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        entityId: ownerId,
+        entityType: type,
+        isCurrent: true,
+      }),
+    ]);
+    expect(savedStory.imageHistory).toBeUndefined();
+  });
+
   it('keys a chapter hero slot by the canonical chapter id', async () => {
     const { result } = renderHook(() => useImageManifest());
 
@@ -120,5 +156,15 @@ describe('useImageManifest', () => {
       chapterId: CHAPTER_UUID,
       storyId: STORY_UUID,
     });
+    const savedChapter = mocks.saveStories.mock.calls[0][0][0].arcs[0].chapters[0];
+    expect(savedChapter.imageHistory).toEqual([
+      expect.objectContaining({
+        assetId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        entityId: CHAPTER_UUID,
+        entityType: 'chapterHero',
+        chapterNumber: 1,
+      }),
+    ]);
+    expect(mocks.saveStories.mock.calls[0][0][0].imageHistory).toBeUndefined();
   });
 });

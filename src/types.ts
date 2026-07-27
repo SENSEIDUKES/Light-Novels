@@ -809,6 +809,8 @@ export interface Chapter {
   versionId?: string;
   assetManifest?: Record<string, string>;
   heroImageAssetId?: string;
+  /** Every generated chapter hero belongs to this chapter, never story history. */
+  imageHistory?: GeneratedImage[];
   translationCache?: Record<string, string>;
   audioCueCache?: Record<string, string>;
   branchAnchor?: string;

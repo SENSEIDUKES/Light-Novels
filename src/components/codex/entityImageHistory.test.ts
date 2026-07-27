@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { resolveEntityImageHistory } from './entityImageHistory';
+import { describe, expect, it } from 'vitest';
 import type { GeneratedImage } from '../../types';
+import { resolveEntityImageHistory } from './entityImageHistory';
 
-function image(overrides: Partial<GeneratedImage>): GeneratedImage {
+function image(overrides: Partial<GeneratedImage> = {}): GeneratedImage {
   return {
     id: 'hist-1',
     entityId: 'char-1',
@@ -16,45 +16,37 @@ function image(overrides: Partial<GeneratedImage>): GeneratedImage {
 }
 
 describe('resolveEntityImageHistory', () => {
-  it('returns the entity history the cloud persists, not the cover-only story history', () => {
+  it('returns the owner history and deduplicates immutable assets', () => {
+    const retained = image({ id: 'hist-1', assetId: 'asset-1' });
     const entity = {
       id: 'char-1',
-      imageHistory: [image({ id: 'hist-1', assetId: 'asset-1' })],
+      imageHistory: [
+        retained,
+        { ...retained, id: 'duplicate-history-row', imageUrl: 'https://media.example/re-signed.png' },
+      ],
     };
-    // What PostgreSQL actually hands back: story history holds covers alone.
-    const storyHistory = [
-      image({ id: 'hist-cover', assetId: 'asset-cover', entityId: 'story-1', entityType: 'cover' }),
-    ];
 
-    expect(resolveEntityImageHistory(entity, storyHistory)).toEqual(entity.imageHistory);
+    const resolved = resolveEntityImageHistory(entity);
+
+    expect(resolved).toEqual([retained]);
   });
 
-  it('includes a manifestation the browser appended before the next sync pass', () => {
-    const entity = { id: 'char-1', imageHistory: [image({ id: 'hist-1', assetId: 'asset-1' })] };
-    const storyHistory = [
-      image({ id: 'hist-2', assetId: 'asset-2', isCurrent: true }),
-      image({ id: 'hist-cover', assetId: 'asset-cover', entityId: 'story-1', entityType: 'cover' }),
+  it('does not read the former combined story history', () => {
+    const entity = { id: 'char-1', imageHistory: [image({ id: 'owned', assetId: 'owner-asset' })] };
+    const formerStoryHistory = [
+      image({ id: 'legacy-character', assetId: 'legacy-asset' }),
+      image({ id: 'cover', assetId: 'cover-asset', entityId: 'story-1', entityType: 'cover' }),
     ];
 
-    const resolved = resolveEntityImageHistory(entity, storyHistory);
+    // The resolver has no story-history input: callers must first migrate any
+    // legacy combined records to their real entity owner.
+    const resolved = resolveEntityImageHistory(entity);
 
-    expect(resolved.map(entry => entry.assetId)).toEqual(['asset-1', 'asset-2']);
-  });
-
-  it('counts an asset once when both sources still carry it', () => {
-    const shared = image({ id: 'hist-1', assetId: 'asset-1' });
-    const entity = { id: 'char-1', imageHistory: [shared] };
-
-    // The delivery URL differs between the two copies; the asset id must win.
-    const resolved = resolveEntityImageHistory(entity, [
-      { ...shared, imageUrl: 'https://media.example/re-signed.png' },
-    ]);
-
-    expect(resolved).toHaveLength(1);
-    expect(resolved[0].imageUrl).toBe('https://media.example/one.png');
+    expect(resolved).toEqual(entity.imageHistory);
+    expect(resolved.map(entry => entry.assetId)).not.toContain(formerStoryHistory[0].assetId);
   });
 
   it('handles an entity that has never been manifested', () => {
-    expect(resolveEntityImageHistory({ id: 'char-9' }, undefined)).toEqual([]);
+    expect(resolveEntityImageHistory({ id: 'char-9' })).toEqual([]);
   });
 });
