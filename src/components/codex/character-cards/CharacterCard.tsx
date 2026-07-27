@@ -67,7 +67,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
         <LivingCodexImageGallery
           entityId={char.id}
           type={char.isBeast ? 'beast' : 'character'}
-          imageHistory={resolveEntityImageHistory(char, activeStory.imageHistory)}
+          imageHistory={resolveEntityImageHistory(char)}
         />
         {displayedImage ? (
           <>

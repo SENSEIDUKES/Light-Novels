@@ -354,7 +354,7 @@ function currentEntityId(
 
 function graphMediaHistory(
   graph: StoryGraph,
-  target: { targetKind?: string; entityId?: string; chapterId?: string },
+  target: { targetKind?: string; entityId?: string; chapterId?: string; purpose?: string },
   entityType: GeneratedImage['entityType'],
   entityId: string,
 ): GeneratedImage[] {
@@ -363,6 +363,7 @@ function graphMediaHistory(
       (target.entityId ? attachment.entityId === target.entityId : true)
       && (target.chapterId ? attachment.chapterId === target.chapterId : true)
       && (target.targetKind ? attachment.targetKind === target.targetKind : true)
+      && (target.purpose ? attachment.purpose === target.purpose : true)
       && attachment.purpose !== 'VOICE_CARD')
     .map(attachment => ({
       id: attachment.clientHistoryId ?? attachment.id,
@@ -591,6 +592,12 @@ function hydrateChapterScaffold(
   graph: StoryGraph,
 ): Chapter {
   const heroImageAssetId = currentSlotAsset(graph, 'CHAPTER_HERO', { chapterId: chapter.id });
+  const imageHistory = graphMediaHistory(
+    graph,
+    { targetKind: 'CHAPTER', chapterId: chapter.id, purpose: 'CHAPTER_HERO' },
+    'chapterHero',
+    chapter.id,
+  );
   return {
     persistenceId: chapter.id,
     number: chapter.chapterNumber,
@@ -615,6 +622,7 @@ function hydrateChapterScaffold(
     sealedAt: chapter.sealedAt ? Date.parse(chapter.sealedAt) : undefined,
     versionId: chapter.versionId ?? undefined,
     heroImageAssetId,
+    imageHistory,
     branchAnchor: chapter.branchAnchor ?? undefined,
     summary: chapter.summary ?? undefined,
     embedding: chapter.embedding ?? undefined,

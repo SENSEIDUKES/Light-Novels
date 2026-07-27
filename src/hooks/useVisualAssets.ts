@@ -7,6 +7,7 @@ import {
   MEDIA_TARGET_KIND,
   requirePersistenceUuid,
   saveMediaAsset,
+  selectMediaAsset,
 } from '../lib/media/mediaAssetClient';
 import {
   discardCachedMedia,
@@ -136,8 +137,88 @@ export const useVisualAssets = () => {
     });
   };
 
+  /**
+   * Make a previously generated cover the active story cover. The media slot is
+   * authoritative: updating the local URL alone is overwritten the next time
+   * the story hydrates from PostgreSQL.
+   */
+  const handleSelectCover = async (assetId: string): Promise<void> => {
+    const selectedAssetId = assetId.trim();
+    if (!selectedAssetId) {
+      throw new Error('This cover has not been saved to permanent media yet.');
+    }
+
+    const currentStoreState = useAppStore.getState();
+    const activeStory = currentStoreState.stories.find(
+      story => story.id === currentStoreState.activeStoryId,
+    );
+    if (!activeStory) return;
+
+    const selectedHistory = activeStory.imageHistory?.find(
+      image => image.entityType === 'cover' && image.assetId === selectedAssetId,
+    );
+    if (!selectedHistory) {
+      throw new Error('That cover is not recorded in this story\'s saved cover history.');
+    }
+
+    const storyId = requirePersistenceUuid(
+      activeStory.persistenceId ?? activeStory.id,
+      'Story',
+    );
+    const selectedAsset = await selectMediaAsset(selectedAssetId, {
+      targetKind: MEDIA_TARGET_KIND.STORY,
+      targetKey: storyId,
+      purpose: MEDIA_PURPOSE.STORY_COVER,
+      storyId,
+      entityType: 'cover',
+    });
+    const resolved = await resolveMediaAssetForDisplay(selectedAsset);
+    if (!resolved.url.trim()) {
+      throw new Error('The selected cover could not be resolved and was left unchanged.');
+    }
+
+    // Re-read state after the media request so a concurrent story edit is not
+    // overwritten while the selected cover is being made current.
+    const latestStoreState = useAppStore.getState();
+    const latestStory = latestStoreState.stories.find(
+      story => story.id === activeStory.id,
+    ) ?? activeStory;
+    const latestHistory = latestStory.imageHistory ?? [];
+    const historyWithSelectedCover = latestHistory.some(
+      image => image.entityType === 'cover' && image.assetId === selectedAsset.id,
+    )
+      ? latestHistory
+      : [...latestHistory, selectedHistory];
+    const updatedHistory = historyWithSelectedCover.map(image => {
+      if (image.entityType !== 'cover') return image;
+      if (image.assetId !== selectedAsset.id) return { ...image, isCurrent: false };
+      return {
+        ...image,
+        assetId: selectedAsset.id,
+        assetVersion: selectedAsset.version,
+        checksumSha256: selectedAsset.checksumSha256,
+        deliveryUrlExpiresAt: selectedAsset.deliveryUrlExpiresAt ?? undefined,
+        imageUrl: resolved.url,
+        isCurrent: true,
+      };
+    });
+
+    const updatedStory: StoryWorld = {
+      ...latestStory,
+      persistenceId: storyId,
+      coverAssetId: selectedAsset.id,
+      imageUrl: resolved.url,
+      imageHistory: updatedHistory,
+      updatedAt: new Date().toISOString(),
+    };
+    await latestStoreState.saveStories(latestStoreState.stories.map(story =>
+      story.id === latestStory.id ? updatedStory : story,
+    ));
+  };
+
   return {
     handleGenerateCover,
-    handleApplyCover
+    handleApplyCover,
+    handleSelectCover,
   };
 };

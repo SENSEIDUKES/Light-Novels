@@ -1,5 +1,6 @@
 import { AccountScopedChapterContent, StorageAdapter } from "./types";
 import { StoryWorld, ChapterContent } from "../../types";
+import { normalizeStoryImageOwnership } from "../media/imageOwnership";
 
 const timestamp = (value?: string): number => {
   const parsed = value ? new Date(value).getTime() : Number.NaN;
@@ -346,26 +347,39 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
   }
 
   private stripStoryAssets(story: StoryWorld): StoryWorld {
-    const strippedStory = JSON.parse(JSON.stringify(story));
+    const strippedStory = JSON.parse(JSON.stringify(normalizeStoryImageOwnership(story)));
+    const stripHistoryUrls = (history: unknown) => {
+      if (!Array.isArray(history)) return history;
+      return history.map((image) => {
+        if (!image || typeof image !== 'object') return image;
+        const { imageUrl: _imageUrl, ...strippedImage } = image;
+        return strippedImage;
+      });
+    };
     delete strippedStory.imageUrl;
-    delete strippedStory.imageHistory;
+    strippedStory.imageHistory = stripHistoryUrls(strippedStory.imageHistory);
     if (strippedStory.memory) {
       strippedStory.memory.characters?.forEach((character: any) => {
         delete character.imageUrl;
-        delete character.imageHistory;
+        character.imageHistory = stripHistoryUrls(character.imageHistory);
       });
       strippedStory.memory.locations?.forEach((location: any) => {
         delete location.imageUrl;
-        delete location.imageHistory;
+        location.imageHistory = stripHistoryUrls(location.imageHistory);
       });
       strippedStory.memory.artifacts?.forEach((artifact: any) => {
         delete artifact.imageUrl;
-        delete artifact.imageHistory;
+        artifact.imageHistory = stripHistoryUrls(artifact.imageHistory);
+      });
+      strippedStory.memory.factions?.forEach((faction: any) => {
+        delete faction.imageUrl;
+        faction.imageHistory = stripHistoryUrls(faction.imageHistory);
       });
     }
     strippedStory.arcs?.forEach((arc: any) => {
       arc.chapters?.forEach((chapter: any) => {
         if (chapter.assetManifest) delete chapter.assetManifest.heroImage;
+        chapter.imageHistory = stripHistoryUrls(chapter.imageHistory);
       });
     });
     return strippedStory;
@@ -451,6 +465,7 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
   }
 
   async saveStory(story: StoryWorld): Promise<void> {
+    story = normalizeStoryImageOwnership(story);
     const scope = this.accountScope;
     if (
       typeof scope === "string" &&

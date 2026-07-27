@@ -1,8 +1,11 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import type { MediaAssetDescriptor } from '../../contracts/mediaAssets';
-import type { UserProfile } from '../../types';
-import { hydrateProfilePortraitDelivery } from './mediaDeliveryHydrator';
+import type { StoryWorld, UserProfile } from '../../types';
+import {
+  hydrateProfilePortraitDelivery,
+  hydrateStoryMediaDelivery,
+} from './mediaDeliveryHydrator';
 
 const COMPACT_ID = '1dc21be263c047bda086980e44d67029';
 const HYPHENATED_ID = '1dc21be2-63c0-47bd-a086-980e44d67029';
@@ -68,5 +71,71 @@ describe('hydrateProfilePortraitDelivery', () => {
   it('leaves the profile untouched when no portrait is selected', () => {
     const original = profile();
     expect(hydrateProfilePortraitDelivery(original, descriptor(COMPACT_ID))).toBe(original);
+  });
+});
+
+describe('hydrateStoryMediaDelivery', () => {
+  it('hydrates every chapter-owned hero version without placing it on story history', () => {
+    const historicalId = '11111111-1111-4111-8111-111111111111';
+    const currentId = '22222222-2222-4222-8222-222222222222';
+    const chapterId = '33333333-3333-4333-8333-333333333333';
+    const story = {
+      id: 'story-1',
+      title: 'Moon Archive',
+      memory: { characters: [] },
+      arcs: [{
+        title: 'Arc One',
+        isCompleted: false,
+        chapters: [{
+          persistenceId: chapterId,
+          number: 1,
+          title: 'Awakening',
+          premise: 'Lin wakes.',
+          status: 'read',
+          imageHistory: [{
+            id: 'hero-before',
+            assetId: historicalId,
+            entityId: chapterId,
+            entityType: 'chapterHero',
+            imageUrl: '',
+            promptUsed: 'First dawn',
+            createdAt: '2026-07-01T00:00:00.000Z',
+            isCurrent: false,
+            chapterNumber: 1,
+          }, {
+            id: 'hero-current',
+            assetId: currentId,
+            entityId: chapterId,
+            entityType: 'chapterHero',
+            imageUrl: '',
+            promptUsed: 'Second dawn',
+            createdAt: '2026-07-02T00:00:00.000Z',
+            isCurrent: true,
+            chapterNumber: 1,
+          }],
+        }],
+      }],
+    } as unknown as StoryWorld;
+    const hydrated = hydrateStoryMediaDelivery(story, [{
+      assetId: currentId,
+      targetKind: 'CHAPTER',
+      targetKey: chapterId,
+      purpose: 'CHAPTER_HERO',
+      chapterId,
+      isCurrent: true,
+    }], new Map([
+      [historicalId, descriptor(historicalId)],
+      [currentId, descriptor(currentId)],
+    ]));
+
+    const chapter = hydrated.arcs[0].chapters[0];
+    expect(chapter.heroImageAssetId).toBe(currentId);
+    expect(chapter.assetManifest?.heroImage).toBe('https://signed.example/portrait');
+    expect(chapter.imageHistory?.map(image => image.imageUrl)).toEqual([
+      'https://signed.example/portrait',
+      'https://signed.example/portrait',
+    ]);
+    expect(hydrated.imageHistory).toBeUndefined();
+    expect(story.arcs[0].chapters[0].imageHistory?.[0].imageUrl).toBe('');
   });
 });

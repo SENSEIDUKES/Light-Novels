@@ -5,6 +5,7 @@ import type {
   StorageAdapter,
 } from './types';
 import { createStoryPatch } from './storyPatch';
+import { normalizeStoryImageOwnership } from '../media/imageOwnership';
 
 const DEFAULT_BASE_URL = '/api/persistence';
 const MIN_SUSPICIOUS_BASE64_LENGTH = 1024;
@@ -138,6 +139,66 @@ function blankDeliveryProjections(
 }
 
 /**
+ * Media attachments own their current slot and version history. They are
+ * projected back onto a StoryWorld when it is read, but are deliberately not
+ * part of the aggregate JSON Patch: a stale browser should never try to add a
+ * history array path that the freshly hydrated server graph does not expose.
+ */
+function stripDerivedMediaState(value: unknown): unknown {
+  if (!isRecord(value)) return value;
+
+  const story = { ...value };
+  delete story.mediaDescriptors;
+  delete story.imageHistory;
+  delete story.coverAssetId;
+  delete story.imageUrl;
+
+  const stripVisualEntity = (entry: unknown): unknown => {
+    if (!isRecord(entry)) return entry;
+    const entity = { ...entry };
+    delete entity.imageHistory;
+    delete entity.imageAssetId;
+    delete entity.imageUrl;
+    delete entity.voiceAssetId;
+    delete entity.voiceClipUrl;
+    return entity;
+  };
+
+  if (isRecord(story.memory)) {
+    const memory = { ...story.memory };
+    for (const collection of ['characters', 'locations', 'artifacts', 'factions', 'abilities']) {
+      if (!Array.isArray(memory[collection])) continue;
+      memory[collection] = memory[collection].map(stripVisualEntity);
+    }
+    story.memory = memory;
+  }
+
+  if (Array.isArray(story.arcs)) {
+    story.arcs = story.arcs.map((arc) => {
+      if (!isRecord(arc) || !Array.isArray(arc.chapters)) return arc;
+      return {
+        ...arc,
+        chapters: arc.chapters.map((chapter) => {
+          if (!isRecord(chapter)) return chapter;
+          const stableChapter = { ...chapter };
+          delete stableChapter.imageHistory;
+          delete stableChapter.heroImageAssetId;
+          if (isRecord(stableChapter.assetManifest)) {
+            const assetManifest = { ...stableChapter.assetManifest };
+            delete assetManifest.heroImage;
+            if (Object.keys(assetManifest).length === 0) delete stableChapter.assetManifest;
+            else stableChapter.assetManifest = assetManifest;
+          }
+          return stableChapter;
+        }),
+      };
+    });
+  }
+
+  return story;
+}
+
+/**
  * Canonical shape for patch diffing only. Applying the same delivery-field
  * normalization to both sides keeps a patch to the fields that actually
  * changed, instead of restating a `remove` for every hydrated `imageUrl` and a
@@ -146,10 +207,10 @@ function blankDeliveryProjections(
  * large legitimate edit needs.
  */
 export function normalizeStoryPatchShape<T>(value: T): T {
-  return blankDeliveryProjections(
+  return stripDerivedMediaState(blankDeliveryProjections(
     stripCanonicalDeliveryUrls(value, new WeakMap<object, unknown>()),
     new WeakMap<object, unknown>(),
-  ) as T;
+  )) as T;
 }
 
 function isBinaryValue(value: unknown): boolean {
@@ -440,10 +501,6 @@ function parseParentStoryRevision(payload: unknown): ParentStoryRevision | null 
   };
 }
 
-function isPatchNotApplicable(error: unknown): boolean {
-  return error instanceof DataConnectStorageError && error.code === 'persistence/patch-not-applicable';
-}
-
 function responseMessage(payload: unknown, fallback: string): string {
   if (isRecord(payload)) {
     if (typeof payload.error === 'string' && payload.error) return payload.error;
@@ -501,7 +558,7 @@ export class DataConnectStorageAdapter implements StorageAdapter {
       );
     }
     return stories.map((value) => {
-      const story = requireStory(value);
+      const story = normalizeStoryImageOwnership(requireStory(value));
       const existing = this.storySnapshots.get(story.id);
       if (
         !existing
@@ -521,7 +578,7 @@ export class DataConnectStorageAdapter implements StorageAdapter {
       this.storySnapshots.delete(id);
       return null;
     }
-    const hydrated = requireStory(story);
+    const hydrated = normalizeStoryImageOwnership(requireStory(story));
     this.storySnapshots.set(hydrated.id, hydrated);
     return hydrated;
   }
@@ -601,13 +658,28 @@ export class DataConnectStorageAdapter implements StorageAdapter {
     story: StoryWorld,
     expected?: CloudRevisionExpectation,
   ): Promise<void> {
-    const persistedStory = preparePermanentPersistencePayload(story, this.temporaryMediaHosts);
+    const persistedStory = preparePermanentPersistencePayload(
+      normalizeStoryImageOwnership(story),
+      this.temporaryMediaHosts,
+    );
     let baseline = this.storySnapshots.get(story.id);
-    if (
-      expected?.exists
-      && (!baseline || baseline.persistenceHydration === 'summary')
-    ) {
+    if (baseline?.persistenceHydration === 'summary') {
       baseline = (await this.getStory(story.id)) ?? undefined;
+      if (!baseline) {
+        throw new DataConnectStorageError(
+          'Cloud story disappeared before its full snapshot could be loaded',
+          'sync/revision-changed',
+        );
+      }
+    }
+    if (expected?.exists && !baseline) {
+      baseline = (await this.getStory(story.id)) ?? undefined;
+    }
+    if (expected?.exists && !baseline) {
+      throw new DataConnectStorageError(
+        'Cloud story is unavailable for a bounded update',
+        'sync/revision-changed',
+      );
     }
     const patch = baseline
       ? createStoryPatch(
@@ -616,37 +688,26 @@ export class DataConnectStorageAdapter implements StorageAdapter {
         )
       : null;
     if (patch?.length === 0 && expected === undefined) return;
+    // A full StoryWorld is only used to bootstrap a record with no prior
+    // snapshot. Existing records always receive their bounded patch; a failed
+    // patch is reconciled by PersistentStorageManager, never resent wholesale.
     const fullBody = expected === undefined
       ? { story: persistedStory }
       : { story: persistedStory, expected };
     const path = `/stories/${encodeURIComponent(story.id)}`;
 
-    let payload: unknown;
-    try {
-      payload = await this.request(path, {
-        method: 'PUT',
-        body: JSON.stringify(
-          patch
-            ? { patch, expected: expected ?? {
-                exists: true,
-                updatedAt: baseline?.updatedAt ?? null,
-                syncRevision: baseline?.syncRevision ?? null,
-              } }
-            : fullBody,
-        ),
-      });
-    } catch (error) {
-      // The patch is an optimization over a full write, never a requirement.
-      // Derived server collections (an entity's imageHistory, its
-      // imageAssetId) are rebuilt from media attachments, so a replica holding
-      // history the cloud never received emits paths the server cannot walk.
-      // Resending the whole story is always applicable and repairs the drift,
-      // instead of surfacing "the persistence operation could not be
-      // completed" on every Codex manifestation from then on.
-      if (!patch || !isPatchNotApplicable(error)) throw error;
-      this.storySnapshots.delete(story.id);
-      payload = await this.request(path, { method: 'PUT', body: JSON.stringify(fullBody) });
-    }
+    const payload = await this.request(path, {
+      method: 'PUT',
+      body: JSON.stringify(
+        patch
+          ? { patch, expected: expected ?? {
+              exists: true,
+              updatedAt: baseline?.updatedAt ?? null,
+              syncRevision: baseline?.syncRevision ?? null,
+            } }
+          : fullBody,
+      ),
+    });
     const saved = requireEnvelope(payload, 'story');
     this.storySnapshots.set(
       story.id,
@@ -756,17 +817,12 @@ export class DataConnectStorageAdapter implements StorageAdapter {
     }
 
     if (response.status === 409) {
-      // A stale patch baseline is recoverable by resending the whole story and
-      // must not be mistaken for a losing compare-and-swap, which instead
-      // requires re-reading the cloud record first.
-      const code = isRecord(payload) && isRecord(payload.error)
-        ? payload.error.code
-        : undefined;
+      // A bounded patch only applies to the revision it was diffed from. The
+      // storage manager will re-read and reconcile this record; replaying a
+      // whole stale StoryWorld would overwrite a newer remote edit.
       throw new DataConnectStorageError(
         responseMessage(payload, 'Cloud record changed after synchronization read'),
-        code === 'patch_not_applicable'
-          ? 'persistence/patch-not-applicable'
-          : 'sync/revision-changed',
+        'sync/revision-changed',
         response.status,
       );
     }

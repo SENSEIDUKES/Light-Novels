@@ -38,6 +38,7 @@ export const StoryDetailScreen: React.FC<{
     { imageUrls: string[]; promptUsed: string } | undefined
   >;
   handleApplyCover: (imageUrl: string, promptUsed: string) => void;
+  handleSelectCover: (assetId: string) => Promise<void>;
   handleExportFullTome: (story: any) => void;
   handleExportEPUB: (story: any) => void;
   handleExportSingleStory: (story: any) => void;
@@ -46,6 +47,7 @@ export const StoryDetailScreen: React.FC<{
 }> = ({
   handleGenerateCover,
   handleApplyCover,
+  handleSelectCover,
   handleExportFullTome,
   handleExportEPUB,
   handleExportSingleStory,
@@ -214,6 +216,19 @@ export const StoryDetailScreen: React.FC<{
     } catch (err) {
       console.error('Failed to save motion cover preference:', err);
       setAppError('The motion cover preference could not be saved. Please try again.');
+    }
+  };
+
+  const handleSelectCoverFromHistory = async (assetId: string | undefined) => {
+    if (!assetId) {
+      setAppError('This cover has not been saved to permanent media yet.');
+      return;
+    }
+    try {
+      await handleSelectCover(assetId);
+    } catch (error) {
+      console.error('Failed to select cover from history:', error);
+      setAppError('The selected cover could not be saved. Please try again.');
     }
   };
 
@@ -836,59 +851,13 @@ export const StoryDetailScreen: React.FC<{
                       <div
                         key={img.id}
                         className="relative flex-shrink-0 w-10 h-14 rounded overflow-hidden border border-neutral-800 cursor-pointer hover:border-portal transition-colors shadow-lg"
-                        onClick={() => {
-                          const store = useAppStore.getState();
-                          const updated = store.stories.map((s) => {
-                            if (s.id === activeStory.id) {
-                              const updatedHistory = s.imageHistory?.map((h) =>
-                                h.entityType === "cover"
-                                  ? {
-                                      ...h,
-                                      isCurrent: h.imageUrl === img.imageUrl,
-                                    }
-                                  : h,
-                              );
-                              return {
-                                ...s,
-                                imageUrl: img.imageUrl,
-                                imageHistory: updatedHistory,
-                              };
-                            }
-                            return s;
-                          });
-                          store.saveStories(updated).catch((err) => {
-                            console.error('Failed to save selected cover from history:', err);
-                            store.setAppError('The selected cover could not be saved. Please try again.');
-                          });
-                        }}
+                        onClick={() => { void handleSelectCoverFromHistory(img.assetId); }}
                         role="button"
                         tabIndex={0}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            const store = useAppStore.getState();
-                            const updated = store.stories.map((s) => {
-                              if (s.id === activeStory.id) {
-                                const updatedHistory = s.imageHistory?.map((h) =>
-                                  h.entityType === "cover"
-                                    ? {
-                                        ...h,
-                                        isCurrent: h.imageUrl === img.imageUrl,
-                                      }
-                                    : h,
-                                );
-                                return {
-                                  ...s,
-                                  imageUrl: img.imageUrl,
-                                  imageHistory: updatedHistory,
-                                };
-                              }
-                              return s;
-                            });
-                            store.saveStories(updated).catch((err) => {
-                              console.error('Failed to save selected cover from history:', err);
-                              store.setAppError('The selected cover could not be saved. Please try again.');
-                            });
+                            void handleSelectCoverFromHistory(img.assetId);
                           }
                         }}
                         aria-label={`Apply cover image from chapter ${img.chapterNumber || "Unknown"}`}

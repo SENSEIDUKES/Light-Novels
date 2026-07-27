@@ -206,26 +206,7 @@ export function LivingCodexCollage({
   
   // Parse and assemble all scene/chapter memories and entity portraits
 
-  // Pre-compute lookup maps for efficient entity resolution, memoized on specific list changes
   const { characters, locations, artifacts } = memory;
-
-  const characterMap = useMemo(() => {
-    const m = new Map<string, NonNullable<typeof characters>[number]>();
-    characters?.forEach(c => m.set(c.id, c));
-    return m;
-  }, [characters]);
-
-  const locationMap = useMemo(() => {
-    const m = new Map<string, NonNullable<typeof locations>[number]>();
-    locations?.forEach(l => m.set(l.id, l));
-    return m;
-  }, [locations]);
-
-  const artifactMap = useMemo(() => {
-    const m = new Map<string, NonNullable<typeof artifacts>[number]>();
-    artifacts?.forEach(a => m.set(a.id, a));
-    return m;
-  }, [artifacts]);
 
   // Performance Optimization: Cache Intl.DateTimeFormat instance to avoid O(N) instantiation overhead inside the useMemo loop and across re-renders.
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }), []);
@@ -268,11 +249,35 @@ export function LivingCodexCollage({
       return ((pseudoIndex * 9) % 10) - 5;
     };
 
-    // 1. Scene memories from chapter hero images (automatic or manual)
-    activeStory.arcs?.forEach((arc) => {
-      arc.chapters?.forEach((ch) => {
+    // 1. Scene memories from the chapter that owns every hero version. Cached
+    // and imported stories can predate the array-backed schema, so reject a
+    // malformed container instead of letting one stale record break the album.
+    const arcs = Array.isArray(activeStory.arcs) ? activeStory.arcs : [];
+    arcs.forEach((arc) => {
+      const chapters = Array.isArray(arc.chapters) ? arc.chapters : [];
+      chapters.forEach((ch) => {
         const url = ch.assetManifest?.heroImage;
-        if (!url && !ch.heroImageAssetId) return;
+        const imageHistory = Array.isArray(ch.imageHistory) ? ch.imageHistory : [];
+        imageHistory.forEach((img) => {
+          const isCurrentHero = Boolean(img.assetId)
+            && Boolean(ch.heroImageAssetId)
+            && img.assetId === ch.heroImageAssetId;
+          push({
+            id: img.id,
+            assetId: img.assetId,
+            url: img.imageUrl || (isCurrentHero ? url || '' : ''),
+            title: `Chapter ${ch.number}: ${ch.title}`,
+            subtitle: arc.title || 'Visual Record',
+            description: ch.summary || 'A defining event inscribed into the aetherial tapestry.',
+            type: 'scene',
+            chapterNumber: ch.number,
+            promptUsed: img.promptUsed,
+            dateStr: img.createdAt ? safeFormatDate(img.createdAt) : 'Ascended',
+            tiltAngle: ((ch.number * 7) % 10) - 5,
+          });
+        });
+        // A legacy/current chapter without history is still a valid scene.
+        if (imageHistory.length || (!url && !ch.heroImageAssetId)) return;
         push({
           id: `scene-${ch.number}`,
           assetId: ch.heroImageAssetId,
@@ -367,60 +372,24 @@ export function LivingCodexCollage({
       }
     }
 
-    // 3. Story-level history — covers from the cloud, plus anything the browser
-    //    appended locally before the next Harmony pass reconciles it.
-    activeStory.imageHistory?.forEach((img) => {
-      let title = img.label || 'Spiritual Form';
-      let subtitle = 'Ethereal Blueprint';
-      let description = img.promptUsed || 'Captured memory core.';
-      let type: VisualMemory['type'] = img.entityType as VisualMemory['type'];
-
-      if (img.entityType === 'character' || img.entityType === 'beast') {
-        const char = characterMap.get(img.entityId);
-        if (char) {
-          title = char.name;
-          subtitle = char.isBeast ? 'Sacred Beast' : 'Immortal cultivator';
-          description = char.description || description;
-          type = char.isBeast ? 'beast' : 'character';
-        }
-      } else if (img.entityType === 'location') {
-        const loc = locationMap.get(img.entityId);
-        if (loc) {
-          title = loc.name;
-          subtitle = 'Sacred Domain Scenery';
-          description = loc.description || description;
-          type = 'location';
-        }
-      } else if (img.entityType === 'artifact') {
-        const art = artifactMap.get(img.entityId);
-        if (art) {
-          title = art.name;
-          subtitle = `${art.tier || 'Mortal'} Tier Relic`;
-          description = art.description || description;
-          type = 'artifact';
-        }
-      } else if (img.entityType === 'cover') {
-        title = activeStory.title;
-        subtitle = 'Chronicle Book Cover';
-        description = activeStory.customPremise || description;
-        type = 'cover';
-      } else if (img.entityType === 'chapterHero') {
-        type = 'scene';
-      }
+    // 3. Story-level history owns covers only; Codex and chapter images stay
+    //    with their actual owners.
+    const coverHistory = Array.isArray(activeStory.imageHistory) ? activeStory.imageHistory : [];
+    coverHistory.filter((img) => img.entityType === 'cover').forEach((img) => {
 
       push({
         id: img.id,
         assetId: img.assetId,
         url: img.imageUrl
           || (img.assetId && img.assetId === activeStory.coverAssetId ? activeStory.imageUrl || '' : ''),
-        title,
-        subtitle,
-        description,
-        type,
+        title: activeStory.title,
+        subtitle: 'Chronicle Book Cover',
+        description: activeStory.customPremise || img.promptUsed || 'Captured memory core.',
+        type: 'cover',
         chapterNumber: img.chapterNumber,
         promptUsed: img.promptUsed,
         dateStr: img.createdAt ? safeFormatDate(img.createdAt) : undefined,
-        tiltAngle: tiltFor(title)
+        tiltAngle: tiltFor(activeStory.title)
       });
     });
 
@@ -450,9 +419,6 @@ export function LivingCodexCollage({
     locations,
     artifacts,
     factions,
-    characterMap,
-    locationMap,
-    artifactMap,
     safeFormatDate
   ]);
 

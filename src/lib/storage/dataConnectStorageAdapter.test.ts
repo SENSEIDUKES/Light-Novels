@@ -5,6 +5,7 @@ import {
   assertPermanentPersistencePayload,
   DataConnectStorageAdapter,
   DataConnectStorageError,
+  normalizeStoryPatchShape,
   PermanentPersistencePayloadError,
   type PersistenceAuth,
   type PersistenceAuthUser,
@@ -169,11 +170,7 @@ describe('DataConnectStorageAdapter', () => {
     expect(new Headers(writeInit.headers).get('Idempotency-Key')).toMatch(SHA256_KEY);
   });
 
-  // The server rebuilds an entity's imageHistory and imageAssetId from media
-  // attachments, so a replica holding history the cloud never received emits
-  // patch paths the server cannot walk. That surfaced as "the persistence
-  // operation could not be completed" on every Codex manifestation.
-  it('resends the whole story when a patch no longer fits the stored story', async () => {
+  it('keeps media attachment projections out of a bounded story patch', async () => {
     const hydrated = {
       id: story.id,
       title: 'The First Story',
@@ -183,6 +180,7 @@ describe('DataConnectStorageAdapter', () => {
     } as unknown as StoryWorld;
     const manifested = {
       ...hydrated,
+      title: 'The First Story Revised',
       memory: {
         characters: [{
           id: 'lin',
@@ -195,22 +193,60 @@ describe('DataConnectStorageAdapter', () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ story: hydrated }))
       .mockResolvedValueOnce(jsonResponse(
-        { error: { code: 'patch_not_applicable', message: 'Story patch path does not exist.' } },
+        { error: { code: 'revision_conflict', message: 'The remote record changed.' } },
         409,
-      ))
-      .mockResolvedValueOnce(jsonResponse({ story: manifested }));
+      ));
 
     await adapter.getStory(story.id);
-    await adapter.saveStoryIfUnchanged(manifested, {
+    await expect(adapter.saveStoryIfUnchanged(manifested, {
       exists: true,
       updatedAt: hydrated.updatedAt,
       syncRevision: 'rev-1',
-    });
+    })).rejects.toMatchObject({ code: 'sync/revision-changed' });
 
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    const retry = JSON.parse((fetchMock.mock.calls[2][1] as RequestInit).body as string);
-    expect(retry).not.toHaveProperty('patch');
-    expect(retry.story.memory.characters[0].imageAssetId).toBe('asset-lin-1');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const write = JSON.parse((fetchMock.mock.calls[1][1] as RequestInit).body as string);
+    expect(write).toHaveProperty('patch');
+    expect(write).not.toHaveProperty('story');
+    expect(JSON.stringify(write)).not.toContain('imageAssetId');
+    expect(JSON.stringify(write)).not.toContain('imageHistory');
+    expect(write.patch).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: '/title', value: 'The First Story Revised' }),
+    ]));
+  });
+
+  it('removes attachment-owned fields from the patch projection', () => {
+    const projected = normalizeStoryPatchShape({
+      ...story,
+      imageUrl: 'https://signed.example/cover',
+      coverAssetId: 'cover-asset',
+      imageHistory: [{ id: 'cover', entityId: story.id, entityType: 'cover', imageUrl: '', promptUsed: '', createdAt: '', isCurrent: true }],
+      mediaDescriptors: { 'cover-asset': { id: 'cover-asset', deliveryUrl: 'https://signed.example/cover' } },
+      memory: {
+        characters: [{
+          id: 'lin',
+          imageAssetId: 'portrait-asset',
+          imageUrl: 'https://signed.example/portrait',
+          imageHistory: [{ id: 'portrait', entityId: 'lin', entityType: 'character', imageUrl: '', promptUsed: '', createdAt: '', isCurrent: true }],
+        }],
+      },
+      arcs: [{ chapters: [{
+        number: 1,
+        heroImageAssetId: 'hero-asset',
+        imageHistory: [{ id: 'hero', entityId: 'chapter-1', entityType: 'chapterHero', imageUrl: '', promptUsed: '', createdAt: '', isCurrent: true }],
+        assetManifest: { heroImage: 'https://signed.example/hero', atmosphere: 'rain' },
+      }] }],
+    } as unknown as StoryWorld) as Record<string, any>;
+
+    expect(projected).not.toHaveProperty('imageHistory');
+    expect(projected).not.toHaveProperty('coverAssetId');
+    expect(projected).not.toHaveProperty('imageUrl');
+    expect(projected).not.toHaveProperty('mediaDescriptors');
+    expect(projected.memory.characters[0]).not.toHaveProperty('imageAssetId');
+    expect(projected.memory.characters[0]).not.toHaveProperty('imageHistory');
+    expect(projected.arcs[0].chapters[0]).not.toHaveProperty('heroImageAssetId');
+    expect(projected.arcs[0].chapters[0]).not.toHaveProperty('imageHistory');
+    expect(projected.arcs[0].chapters[0].assetManifest).toEqual({ atmosphere: 'rain' });
   });
 
   it('still surfaces a losing compare-and-swap as a revision conflict', async () => {
@@ -364,6 +400,35 @@ describe('DataConnectStorageAdapter', () => {
 
     const body = JSON.parse(fetchMock.mock.calls[1][1].body as string);
     expect(body.patch).toEqual([{ op: 'replace', path: '/title', value: 'Renamed' }]);
+  });
+
+  it('loads a full catalog snapshot before a bounded existing-story write', async () => {
+    const summary = {
+      id: story.id,
+      title: 'The First Story',
+      persistenceHydration: 'summary',
+      updatedAt: '2026-07-25T10:00:00.000Z',
+      syncRevision: 'rev-1',
+    } as unknown as StoryWorld;
+    const hydrated = {
+      ...summary,
+      persistenceHydration: 'full',
+      memory: { characters: [] },
+      arcs: [],
+    } as unknown as StoryWorld;
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ stories: [summary] }))
+      .mockResolvedValueOnce(jsonResponse({ story: hydrated }))
+      .mockResolvedValueOnce(jsonResponse({ story: { ...hydrated, title: 'Renamed' } }));
+
+    await adapter.getStories();
+    await adapter.saveStory({ ...hydrated, title: 'Renamed' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const write = JSON.parse((fetchMock.mock.calls[2][1] as RequestInit).body as string);
+    expect(write).toHaveProperty('patch');
+    expect(write).not.toHaveProperty('story');
+    expect(write.patch).toEqual([{ op: 'replace', path: '/title', value: 'Renamed' }]);
   });
 
   it('implements glossary list, single-save, batch-save, and delete routes', async () => {
@@ -554,7 +619,12 @@ describe('assertPermanentPersistencePayload', () => {
     ) as { story: Record<string, any> };
     expect(requestBody.story.imageUrl).toBeUndefined();
     expect(requestBody.story.coverAssetId).toBe('cover-asset');
-    expect(requestBody.story.imageHistory[0]).toEqual({ assetId: 'cover-history-asset' });
+    expect(requestBody.story.imageHistory[0]).toMatchObject({
+      assetId: 'cover-history-asset',
+      entityId: story.id,
+      entityType: 'cover',
+    });
+    expect(requestBody.story.imageHistory[0].imageUrl).toBeUndefined();
     expect(requestBody.story.memory.characters[0].imageUrl).toBeUndefined();
     expect(requestBody.story.memory.characters[0].voiceClipUrl).toBeUndefined();
     expect(requestBody.story.memory.characters[0].imageHistory[0].imageUrl).toBeUndefined();

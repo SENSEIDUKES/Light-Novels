@@ -177,7 +177,7 @@ export function LivingCodexArtifacts({
                     <LivingCodexImageGallery 
                       entityId={art.id} 
                       type="artifact" 
-                      imageHistory={resolveEntityImageHistory(art, activeStory.imageHistory)}
+                      imageHistory={resolveEntityImageHistory(art)}
                     />
                     {displayedImage ? (
                       <div className="h-32 w-full border border-neutral-900 relative">

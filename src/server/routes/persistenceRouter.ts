@@ -221,20 +221,6 @@ function isRevisionConflict(error: unknown): boolean {
   );
 }
 
-/**
- * A bounded patch that no longer fits the current server story. The client
- * recovers by resending the whole story, so this must be distinguishable from
- * a genuine server fault.
- */
-function isPatchNotApplicable(error: unknown): boolean {
-  return Boolean(
-    error
-    && typeof error === 'object'
-    && 'code' in error
-    && String(error.code) === 'patch_not_applicable',
-  );
-}
-
 function isForbidden(error: unknown): boolean {
   return Boolean(
     error
@@ -526,15 +512,6 @@ export function createPersistenceRouter(
         'invalid_request',
         'The persistence request is invalid.',
         error.issues.map(issue => ({ path: issue.path.join('.'), message: issue.message })),
-      );
-      return;
-    }
-    if (isPatchNotApplicable(error)) {
-      sendError(
-        res,
-        409,
-        'patch_not_applicable',
-        'The story patch no longer fits the stored story. Resend the full story.',
       );
       return;
     }

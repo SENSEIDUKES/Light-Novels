@@ -41,11 +41,14 @@ function makeStory(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function renderScreen() {
+function renderScreen(options: {
+  handleSelectCover?: (assetId: string) => Promise<void>;
+} = {}) {
   return render(
     <StoryDetailScreen
       handleGenerateCover={vi.fn()}
       handleApplyCover={vi.fn()}
+      handleSelectCover={options.handleSelectCover ?? vi.fn().mockResolvedValue(undefined)}
       handleExportFullTome={vi.fn()}
       handleExportEPUB={vi.fn()}
       handleExportSingleStory={vi.fn()}
@@ -113,5 +116,43 @@ describe('StoryDetailScreen', () => {
         chapterWritingStyle: 'Easy Read',
       }),
     ]));
+  });
+
+  it('activates a saved cover through the durable media selection handler', async () => {
+    const handleSelectCover = vi.fn().mockResolvedValue(undefined);
+    storeMocks.story = makeStory({
+      imageHistory: [
+        {
+          id: 'cover-current',
+          assetId: 'asset-current',
+          entityType: 'cover',
+          entityId: 'test-story',
+          imageUrl: 'https://images.example/current.png',
+          promptUsed: 'Current cover',
+          createdAt: '2023-01-01T00:00:00Z',
+          isCurrent: true,
+          chapterNumber: 1,
+        },
+        {
+          id: 'cover-prior',
+          assetId: 'asset-prior',
+          entityType: 'cover',
+          entityId: 'test-story',
+          imageUrl: 'https://images.example/prior.png',
+          promptUsed: 'Prior cover',
+          createdAt: '2023-01-02T00:00:00Z',
+          isCurrent: false,
+          chapterNumber: 2,
+        },
+      ],
+    });
+    renderScreen({ handleSelectCover });
+
+    fireEvent.click(screen.getByRole('button', {
+      name: 'Apply cover image from chapter 2',
+    }));
+
+    await waitFor(() => expect(handleSelectCover).toHaveBeenCalledWith('asset-prior'));
+    expect(storeMocks.saveStories).not.toHaveBeenCalled();
   });
 });

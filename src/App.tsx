@@ -633,6 +633,7 @@ function App() {
               <StoryDetailScreen 
                  handleGenerateCover={storyEngine.handleGenerateCover}
                  handleApplyCover={storyEngine.handleApplyCover}
+                 handleSelectCover={storyEngine.handleSelectCover}
                  handleExportFullTome={storyExporter.handleExportFullTome}
                  handleExportEPUB={storyExporter.handleExportEPUB}
                  handleExportSingleStory={storyExporter.handleExportSingleStory}

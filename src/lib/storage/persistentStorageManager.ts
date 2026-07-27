@@ -27,6 +27,7 @@ import {
   resetPrivateMediaResolver,
   resolveMediaAssetForDisplay,
 } from "../media/privateMediaResolver";
+import { normalizeStoryImageOwnership } from "../media/imageOwnership";
 
 type DurableSyncTask = Omit<SyncTask, "attempts">;
 
@@ -1713,7 +1714,7 @@ export class PersistentStorageManager implements StorageAdapter {
 
   private async hydrateCurrentMedia(story: StoryWorld): Promise<StoryWorld> {
     const descriptors = Object.values(story.mediaDescriptors ?? {});
-    if (descriptors.length === 0) return story;
+    if (descriptors.length === 0) return normalizeStoryImageOwnership(story);
     const resolved = new Map<string, string>();
     await Promise.all(descriptors.map(async (descriptor) => {
       try {
@@ -1760,12 +1761,18 @@ export class PersistentStorageManager implements StorageAdapter {
       if (heroUrl) {
         chapter.assetManifest = { ...(chapter.assetManifest ?? {}), heroImage: heroUrl };
       }
+      chapter.imageHistory = chapter.imageHistory?.map((image) => ({
+        ...image,
+        imageUrl: image.isCurrent
+          ? delivery(image.assetId) ?? image.imageUrl
+          : image.imageUrl,
+      }));
     }
     clone.mediaDescriptors = Object.fromEntries(descriptors.map((descriptor) => [
       descriptor.id,
       { ...descriptor, deliveryUrl: "" },
     ]));
-    return clone;
+    return normalizeStoryImageOwnership(clone);
   }
 
   /**
@@ -1779,7 +1786,7 @@ export class PersistentStorageManager implements StorageAdapter {
    * paths (`getStories`/`getStory`) still hydrate what is actually rendered.
    */
   private prepareCloudStoryForLocalCache(story: StoryWorld): StoryWorld {
-    return prepareCloudReplicaPayload(story);
+    return prepareCloudReplicaPayload(normalizeStoryImageOwnership(story));
   }
 
   private handleSyncConflict(
@@ -2711,6 +2718,7 @@ export class PersistentStorageManager implements StorageAdapter {
   }
 
   async saveStory(story: StoryWorld): Promise<void> {
+    story = normalizeStoryImageOwnership(story);
     const currentUserId = this.getCurrentUserId();
     await this.awaitAccountScope(currentUserId);
     if (this.activeTransaction) {

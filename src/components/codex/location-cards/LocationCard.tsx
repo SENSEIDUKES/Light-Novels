@@ -40,7 +40,7 @@ export const LocationCard: React.FC<LocationCardProps> = ({
         <LivingCodexImageGallery
           entityId={loc.id}
           type="location"
-          imageHistory={resolveEntityImageHistory(loc, activeStory.imageHistory)}
+          imageHistory={resolveEntityImageHistory(loc)}
         />
         {displayedImage ? (
          <>
