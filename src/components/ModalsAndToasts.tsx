@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import FocusLock from 'react-focus-lock';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { AlertCircle, X, Sliders, Award, Shield, Sparkles, Compass, Globe, Key, Zap, RefreshCw, Save } from 'lucide-react';
 import { vibrate } from '../lib/vibration';
 import { useAppStore } from '../store/useAppStore';
@@ -53,6 +53,41 @@ const RELIC_SIGIL_CSS = `
   }
 `;
 
+const RELIC_TICKS = Array.from({ length: 36 }, (_, i) => {
+  const a = (i * 10 * Math.PI) / 180;
+  const long = i % 9 === 0;
+  const r1 = long ? 84 : 88;
+  return (
+    <line
+      key={i}
+      x1={120 + Math.cos(a) * r1}
+      y1={120 + Math.sin(a) * r1}
+      x2={120 + Math.cos(a) * 92}
+      y2={120 + Math.sin(a) * 92}
+      strokeWidth={long ? 0.8 : 0.4}
+      opacity={long ? 0.7 : 0.45}
+    />
+  );
+});
+
+const RELIC_ICON_MAP: Array<{ keywords: string[]; Icon: React.ComponentType<{ size?: number; strokeWidth?: number }> }> = [
+  { keywords: ['medallion', 'badge'], Icon: Award },
+  { keywords: ['seal', 'signet'], Icon: Shield },
+  { keywords: ['gourd', 'nectar', 'cauldron', 'potion'], Icon: Zap },
+  { keywords: ['spindle', 'thread', 'matrix'], Icon: RefreshCw },
+  { keywords: ['pen', 'brush', 'scribe'], Icon: Save },
+  { keywords: ['crown', 'circlet', 'tiara'], Icon: Sliders },
+  { keywords: ['compass'], Icon: Compass },
+  { keywords: ['mirror'], Icon: Globe },
+  { keywords: ['key'], Icon: Key },
+];
+
+function getRelicIcon(relicName?: string): React.ComponentType<{ size?: number; strokeWidth?: number }> {
+  const name = (relicName ?? '').toLowerCase();
+  const match = RELIC_ICON_MAP.find(entry => entry.keywords.some(kw => name.includes(kw)));
+  return match ? match.Icon : Compass;
+}
+
 const DEFAULT_PRESETS = {
   storyMaker: {
     gemini: ["google/gemini-3.1-flash-lite", "google/gemini-2.5-flash-lite", "google/gemini-3.1-flash-lite-preview", "gemini-3.1-flash-lite-preview", "gemini-3.5-flash", "gemini-3.5-pro", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"],
@@ -77,6 +112,7 @@ const DEFAULT_PRESETS = {
 };
 
 export const ModalsAndToasts: React.FC = () => {
+  const shouldReduceMotion = useReducedMotion();
   const isSettingsOpen = useAppStore(state => state.isSettingsOpen);
     const setIsSettingsOpen = useAppStore(state => state.setIsSettingsOpen);
     const routingConfig = useAppStore(state => state.routingConfig);
@@ -719,10 +755,10 @@ export const ModalsAndToasts: React.FC = () => {
               {!isArtifactRevealed ? (
                 <motion.div
                   key="mystery-relic"
-                  initial={{ scale: 0.8, y: 50, opacity: 0 }}
-                  animate={{ scale: 1, y: 0, opacity: 1 }}
-                  exit={{ scale: 1.1, opacity: 0, rotateY: 90 }}
-                  transition={{ type: "spring", damping: 20, stiffness: 100 }}
+                  initial={shouldReduceMotion ? { opacity: 0 } : { scale: 0.8, y: 50, opacity: 0 }}
+                  animate={shouldReduceMotion ? { opacity: 1 } : { scale: 1, y: 0, opacity: 1 }}
+                  exit={shouldReduceMotion ? { opacity: 0 } : { scale: 1.1, opacity: 0, rotateY: 90 }}
+                  transition={shouldReduceMotion ? { duration: 0 } : { type: "spring", damping: 20, stiffness: 100 }}
                   className="relative group cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -745,9 +781,9 @@ export const ModalsAndToasts: React.FC = () => {
               ) : (
                 <motion.div
                   key="revealed-relic"
-                  initial={{ scale: 0.9, opacity: 0, rotateY: -55 }}
-                  animate={{ scale: 1, opacity: 1, rotateY: 0 }}
-                  transition={{ type: "spring", damping: 22, stiffness: 150 }}
+                  initial={shouldReduceMotion ? { opacity: 0 } : { scale: 0.9, opacity: 0, rotateY: -55 }}
+                  animate={shouldReduceMotion ? { opacity: 1 } : { scale: 1, opacity: 1, rotateY: 0 }}
+                  transition={shouldReduceMotion ? { duration: 0 } : { type: "spring", damping: 22, stiffness: 150 }}
                   className="relative max-w-[300px] sm:max-w-[340px] w-full z-10"
                   style={{ transformPerspective: 1200 }}
                   onClick={(e) => e.stopPropagation()}
@@ -756,19 +792,6 @@ export const ModalsAndToasts: React.FC = () => {
                     const rarity = unlockedArtifactAlert.rarity;
                     const theme = RARITY_THEMES[rarity] ?? NEUTRAL_THEME;
                     const { hex, titleColor } = theme;
-                    const ticks = Array.from({ length: 36 }, (_, i) => {
-                      const a = (i * 10 * Math.PI) / 180;
-                      const long = i % 9 === 0;
-                      const r1 = long ? 84 : 88;
-                      return (
-                        <line
-                          key={i}
-                          x1={120 + Math.cos(a) * r1} y1={120 + Math.sin(a) * r1}
-                          x2={120 + Math.cos(a) * 92} y2={120 + Math.sin(a) * 92}
-                          strokeWidth={long ? 0.8 : 0.4} opacity={long ? 0.7 : 0.45}
-                        />
-                      );
-                    });
 
                     return (
                       <>
@@ -811,9 +834,9 @@ export const ModalsAndToasts: React.FC = () => {
 
                             {/* 2. Ornate relic sigil */}
                             <motion.div
-                              initial={{ scale: 0.55, opacity: 0 }}
-                              animate={{ scale: 1, opacity: 1 }}
-                              transition={{ delay: 0.25, type: "spring", damping: 18, stiffness: 120 }}
+                              initial={shouldReduceMotion ? { opacity: 0 } : { scale: 0.55, opacity: 0 }}
+                              animate={shouldReduceMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
+                              transition={shouldReduceMotion ? { duration: 0 } : { delay: 0.25, type: "spring", damping: 18, stiffness: 120 }}
                               className="relative w-44 h-44 sm:w-52 sm:h-52 my-4 sm:my-5 flex items-center justify-center"
                             >
                               {/* Halo behind the sigil */}
@@ -851,7 +874,7 @@ export const ModalsAndToasts: React.FC = () => {
                                 {/* Counter-rotating tick ring */}
                                 <g className="relic-sigil-spin-rev" opacity="0.55">
                                   <circle cx="120" cy="120" r="92" strokeWidth="0.4" />
-                                  {ticks}
+                                  {RELIC_TICKS}
                                 </g>
 
                                 {/* Static core */}
@@ -899,18 +922,8 @@ export const ModalsAndToasts: React.FC = () => {
                                 style={{ color: hex, filter: `drop-shadow(0 0 8px ${hex})` }}
                               >
                                 {(() => {
-                                  const name = (unlockedArtifactAlert.name ?? '').toLowerCase();
-                                  const size = 15;
-                                  if (name.includes('medallion') || name.includes('badge')) return <Award size={size} strokeWidth={1} />;
-                                  if (name.includes('seal') || name.includes('signet')) return <Shield size={size} strokeWidth={1} />;
-                                  if (name.includes('gourd') || name.includes('nectar') || name.includes('cauldron') || name.includes('potion')) return <Zap size={size} strokeWidth={1} />;
-                                  if (name.includes('spindle') || name.includes('thread') || name.includes('matrix')) return <RefreshCw size={size} strokeWidth={1} />;
-                                  if (name.includes('pen') || name.includes('brush') || name.includes('scribe')) return <Save size={size} strokeWidth={1} />;
-                                  if (name.includes('crown') || name.includes('circlet') || name.includes('tiara')) return <Sliders size={size} strokeWidth={1} />;
-                                  if (name.includes('compass')) return <Compass size={size} strokeWidth={1} />;
-                                  if (name.includes('mirror')) return <Globe size={size} strokeWidth={1} />;
-                                  if (name.includes('key')) return <Key size={size} strokeWidth={1} />;
-                                  return <Compass size={size} strokeWidth={1} />; // Default to compass
+                                  const RelicIcon = getRelicIcon(unlockedArtifactAlert.name);
+                                  return <RelicIcon size={15} strokeWidth={1} />;
                                 })()}
                               </div>
 
@@ -944,24 +957,25 @@ export const ModalsAndToasts: React.FC = () => {
                               className="w-full mt-4 sm:mt-5 rounded-xl bg-black/50 flex items-stretch overflow-hidden"
                               style={{ border: `1px solid ${hex}30`, boxShadow: `inset 0 0 26px rgba(0,0,0,0.65), 0 0 18px ${hex}14` }}
                             >
-                              <div className="flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3" style={{ borderRight: `1px solid ${hex}24` }}>
+                              <div className="flex-1 shrink-0 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-1.5" style={{ borderRight: `1px solid ${hex}24` }}>
                                 <Sparkles size={14} style={{ color: hex, filter: `drop-shadow(0 0 6px ${hex})` }} />
                                 <span className="text-sm text-neutral-200 font-serif tracking-wide">+{unlockedArtifactAlert.rewardValueQi ?? 10} Qi</span>
                               </div>
-                              <div className="flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-2">
+                              <div className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-2">
                                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: hex, filter: `drop-shadow(0 0 5px ${hex}80)` }}>
                                   <path d="M5 22v-8a7 7 0 0 1 14 0v8M12 7v5" strokeLinecap="round" strokeLinejoin="round"/>
                                   <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
                                   <path d="M3 22h18" strokeLinecap="round" strokeLinejoin="round"/>
                                 </svg>
-                                <span className="text-xs text-neutral-400 font-serif tracking-wide truncate">
-                                  {(() => {
-                                    const unlock = unlockedArtifactAlert.specialUnlock;
-                                    if (typeof unlock === 'object' && unlock?.label) return unlock.label;
-                                    if (typeof unlock === 'string') return unlock;
-                                    return "Archived in Relic Cave";
-                                  })()}
-                                </span>
+                                {(() => {
+                                  const unlock = unlockedArtifactAlert.specialUnlock;
+                                  const unlockText = typeof unlock === 'object' && unlock?.label ? unlock.label : typeof unlock === 'string' ? unlock : "Archived in Relic Cave";
+                                  return (
+                                    <span className="text-xs text-neutral-400 font-serif tracking-wide truncate" title={unlockText}>
+                                      {unlockText}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             </div>
 
