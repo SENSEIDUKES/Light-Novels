@@ -336,10 +336,11 @@ export function resolveCardSound(card: WorldCardEvent): CuratedSoundAsset | null
   const role = resolveCardSoundRole(card.audioType, card.entityType);
   if (!role) {
     // A card that declares no audioType at all is not a curation gap; only a
-    // declared-but-unmapped role is worth reporting.
-    if (card.audioType?.trim() && card.audioType !== 'tts_line') {
-      reportUnresolved(card, 'unknown-role');
-    }
+    // declared-but-unmapped role is worth reporting. Compare the same
+    // normalized form `resolveCardSoundRole` used, so a TTS marker that arrives
+    // as " TTS_LINE " is still recognized as a quote rather than a missing asset.
+    const declared = card.audioType?.trim().toLowerCase() ?? '';
+    if (declared && declared !== 'tts_line') reportUnresolved(card, 'unknown-role');
     return null;
   }
 

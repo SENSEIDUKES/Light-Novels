@@ -19,6 +19,14 @@ type Listener = (user: TestUser | null) => void;
 
 const listeners = new Set<Listener>();
 
+const DEFAULT_POPUP_UID = 'popup-test-uid';
+const DEFAULT_POPUP_EMAIL = 'popup@example.test';
+
+/** Deterministic uid for an email-based sign-in, so repeat sign-ins converge. */
+function uidForEmail(email: string): string {
+  return `email-${email.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+}
+
 export const testAuth: { currentUser: TestUser | null } = { currentUser: null };
 
 export function mintTestIdToken(uid: string, email?: string): string {
@@ -75,9 +83,17 @@ export function firebaseAuthModuleMock() {
     },
     signOut: async () => signOutTestUser(),
     GoogleAuthProvider: class {},
-    signInWithPopup: async () => ({ user: testAuth.currentUser }),
-    signInWithEmailAndPassword: async () => ({ user: testAuth.currentUser }),
-    createUserWithEmailAndPassword: async () => ({ user: testAuth.currentUser }),
+    // Each sign-in entry point must actually establish the session, otherwise a
+    // test that signs in through one of them silently keeps the previous user.
+    signInWithPopup: async () => ({
+      user: signInTestUser(DEFAULT_POPUP_UID, DEFAULT_POPUP_EMAIL),
+    }),
+    signInWithEmailAndPassword: async (_auth: unknown, email: string) => ({
+      user: signInTestUser(uidForEmail(email), email),
+    }),
+    createUserWithEmailAndPassword: async (_auth: unknown, email: string) => ({
+      user: signInTestUser(uidForEmail(email), email),
+    }),
     updateProfile: async () => {},
     sendPasswordResetEmail: async () => {},
   };

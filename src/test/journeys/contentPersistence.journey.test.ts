@@ -59,7 +59,12 @@ describe('Chapter persistence journey', () => {
     await harness.storage.saveChapterContent(makeChapterContent());
     await harness.sync();
 
-    expect(harness.store.mutationLog).toContain('AdminUpsertChapterContentGraph');
+    // Exactly one write: the defect made the client retry the rejected write
+    // forever, so "it eventually appeared" is not good enough evidence.
+    const chapterWrites = harness.store.mutationLog.filter(
+      (mutation) => mutation === 'AdminUpsertChapterContentGraph',
+    );
+    expect(chapterWrites).toHaveLength(1);
 
     const fresh = await harness.newDevice();
     await harness.signIn(JOURNEY_UID, 'reader@example.com');
@@ -154,6 +159,32 @@ describe('Chapter persistence journey', () => {
     expect(stored?.generatedContent).toContain('azure gate hummed');
     expect(stored?.blocks?.map((block) => block.id)).toContain('block-preview');
     expect(JSON.stringify(stored)).not.toContain('image.pollinations.ai');
+  });
+});
+
+describe('Story deletion journey', () => {
+  it('propagates a deletion to another device instead of resurrecting the story', async () => {
+    await harness.storage.saveStory(makeStory());
+    await harness.storage.saveChapterContent(makeChapterContent());
+    await harness.sync();
+
+    // A second device that already holds the story locally.
+    const other = await harness.newDevice();
+    await harness.signIn(JOURNEY_UID, 'reader@example.com');
+    expect((await other.getStories()).map((story) => story.id)).toContain(STORY_ID);
+
+    // The first device deletes it and publishes the tombstone.
+    const owner = await harness.newDevice();
+    await harness.signIn(JOURNEY_UID, 'reader@example.com');
+    await owner.deleteStory(STORY_ID);
+    await harness.sync();
+
+    const returning = await harness.reload();
+    await harness.signIn(JOURNEY_UID, 'reader@example.com');
+    await returning.performSync({ catalog: true, deep: false });
+
+    expect((await returning.getStories()).map((story) => story.id)).not.toContain(STORY_ID);
+    expect(await returning.getChapterContent(STORY_ID, 2)).toBeNull();
   });
 });
 

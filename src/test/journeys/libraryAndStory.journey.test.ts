@@ -92,7 +92,11 @@ describe('Library journey', () => {
     // The cover was downloaded, checksum-verified and handed to the UI as an
     // object URL — never as the signed link, which must not be persisted.
     expect(story?.imageUrl).toMatch(/^blob:/);
-    expect(story?.mediaDescriptors?.[coverAssetId]?.deliveryUrl ?? '').toBe('');
+    // The descriptor must be present — a missing one would make the delivery
+    // assertion below pass for the wrong reason.
+    const descriptor = story?.mediaDescriptors?.[coverAssetId];
+    expect(descriptor).toBeDefined();
+    expect(descriptor!.deliveryUrl).toBe('');
 
     // The replica on disk must hold the asset id and no signature at all.
     const persisted = JSON.stringify(await fresh.getStory(STORY_ID));

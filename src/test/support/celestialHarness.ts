@@ -114,9 +114,19 @@ async function startServer(): Promise<string> {
       response.status(404).json({ error: { code: 'not_found', message: 'Unknown media asset.' } });
       return;
     }
-    void dataConnectStore.loadMediaDescriptor(ownerUid, asset.id).then((descriptor) => {
-      response.json({ asset: descriptor });
-    });
+    dataConnectStore
+      .loadMediaDescriptor(ownerUid, asset.id)
+      .then((descriptor) => response.json({ asset: descriptor }))
+      .catch((error: unknown) => {
+        // An unhandled rejection here would surface as an opaque hang rather
+        // than a failed request, so answer with the real reason instead.
+        response.status(500).json({
+          error: {
+            code: 'media_descriptor_failed',
+            message: error instanceof Error ? error.message : String(error),
+          },
+        });
+      });
   });
   app.get('/media-object/:assetId', (request, response) => {
     const bytes = mediaObjects.get(request.params.assetId);

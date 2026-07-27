@@ -20,7 +20,7 @@ vi.mock('../../generated/dataconnect-admin', async (importActual) => {
 import { cleanup, render, screen, within } from '@testing-library/react';
 import ReaderChamber from '../../components/ReaderChamber';
 import { getAudioMixSettings, isChannelAudible } from '../../lib/audio/audioMixSettings';
-import { getSystemColorMeaning } from '../../lib/systemColors';
+import { SYSTEM_COLORS_LEGEND, getSystemColorMeaning } from '../../lib/systemColors';
 import { useAppStore } from '../../store/useAppStore';
 import type { Chapter, ChapterContent, StoryWorld } from '../../types';
 import {
@@ -212,13 +212,26 @@ describe('Reader Chamber immersion journey', () => {
     expect(chapter?.blocks?.[0].metadata?.music?.mood).toBe('travel');
   });
 
-  it('keeps the system legend available while the chapter carries system blocks', async () => {
+  it('shows the system colour legend while the chapter carries system blocks', async () => {
     localStorage.removeItem('seihouse-system-legend-dismissed');
     const { story, chapters } = await loadRoundTrippedChapter();
-    const { container } = renderChamber(story, chapters);
+    renderChamber(story, chapters);
 
     const chapter = chapters.find((entry) => entry.number === 2);
     expect(chapter?.blocks?.some((block) => Boolean(block.system))).toBe(true);
-    expect(within(container).queryByText('Realm Ascension')).toBeTruthy();
+
+    // The legend itself, not merely the system block it explains.
+    const legendHeading = screen.getByText('Aetherial System Codes');
+    const legend = legendHeading.closest('div[class*="rounded-lg"]');
+    expect(legend).not.toBeNull();
+    expect(within(legend as HTMLElement).getByText('Dismiss')).toBeTruthy();
+    // Every classification the reader can encounter is described in it.
+    for (const meaning of SYSTEM_COLORS_LEGEND) {
+      expect(
+        within(legend as HTMLElement).getAllByText(
+          new RegExp(escapeRegExp(meaning.name)),
+        ).length,
+      ).toBeGreaterThan(0);
+    }
   });
 });

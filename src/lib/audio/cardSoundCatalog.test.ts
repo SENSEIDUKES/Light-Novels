@@ -324,13 +324,28 @@ describe('resolveCardSound — semantic matching', () => {
     expect(resolveCardSoundRole(undefined)).toBeNull();
     expect(resolveCardSoundRole('   ')).toBeNull();
     expect(resolveCardSoundRole(undefined, 'artifact')).toBeNull();
-    expect(
-      resolveCardSound({
-        entityType: 'artifact',
-        entityName: 'Ledger of Names',
-        displayTitle: 'Ledger of Names',
-      }),
-    ).toBeNull();
+
+    // A card that never declared a sound is not a curation gap, so it must not
+    // be reported as an unresolved asset.
+    const unresolved = vi.fn();
+    setUnresolvedCardSoundListener(unresolved);
+
+    // Generated cards are not type-checked at runtime, so an audioType outside
+    // the declared union is exactly what reaches this code in production.
+    const cardWithAudioType = (audioType: string | undefined) =>
+      makeCard({ audioType: audioType as WorldCardEvent['audioType'] });
+
+    expect(resolveCardSound(cardWithAudioType(undefined))).toBeNull();
+    expect(resolveCardSound(cardWithAudioType('   '))).toBeNull();
+    expect(unresolved).not.toHaveBeenCalled();
+
+    // A normalized TTS marker is a quote, not a missing asset either.
+    expect(resolveCardSound(cardWithAudioType(' TTS_LINE '))).toBeNull();
+    expect(unresolved).not.toHaveBeenCalled();
+
+    // A genuinely unmapped role still reports.
+    expect(resolveCardSound(cardWithAudioType('kazoo'))).toBeNull();
+    expect(unresolved).toHaveBeenCalledWith(expect.anything(), 'unknown-role');
   });
 });
 
