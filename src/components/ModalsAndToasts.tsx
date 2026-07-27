@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import FocusLock from 'react-focus-lock';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { AlertCircle, X, Sliders, Award, Shield, Sparkles, Compass, Globe, Key, Zap, RefreshCw, Save } from 'lucide-react';
+import { AlertCircle, X, Sliders, Award, Shield, Sparkles, Compass, Globe, Key, Zap, RefreshCw, Save, Gem } from 'lucide-react';
 import { vibrate } from '../lib/vibration';
 import { useAppStore } from '../store/useAppStore';
 import { useStoryEngine } from '../hooks/useStoryEngine';
@@ -736,7 +736,7 @@ export const ModalsAndToasts: React.FC = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md"
+              className="fixed inset-0 z-[110] bg-black/95 backdrop-blur-md"
               onClick={() => {
                 if (isArtifactRevealed) {
                   dismissArtifactAlert();
@@ -752,7 +752,9 @@ export const ModalsAndToasts: React.FC = () => {
                 <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-portal/10 rounded-full blur-[120px] animate-pulse"></div>
               </div>
 
-              {!isArtifactRevealed ? (
+              <div className="absolute inset-0 overflow-y-auto">
+                <div className="relative min-h-full w-full flex items-center justify-center p-4">
+                {!isArtifactRevealed ? (
                 <motion.div
                   key="mystery-relic"
                   initial={shouldReduceMotion ? { opacity: 0 } : { scale: 0.8, y: 50, opacity: 0 }}
@@ -805,7 +807,7 @@ export const ModalsAndToasts: React.FC = () => {
                         />
 
                         <div
-                          className="relative bg-[#060607]/95 rounded-[1.5rem] px-5 pt-6 pb-5 sm:px-6 sm:pt-7 sm:pb-6 text-center max-h-[92dvh] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-neutral-800"
+                          className="relative bg-[#060607]/95 rounded-[1.5rem] px-5 pt-5 pb-4 sm:px-6 sm:pt-6 sm:pb-5 text-center overflow-hidden"
                           style={{
                             border: `1px solid ${hex}45`,
                             boxShadow: `0 0 50px ${hex}26, inset 0 0 70px rgba(0,0,0,0.65)`,
@@ -814,7 +816,7 @@ export const ModalsAndToasts: React.FC = () => {
                           {/* Inner hairline frame */}
                           <div aria-hidden className="absolute inset-[5px] rounded-[1.2rem] pointer-events-none" style={{ border: `1px solid ${hex}1c` }} />
                           {/* Top sheen */}
-                          <div aria-hidden className="absolute top-0 inset-x-0 h-44 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none" />
+                          <div aria-hidden className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none" />
 
                           <div className="relative z-10 flex flex-col items-center">
 
@@ -837,7 +839,7 @@ export const ModalsAndToasts: React.FC = () => {
                               initial={shouldReduceMotion ? { opacity: 0 } : { scale: 0.55, opacity: 0 }}
                               animate={shouldReduceMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
                               transition={shouldReduceMotion ? { duration: 0 } : { delay: 0.25, type: "spring", damping: 18, stiffness: 120 }}
-                              className="relative w-44 h-44 sm:w-52 sm:h-52 my-4 sm:my-5 flex items-center justify-center"
+                              className="relative w-36 h-36 sm:w-48 sm:h-48 my-3 sm:my-4 flex items-center justify-center"
                             >
                               {/* Halo behind the sigil */}
                               <div
@@ -936,7 +938,7 @@ export const ModalsAndToasts: React.FC = () => {
 
                             {/* 3. Title & lore */}
                             <h3
-                              className={`font-serif text-[19px] sm:text-[21px] leading-snug tracking-wide font-normal ${titleColor}`}
+                              className={`font-serif text-[17px] sm:text-[20px] leading-snug tracking-wide font-normal ${titleColor}`}
                               style={{ textShadow: `0 0 24px ${hex}45` }}
                             >
                               {unlockedArtifactAlert.name}
@@ -948,34 +950,27 @@ export const ModalsAndToasts: React.FC = () => {
                               <div className="h-px w-12" style={{ background: `linear-gradient(to left, transparent, ${hex}59)` }} />
                             </div>
 
-                            <p className="text-xs sm:text-[13px] font-serif italic text-neutral-400 leading-relaxed px-2 max-w-[260px]">
+                            <p className="text-xs sm:text-[13px] font-serif italic text-neutral-400 leading-relaxed px-2 max-w-[260px] line-clamp-3">
                               {unlockedArtifactAlert.description || "Records marked by the Library are never truly forgotten."}
                             </p>
 
-                            {/* 4. The Stats Box (Qi + Unlock) */}
+                            {/* 4. The Stats Box (Qi + Rarity) */}
                             <div
-                              className="w-full mt-4 sm:mt-5 rounded-xl bg-black/50 flex items-stretch overflow-hidden"
+                              className="w-full mt-3 sm:mt-4 rounded-xl bg-black/50 flex items-stretch overflow-hidden"
                               style={{ border: `1px solid ${hex}30`, boxShadow: `inset 0 0 26px rgba(0,0,0,0.65), 0 0 18px ${hex}14` }}
                             >
-                              <div className="flex-1 shrink-0 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-1.5" style={{ borderRight: `1px solid ${hex}24` }}>
+                              <div className="flex-1 shrink-0 flex items-center justify-center gap-2 py-2 sm:py-2.5 px-1.5" style={{ borderRight: `1px solid ${hex}24` }}>
                                 <Sparkles size={14} style={{ color: hex, filter: `drop-shadow(0 0 6px ${hex})` }} />
                                 <span className="text-sm text-neutral-200 font-serif tracking-wide">+{unlockedArtifactAlert.rewardValueQi ?? 10} Qi</span>
                               </div>
-                              <div className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-2">
-                                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: hex, filter: `drop-shadow(0 0 5px ${hex}80)` }}>
-                                  <path d="M5 22v-8a7 7 0 0 1 14 0v8M12 7v5" strokeLinecap="round" strokeLinejoin="round"/>
-                                  <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
-                                  <path d="M3 22h18" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                                {(() => {
-                                  const unlock = unlockedArtifactAlert.specialUnlock;
-                                  const unlockText = typeof unlock === 'object' && unlock?.label ? unlock.label : typeof unlock === 'string' ? unlock : "Archived in Relic Cave";
-                                  return (
-                                    <span className="text-xs text-neutral-400 font-serif tracking-wide truncate" title={unlockText}>
-                                      {unlockText}
-                                    </span>
-                                  );
-                                })()}
+                              <div className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2 sm:py-2.5 px-2">
+                                <Gem size={14} strokeWidth={1.5} className="shrink-0" style={{ color: hex, filter: `drop-shadow(0 0 5px ${hex}80)` }} />
+                                <span
+                                  className="text-xs font-serif tracking-[0.18em] uppercase truncate"
+                                  style={{ color: `${hex}d9`, textShadow: `0 0 10px ${hex}55` }}
+                                >
+                                  {rarity || 'Common'}
+                                </span>
                               </div>
                             </div>
 
@@ -988,7 +983,7 @@ export const ModalsAndToasts: React.FC = () => {
                                 dismissArtifactAlert();
                                 vibrate('softTap');
                               }}
-                              className="relic-claim-btn w-full relative mt-4 py-2.5 sm:py-3 rounded-full group overflow-hidden"
+                              className="relic-claim-btn w-full relative mt-3 sm:mt-4 py-2.5 rounded-full group overflow-hidden"
                               style={{
                                 border: `1px solid ${hex}59`,
                                 background: 'linear-gradient(to bottom, rgba(255,255,255,0.06), rgba(0,0,0,0.45))',
@@ -1011,7 +1006,9 @@ export const ModalsAndToasts: React.FC = () => {
                     );
                   })()}
                 </motion.div>
-              )}
+                )}
+                </div>
+              </div>
             </motion.div>
         )}
       </AnimatePresence>
