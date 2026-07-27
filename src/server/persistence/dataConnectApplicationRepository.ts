@@ -210,9 +210,9 @@ function assertExpected(
  * the content row's `updatedAt`.
  */
 function chapterContentRevision(
-  graph: AdminGetOwnedChapterContentGraphData,
+  graph: AdminGetOwnedChapterContentGraphData | null | undefined,
 ): { syncRevision?: string | null; updatedAt?: string | null } | null {
-  const chapter = graph.chapter;
+  const chapter = graph?.chapter;
   if (!chapter?.content) return null;
   return {
     syncRevision: chapter.content.syncRevision ?? chapter.syncRevision ?? null,

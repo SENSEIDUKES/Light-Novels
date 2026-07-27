@@ -158,27 +158,40 @@ async function startServer(): Promise<string> {
 }
 
 /**
- * Hand back a body object from this realm.
+ * Hand back a downloaded body that every consumer in this process accepts.
  *
- * The bridge fulfils jsdom's `fetch` with Node's, and on Node 20 the `Blob`
- * that undici returns is a different constructor from the `Blob` jsdom exposes
- * to application code. `IndexedDbFoundationCache.putMedia` rejects it with
- * "blob must be a Blob", so every media resolution failed on CI while passing
- * on a Node version where the two globals happen to coincide. A real browser
- * only ever has one Blob, so normalize to the realm-local one.
+ * The bridge fulfils jsdom's `fetch` with Node's, which splits one browser
+ * realm into two and breaks the media path in two separate places:
+ *
+ *  - `IndexedDbFoundationCache.putMedia` checks `instanceof Blob` against the
+ *    global jsdom class, and undici's `Blob` is a different constructor.
+ *  - `verifyChecksum` passes `await blob.arrayBuffer()` to
+ *    `crypto.subtle.digest`, and Node's WebCrypto rejects an `ArrayBuffer` it
+ *    did not create.
+ *
+ * A real browser has exactly one of each, so rebuild the body as a global
+ * `Blob` whose bytes are `Buffer`-backed. Both conversions are unconditional:
+ * whether the constructors happen to coincide is a Node-version detail, and a
+ * suite must not behave differently on a maintainer's machine than in CI.
  */
+export async function toRealmBlob(
+  body: { arrayBuffer(): Promise<ArrayBuffer>; type: string },
+): Promise<Blob> {
+  const bytes = Buffer.from(await body.arrayBuffer());
+  const blob = new Blob([bytes], { type: body.type });
+  Object.defineProperty(blob, 'arrayBuffer', {
+    configurable: true,
+    value: async () =>
+      bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+  });
+  return blob;
+}
+
 function withRealmBlob(response: Response): Response {
   const readBlob = response.blob.bind(response);
   Object.defineProperty(response, 'blob', {
     configurable: true,
-    value: async () => {
-      // Reconstruct unconditionally rather than branching on `instanceof`:
-      // whether the two globals coincide is a Node-version detail, and a test
-      // suite must not behave differently on the maintainer's machine than in
-      // CI. The copy is a few kilobytes.
-      const body = await readBlob();
-      return new Blob([await body.arrayBuffer()], { type: body.type });
-    },
+    value: async () => toRealmBlob(await readBlob()),
   });
   return response;
 }
