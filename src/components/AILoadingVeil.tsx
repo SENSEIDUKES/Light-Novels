@@ -1,9 +1,8 @@
 import React from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, BrainCircuit, Compass, AlertCircle, RefreshCw, Maximize2, Minimize2, Loader2 } from 'lucide-react';
+import { Sparkles, Compass, Maximize2, Minimize2, Loader2 } from 'lucide-react';
 import { AGENTS } from '../lib/agents';
-import { AgentBadge } from './AgentBadge';
 
 export default function AILoadingVeil() {
   const [showDetails, setShowDetails] = React.useState(false);
@@ -28,6 +27,16 @@ export default function AILoadingVeil() {
   // (The reader can still opt into watching live by manually minimizing the veil.)
   const shouldShowFullScreen = isGenerating && !isVeilMinimized;
 
+  // Live progress signal, folded into the unified card instead of a separate status box.
+const passagesWoven = Array.isArray(streamingChapter?.blocks) ? streamingChapter.blocks.length : 0;
+  const isChapterPhase = generationPhase === 'chapter';
+  const progressLabel = isChapterPhase
+    ? `Chapter ${generatingChapterNum || ''} · ${passagesWoven > 0 ? `${passagesWoven} passages woven` : 'Initiating Cosmic Channel'}`
+    : (generationProgressMessage || 'Manifesting spiritual matrices...');
+  const progressWidth = isChapterPhase
+    ? Math.min(6 + passagesWoven * 4.5, 96)
+    : null;
+
   return (
     <AnimatePresence>
       {/* 1. FULL-SCREEN IMMERSIVE VEIL */}
@@ -38,53 +47,146 @@ export default function AILoadingVeil() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.25 }}
-          className="fixed inset-0 bg-void/95 backdrop-blur-md z-[9999] flex flex-col items-center justify-center p-6 text-center"
+          className="fixed inset-0 bg-void/95 backdrop-blur-md z-[9999] flex flex-col items-center justify-center p-6 text-center overflow-y-auto"
         >
-          {/* Top Minimize Control Bar */}
-          <div className="absolute top-6 right-6 flex items-center gap-3">
-            <button
-               tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setIsVeilMinimized(true)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-portal/35 bg-portal/10 hover:bg-portal/20 text-portal text-xs font-sc tracking-widest uppercase transition-all duration-300 shadow-[0_0_15px_rgba(4,172,255,0.1)] hover:shadow-[0_0_20px_rgba(4,172,255,0.3)] cursor-pointer"
-            >
-              <Minimize2 size={13} />
-              <span>Minimize to Background</span>
-            </button>
-          </div>
+          {/* Top-right icon-only minimize control */}
+          <button
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
+            onClick={() => setIsVeilMinimized(true)}
+            title="Minimize to Background"
+            aria-label="Minimize to Background"
+            className="absolute top-5 right-5 sm:top-6 sm:right-6 w-10 h-10 rounded-full border border-portal/35 bg-portal/10 hover:bg-portal/20 text-portal flex items-center justify-center transition-all duration-300 shadow-[0_0_15px_rgba(4,172,255,0.1)] hover:shadow-[0_0_20px_rgba(4,172,255,0.3)] cursor-pointer"
+          >
+            <Minimize2 size={15} />
+          </button>
 
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 w-[420px] h-[420px] rounded-full bg-radial-gradient from-portal/10 via-human/5 to-transparent blur-3xl pointer-events-none"></div>
 
-          {activeAgent ? (
-            <div className="mb-10 w-full flex justify-center">
-              <AgentBadge agent={activeAgent} task={generationProgressMessage || `Active in ${generationPhase} phase...`} isWorking={true} />
-            </div>
-          ) : (
-            <div className="relative w-40 h-40 mb-10 flex items-center justify-center">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
-                className="absolute inset-0 rounded-full border border-dashed border-human/60 border-t-human scale-110"
+          {/* Agent character — floating emblem inside slow orbiting rings */}
+          <div className="relative w-36 h-36 sm:w-40 sm:h-40 mb-8 flex items-center justify-center shrink-0">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: [0, 0.4, 0], scale: [0.8, 1.2, 0.8] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              className={`absolute inset-[-20%] rounded-full blur-2xl ${isVersa ? 'bg-human/20' : 'bg-portal/20'}`}
+            />
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+              className={`absolute inset-0 rounded-full border border-dashed opacity-30 ${isVersa ? 'border-human/50' : 'border-portal/50'}`}
+            />
+            <motion.div
+              animate={{ rotate: -360 }}
+              transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
+              className={`absolute inset-4 rounded-full border border-dotted opacity-20 ${isVersa ? 'border-human/40' : 'border-portal/40'}`}
+            />
+            <motion.div
+              className="relative z-10 w-full h-full flex items-center justify-center"
+              animate={{ y: [0, -6, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <img
+                src={activeAgentWithDefault.logoUrl}
+                alt={activeAgentWithDefault.name}
+                className="w-full h-full object-contain"
+                referrerPolicy="no-referrer"
+                style={isVersa ? { filter: 'drop-shadow(0 0 15px rgba(139, 0, 0, 0.4))' } : { filter: 'drop-shadow(0 0 15px rgba(4, 172, 255, 0.4))' }}
               />
-              
-              <motion.div
-                animate={{ rotate: -360 }}
-                transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }}
-                className="absolute inset-2 rounded-full border border-dotted border-portal/80 border-b-portal"
-              />
-              
-              <motion.div
-                animate={{ scale: [1, 1.08, 1], opacity: [0.3, 0.6, 0.3] }}
-                transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-                className="absolute inset-6 rounded-full bg-gradient-to-tr from-human/20 to-portal/20 blur-sm"
-              />
+            </motion.div>
+          </div>
 
-              <div className="relative z-10 text-signal animate-pulse flex flex-col items-center justify-center">
-                <Sparkles size={36} className="text-portal drop-shadow-[0_0_12px_rgba(4,172,255,0.7)]" />
+          {/* Unified agent card — header, integrated progress, atmospheric phrase */}
+          <div className={`w-full max-w-md bg-neutral-950/80 border ${isVersa ? 'border-human/25' : 'border-portal/25'} rounded-xl px-5 sm:px-6 py-6 shadow-[0_0_40px_rgba(0,0,0,0.6)]`}>
+            {/* Card header */}
+            <div className="flex items-baseline justify-center gap-3 mb-6">
+              <span className={`font-display font-bold text-lg tracking-[0.2em] ${activeAgentWithDefault.colorClass}`}>
+                {activeAgentWithDefault.name}
+              </span>
+              <span className="font-sc text-[10px] uppercase tracking-[0.3em] text-neutral-500">
+                · {activeAgentWithDefault.title}
+              </span>
+            </div>
+
+            {/* Progress row — circular indicator left, integrated bar beside it */}
+            <div className="flex items-center gap-4 mb-5">
+              <div className="relative w-14 h-14 shrink-0 flex items-center justify-center">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
+                  className={`absolute inset-0 rounded-full border ${isVersa ? 'border-human/15 border-t-human/80' : 'border-portal/15 border-t-portal/80'}`}
+                />
+                <img
+                  src={activeAgentWithDefault.logoUrl}
+                  alt=""
+                  aria-hidden="true"
+                  className="w-8 h-8 object-contain"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+
+              <div className="flex-1 text-left">
+                <div className="flex items-baseline justify-between gap-2 mb-2">
+                  <AnimatePresence mode="wait">
+                    <motion.span
+                      key={progressLabel}
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      className="font-sans text-xs text-signal leading-snug"
+                    >
+                      {progressLabel}
+                    </motion.span>
+                  </AnimatePresence>
+                  {estimatedSecondsRemaining !== null && (
+                    <span className="font-mono text-[10px] text-neutral-450 shrink-0">~{estimatedSecondsRemaining}s</span>
+                  )}
+                </div>
+                <div className="h-1 rounded-full bg-neutral-800/90 overflow-hidden">
+                  {progressWidth !== null ? (
+                    <motion.div
+                      className={`h-full rounded-full ${isVersa ? 'bg-human shadow-[0_0_8px_rgba(139,0,0,0.6)]' : 'bg-portal shadow-[0_0_8px_rgba(4,172,255,0.6)]'}`}
+                      initial={{ width: '6%' }}
+                      animate={{ width: `${progressWidth}%` }}
+                      transition={{ duration: 0.8, ease: "easeOut" }}
+                    />
+                  ) : (
+                    <motion.div
+                      className={`h-full rounded-full ${isVersa ? 'bg-human shadow-[0_0_8px_rgba(139,0,0,0.6)]' : 'bg-portal shadow-[0_0_8px_rgba(4,172,255,0.6)]'}`}
+                      animate={{ width: ['12%', '55%', '12%'] }}
+                      transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                  )}
+                </div>
+                {isChapterPhase && (
+                  <p className="font-sans text-[10px] text-neutral-500 mt-2 leading-snug">
+                    The chapter is revealed once its continuity is verified.
+                  </p>
+                )}
               </div>
             </div>
-          )}
 
-          <div className="mb-4">
-            <span className="font-sc text-[10px] tracking-[0.25em] font-bold uppercase text-portal/90 bg-portal/5 px-3 py-1.5 border border-portal/20 rounded shadow-[0_0_12px_rgba(4,172,255,0.1)]">
+            {/* Ornamented divider */}
+            <div className="flex items-center gap-3 mb-5">
+              <div className="h-px flex-1 bg-neutral-800" />
+              <Sparkles size={10} className={isVersa ? 'text-human/60' : 'text-portal/60'} />
+              <div className="h-px flex-1 bg-neutral-800" />
+            </div>
+
+            {/* Atmospheric phrase */}
+            <p className="font-serif italic text-sm text-neutral-300 leading-relaxed max-w-sm mx-auto">
+              {generationPhase === 'blueprint' && "Establishing foundational laws, power limitations, and planetary properties."}
+              {generationPhase === 'initial-arc' && "Transcribing the grand volume ledger, compiling chapter milestones and character templates."}
+              {generationPhase === 'steer' && "Merging your custom instructions with fate timelines to trigger the subsequent 10 chapters."}
+              {generationPhase === 'cover' && "Translating core premise variables into bespoke high-fidelity digital art."}
+              {generationPhase === 'chapter' && "Celestial threads are being woven into narrative form."}
+              {!generationPhase && "Interfacing with the SEIHouse deep narrative engine."}
+            </p>
+          </div>
+
+          {/* Phase marker beneath the card */}
+          <div className="mt-8">
+            <span className="font-sc text-[10px] tracking-[0.3em] font-bold uppercase text-portal/90 bg-portal/5 px-4 py-2 border border-portal/25 rounded-full shadow-[0_0_12px_rgba(4,172,255,0.1)]">
               {generationPhase === 'blueprint' && "Aetherial Mapping"}
               {generationPhase === 'initial-arc' && "Scripture Initiation"}
               {generationPhase === 'steer' && "Sovereign Shift"}
@@ -93,44 +195,6 @@ export default function AILoadingVeil() {
               {!generationPhase && "Consciousness Sync"}
             </span>
           </div>
-
-          <h3 className="font-display font-medium text-xl sm:text-2xl text-signal max-w-lg leading-snug tracking-wide mb-3">
-            {generationProgressMessage || (activeAgent ? 
-              (activeAgent.id === 'versa' ? "VERSA is forging the requested timeline..." : "SCOUT is parsing the narrative flow...") : 
-              "Manifesting spiritual matrices...")}
-          </h3>
-
-          <p className="font-serif italic text-xs text-neutral-450 max-w-md leading-relaxed mb-8">
-            {generationPhase === 'blueprint' && "Establishing foundational laws, power limitations, and planetary properties."}
-            {generationPhase === 'initial-arc' && "Transcribing the grand volume ledger, compiling chapter milestones and character templates."}
-            {generationPhase === 'steer' && "Merging your custom instructions with fate timelines to trigger the subsequent 10 chapters."}
-            {generationPhase === 'cover' && "Translating core premise variables into bespoke high-fidelity digital art."}
-            {generationPhase === 'chapter' && "Weaving celestial threads into reality, condensing spiritual essence into narrative form."}
-            {!generationPhase && "Interfacing with the SEIHouse deep narrative engine."}
-          </p>
-
-          {estimatedSecondsRemaining !== null && (
-            <div className="mb-6 flex items-center justify-center gap-2 text-xs font-mono text-neutral-450 bg-neutral-900/40 px-3 py-1 border border-neutral-800/50 rounded-full">
-              <RefreshCw size={12} className="animate-spin text-portal" />
-              <span>Forging completes in ~{estimatedSecondsRemaining}s</span>
-            </div>
-          )}
-
-          {generationPhase === 'chapter' && (
-            <div className="w-full max-w-sm bg-neutral-900/60 border border-neutral-800/80 rounded-lg p-4 flex items-center gap-3">
-              <RefreshCw size={16} className="animate-spin text-portal" />
-              <div className="text-left">
-                <p className="text-xs font-medium text-signal">
-                  {streamingChapter?.blocks?.length
-                    ? `Woven ${streamingChapter.blocks.length} passages so far...`
-                    : "Initiating Cosmic Channel..."}
-                </p>
-                <p className="text-[10px] text-neutral-400">
-                  The chapter is revealed once its continuity is verified.
-                </p>
-              </div>
-            </div>
-          )}
         </motion.div>
       )}
 
