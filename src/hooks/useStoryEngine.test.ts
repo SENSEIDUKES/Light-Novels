@@ -2,9 +2,33 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useStoryEngine } from './useStoryEngine';
 import { useAppStore } from '../store/useAppStore';
+import { storyStorage } from '../lib/storage';
+import { auth } from '../lib/firebase';
+
+// The store's real saveStories/updateStory/updateChapter are exercised end
+// to end here (only the durable-storage boundary is mocked) — that is the
+// only way to prove the hook actually delegates to them, rather than to a
+// mock that would happily accept a hand-reconstructed array too.
+vi.mock('../lib/storage', () => ({
+  storyStorage: {
+    startTransaction: vi.fn(),
+    commitTransaction: vi.fn().mockResolvedValue(true),
+    rollbackTransaction: vi.fn(),
+    saveStory: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+
+vi.mock('../lib/firebase', () => ({
+  auth: { currentUser: null },
+  LOCAL_ONLY_MODE: true,
+}));
+
+vi.mock('../lib/encryption', () => ({
+  secureStorage: { getItem: vi.fn() },
+}));
 
 vi.mock('./useChapterGeneration', () => ({
-  useChapterGeneration: () => ({ handleGenerateChapter: vi.fn() })
+  useChapterGeneration: () => ({ handleGenerateChapter: vi.fn(), handleGenerateNextFiveChapters: vi.fn() })
 }));
 vi.mock('./useArcSteering', () => ({
   useArcSteering: () => ({ handleSteerArc: vi.fn(), handleAlterFate: vi.fn() })
@@ -13,7 +37,7 @@ vi.mock('./useStoryGeneration', () => ({
   useStoryGeneration: () => ({ handleGenerateBlueprint: vi.fn(), handleStartStory: vi.fn() })
 }));
 vi.mock('./useVisualAssets', () => ({
-  useVisualAssets: () => ({ handleGenerateCover: vi.fn(), handleApplyCover: vi.fn() })
+  useVisualAssets: () => ({ handleGenerateCover: vi.fn(), handleApplyCover: vi.fn(), handleSelectCover: vi.fn() })
 }));
 vi.mock('./useChapterSealing', () => ({
   useChapterSealing: () => ({ handleCheckConsistency: vi.fn(), handleSealChapter: vi.fn() })
@@ -22,14 +46,17 @@ vi.mock('../lib/qi', () => ({
   awardQi: vi.fn()
 }));
 
-const mockStories: any[] = [
+const makeStories = (): any[] => [
   {
     id: 'story1',
+    persistenceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    memory: {},
     arcs: [
       {
+        title: 'Arc 1',
         chapters: [
           { number: 1, status: 'unread' },
-          { number: 2, status: 'read' }
+          { number: 2, status: 'read' },
         ]
       }
     ]
@@ -37,100 +64,196 @@ const mockStories: any[] = [
 ];
 
 describe('useStoryEngine', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
-    useAppStore.setState({
-      stories: JSON.parse(JSON.stringify(mockStories)),
-      activeStoryId: 'story1',
-      saveStories: vi.fn()
-    });
+    (auth as any).currentUser = null;
+    vi.mocked(storyStorage.saveStory).mockResolvedValue(undefined);
+    // Settle every fixture story into its stable saved shape before each
+    // test, so a test's own save is the only one that shows up as
+    // "changed" — see the equivalent comment in useAppStore.test.ts for why
+    // an unsaved fixture's first save is not representative on its own.
+    useAppStore.getState().setStories(makeStories());
+    await useAppStore.getState().saveStories(useAppStore.getState().stories);
+    useAppStore.getState().setActiveStoryId('story1');
+    vi.mocked(storyStorage.saveStory).mockClear();
   });
 
-  it('handleUpdateMemoryManual updates memory', async () => {
+  it('handleUpdateMemoryManual updates memory via the store\'s updateStory, without marking the story edited', async () => {
     const { result } = renderHook(() => useStoryEngine());
-    const saveStoriesMock = useAppStore.getState().saveStories;
-    
+
     await act(async () => {
       await result.current.handleUpdateMemoryManual({ powerSystem: 'Test' } as any);
     });
 
-    expect(saveStoriesMock).toHaveBeenCalled();
-    const updatedStories = (saveStoriesMock as any).mock.calls[0][0];
-    expect(updatedStories[0].memory.powerSystem).toBe('Test');
+    const updated = useAppStore.getState().stories[0];
+    expect(updated.memory.powerSystem).toBe('Test');
+    // handleUpdateMemoryManual never marked the story edited pre-refactor;
+    // updateStory's markEdited:false option preserves that.
+    expect(updated.isEdited).toBeFalsy();
+    expect(updated.updatedAt).toEqual(expect.any(String));
+    expect(storyStorage.saveStory).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'story1' }),
+    );
+  });
+
+  it('handleUpdateMemoryManual does nothing when there is no active story', async () => {
+    useAppStore.getState().setActiveStoryId(null);
+    const { result } = renderHook(() => useStoryEngine());
+
+    await act(async () => {
+      await result.current.handleUpdateMemoryManual({ powerSystem: 'Test' } as any);
+    });
+
+    expect(storyStorage.saveStory).not.toHaveBeenCalled();
   });
 
   it('handleUpdateStoryDirect updates story directly', async () => {
     const { result } = renderHook(() => useStoryEngine());
-    const saveStoriesMock = useAppStore.getState().saveStories;
 
     await act(async () => {
       await result.current.handleUpdateStoryDirect({ id: 'story1', title: 'New Title' } as any);
     });
 
-    expect(saveStoriesMock).toHaveBeenCalled();
-    const updatedStories = (saveStoriesMock as any).mock.calls[0][0];
-    expect(updatedStories[0].title).toBe('New Title');
+    const updated = useAppStore.getState().stories[0];
+    expect(updated.title).toBe('New Title');
   });
 
-  it('handleToggleRead toggles unread to read and awards qi', async () => {
+  it('handleToggleRead toggles unread to read, awards qi once, and stamps updatedAt', async () => {
     const { result } = renderHook(() => useStoryEngine());
-    const saveStoriesMock = useAppStore.getState().saveStories;
     const { awardQi } = await import('../lib/qi');
 
     await act(async () => {
       await result.current.handleToggleRead(1);
     });
 
-    expect(saveStoriesMock).toHaveBeenCalled();
-    const updatedStories = (saveStoriesMock as any).mock.calls[0][0];
-    expect(updatedStories[0].arcs[0].chapters[0].status).toBe('read');
+    const updated = useAppStore.getState().stories[0];
+    expect(updated.arcs[0].chapters[0].status).toBe('read');
+    expect(updated.updatedAt).toEqual(expect.any(String));
+    // handleToggleRead never marked the story edited pre-refactor either.
+    expect(updated.isEdited).toBeFalsy();
+    expect(awardQi).toHaveBeenCalledTimes(1);
     expect(awardQi).toHaveBeenCalledWith('chapter_finished');
   });
 
-  it('handleToggleRead guards against race conditions on rapid double clicks', async () => {
+  it('handleToggleRead toggles read to unread without awarding qi', async () => {
     const { result } = renderHook(() => useStoryEngine());
-    const saveStoriesMock = useAppStore.getState().saveStories;
     const { awardQi } = await import('../lib/qi');
 
-    // We simulate rapid clicks by calling the handler twice concurrently.
-    // To make sure state behaves correctly during the double call, we configure
-    // saveStoriesMock to actually update the zustand store state synchronously,
-    // mimicking the actual saveStories behavior.
-    (saveStoriesMock as any).mockImplementation((updated: any) => {
-      useAppStore.setState({ stories: updated });
+    await act(async () => {
+      await result.current.handleToggleRead(2);
     });
 
+    const updated = useAppStore.getState().stories[0];
+    expect(updated.arcs[0].chapters[1].status).toBe('unread');
+    expect(awardQi).not.toHaveBeenCalled();
+  });
+
+  it('handleToggleRead does nothing when there is no active story', async () => {
+    useAppStore.getState().setActiveStoryId(null);
+    const { result } = renderHook(() => useStoryEngine());
+    const { awardQi } = await import('../lib/qi');
+
     await act(async () => {
+      await result.current.handleToggleRead(1);
+    });
+
+    expect(storyStorage.saveStory).not.toHaveBeenCalled();
+    expect(awardQi).not.toHaveBeenCalled();
+  });
+
+  it('handleToggleRead leaves an unrelated story and chapter unchanged', async () => {
+    const secondStory = {
+      id: 'story2',
+      persistenceId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      memory: {},
+      arcs: [{ title: 'Arc 1', chapters: [{ number: 1, status: 'unread' }] }],
+    };
+    useAppStore.getState().setStories([...useAppStore.getState().stories, secondStory as any]);
+    await useAppStore.getState().saveStories(useAppStore.getState().stories);
+    vi.mocked(storyStorage.saveStory).mockClear();
+
+    const { result } = renderHook(() => useStoryEngine());
+    await act(async () => {
+      await result.current.handleToggleRead(1);
+    });
+
+    // Only the active story (story1) was written.
+    expect(storyStorage.saveStory).toHaveBeenCalledTimes(1);
+    expect(storyStorage.saveStory).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'story1' }),
+    );
+    const untouched = useAppStore.getState().stories.find(s => s.id === 'story2');
+    expect(untouched?.arcs[0].chapters[0].status).toBe('unread');
+    // The other chapter of the same story is also untouched.
+    expect(useAppStore.getState().stories[0].arcs[0].chapters[1].status).toBe('read');
+  });
+
+  it('rapid concurrent toggles cannot award Qi twice', async () => {
+    const { result } = renderHook(() => useStoryEngine());
+    const { awardQi } = await import('../lib/qi');
+
+    // Delay the first durable write so both calls are genuinely in flight
+    // together, the same way two fast clicks would overlap in the browser.
+    let releaseFirstWrite!: () => void;
+    vi.mocked(storyStorage.saveStory).mockImplementationOnce(async () => {
+      await new Promise<void>((resolve) => { releaseFirstWrite = resolve; });
+    });
+
+    // Both calls share a single act() scope: React's act() is not meant to
+    // be entered twice concurrently, and doing so left later tests in this
+    // file with a stale `result.current` even though this test itself
+    // passed in isolation.
+    const both = act(async () => {
       await Promise.all([
         result.current.handleToggleRead(1),
         result.current.handleToggleRead(1),
       ]);
     });
 
-    // The first call marks it as 'read' and awards Qi.
-    // The second call reads the fresh state, sees it as 'read', and toggles it back to 'unread'
-    // without awarding Qi again!
-    expect(awardQi).toHaveBeenCalledTimes(1);
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    releaseFirstWrite();
+    await both;
 
-    const finalStories = useAppStore.getState().stories;
-    // Toggled back to unread by the second click
-    expect(finalStories[0].arcs[0].chapters[0].status).toBe('unread');
+    // The second call is evaluated against the first call's committed
+    // result (via updateChapter's serialization), not a stale pre-toggle
+    // read, so the two toggles compose instead of double-awarding: one
+    // flips unread -> read (awarding), the other read -> unread (not).
+    expect(awardQi).toHaveBeenCalledTimes(1);
+    expect(useAppStore.getState().stories[0].arcs[0].chapters[0].status).toBe('unread');
+    expect(storyStorage.saveStory).toHaveBeenCalledTimes(2);
   });
 
-  it('handleToggleRead toggles read to unread', async () => {
+  it('does not award Qi when the save fails, and does not block a later toggle', async () => {
     const { result } = renderHook(() => useStoryEngine());
-    const saveStoriesMock = useAppStore.getState().saveStories;
     const { awardQi } = await import('../lib/qi');
-    (awardQi as any).mockClear();
 
+    vi.mocked(storyStorage.saveStory).mockRejectedValueOnce(new Error('disk full'));
+
+    // Catch inside the act() callback rather than asserting on a rejected
+    // act() promise directly — letting act()'s own promise reject leaves
+    // `result` in an unusable state for the rest of this test.
+    let caughtError: unknown;
     await act(async () => {
-      await result.current.handleToggleRead(2);
+      try {
+        await result.current.handleToggleRead(1);
+      } catch (err) {
+        caughtError = err;
+      }
     });
 
-    expect(saveStoriesMock).toHaveBeenCalled();
-    const updatedStories = (saveStoriesMock as any).mock.calls[0][0];
-    expect(updatedStories[0].arcs[0].chapters[1].status).toBe('unread');
+    expect((caughtError as Error)?.message).toBe('disk full');
     expect(awardQi).not.toHaveBeenCalled();
+    expect(useAppStore.getState().stories[0].arcs[0].chapters[0].status).toBe('unread');
+
+    // The failed call must not have left the save queue stuck.
+    await act(async () => {
+      await result.current.handleToggleRead(1);
+    });
+
+    expect(awardQi).toHaveBeenCalledTimes(1);
+    expect(useAppStore.getState().stories[0].arcs[0].chapters[0].status).toBe('read');
   });
 
   it('returns all required handlers', () => {

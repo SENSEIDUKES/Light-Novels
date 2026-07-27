@@ -223,6 +223,178 @@ describe('useAppStore', () => {
     expect(chapter.generatedContent).toBeUndefined();
   });
 
+  // `updateStory` and `updateChapter` are the authoritative mutation paths a
+  // caller should use instead of hand-rolling `stories.map(...)` and calling
+  // `saveStories` directly (see useStoryEngine, which used to do exactly
+  // that for a memory replace and a chapter read/unread toggle). Both are
+  // built on `saveStories`'s functional-updater form, so a story fixture
+  // needs a stable `persistenceId` here — `ensureStoryPersistenceIdentities`
+  // mints a fresh one on every save for a story that lacks one, which would
+  // make an "untouched" story compare unequal across a second save.
+  describe('updateStory', () => {
+    it('marks the story edited by default, matching the pre-existing ReaderViewport caller', async () => {
+      const story = {
+        id: 'story-a', persistenceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        title: 'Original', arcs: [], memory: {},
+      } as any;
+      useAppStore.getState().setStories([story]);
+
+      await useAppStore.getState().updateStory('story-a', { title: 'Renamed' });
+
+      const updated = useAppStore.getState().stories[0];
+      expect(updated.title).toBe('Renamed');
+      expect(updated.isEdited).toBe(true);
+      expect(updated.updatedAt).toBeUndefined();
+    });
+
+    it('can patch without marking the story edited, and stamp updatedAt only on request', async () => {
+      const story = {
+        id: 'story-a', persistenceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        title: 'Original', memory: { powerSystem: 'Old' }, arcs: [],
+      } as any;
+      useAppStore.getState().setStories([story]);
+
+      await useAppStore.getState().updateStory(
+        'story-a',
+        { memory: { powerSystem: 'New' } as any },
+        { markEdited: false, touchUpdatedAt: true },
+      );
+
+      const updated = useAppStore.getState().stories[0];
+      expect(updated.memory.powerSystem).toBe('New');
+      expect(updated.isEdited).toBeUndefined();
+      expect(updated.updatedAt).toEqual(expect.any(String));
+    });
+
+    it('leaves a non-matching story untouched and never reaches durable storage', async () => {
+      const story = {
+        id: 'story-a', persistenceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        title: 'A', arcs: [], memory: {},
+      } as any;
+      // Settle the story into its stable saved shape first (a real story
+      // reaching this code path has already been through at least one
+      // save); a fresh, never-saved fixture would show as "changed" by
+      // ensureStoryPersistenceIdentities's memory reshape alone, which is
+      // orthogonal to what this test is asserting.
+      await useAppStore.getState().saveStories([story]);
+      vi.mocked(storyStorage.saveStory).mockClear();
+      const beforeUpdate = useAppStore.getState().stories[0];
+
+      await useAppStore.getState().updateStory('missing-story', { title: 'Should not apply' });
+
+      expect(useAppStore.getState().stories[0]).toEqual(beforeUpdate);
+      expect(storyStorage.saveStory).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateChapter', () => {
+    it('patches only the targeted chapter and stamps the story updatedAt', async () => {
+      const story = {
+        id: 'story-a', persistenceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        title: 'A', memory: {},
+        arcs: [{ title: 'Arc 1', chapters: [
+          { number: 1, status: 'unread' },
+          { number: 2, status: 'unread' },
+        ] }],
+      } as any;
+      useAppStore.getState().setStories([story]);
+
+      await useAppStore.getState().updateChapter('story-a', 1, { status: 'read' });
+
+      const updated = useAppStore.getState().stories[0];
+      expect(updated.arcs[0].chapters[0].status).toBe('read');
+      expect(updated.arcs[0].chapters[1].status).toBe('unread');
+      expect(updated.updatedAt).toEqual(expect.any(String));
+    });
+
+    it('leaves unrelated stories and chapters unchanged', async () => {
+      const targetStory = {
+        id: 'story-a', persistenceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        title: 'A', memory: {},
+        arcs: [{ title: 'Arc 1', chapters: [{ number: 1, status: 'unread' }] }],
+      } as any;
+      const otherStory = {
+        id: 'story-b', persistenceId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        title: 'B', memory: {},
+        arcs: [{ title: 'Arc 1', chapters: [
+          { number: 1, status: 'unread' },
+          { number: 2, status: 'read' },
+        ] }],
+      } as any;
+      // Settle both stories into their stable saved shape first — see the
+      // comment in the `updateStory` "non-matching" test above for why an
+      // unsaved fixture would otherwise show as changed on its first save
+      // regardless of this test's targeted patch.
+      await useAppStore.getState().saveStories([targetStory, otherStory]);
+      vi.mocked(storyStorage.saveStory).mockClear();
+
+      await useAppStore.getState().updateChapter('story-a', 1, { status: 'read' });
+
+      expect(storyStorage.saveStory).toHaveBeenCalledTimes(1);
+      expect(storyStorage.saveStory).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'story-a' }),
+      );
+      const untouched = useAppStore.getState().stories.find(s => s.id === 'story-b');
+      expect(untouched?.title).toBe('B');
+      expect(untouched?.arcs[0].chapters[0].status).toBe('unread');
+      expect(untouched?.arcs[0].chapters[1].status).toBe('read');
+    });
+
+    it('evaluates an updater function against the freshest committed state, not a stale read', async () => {
+      // Simulates two rapid toggles: the second must see the first's
+      // committed result, not the value both calls would have read if they
+      // had raced on the same pre-mutation snapshot.
+      const story = {
+        id: 'story-a', persistenceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        memory: {}, arcs: [{ title: 'Arc 1', chapters: [{ number: 1, status: 'unread' }] }],
+      } as any;
+      useAppStore.getState().setStories([story]);
+
+      let releaseFirstWrite!: () => void;
+      vi.mocked(storyStorage.saveStory).mockImplementationOnce(async () => {
+        await new Promise<void>((resolve) => { releaseFirstWrite = resolve; });
+      });
+
+      const toggle = (chapter: any) => ({ status: chapter.status === 'read' ? 'unread' as const : 'read' as const });
+      const callA = useAppStore.getState().updateChapter('story-a', 1, toggle);
+      const callB = useAppStore.getState().updateChapter('story-a', 1, toggle);
+
+      // Give callB every opportunity to read stale (pre-callA) state before
+      // callA's write is allowed to land.
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      releaseFirstWrite();
+      await Promise.all([callA, callB]);
+
+      // Two sequential toggles cancel out. If both had read the same stale
+      // 'unread' snapshot, both would compute 'read' and the second write
+      // would silently stand in for the first instead of composing with it.
+      expect(useAppStore.getState().stories[0].arcs[0].chapters[0].status).toBe('unread');
+      expect(storyStorage.saveStory).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not permanently block future chapter updates after a save fails', async () => {
+      const story = {
+        id: 'story-a', persistenceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        memory: {}, arcs: [{ title: 'Arc 1', chapters: [{ number: 1, status: 'unread' }] }],
+      } as any;
+      useAppStore.getState().setStories([story]);
+
+      vi.mocked(storyStorage.saveStory).mockRejectedValueOnce(new Error('disk full'));
+
+      await expect(
+        useAppStore.getState().updateChapter('story-a', 1, { status: 'read' }),
+      ).rejects.toThrow('disk full');
+
+      // The queue must have recovered: a subsequent call is not left waiting
+      // on a tail that never settles.
+      await useAppStore.getState().updateChapter('story-a', 1, { status: 'read' });
+
+      expect(useAppStore.getState().stories[0].arcs[0].chapters[0].status).toBe('read');
+    });
+  });
+
   it('never writes a signed-in library to the legacy unowned localStorage key on save failure', async () => {
     // The legacy v2 key is the unowned store that adapter migration re-imports
     // and a later account can claim. A cloud-mode save failure must rely on the
