@@ -62,9 +62,45 @@ export interface StorySlice {
   setStorageType: (type: string) => void;
   setLastSavedTime: (time: Date | null) => void;
 
-  saveStories: (updated: Story[]) => Promise<void>;
-  updateStory: (storyId: string, updates: Partial<Story>) => Promise<void>;
-  updateChapter: (storyId: string, chapterNumber: number, updates: Partial<Chapter>) => Promise<void>;
+  /**
+   * Persist a new stories array, or the result of applying `updated` to
+   * whatever stories array is current once this call reaches the front of
+   * the save queue.
+   *
+   * The functional form is what makes `updateStory`/`updateChapter` safe
+   * under concurrent callers: it defers reading `stories` until this call's
+   * turn, so it always computes its patch against the fully-committed
+   * result of every save already queued ahead of it, never a stale snapshot
+   * taken before those saves landed.
+   */
+  saveStories: (updated: Story[] | ((current: Story[]) => Story[])) => Promise<void>;
+  /**
+   * The authoritative way to patch a story. Marks `isEdited` by default
+   * (matching every existing caller); pass `markEdited: false` for mutations
+   * — like a manual memory edit — that should not count as the reader having
+   * edited the story. Pass `touchUpdatedAt: true` to stamp `updatedAt` with
+   * the current time; omitted updates never get one for free.
+   */
+  updateStory: (
+    storyId: string,
+    updates: Partial<Story>,
+    options?: { markEdited?: boolean; touchUpdatedAt?: boolean },
+  ) => Promise<void>;
+  /**
+   * The authoritative way to patch one chapter. `updates` may be a fixed
+   * patch, or a function of the chapter's value *at the moment this call is
+   * actually applied* — the only safe way to compute a value (like a status
+   * toggle) that depends on the chapter's current state, since two rapid
+   * calls are serialized through `saveStories` and each sees the previous
+   * call's committed result rather than racing on the same stale read.
+   * Stamps the story's `updatedAt` whenever `storyId` matches, independent
+   * of whether `chapterNumber` did.
+   */
+  updateChapter: (
+    storyId: string,
+    chapterNumber: number,
+    updates: Partial<Chapter> | ((chapter: Chapter) => Partial<Chapter>),
+  ) => Promise<void>;
   confirmDeleteStory: () => void;
   cancelDeleteStory: () => void;
   handleExportLibrary: () => Promise<void>;
@@ -410,13 +446,15 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
     }
   },
 
-  saveStories: (updated: Story[]) => {
+  saveStories: (updated: Story[] | ((current: Story[]) => Story[])) => {
+    // Resolve a functional `updated` only once this call reaches the front
+    // of the queue, not when it is enqueued — see the interface doc comment.
+    const run = () => performSaveStories(
+      typeof updated === 'function' ? updated(get().stories) : updated,
+    );
     // Chain onto the tail unconditionally (via .then(onFulfilled, onRejected))
     // so a prior failure never blocks later saves from running.
-    const result = saveQueueTail.then(
-      () => performSaveStories(updated),
-      () => performSaveStories(updated),
-    );
+    const result = saveQueueTail.then(run, run);
     // The queue's own continuation must never reject, or every subsequent
     // queued save would be skipped; callers still get the real outcome
     // through `result`, returned below.
@@ -424,42 +462,50 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
     return result;
   },
 
-  updateStory: async (storyId: string, updates: Partial<Story>) => {
-    const { stories, saveStories } = get();
-    const updated = stories.map(s => {
-      if (s.id === storyId) {
-        return { ...s, ...updates, isEdited: true };
-      }
-      return s;
-    });
-    await saveStories(updated);
+  updateStory: (
+    storyId: string,
+    updates: Partial<Story>,
+    options?: { markEdited?: boolean; touchUpdatedAt?: boolean },
+  ) => {
+    const markEdited = options?.markEdited !== false;
+    const touchUpdatedAt = options?.touchUpdatedAt === true;
+    return get().saveStories((current) => current.map(s => {
+      if (s.id !== storyId) return s;
+      return {
+        ...s,
+        ...updates,
+        ...(markEdited ? { isEdited: true } : {}),
+        ...(touchUpdatedAt ? { updatedAt: new Date().toISOString() } : {}),
+      };
+    }));
   },
 
-  updateChapter: async (storyId: string, chapterNumber: number, updates: Partial<Chapter>) => {
-    const { stories, saveStories } = get();
-    const updated = stories.map(s => {
-      if (s.id === storyId) {
+  updateChapter: (
+    storyId: string,
+    chapterNumber: number,
+    updates: Partial<Chapter> | ((chapter: Chapter) => Partial<Chapter>),
+  ) => get().saveStories((current) => current.map(s => {
+    if (s.id !== storyId) return s;
+    return {
+      ...s,
+      arcs: s.arcs.map(a => {
+        const hasChapter = a.chapters.some(c => c.number === chapterNumber);
+        if (!hasChapter) return a;
         return {
-          ...s,
-          arcs: s.arcs.map(a => {
-            const hasChapter = a.chapters.some(c => c.number === chapterNumber);
-            if (!hasChapter) return a;
-            return {
-              ...a,
-              chapters: a.chapters.map(c => {
-                if (c.number === chapterNumber) {
-                  return { ...c, ...updates };
-                }
-                return c;
-              })
-            };
+          ...a,
+          chapters: a.chapters.map(c => {
+            if (c.number !== chapterNumber) return c;
+            const patch = typeof updates === 'function' ? updates(c) : updates;
+            return { ...c, ...patch };
           })
         };
-      }
-      return s;
-    });
-    await saveStories(updated);
-  },
+      }),
+      // Matches the pre-refactor handleToggleRead: the story is stamped
+      // whenever it is this mutation's target, regardless of whether
+      // chapterNumber matched an actual chapter.
+      updatedAt: new Date().toISOString(),
+    };
+  })),
 
   handleExportLibrary: async () => {
     const { stories, setAppError } = get();

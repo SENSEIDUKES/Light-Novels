@@ -28,22 +28,21 @@ export const useStoryEngine = () => {
 
   /**
    * Replaces the story's memory explicitly.
+   *
+   * Routed through the store's `updateStory`, the single authoritative path
+   * for patching a story, rather than reconstructing the stories array here.
+   * `markEdited: false` preserves this handler's original behavior of not
+   * flagging the story as reader-edited — only `updatedAt` moves.
    * @param {StoryMemory} updatedMemory - The new memory object.
    */
   const handleUpdateMemoryManual = async (updatedMemory: StoryMemory) => {
-    const activeStory = store_stories.find(s => s.id === store_activeStoryId);
-    if (!activeStory) return;
-    const updated = store_stories.map(s => {
-      if (s.id === activeStory.id) {
-        return {
-          ...s,
-          memory: updatedMemory,
-          updatedAt: new Date().toISOString()
-        };
-      }
-      return s;
-    });
-    await store_saveStories(updated);
+    const storyId = useAppStore.getState().activeStoryId;
+    if (!storyId) return;
+    await useAppStore.getState().updateStory(
+      storyId,
+      { memory: updatedMemory },
+      { markEdited: false, touchUpdatedAt: true },
+    );
   };
 
   /**
@@ -56,39 +55,34 @@ export const useStoryEngine = () => {
     await store_saveStories(updated);
   };
 
+  /**
+   * Toggles a chapter between read and unread, awarding Qi on the
+   * unread-to-read transition only.
+   *
+   * The actual patch is computed by the updater function passed to the
+   * store's `updateChapter`, which the store evaluates against the chapter's
+   * value at the moment this call is actually applied — not a value read
+   * up front. `updateChapter` serializes concurrent callers through the same
+   * save queue `saveStories` already uses, so a second rapid toggle is
+   * evaluated against the first toggle's committed result instead of racing
+   * it on a stale read; that ordering is what makes a double award
+   * impossible without any lock of our own to get stuck if a save fails.
+   * Qi is awarded only after the store call resolves, so a failed save
+   * (network, storage, account change) awards nothing.
+   */
   const handleToggleRead = async (charNum: number) => {
-    const state = useAppStore.getState();
-    const activeStory = state.stories.find(s => s.id === state.activeStoryId);
-    if (!activeStory) return;
-    const updated = state.stories.map(s => {
-      if (s.id === activeStory.id) {
-        return {
-          ...s,
-          arcs: s.arcs.map(arc => ({
-            ...arc,
-            chapters: arc.chapters.map(ch => {
-              if (ch.number === charNum) {
-                const newStatus = ch.status === 'read' ? 'unread' : 'read';
-                if (newStatus === 'read') {
-                  awardQi('chapter_finished');
-                  
-                  // Dao Pillar (Daily Reading Streak) is now an active check-in mechanic on the UserProfile page.
-                }
-                
-                return {
-                  ...ch,
-                  status: newStatus as 'unread' | 'read'
-                };
-              }
-              return ch;
-            })
-          })),
-          updatedAt: new Date().toISOString()
-        };
-      }
-      return s;
+    const storyId = useAppStore.getState().activeStoryId;
+    if (!storyId) return;
+    let didTransitionToRead = false;
+    await useAppStore.getState().updateChapter(storyId, charNum, (chapter) => {
+      const newStatus = chapter.status === 'read' ? 'unread' : 'read';
+      didTransitionToRead = newStatus === 'read';
+      return { status: newStatus };
     });
-    await state.saveStories(updated);
+    if (didTransitionToRead) {
+      awardQi('chapter_finished');
+      // Dao Pillar (Daily Reading Streak) is now an active check-in mechanic on the UserProfile page.
+    }
   };
 
   return {
