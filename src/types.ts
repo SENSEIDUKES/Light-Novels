@@ -171,7 +171,14 @@ export interface GeneratedImage {
   checksumSha256?: string;
   deliveryUrlExpiresAt?: string;
   entityId: string;
-  entityType: "cover" | "character" | "beast" | "location" | "artifact" | "chapterHero";
+  entityType:
+    | "cover"
+    | "character"
+    | "beast"
+    | "location"
+    | "artifact"
+    | "faction"
+    | "chapterHero";
   imageUrl: string;
   chapterNumber?: number;
   arcTitle?: string;
