@@ -736,7 +736,7 @@ export const ModalsAndToasts: React.FC = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[110] overflow-y-auto bg-black/95 backdrop-blur-md"
+              className="fixed inset-0 z-[110] bg-black/95 backdrop-blur-md"
               onClick={() => {
                 if (isArtifactRevealed) {
                   dismissArtifactAlert();
@@ -752,8 +752,9 @@ export const ModalsAndToasts: React.FC = () => {
                 <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-portal/10 rounded-full blur-[120px] animate-pulse"></div>
               </div>
 
-              <div className="relative min-h-full w-full flex items-center justify-center p-4">
-              {!isArtifactRevealed ? (
+              <div className="absolute inset-0 overflow-y-auto">
+                <div className="relative min-h-full w-full flex items-center justify-center p-4">
+                {!isArtifactRevealed ? (
                 <motion.div
                   key="mystery-relic"
                   initial={shouldReduceMotion ? { opacity: 0 } : { scale: 0.8, y: 50, opacity: 0 }}
@@ -1005,7 +1006,8 @@ export const ModalsAndToasts: React.FC = () => {
                     );
                   })()}
                 </motion.div>
-              )}
+                )}
+                </div>
               </div>
             </motion.div>
         )}
