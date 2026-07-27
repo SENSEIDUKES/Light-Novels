@@ -1,4 +1,4 @@
-import { Chapter } from '../../types';
+import { ReaderChapter } from '../../types';
 
 export interface ChapterNavigationState {
   selectedChapterNum: number;
@@ -41,7 +41,7 @@ export interface FateActions {
 }
 
 export interface ReaderControlsProps {
-  selectedChapter: Chapter;
+  selectedChapter: ReaderChapter;
   navigation: ChapterNavigationState;
   playback: PlaybackState;
   audio: AudioSettings;

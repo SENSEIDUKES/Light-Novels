@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Loader2, Plus, Trash2, Bookmark as BookmarkIcon, Lock, ArrowLeft, ArrowRight, Sparkles, Zap, Play, ShieldAlert, Info } from 'lucide-react';
-import { Chapter, StoryWorld, Bookmark } from '../types';
+import { ReaderChapter, StoryWorld, Bookmark } from '../types';
 import { extractSFXCues } from '../hooks/useReaderPlayback';
 import { collectBlockAutoCues } from '../lib/audio/autoCuePolicy';
 import { SystemBlock } from './SystemBlock';
@@ -45,7 +45,7 @@ interface ReaderViewportProps {
 
   isTranslating: boolean;
   preferredLang: string;
-  selectedChapter: Chapter;
+  selectedChapter: ReaderChapter;
   activeStory: StoryWorld;
   currentPowerStage: string;
   selectedChapterNum: number;
@@ -94,7 +94,7 @@ interface ReaderViewportProps {
   setShowLegend: (show: boolean) => void;
   hasSystemBlocks: boolean;
   
-  chapters: Chapter[];
+  chapters: ReaderChapter[];
   manifestChapterHero?: (chapterNumber: number, promptText: string) => Promise<string>;
   generatingIds?: Set<string>;
   isMomentousChapter?: boolean;

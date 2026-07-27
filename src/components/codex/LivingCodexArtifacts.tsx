@@ -3,6 +3,7 @@ import { Plus, Sword, RefreshCcw, Sparkles, Download, Lock, Compass, Settings2 }
 import { Artifact, StoryWorld } from '../../types';
 import { useCodex } from './CodexContext';
 import { useAppStore } from '../../store/useAppStore';
+import { isHubStoryLockedForUser } from '../../lib/hubStories';
 import { LivingCodexImageGallery } from './LivingCodexImageGallery';
 import { resolveEntityImageHistory } from './entityImageHistory';
 import { handleDownload } from '../../utils/downloadUtils';
@@ -28,14 +29,7 @@ export function LivingCodexArtifacts({
   } = useCodex();
 
   const userProfile = useAppStore(state => state.userProfile);
-  const isHubStory = activeStory?.id ? (
-    activeStory.id.startsWith('demo-matrix-') || 
-    activeStory.id.startsWith('challenge-') || 
-    activeStory.id.includes('demo-matrix-') || 
-    activeStory.id.includes('challenge-')
-  ) : false;
-  const isFreeUser = !userProfile || !userProfile.premiumTier || userProfile.premiumTier === 'mortal';
-  const isFreeUserOnHubStory = isFreeUser && isHubStory;
+  const isFreeUserOnHubStory = isHubStoryLockedForUser(activeStory, userProfile);
 
   const [showAddArtifactForm, setShowAddArtifactForm] = useState(false);
   const [newArtifact, setNewArtifact] = useState({

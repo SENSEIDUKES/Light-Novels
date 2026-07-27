@@ -1,12 +1,12 @@
 import React from 'react';
 import { Lock, Check, Sliders, Bookmark as BookmarkIcon } from 'lucide-react';
-import { Chapter, Bookmark } from '../types';
+import { ReaderChapter, Bookmark } from '../types';
 import { AudioWidget } from './AudioWidget';
 
 interface ReaderHeaderProps {
   arcTitle: string;
-  selectedChapter: Chapter;
-  chapters: Chapter[];
+  selectedChapter: ReaderChapter;
+  chapters: ReaderChapter[];
   selectedChapterNum: number;
   setSelectedChapterNum: (num: number) => void;
   onToggleRead: (chapterNumber: number) => void;

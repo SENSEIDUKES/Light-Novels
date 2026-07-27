@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Chapter, VoiceClip } from "../types";
+import { ReaderChapter, VoiceClip } from "../types";
 import { useAppStore } from "../store/useAppStore";
 import { dispatchNarration, dispatchNarrativeCue } from "../lib/narrativeCues";
 import { cinematicEffectGovernor } from "../lib/effects/cinematicEffectGovernor";
@@ -41,7 +41,7 @@ export function useReaderPlayback({
   selectedChapter,
   activeTranslationContent,
 }: {
-  selectedChapter: Chapter;
+  selectedChapter: ReaderChapter;
   activeTranslationContent: string | null;
 }) {
   const readerMode = useAppStore((state) => state.readerMode);

@@ -3,6 +3,7 @@ import { StoryMemory, StoryWorld, GeneratedImage, MultiModelRouting } from '../t
 import { secureStorage } from '../lib/encryption';
 import { checkAndConsumeImageQuota } from '../lib/quota';
 import { useAppStore } from '../store/useAppStore';
+import { isHubStoryLockedForUser } from '../lib/hubStories';
 import { generateId, generateUUID } from '../lib/id';
 import {
   MEDIA_PURPOSE,
@@ -151,14 +152,7 @@ export function useCodexImageEvolution(
 
     try {
       const userProfile = useAppStore.getState().userProfile;
-      const isHubStory = activeStory?.id ? (
-        activeStory.id.startsWith('demo-matrix-') || 
-        activeStory.id.startsWith('challenge-') || 
-        activeStory.id.includes('demo-matrix-') || 
-        activeStory.id.includes('challenge-')
-      ) : false;
-      const isFreeUser = !userProfile || !userProfile.premiumTier || userProfile.premiumTier === 'mortal';
-      if (isFreeUser && isHubStory) {
+      if (isHubStoryLockedForUser(activeStory, userProfile)) {
         pushNotification("Ascend to the Inner Sect to customize hub story visual representations!");
         throw new Error("Mortal tier users cannot customize the original codex of hub stories.");
       }

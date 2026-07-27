@@ -28,6 +28,7 @@ import {
   resolveMediaAssetForDisplay,
 } from "../media/privateMediaResolver";
 import { normalizeStoryImageOwnership } from "../media/imageOwnership";
+import { stripNonPersistedChapterFields } from "../chapterViews";
 
 type DurableSyncTask = Omit<SyncTask, "attempts">;
 
@@ -2798,19 +2799,15 @@ export class PersistentStorageManager implements StorageAdapter {
                 );
               }
 
-              // Strip from the Story document to save space. sceneFingerprints
-              // and contractReport intentionally stay on the scaffold — they are
-              // compact and power contract building without content loads.
+              // Strip from the Story document to save space, leaving a
+              // PersistedChapter. The key list lives in chapterViews so this
+              // strip, the ChapterContent write above, and the reader's view
+              // of a chapter cannot drift apart. summary, sceneFingerprints
+              // and contractReport intentionally stay on the scaffold — they
+              // are compact and power lightweight context retrieval and
+              // contract building without content loads.
               chapter.hasContent = true;
-              delete chapter.generatedContent;
-              delete chapter.blocks;
-              // delete chapter.summary; // Keep summary in the main story document for lightweight context retrieval
-              delete chapter.statsChangeMessage;
-              delete chapter.cuePayload;
-              delete chapter.contextManifest;
-              delete chapter.handoff;
-              delete chapter.contract;
-              delete chapter._isNewContent;
+              stripNonPersistedChapterFields(chapter);
             }
           }
         }
