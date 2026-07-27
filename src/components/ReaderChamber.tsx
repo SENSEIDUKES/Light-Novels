@@ -5,7 +5,7 @@ import {
   Play,
 } from "lucide-react";
 import {
-  Chapter,
+  ReaderChapter,
   StoryWorld,
   ReaderPreferences,
   Bookmark,
@@ -35,7 +35,7 @@ import { SYSTEM_LEGEND_DISMISSED_STORAGE_KEY } from '../lib/readerLegend';
 import { createCodexHighlighter, splitByCodexTerms } from '../lib/codexHighlighting';
 
 interface ReaderChamberProps {
-  chapters: Chapter[];
+  chapters: ReaderChapter[];
   currentPowerStage: string;
   onGenerateChapter: (chapterNumber: number) => Promise<void>;
   onGenerateNextFiveChapters: (fromChapterNumber: number) => Promise<void>;

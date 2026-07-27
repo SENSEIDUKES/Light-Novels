@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useImageManifest } from './useImageManifest';
-import { Chapter, StoryWorld } from '../types';
+import { ReaderChapter, StoryWorld } from '../types';
 import { dispatchNarrativeCue, NarrativeCueEventType } from '../lib/narrativeCues';
 import { cinematicEffectGovernor } from '../lib/effects/cinematicEffectGovernor';
 import { isHighConfidenceAutoCue } from '../lib/audio/autoCuePolicy';
@@ -13,7 +13,7 @@ export function useReaderVisuals({
   activeStory,
   readerMode,
 }: {
-  selectedChapter: Chapter;
+  selectedChapter: ReaderChapter;
   activeStory: StoryWorld;
   readerMode: string;
 }) {

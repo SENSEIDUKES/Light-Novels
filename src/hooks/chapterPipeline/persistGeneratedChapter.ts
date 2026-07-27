@@ -1,4 +1,4 @@
-import { Story, Chapter, ChapterHandoff, SceneFingerprint } from '../../types';
+import { Story, Chapter, ChapterHandoff, GeneratedChapter, SceneFingerprint } from '../../types';
 import { generateEmbedding } from '../../lib/rag';
 import { storyStorage } from '../../lib/storage';
 import { resolveEntity } from '../../lib/entityResolver';
@@ -61,7 +61,7 @@ export const persistGeneratedChapter = async (
       return {
         ...arc,
         summary: data.arcSummary || arc.summary,
-        chapters: arc.chapters.map((ch: Chapter) => {
+        chapters: arc.chapters.map((ch: Chapter): GeneratedChapter => {
           if (ch.number !== chapterNumber) return ch;
           return {
             ...ch,

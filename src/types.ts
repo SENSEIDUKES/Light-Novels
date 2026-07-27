@@ -793,31 +793,42 @@ export interface ContextManifest {
   sections: ContextManifestSection[];
 }
 
-export interface Chapter {
+// ── Chapter lifecycle shapes ────────────────────────────────────────────────
+//
+// A chapter is not one thing. It is produced by the generation pipeline, then
+// stripped down to a scaffold when it is written to the Story document (the
+// prose moves to its own `ChapterContent` row), then re-hydrated for reading.
+// Those three stages carry genuinely different fields, and conflating them is
+// what let the reader and the persistence layer disagree about which fields
+// survive a round trip.
+//
+// The groups below are the vocabulary; `GeneratedChapter`, `PersistedChapter`
+// and `ReaderChapter` compose them into the three stages. `Chapter` remains
+// the permissive superset so existing call sites keep compiling — prefer a
+// stage-specific type in new code, and see `lib/chapterViews.ts` for the
+// conversions between them.
+
+/**
+ * Identity and scaffold fields. Present at every stage, and the only chapter
+ * fields guaranteed to survive being written to the Story document.
+ */
+export interface ChapterScaffold {
   /** Canonical Data Connect row identity. */
   persistenceId?: string;
   number: number;
   title: string;
   premise: string;
   status: "unlocked" | "generating" | "read" | "unread";
-  generatedContent?: string; // Optional, only populated when currently viewed
-  blocks?: StoryBlock[];
   hasContent?: boolean; // Indicates if the content was generated and stored
   isSealed?: boolean; // Indicates the chapter is published/locked for editing
   contentHash?: string;
   sealedAt?: number;
   versionId?: string;
-  assetManifest?: Record<string, string>;
-  heroImageAssetId?: string;
-  /** Every generated chapter hero belongs to this chapter, never story history. */
-  imageHistory?: GeneratedImage[];
+  branchAnchor?: string;
+  summary?: string; // Kept on the scaffold for lightweight context retrieval
+  embedding?: number[]; // Optional vector embedding for RAG continuity searches
   translationCache?: Record<string, string>;
   audioCueCache?: Record<string, string>;
-  branchAnchor?: string;
-  summary?: string; // Optional
-  embedding?: number[]; // Optional vector embedding for RAG continuity searches
-  statsChangeMessage?: string;
-  cuePayload?: StoryCuePayload;
   translations?: {
     [langCode: string]: {
       title: string;
@@ -826,18 +837,9 @@ export interface Chapter {
     };
   };
   audioManifest?: AudioManifest;
-  _isNewContent?: boolean;
   hasContinuityFaults?: boolean;
   continuityWarnings?: string[];
   continuitySoftNotes?: string[];
-  /** Debug record of the exact context classes available to this generation. */
-  contextManifest?: ContextManifest;
-  /**
-   * Transient carrier for the full handoff/contract between generation and
-   * persistence; moved onto ChapterContent (like contextManifest) at save time.
-   */
-  handoff?: ChapterHandoff;
-  contract?: ChapterContract;
   /**
    * Compact scene fingerprints kept on the always-loaded chapter scaffold so
    * contract building and duplicate detection never require content loads.
@@ -846,6 +848,89 @@ export interface Chapter {
   /** Contract fulfillment self-report, surfaced next to continuity notes. */
   contractReport?: ContractReport;
 }
+
+/** Media attached to a chapter. Survives persistence alongside the scaffold. */
+export interface ChapterMedia {
+  assetManifest?: Record<string, string>;
+  heroImageAssetId?: string;
+  /** Every generated chapter hero belongs to this chapter, never story history. */
+  imageHistory?: GeneratedImage[];
+}
+
+/**
+ * The readable body of a chapter. Stripped off the Story document at save time
+ * and stored as a `ChapterContent` row, so it is absent until hydrated.
+ */
+export interface ChapterProse {
+  generatedContent?: string; // Optional, only populated when currently viewed
+  blocks?: StoryBlock[];
+  statsChangeMessage?: string;
+  cuePayload?: StoryCuePayload;
+}
+
+/**
+ * Inspectable record of how a chapter was generated. Stripped off the Story
+ * document like prose, stored on `ChapterContent`, and re-hydrated for the
+ * reader's context inspector — so unlike the internals below, it is genuinely
+ * reader-visible.
+ */
+export interface ChapterDiagnostics {
+  /** Debug record of the exact context classes available to this generation. */
+  contextManifest?: ContextManifest;
+}
+
+/**
+ * Pipeline-internal carriers. These ride a freshly generated chapter only far
+ * enough to reach persistence, then move onto `ChapterContent`. Nothing in the
+ * reading surface depends on them — that is the point of keeping them off
+ * `ReaderChapter`.
+ */
+export interface ChapterGenerationInternals {
+  _isNewContent?: boolean;
+  /**
+   * Transient carrier for the full handoff/contract between generation and
+   * persistence; moved onto ChapterContent (like contextManifest) at save time.
+   */
+  handoff?: ChapterHandoff;
+  contract?: ChapterContract;
+}
+
+/** What the generation pipeline produces and hands to persistence. */
+export interface GeneratedChapter
+  extends ChapterScaffold,
+    ChapterMedia,
+    ChapterProse,
+    ChapterDiagnostics,
+    ChapterGenerationInternals {}
+
+/**
+ * What is actually written into the Story document: scaffold and media only.
+ * Prose and pipeline internals are stripped into `ChapterContent`. Typing a
+ * value as this is a claim that it has already been through that strip.
+ */
+export interface PersistedChapter extends ChapterScaffold, ChapterMedia {}
+
+/**
+ * What the reading surface consumes: scaffold, media, and — once hydrated —
+ * the prose and its generation diagnostics. Deliberately excludes
+ * `ChapterGenerationInternals`, so reader code cannot reach into pipeline
+ * state that persistence has already moved onto `ChapterContent`.
+ */
+export interface ReaderChapter
+  extends ChapterScaffold,
+    ChapterMedia,
+    ChapterProse,
+    ChapterDiagnostics {}
+
+/**
+ * Permissive superset covering every stage.
+ *
+ * Retained so the existing call sites that pass one chapter object through
+ * generation, persistence and rendering keep compiling. New code should name
+ * the stage it means: `GeneratedChapter`, `PersistedChapter`, or
+ * `ReaderChapter`.
+ */
+export type Chapter = GeneratedChapter;
 
 export interface StoryArc {
   /** Canonical Data Connect row identity. */

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Character, Location } from '../../types';
 import { useCodex } from './CodexContext';
 import { useAppStore } from '../../store/useAppStore';
+import { isHubStoryLockedForUser } from '../../lib/hubStories';
 import { useCodexVoiceCards } from '../../hooks/useCodexVoiceCards';
 import { useCodexLocations } from '../../hooks/useCodexLocations';
 import { useCodexCharacterEditing } from '../../hooks/useCodexCharacterEditing';
@@ -38,14 +39,7 @@ export function LivingCodexCharacters({
   } = useCodex();
 
   const userProfile = useAppStore(state => state.userProfile);
-  const isHubStory = activeStory?.id ? (
-    activeStory.id.startsWith('demo-matrix-') || 
-    activeStory.id.startsWith('challenge-') || 
-    activeStory.id.includes('demo-matrix-') || 
-    activeStory.id.includes('challenge-')
-  ) : false;
-  const isFreeUser = !userProfile || !userProfile.premiumTier || userProfile.premiumTier === 'mortal';
-  const isFreeUserOnHubStory = isFreeUser && isHubStory;
+  const isFreeUserOnHubStory = isHubStoryLockedForUser(activeStory, userProfile);
 
   const [charViewStyle, setCharViewStyle] = useState<'cards' | 'profiles'>('cards');
   const {

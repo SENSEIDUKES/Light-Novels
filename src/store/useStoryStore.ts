@@ -7,13 +7,14 @@ import { secureStorage } from '../lib/encryption';
 import { mergeStories } from '../lib/merge';
 import { ensureStoryPersistenceIdentities } from '../lib/persistence';
 import { normalizeStoryImageOwnership } from '../lib/media/imageOwnership';
+import { hasDemoMatrixIdPrefix, hasHubStoryIdPrefix } from '../lib/hubStories';
 
 const STORAGE_KEY = '@seihouse/fiction-generator-stories-v2';
 let storageInitVersion = 0;
 const isObsoleteDefaultStory = (story: Story): boolean => {
-  const hasLegacyDefaultId =
-    story.id.startsWith('demo-matrix-') || story.id.startsWith('challenge-');
-  if (!hasLegacyDefaultId || story.isEdited || story.currentChapterNumber > 1) return false;
+  // Deliberately the prefix form, not `isHubStory`: this selects rows for
+  // deletion, so it must never widen to reader-authored worlds.
+  if (!hasHubStoryIdPrefix(story) || story.isEdited || story.currentChapterNumber > 1) return false;
   if ((story.lastReadChapter ?? 0) > 0 || (story.bookmarks?.length ?? 0) > 0) return false;
   return !story.arcs.some(arc => arc.chapters.some(chapter =>
     chapter.hasContent ||
@@ -114,7 +115,7 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
       const s = normalizeStoryImageOwnership(
         ensureStoryPersistenceIdentities(inputStory),
       );
-      if (s.id.startsWith('demo-matrix-') && s.id === activeId) {
+      if (hasDemoMatrixIdPrefix(s) && s.id === activeId) {
         return { ...s, isEdited: true };
       }
       return s;

@@ -5,7 +5,8 @@ import { useAppStore } from "../store/useAppStore";
 import SteerPortal from "./SteerPortal";
 import ReaderChamber from "./ReaderChamber";
 import { GlossarySidePanel } from "./GlossarySidePanel";
-import { Chapter, ChapterContent, Story, StoryBlock, StreamingChapter } from "../types";
+import { Chapter, ChapterContent, ReaderChapter, Story, StoryBlock, StreamingChapter } from "../types";
+import { applyStreamingChapter, toReaderChapter } from "../lib/chapterViews";
 import { awardQi } from "../lib/qi";
 import { RecapScreen } from "./RecapScreen";
 import { countWords } from "../utils/textUtils";
@@ -48,26 +49,28 @@ function buildReaderChapters(
   activeStory: Story | undefined,
   streamingChapter: StreamingChapter | null,
   localChapterCache: Record<number, ChapterContent>,
-): Chapter[] {
+): ReaderChapter[] {
   if (!activeStory) return [];
 
   return activeStory.arcs
     .flatMap((a) => a.chapters)
     .map((ch) => {
       if (streamingChapter && ch.number === streamingChapter.number) {
+        // applyStreamingChapter owns the pipeline's partial wire shape and
+        // drops the generation internals, so the reader never has to know
+        // either.
         return {
-          ...ch,
-          generatedContent: streamingChapter.content,
-          blocks: streamingChapter.blocks,
+          ...applyStreamingChapter(ch, streamingChapter),
           status: "read" as const,
           contextManifest: undefined,
         };
       }
 
+      const readerChapter = toReaderChapter(ch);
       const cached = localChapterCache[ch.number];
       if (cached) {
         return {
-          ...ch,
+          ...readerChapter,
           generatedContent: cached.generatedContent,
           blocks: cached.blocks,
           summary: cached.summary || ch.summary,
@@ -77,7 +80,7 @@ function buildReaderChapters(
         };
       }
 
-      return ch;
+      return readerChapter;
     });
 }
 
