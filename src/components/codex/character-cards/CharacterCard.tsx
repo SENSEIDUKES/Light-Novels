@@ -2,6 +2,7 @@ import React from 'react';
 import { Character, Story } from '../../../types';
 import { Download, Compass, Lock, Award, Play, Square, Loader2, Volume2, Sparkles } from 'lucide-react';
 import { LivingCodexImageGallery } from '../LivingCodexImageGallery';
+import { resolveEntityImageHistory } from '../entityImageHistory';
 import { handleDownload } from '../../../utils/downloadUtils';
 import { AGENTS } from '../../../lib/agents';
 
@@ -66,7 +67,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
         <LivingCodexImageGallery
           entityId={char.id}
           type={char.isBeast ? 'beast' : 'character'}
-          imageHistory={activeStory.imageHistory?.filter(img => img.entityId === char.id)}
+          imageHistory={resolveEntityImageHistory(char, activeStory.imageHistory)}
         />
         {displayedImage ? (
           <>

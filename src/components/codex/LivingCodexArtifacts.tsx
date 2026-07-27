@@ -4,6 +4,7 @@ import { Artifact, StoryWorld } from '../../types';
 import { useCodex } from './CodexContext';
 import { useAppStore } from '../../store/useAppStore';
 import { LivingCodexImageGallery } from './LivingCodexImageGallery';
+import { resolveEntityImageHistory } from './entityImageHistory';
 import { handleDownload } from '../../utils/downloadUtils';
 
 
@@ -176,7 +177,7 @@ export function LivingCodexArtifacts({
                     <LivingCodexImageGallery 
                       entityId={art.id} 
                       type="artifact" 
-                      imageHistory={activeStory.imageHistory?.filter(img => img.entityId === art.id)} 
+                      imageHistory={resolveEntityImageHistory(art, activeStory.imageHistory)}
                     />
                     {displayedImage ? (
                       <div className="h-32 w-full border border-neutral-900 relative">

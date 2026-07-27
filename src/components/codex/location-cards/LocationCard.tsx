@@ -2,6 +2,7 @@ import React from 'react';
 import { Location, Story } from '../../../types';
 import { Download, Compass, Lock, MapPin, Eye, RefreshCcw, Loader2, Sparkles, Settings2 } from 'lucide-react';
 import { LivingCodexImageGallery } from '../LivingCodexImageGallery';
+import { resolveEntityImageHistory } from '../entityImageHistory';
 import { handleDownload } from '../../../utils/downloadUtils';
 
 interface LocationCardProps {
@@ -39,7 +40,7 @@ export const LocationCard: React.FC<LocationCardProps> = ({
         <LivingCodexImageGallery
           entityId={loc.id}
           type="location"
-          imageHistory={activeStory.imageHistory?.filter(img => img.entityId === loc.id)}
+          imageHistory={resolveEntityImageHistory(loc, activeStory.imageHistory)}
         />
         {displayedImage ? (
          <>

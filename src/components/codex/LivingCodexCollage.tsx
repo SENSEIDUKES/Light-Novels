@@ -13,11 +13,14 @@ interface LivingCodexCollageProps {
 
 export interface VisualMemory {
   id: string;
+  /** Canonical R2 asset identity. The only stable key across a cloud reload. */
+  assetId?: string;
+  /** Transient delivery URL. Empty when the asset could not be resolved yet. */
   url: string;
   title: string;
   subtitle: string;
   description: string;
-  type: 'scene' | 'character' | 'beast' | 'location' | 'artifact' | 'cover';
+  type: 'scene' | 'character' | 'beast' | 'location' | 'artifact' | 'faction' | 'cover';
   chapterNumber?: number;
   promptUsed?: string;
   dateStr?: string;
@@ -102,15 +105,28 @@ const CollageItem = React.memo(({ mem, isDownloading, handleDownload, handleOpen
 
       {/* Polaroid Photo Frame */}
       <div className="aspect-square w-full rounded-sm overflow-hidden bg-neutral-900 border border-neutral-900/60 relative">
-        <img
-          src={mem.url}
-          alt={mem.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-          referrerPolicy="no-referrer"
-          loading="lazy"
-        />
+        {/* An asset whose signed delivery URL has not resolved yet renders as a
+            legible placeholder. A bare <img> with an empty src showed the
+            browser's broken-image glyph, which reads as data loss. */}
+        {mem.url ? (
+          <img
+            src={mem.url}
+            alt={mem.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+            referrerPolicy="no-referrer"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 px-2 text-center bg-neutral-950">
+            <Sparkles className="w-4 h-4 text-neutral-700 animate-pulse" />
+            <span className="text-[7.5px] font-mono uppercase tracking-widest text-neutral-600 leading-tight">
+              Aura Resealing
+            </span>
+          </div>
+        )}
 
         {/* Subtle overlay download button mirroring 'Burn Story' button */}
+        {mem.url && (
         <button
           type="button"
           tabIndex={0}
@@ -126,6 +142,7 @@ const CollageItem = React.memo(({ mem, isDownloading, handleDownload, handleOpen
             <Download size={11} />
           )}
         </button>
+        )}
 
         {/* Subtle color category border overlay */}
         <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${
@@ -218,97 +235,199 @@ export function LivingCodexCollage({
     return isNaN(d.getTime()) ? 'Unknown' : dateFormatter.format(d);
   }, [dateFormatter]);
 
+  const { factions } = memory;
+
+  /**
+   * Assemble the collage from the records that actually survive a cloud
+   * round-trip.
+   *
+   * `activeStory.imageHistory` looks like the natural source, but PostgreSQL
+   * rebuilds it from `targetKind: 'STORY'` media attachments alone — covers.
+   * Every Codex manifestation is attached to its own entity (CHARACTER,
+   * LOCATION, ARTIFACT, FACTION) and every chapter hero to its chapter, so the
+   * story-level copy the browser appends on generation is dropped the moment
+   * Harmony replaces the local replica with the cloud shape. Reading the
+   * entities and chapters directly means a portrait that persisted is a
+   * portrait that renders.
+   */
   const memories = useMemo(() => {
     const items: VisualMemory[] = [];
-    const seenUrls = new Set<string>();
+    // Assets are keyed by their canonical id; a delivery URL is transient and
+    // two renders of the same asset can legitimately carry different ones.
+    const seenKeys = new Set<string>();
 
+    const push = (item: VisualMemory) => {
+      const key = item.assetId || item.url;
+      if (!key || seenKeys.has(key)) return;
+      seenKeys.add(key);
+      items.push(item);
+    };
 
-    // 1. Gather Scene Memories from Chapter Hero Images (Automatic or manual)
-    if (activeStory.arcs) {
-      activeStory.arcs.forEach((arc) => {
-        arc.chapters?.forEach((ch) => {
-          if (ch.assetManifest?.heroImage) {
-            const url = ch.assetManifest.heroImage;
-            seenUrls.add(url);
-            
-            // Seed a consistent tilt angle based on chapter number
-            const tiltAngle = ((ch.number * 7) % 10) - 5; // values between -5 and 5 degrees
+    const tiltFor = (seed: string) => {
+      const pseudoIndex = seed.charCodeAt(0) + seed.charCodeAt(seed.length - 1);
+      return ((pseudoIndex * 9) % 10) - 5;
+    };
 
-            items.push({
-              id: `scene-${ch.number}`,
-              url,
-              title: `Chapter ${ch.number}: ${ch.title}`,
-              subtitle: arc.title || 'Visual Record',
-              description: ch.summary || 'A defining event inscribed into the aetherial tapestry.',
-              type: 'scene',
-              chapterNumber: ch.number,
-              promptUsed: `A cinematic scene memory. Summary: ${ch.summary}`,
-              dateStr: ch.sealedAt ? safeFormatDate(ch.sealedAt) : 'Ascended',
-              tiltAngle
-            });
-          }
+    // 1. Scene memories from chapter hero images (automatic or manual)
+    activeStory.arcs?.forEach((arc) => {
+      arc.chapters?.forEach((ch) => {
+        const url = ch.assetManifest?.heroImage;
+        if (!url && !ch.heroImageAssetId) return;
+        push({
+          id: `scene-${ch.number}`,
+          assetId: ch.heroImageAssetId,
+          url: url || '',
+          title: `Chapter ${ch.number}: ${ch.title}`,
+          subtitle: arc.title || 'Visual Record',
+          description: ch.summary || 'A defining event inscribed into the aetherial tapestry.',
+          type: 'scene',
+          chapterNumber: ch.number,
+          promptUsed: `A cinematic scene memory. Summary: ${ch.summary}`,
+          dateStr: ch.sealedAt ? safeFormatDate(ch.sealedAt) : 'Ascended',
+          // Seed a consistent tilt angle based on chapter number
+          tiltAngle: ((ch.number * 7) % 10) - 5
         });
       });
+    });
+
+    // 2. Entity portraits, read from the Codex entities that persist them
+    const entityGroups: Array<{
+      entries: Array<{
+        id: string;
+        name: string;
+        description?: string;
+        imageUrl?: string;
+        imageAssetId?: string;
+        imageHistory?: GeneratedImage[];
+      }>;
+      resolve: (entry: any) => { type: VisualMemory['type']; subtitle: string };
+    }> = [
+      {
+        entries: characters ?? [],
+        resolve: (c) => ({
+          type: c.isBeast ? 'beast' : 'character',
+          subtitle: c.isBeast ? 'Sacred Beast' : 'Immortal cultivator'
+        })
+      },
+      {
+        entries: locations ?? [],
+        resolve: () => ({ type: 'location', subtitle: 'Sacred Domain Scenery' })
+      },
+      {
+        entries: artifacts ?? [],
+        resolve: (a) => ({ type: 'artifact', subtitle: `${a.tier || 'Mortal'} Tier Relic` })
+      },
+      {
+        entries: factions ?? [],
+        resolve: (f) => ({ type: 'faction', subtitle: `${f.alignment || 'Neutral'} Sect Banner` })
+      }
+    ];
+
+    for (const group of entityGroups) {
+      for (const entry of group.entries) {
+        const { type, subtitle } = group.resolve(entry);
+        const description = entry.description || 'Captured memory core.';
+        // History first: it carries the prompt and the inscription date.
+        entry.imageHistory?.forEach((img) => {
+          push({
+            id: img.id,
+            assetId: img.assetId,
+            url: img.imageUrl || (img.assetId === entry.imageAssetId ? entry.imageUrl || '' : ''),
+            title: entry.name,
+            subtitle,
+            description,
+            type,
+            chapterNumber: img.chapterNumber,
+            promptUsed: img.promptUsed,
+            dateStr: img.createdAt ? safeFormatDate(img.createdAt) : undefined,
+            tiltAngle: tiltFor(entry.name || entry.id)
+          });
+        });
+        // An entity whose history never round-tripped still has its current
+        // manifestation, so it must not vanish from the collage.
+        if (entry.imageAssetId || entry.imageUrl) {
+          push({
+            id: `entity-${entry.id}`,
+            assetId: entry.imageAssetId,
+            url: entry.imageUrl || '',
+            title: entry.name,
+            subtitle,
+            description,
+            type,
+            tiltAngle: tiltFor(entry.name || entry.id)
+          });
+        }
+      }
     }
 
-    // 2. Gather Entity Portraits from activeStory.imageHistory
-    if (activeStory.imageHistory) {
-      activeStory.imageHistory.forEach((img) => {
-        if (seenUrls.has(img.imageUrl)) return;
-        seenUrls.add(img.imageUrl);
+    // 3. Story-level history — covers from the cloud, plus anything the browser
+    //    appended locally before the next Harmony pass reconciles it.
+    activeStory.imageHistory?.forEach((img) => {
+      let title = img.label || 'Spiritual Form';
+      let subtitle = 'Ethereal Blueprint';
+      let description = img.promptUsed || 'Captured memory core.';
+      let type: VisualMemory['type'] = img.entityType as VisualMemory['type'];
 
-        // Map entity ID to details
-        let title = img.label || 'Spiritual Form';
-        let subtitle = 'Ethereal Blueprint';
-        let description = img.promptUsed || 'Captured memory core.';
-        let type: VisualMemory['type'] = img.entityType as any;
-
-        if (img.entityType === 'character' || img.entityType === 'beast') {
-          const char = characterMap.get(img.entityId);
-          if (char) {
-            title = char.name;
-            subtitle = char.isBeast ? 'Sacred Beast' : 'Immortal cultivator';
-            description = char.description || description;
-            type = char.isBeast ? 'beast' : 'character';
-          }
-        } else if (img.entityType === 'location') {
-          const loc = locationMap.get(img.entityId);
-          if (loc) {
-            title = loc.name;
-            subtitle = 'Sacred Domain Scenery';
-            description = loc.description || description;
-            type = 'location';
-          }
-        } else if (img.entityType === 'artifact') {
-          const art = artifactMap.get(img.entityId);
-          if (art) {
-            title = art.name;
-            subtitle = `${art.tier || 'Mortal'} Tier Relic`;
-            description = art.description || description;
-            type = 'artifact';
-          }
-        } else if (img.entityType === 'cover') {
-          title = activeStory.title;
-          subtitle = 'Chronicle Book Cover';
-          description = activeStory.customPremise || description;
-          type = 'cover';
+      if (img.entityType === 'character' || img.entityType === 'beast') {
+        const char = characterMap.get(img.entityId);
+        if (char) {
+          title = char.name;
+          subtitle = char.isBeast ? 'Sacred Beast' : 'Immortal cultivator';
+          description = char.description || description;
+          type = char.isBeast ? 'beast' : 'character';
         }
+      } else if (img.entityType === 'location') {
+        const loc = locationMap.get(img.entityId);
+        if (loc) {
+          title = loc.name;
+          subtitle = 'Sacred Domain Scenery';
+          description = loc.description || description;
+          type = 'location';
+        }
+      } else if (img.entityType === 'artifact') {
+        const art = artifactMap.get(img.entityId);
+        if (art) {
+          title = art.name;
+          subtitle = `${art.tier || 'Mortal'} Tier Relic`;
+          description = art.description || description;
+          type = 'artifact';
+        }
+      } else if (img.entityType === 'cover') {
+        title = activeStory.title;
+        subtitle = 'Chronicle Book Cover';
+        description = activeStory.customPremise || description;
+        type = 'cover';
+      } else if (img.entityType === 'chapterHero') {
+        type = 'scene';
+      }
 
-        const pseudoIndex = title.charCodeAt(0) + title.charCodeAt(title.length - 1);
-        const tiltAngle = ((pseudoIndex * 9) % 10) - 5;
+      push({
+        id: img.id,
+        assetId: img.assetId,
+        url: img.imageUrl
+          || (img.assetId && img.assetId === activeStory.coverAssetId ? activeStory.imageUrl || '' : ''),
+        title,
+        subtitle,
+        description,
+        type,
+        chapterNumber: img.chapterNumber,
+        promptUsed: img.promptUsed,
+        dateStr: img.createdAt ? safeFormatDate(img.createdAt) : undefined,
+        tiltAngle: tiltFor(title)
+      });
+    });
 
-        items.push({
-          id: img.id,
-          url: img.imageUrl,
-          title,
-          subtitle,
-          description,
-          type,
-          chapterNumber: img.chapterNumber,
-          promptUsed: img.promptUsed,
-          dateStr: img.createdAt ? safeFormatDate(img.createdAt) : undefined,
-          tiltAngle
-        });
+    // 4. The current cover, for a story whose cover history never round-tripped.
+    if (activeStory.coverAssetId || activeStory.imageUrl) {
+      push({
+        id: `cover-${activeStory.id}`,
+        assetId: activeStory.coverAssetId,
+        url: activeStory.imageUrl || '',
+        title: activeStory.title,
+        subtitle: 'Chronicle Book Cover',
+        description: activeStory.customPremise || 'The sealed face of this chronicle.',
+        type: 'cover',
+        tiltAngle: tiltFor(activeStory.title || activeStory.id)
       });
     }
 
@@ -318,7 +437,17 @@ export function LivingCodexCollage({
       const chB = b.chapterNumber || 0;
       return chA - chB;
     });
-  }, [activeStory, characterMap, locationMap, artifactMap, safeFormatDate]);
+  }, [
+    activeStory,
+    characters,
+    locations,
+    artifacts,
+    factions,
+    characterMap,
+    locationMap,
+    artifactMap,
+    safeFormatDate
+  ]);
 
   const { scenesCount, entitiesCount } = useMemo(() => {
     let sCount = 0;
@@ -470,13 +599,26 @@ export function LivingCodexCollage({
             >
               {/* Image side - spans 7 columns */}
               <div className="md:col-span-7 bg-black relative flex items-center justify-center aspect-[4/3] md:aspect-auto md:h-[65vh] overflow-hidden border-b md:border-b-0 md:border-r border-neutral-900">
-                <img
-                  src={selectedMemory.url}
-                  alt={selectedMemory.title}
-                  className="max-w-full max-h-full object-contain"
-                  referrerPolicy="no-referrer"
-                />
-                
+                {selectedMemory.url ? (
+                  <img
+                    src={selectedMemory.url}
+                    alt={selectedMemory.title}
+                    className="max-w-full max-h-full object-contain"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-2 px-8 text-center">
+                    <Sparkles className="w-6 h-6 text-neutral-700 animate-pulse" />
+                    <p className="text-[10px] font-mono uppercase tracking-widest text-neutral-500">
+                      Aura Resealing
+                    </p>
+                    <p className="text-[10px] font-sans text-neutral-600 max-w-xs leading-relaxed">
+                      This manifestation is inscribed in the Codex, but its aetherial link has
+                      not reformed yet. It returns once the connection settles.
+                    </p>
+                  </div>
+                )}
+
                 {/* Category tag */}
                 <div className={`absolute top-4 left-4 px-3 py-1 rounded text-[9px] font-mono uppercase tracking-widest flex items-center gap-1.5 shadow ${
                   selectedMemory.type === 'scene' 
@@ -542,9 +684,10 @@ export function LivingCodexCollage({
 
                   <button
                      tabIndex={0}
+                     disabled={!selectedMemory.url}
                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
                      onClick={(e) => handleDownload(selectedMemory, e)}
-                     className="w-full px-4 py-2 border border-neutral-900 hover:border-portal/40 hover:text-portal text-neutral-400 font-mono text-[9px] uppercase tracking-wider rounded transition-all text-center flex items-center justify-center gap-2 cursor-pointer"
+                     className="w-full px-4 py-2 border border-neutral-900 hover:border-portal/40 hover:text-portal text-neutral-400 font-mono text-[9px] uppercase tracking-wider rounded transition-all text-center flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-neutral-900 disabled:hover:text-neutral-400"
                   >
                     {downloadingIds.has(selectedMemory.id) ? (
                       <>

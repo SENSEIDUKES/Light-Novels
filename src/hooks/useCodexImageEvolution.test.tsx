@@ -118,6 +118,62 @@ describe('useCodexImageEvolution error handling', () => {
       .toBe(false);
   });
 
+  // PostgreSQL rebuilds the story-level history from STORY-targeted media
+  // attachments alone, so after a round-trip an entity's versions live only on
+  // the entity. Searching the story alone found nothing and the revert blanked
+  // the very portrait it was asked to restore.
+  it('reverts to a version the cloud stores on the entity, not on the story', async () => {
+    mocks.selectMediaAsset.mockResolvedValue({ id: 'asset-older', deliveryUrl: '' });
+    const onUpdateStory = vi.fn();
+    const entityMemory = {
+      ...memory,
+      characters: [{
+        id: 'character-1',
+        persistenceId: 'character-persistence-id',
+        imageAssetId: 'asset-newer',
+        imageUrl: 'blob:asset-newer',
+        imageHistory: [
+          { id: 'history-older', assetId: 'asset-older', entityId: 'character-1', imageUrl: '', isCurrent: false },
+          { id: 'history-newer', assetId: 'asset-newer', entityId: 'character-1', imageUrl: '', isCurrent: true },
+        ],
+      }],
+    };
+    // The cloud shape: covers only.
+    const story = { ...activeStory, imageHistory: [] };
+
+    const { result } = renderHook(() => useCodexImageEvolution(
+      entityMemory, story, onUpdateStory, undefined, vi.fn(),
+    ));
+
+    await act(async () => {
+      await result.current.handleRevertImage('character-1', 'character', 'history-older');
+    });
+
+    expect(result.current.generationError).toBeNull();
+    expect(mocks.selectMediaAsset).toHaveBeenCalledWith('asset-older', expect.anything());
+    const character = onUpdateStory.mock.calls[0][0].memory.characters[0];
+    expect(character.imageAssetId).toBe('asset-older');
+    expect(character.imageUrl).toBe('blob:asset-older');
+    expect(character.imageHistory.find((i: { id: string }) => i.id === 'history-older').isCurrent)
+      .toBe(true);
+    expect(character.imageHistory.find((i: { id: string }) => i.id === 'history-newer').isCurrent)
+      .toBe(false);
+  });
+
+  it('does not blank a portrait when the requested version is unknown', async () => {
+    const onUpdateStory = vi.fn();
+    const { result } = renderHook(() => useCodexImageEvolution(
+      memory, { ...activeStory, imageHistory: [] }, onUpdateStory, undefined, vi.fn(),
+    ));
+
+    await act(async () => {
+      await result.current.handleRevertImage('character-1', 'character', 'history-missing');
+    });
+
+    expect(mocks.selectMediaAsset).not.toHaveBeenCalled();
+    expect(onUpdateStory).not.toHaveBeenCalled();
+  });
+
   it('keeps a preview available when saving its media asset fails', async () => {
     mocks.saveMediaAsset.mockRejectedValue(new Error('Upload failed'));
     const { result } = renderHook(() => useCodexImageEvolution(

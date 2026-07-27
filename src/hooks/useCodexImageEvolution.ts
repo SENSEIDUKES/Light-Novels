@@ -38,15 +38,25 @@ export function useCodexImageEvolution(
    */
   const handleRevertImage = async (id: string, type: string, historyId: string) => {
     try {
-      const selectedHistory = activeStory.imageHistory?.find(
-        image => image.entityId === id && image.id === historyId,
-      );
-      let selectedUrl = selectedHistory?.imageUrl ?? '';
       const entity = type === 'location'
         ? memory.locations?.find(item => item.id === id)
         : type === 'artifact'
           ? memory.artifacts?.find(item => item.id === id)
           : memory.characters?.find(item => item.id === id);
+      // The entity's own history is the durable record; the story-level copy is
+      // rebuilt from STORY-targeted attachments (covers) and only carries a
+      // manifestation the browser appended since the last sync pass. Searching
+      // the story alone could not find the version the gallery offered, and the
+      // revert then blanked the portrait it was meant to restore.
+      const selectedHistory = entity?.imageHistory?.find(image => image.id === historyId)
+        ?? activeStory.imageHistory?.find(
+          image => image.entityId === id && image.id === historyId,
+        );
+      if (!selectedHistory) {
+        console.error(`No manifestation ${historyId} is recorded for codex entry ${id}.`);
+        return;
+      }
+      let selectedUrl = selectedHistory.imageUrl ?? '';
       if (selectedHistory?.assetId) {
         const targetKind = type === 'location'
           ? MEDIA_TARGET_KIND.LOCATION
@@ -70,21 +80,35 @@ export function useCodexImageEvolution(
         // image keeps working after that short-lived signature expires.
         selectedUrl = (await resolveMediaAssetForDisplay(descriptor)).url;
       }
+      // The entity's own history is what round-trips, so the restored version
+      // has to be marked current there, not only on the story-level copy.
+      const revertEntity = <T extends { id: string; imageUrl?: string; imageAssetId?: string; imageHistory?: GeneratedImage[] }>(
+        candidate: T,
+      ): T => candidate.id === id
+        ? {
+            ...candidate,
+            imageUrl: selectedUrl,
+            imageAssetId: selectedHistory.assetId ?? candidate.imageAssetId,
+            imageHistory: candidate.imageHistory?.map(img => ({
+              ...img,
+              imageUrl: img.id === selectedHistory.id ? selectedUrl : img.imageUrl,
+              isCurrent: img.id === selectedHistory.id,
+            })),
+          }
+        : candidate;
+
       let finalMemory = { ...memory };
       if (type === 'character' || type === 'beast') {
-        const updated = memory.characters?.map(c => c.id === id ? { ...c, imageUrl: selectedUrl, imageAssetId: selectedHistory?.assetId ?? c.imageAssetId } : c) || [];
-        finalMemory = { ...memory, characters: updated };
+        finalMemory = { ...memory, characters: (memory.characters || []).map(revertEntity) };
       } else if (type === 'location') {
-        const updated = (memory.locations || []).map(l => l.id === id ? { ...l, imageUrl: selectedUrl, imageAssetId: selectedHistory?.assetId ?? l.imageAssetId } : l);
-        finalMemory = { ...memory, locations: updated };
+        finalMemory = { ...memory, locations: (memory.locations || []).map(revertEntity) };
       } else if (type === 'artifact') {
-        const updated = (memory.artifacts || []).map(a => a.id === id ? { ...a, imageUrl: selectedUrl, imageAssetId: selectedHistory?.assetId ?? a.imageAssetId } : a);
-        finalMemory = { ...memory, artifacts: updated };
+        finalMemory = { ...memory, artifacts: (memory.artifacts || []).map(revertEntity) };
       }
 
       const updatedStoryHistory = activeStory.imageHistory ? activeStory.imageHistory.map(img => {
         if (img.entityId === id) {
-          return { ...img, imageUrl: img.id === selectedHistory?.id ? selectedUrl : img.imageUrl, isCurrent: img.id === selectedHistory?.id };
+          return { ...img, imageUrl: img.id === selectedHistory.id ? selectedUrl : img.imageUrl, isCurrent: img.id === selectedHistory.id };
         }
         return img;
       }) : [];
