@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { awardQi } from '../lib/qi';
 import { unlockCosmicArtifact } from '../lib/artifacts';
@@ -6,8 +7,9 @@ import { generateId, generateUUID } from '../lib/id';
 
 export const useChapterSealing = () => {
   const store_stories = useAppStore(state => state.stories);
-    const store_activeStoryId = useAppStore(state => state.activeStoryId);
-    const store_routingConfig = useAppStore(state => state.routingConfig);
+  const store_activeStoryId = useAppStore(state => state.activeStoryId);
+  const store_routingConfig = useAppStore(state => state.routingConfig);
+  const isSealingRef = useRef<Set<number>>(new Set());
 
   const handleCheckConsistency = async (chapterNumber: number): Promise<string[]> => {
     const activeStory = store_stories.find(s => s.id === store_activeStoryId);
@@ -33,8 +35,13 @@ export const useChapterSealing = () => {
   };
 
   const handleSealChapter = async (chapterNumber: number) => {
+    if (isSealingRef.current.has(chapterNumber)) return;
+
     const activeStory = store_stories.find((s) => s.id === store_activeStoryId);
     if (!activeStory) return;
+
+    isSealingRef.current.add(chapterNumber);
+    try {
 
     const generateContentHash = async (content: string): Promise<string> => {
       try {
@@ -70,21 +77,36 @@ export const useChapterSealing = () => {
       branchAnchor: generateUUID(),
     };
 
-    await useAppStore.getState().updateChapter(
-      activeStory.id,
-      chapterNumber,
-      sealPatch,
-    );
-    awardQi('chapter_sealed');
+      // Sealing touches exactly one chapter, so it patches exactly one chapter.
+      // Rebuilding the whole `arcs` array and writing it back — as this did
+      // before — meant the snapshot read above, taken before the async content
+      // hash, would clobber any chapter another writer changed while the hash
+      // was being computed (a read/unread toggle, a generation completing).
+      // updateChapter leaves every other chapter alone.
+      let didSeal = false;
+      await useAppStore.getState().updateChapter(
+        activeStory.id,
+        chapterNumber,
+        (chapter) => {
+          didSeal = !chapter.isSealed;
+          return sealPatch;
+        },
+      );
+      if (didSeal) {
+        awardQi('chapter_sealed');
+      }
 
-    // Scan sealed chapter content for artifacts if it contains major milestones
-    const sealedCh = { ...targetChapter, ...sealPatch };
-    const fullText = (sealedCh.generatedContent || "") + " " + (sealedCh.blocks || []).map((b: any) => b.text).join(" ");
-    import('../lib/artifacts').then(({ scanChapterForArtifacts }) => {
-      scanChapterForArtifacts(activeStory.id, activeStory.title, chapterNumber, fullText, sealedCh).catch((err) => {
-        console.error("Failed to scan sealed chapter for artifacts:", err);
+      // Scan sealed chapter content for artifacts if it contains major milestones
+      const sealedCh = { ...targetChapter, ...sealPatch };
+      const fullText = (sealedCh.generatedContent || "") + " " + (sealedCh.blocks || []).map((b: any) => b.text).join(" ");
+      import('../lib/artifacts').then(({ scanChapterForArtifacts }) => {
+        scanChapterForArtifacts(activeStory.id, activeStory.title, chapterNumber, fullText, sealedCh).catch((err) => {
+          console.error("Failed to scan sealed chapter for artifacts:", err);
+        });
       });
-    });
+    } finally {
+      isSealingRef.current.delete(chapterNumber);
+    }
   };
 
   return {
