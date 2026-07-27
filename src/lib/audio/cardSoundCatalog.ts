@@ -199,10 +199,15 @@ const LEGACY_ROLE_ALIASES_BY_ENTITY: Partial<Record<WorldCardEvent['entityType']
 };
 
 export function resolveCardSoundRole(
-  audioType: string,
+  // `WorldCardEvent.audioType` is optional and generated cards routinely omit
+  // it. Dereferencing it unconditionally threw inside `WorldEntityCard`'s
+  // render memo, which took the whole Reader Chamber down with it; a card that
+  // declares no sound simply has no role.
+  audioType: string | undefined,
   entityType?: WorldCardEvent['entityType'],
 ): WorldCardSoundRole | null {
-  const normalizedType = audioType.trim().toLowerCase();
+  const normalizedType = audioType?.trim().toLowerCase() ?? '';
+  if (!normalizedType) return null;
   if (normalizedType === 'tts_line') return null;
   if (WORLD_CARD_SOUND_ROLES.includes(normalizedType as WorldCardSoundRole)) {
     return normalizedType as WorldCardSoundRole;
@@ -330,7 +335,12 @@ function artifactAssetFamily(
 export function resolveCardSound(card: WorldCardEvent): CuratedSoundAsset | null {
   const role = resolveCardSoundRole(card.audioType, card.entityType);
   if (!role) {
-    if (card.audioType !== 'tts_line') reportUnresolved(card, 'unknown-role');
+    // A card that declares no audioType at all is not a curation gap; only a
+    // declared-but-unmapped role is worth reporting. Compare the same
+    // normalized form `resolveCardSoundRole` used, so a TTS marker that arrives
+    // as " TTS_LINE " is still recognized as a quote rather than a missing asset.
+    const declared = card.audioType?.trim().toLowerCase() ?? '';
+    if (declared && declared !== 'tts_line') reportUnresolved(card, 'unknown-role');
     return null;
   }
 

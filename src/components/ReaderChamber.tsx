@@ -31,6 +31,7 @@ import { cinematicEffectGovernor } from "../lib/effects/cinematicEffectGovernor"
 import { useReadingPosition } from "../hooks/useReadingPosition";
 import { getFateLockMessage } from '../hooks/chapterPipeline/chapterBatch';
 import { DEFAULT_READER_TYPOGRAPHY } from '../lib/readerTypography';
+import { SYSTEM_LEGEND_DISMISSED_STORAGE_KEY } from '../lib/readerLegend';
 import { createCodexHighlighter, splitByCodexTerms } from '../lib/codexHighlighting';
 
 interface ReaderChamberProps {
@@ -76,7 +77,7 @@ export default function ReaderChamber({
     chapters.find((c) => c.number === selectedChapterNum) || chapters[0];
 
   const [showLegend, setShowLegend] = useState(() => {
-    return localStorage.getItem("seihouse-system-legend-dismissed") !== "true";
+    return localStorage.getItem(SYSTEM_LEGEND_DISMISSED_STORAGE_KEY) !== "true";
   });
 
   const hasSystemBlocks = useMemo(() => {
@@ -924,9 +925,9 @@ export default function ReaderChamber({
               const nextState = !showLegend;
               setShowLegend(nextState);
               if (!nextState) {
-                localStorage.setItem("seihouse-system-legend-dismissed", "true");
+                localStorage.setItem(SYSTEM_LEGEND_DISMISSED_STORAGE_KEY, "true");
               } else {
-                localStorage.removeItem("seihouse-system-legend-dismissed");
+                localStorage.removeItem(SYSTEM_LEGEND_DISMISSED_STORAGE_KEY);
               }
             }}
           />
