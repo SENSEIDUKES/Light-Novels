@@ -17,9 +17,10 @@ export { extractJsonBlocks, extractJsonMeta };
  * @returns Object containing async handlers for various generation phases.
  */
 export const useStoryEngine = () => {
-  const store_stories = useAppStore(state => state.stories);
-    const store_activeStoryId = useAppStore(state => state.activeStoryId);
-    const store_saveStories = useAppStore(state => state.saveStories);
+  // No `stories`/`saveStories` selectors: every mutation below goes through
+  // the store's own updateStory/updateChapter, so this hook never rebuilds
+  // the stories array and never re-renders merely because some unrelated
+  // story changed.
   const { handleGenerateChapter, handleGenerateNextFiveChapters } = useChapterGeneration();
   const { handleSteerArc, handleAlterFate } = useArcSteering();
   const { handleGenerateBlueprint, handleStartStory } = useStoryGeneration();
@@ -46,13 +47,31 @@ export const useStoryEngine = () => {
   };
 
   /**
-   * Overwrites the active story object completely in the local store.
+   * Persists a whole story object, targeting it by its own id (not the active
+   * story — a caller may legitimately write a story that is not open).
+   *
+   * Routed through the store's `updateStory` like the other handlers here, so
+   * the hook no longer reconstructs the stories array. `markEdited: false` and
+   * `touchUpdatedAt: true` reproduce this handler's original metadata
+   * behavior.
+   *
+   * The store spreads the payload over the freshest copy of the story rather
+   * than swapping the object wholesale, so any key *absent* from the payload
+   * survives a concurrent write — including a key that write newly added.
+   * The limit: callers reaching this through the `onUpdateStory` prop pass a
+   * full `{ ...story, changes }` spread, so a field that already existed on
+   * their snapshot rides along at its old value and still clobbers a
+   * concurrent update to it, exactly as before. Narrowing that prop to a
+   * partial patch is the real fix and is deliberately not done here, because
+   * it means changing the Reader Chamber and Codex components that thread it.
    * @param {StoryWorld} updatedStory - The comprehensive story object to persist.
    */
   const handleUpdateStoryDirect = async (updatedStory: StoryWorld) => {
-    updatedStory.updatedAt = new Date().toISOString();
-    const updated = store_stories.map(s => s.id === updatedStory.id ? updatedStory : s);
-    await store_saveStories(updated);
+    await useAppStore.getState().updateStory(
+      updatedStory.id,
+      updatedStory,
+      { markEdited: false, touchUpdatedAt: true },
+    );
   };
 
   /**

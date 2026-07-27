@@ -1,5 +1,5 @@
 import { useAppStore } from '../store/useAppStore';
-import { GeneratedImage, StoryWorld } from '../types';
+import { GeneratedImage } from '../types';
 import { storyApi } from '../services/api';
 import { generateId, generateUUID } from '../lib/id';
 import {
@@ -16,17 +16,10 @@ import {
 
 export const useVisualAssets = () => {
   const store_stories = useAppStore(state => state.stories);
-    const store_saveStories = useAppStore(state => state.saveStories);
     const store_setAppError = useAppStore(state => state.setAppError);
     const store_setIsGenerating = useAppStore(state => state.setIsGenerating);
     const store_setGenerationPhase = useAppStore(state => state.setGenerationPhase);
     const store_activeStoryId = useAppStore(state => state.activeStoryId);
-
-  const handleUpdateStoryDirect = async (updatedStory: StoryWorld) => {
-    updatedStory.updatedAt = new Date().toISOString();
-    const updated = store_stories.map(s => s.id === updatedStory.id ? updatedStory : s);
-    await store_saveStories(updated);
-  };
 
   const handleGenerateCover = async (customModifier?: string): Promise<{ imageUrls: string[], promptUsed: string } | undefined> => {
     const currentStoreState = useAppStore.getState();
@@ -120,21 +113,35 @@ export const useVisualAssets = () => {
       chapterNumber: activeStory.currentChapterNumber
     };
 
-    const currentHistory = activeStory.imageHistory || [];
+    // Re-read after the media round-trip before deriving the new history, the
+    // same way handleSelectCover does. `activeStory` was captured before
+    // saveMediaAsset/resolveMediaAssetForDisplay, so deriving from it would
+    // drop a cover applied while those requests were in flight. (Only covers
+    // are at stake: story-level imageHistory is cover-only — Codex and chapter
+    // visuals live on their own owners.)
+    const latestStory = useAppStore.getState().stories.find(
+      story => story.id === activeStory.id,
+    ) ?? activeStory;
+    const currentHistory = latestStory.imageHistory || [];
     const updatedHistory: GeneratedImage[] = currentHistory.map(img =>
       img.entityType === 'cover' ? { ...img, isCurrent: false } : img
     ).concat(imageRecord);
 
-    await handleUpdateStoryDirect({
-      ...activeStory,
-      persistenceId: storyId,
-      imageUrl: resolved.url,
-      coverAssetId: asset.id,
-      imageHistory: updatedHistory,
-      evolutionReady: false,
-      availableVisualUpdate: false,
-      lastImageChapter: activeStory.currentChapterNumber
-    });
+    // Was a hook-local copy of handleUpdateStoryDirect (read stories, swap the
+    // story, saveStories). The store owns that write now.
+    await useAppStore.getState().updateStory(
+      activeStory.id,
+      {
+        persistenceId: storyId,
+        imageUrl: resolved.url,
+        coverAssetId: asset.id,
+        imageHistory: updatedHistory,
+        evolutionReady: false,
+        availableVisualUpdate: false,
+        lastImageChapter: activeStory.currentChapterNumber
+      },
+      { markEdited: false, touchUpdatedAt: true },
+    );
   };
 
   /**
@@ -203,17 +210,20 @@ export const useVisualAssets = () => {
       };
     });
 
-    const updatedStory: StoryWorld = {
-      ...latestStory,
-      persistenceId: storyId,
-      coverAssetId: selectedAsset.id,
-      imageUrl: resolved.url,
-      imageHistory: updatedHistory,
-      updatedAt: new Date().toISOString(),
-    };
-    await latestStoreState.saveStories(latestStoreState.stories.map(story =>
-      story.id === latestStory.id ? updatedStory : story,
-    ));
+    // The re-read above stays: `updatedHistory` is derived from the story's
+    // history and has to be computed against a post-request copy. Committing
+    // it is the store's job — updateStory applies this patch at the front of
+    // the save queue rather than against the snapshot read here.
+    await useAppStore.getState().updateStory(
+      latestStory.id,
+      {
+        persistenceId: storyId,
+        coverAssetId: selectedAsset.id,
+        imageUrl: resolved.url,
+        imageHistory: updatedHistory,
+      },
+      { markEdited: false, touchUpdatedAt: true },
+    );
   };
 
   return {

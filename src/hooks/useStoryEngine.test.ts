@@ -107,15 +107,176 @@ describe('useStoryEngine', () => {
     expect(storyStorage.saveStory).not.toHaveBeenCalled();
   });
 
-  it('handleUpdateStoryDirect updates story directly', async () => {
-    const { result } = renderHook(() => useStoryEngine());
+  describe('handleUpdateStoryDirect', () => {
+    it('writes through the store and preserves its metadata behavior', async () => {
+      const { result } = renderHook(() => useStoryEngine());
 
-    await act(async () => {
-      await result.current.handleUpdateStoryDirect({ id: 'story1', title: 'New Title' } as any);
+      await act(async () => {
+        await result.current.handleUpdateStoryDirect({ id: 'story1', title: 'New Title' } as any);
+      });
+
+      const updated = useAppStore.getState().stories[0];
+      expect(updated.title).toBe('New Title');
+      // Pre-refactor this handler stamped updatedAt and never set isEdited.
+      expect(updated.updatedAt).toEqual(expect.any(String));
+      expect(updated.isEdited).toBeFalsy();
+      expect(storyStorage.saveStory).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'story1', title: 'New Title' }),
+      );
     });
 
-    const updated = useAppStore.getState().stories[0];
-    expect(updated.title).toBe('New Title');
+    it('targets the passed story id, not the active story', async () => {
+      const secondStory = {
+        id: 'story2',
+        persistenceId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        title: 'Second',
+        memory: {},
+        arcs: [{ title: 'Arc 1', chapters: [{ number: 1, status: 'unread' }] }],
+      };
+      useAppStore.getState().setStories([...useAppStore.getState().stories, secondStory as any]);
+      await useAppStore.getState().saveStories(useAppStore.getState().stories);
+      vi.mocked(storyStorage.saveStory).mockClear();
+      // story1 stays active throughout.
+      expect(useAppStore.getState().activeStoryId).toBe('story1');
+
+      const { result } = renderHook(() => useStoryEngine());
+      await act(async () => {
+        await result.current.handleUpdateStoryDirect({ id: 'story2', title: 'Renamed Second' } as any);
+      });
+
+      expect(useAppStore.getState().stories.find(s => s.id === 'story2')?.title).toBe('Renamed Second');
+      expect(storyStorage.saveStory).toHaveBeenCalledTimes(1);
+      expect(storyStorage.saveStory).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'story2' }),
+      );
+    });
+
+    it('leaves unrelated stories unchanged', async () => {
+      const secondStory = {
+        id: 'story2',
+        persistenceId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        title: 'Second',
+        memory: {},
+        arcs: [{ title: 'Arc 1', chapters: [{ number: 1, status: 'unread' }] }],
+      };
+      useAppStore.getState().setStories([...useAppStore.getState().stories, secondStory as any]);
+      await useAppStore.getState().saveStories(useAppStore.getState().stories);
+      vi.mocked(storyStorage.saveStory).mockClear();
+
+      const { result } = renderHook(() => useStoryEngine());
+      await act(async () => {
+        await result.current.handleUpdateStoryDirect({ id: 'story1', title: 'New Title' } as any);
+      });
+
+      const untouched = useAppStore.getState().stories.find(s => s.id === 'story2');
+      expect(untouched?.title).toBe('Second');
+      expect(untouched?.arcs[0].chapters[0].status).toBe('unread');
+      expect(storyStorage.saveStory).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps a concurrently written field that is absent from the payload', async () => {
+      // The old implementation swapped the caller's whole object into the
+      // array, so any field committed between the caller's read and its save
+      // was lost. Going through updateStory spreads the patch over the copy
+      // that is current at the front of the queue instead — so a key the
+      // payload does not mention survives. See the companion test below for
+      // the case this does NOT cover.
+      const { result } = renderHook(() => useStoryEngine());
+
+      let releaseFirstWrite!: () => void;
+      vi.mocked(storyStorage.saveStory).mockImplementationOnce(async () => {
+        await new Promise<void>((resolve) => { releaseFirstWrite = resolve; });
+      });
+
+      const both = act(async () => {
+        await Promise.all([
+          // Queued first: sets a field the second caller never saw.
+          useAppStore.getState().updateStory('story1', { genre: 'Xianxia' } as any, { markEdited: false }),
+          result.current.handleUpdateStoryDirect({ id: 'story1', title: 'New Title' } as any),
+        ]);
+      });
+
+      await Promise.resolve();
+      await Promise.resolve();
+      releaseFirstWrite();
+      await both;
+
+      const updated = useAppStore.getState().stories[0];
+      expect(updated.title).toBe('New Title');
+      expect(updated.genre).toBe('Xianxia');
+    });
+
+    it('still loses a concurrent write to a field the stale payload already carried', async () => {
+      // Pins the honest limit of the merge, and its exact boundary. Callers
+      // reaching this through the `onUpdateStory` prop pass
+      // `{ ...story, changes }`. Such a spread still preserves a key the
+      // concurrent write *added* (the test above), because the payload has no
+      // such key — but a key already present on the caller's stale snapshot is
+      // carried along at its old value and wins, exactly as before this
+      // refactor. Fixing that means narrowing the prop to a partial patch,
+      // which is a Reader Chamber / Codex change deliberately left out of this
+      // PR. This test records the limit rather than assuming it away; invert
+      // it when the prop is narrowed.
+      const { result } = renderHook(() => useStoryEngine());
+      // Give the story the field first, so the stale snapshot carries it.
+      await act(async () => {
+        await useAppStore.getState().updateStory(
+          'story1', { genre: 'Original' } as any, { markEdited: false },
+        );
+      });
+      const staleStory = useAppStore.getState().stories[0];
+      expect((staleStory as any).genre).toBe('Original');
+
+      let releaseFirstWrite!: () => void;
+      vi.mocked(storyStorage.saveStory).mockImplementationOnce(async () => {
+        await new Promise<void>((resolve) => { releaseFirstWrite = resolve; });
+      });
+
+      const both = act(async () => {
+        await Promise.all([
+          useAppStore.getState().updateStory('story1', { genre: 'Xianxia' } as any, { markEdited: false }),
+          // A full spread of the pre-write snapshot, the shape real callers use.
+          result.current.handleUpdateStoryDirect({ ...staleStory, title: 'New Title' } as any),
+        ]);
+      });
+
+      await Promise.resolve();
+      await Promise.resolve();
+      releaseFirstWrite();
+      await both;
+
+      const updated = useAppStore.getState().stories[0];
+      expect(updated.title).toBe('New Title');
+      // The concurrent 'Xianxia' is lost to the stale 'Original'.
+      expect((updated as any).genre).toBe('Original');
+    });
+
+    it('does not corrupt in-memory state on a failed save, and does not block later writes', async () => {
+      const { result } = renderHook(() => useStoryEngine());
+      const before = useAppStore.getState().stories[0];
+
+      vi.mocked(storyStorage.saveStory).mockRejectedValueOnce(new Error('disk full'));
+
+      let caughtError: unknown;
+      await act(async () => {
+        try {
+          await result.current.handleUpdateStoryDirect({ id: 'story1', title: 'Doomed' } as any);
+        } catch (err) {
+          caughtError = err;
+        }
+      });
+
+      expect((caughtError as Error)?.message).toBe('disk full');
+      // The rejected write must not have been committed to state.
+      expect(useAppStore.getState().stories[0]).toEqual(before);
+
+      // A subsequent write still goes through — the queue recovered.
+      await act(async () => {
+        await result.current.handleUpdateStoryDirect({ id: 'story1', title: 'Recovered' } as any);
+      });
+
+      expect(useAppStore.getState().stories[0].title).toBe('Recovered');
+    });
   });
 
   it('handleToggleRead toggles unread to read, awards qi once, and stamps updatedAt', async () => {
