@@ -149,6 +149,12 @@ describe('hasReadableProse', () => {
     expect(hasReadableProse({ generatedContent: '', blocks: [] })).toBe(false);
   });
 
+  it('does not treat a malformed non-array blocks value as readable', () => {
+    // A legacy record can carry a string here, whose .length would be truthy.
+    expect(hasReadableProse({ blocks: 'not blocks' as never })).toBe(false);
+    expect(hasReadableProse({ blocks: {} as never })).toBe(false);
+  });
+
   it('tolerates absent input', () => {
     expect(hasReadableProse(null)).toBe(false);
     expect(hasReadableProse(undefined)).toBe(false);

@@ -61,7 +61,9 @@ export const hasReadableProse = (
   chapter: Pick<ReaderChapter, 'generatedContent' | 'blocks'> | null | undefined,
 ): boolean => {
   if (!chapter) return false;
-  return Boolean(chapter.generatedContent) || Boolean(chapter.blocks?.length);
+  // Array.isArray rather than `blocks?.length`: a legacy or malformed record
+  // can carry a non-array here, and a string would report a truthy length.
+  return Boolean(chapter.generatedContent) || (Array.isArray(chapter.blocks) && chapter.blocks.length > 0);
 };
 
 /**
