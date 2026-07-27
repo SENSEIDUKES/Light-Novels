@@ -113,7 +113,16 @@ export const useVisualAssets = () => {
       chapterNumber: activeStory.currentChapterNumber
     };
 
-    const currentHistory = activeStory.imageHistory || [];
+    // Re-read after the media round-trip before deriving the new history, the
+    // same way handleSelectCover does. `activeStory` was captured before
+    // saveMediaAsset/resolveMediaAssetForDisplay, so deriving from it would
+    // drop a cover applied while those requests were in flight. (Only covers
+    // are at stake: story-level imageHistory is cover-only — Codex and chapter
+    // visuals live on their own owners.)
+    const latestStory = useAppStore.getState().stories.find(
+      story => story.id === activeStory.id,
+    ) ?? activeStory;
+    const currentHistory = latestStory.imageHistory || [];
     const updatedHistory: GeneratedImage[] = currentHistory.map(img =>
       img.entityType === 'cover' ? { ...img, isCurrent: false } : img
     ).concat(imageRecord);

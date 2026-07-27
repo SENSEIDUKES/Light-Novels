@@ -48,49 +48,43 @@ export const useChapterSealing = () => {
       }
     };
 
-    const newArcs = await Promise.all(activeStory.arcs.map(async (arc) => {
-      const newChapters = await Promise.all(arc.chapters.map(async (ch) => {
-        if (ch.number === chapterNumber) {
-          const contentHash = await generateContentHash(ch.generatedContent || '');
-          const versionId = generateUUID();
-          const branchAnchor = generateUUID();
-          
-          return { 
-            ...ch, 
-            isSealed: true,
-            contentHash,
-            sealedAt: Date.now(),
-            versionId,
-            assetManifest: {},
-            translationCache: {},
-            audioCueCache: {},
-            branchAnchor
-          };
-        }
-        return ch;
-      }));
-      return { ...arc, chapters: newChapters };
-    }));
+    const targetChapter = activeStory.arcs
+      .flatMap((arc) => arc.chapters)
+      .find((ch) => ch.number === chapterNumber);
+    if (!targetChapter) return;
 
-    // Was a hook-local copy of handleUpdateStoryDirect (read stories, swap the
-    // story, saveStories). The store owns that write now.
-    await useAppStore.getState().updateStory(
+    // Sealing touches exactly one chapter, so it patches exactly one chapter.
+    // Rebuilding the whole `arcs` array and writing it back — as this did
+    // before — meant the snapshot read above, taken before the async content
+    // hash, would clobber any chapter another writer changed while the hash
+    // was being computed (a read/unread toggle, a generation completing).
+    // updateChapter leaves every other chapter alone.
+    const sealPatch = {
+      isSealed: true,
+      contentHash: await generateContentHash(targetChapter.generatedContent || ''),
+      sealedAt: Date.now(),
+      versionId: generateUUID(),
+      assetManifest: {},
+      translationCache: {},
+      audioCueCache: {},
+      branchAnchor: generateUUID(),
+    };
+
+    await useAppStore.getState().updateChapter(
       activeStory.id,
-      { arcs: newArcs },
-      { markEdited: false, touchUpdatedAt: true },
+      chapterNumber,
+      sealPatch,
     );
     awardQi('chapter_sealed');
-    
+
     // Scan sealed chapter content for artifacts if it contains major milestones
-    const sealedCh = newArcs.flatMap(a => a.chapters).find(c => c.number === chapterNumber);
-    if (sealedCh) {
-      const fullText = (sealedCh.generatedContent || "") + " " + (sealedCh.blocks || []).map((b: any) => b.text).join(" ");
-      import('../lib/artifacts').then(({ scanChapterForArtifacts }) => {
-        scanChapterForArtifacts(activeStory.id, activeStory.title, chapterNumber, fullText, sealedCh).catch((err) => {
-          console.error("Failed to scan sealed chapter for artifacts:", err);
-        });
+    const sealedCh = { ...targetChapter, ...sealPatch };
+    const fullText = (sealedCh.generatedContent || "") + " " + (sealedCh.blocks || []).map((b: any) => b.text).join(" ");
+    import('../lib/artifacts').then(({ scanChapterForArtifacts }) => {
+      scanChapterForArtifacts(activeStory.id, activeStory.title, chapterNumber, fullText, sealedCh).catch((err) => {
+        console.error("Failed to scan sealed chapter for artifacts:", err);
       });
-    }
+    });
   };
 
   return {

@@ -53,10 +53,17 @@ export const useStoryEngine = () => {
    * Routed through the store's `updateStory` like the other handlers here, so
    * the hook no longer reconstructs the stories array. `markEdited: false` and
    * `touchUpdatedAt: true` reproduce this handler's original metadata
-   * behavior. Note the store spreads the payload over the *freshest* copy of
-   * the story rather than swapping the object wholesale, so a field written
-   * concurrently by another queued save survives instead of being dropped by
-   * a caller's slightly older snapshot.
+   * behavior.
+   *
+   * The store spreads the payload over the freshest copy of the story rather
+   * than swapping the object wholesale, so any key *absent* from the payload
+   * survives a concurrent write — including a key that write newly added.
+   * The limit: callers reaching this through the `onUpdateStory` prop pass a
+   * full `{ ...story, changes }` spread, so a field that already existed on
+   * their snapshot rides along at its old value and still clobbers a
+   * concurrent update to it, exactly as before. Narrowing that prop to a
+   * partial patch is the real fix and is deliberately not done here, because
+   * it means changing the Reader Chamber and Codex components that thread it.
    * @param {StoryWorld} updatedStory - The comprehensive story object to persist.
    */
   const handleUpdateStoryDirect = async (updatedStory: StoryWorld) => {
