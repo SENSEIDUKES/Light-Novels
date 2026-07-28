@@ -178,12 +178,12 @@ export function cleanAndParseJSON(rawText: string) {
     if (matchToUse) {
       try {
         return JSON.parse(matchToUse[0]);
-      } catch (nestedErr) {
+      } catch {
          // Attempt to strip inner markdown if the model hallucinated it inside
          const innerClean = matchToUse[0].replace(/```json/g, '').replace(/```/g, '').trim();
           try {
             return JSON.parse(innerClean);
-          } catch (e2) {
+          } catch {
             console.warn("[aiRouter] Model response was not valid JSON", { length: rawText.length });
             throw new Error("The model returned an invalid structured response. Please retry generation.");
           }
