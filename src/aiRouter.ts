@@ -349,8 +349,8 @@ export async function* routeTextGenerationStream(
     }
   } else if (provider === "ollama") {
     const host = customKeys?.ollamaHost || process.env.OLLAMA_HOST || "http://localhost:11434";
-    if (customKeys?.ollamaHost && !isValidOllamaHost(customKeys.ollamaHost)) {
-      throw new Error("Invalid Ollama host provided via custom keys.");
+    if (!isValidOllamaHost(host)) {
+      throw new Error("Invalid Ollama host provided.");
     }
     try {
       const response = await fetch(`${host}/api/generate`, {
@@ -581,8 +581,8 @@ export async function routeTextGeneration(
     // OLLAMA (LOCAL) ROUTE
     // -------------------------------------------------------------
     const host = customKeys?.ollamaHost || process.env.OLLAMA_HOST || "http://localhost:11434";
-    if (customKeys?.ollamaHost && !isValidOllamaHost(customKeys.ollamaHost)) {
-      throw new Error("Invalid Ollama host provided via custom keys.");
+    if (!isValidOllamaHost(host)) {
+      throw new Error("Invalid Ollama host provided.");
     }
     try {
       const response = await fetch(`${host}/api/generate`, {
@@ -802,9 +802,9 @@ export async function routeImageGeneration(
     // Local Ollama is normally text-based. Let's make it a stellar simulation:
     // It will "forge" or "synthesize" a gorgeous Local Prompt, and use Unsplash
     // as a visual medium while providing instructions on local SD integrations.
-    const h = customKeys?.ollamaHost || process.env.OLLAMA_HOST || "http://localhost:11434";
-    if (customKeys?.ollamaHost && !isValidOllamaHost(customKeys.ollamaHost)) {
-      throw new Error("Invalid Ollama host provided via custom keys.");
+    const host = customKeys?.ollamaHost || process.env.OLLAMA_HOST || "http://localhost:11434";
+    if (!isValidOllamaHost(host)) {
+      throw new Error("Invalid Ollama host provided.");
     }
     return {
       imageUrls: getFallbackImages(1),
