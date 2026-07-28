@@ -32,13 +32,15 @@ export function useCodexDeletions(
 
   const handleDeleteCustomRelationship = (bondId: string) => {
     void updateStoryFields(activeStory.id, (current) => ({
-      relationships: (current.relationships || []).filter(b => b.id !== bondId),
+      relationships: (Array.isArray(current.relationships) ? current.relationships : [])
+        .filter(b => b.id !== bondId),
     }));
   };
 
   const handleDeleteFateNode = (fateId: string) => {
     void updateStoryFields(activeStory.id, (current) => ({
-      karmaNodes: (current.karmaNodes || []).filter(n => n.id !== fateId),
+      karmaNodes: (Array.isArray(current.karmaNodes) ? current.karmaNodes : [])
+        .filter(n => n.id !== fateId),
     }));
   };
 

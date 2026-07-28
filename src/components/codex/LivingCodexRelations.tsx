@@ -63,7 +63,10 @@ export function LivingCodexRelations({
     };
 
     void updateStoryFields(activeStory.id, (current) => ({
-      relationships: [newRelationship, ...(current.relationships || [])],
+      relationships: [
+        newRelationship,
+        ...(Array.isArray(current.relationships) ? current.relationships : []),
+      ],
     }));
 
     setBondSourceId('');

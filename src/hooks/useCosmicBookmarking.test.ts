@@ -67,6 +67,23 @@ describe('useCosmicBookmarking', () => {
     expect(onUpdateStory.mock.calls.at(-1)?.[1](latestStory)).toEqual(expect.objectContaining({ bookmarks: [] }));
   });
 
+  it('recovers from a malformed persisted bookmark collection', () => {
+    const updateStoryFields = vi.fn();
+    const { result } = renderHook(() => useCosmicBookmarking({
+      activeStory: latestStory,
+      selectedChapter: { number: 1 },
+      updateStoryFields,
+      setSelectedChapterNum: vi.fn(),
+    } as any));
+
+    act(() => result.current.handleSaveBookmark(3, 'Excerpt', 'Note'));
+
+    expect(updateStoryFields.mock.calls[0][1]({ id: 'story-1', bookmarks: {} as any }))
+      .toEqual({
+        bookmarks: [expect.objectContaining({ chapterNumber: 1, paragraphIndex: 3 })],
+      });
+  });
+
   it('jumps to a bookmark chapter, records the paragraph target, and closes the panel', () => {
     const setSelectedChapterNum = vi.fn();
     const { result } = renderHook(() => useCosmicBookmarking({

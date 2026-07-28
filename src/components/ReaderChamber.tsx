@@ -703,7 +703,7 @@ export default function ReaderChamber({
       createdAt: new Date().toISOString(),
     };
     void updateStoryFields(activeStory.id, (current) => {
-      const bookmarks = current.bookmarks || [];
+      const bookmarks = Array.isArray(current.bookmarks) ? current.bookmarks : [];
       const hasExistingBookmark = bookmarks.some((candidate) => (
         candidate.chapterNumber === bookmark.chapterNumber
         && candidate.paragraphIndex === bookmark.paragraphIndex
@@ -725,7 +725,7 @@ export default function ReaderChamber({
 
   const handleRemoveBookmark = (chapterNum: number, paraIdx: number) => {
     void updateStoryFields(activeStory.id, (current) => ({
-      bookmarks: (current.bookmarks || []).filter(
+      bookmarks: (Array.isArray(current.bookmarks) ? current.bookmarks : []).filter(
         (bookmark) => !(bookmark.chapterNumber === chapterNum && bookmark.paragraphIndex === paraIdx),
       ),
     }));
