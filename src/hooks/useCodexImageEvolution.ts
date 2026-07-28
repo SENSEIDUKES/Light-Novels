@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StoryMemory, StoryWorld, GeneratedImage, MultiModelRouting } from '../types';
+import { StoryMemory, StoryWorld, GeneratedImage, MultiModelRouting, UpdateStoryFields } from '../types';
 import { secureStorage } from '../lib/encryption';
 import { checkAndConsumeImageQuota } from '../lib/quota';
 import { useAppStore } from '../store/useAppStore';
@@ -20,7 +20,7 @@ import {
 export function useCodexImageEvolution(
   memory: StoryMemory,
   activeStory: StoryWorld,
-  onUpdateStory: (updatedStory: StoryWorld) => void,
+  updateStoryFields: UpdateStoryFields,
   routingConfig: MultiModelRouting | undefined,
   pushNotification: (msg: string) => void
 ) {
@@ -117,11 +117,7 @@ export function useCodexImageEvolution(
         finalMemory = { ...memory, artifacts: (memory.artifacts || []).map(revertEntity) };
       }
 
-      const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
-      onUpdateStory({
-        ...currentActiveStory,
-        memory: finalMemory,
-      });
+      void updateStoryFields(activeStory.id, { memory: finalMemory });
     } catch (error) {
       console.error('Failed to revert the codex image:', error);
       setGenerationError(error instanceof Error ? error.message : 'Failed to revert the codex image.');
@@ -316,12 +312,7 @@ export function useCodexImageEvolution(
         finalMemory = { ...memory, artifacts: updated };
       }
 
-      const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
-      onUpdateStory({
-        ...currentActiveStory,
-        persistenceId: storyPersistenceId,
-        memory: finalMemory,
-      });
+      void updateStoryFields(activeStory.id, { memory: finalMemory });
 
       setPreviews(prev => {
         const next = { ...prev };

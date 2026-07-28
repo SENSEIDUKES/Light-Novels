@@ -75,7 +75,6 @@ interface ReaderViewportProps {
   renderHighlightedText: (text: string, paragraphIndex: number) => React.ReactNode;
   getFocusClass: (paraIdx: number) => string;
   
-  onUpdateStory: (updatedStory: StoryWorld) => void;
   navigatePrev: () => void;
   navigateNext: () => void;
   
@@ -139,7 +138,6 @@ export function ReaderViewport({
   activeTranslationContent,
   renderHighlightedText,
   getFocusClass,
-  onUpdateStory,
   navigatePrev,
   navigateNext,
   handleSealChapter,
@@ -231,12 +229,12 @@ export function ReaderViewport({
     });
 
     if (hasChanges) {
-      updateStory(activeStory.id, {
+      void updateStory(activeStory.id, (current) => ({
         assignedRevealBackdrops: {
-          ...existingAssignments,
+          ...(current.assignedRevealBackdrops || {}),
           ...newAssignments,
         },
-      });
+      }));
     }
   }, [selectedChapter?.blocks, activeStory, codexHighlighter, updateStory]);
 

@@ -3,12 +3,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import LivingCodex from './LivingCodex';
-import { Story } from '../types';
+import { UpdateStoryFields } from '../types';
 
 export const CodexSheetOverlay: React.FC<{
   handleUpdateMemoryManual: (updated: any) => void,
-  handleUpdateStoryDirect: (story: Story) => void
-}> = ({ handleUpdateMemoryManual, handleUpdateStoryDirect }) => {
+  updateStoryFields: UpdateStoryFields
+}> = ({ handleUpdateMemoryManual, updateStoryFields }) => {
 
   const isCodexSheetOpen = useAppStore(state => state.isCodexSheetOpen);
     const setIsCodexSheetOpen = useAppStore(state => state.setIsCodexSheetOpen);
@@ -70,7 +70,7 @@ export const CodexSheetOverlay: React.FC<{
                     if (tab === 'reader') setIsCodexSheetOpen(false);
                   }}
                   activeStory={activeStory}
-                  onUpdateStory={handleUpdateStoryDirect}
+                  updateStoryFields={updateStoryFields}
                   routingConfig={routingConfig}
                 />
               </div>

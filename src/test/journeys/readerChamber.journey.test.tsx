@@ -117,7 +117,7 @@ function renderChamber(story: StoryWorld, chapters: Chapter[]) {
       arcTitle={story.arcs[0].title}
       onSwitchTab={vi.fn()}
       activeStory={story}
-      onUpdateStory={vi.fn()}
+      updateStoryFields={vi.fn()}
     />,
   );
 }

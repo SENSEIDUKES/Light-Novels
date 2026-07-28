@@ -4,7 +4,6 @@ import { Network, HelpCircle, ArrowLeftRight, Trash2, Download, Scan, Info } fro
 import { VirtualizedList } from '../VirtualizedList';
 import { Character, CharacterRelationship } from '../../types';
 import { useCodex } from './CodexContext';
-import { useAppStore } from '../../store/useAppStore';
 import { useDialect } from '../../lib/dialect';
 import { handleDownload } from '../../utils/downloadUtils';
 
@@ -22,8 +21,7 @@ export function LivingCodexRelations({
   selectedNodeChar,
   setSelectedNodeChar
 }: LivingCodexRelationsProps) {
-  const { memory, activeStory, mcName, pushNotification, onUpdateStory } = useCodex();
-  const stories = useAppStore(state => state.stories);
+  const { memory, activeStory, mcName, pushNotification, updateStoryFields } = useCodex();
   const t = useDialect();
 
 
@@ -64,12 +62,12 @@ export function LivingCodexRelations({
       updatedAt: new Date().toISOString()
     };
 
-    const currentBonds = activeStory.relationships || [];
-    const currentActiveStory = stories.find(s => s.id === activeStory.id) || activeStory;
-    onUpdateStory({
-      ...currentActiveStory,
-      relationships: [newRelationship, ...currentBonds]
-    });
+    void updateStoryFields(activeStory.id, (current) => ({
+      relationships: [
+        newRelationship,
+        ...(Array.isArray(current.relationships) ? current.relationships : []),
+      ],
+    }));
 
     setBondSourceId('');
     setBondTargetId('');

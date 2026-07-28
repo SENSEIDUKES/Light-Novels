@@ -266,6 +266,38 @@ describe('useAppStore', () => {
       expect(updated.updatedAt).toEqual(expect.any(String));
     });
 
+    it('evaluates a functional patch against the latest queued story', async () => {
+      const story = {
+        id: 'story-a', persistenceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        title: 'Original', memory: {}, arcs: [],
+        readerPreferences: { fontSize: 'base' },
+      } as any;
+      useAppStore.getState().setStories([story]);
+
+      await Promise.all([
+        useAppStore.getState().updateStory(
+          'story-a',
+          { readerPreferences: { fontSize: 'lg' } } as any,
+          { markEdited: false },
+        ),
+        useAppStore.getState().updateStory(
+          'story-a',
+          (current) => ({
+            readerPreferences: {
+              ...current.readerPreferences,
+              fontFamily: 'serif',
+            },
+          }),
+          { markEdited: false },
+        ),
+      ]);
+
+      expect(useAppStore.getState().stories[0].readerPreferences).toMatchObject({
+        fontSize: 'lg',
+        fontFamily: 'serif',
+      });
+    });
+
     it('leaves a non-matching story untouched and never reaches durable storage', async () => {
       const story = {
         id: 'story-a', persistenceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',

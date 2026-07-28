@@ -52,7 +52,7 @@ describe('ReaderScreen', () => {
         handleGenerateChapter={vi.fn()}
         handleGenerateNextFiveChapters={vi.fn()}
         handleToggleRead={vi.fn()}
-        handleUpdateStoryDirect={vi.fn()}
+        updateStoryFields={vi.fn()}
         setIsCodexSheetOpen={vi.fn()}
         handleSealChapter={vi.fn()}
       />

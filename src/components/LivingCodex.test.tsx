@@ -22,7 +22,7 @@ describe('LivingCodex', () => {
         onUpdateMemory={vi.fn()}
         mcName="testMc"
         activeStory={mockStory}
-        onUpdateStory={vi.fn()}
+        updateStoryFields={vi.fn()}
       />
     );
     expect(container).toBeDefined();

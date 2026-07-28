@@ -10,7 +10,7 @@ describe('LivingCodexRelations', () => {
       activeStory: { rules: [] },
       mcName: 'Han Feng',
       pushNotification: vi.fn(),
-      onUpdateStory: vi.fn(),
+      updateStoryFields: vi.fn(),
       onUpdateMemory: vi.fn(),
     } as any;
 

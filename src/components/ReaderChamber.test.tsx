@@ -54,7 +54,7 @@ describe('ReaderChamber', () => {
         arcTitle="First Arc"
         onSwitchTab={vi.fn()}
         activeStory={mockStory as any}
-        onUpdateStory={vi.fn()}
+        updateStoryFields={vi.fn()}
       />
     );
     expect(container).toBeDefined();
@@ -96,7 +96,7 @@ describe('ReaderChamber', () => {
         arcTitle="First Arc"
         onSwitchTab={vi.fn()}
         activeStory={mockStory as any}
-        onUpdateStory={vi.fn()}
+        updateStoryFields={vi.fn()}
         handleAlterFate={vi.fn()}
       />,
     );

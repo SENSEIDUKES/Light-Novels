@@ -19,7 +19,7 @@ describe('CodexSheetOverlay', () => {
     const { container } = render(
       <CodexSheetOverlay 
         handleUpdateMemoryManual={vi.fn()} 
-        handleUpdateStoryDirect={vi.fn()} 
+        updateStoryFields={vi.fn()}
       />
     );
     expect(container).toBeDefined();

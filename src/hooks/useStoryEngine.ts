@@ -1,5 +1,5 @@
 import { useAppStore } from '../store/useAppStore';
-import { StoryMemory, StoryWorld } from '../types';
+import { StoryMemory, UpdateStoryFields } from '../types';
 import { awardQi } from '../lib/qi';
 import { extractJsonBlocks, extractJsonMeta } from './storyEngineHelpers';
 import { useChapterGeneration } from './useChapterGeneration';
@@ -47,30 +47,14 @@ export const useStoryEngine = () => {
   };
 
   /**
-   * Persists a whole story object, targeting it by its own id (not the active
-   * story — a caller may legitimately write a story that is not open).
-   *
-   * Routed through the store's `updateStory` like the other handlers here, so
-   * the hook no longer reconstructs the stories array. `markEdited: false` and
-   * `touchUpdatedAt: true` reproduce this handler's original metadata
-   * behavior.
-   *
-   * The store spreads the payload over the freshest copy of the story rather
-   * than swapping the object wholesale, so any key *absent* from the payload
-   * survives a concurrent write — including a key that write newly added.
-   * The limit: callers reaching this through the `onUpdateStory` prop pass a
-   * full `{ ...story, changes }` spread, so a field that already existed on
-   * their snapshot rides along at its old value and still clobbers a
-   * concurrent update to it, exactly as before. Narrowing that prop to a
-   * partial patch is the real fix and is deliberately not done here, because
-   * it means changing the Reader Chamber and Codex components that thread it.
-   * @param {StoryWorld} updatedStory - The comprehensive story object to persist.
+   * Reader/Codex mutation boundary. Callers name the story and send only the
+   * fields they own; functional patches read the latest queued story.
    */
-  const handleUpdateStoryDirect = async (updatedStory: StoryWorld) => {
+  const updateStoryFields: UpdateStoryFields = async (storyId, updates, options) => {
     await useAppStore.getState().updateStory(
-      updatedStory.id,
-      updatedStory,
-      { markEdited: false, touchUpdatedAt: true },
+      storyId,
+      updates,
+      { markEdited: false, touchUpdatedAt: true, ...options },
     );
   };
 
@@ -114,7 +98,7 @@ export const useStoryEngine = () => {
     handleCheckConsistency,
     handleSealChapter,
     handleUpdateMemoryManual,
-    handleUpdateStoryDirect,
+    updateStoryFields,
     handleToggleRead,
     handleGenerateCover,
     handleApplyCover,

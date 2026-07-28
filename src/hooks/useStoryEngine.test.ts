@@ -107,21 +107,21 @@ describe('useStoryEngine', () => {
     expect(storyStorage.saveStory).not.toHaveBeenCalled();
   });
 
-  describe('handleUpdateStoryDirect', () => {
+  describe('updateStoryFields', () => {
     it('writes through the store and preserves its metadata behavior', async () => {
       const { result } = renderHook(() => useStoryEngine());
 
       await act(async () => {
-        await result.current.handleUpdateStoryDirect({ id: 'story1', title: 'New Title' } as any);
+        await result.current.updateStoryFields('story1', { motionCoverActive: true });
       });
 
       const updated = useAppStore.getState().stories[0];
-      expect(updated.title).toBe('New Title');
+      expect(updated.motionCoverActive).toBe(true);
       // Pre-refactor this handler stamped updatedAt and never set isEdited.
       expect(updated.updatedAt).toEqual(expect.any(String));
       expect(updated.isEdited).toBeFalsy();
       expect(storyStorage.saveStory).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'story1', title: 'New Title' }),
+        expect.objectContaining({ id: 'story1', motionCoverActive: true }),
       );
     });
 
@@ -141,10 +141,10 @@ describe('useStoryEngine', () => {
 
       const { result } = renderHook(() => useStoryEngine());
       await act(async () => {
-        await result.current.handleUpdateStoryDirect({ id: 'story2', title: 'Renamed Second' } as any);
+        await result.current.updateStoryFields('story2', { motionCoverActive: true });
       });
 
-      expect(useAppStore.getState().stories.find(s => s.id === 'story2')?.title).toBe('Renamed Second');
+      expect(useAppStore.getState().stories.find(s => s.id === 'story2')?.motionCoverActive).toBe(true);
       expect(storyStorage.saveStory).toHaveBeenCalledTimes(1);
       expect(storyStorage.saveStory).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'story2' }),
@@ -165,7 +165,7 @@ describe('useStoryEngine', () => {
 
       const { result } = renderHook(() => useStoryEngine());
       await act(async () => {
-        await result.current.handleUpdateStoryDirect({ id: 'story1', title: 'New Title' } as any);
+        await result.current.updateStoryFields('story1', { motionCoverActive: true });
       });
 
       const untouched = useAppStore.getState().stories.find(s => s.id === 'story2');
@@ -192,7 +192,7 @@ describe('useStoryEngine', () => {
         await Promise.all([
           // Queued first: sets a field the second caller never saw.
           useAppStore.getState().updateStory('story1', { genre: 'Xianxia' } as any, { markEdited: false }),
-          result.current.handleUpdateStoryDirect({ id: 'story1', title: 'New Title' } as any),
+          result.current.updateStoryFields('story1', { motionCoverActive: true }),
         ]);
       });
 
@@ -202,11 +202,11 @@ describe('useStoryEngine', () => {
       await both;
 
       const updated = useAppStore.getState().stories[0];
-      expect(updated.title).toBe('New Title');
+      expect(updated.motionCoverActive).toBe(true);
       expect(updated.genre).toBe('Xianxia');
     });
 
-    it('still loses a concurrent write to a field the stale payload already carried', async () => {
+    it('keeps a concurrent field when a stale caller sends a narrow patch', async () => {
       // Pins the honest limit of the merge, and its exact boundary. Callers
       // reaching this through the `onUpdateStory` prop pass
       // `{ ...story, changes }`. Such a spread still preserves a key the
@@ -221,11 +221,11 @@ describe('useStoryEngine', () => {
       // Give the story the field first, so the stale snapshot carries it.
       await act(async () => {
         await useAppStore.getState().updateStory(
-          'story1', { genre: 'Original' } as any, { markEdited: false },
+          'story1', { motionCoverActive: false } as any, { markEdited: false },
         );
       });
       const staleStory = useAppStore.getState().stories[0];
-      expect((staleStory as any).genre).toBe('Original');
+      expect(staleStory.motionCoverActive).toBe(false);
 
       let releaseFirstWrite!: () => void;
       vi.mocked(storyStorage.saveStory).mockImplementationOnce(async () => {
@@ -234,9 +234,8 @@ describe('useStoryEngine', () => {
 
       const both = act(async () => {
         await Promise.all([
-          useAppStore.getState().updateStory('story1', { genre: 'Xianxia' } as any, { markEdited: false }),
-          // A full spread of the pre-write snapshot, the shape real callers use.
-          result.current.handleUpdateStoryDirect({ ...staleStory, title: 'New Title' } as any),
+          useAppStore.getState().updateStory('story1', { motionCoverActive: true } as any, { markEdited: false }),
+          result.current.updateStoryFields('story1', { readingStats: { totalReadingTimeMs: 10 } }),
         ]);
       });
 
@@ -246,9 +245,8 @@ describe('useStoryEngine', () => {
       await both;
 
       const updated = useAppStore.getState().stories[0];
-      expect(updated.title).toBe('New Title');
-      // The concurrent 'Xianxia' is lost to the stale 'Original'.
-      expect((updated as any).genre).toBe('Original');
+      expect(updated.readingStats?.totalReadingTimeMs).toBe(10);
+      expect(updated.motionCoverActive).toBe(true);
     });
 
     it('does not corrupt in-memory state on a failed save, and does not block later writes', async () => {
@@ -260,7 +258,7 @@ describe('useStoryEngine', () => {
       let caughtError: unknown;
       await act(async () => {
         try {
-          await result.current.handleUpdateStoryDirect({ id: 'story1', title: 'Doomed' } as any);
+          await result.current.updateStoryFields('story1', { motionCoverActive: true });
         } catch (err) {
           caughtError = err;
         }
@@ -272,10 +270,10 @@ describe('useStoryEngine', () => {
 
       // A subsequent write still goes through — the queue recovered.
       await act(async () => {
-        await result.current.handleUpdateStoryDirect({ id: 'story1', title: 'Recovered' } as any);
+        await result.current.updateStoryFields('story1', { motionCoverActive: true });
       });
 
-      expect(useAppStore.getState().stories[0].title).toBe('Recovered');
+      expect(useAppStore.getState().stories[0].motionCoverActive).toBe(true);
     });
   });
 

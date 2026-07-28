@@ -6,7 +6,7 @@ import {
   BookMarked, Activity, History
 } from 'lucide-react';
 import { vibrate } from '../lib/vibration';
-import { StoryMemory, Character, StoryArc, StoryWorld, MultiModelRouting } from '../types';
+import { StoryMemory, Character, StoryArc, StoryWorld, MultiModelRouting, UpdateStoryFields } from '../types';
 import { secureStorage } from '../lib/encryption';
 import {
   CodexProvider,
@@ -42,7 +42,7 @@ interface LivingCodexProps {
   onJumpToChapter?: (chapterNumber: number) => void;
   onSwitchTab?: (tab: 'reader' | 'codex' | 'memory') => void;
   activeStory: StoryWorld;
-  onUpdateStory: (updatedStory: StoryWorld) => void;
+  updateStoryFields: UpdateStoryFields;
   routingConfig?: MultiModelRouting;
 }
 
@@ -76,7 +76,7 @@ export default function LivingCodex({
   onJumpToChapter, 
   onSwitchTab,
   activeStory,
-  onUpdateStory,
+  updateStoryFields,
   routingConfig
 }: LivingCodexProps) {
   const memory = useMemo(() => ({
@@ -135,7 +135,7 @@ export default function LivingCodex({
     handleAwakenCardImage,
     handleSaveEvolution,
     handleDiscardPreview
-  } = useCodexImageEvolution(memory, activeStory, onUpdateStory, routingConfig, pushNotification);
+  } = useCodexImageEvolution(memory, activeStory, updateStoryFields, routingConfig, pushNotification);
 
   const {
     handleDeleteFaction,
@@ -143,7 +143,7 @@ export default function LivingCodex({
     handleDeleteLocation,
     handleDeleteCustomRelationship,
     handleDeleteFateNode
-  } = useCodexDeletions(memory, onUpdateMemory, activeStory, onUpdateStory);
+  } = useCodexDeletions(memory, onUpdateMemory, activeStory, updateStoryFields);
 
 
 
@@ -244,7 +244,7 @@ export default function LivingCodex({
     mcName,
     routingConfig,
     onUpdateMemory,
-    onUpdateStory,
+    updateStoryFields,
     pushNotification,
     getPowerRankScore,
     handleAwakenCardImage,

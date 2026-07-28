@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import { Story, Chapter, ChapterContent, DraftRecoverySession, AppUser } from '../types';
+import { Story, Chapter, ChapterContent, DraftRecoverySession, AppUser, StoryUpdateOptions } from '../types';
 import { storyStorage } from '../lib/storage';
 import { AppState } from './useAppStore';
 import { auth, LOCAL_ONLY_MODE } from '../lib/firebase';
@@ -83,8 +83,8 @@ export interface StorySlice {
    */
   updateStory: (
     storyId: string,
-    updates: Partial<Story>,
-    options?: { markEdited?: boolean; touchUpdatedAt?: boolean },
+    updates: Partial<Story> | ((current: Story) => Partial<Story>),
+    options?: StoryUpdateOptions,
   ) => Promise<void>;
   /**
    * The authoritative way to patch one chapter. `updates` may be a fixed
@@ -464,16 +464,17 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
 
   updateStory: (
     storyId: string,
-    updates: Partial<Story>,
-    options?: { markEdited?: boolean; touchUpdatedAt?: boolean },
+    updates: Partial<Story> | ((current: Story) => Partial<Story>),
+    options?: StoryUpdateOptions,
   ) => {
     const markEdited = options?.markEdited !== false;
     const touchUpdatedAt = options?.touchUpdatedAt === true;
     return get().saveStories((current) => current.map(s => {
       if (s.id !== storyId) return s;
+      const patch = typeof updates === 'function' ? updates(s) : updates;
       return {
         ...s,
-        ...updates,
+        ...patch,
         ...(markEdited ? { isEdited: true } : {}),
         ...(touchUpdatedAt ? { updatedAt: new Date().toISOString() } : {}),
       };
