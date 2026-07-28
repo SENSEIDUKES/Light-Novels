@@ -11,6 +11,7 @@ describe('AILoadingVeil', () => {
       generationProgressMessage: '',
       generatingChapterNum: null,
       isVeilMinimized: false,
+      streamingChapter: null,
     });
   });
 
@@ -37,6 +38,42 @@ describe('AILoadingVeil', () => {
     expect(getByText('Chapter 3 Manifestation')).toBeDefined();
     fireEvent.click(getByRole('button', { name: /Minimize to Background/i }));
     expect(useAppStore.getState().isVeilMinimized).toBe(true);
+  });
+
+  it('still reports woven passages from the generation slice, not the UI slice', () => {
+    // `streamingChapter` moved out of `UISlice` into `GenerationSlice`. The veil
+    // selects it from the composed store, so its live progress readout must be
+    // unchanged by the ownership move.
+    useAppStore.setState({
+      isGenerating: true,
+      generationPhase: 'chapter',
+      generatingChapterNum: 2,
+      isVeilMinimized: false,
+      streamingChapter: {
+        number: 2,
+        content: 'two passages so far',
+        blocks: [
+          { type: 'prose', text: 'one' },
+          { type: 'prose', text: 'two' },
+        ] as never,
+      },
+    });
+    const { getByText } = render(<AILoadingVeil />);
+
+    expect(getByText('2 passages formed')).toBeDefined();
+  });
+
+  it('falls back to the idle channel copy once the stream is cleared', () => {
+    useAppStore.setState({
+      isGenerating: true,
+      generationPhase: 'chapter',
+      generatingChapterNum: 2,
+      isVeilMinimized: false,
+      streamingChapter: null,
+    });
+    const { getByText } = render(<AILoadingVeil />);
+
+    expect(getByText('Initiating Cosmic Channel')).toBeDefined();
   });
 
   it('describes whether the compact details toggle will show or hide details', () => {

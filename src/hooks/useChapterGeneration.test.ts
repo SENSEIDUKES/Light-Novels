@@ -135,6 +135,83 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
     expect(ch.contextManifest).toEqual(contextManifest);
   });
 
+  it('publishes streaming payloads while running and clears them on completion', async () => {
+    const { result } = renderHook(() => useChapterGeneration());
+
+    const mockReader = { read: vi.fn() };
+    const encoder = new TextEncoder();
+    const chunks = [
+      `data: {"chunk": "{\\"text\\": \\"${'A'.repeat(160)}\\"}\\n"}\n`,
+      'data: [DONE]\n',
+    ];
+    chunks.forEach(c => {
+      mockReader.read.mockResolvedValueOnce({ done: false, value: encoder.encode(c) });
+    });
+    mockReader.read.mockResolvedValueOnce({ done: true, value: undefined });
+
+    (global.fetch as any).mockImplementation((url: string) => {
+      if (url.includes('generate-chapter-stream')) {
+        return Promise.resolve({ ok: true, body: { getReader: () => mockReader } });
+      }
+      if (url.includes('check-consistency')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ warnings: [] }) });
+      }
+      if (url.includes('extract-chapter-metadata')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ summary: 'Sum', memoryUpdates: {} }) });
+      }
+      return Promise.reject(new Error('Unknown'));
+    });
+
+    await act(async () => {
+      await result.current.handleGenerateChapter(1);
+    });
+
+    const calls = mockStore.setStreamingChapter.mock.calls;
+    // At least one live payload, addressed to the chapter being generated.
+    expect(calls.some(([payload]: any[]) => payload?.number === 1)).toBe(true);
+    // The run's `finally` block hands the reader back to the persisted chapter.
+    expect(calls[calls.length - 1][0]).toBeNull();
+    expect(setAppErrorSpy).not.toHaveBeenCalledWith(expect.any(String));
+  });
+
+  it('clears the streaming payload when a run fails', async () => {
+    const { result } = renderHook(() => useChapterGeneration());
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: () => Promise.resolve({ error: 'LLM Failed' }),
+    });
+
+    await act(async () => {
+      await result.current.handleGenerateChapter(1);
+    });
+
+    expect(setAppErrorSpy).toHaveBeenCalledWith(expect.stringContaining('LLM Failed'));
+    expect(mockStore.setStreamingChapter).toHaveBeenLastCalledWith(null);
+  });
+
+  it('clears the streaming payload when a five-chapter batch fails', async () => {
+    mockStore.stories[0].arcs[0].chapters = [
+      { number: 1, title: 'C1', premise: 'P1' },
+      { number: 2, title: 'C2', premise: 'P2' },
+      { number: 3, title: 'C3', premise: 'P3' },
+      { number: 4, title: 'C4', premise: 'P4' },
+      { number: 5, title: 'C5', premise: 'P5' },
+    ];
+    const { result } = renderHook(() => useChapterGeneration());
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: () => Promise.resolve({ error: 'LLM Failed' }),
+    });
+
+    await act(async () => {
+      await result.current.handleGenerateNextFiveChapters(1);
+    });
+
+    expect(mockStore.setStreamingChapter).toHaveBeenLastCalledWith(null);
+  });
+
   it('handles malformed LLM responses with safe fallbacks', async () => {
     const { result } = renderHook(() => useChapterGeneration());
     
