@@ -9,6 +9,7 @@ import { getApiHeaders } from './storyEngineHelpers';
 import { getFateLockMessage } from '../lib/fateLock';
 import { stripAuthorControlledCodexFields } from '../lib/codexContext';
 import { ACTIVE_CONTEXT_ENGINE } from '../lib/contextBlocks';
+import { auth } from '../lib/firebase';
 
 const PROVIDER_CHARACTER_STATUSES = new Set<Character['status']>([
   'alive',
@@ -65,6 +66,9 @@ export const useArcSteering = () => {
    */
   const handleSteerArc = async (direction: string, customPrompt: string) => {
     const currentStoreState = useAppStore.getState();
+    const initiatingUserId = auth.currentUser?.uid ?? null;
+    const accountIsCurrent = () =>
+      (auth.currentUser?.uid ?? null) === initiatingUserId;
     if (currentStoreState.isGenerating) {
       console.warn("Generation already in progress. Ignoring duplicate click.");
       return;
@@ -74,7 +78,9 @@ export const useArcSteering = () => {
 
     const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
     if (!activeStory) {
-      currentStoreState.setIsGenerating(false);
+      if (accountIsCurrent()) {
+        currentStoreState.setIsGenerating(false);
+      }
       return;
     }
     currentStoreState.setGenerationPhase('steer');
@@ -87,6 +93,7 @@ export const useArcSteering = () => {
     try {
       store_setActiveAgentId('scout');
       const apiHeaders = await getApiHeaders();
+      if (!accountIsCurrent()) return;
 
       const pastSummaries = await retrieveRelevantContext(
         queryIntent,
@@ -98,6 +105,7 @@ export const useArcSteering = () => {
         3,
         ACTIVE_CONTEXT_ENGINE,
       );
+      if (!accountIsCurrent()) return;
 
       store_setActiveAgentId('versa');
       const response = await fetch('/api/steer-arc', {
@@ -116,13 +124,16 @@ export const useArcSteering = () => {
           routingConfig: store_routingConfig.storyMaker
         })
       });
+      if (!accountIsCurrent()) return;
 
       if (!response.ok) {
         const errorData = await response.json();
+        if (!accountIsCurrent()) return;
         throw new Error(errorData.error || `Story steering broke with status: ${response.status}`);
       }
 
       const data = await response.json();
+      if (!accountIsCurrent()) return;
 
       const nextChapters: Chapter[] = data.chapters.map((ch: any) => ({
         number: ch.number,
@@ -132,6 +143,7 @@ export const useArcSteering = () => {
       }));
 
       const freshStories = await storyStorage.getStories();
+      if (!accountIsCurrent()) return;
       const updatedStories = freshStories.map(s => {
         if (s.id !== activeStory.id) return s;
 
@@ -177,15 +189,20 @@ export const useArcSteering = () => {
         };
       });
 
+      if (!accountIsCurrent()) return;
       await store_saveStories(updatedStories);
+      if (!accountIsCurrent()) return;
       store_setSelectedChapterNum(nextChapters[0].number);
     } catch (err: any) {
+      if (!accountIsCurrent()) return;
       console.error(err);
       store_setAppError(err.message || "Failed to steer next story arc successfully.");
     } finally {
-      store_setIsGenerating(false);
-      store_setGenerationPhase(null);
-      store_setActiveAgentId(null);
+      if (accountIsCurrent()) {
+        store_setIsGenerating(false);
+        store_setGenerationPhase(null);
+        store_setActiveAgentId(null);
+      }
     }
   };
 
@@ -197,9 +214,14 @@ export const useArcSteering = () => {
    */
   const handleAlterFate = async (chapterNumber: number, direction: string, customPrompt: string) => {
     const currentStoreState = useAppStore.getState();
+    const initiatingUserId = auth.currentUser?.uid ?? null;
+    const accountIsCurrent = () =>
+      (auth.currentUser?.uid ?? null) === initiatingUserId;
     const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
     if (!activeStory) {
-      currentStoreState.setIsGenerating(false);
+      if (accountIsCurrent()) {
+        currentStoreState.setIsGenerating(false);
+      }
       return;
     }
     const fateLockMessage = getFateLockMessage(activeStory, chapterNumber);
@@ -214,11 +236,13 @@ export const useArcSteering = () => {
     // Synchronously set generating state on the global store before any async/complex operations
     currentStoreState.setIsGenerating(true);
 
+    try {
     const clonedArcsRaw = await Promise.all(activeStory.arcs.map(async arc => {
       const slicedChapters = arc.chapters.filter(ch => ch.number <= chapterNumber);
       const hydratedChapters = await Promise.all(slicedChapters.map(async ch => {
         if (ch.hasContent || ch.generatedContent) {
           const content = await storyStorage.getChapterContent(activeStory.id, ch.number);
+          if (!accountIsCurrent()) return ch;
           if (content) {
             return {
               ...ch,
@@ -235,6 +259,7 @@ export const useArcSteering = () => {
       }));
       return { ...arc, chapters: hydratedChapters };
     }));
+    if (!accountIsCurrent()) return;
     
     const clonedArcs = clonedArcsRaw.filter(arc => arc.chapters.length > 0);
 
@@ -256,8 +281,11 @@ export const useArcSteering = () => {
       updatedAt: new Date().toISOString()
     };
 
+    if (!accountIsCurrent()) return;
     const updated = [newStory, ...currentStoreState.stories];
+    if (!accountIsCurrent()) return;
     await currentStoreState.saveStories(updated);
+    if (!accountIsCurrent()) return;
     currentStoreState.setActiveStoryId(newStory.id);
     
     currentStoreState.setGenerationPhase('steer');
@@ -267,9 +295,9 @@ export const useArcSteering = () => {
     const queryIntent = `Overall Arc Direction: ${direction}. Extra Context: ${customPrompt || ''}`;
     const nextChapterNumber = totalPreviousChapters + 1;
     
-    try {
       store_setActiveAgentId('scout');
       const apiHeaders = await getApiHeaders();
+      if (!accountIsCurrent()) return;
 
       const pastSummaries = await retrieveRelevantContext(
         queryIntent,
@@ -281,6 +309,7 @@ export const useArcSteering = () => {
         3,
         ACTIVE_CONTEXT_ENGINE,
       );
+      if (!accountIsCurrent()) return;
 
       store_setActiveAgentId('versa');
       const response = await fetch('/api/steer-arc', {
@@ -299,13 +328,16 @@ export const useArcSteering = () => {
           routingConfig: store_routingConfig.storyMaker
         })
       });
+      if (!accountIsCurrent()) return;
 
       if (!response.ok) {
         const errorData = await response.json();
+        if (!accountIsCurrent()) return;
         throw new Error(errorData.error || `Story fork broke with status: ${response.status}`);
       }
 
       const data = await response.json();
+      if (!accountIsCurrent()) return;
 
       const nextChapters: Chapter[] = data.chapters.map((ch: any) => ({
         number: ch.number,
@@ -315,6 +347,7 @@ export const useArcSteering = () => {
       }));
 
       const freshStories = await storyStorage.getStories();
+      if (!accountIsCurrent()) return;
       const updatedStories = freshStories.map((s: StoryWorld) => {
         if (s.id !== newStory.id) return s;
 
@@ -360,16 +393,22 @@ export const useArcSteering = () => {
         };
       });
 
+      if (!accountIsCurrent()) return;
       await store_saveStories(updatedStories);
+      if (!accountIsCurrent()) return;
       store_setSelectedChapterNum(nextChapters[0].number);
+      if (!accountIsCurrent()) return;
       awardQi('branch_created');
     } catch (err: any) {
+      if (!accountIsCurrent()) return;
       console.error(err);
       store_setAppError(err.message || "Failed to alter fate successfully.");
     } finally {
-      store_setIsGenerating(false);
-      store_setGenerationPhase(null);
-      store_setActiveAgentId(null);
+      if (accountIsCurrent()) {
+        store_setIsGenerating(false);
+        store_setGenerationPhase(null);
+        store_setActiveAgentId(null);
+      }
     }
   };
 

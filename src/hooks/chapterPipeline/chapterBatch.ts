@@ -19,6 +19,7 @@ interface RunSequentialChapterBatchOptions {
   batch: ChapterGenerationBatch;
   generateChapter: (story: Story, chapterNumber: number) => Promise<Story>;
   persistBatch: (story: Story, batch: ChapterGenerationBatch) => Promise<Story>;
+  accountIsCurrent?: () => boolean;
 }
 
 /**
@@ -31,7 +32,10 @@ export const runSequentialChapterBatch = async ({
   batch: initialBatch,
   generateChapter,
   persistBatch,
+  accountIsCurrent,
 }: RunSequentialChapterBatchOptions) => {
+  const shouldContinue = () => accountIsCurrent?.() ?? true;
+  if (!shouldContinue()) return { story: initialStory, batch: initialBatch };
   let story = initialStory;
   const committedChapterNumbers = story.arcs
     .flatMap(arc => arc.chapters)
@@ -54,12 +58,15 @@ export const runSequentialChapterBatch = async ({
   };
 
   if (batch !== initialBatch) {
+    if (!shouldContinue()) return { story, batch };
     story = await persistBatch(story, batch);
+    if (!shouldContinue()) return { story, batch };
   }
 
   if (batch.status === 'completed') return { story, batch };
 
   for (const chapterNumber of getRemainingBatchChapterNumbers(batch)) {
+    if (!shouldContinue()) return { story, batch };
     batch = {
       ...batch,
       status: 'generating',
@@ -67,11 +74,15 @@ export const runSequentialChapterBatch = async ({
       failedChapterNumber: undefined,
       error: undefined,
     };
+    if (!shouldContinue()) return { story, batch };
     story = await persistBatch(story, batch);
+    if (!shouldContinue()) return { story, batch };
 
     try {
       story = await generateChapter(story, chapterNumber);
+      if (!shouldContinue()) return { story, batch };
     } catch (error: any) {
+      if (!shouldContinue()) return { story, batch };
       batch = {
         ...batch,
         status: 'failed',
@@ -79,7 +90,9 @@ export const runSequentialChapterBatch = async ({
         failedChapterNumber: chapterNumber,
         error: error?.message || 'Chapter generation failed.',
       };
+      if (!shouldContinue()) return { story, batch };
       await persistBatch(story, batch);
+      if (!shouldContinue()) return { story, batch };
       throw error;
     }
 
@@ -93,7 +106,9 @@ export const runSequentialChapterBatch = async ({
         ? new Date().toISOString()
         : undefined,
     };
+    if (!shouldContinue()) return { story, batch };
     story = await persistBatch(story, batch);
+    if (!shouldContinue()) return { story, batch };
   }
 
   return { story, batch };

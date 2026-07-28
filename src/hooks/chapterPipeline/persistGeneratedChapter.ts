@@ -35,8 +35,10 @@ export const persistGeneratedChapter = async (
   chapterNumber: number,
   selectedArcIndex: number,
   data: any,
-  apiHeaders: any
+  apiHeaders: any,
+  accountIsCurrent: () => boolean = () => true,
 ) => {
+  if (!accountIsCurrent()) return undefined;
   // Placeholder/error summaries must not become chapter memory: persist them
   // as empty and skip embedding so they never surface through RAG.
   const persistedSummary = isPlaceholderSummary(data.summary) ? '' : data.summary;
@@ -44,13 +46,17 @@ export const persistGeneratedChapter = async (
   let newChapterEmbedding;
   if (persistedSummary) {
     newChapterEmbedding = await generateEmbedding(persistedSummary, apiHeaders);
+    if (!accountIsCurrent()) return undefined;
   }
+
+  if (!accountIsCurrent()) return undefined;
 
   const handoff: ChapterHandoff | undefined = data.handoff
     ? canonicalizeFingerprints(data.handoff, activeStory)
     : undefined;
 
   const freshStories = await storyStorage.getStories();
+  if (!accountIsCurrent()) return undefined;
   const updatedStories = freshStories.map((s: Story) => {
     if (s.id !== activeStory.id) return s;
 

@@ -219,6 +219,9 @@ describe('useStoryGeneration', () => {
     expect(state.setAppError).not.toHaveBeenCalledWith(
       'Active account changed while generating the blueprint',
     );
+    expect(state.setIsGenerating).not.toHaveBeenCalledWith(false);
+    expect(state.setGenerationPhase).not.toHaveBeenCalledWith(null);
+    expect(state.setActiveAgentId).not.toHaveBeenCalledWith(null);
   });
 
   it('does not start a second generation while one is already active', async () => {
@@ -268,5 +271,8 @@ describe('useStoryGeneration', () => {
     expect(state.saveStories).not.toHaveBeenCalled();
     expect(state.setActiveStoryId).not.toHaveBeenCalled();
     expect(awardQi).not.toHaveBeenCalled();
+    expect(state.setIsGenerating).not.toHaveBeenCalledWith(false);
+    expect(state.setGenerationPhase).not.toHaveBeenCalledWith(null);
+    expect(state.setActiveAgentId).not.toHaveBeenCalledWith(null);
   });
 });

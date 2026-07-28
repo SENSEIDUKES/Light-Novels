@@ -13,16 +13,18 @@ import {
   discardCachedMedia,
   resolveMediaAssetForDisplay,
 } from '../lib/media/privateMediaResolver';
+import { auth } from '../lib/firebase';
 
 export const useVisualAssets = () => {
-  const store_stories = useAppStore(state => state.stories);
-    const store_setAppError = useAppStore(state => state.setAppError);
-    const store_setIsGenerating = useAppStore(state => state.setIsGenerating);
-    const store_setGenerationPhase = useAppStore(state => state.setGenerationPhase);
-    const store_activeStoryId = useAppStore(state => state.activeStoryId);
+  const store_setAppError = useAppStore(state => state.setAppError);
+  const store_setIsGenerating = useAppStore(state => state.setIsGenerating);
+  const store_setGenerationPhase = useAppStore(state => state.setGenerationPhase);
 
   const handleGenerateCover = async (customModifier?: string): Promise<{ imageUrls: string[], promptUsed: string } | undefined> => {
     const currentStoreState = useAppStore.getState();
+    const initiatingUserId = auth.currentUser?.uid ?? null;
+    const accountIsCurrent = () =>
+      (auth.currentUser?.uid ?? null) === initiatingUserId;
     if (currentStoreState.isGenerating) {
       console.warn("Generation already in progress. Ignoring duplicate click.");
       return undefined;
@@ -31,7 +33,9 @@ export const useVisualAssets = () => {
 
     const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
     if (!activeStory) {
-      currentStoreState.setIsGenerating(false);
+      if (accountIsCurrent()) {
+        currentStoreState.setIsGenerating(false);
+      }
       return undefined;
     }
     currentStoreState.setGenerationPhase('cover');
@@ -49,6 +53,7 @@ export const useVisualAssets = () => {
       }
 
       const data = await storyApi.generateCardImage(prompt, "cover", currentStoreState.routingConfig.imageGenerator);
+      if (!accountIsCurrent()) return undefined;
 
       let newImageUrls = data.imageUrls;
       if (!newImageUrls && data.imageUrl) newImageUrls = [data.imageUrl];
@@ -58,60 +63,75 @@ export const useVisualAssets = () => {
         return { imageUrls: newImageUrls, promptUsed: prompt };
       }
     } catch(err: any) {
+      if (!accountIsCurrent()) return undefined;
       store_setAppError(err.message || "Failed to forge new cover.");
     } finally {
-      store_setIsGenerating(false);
-      store_setGenerationPhase(null);
+      if (accountIsCurrent()) {
+        store_setIsGenerating(false);
+        store_setGenerationPhase(null);
+      }
     }
     return undefined;
   };
 
   const handleApplyCover = async (imageUrl: string, promptUsed: string) => {
-    const activeStory = store_stories.find(s => s.id === store_activeStoryId);
+    const currentStoreState = useAppStore.getState();
+    const initiatingUserId = auth.currentUser?.uid ?? null;
+    const accountIsCurrent = () =>
+      (auth.currentUser?.uid ?? null) === initiatingUserId;
+    const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
     if (!activeStory) return;
 
-    const legacyMediaId = generateId(8);
-    const storyId = requirePersistenceUuid(
-      activeStory.persistenceId ?? activeStory.id,
-      'Story',
-    );
-    const asset = await saveMediaAsset({
-      source: imageUrl,
-      assetType: 'IMAGE',
-      purpose: MEDIA_PURPOSE.STORY_COVER,
-      association: {
-        targetKind: MEDIA_TARGET_KIND.STORY,
-        // Media slots are addressed by the canonical relational id, never the
-        // client-facing story id.
-        targetKey: storyId,
-        storyId,
-        legacyMediaId,
-        entityType: 'cover',
-        promptUsed,
-        chapterNumber: activeStory.currentChapterNumber,
-      },
-      replacesAssetId: activeStory.coverAssetId,
-      idempotencyKey: generateUUID(),
-    });
-    const resolved = await resolveMediaAssetForDisplay(asset);
-    if (activeStory.coverAssetId && activeStory.coverAssetId !== asset.id) {
-      await discardCachedMedia(activeStory.coverAssetId);
-    }
+    try {
+      const legacyMediaId = generateId(8);
+      const storyId = requirePersistenceUuid(
+        activeStory.persistenceId ?? activeStory.id,
+        'Story',
+      );
+      // saveMediaAsset captures auth.currentUser synchronously in authHeaders
+      // before its first await. Keep this check adjacent to that hand-off.
+      if (!accountIsCurrent()) return;
+      const asset = await saveMediaAsset({
+        source: imageUrl,
+        assetType: 'IMAGE',
+        purpose: MEDIA_PURPOSE.STORY_COVER,
+        association: {
+          targetKind: MEDIA_TARGET_KIND.STORY,
+          // Media slots are addressed by the canonical relational id, never the
+          // client-facing story id.
+          targetKey: storyId,
+          storyId,
+          legacyMediaId,
+          entityType: 'cover',
+          promptUsed,
+          chapterNumber: activeStory.currentChapterNumber,
+        },
+        replacesAssetId: activeStory.coverAssetId,
+        idempotencyKey: generateUUID(),
+      });
+      if (!accountIsCurrent()) return;
+      const resolved = await resolveMediaAssetForDisplay(asset);
+      if (!accountIsCurrent()) return;
+      if (activeStory.coverAssetId && activeStory.coverAssetId !== asset.id) {
+        if (!accountIsCurrent()) return;
+        await discardCachedMedia(activeStory.coverAssetId);
+        if (!accountIsCurrent()) return;
+      }
 
-    const imageRecord: GeneratedImage = {
-      id: legacyMediaId,
-      assetId: asset.id,
-      assetVersion: asset.version,
-      checksumSha256: asset.checksumSha256,
-      deliveryUrlExpiresAt: asset.deliveryUrlExpiresAt ?? undefined,
-      entityId: activeStory.id,
-      entityType: 'cover',
-      imageUrl: resolved.url,
-      promptUsed,
-      createdAt: new Date().toISOString(),
-      isCurrent: true,
-      chapterNumber: activeStory.currentChapterNumber
-    };
+      const imageRecord: GeneratedImage = {
+        id: legacyMediaId,
+        assetId: asset.id,
+        assetVersion: asset.version,
+        checksumSha256: asset.checksumSha256,
+        deliveryUrlExpiresAt: asset.deliveryUrlExpiresAt ?? undefined,
+        entityId: activeStory.id,
+        entityType: 'cover',
+        imageUrl: resolved.url,
+        promptUsed,
+        createdAt: new Date().toISOString(),
+        isCurrent: true,
+        chapterNumber: activeStory.currentChapterNumber
+      };
 
     // Re-read after the media round-trip before deriving the new history, the
     // same way handleSelectCover does. `activeStory` was captured before
@@ -119,29 +139,36 @@ export const useVisualAssets = () => {
     // drop a cover applied while those requests were in flight. (Only covers
     // are at stake: story-level imageHistory is cover-only — Codex and chapter
     // visuals live on their own owners.)
-    const latestStory = useAppStore.getState().stories.find(
-      story => story.id === activeStory.id,
-    ) ?? activeStory;
-    const currentHistory = latestStory.imageHistory || [];
-    const updatedHistory: GeneratedImage[] = currentHistory.map(img =>
-      img.entityType === 'cover' ? { ...img, isCurrent: false } : img
-    ).concat(imageRecord);
+      if (!accountIsCurrent()) return;
+      const latestStory = useAppStore.getState().stories.find(
+        story => story.id === activeStory.id,
+      ) ?? activeStory;
+      const currentHistory = latestStory.imageHistory || [];
+      const updatedHistory: GeneratedImage[] = currentHistory.map(img =>
+        img.entityType === 'cover' ? { ...img, isCurrent: false } : img
+      ).concat(imageRecord);
 
     // Was a hook-local full-story replacement (read stories, swap the
     // story, saveStories). The store owns that write now.
-    await useAppStore.getState().updateStory(
-      activeStory.id,
-      {
-        persistenceId: storyId,
-        imageUrl: resolved.url,
-        coverAssetId: asset.id,
-        imageHistory: updatedHistory,
-        evolutionReady: false,
-        availableVisualUpdate: false,
-        lastImageChapter: activeStory.currentChapterNumber
-      },
-      { markEdited: false, touchUpdatedAt: true },
-    );
+      if (!accountIsCurrent()) return;
+      await useAppStore.getState().updateStory(
+        activeStory.id,
+        {
+          persistenceId: storyId,
+          imageUrl: resolved.url,
+          coverAssetId: asset.id,
+          imageHistory: updatedHistory,
+          evolutionReady: false,
+          availableVisualUpdate: false,
+          lastImageChapter: activeStory.currentChapterNumber
+        },
+        { markEdited: false, touchUpdatedAt: true },
+      );
+      if (!accountIsCurrent()) return;
+    } catch (error) {
+      if (!accountIsCurrent()) return;
+      throw error;
+    }
   };
 
   /**
@@ -156,6 +183,9 @@ export const useVisualAssets = () => {
     }
 
     const currentStoreState = useAppStore.getState();
+    const initiatingUserId = auth.currentUser?.uid ?? null;
+    const accountIsCurrent = () =>
+      (auth.currentUser?.uid ?? null) === initiatingUserId;
     const activeStory = currentStoreState.stories.find(
       story => story.id === currentStoreState.activeStoryId,
     );
@@ -172,58 +202,69 @@ export const useVisualAssets = () => {
       activeStory.persistenceId ?? activeStory.id,
       'Story',
     );
-    const selectedAsset = await selectMediaAsset(selectedAssetId, {
-      targetKind: MEDIA_TARGET_KIND.STORY,
-      targetKey: storyId,
-      purpose: MEDIA_PURPOSE.STORY_COVER,
-      storyId,
-      entityType: 'cover',
-    });
-    const resolved = await resolveMediaAssetForDisplay(selectedAsset);
-    if (!resolved.url.trim()) {
-      throw new Error('The selected cover could not be resolved and was left unchanged.');
-    }
+    try {
+      if (!accountIsCurrent()) return;
+      const selectedAsset = await selectMediaAsset(selectedAssetId, {
+        targetKind: MEDIA_TARGET_KIND.STORY,
+        targetKey: storyId,
+        purpose: MEDIA_PURPOSE.STORY_COVER,
+        storyId,
+        entityType: 'cover',
+      });
+      if (!accountIsCurrent()) return;
+      const resolved = await resolveMediaAssetForDisplay(selectedAsset);
+      if (!accountIsCurrent()) return;
+      if (!resolved.url.trim()) {
+        throw new Error('The selected cover could not be resolved and was left unchanged.');
+      }
 
-    // Re-read state after the media request so a concurrent story edit is not
-    // overwritten while the selected cover is being made current.
-    const latestStoreState = useAppStore.getState();
-    const latestStory = latestStoreState.stories.find(
-      story => story.id === activeStory.id,
-    ) ?? activeStory;
-    const latestHistory = latestStory.imageHistory ?? [];
-    const historyWithSelectedCover = latestHistory.some(
-      image => image.entityType === 'cover' && image.assetId === selectedAsset.id,
-    )
-      ? latestHistory
-      : [...latestHistory, selectedHistory];
-    const updatedHistory = historyWithSelectedCover.map(image => {
-      if (image.entityType !== 'cover') return image;
-      if (image.assetId !== selectedAsset.id) return { ...image, isCurrent: false };
-      return {
-        ...image,
-        assetId: selectedAsset.id,
-        assetVersion: selectedAsset.version,
-        checksumSha256: selectedAsset.checksumSha256,
-        deliveryUrlExpiresAt: selectedAsset.deliveryUrlExpiresAt ?? undefined,
-        imageUrl: resolved.url,
-        isCurrent: true,
-      };
-    });
+      // Re-read state after the media request so a concurrent story edit is not
+      // overwritten while the selected cover is being made current.
+      if (!accountIsCurrent()) return;
+      const latestStoreState = useAppStore.getState();
+      const latestStory = latestStoreState.stories.find(
+        story => story.id === activeStory.id,
+      ) ?? activeStory;
+      const latestHistory = latestStory.imageHistory ?? [];
+      const historyWithSelectedCover = latestHistory.some(
+        image => image.entityType === 'cover' && image.assetId === selectedAsset.id,
+      )
+        ? latestHistory
+        : [...latestHistory, selectedHistory];
+      const updatedHistory = historyWithSelectedCover.map(image => {
+        if (image.entityType !== 'cover') return image;
+        if (image.assetId !== selectedAsset.id) return { ...image, isCurrent: false };
+        return {
+          ...image,
+          assetId: selectedAsset.id,
+          assetVersion: selectedAsset.version,
+          checksumSha256: selectedAsset.checksumSha256,
+          deliveryUrlExpiresAt: selectedAsset.deliveryUrlExpiresAt ?? undefined,
+          imageUrl: resolved.url,
+          isCurrent: true,
+        };
+      });
 
     // The re-read above stays: `updatedHistory` is derived from the story's
     // history and has to be computed against a post-request copy. Committing
     // it is the store's job — updateStory applies this patch at the front of
     // the save queue rather than against the snapshot read here.
-    await useAppStore.getState().updateStory(
-      latestStory.id,
-      {
-        persistenceId: storyId,
-        coverAssetId: selectedAsset.id,
-        imageUrl: resolved.url,
-        imageHistory: updatedHistory,
-      },
-      { markEdited: false, touchUpdatedAt: true },
-    );
+      if (!accountIsCurrent()) return;
+      await useAppStore.getState().updateStory(
+        latestStory.id,
+        {
+          persistenceId: storyId,
+          coverAssetId: selectedAsset.id,
+          imageUrl: resolved.url,
+          imageHistory: updatedHistory,
+        },
+        { markEdited: false, touchUpdatedAt: true },
+      );
+      if (!accountIsCurrent()) return;
+    } catch (error) {
+      if (!accountIsCurrent()) return;
+      throw error;
+    }
   };
 
   return {

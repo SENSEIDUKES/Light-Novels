@@ -115,15 +115,16 @@ export const useStoryGeneration = () => {
       }
       return blueprint;
     } catch (err: any) {
+      if (!accountIsCurrent()) throw err;
       console.error(err);
-      if (accountIsCurrent()) {
-        currentStoreState.setAppError(err.message || "Failed to generate world blueprint.");
-      }
+      currentStoreState.setAppError(err.message || "Failed to generate world blueprint.");
       throw err;
     } finally {
-      currentStoreState.setIsGenerating(false);
-      currentStoreState.setGenerationPhase(null);
-      currentStoreState.setActiveAgentId(null);
+      if (accountIsCurrent()) {
+        currentStoreState.setIsGenerating(false);
+        currentStoreState.setGenerationPhase(null);
+        currentStoreState.setActiveAgentId(null);
+      }
     }
   };
 
@@ -223,7 +224,9 @@ export const useStoryGeneration = () => {
         ]
       };
 
+      if (!accountIsCurrent()) return;
       const updated = [newStory, ...useAppStore.getState().stories];
+      if (!accountIsCurrent()) return;
       await store_saveStories(updated);
       if (!accountIsCurrent()) return;
       store_setActiveStoryId(newStory.id);
@@ -231,14 +234,15 @@ export const useStoryGeneration = () => {
       store_setCurrentScreen('detail');
       awardQi('world_created');
     } catch (err: any) {
+      if (!accountIsCurrent()) return;
       console.error(err);
-      if (accountIsCurrent()) {
-        store_setAppError(err.message || "Failed to align celestial gates.");
-      }
+      store_setAppError(err.message || "Failed to align celestial gates.");
     } finally {
-      store_setIsGenerating(false);
-      store_setGenerationPhase(null);
-      store_setActiveAgentId(null);
+      if (accountIsCurrent()) {
+        store_setIsGenerating(false);
+        store_setGenerationPhase(null);
+        store_setActiveAgentId(null);
+      }
     }
   };
 
