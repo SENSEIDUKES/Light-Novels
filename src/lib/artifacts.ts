@@ -685,17 +685,17 @@ export async function scanChapterForArtifacts(
     }, storyId, storyTitle);
   }
 
-  // 6. Scan for newly-awakened Legendary/Mythic artifacts in worldCard blocks
+  // 6. Scan for newly-awakened artifacts in worldCard blocks (any valid rarity)
   for (const block of blocks) {
     const rarity = normalizeArtifactRarity(block.worldCard?.rarity);
     if (
       block.worldCard?.entityType === 'artifact' && 
       block.worldCard.entityName &&
-      (rarity === 'Legendary' || rarity === 'Mythic')
+      rarity
     ) {
       await unlockCosmicArtifact({
         name: block.worldCard.entityName,
-        description: block.worldCard.quote || `A rare and legendary relic of historical significance awakened in your story.`,
+        description: block.worldCard.quote || `A ${rarity.toLowerCase()} relic awakened in your story.`,
         rarity,
         attributeBoost: `+20% ${block.worldCard.entityName} Resonance`,
         sourceStoryId: storyId,
@@ -703,7 +703,7 @@ export async function scanChapterForArtifacts(
         sourceChapterNumber: chapterNumber,
         eventKey: `${storyId}_awakened_relic_${block.worldCard.entityName.toLowerCase().replace(/\s+/g, '_')}_ch${chapterNumber}`,
         milestoneType: 'codex_linked',
-        milestoneName: 'Legendary Artifact Awakening',
+        milestoneName: `${rarity} Artifact Awakening`,
         specialUnlock: {
           type: 'profile_item',
           label: `Cave Item: ${block.worldCard.entityName}`,
