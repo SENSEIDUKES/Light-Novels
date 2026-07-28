@@ -1,4 +1,5 @@
 import express from "express";
+import { getCustomKeys } from "../helpers.js";
 import {
   validateBody,
   embedSchema,
@@ -1302,14 +1303,4 @@ storyRouter.post("/api/steer-arc", validateBody(steerArcSchema), async (req, res
     return res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
-
-// Helper to extract custom API credentials/configurations
-function getCustomKeys(req: any) {
-  return {
-    geminiApiKey: (req.header("x-gemini-key") as string) || undefined,
-    openrouterApiKey: (req.header("x-openrouter-key") as string) || undefined,
-    ollamaHost: (req.header("x-ollama-host") as string) || undefined,
-    deepinfraApiKey: (req.header("x-deepinfra-key") as string) || undefined,
-  };
-}
 

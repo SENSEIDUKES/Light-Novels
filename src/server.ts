@@ -65,15 +65,6 @@ const app = express();
 app.use(pinoHttp({ logger }));
 app.use(captureVercelOidcToken);
 
-// Helper to extract custom API credentials/configurations passed securely by the client from standard headers
-function getCustomKeys(req: express.Request) {
-  return {
-    geminiApiKey: (req.header("x-gemini-key") as string) || undefined,
-    openrouterApiKey: (req.header("x-openrouter-key") as string) || undefined,
-    ollamaHost: (req.header("x-ollama-host") as string) || undefined,
-    deepinfraApiKey: (req.header("x-deepinfra-key") as string) || undefined,
-  };
-}
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use("/api", createApiRateLimiter());

@@ -1,3 +1,4 @@
+import { getCustomKeys } from "../helpers.js";
 import { logger } from "../logger";
 import express from "express";
 import {
@@ -307,14 +308,4 @@ mediaRouter.post("/api/generate-audio", validateBody(generateAudioSchema), async
     return res.status(500).json({ error: error.message || "Failed to generate audio" });
   }
 });
-
-// Helper to extract custom API credentials/configurations
-function getCustomKeys(req: any) {
-  return {
-    geminiApiKey: (req.header("x-gemini-key") as string) || undefined,
-    openrouterApiKey: (req.header("x-openrouter-key") as string) || undefined,
-    ollamaHost: (req.header("x-ollama-host") as string) || undefined,
-    deepinfraApiKey: (req.header("x-deepinfra-key") as string) || undefined,
-  };
-}
 

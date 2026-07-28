@@ -10,3 +10,4 @@ Recording learnings... Added exhaustive-deps rule enforcement and fixed App.tsx.
 ## 2026-07-19 - Optimize character categorization in LivingCodex
 **Learning:** Found an anti-pattern in LivingCodex where filtering functions were creating new array instances conditionally on every render loop, degrading performance.
 **Action:** Wrapped declarative operations in `useMemo` and destructured to preserve readability and reference stability.
+- Code duplication can be efficiently reduced by extracting duplicated helper functions (like `getCustomKeys`) into a common `helpers.js` module.

@@ -1,4 +1,5 @@
 import express from "express";
+import { getCustomKeys } from "../helpers.js";
 import {
   validateBody,
   embedSchema,
@@ -168,14 +169,4 @@ systemRouter.get("/api/config-status", (req, res) => {
     hasServerOpenRouter,
   });
 });
-
-// Helper to extract custom API credentials/configurations
-function getCustomKeys(req: any) {
-  return {
-    geminiApiKey: (req.header("x-gemini-key") as string) || undefined,
-    openrouterApiKey: (req.header("x-openrouter-key") as string) || undefined,
-    ollamaHost: (req.header("x-ollama-host") as string) || undefined,
-    deepinfraApiKey: (req.header("x-deepinfra-key") as string) || undefined,
-  };
-}
 
