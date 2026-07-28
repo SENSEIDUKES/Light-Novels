@@ -32,10 +32,10 @@ describe('AILoadingVeil', () => {
       generationProgressMessage: 'Forging Chapter 3 · 3 of 5',
       isVeilMinimized: false,
     });
-    const { getByText } = render(<AILoadingVeil />);
+    const { getByText, getByRole } = render(<AILoadingVeil />);
 
     expect(getByText('Chapter 3 Manifestation')).toBeDefined();
-    fireEvent.click(getByText('Minimize to Background'));
+    fireEvent.click(getByRole('button', { name: /Minimize to Background/i }));
     expect(useAppStore.getState().isVeilMinimized).toBe(true);
   });
 
