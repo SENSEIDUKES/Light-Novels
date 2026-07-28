@@ -131,6 +131,7 @@ export const DestinedEndingWaterCard: React.FC<{ text: string }> = ({ text }) =>
     let running = false;
     let rafId = 0;
     let lastFrameAt = 0;
+    let isDestroyed = false;
 
     function buildGrid(preserveDensity: boolean) {
       const rect = wrap!.getBoundingClientRect();
@@ -487,7 +488,7 @@ export const DestinedEndingWaterCard: React.FC<{ text: string }> = ({ text }) =>
     // Animation loop / lifecycle
     // ------------------------------------------------------------------
     function frame(now: number) {
-      if (!running) return;
+      if (isDestroyed || !running) return;
       const dt = Math.min(0.05, Math.max(0.001, (now - lastFrameAt) / 1000));
       lastFrameAt = now;
       time += dt;
@@ -502,7 +503,7 @@ export const DestinedEndingWaterCard: React.FC<{ text: string }> = ({ text }) =>
     }
 
     function startLoop() {
-      if (running || finished) return;
+      if (isDestroyed || running || finished) return;
       // Reduced motion: only animate while dragging or draining.
       if (reducedMotion && !pointer.dragging && drainTime < 0) return;
       running = true;
@@ -531,7 +532,12 @@ export const DestinedEndingWaterCard: React.FC<{ text: string }> = ({ text }) =>
 
     function onPointerDown(e: PointerEvent) {
       if (finished) return;
-      canvas!.setPointerCapture(e.pointerId);
+      try {
+        canvas!.setPointerCapture(e.pointerId);
+      } catch (err) {
+        // InvalidPointerId can surface with rapid multi-touch releases.
+        console.warn("Failed to set pointer capture:", err);
+      }
       const { gx, gy } = toGrid(e);
       pointer.dragging = true;
       pointer.x = gx;
@@ -570,7 +576,7 @@ export const DestinedEndingWaterCard: React.FC<{ text: string }> = ({ text }) =>
 
     // Prevent page scrolling only while a drag is active inside the water.
     function onTouchMove(e: TouchEvent) {
-      if (pointer.dragging) e.preventDefault();
+      if (pointer.dragging && e.cancelable) e.preventDefault();
     }
 
     canvas.addEventListener("pointerdown", onPointerDown);
@@ -583,6 +589,7 @@ export const DestinedEndingWaterCard: React.FC<{ text: string }> = ({ text }) =>
     // Resize / visibility
     // ------------------------------------------------------------------
     const resizeObserver = new ResizeObserver(() => {
+      if (isDestroyed) return;
       buildGrid(true);
       render();
     });
@@ -590,6 +597,7 @@ export const DestinedEndingWaterCard: React.FC<{ text: string }> = ({ text }) =>
 
     const intersectionObserver = new IntersectionObserver(
       (entries) => {
+        if (isDestroyed) return;
         const visible = entries.some((entry) => entry.isIntersecting);
         if (visible) startLoop();
         else stopLoop();
@@ -611,6 +619,7 @@ export const DestinedEndingWaterCard: React.FC<{ text: string }> = ({ text }) =>
     startLoop();
 
     return () => {
+      isDestroyed = true;
       stopLoop();
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
