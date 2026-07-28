@@ -7,6 +7,7 @@ import { cinematicEffectGovernor } from '../lib/effects/cinematicEffectGovernor'
 import { isHighConfidenceAutoCue } from '../lib/audio/autoCuePolicy';
 import { useAudioMix } from './audio/useAudioMix';
 import { collectCodexTerms } from '../lib/codexHighlighting';
+import { assessMomentousChapter, toMomentousChapterSignals } from '../lib/chapterMomentousness';
 
 export function useReaderVisuals({
   selectedChapter,
@@ -22,61 +23,23 @@ export function useReaderVisuals({
   const { mix: audioMix } = useAudioMix();
   const { manifestImage, manifestChapterHero, generatingIds } = useImageManifest();
 
-  const isMomentousChapter = useMemo(() => {
-    if (!activeStory || !selectedChapter) return false;
-    
+  // Which chapters deserve momentous treatment is a domain decision owned by
+  // `lib/chapterMomentousness`. This hook coordinates visuals and effects; it
+  // does not weight generation signals, so it reads no cue or block scoring
+  // field here — only the arc structure needed to locate the chapter.
+  const momentousAssessment = useMemo(() => {
+    if (!activeStory || !selectedChapter) return null;
+
     const currentArc = activeStory.arcs.find(a => a.chapters.some(c => c.number === selectedChapter.number));
-    if (!currentArc) return false;
+    if (!currentArc) return null;
 
-    const momentousEvents = [
-      'breakthrough', 'turning-point', 'evolution', 'betrayal', 'ascension', 
-      'conquest', 'destruction', 'calamity', 'rival_battle', 'romance', 'first_kiss'
-    ];
-
-    // Calculate scores for all chapters in the arc
-    const chapterScores = currentArc.chapters.map(c => {
-      let score = 0;
-      
-      // Prioritize the arc's structural climax (the final chapter of the arc)
-      const isArcFinal = c.number === currentArc.chapters[currentArc.chapters.length - 1].number;
-      if (isArcFinal && currentArc.chapters.length >= 4) {
-        score += 15; // strong prior for structural climax
-      }
-
-      const chapterCue = c.cuePayload;
-      if (chapterCue?.powerShift) score += chapterCue.powerShift * 2;
-      if (chapterCue?.danger) score += chapterCue.danger * 1.5;
-      if (chapterCue?.mysticism) score += chapterCue.mysticism * 1;
-      
-      if (chapterCue?.beastEvent?.type && momentousEvents.includes(chapterCue.beastEvent.type)) {
-        score += 10;
-      }
-
-      if (c.blocks) {
-        c.blocks.forEach((b: any) => {
-          if (b.system?.promptType && momentousEvents.includes(b.system.promptType)) {
-            score += 8;
-          }
-          if (b.metadata?.danger) score += b.metadata.danger;
-          if (b.metadata?.intensity) score += b.metadata.intensity;
-          if (b.metadata?.tension) score += b.metadata.tension;
-        });
-      }
-      
-      return { number: c.number, score };
-    });
-    
-    // Minimum score threshold to be considered a significant memory spike
-    const MIN_SCORE_THRESHOLD = 15;
-    
-    const eligibleChapters = chapterScores.filter(x => x.score >= MIN_SCORE_THRESHOLD);
-    eligibleChapters.sort((a, b) => b.score - a.score);
-    
-    // Peak chapters: the single highest-scoring climax plus at most 1-2 secondary spikes
-    const peakChapters = eligibleChapters.slice(0, 3);
-    
-    return peakChapters.some(x => x.number === selectedChapter.number);
+    return assessMomentousChapter(
+      { chapters: currentArc.chapters.map(toMomentousChapterSignals) },
+      selectedChapter.number,
+    );
   }, [activeStory, selectedChapter]);
+
+  const isMomentousChapter = momentousAssessment?.isMomentous ?? false;
 
   const triggerHeroGeneration = () => {
     if (!isMomentousChapter || !activeStory || !selectedChapter) return;
