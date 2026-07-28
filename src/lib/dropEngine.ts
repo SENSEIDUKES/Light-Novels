@@ -30,7 +30,9 @@ export async function processChapterDrops(
   const unlockedDrops: CosmicArtifact[] = [];
 
   for (const block of blocks) {
-    // 1. worldCard Signal - Only award relics for Legendary/Mythic artifact awakenings
+    // 1. worldCard Signal - Award relics for artifact awakenings at any valid rarity.
+    // The rarity the generator produced is preserved end-to-end; unknown rarity
+    // strings normalize to null and are skipped rather than silently upgraded.
     if (block.worldCard && block.worldCard.entityName) {
       const card = block.worldCard;
       const entityType = card.entityType;
@@ -39,11 +41,11 @@ export async function processChapterDrops(
       const quote = card.quote || card.audioText || '';
       const rarity = normalizeArtifactRarity(card.rarity);
 
-      if (entityType === 'artifact' && (rarity === 'Legendary' || rarity === 'Mythic')) {
+      if (entityType === 'artifact' && rarity) {
         const descPrefix = displayTitle ? `${displayTitle}. ` : '';
         const drop: Omit<CosmicArtifact, 'id' | 'unlockedAt'> = {
           name: entityName,
-          description: `${descPrefix}${quote || 'A legendary relic of historical significance manifested in your story.'}`,
+          description: `${descPrefix}${quote || `A ${rarity.toLowerCase()} relic manifested in your story.`}`,
           rarity,
           attributeBoost: `+20% ${entityName} Resonance`,
           sourceStoryId: story.id,
@@ -51,7 +53,7 @@ export async function processChapterDrops(
           sourceChapterNumber: chapter.number,
           eventKey: `${story.id}_awakened_relic_${entityName.toLowerCase().replace(/\s+/g, '_')}_ch${chapter.number}`,
           milestoneType: 'codex_linked',
-          milestoneName: 'Legendary Artifact Discovery',
+          milestoneName: `${rarity} Artifact Discovery`,
           imageUrl: card.imageUrl,
           specialUnlock: {
             type: 'profile_item',
@@ -73,10 +75,13 @@ export async function processChapterDrops(
       let drop: Omit<CosmicArtifact, 'id' | 'unlockedAt'> | null = null;
 
       if (kind === 'level_up' && title) {
+        // Honor the rarity the generator assigned to the breakthrough instead of
+        // forcing Legendary on every event. Unrated breakthroughs fall back to Epic.
+        const sysRarity = normalizeArtifactRarity(sys.rarity);
         drop = {
           name: `Realm Breakthrough Elixir: ${title}`,
           description: `A condensed essence of solid spiritual Qi celebrating your major cultivation breakthrough to ${title}.`,
-          rarity: 'Legendary',
+          rarity: sysRarity ?? 'Epic',
           attributeBoost: `+30% Base Qi`,
           sourceStoryId: story.id,
           sourceStoryTitle: story.title,
@@ -88,22 +93,25 @@ export async function processChapterDrops(
             description: `Unlocks the ${title} cultivation breakthrough aura.`
           }
         };
-      } else if (kind === 'skill_acquired' && title && (sys.rarity === 'Legendary' || sys.rarity === 'Mythic')) {
-        drop = {
-          name: `Esoteric Jade Scroll: ${title}`,
-          description: `An ancient jade scroll detailing the supreme paths of the legendary technique: ${title}.`,
-          rarity: (sys.rarity as CosmicArtifact['rarity']) || 'Legendary',
-          attributeBoost: `+25% Technique Mastery`,
-          sourceStoryId: story.id,
-          sourceStoryTitle: story.title,
-          milestoneType: 'codex_linked',
-          milestoneName: 'Supreme Technique Awakening',
-          specialUnlock: {
-            type: 'customization',
-            label: `Technique Accent: ${title}`,
-            description: `Unlocks ${title} technique reader highlights.`
-          }
-        };
+      } else if (kind === 'skill_acquired' && title) {
+        const sysRarity = normalizeArtifactRarity(sys.rarity);
+        if (sysRarity === 'Legendary' || sysRarity === 'Mythic') {
+          drop = {
+            name: `Esoteric Jade Scroll: ${title}`,
+            description: `An ancient jade scroll detailing the supreme paths of the legendary technique: ${title}.`,
+            rarity: sysRarity,
+            attributeBoost: `+25% Technique Mastery`,
+            sourceStoryId: story.id,
+            sourceStoryTitle: story.title,
+            milestoneType: 'codex_linked',
+            milestoneName: 'Supreme Technique Awakening',
+            specialUnlock: {
+              type: 'customization',
+              label: `Technique Accent: ${title}`,
+              description: `Unlocks ${title} technique reader highlights.`
+            }
+          };
+        }
       }
 
       if (drop) {

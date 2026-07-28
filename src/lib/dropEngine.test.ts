@@ -98,7 +98,7 @@ describe('Drop Engine', () => {
       expect(unlockCosmicArtifact).toHaveBeenCalled();
     });
 
-    it('requires Legendary or Mythic rarity even when an artifact has relic audio', async () => {
+    it('drops lower-rarity artifact worldCards with their rarity preserved', async () => {
       const chapter: Chapter = {
         number: 2,
         title: 'Routine Relic',
@@ -118,7 +118,58 @@ describe('Drop Engine', () => {
         }],
       };
 
-      await expect(processChapterDrops(chapter, mockStory)).resolves.toHaveLength(0);
+      const drops = await processChapterDrops(chapter, mockStory);
+      expect(drops).toHaveLength(1);
+      expect(drops[0].name).toBe('Common Charm');
+      expect(drops[0].rarity).toBe('Common');
+      expect(unlockCosmicArtifact).toHaveBeenCalled();
+    });
+
+    it('drops Rare artifact worldCards and normalizes generator casing', async () => {
+      const chapter: Chapter = {
+        number: 2,
+        title: 'Rare Relic',
+        premise: 'A jade talisman glimmers.',
+        status: 'unlocked',
+        blocks: [{
+          id: 'b4b',
+          type: 'paragraph',
+          text: 'A talisman glimmers.',
+          worldCard: {
+            entityType: 'artifact',
+            entityName: 'Jade Talisman',
+            displayTitle: 'Rare Relic',
+            rarity: 'rare' as CosmicArtifact['rarity'],
+          },
+        }],
+      };
+
+      const drops = await processChapterDrops(chapter, mockStory);
+      expect(drops).toHaveLength(1);
+      expect(drops[0].rarity).toBe('Rare');
+    });
+
+    it('skips artifact worldCards whose rarity cannot be recognized', async () => {
+      const chapter: Chapter = {
+        number: 2,
+        title: 'Nameless Relic',
+        premise: 'A trinket without rank.',
+        status: 'unlocked',
+        blocks: [{
+          id: 'b4c',
+          type: 'paragraph',
+          text: 'A trinket gleams.',
+          worldCard: {
+            entityType: 'artifact',
+            entityName: 'Nameless Trinket',
+            displayTitle: 'Unranked Trinket',
+            rarity: 'Uncommon' as CosmicArtifact['rarity'],
+          },
+        }],
+      };
+
+      const drops = await processChapterDrops(chapter, mockStory);
+      expect(drops).toHaveLength(0);
       expect(unlockCosmicArtifact).not.toHaveBeenCalled();
     });
 
@@ -148,7 +199,7 @@ describe('Drop Engine', () => {
   });
 
   describe('2. Major system Signals', () => {
-    it('should drop a CosmicArtifact on major level_up system event', async () => {
+    it('should drop a CosmicArtifact on major level_up system event without forcing Legendary', async () => {
       const chapter: Chapter = {
         number: 4,
         title: 'Breakthrough',
@@ -171,7 +222,33 @@ describe('Drop Engine', () => {
       expect(drops).toHaveLength(1);
       const drop = drops[0];
       expect(drop.name).toBe('Realm Breakthrough Elixir: Golden Core Stage');
-      expect(drop.rarity).toBe('Legendary');
+      // Unrated breakthroughs fall back to Epic, never Legendary.
+      expect(drop.rarity).toBe('Epic');
+    });
+
+    it('honors the generator-assigned rarity on level_up events', async () => {
+      const chapter: Chapter = {
+        number: 4,
+        title: 'Mythic Breakthrough',
+        premise: 'Shattering the ceiling of the world.',
+        status: 'unlocked',
+        blocks: [
+          {
+            id: 'b5m',
+            type: 'system',
+            text: 'A mythic breakthrough shakes the heavens!',
+            system: {
+              kind: 'level_up',
+              title: 'Nascent Soul Stage',
+              rarity: 'Mythic'
+            }
+          }
+        ]
+      };
+
+      const drops = await processChapterDrops(chapter, mockStory);
+      expect(drops).toHaveLength(1);
+      expect(drops[0].rarity).toBe('Mythic');
     });
 
     it('should drop a CosmicArtifact for Legendary skill acquisition', async () => {

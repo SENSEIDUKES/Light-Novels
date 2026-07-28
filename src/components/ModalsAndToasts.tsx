@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import FocusLock from 'react-focus-lock';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { AlertCircle, X, Sliders, Award, Shield, Sparkles, Compass, Globe, Key, Zap, RefreshCw, Save, Gem } from 'lucide-react';
+import { AlertCircle, X, Sliders, Award, Shield, Sparkles, Compass, Globe, Key, Zap, RefreshCw, Save } from 'lucide-react';
 import { vibrate } from '../lib/vibration';
 import { useAppStore } from '../store/useAppStore';
 import { useStoryEngine } from '../hooks/useStoryEngine';
@@ -34,7 +34,57 @@ const RARITY_THEMES: Record<string, RarityTheme> = {
   Legendary: { hex: "#f59e0b", glowColor: "rgba(245,158,11,0.7)", textColor: "text-amber-200", titleColor: "text-amber-100", dotClass: "bg-amber-200 shadow-[0_0_8px_rgba(245,158,11,0.8)]", sparkleClass: "text-amber-700/60", borderGlow: "border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.15)]", buttonHover: "hover:border-amber-500/60 hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]" },
   Epic: { hex: "#a855f7", glowColor: "rgba(168,85,247,0.7)", textColor: "text-purple-200", titleColor: "text-purple-100", dotClass: "bg-purple-200 shadow-[0_0_8px_rgba(168,85,247,0.8)]", sparkleClass: "text-purple-800/80", borderGlow: "border-purple-500/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]", buttonHover: "hover:border-purple-500/60 hover:shadow-[0_0_15px_rgba(168,85,247,0.2)]" },
   Rare: { hex: "#10b981", glowColor: "rgba(16,185,129,0.7)", textColor: "text-emerald-200", titleColor: "text-emerald-100", dotClass: "bg-emerald-200 shadow-[0_0_8px_rgba(16,185,129,0.8)]", sparkleClass: "text-emerald-800/80", borderGlow: "border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.15)]", buttonHover: "hover:border-emerald-500/60 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)]" },
+  Common: { hex: "#9ca3af", glowColor: "rgba(156,163,175,0.55)", textColor: "text-neutral-300", titleColor: "text-neutral-200", dotClass: "bg-neutral-300 shadow-[0_0_6px_rgba(156,163,175,0.6)]", sparkleClass: "text-neutral-600", borderGlow: "border-neutral-500/30 shadow-[0_0_12px_rgba(156,163,175,0.08)]", buttonHover: "hover:border-neutral-400/50" },
 };
+
+/**
+ * Per-rank atmosphere ladder. The card layout is identical for every rank;
+ * only the ambient effects scale. Every flag renders as a pointer-events-none
+ * overlay, and all of them are disabled under prefers-reduced-motion.
+ */
+type RelicRarityEffects = {
+  /** Subtle colored halo behind the card. */
+  halo: boolean;
+  /** Soft shimmer sweeping softly across the card edge. */
+  edgeShimmer: boolean;
+  /** Slow pulse on the halo. */
+  pulse: boolean;
+  /** Number of slow-drifting motes floating around the card. */
+  particles: number;
+  /** Warm glow washing the space behind the full card. */
+  warmGlow: boolean;
+  /** Slightly brighter central seal. */
+  brighterSeal: boolean;
+  /** Brief one-shot flare the moment the relic is revealed. */
+  revealFlare: boolean;
+};
+
+const NO_RELIC_EFFECTS: RelicRarityEffects = {
+  halo: false, edgeShimmer: false, pulse: false, particles: 0,
+  warmGlow: false, brighterSeal: false, revealFlare: false,
+};
+
+const RARITY_EFFECTS: Record<string, RelicRarityEffects> = {
+  // Clean border, almost no particles.
+  Common: { ...NO_RELIC_EFFECTS },
+  // Soft edge shimmer plus a subtle colored halo.
+  Rare: { ...NO_RELIC_EFFECTS, halo: true, edgeShimmer: true },
+  // Slow pulse plus a few drifting particles.
+  Epic: { ...NO_RELIC_EFFECTS, halo: true, pulse: true, particles: 3 },
+  // Warm glow behind the full card, slightly brighter seal, brief reveal flare.
+  Legendary: { ...NO_RELIC_EFFECTS, halo: true, pulse: true, particles: 5, warmGlow: true, brighterSeal: true, revealFlare: true },
+  Mythic: { ...NO_RELIC_EFFECTS, halo: true, pulse: true, particles: 6, warmGlow: true, brighterSeal: true, revealFlare: true },
+  Transcendent: { ...NO_RELIC_EFFECTS, halo: true, pulse: true, particles: 6, warmGlow: true, brighterSeal: true, revealFlare: true },
+};
+
+/** Deterministic drift-mote layout (no per-render randomness). */
+const RELIC_DRIFT_MOTES = Array.from({ length: 6 }, (_, i) => ({
+  left: `${10 + ((i * 67) % 78)}%`,
+  top: `${28 + ((i * 41) % 58)}%`,
+  size: 2.5 + (i % 3),
+  duration: 7 + (i % 4) * 2.5,
+  delay: (i * 1.7) % 8,
+}));
 
 const RELIC_SIGIL_CSS = `
   .relic-sigil-spin { transform-box: view-box; transform-origin: 120px 120px; animation: relic-sigil-rotate 90s linear infinite; }
@@ -45,11 +95,19 @@ const RELIC_SIGIL_CSS = `
   @keyframes relic-twinkle { 0%, 100% { opacity: 0.15; transform: scale(0.7); } 50% { opacity: 1; transform: scale(1.15); } }
   .relic-breathe { animation: relic-breathe 4.5s ease-in-out infinite; }
   @keyframes relic-breathe { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+  .relic-halo-pulse { animation: relic-halo-pulse 5.5s ease-in-out infinite; }
+  @keyframes relic-halo-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.95; } }
+  .relic-shimmer-band { animation: relic-shimmer-sweep 7s ease-in-out infinite; }
+  @keyframes relic-shimmer-sweep { 0% { transform: translateX(-140%) skewX(-16deg); } 55%, 100% { transform: translateX(340%) skewX(-16deg); } }
+  .relic-drift { animation-name: relic-drift; animation-timing-function: linear; animation-iteration-count: infinite; }
+  @keyframes relic-drift { 0% { transform: translateY(10px) scale(0.6); opacity: 0; } 15% { opacity: 0.8; } 80% { opacity: 0.45; } 100% { transform: translateY(-52px) scale(1); opacity: 0; } }
+  .relic-reveal-flare { animation: relic-reveal-flare 1.2s ease-out 1 both; }
+  @keyframes relic-reveal-flare { 0% { opacity: 0.85; transform: scale(0.65); } 100% { opacity: 0; transform: scale(1.4); } }
   .relic-claim-btn { transition: box-shadow 0.5s ease, filter 0.5s ease; }
   .relic-claim-btn:hover { box-shadow: 0 0 30px var(--relic-hex-glow, rgba(255,255,255,0.25)); filter: brightness(1.12); }
   .relic-claim-btn:focus-visible { outline: 2px solid var(--relic-hex-glow, rgba(255,255,255,0.4)); outline-offset: 2px; }
   @media (prefers-reduced-motion: reduce) {
-    .relic-sigil-spin, .relic-sigil-spin-rev, .relic-twinkle, .relic-breathe { animation: none; }
+    .relic-sigil-spin, .relic-sigil-spin-rev, .relic-twinkle, .relic-breathe, .relic-halo-pulse, .relic-shimmer-band, .relic-drift, .relic-reveal-flare { animation: none; }
   }
 `;
 
@@ -793,18 +851,59 @@ export const ModalsAndToasts: React.FC = () => {
                   {(() => {
                     const rarity = unlockedArtifactAlert.rarity;
                     const theme = RARITY_THEMES[rarity] ?? NEUTRAL_THEME;
+                    const fx = RARITY_EFFECTS[rarity] ?? NO_RELIC_EFFECTS;
                     const { hex, titleColor } = theme;
 
                     return (
                       <>
                         <style>{RELIC_SIGIL_CSS}</style>
 
+                        {/* Legendary+: warm glow washing the space behind the full card */}
+                        {fx.warmGlow && (
+                          <div
+                            aria-hidden
+                            className="absolute -inset-16 pointer-events-none relic-halo-pulse"
+                            style={{ background: `radial-gradient(ellipse at 50% 44%, ${hex}1f 0%, ${hex}0a 38%, transparent 66%)`, filter: 'blur(6px)' }}
+                          />
+                        )}
+
                         {/* Rarity aura bleeding out from behind the card */}
                         <div
                           aria-hidden
-                          className="absolute -inset-10 pointer-events-none relic-breathe"
-                          style={{ background: `radial-gradient(ellipse at 50% 36%, ${hex}2e 0%, transparent 62%)` }}
+                          className={`absolute -inset-10 pointer-events-none ${fx.pulse ? 'relic-halo-pulse' : ''}`}
+                          style={{ background: `radial-gradient(ellipse at 50% 36%, ${hex}${fx.halo ? '2e' : '10'} 0%, transparent 62%)` }}
                         />
+
+                        {/* Legendary+: brief one-shot flare the moment the relic is revealed */}
+                        {fx.revealFlare && !shouldReduceMotion && (
+                          <div
+                            aria-hidden
+                            className="absolute -inset-10 pointer-events-none relic-reveal-flare"
+                            style={{ background: `radial-gradient(circle at 50% 42%, ${hex}59 0%, transparent 60%)` }}
+                          />
+                        )}
+
+                        {/* Epic+: a few slow-drifting motes around the card */}
+                        {fx.particles > 0 && !shouldReduceMotion && (
+                          <div aria-hidden className="absolute -inset-6 pointer-events-none">
+                            {RELIC_DRIFT_MOTES.slice(0, fx.particles).map((mote, i) => (
+                              <span
+                                key={i}
+                                className="absolute rounded-full relic-drift"
+                                style={{
+                                  left: mote.left,
+                                  top: mote.top,
+                                  width: mote.size,
+                                  height: mote.size,
+                                  background: hex,
+                                  boxShadow: `0 0 6px ${hex}`,
+                                  animationDuration: `${mote.duration}s`,
+                                  animationDelay: `${mote.delay}s`,
+                                }}
+                              />
+                            ))}
+                          </div>
+                        )}
 
                         <div
                           className="relative bg-[#060607]/95 rounded-[1.5rem] px-5 pt-5 pb-4 sm:px-6 sm:pt-6 sm:pb-5 text-center overflow-hidden"
@@ -813,6 +912,15 @@ export const ModalsAndToasts: React.FC = () => {
                             boxShadow: `0 0 50px ${hex}26, inset 0 0 70px rgba(0,0,0,0.65)`,
                           }}
                         >
+                          {/* Rare+: soft shimmer sweeping across the card edge */}
+                          {fx.edgeShimmer && !shouldReduceMotion && (
+                            <div aria-hidden className="absolute inset-0 pointer-events-none overflow-hidden rounded-[1.5rem]">
+                              <div
+                                className="relic-shimmer-band absolute top-0 bottom-0 w-1/3"
+                                style={{ background: `linear-gradient(to right, transparent, ${hex}12 42%, ${hex}24 50%, ${hex}12 58%, transparent)` }}
+                              />
+                            </div>
+                          )}
                           {/* Inner hairline frame */}
                           <div aria-hidden className="absolute inset-[5px] rounded-[1.2rem] pointer-events-none" style={{ border: `1px solid ${hex}1c` }} />
                           {/* Top sheen */}
@@ -859,7 +967,7 @@ export const ModalsAndToasts: React.FC = () => {
                                 className="relative w-full h-full"
                                 fill="none"
                                 stroke="currentColor"
-                                style={{ color: hex, filter: `drop-shadow(0 0 9px ${hex}80)` }}
+                                style={{ color: hex, filter: fx.brighterSeal ? `drop-shadow(0 0 14px ${hex}b3) brightness(1.18)` : `drop-shadow(0 0 9px ${hex}80)` }}
                                 aria-hidden
                               >
                                 {/* Slow-spinning outer assembly */}
@@ -954,22 +1062,25 @@ export const ModalsAndToasts: React.FC = () => {
                               {unlockedArtifactAlert.description || "Records marked by the Library are never truly forgotten."}
                             </p>
 
-                            {/* 4. The Stats Box (Qi + Rarity) */}
+                            {/* 4. The Stats Box (Qi + Rarity) — compact VALUE | LABEL pairs that won't clip on mobile */}
                             <div
                               className="w-full mt-3 sm:mt-4 rounded-xl bg-black/50 flex items-stretch overflow-hidden"
                               style={{ border: `1px solid ${hex}30`, boxShadow: `inset 0 0 26px rgba(0,0,0,0.65), 0 0 18px ${hex}14` }}
                             >
-                              <div className="flex-1 shrink-0 flex items-center justify-center gap-2 py-2 sm:py-2.5 px-1.5" style={{ borderRight: `1px solid ${hex}24` }}>
-                                <Sparkles size={14} style={{ color: hex, filter: `drop-shadow(0 0 6px ${hex})` }} />
-                                <span className="text-sm text-neutral-200 font-serif tracking-wide">+{unlockedArtifactAlert.rewardValueQi ?? 10} Qi</span>
+                              <div className="flex-1 min-w-0 flex items-center justify-center py-2 sm:py-2.5 px-1" style={{ borderRight: `1px solid ${hex}24` }}>
+                                <span className="text-[10px] sm:text-[11px] font-serif tracking-[0.12em] uppercase whitespace-nowrap text-neutral-200">
+                                  +{unlockedArtifactAlert.rewardValueQi ?? 10}
+                                  <span className="mx-1.5" style={{ color: `${hex}80` }}>|</span>
+                                  <span style={{ color: `${hex}d9`, textShadow: `0 0 10px ${hex}55` }}>QI</span>
+                                </span>
                               </div>
-                              <div className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2 sm:py-2.5 px-2">
-                                <Gem size={14} strokeWidth={1.5} className="shrink-0" style={{ color: hex, filter: `drop-shadow(0 0 5px ${hex}80)` }} />
+                              <div className="flex-1 min-w-0 flex items-center justify-center py-2 sm:py-2.5 px-1">
                                 <span
-                                  className="text-xs font-serif tracking-[0.18em] uppercase truncate"
-                                  style={{ color: `${hex}d9`, textShadow: `0 0 10px ${hex}55` }}
+                                  className="text-[10px] sm:text-[11px] font-serif tracking-[0.12em] uppercase whitespace-nowrap text-neutral-200"
                                 >
                                   {rarity || 'Common'}
+                                  <span className="mx-1.5" style={{ color: `${hex}80` }}>|</span>
+                                  <span style={{ color: `${hex}d9`, textShadow: `0 0 10px ${hex}55` }}>Relic</span>
                                 </span>
                               </div>
                             </div>
