@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { act, render } from '@testing-library/react';
 import { ModalsAndToasts } from './ModalsAndToasts';
 
 const { useAppStoreMock } = vi.hoisted(() => {
@@ -50,5 +50,53 @@ describe('ModalsAndToasts', () => {
       <ModalsAndToasts />
     );
     expect(container).toBeDefined();
+  });
+});
+
+describe('Relic reveal — rarity ranks', () => {
+  const ALL_RARITIES = ['Common', 'Rare', 'Epic', 'Legendary', 'Mythic', 'Transcendent'] as const;
+
+  const revealArtifact = async (rarity: string) => {
+    const utils = render(<ModalsAndToasts />);
+    act(() => {
+      window.dispatchEvent(new CustomEvent('seihouse-artifact-unlocked', {
+        detail: {
+          artifact: {
+            id: `art-${rarity}`,
+            name: `${rarity} Test Relic`,
+            description: 'A relic used to verify rank rendering.',
+            rarity,
+            rewardValueQi: 100,
+          }
+        }
+      }));
+    });
+    // Wait past the 3s mystery-card reveal timer.
+    act(() => {
+      vi.advanceTimersByTime(3200);
+    });
+    return utils;
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it.each(ALL_RARITIES.map(r => [r]))('produces and renders a %s relic with compact reward boxes', async (rarity) => {
+    const { getByText, unmount } = await revealArtifact(rarity);
+
+    // Rarity label on the card header
+    getByText(`${rarity} Relic`);
+    // Compact "VALUE | LABEL" reward boxes (exact match = the box, not the header)
+    getByText('+100');
+    getByText('QI');
+    getByText(rarity, { exact: true });
+    getByText('Relic', { exact: true });
+
+    unmount();
   });
 });
