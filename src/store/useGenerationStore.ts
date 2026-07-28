@@ -3,60 +3,65 @@ import { StreamingChapter } from '../types';
 import { AppState } from './useAppStore';
 
 /**
- * Live chapter-generation runtime state.
+ * Live generation runtime state.
  *
- * This slice owns values the generation pipeline *produces* while it is
- * running — never reader preferences, never anything durable. Its contents
- * are, by construction:
- *
- *  - written only by the generation pipeline (`useChapterGeneration`),
- *  - meaningless once that run ends,
- *  - never written into a `Story` record or any persisted preference,
- *  - always safe to drop wholesale via `resetGenerationRuntime`.
- *
- * `streamingChapter` used to live in `UISlice`, next to interface toggles and
- * provider configuration. It is not a preference: it is an incomplete pipeline
- * payload that the reader adapts through `applyStreamingChapter` for the
- * duration of a single run. Keeping it here means the next piece of pipeline
- * runtime state has an obvious home that is not the UI slice.
- *
- * Deliberately still in `StorySlice`, not here: `isGenerating`,
- * `generationPhase`, `generationProgressMessage`, `estimatedSecondsRemaining`,
- * `generatingChapterNum` and `activeAgentId`. They are the same kind of state
- * and belong here eventually, but they are one interlocking cluster covering
- * blueprint, cover, steer and chapter runs — not just chapter streaming — and
- * splitting them is a `StorySlice` question rather than the `UISlice`
- * ownership question this slice answers. Moving them piecemeal would leave the
- * generation lifecycle straddling three slices instead of two.
+ * This slice owns values the generation pipeline produces while it is running:
+ * temporary output and the shared generation lifecycle. It remains flattened
+ * in `AppState`, so existing selectors and consumers keep their interface.
  */
 export interface GenerationSlice {
-  /**
-   * The partially-streamed chapter for the run currently in flight, or `null`
-   * when nothing is streaming. Only ever one chapter at a time: the batch flow
-   * generates sequentially, so a new chapter replaces the previous payload.
-   */
+  /** The partially streamed chapter for the run currently in flight. */
   streamingChapter: StreamingChapter | null;
+  generatingChapterNum: number | null;
+  activeAgentId: 'versa' | 'scout' | null;
+  generationProgressMessage: string;
+  estimatedSecondsRemaining: number | null;
+  isGenerating: boolean;
+  generationPhase: 'blueprint' | 'initial-arc' | 'chapter' | 'steer' | 'cover' | null;
 
   setStreamingChapter: (data: StreamingChapter | null) => void;
+  setGeneratingChapterNum: (num: number | null) => void;
+  setActiveAgentId: (id: 'versa' | 'scout' | null) => void;
+  setGenerationProgressMessage: (msg: string) => void;
+  setEstimatedSecondsRemaining: (sec: number | null) => void;
+  setIsGenerating: (isGenerating: boolean) => void;
+  setGenerationPhase: (phase: 'blueprint' | 'initial-arc' | 'chapter' | 'steer' | 'cover' | null) => void;
   /**
-   * Drop every field this slice owns.
+   * Drop temporary output from the current run at a scope boundary.
    *
-   * Called on account transitions and when the reader switches to a different
-   * story, where an in-flight payload belongs to a scope that is no longer on
-   * screen and must not bleed into the next one. Generation's own `finally`
-   * blocks still clear on completion, failure, and cancellation; this is the
-   * boundary reset, not a replacement for those.
+   * Do not reset `isGenerating` or `generationPhase` here: Alter Fate changes
+   * the active story during an in-flight steer run, and clearing either would
+   * release its generation mutex before that run settles.
    */
   resetGenerationRuntime: () => void;
 }
 
-export const INITIAL_GENERATION_RUNTIME: Pick<GenerationSlice, 'streamingChapter'> = {
+export const INITIAL_GENERATION_RUNTIME: Pick<
+  GenerationSlice,
+  | 'streamingChapter'
+  | 'generatingChapterNum'
+  | 'activeAgentId'
+  | 'generationProgressMessage'
+  | 'estimatedSecondsRemaining'
+> = {
   streamingChapter: null,
+  generatingChapterNum: null,
+  activeAgentId: null,
+  generationProgressMessage: '',
+  estimatedSecondsRemaining: null,
 };
 
 export const createGenerationSlice: StateCreator<AppState, [], [], GenerationSlice> = (set) => ({
   ...INITIAL_GENERATION_RUNTIME,
+  isGenerating: false,
+  generationPhase: null,
 
-  setStreamingChapter: (data) => set({ streamingChapter: data }),
+  setStreamingChapter: (streamingChapter) => set({ streamingChapter }),
+  setGeneratingChapterNum: (generatingChapterNum) => set({ generatingChapterNum }),
+  setActiveAgentId: (activeAgentId) => set({ activeAgentId }),
+  setGenerationProgressMessage: (generationProgressMessage) => set({ generationProgressMessage }),
+  setEstimatedSecondsRemaining: (estimatedSecondsRemaining) => set({ estimatedSecondsRemaining }),
+  setIsGenerating: (isGenerating) => set({ isGenerating }),
+  setGenerationPhase: (generationPhase) => set({ generationPhase }),
   resetGenerationRuntime: () => set({ ...INITIAL_GENERATION_RUNTIME }),
 });
