@@ -94,7 +94,6 @@ function makeProps(overrides: Partial<ReaderViewportProps> = {}): ReaderViewport
     activeTranslationContent: null,
     renderHighlightedText: (text: string) => text,
     getFocusClass: () => '',
-    onUpdateStory: vi.fn(),
     navigatePrev: vi.fn(),
     navigateNext: vi.fn(),
     handleSealClick: vi.fn(),

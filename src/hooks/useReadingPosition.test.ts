@@ -76,7 +76,7 @@ describe('useReadingPosition', () => {
         contentRef,
         activeStory: story,
         selectedChapterNum: 1,
-        onUpdateStory,
+        updateStoryFields: onUpdateStory,
         hasRenderableContent: true,
       }),
     );
@@ -92,7 +92,7 @@ describe('useReadingPosition', () => {
       vi.advanceTimersByTime(2100);
     });
     expect(onUpdateStory).toHaveBeenCalledTimes(1);
-    const saved = onUpdateStory.mock.calls[0][0];
+    const saved = onUpdateStory.mock.calls[0][1];
     expect(saved.readingAnchor.paragraphIndex).toBe(1);
     expect(saved.readingAnchor.blockId).toBe('blk_1');
     expect(saved.readingAnchor.chapterNumber).toBe(1);
@@ -163,7 +163,7 @@ describe('useReadingPosition', () => {
     // …then resolved to a semantic anchor on the corrective frame.
     act(() => { rafCallbacks.splice(0).forEach((cb) => cb(0)); });
     expect(onUpdateStory).toHaveBeenCalledTimes(1);
-    const saved = onUpdateStory.mock.calls[0][0];
+    const saved = onUpdateStory.mock.calls[0][1];
     expect(saved.readingAnchor.paragraphIndex).toBe(1);
     expect(saved.lastReadScrollPosition).toBeUndefined();
   });

@@ -123,13 +123,13 @@ describe('useCodexImageEvolution error handling', () => {
       targetKey: 'character-persistence-id',
       entityId: 'character-persistence-id',
     }));
-    const committed = onUpdateStory.mock.calls[0][0];
+    const committed = onUpdateStory.mock.calls[0][1];
     expect(committed.memory.characters[0].imageAssetId).toBe('asset-older');
     expect(committed.memory.characters[0].imageHistory.find((image: { id: string }) => image.id === 'history-older').isCurrent)
       .toBe(true);
     expect(committed.memory.characters[0].imageHistory.find((image: { id: string }) => image.id === 'history-newer').isCurrent)
       .toBe(false);
-    expect(committed.imageHistory).toEqual([]);
+    expect(committed).toEqual({ memory: expect.anything() });
   });
 
   // PostgreSQL rebuilds the story-level history from STORY-targeted media
@@ -165,7 +165,7 @@ describe('useCodexImageEvolution error handling', () => {
 
     expect(result.current.generationError).toBeNull();
     expect(mocks.selectMediaAsset).toHaveBeenCalledWith('asset-older', expect.anything());
-    const character = onUpdateStory.mock.calls[0][0].memory.characters[0];
+    const character = onUpdateStory.mock.calls[0][1].memory.characters[0];
     expect(character.imageAssetId).toBe('asset-older');
     expect(character.imageUrl).toBe('blob:asset-older');
     expect(character.imageHistory.find((i: { id: string }) => i.id === 'history-older').isCurrent)

@@ -62,6 +62,7 @@ export const StoryDetailScreen: React.FC<{
     const setSelectedChapterNum = useAppStore(state => state.setSelectedChapterNum);
     const userProfile = useAppStore(state => state.userProfile);
     const saveStories = useAppStore(state => state.saveStories);
+    const updateStory = useAppStore(state => state.updateStory);
     const setAppError = useAppStore(state => state.setAppError);
   const [isStoryMenuOpen, setIsStoryMenuOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
@@ -202,17 +203,10 @@ export const StoryDetailScreen: React.FC<{
 
   const handleToggleMotionCover = async () => {
     vibrate("softTap");
-    const updated = stories.map((s) => {
-      if (s.id === activeStory.id) {
-        return {
-          ...s,
-          motionCoverActive: !s.motionCoverActive,
-        };
-      }
-      return s;
-    });
     try {
-      await saveStories(updated);
+      await updateStory(activeStory.id, (current) => ({
+        motionCoverActive: !current.motionCoverActive,
+      }));
     } catch (err) {
       console.error('Failed to save motion cover preference:', err);
       setAppError('The motion cover preference could not be saved. Please try again.');

@@ -127,7 +127,7 @@ export const useVisualAssets = () => {
       img.entityType === 'cover' ? { ...img, isCurrent: false } : img
     ).concat(imageRecord);
 
-    // Was a hook-local copy of handleUpdateStoryDirect (read stories, swap the
+    // Was a hook-local full-story replacement (read stories, swap the
     // story, saveStories). The store owns that write now.
     await useAppStore.getState().updateStory(
       activeStory.id,

@@ -7,6 +7,7 @@ import {
 import {
   ReaderChapter,
   StoryWorld,
+  UpdateStoryFields,
   ReaderPreferences,
   Bookmark,
 } from "../types";
@@ -46,7 +47,7 @@ interface ReaderChamberProps {
   arcTitle: string;
   onSwitchTab?: (tab: "reader" | "codex" | "memory") => void;
   activeStory: StoryWorld;
-  onUpdateStory: (updatedStory: StoryWorld) => void;
+  updateStoryFields: UpdateStoryFields;
   handleAlterFate?: (
     chapterNumber: number,
     direction: string,
@@ -68,7 +69,7 @@ export default function ReaderChamber({
   arcTitle,
   onSwitchTab,
   activeStory,
-  onUpdateStory,
+  updateStoryFields,
   handleAlterFate,
   handleSealChapter,
   handleCheckConsistency,
@@ -222,7 +223,7 @@ export default function ReaderChamber({
     contentRef: readerRef,
     activeStory,
     selectedChapterNum,
-    onUpdateStory,
+    updateStoryFields,
     hasRenderableContent: !!(
       selectedChapter.generatedContent ||
       (selectedChapter.blocks && selectedChapter.blocks.length > 0)
@@ -343,32 +344,25 @@ export default function ReaderChamber({
     key: K,
     value: ReaderPreferences[K],
   ) => {
-    const updatedPrefs = {
-      ...currentPrefs,
-      [key]: value,
-    };
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
-    if (currentActiveStory) {
-      onUpdateStory({
-        ...currentActiveStory,
-        readerPreferences: updatedPrefs,
-      });
-    }
+    void updateStoryFields(activeStory.id, (current) => ({
+      readerPreferences: {
+        ...defaultPrefs,
+        ...current.readerPreferences,
+        [key]: value,
+      },
+    }));
   };
 
   const handleResetTypography = () => {
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
-    if (!currentActiveStory) return;
-
-    onUpdateStory({
-      ...currentActiveStory,
+    void updateStoryFields(activeStory.id, (current) => ({
       readerPreferences: {
-        ...currentPrefs,
+        ...defaultPrefs,
+        ...current.readerPreferences,
         lineHeight: defaultPrefs.lineHeight,
         paragraphSpacing: defaultPrefs.paragraphSpacing,
         ...DEFAULT_READER_TYPOGRAPHY,
       },
-    });
+    }));
   };
 
   const isDeathOrCriticalHealthScene = useMemo(() => {
@@ -700,57 +694,41 @@ export default function ReaderChamber({
     excerpt: string,
     noteText: string,
   ) => {
-    const existing = activeBookmarks.find(
-      (b) =>
-        b.chapterNumber === selectedChapter.number &&
-        b.paragraphIndex === paraIdx,
-    );
-    let updated: Bookmark[];
-    if (existing) {
-      updated = activeBookmarks.map((b) => {
-        if (
-          b.chapterNumber === selectedChapter.number &&
-          b.paragraphIndex === paraIdx
-        ) {
-          return { ...b, note: noteText };
-        }
-        return b;
-      });
-    } else {
-      updated = [
-        ...activeBookmarks,
-        {
-          id: generateId(7),
-          chapterNumber: selectedChapter.number,
-          paragraphIndex: paraIdx,
-          paragraphExcerpt: excerpt.substring(0, 150),
-          note: noteText,
-          createdAt: new Date().toISOString(),
-        },
-      ];
-    }
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
-    if (currentActiveStory) {
-      onUpdateStory({
-        ...currentActiveStory,
-        bookmarks: updated,
-      });
-    }
+    const bookmark: Bookmark = {
+      id: generateId(7),
+      chapterNumber: selectedChapter.number,
+      paragraphIndex: paraIdx,
+      paragraphExcerpt: excerpt.substring(0, 150),
+      note: noteText,
+      createdAt: new Date().toISOString(),
+    };
+    void updateStoryFields(activeStory.id, (current) => {
+      const bookmarks = current.bookmarks || [];
+      const hasExistingBookmark = bookmarks.some((candidate) => (
+        candidate.chapterNumber === bookmark.chapterNumber
+        && candidate.paragraphIndex === bookmark.paragraphIndex
+      ));
+      return {
+        bookmarks: hasExistingBookmark
+          ? bookmarks.map((candidate) => (
+            candidate.chapterNumber === bookmark.chapterNumber
+            && candidate.paragraphIndex === bookmark.paragraphIndex
+              ? { ...candidate, note: noteText }
+              : candidate
+          ))
+          : [...bookmarks, bookmark],
+      };
+    });
     setEditingBookmarkParagraphIndex(null);
     setBookmarkNoteText("");
   };
 
   const handleRemoveBookmark = (chapterNum: number, paraIdx: number) => {
-    const updated = activeBookmarks.filter(
-      (b) => !(b.chapterNumber === chapterNum && b.paragraphIndex === paraIdx),
-    );
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id);
-    if (currentActiveStory) {
-      onUpdateStory({
-        ...currentActiveStory,
-        bookmarks: updated,
-      });
-    }
+    void updateStoryFields(activeStory.id, (current) => ({
+      bookmarks: (current.bookmarks || []).filter(
+        (bookmark) => !(bookmark.chapterNumber === chapterNum && bookmark.paragraphIndex === paraIdx),
+      ),
+    }));
   };
 
   const handleJumpToBookmark = (b: Bookmark) => {
@@ -979,7 +957,6 @@ export default function ReaderChamber({
         renderHighlightedText={renderHighlightedText}
         getFocusClass={getFocusClass}
         
-        onUpdateStory={onUpdateStory}
         navigatePrev={navigatePrev}
         navigateNext={navigateNext}
         

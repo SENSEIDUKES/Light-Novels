@@ -1,5 +1,5 @@
 import React, { createContext, useContext, ReactNode } from 'react';
-import { StoryMemory, StoryArc, StoryWorld, MultiModelRouting } from '../../types';
+import { StoryMemory, StoryArc, StoryWorld, MultiModelRouting, UpdateStoryFields } from '../../types';
 
 export type CodexEntryCollection = 'characters' | 'factions' | 'locations' | 'artifacts' | 'abilities';
 
@@ -16,7 +16,7 @@ interface CodexContextType {
   mcName: string;
   routingConfig?: MultiModelRouting;
   onUpdateMemory: (updatedMemory: StoryMemory) => void;
-  onUpdateStory: (updatedStory: StoryWorld) => void;
+  updateStoryFields: UpdateStoryFields;
   pushNotification: (msg: string) => void;
   getPowerRankScore: (powerStr: string | undefined) => { score: number; title: string };
   handleAwakenCardImage: (id: string, type: 'character' | 'location' | 'artifact' | 'beast', entity: any) => Promise<void>;

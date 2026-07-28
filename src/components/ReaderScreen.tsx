@@ -5,7 +5,7 @@ import { useAppStore } from "../store/useAppStore";
 import SteerPortal from "./SteerPortal";
 import ReaderChamber from "./ReaderChamber";
 import { GlossarySidePanel } from "./GlossarySidePanel";
-import { Chapter, ChapterContent, ReaderChapter, Story, StoryBlock, StreamingChapter } from "../types";
+import { Chapter, ChapterContent, ReaderChapter, Story, StoryBlock, StreamingChapter, UpdateStoryFields } from "../types";
 import { applyStreamingChapter, toReaderChapter } from "../lib/chapterViews";
 import { awardQi } from "../lib/qi";
 import { RecapScreen } from "./RecapScreen";
@@ -94,7 +94,7 @@ export const ReaderScreen: React.FC<{
   handleGenerateChapter: (chapterNumber: number) => Promise<void>;
   handleGenerateNextFiveChapters: (fromChapterNumber: number) => Promise<void>;
   handleToggleRead: (ch: number) => void;
-  handleUpdateStoryDirect: (story: Story) => void;
+  updateStoryFields: UpdateStoryFields;
   setIsCodexSheetOpen: (open: boolean) => void;
   handleSealChapter: (chapterNumber: number) => Promise<void>;
   handleCheckConsistency?: (chapterNumber: number) => Promise<string[]>;
@@ -104,7 +104,7 @@ export const ReaderScreen: React.FC<{
   handleGenerateChapter,
   handleGenerateNextFiveChapters,
   handleToggleRead,
-  handleUpdateStoryDirect,
+  updateStoryFields,
   setIsCodexSheetOpen,
   handleSealChapter,
   handleCheckConsistency,
@@ -195,25 +195,22 @@ export const ReaderScreen: React.FC<{
       const currentStory = activeStoryRef.current;
       const currentDelta = localStatsDeltaRef.current;
       if (currentStory && currentDelta.total > 0) {
-        const stats = currentStory.readingStats || {
-          totalReadingTimeMs: 0,
-          arcReadingTimeMs: {},
-        };
-        const newTotal =
-          (stats.totalReadingTimeMs || 0) + currentDelta.total;
-
-        const newArcTimes = { ...(stats.arcReadingTimeMs || {}) };
-        for (const [arcIdx, timeMs] of Object.entries(currentDelta.arc)) {
-          newArcTimes[Number(arcIdx)] =
-            (newArcTimes[Number(arcIdx)] || 0) + timeMs;
-        }
-
-        handleUpdateStoryDirect({
-          ...currentStory,
+        void updateStoryFields(currentStory.id, (current) => {
+          const stats = current.readingStats || {
+            totalReadingTimeMs: 0,
+            arcReadingTimeMs: {},
+          };
+          const newArcTimes = { ...(stats.arcReadingTimeMs || {}) };
+          for (const [arcIdx, timeMs] of Object.entries(currentDelta.arc)) {
+            newArcTimes[Number(arcIdx)] =
+              (newArcTimes[Number(arcIdx)] || 0) + timeMs;
+          }
+          return {
           readingStats: {
-            totalReadingTimeMs: newTotal,
+            totalReadingTimeMs: (stats.totalReadingTimeMs || 0) + currentDelta.total,
             arcReadingTimeMs: newArcTimes,
           },
+          };
         });
 
         // Reset delta
@@ -224,7 +221,7 @@ export const ReaderScreen: React.FC<{
     return () => {
       clearInterval(flushInterval);
     };
-  }, [handleUpdateStoryDirect]);
+  }, [updateStoryFields]);
 
   const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -578,7 +575,7 @@ export const ReaderScreen: React.FC<{
               if (tab === "codex") setIsCodexSheetOpen(true);
             }}
             activeStory={activeStory}
-            onUpdateStory={handleUpdateStoryDirect}
+            updateStoryFields={updateStoryFields}
             handleAlterFate={handleAlterFate}
             handleSealChapter={handleSealChapter}
             handleCheckConsistency={handleCheckConsistency}

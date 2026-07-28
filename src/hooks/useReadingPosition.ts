@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { StoryWorld } from '../types';
+import { StoryWorld, UpdateStoryFields } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import {
   ReadingAnchor,
@@ -28,24 +28,24 @@ export function useReadingPosition({
   contentRef,
   activeStory,
   selectedChapterNum,
-  onUpdateStory,
+  updateStoryFields,
   hasRenderableContent,
 }: {
   contentRef: React.RefObject<HTMLElement | null>;
   activeStory: StoryWorld;
   selectedChapterNum: number;
-  onUpdateStory: (updatedStory: StoryWorld) => void;
+  updateStoryFields: UpdateStoryFields;
   hasRenderableContent: boolean;
 }) {
   const surfaceRef = useRef(createDocumentScrollSurface());
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const restoredChapterRef = useRef<string | null>(null);
   const suppressSaveUntilRef = useRef(0);
-  const onUpdateStoryRef = useRef(onUpdateStory);
+  const updateStoryFieldsRef = useRef(updateStoryFields);
   const storyIdRef = useRef(activeStory.id);
   const chapterNumRef = useRef(selectedChapterNum);
   useEffect(() => {
-    onUpdateStoryRef.current = onUpdateStory;
+    updateStoryFieldsRef.current = updateStoryFields;
     storyIdRef.current = activeStory.id;
     chapterNumRef.current = selectedChapterNum;
   });
@@ -73,12 +73,7 @@ export function useReadingPosition({
   };
 
   const persistAnchor = (anchor: ReadingAnchor) => {
-    const currentActiveStory = useAppStore
-      .getState()
-      .stories.find((s) => s.id === storyIdRef.current);
-    if (!currentActiveStory) return;
-    onUpdateStoryRef.current({
-      ...currentActiveStory,
+    void updateStoryFieldsRef.current(storyIdRef.current, {
       lastReadChapter: anchor.chapterNumber,
       readingAnchor: anchor,
       // Raw pixels are never written anymore; clear the legacy field so the

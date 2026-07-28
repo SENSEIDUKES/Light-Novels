@@ -22,7 +22,7 @@ describe('useCosmicBookmarking', () => {
     const { result } = renderHook(() => useCosmicBookmarking({
       activeStory: { ...latestStory, title: 'Stale title' },
       selectedChapter: { number: 3 },
-      onUpdateStory,
+      updateStoryFields: onUpdateStory,
       setSelectedChapterNum: vi.fn(),
     } as any));
     const excerpt = 'x'.repeat(180);
@@ -33,8 +33,8 @@ describe('useCosmicBookmarking', () => {
       result.current.handleSaveBookmark(4, excerpt, 'Keep this turn');
     });
 
-    expect(onUpdateStory).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Latest title',
+    expect(onUpdateStory).toHaveBeenCalledWith('story-1', expect.any(Function));
+    expect(onUpdateStory.mock.calls[0][1](latestStory)).toEqual(expect.objectContaining({
       bookmarks: [
         latestStory.bookmarks[0],
         expect.objectContaining({
@@ -54,17 +54,17 @@ describe('useCosmicBookmarking', () => {
     const { result } = renderHook(() => useCosmicBookmarking({
       activeStory: latestStory,
       selectedChapter: { number: 1 },
-      onUpdateStory,
+      updateStoryFields: onUpdateStory,
       setSelectedChapterNum: vi.fn(),
     } as any));
 
     act(() => result.current.handleSaveBookmark(2, 'Ignored', 'Revised'));
-    expect(onUpdateStory).toHaveBeenLastCalledWith(expect.objectContaining({
+    expect(onUpdateStory.mock.calls.at(-1)?.[1](latestStory)).toEqual(expect.objectContaining({
       bookmarks: [expect.objectContaining({ id: 'existing', note: 'Revised' })],
     }));
 
     act(() => result.current.handleRemoveBookmark(1, 2));
-    expect(onUpdateStory).toHaveBeenLastCalledWith(expect.objectContaining({ bookmarks: [] }));
+    expect(onUpdateStory.mock.calls.at(-1)?.[1](latestStory)).toEqual(expect.objectContaining({ bookmarks: [] }));
   });
 
   it('jumps to a bookmark chapter, records the paragraph target, and closes the panel', () => {
@@ -72,7 +72,7 @@ describe('useCosmicBookmarking', () => {
     const { result } = renderHook(() => useCosmicBookmarking({
       activeStory: latestStory,
       selectedChapter: { number: 1 },
-      onUpdateStory: vi.fn(),
+      updateStoryFields: vi.fn(),
       setSelectedChapterNum,
     } as any));
 

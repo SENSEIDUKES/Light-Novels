@@ -658,7 +658,7 @@ function App() {
                   handleGenerateNextFiveChapters={storyEngine.handleGenerateNextFiveChapters}
                   handleToggleRead={storyEngine.handleToggleRead}
                   handleSteerArc={storyEngine.handleSteerArc}
-                  handleUpdateStoryDirect={storyEngine.handleUpdateStoryDirect}
+                  updateStoryFields={storyEngine.updateStoryFields}
                   setIsCodexSheetOpen={store_setIsCodexSheetOpen}
                   handleAlterFate={storyEngine.handleAlterFate}
                   handleSealChapter={storyEngine.handleSealChapter}
@@ -739,7 +739,7 @@ function App() {
       {/* OVERLAYS */}
       <CodexSheetOverlay 
          handleUpdateMemoryManual={storyEngine.handleUpdateMemoryManual}
-         handleUpdateStoryDirect={storyEngine.handleUpdateStoryDirect}
+         updateStoryFields={storyEngine.updateStoryFields}
       />
       <AILoadingVeil />
       <ModalsAndToasts />

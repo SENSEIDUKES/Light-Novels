@@ -48,8 +48,8 @@ describe('useCodexDeletions', () => {
 
     act(() => result.current.handleDeleteCustomRelationship('delete'));
 
-    expect(onUpdateStory).toHaveBeenCalledWith({
-      ...latestStory,
+    expect(onUpdateStory).toHaveBeenCalledWith('story', expect.any(Function));
+    expect(onUpdateStory.mock.calls[0][1](latestStory)).toEqual({
       relationships: [{ id: 'keep' }],
     });
   });
@@ -68,8 +68,8 @@ describe('useCodexDeletions', () => {
 
     act(() => result.current.handleDeleteFateNode('delete'));
 
-    expect(onUpdateStory).toHaveBeenCalledWith({
-      ...latestStory,
+    expect(onUpdateStory).toHaveBeenCalledWith('story', expect.any(Function));
+    expect(onUpdateStory.mock.calls[0][1](latestStory)).toEqual({
       karmaNodes: [{ id: 'keep' }],
     });
   });

@@ -1,11 +1,10 @@
-import { StoryMemory, StoryWorld } from '../types';
-import { useAppStore } from '../store/useAppStore';
+import { StoryMemory, StoryWorld, UpdateStoryFields } from '../types';
 
 export function useCodexDeletions(
   memory: StoryMemory,
   onUpdateMemory: (updatedMemory: StoryMemory) => void,
   activeStory: StoryWorld,
-  onUpdateStory: (updatedStory: StoryWorld) => void
+  updateStoryFields: UpdateStoryFields,
 ) {
   const handleDeleteFaction = (id: string) => {
     const currentFactions = memory.factions || [];
@@ -32,19 +31,15 @@ export function useCodexDeletions(
   };
 
   const handleDeleteCustomRelationship = (bondId: string) => {
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
-    onUpdateStory({
-      ...currentActiveStory,
-      relationships: (currentActiveStory.relationships || []).filter(b => b.id !== bondId)
-    });
+    void updateStoryFields(activeStory.id, (current) => ({
+      relationships: (current.relationships || []).filter(b => b.id !== bondId),
+    }));
   };
 
   const handleDeleteFateNode = (fateId: string) => {
-    const currentActiveStory = useAppStore.getState().stories.find(s => s.id === activeStory.id) || activeStory;
-    onUpdateStory({
-      ...currentActiveStory,
-      karmaNodes: (currentActiveStory.karmaNodes || []).filter(n => n.id !== fateId)
-    });
+    void updateStoryFields(activeStory.id, (current) => ({
+      karmaNodes: (current.karmaNodes || []).filter(n => n.id !== fateId),
+    }));
   };
 
   return {

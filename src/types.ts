@@ -1204,6 +1204,44 @@ export interface Bookmark {
 
 export type Story = StoryWorld;
 
+/** Metadata policy applied by the store-owned story patch queue. */
+export interface StoryUpdateOptions {
+  markEdited?: boolean;
+  touchUpdatedAt?: boolean;
+}
+
+/**
+ * The only story fields Reader and Living Codex surfaces may patch directly.
+ * Aggregate identity, chapter collections, arcs, and story-level media
+ * ownership deliberately do not appear here. `memory` remains available
+ * because the Codex owns its entity records and their manifestation media.
+ */
+export type ReaderCodexStoryPatch = Partial<Pick<StoryWorld,
+  | 'assignedRevealBackdrops'
+  | 'bookmarks'
+  | 'karmaNodes'
+  | 'lastReadAt'
+  | 'lastReadChapter'
+  | 'lastReadScrollPosition'
+  | 'memory'
+  | 'motionCoverActive'
+  | 'readerPreferences'
+  | 'readingAnchor'
+  | 'readingStats'
+  | 'relationships'
+>>;
+
+export type ReaderCodexStoryPatchUpdater =
+  | ReaderCodexStoryPatch
+  | ((current: StoryWorld) => ReaderCodexStoryPatch);
+
+/** Store-owned Reader/Codex mutation boundary. Never accepts a StoryWorld. */
+export type UpdateStoryFields = (
+  storyId: string,
+  updates: ReaderCodexStoryPatchUpdater,
+  options?: StoryUpdateOptions,
+) => Promise<void>;
+
 export interface AppUser {
   uid: string;
   email: string | null;
