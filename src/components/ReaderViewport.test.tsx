@@ -177,6 +177,23 @@ describe('ReaderViewport', () => {
     expect(screen.getByText('نص مترجم.').closest('.reader-paragraph')).toBeTruthy();
   });
 
+  it('keeps chapter metadata selectable and gives ornate dividers the active theme glow', () => {
+    const { container } = render(<ReaderViewport {...makeProps({
+      currentPrefs: {
+        fontSize: 'base',
+        fontFamily: 'serif',
+        lineHeight: 'normal',
+        paragraphSpacing: 'normal',
+        dividerStyle: 'celestial',
+        themeOverride: 'crimson',
+      },
+    })} />);
+
+    const header = screen.getByRole('heading', { name: 'The Second Gate' }).parentElement;
+    expect(header?.className).not.toContain('select-none');
+    expect(container.querySelector('[style*="box-shadow"]')?.getAttribute('style')).toContain('#8B000080');
+  });
+
   it('renders the chapter context manifest as one collapsed inspector list', () => {
     const sectionKeys = [
       ['pinnedRules', 'Pinned rules'],
