@@ -36,13 +36,7 @@ export interface StorySlice {
   activeStoryId: string | null;
   storyToDelete: string | null;
   draftRecoverySession: DraftRecoverySession | null;
-  isGenerating: boolean;
   appError: string | null;
-  generationPhase: 'blueprint' | 'initial-arc' | 'chapter' | 'steer' | 'cover' | null;
-  generationProgressMessage: string;
-  estimatedSecondsRemaining: number | null;
-  generatingChapterNum: number | null;
-  activeAgentId: 'versa' | 'scout' | null;
   storageType: string;
   lastSavedTime: Date | null;
 
@@ -52,13 +46,7 @@ export interface StorySlice {
   hydrateStory: (storyId: string) => Promise<void>;
   setStoryToDelete: (id: string | null) => void;
   setDraftRecoverySession: (session: DraftRecoverySession | null) => void;
-  setIsGenerating: (isGenerating: boolean) => void;
   setAppError: (error: string | null) => void;
-  setGenerationPhase: (phase: 'blueprint' | 'initial-arc' | 'chapter' | 'steer' | 'cover' | null) => void;
-  setGenerationProgressMessage: (msg: string) => void;
-  setEstimatedSecondsRemaining: (sec: number | null) => void;
-  setGeneratingChapterNum: (num: number | null) => void;
-  setActiveAgentId: (id: 'versa' | 'scout' | null) => void;
   setStorageType: (type: string) => void;
   setLastSavedTime: (time: Date | null) => void;
 
@@ -275,13 +263,7 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
   activeStoryId: null,
   storyToDelete: null,
   draftRecoverySession: null,
-  isGenerating: false,
   appError: null,
-  generationPhase: null,
-  generationProgressMessage: '',
-  estimatedSecondsRemaining: null,
-  generatingChapterNum: null,
-  activeAgentId: null,
   storageType: 'Initializing...',
   lastSavedTime: null,
 
@@ -335,13 +317,7 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
   },
   setStoryToDelete: (id) => set({ storyToDelete: id }),
   setDraftRecoverySession: (session) => set({ draftRecoverySession: session }),
-  setIsGenerating: (isGenerating) => set({ isGenerating }),
   setAppError: (appError) => set({ appError }),
-  setGenerationPhase: (generationPhase) => set({ generationPhase }),
-  setGenerationProgressMessage: (generationProgressMessage) => set({ generationProgressMessage }),
-  setEstimatedSecondsRemaining: (estimatedSecondsRemaining) => set({ estimatedSecondsRemaining }),
-  setGeneratingChapterNum: (generatingChapterNum) => set({ generatingChapterNum }),
-  setActiveAgentId: (activeAgentId) => set({ activeAgentId }),
   setStorageType: (storageType) => set({ storageType }),
   setLastSavedTime: (lastSavedTime) => set({ lastSavedTime }),
   activeConflict: null,

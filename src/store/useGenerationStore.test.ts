@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useAppStore } from './useAppStore';
 import { createGenerationSlice } from './useGenerationStore';
 import { createUISlice } from './useUIStore';
+import { createStorySlice } from './useStoryStore';
 import { applyStreamingChapter } from '../lib/chapterViews';
 import { storyStorage } from '../lib/storage';
 import type { Chapter, Story, StoryBlock } from '../types';
@@ -54,7 +55,15 @@ const makeStory = (id: string): Story => ({
 } as unknown as Story);
 
 /** Every field this slice owns, so a later addition has to update the test too. */
-const GENERATION_RUNTIME_FIELDS = ['streamingChapter'] as const;
+const GENERATION_RUNTIME_FIELDS = [
+  'streamingChapter',
+  'generatingChapterNum',
+  'activeAgentId',
+  'generationProgressMessage',
+  'estimatedSecondsRemaining',
+] as const;
+
+const GENERATION_LIFECYCLE_FIELDS = ['isGenerating', 'generationPhase'] as const;
 
 describe('GenerationSlice', () => {
   beforeEach(() => {
@@ -62,7 +71,7 @@ describe('GenerationSlice', () => {
     vi.mocked(storyStorage.saveStory).mockResolvedValue(undefined);
     vi.mocked(storyStorage.getStories).mockResolvedValue([]);
     useAppStore.getState().setStories([]);
-    useAppStore.setState({ activeStoryId: null });
+    useAppStore.setState({ activeStoryId: null, isGenerating: false, generationPhase: null });
     useAppStore.getState().resetGenerationRuntime();
   });
 
@@ -75,6 +84,21 @@ describe('GenerationSlice', () => {
       expect(uiKeys).not.toContain('setStreamingChapter');
     });
 
+    it('is no longer declared by StorySlice', () => {
+      const storySlice = createStorySlice(vi.fn(), vi.fn(), {} as never);
+      const storyKeys = Object.keys(storySlice);
+
+      for (const field of [...GENERATION_RUNTIME_FIELDS, ...GENERATION_LIFECYCLE_FIELDS]) {
+        expect(storyKeys).not.toContain(field);
+      }
+      expect(storyKeys).not.toContain('setIsGenerating');
+      expect(storyKeys).not.toContain('setGenerationPhase');
+      expect(storyKeys).not.toContain('setGeneratingChapterNum');
+      expect(storyKeys).not.toContain('setActiveAgentId');
+      expect(storyKeys).not.toContain('setGenerationProgressMessage');
+      expect(storyKeys).not.toContain('setEstimatedSecondsRemaining');
+    });
+
     it('declares the live-generation runtime fields itself', () => {
       const generationSlice = createGenerationSlice(vi.fn(), vi.fn(), {} as never);
       const generationKeys = Object.keys(generationSlice);
@@ -82,7 +106,16 @@ describe('GenerationSlice', () => {
       for (const field of GENERATION_RUNTIME_FIELDS) {
         expect(generationKeys).toContain(field);
       }
+      for (const field of GENERATION_LIFECYCLE_FIELDS) {
+        expect(generationKeys).toContain(field);
+      }
       expect(generationKeys).toContain('setStreamingChapter');
+      expect(generationKeys).toContain('setIsGenerating');
+      expect(generationKeys).toContain('setGenerationPhase');
+      expect(generationKeys).toContain('setGeneratingChapterNum');
+      expect(generationKeys).toContain('setActiveAgentId');
+      expect(generationKeys).toContain('setGenerationProgressMessage');
+      expect(generationKeys).toContain('setEstimatedSecondsRemaining');
       expect(generationKeys).toContain('resetGenerationRuntime');
     });
 
@@ -90,6 +123,8 @@ describe('GenerationSlice', () => {
       const selected = useAppStore.getState().streamingChapter;
       expect(selected).toBeNull();
       expect(typeof useAppStore.getState().setStreamingChapter).toBe('function');
+      expect(typeof useAppStore.getState().setIsGenerating).toBe('function');
+      expect(typeof useAppStore.getState().setGenerationPhase).toBe('function');
     });
   });
 
@@ -168,15 +203,25 @@ describe('GenerationSlice', () => {
       expect(useAppStore.getState().streamingChapter).toBeNull();
     });
 
-    it('drops every runtime field through resetGenerationRuntime', () => {
+    it('clears temporary runtime output but preserves the generation mutex and phase', () => {
       useAppStore.getState().setStreamingChapter({ number: 1, content: 'half a chapter' });
+      useAppStore.getState().setGeneratingChapterNum(1);
+      useAppStore.getState().setActiveAgentId('versa');
+      useAppStore.getState().setGenerationProgressMessage('Writing the next scene');
+      useAppStore.getState().setEstimatedSecondsRemaining(45);
+      useAppStore.getState().setIsGenerating(true);
+      useAppStore.getState().setGenerationPhase('steer');
 
       useAppStore.getState().resetGenerationRuntime();
 
       const state = useAppStore.getState() as unknown as Record<string, unknown>;
-      for (const field of GENERATION_RUNTIME_FIELDS) {
-        expect(state[field]).toBeNull();
-      }
+      expect(state.streamingChapter).toBeNull();
+      expect(state.generatingChapterNum).toBeNull();
+      expect(state.activeAgentId).toBeNull();
+      expect(state.generationProgressMessage).toBe('');
+      expect(state.estimatedSecondsRemaining).toBeNull();
+      expect(state.isGenerating).toBe(true);
+      expect(state.generationPhase).toBe('steer');
     });
   });
 
@@ -192,6 +237,25 @@ describe('GenerationSlice', () => {
       // Chapter 1 exists in both stories; without the reset, story A's prose
       // would render inside story B's reader.
       expect(useAppStore.getState().streamingChapter).toBeNull();
+    });
+
+    it('preserves the Alter Fate generation mutex and steer phase across a real story switch', () => {
+      const store = useAppStore.getState();
+      store.setStories([makeStory('story-a'), makeStory('story-b')]);
+      store.setActiveStoryId('story-a');
+      store.setIsGenerating(true);
+      store.setGenerationPhase('steer');
+      store.setStreamingChapter({ number: 1, content: 'outgoing story payload' });
+
+      // Alter Fate calls the real store action while the fork's steer run is
+      // active. This must clear temporary output without releasing the mutex.
+      store.setActiveStoryId('story-b');
+
+      const state = useAppStore.getState();
+      expect(state.activeStoryId).toBe('story-b');
+      expect(state.streamingChapter).toBeNull();
+      expect(state.isGenerating).toBe(true);
+      expect(state.generationPhase).toBe('steer');
     });
 
     it('keeps the live payload when the already-active story is re-selected', () => {
