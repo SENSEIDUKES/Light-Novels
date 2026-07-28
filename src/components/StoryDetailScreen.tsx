@@ -21,6 +21,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
+import { DestinedEndingWaterCard } from "./DestinedEndingWaterCard";
 import { DestinyChoicePanel } from "./DestinyChoicePanel";
 import { FateTimeline } from "./FateTimeline";
 import { storyStorage } from "../lib/storage";
@@ -988,9 +989,7 @@ export const StoryDetailScreen: React.FC<{
                 <Sparkles size={12} />
                 Destined Ending
               </h3>
-              <p className="font-sans text-sm text-neutral-300 leading-relaxed bg-portal/5 border border-portal/10 p-3 rounded-lg">
-                {activeStory.blueprint.destinedEnding}
-              </p>
+              <DestinedEndingWaterCard text={activeStory.blueprint.destinedEnding} />
             </div>
           )}
 
