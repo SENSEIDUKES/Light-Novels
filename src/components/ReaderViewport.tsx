@@ -35,26 +35,6 @@ function getFallbackBackdrop(id: string) {
   return FALLBACK_BACKDROPS[index];
 }
 
-function getThemeAccentColor(theme: string) {
-  switch (theme) {
-    case "crimson": return "#8B0000";
-    case "abyss": return "#04ACFF";
-    case "sepia": return "#8b5a2b";
-    case "emerald": return "#10B981";
-    default: return "#04ACFF";
-  }
-}
-
-function getThemeTextClass(theme: string) {
-  switch (theme) {
-    case "crimson": return "text-human";
-    case "abyss": return "text-[#04ACFF]";
-    case "sepia": return "text-[#8b5a2b]";
-    case "emerald": return "text-jade-accent";
-    default: return "text-portal";
-  }
-}
-
 interface ReaderViewportProps {
   readerRef: React.RefObject<HTMLDivElement | null>;
   isReaderFullscreen: boolean;
@@ -179,6 +159,26 @@ export function ReaderViewport({
   const readingLanguage = activeTranslationContent ? preferredLang : 'en';
   const typography = getReaderTypography(currentPrefs);
 
+  const getThemeAccentColor = (theme: string) => {
+    switch (theme) {
+      case "crimson": return "#8B0000"; // Deep crimson
+      case "abyss": return "#04ACFF";   // Celestial blue
+      case "sepia": return "#8b5a2b";   // Warm brown/gold
+      case "emerald": return "#10B981"; // Serene green
+      default: return "#04ACFF";        // Default void/portal cyan
+    }
+  };
+
+  const getThemeTextClass = (theme: string) => {
+    switch (theme) {
+      case "crimson": return "text-human";
+      case "abyss": return "text-[#04ACFF]";
+      case "sepia": return "text-[#8b5a2b]";
+      case "emerald": return "text-jade-accent";
+      default: return "text-portal";
+    }
+  };
+
   const renderChapterDivider = () => {
     const divider = currentPrefs.dividerStyle || "default";
     if (divider === "default") {
@@ -206,7 +206,7 @@ export function ReaderViewport({
           {/* Center 8-pointed celestial star or dual diamond */}
           <div className="relative w-5 h-5 flex items-center justify-center" style={{ color: accentColor }}>
             <div className="absolute w-4 h-4 rotate-45 border border-current animate-pulse motion-reduce:animate-none" />
-            <div className="absolute w-2.5 h-2.5 bg-current" style={{ boxShadow: `0 0 10px ${accentColor}80` }} />
+            <div className="absolute w-2.5 h-2.5 bg-current shadow-[0_0_10px_rgba(4,172,255,0.5)]" />
           </div>
 
           {/* Flanking diamond dots */}
@@ -254,7 +254,7 @@ export function ReaderViewport({
             {/* Center lotus blossom (represented by triple petal curves) */}
             <div className="flex items-end gap-0.5 px-0.5">
               <div className="w-1 h-2.5 rounded-t-full border-l border-t border-current opacity-50 transform -rotate-12" />
-              <div className="w-2 h-3.5 rounded-t-full bg-current opacity-70" style={{ boxShadow: `0 0 6px ${accentColor}4d` }} />
+              <div className="w-2 h-3.5 rounded-t-full bg-current opacity-70 shadow-[0_0_6px_rgba(16,185,129,0.3)]" />
               <div className="w-1 h-2.5 rounded-t-full border-r border-t border-current opacity-50 transform rotate-12" />
             </div>
 
