@@ -289,6 +289,13 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
     stories: stories.map(normalizeStoryImageOwnership),
   }),
   setActiveStoryId: (id) => {
+    // A half-streamed chapter belongs to the story that was active when the
+    // run started. `streamingChapter` is keyed only by chapter number, so
+    // carrying it across a story change would let story A's partial prose
+    // render inside story B's reader wherever the numbers happen to collide.
+    // Re-selecting the story that is already active is not a change and must
+    // leave a live run's payload alone.
+    if (id !== get().activeStoryId) get().resetGenerationRuntime();
     set({ activeStoryId: id });
     if (id) void get().hydrateStory(id);
   },

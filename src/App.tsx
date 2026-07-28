@@ -76,6 +76,7 @@ function App() {
     const store_setIsShortcutsOpen = useAppStore(state => state.setIsShortcutsOpen);
     const store_currentUser = useAppStore(state => state.currentUser);
     const store_setCurrentScreen = useAppStore(state => state.setCurrentScreen);
+    const store_resetGenerationRuntime = useAppStore(state => state.resetGenerationRuntime);
   const storyEngine = useStoryEngine();
   const storyExporter = useStoryExporter();
 
@@ -297,6 +298,11 @@ function App() {
         store_setIsCodexSheetOpen(false);
         store_setCurrentScreen('home');
         useAppStore.getState().setActiveConflict(null);
+        // A chapter still streaming for the outgoing account must not survive
+        // into the next one. `setActiveStoryId(null)` above already resets this
+        // whenever a story was open; reset explicitly so an account transition
+        // that begins with no active story is covered too.
+        store_resetGenerationRuntime();
         store_setCurrentUser(user);
         
         if (user) {

@@ -1,7 +1,15 @@
 import { StateCreator } from 'zustand';
-import { CosmicArtifact, MultiModelRouting, StreamingChapter } from '../types';
+import { CosmicArtifact, MultiModelRouting } from '../types';
 import { AppState } from './useAppStore';
 
+/**
+ * Interface state and reader preferences.
+ *
+ * Live generation runtime state does *not* belong here — it is owned by
+ * `GenerationSlice` (see `useGenerationStore.ts`). `streamingChapter` used to
+ * sit in this interface, which made "where does pipeline state live?"
+ * ambiguous and invited more of it to accumulate alongside toggles.
+ */
 export interface UISlice {
   currentScreen: 'home' | 'detail' | 'reader' | 'codex' | 'creator' | 'profile' | 'pricing' | 'challenge' | 'sects';
   selectedChapterNum: number;
@@ -22,9 +30,8 @@ export interface UISlice {
     imagePopups: boolean;
     autoScroll: boolean;
   };
-  streamingChapter: StreamingChapter | null;
   autoPlayNarration: boolean;
-  
+
   // Relic Reveal Timing & Queue State
   pendingRelicQueue: CosmicArtifact[];
   canShowRelicInReader: boolean;
@@ -43,7 +50,6 @@ export interface UISlice {
   setRoutingConfig: (config: MultiModelRouting) => void;
   setReaderMode: (mode: 'teleprompter' | 'sen' | 'basic-tts') => void;
   setImmersion: (immersion: Partial<{ master: boolean; imagePopups: boolean; autoScroll: boolean }>) => void;
-  setStreamingChapter: (data: StreamingChapter | null) => void;
   setAutoPlayNarration: (autoPlay: boolean) => void;
 }
 
@@ -70,7 +76,6 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     imagePopups: true,
     autoScroll: true,
   },
-  streamingChapter: null,
   autoPlayNarration: false,
 
   pendingRelicQueue: [],
@@ -99,6 +104,5 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
   setImmersion: (immersion) => set((state) => ({
     immersion: { ...state.immersion, ...immersion }
   })),
-  setStreamingChapter: (data) => set({ streamingChapter: data }),
   setAutoPlayNarration: (autoPlayNarration) => set({ autoPlayNarration }),
 });
