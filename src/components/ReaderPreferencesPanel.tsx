@@ -8,6 +8,7 @@ import {
   Play,
   RotateCcw,
   Sliders,
+  Sparkle,
   Sparkles,
   Type,
 } from 'lucide-react';
@@ -39,6 +40,13 @@ const PARTICLE_INTENSITY_OPTIONS = [
   { value: 'low', label: 'Low' },
   { value: 'default', label: 'Default' },
   { value: 'high', label: 'High' },
+] as const;
+
+const DIVIDER_STYLE_OPTIONS = [
+  { value: 'default', label: 'Classic Minimal' },
+  { value: 'celestial', label: 'Celestial Crest' },
+  { value: 'sword_qi', label: 'Sword Qi Horizon' },
+  { value: 'lotus_path', label: 'Lotus Serenity' },
 ] as const;
 
 type NumericTypographyPreference =
@@ -231,6 +239,21 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
                   <button key={option.value} type="button" onClick={() => handleUpdatePreference('particleIntensity', option.value)} className={choiceClass((currentPrefs.particleIntensity || 'default') === option.value)}>
                     <span>{option.label}</span>
                     {(currentPrefs.particleIntensity || 'default') === option.value ? <Check size={12} /> : null}
+                  </button>
+                ))}
+              </div>
+            </PreferenceGroup>
+
+            <PreferenceGroup
+              label="Chapter Divider"
+              icon={<Sparkle size={13} />}
+              summary={DIVIDER_STYLE_OPTIONS.find(option => option.value === (currentPrefs.dividerStyle || 'default'))?.label}
+            >
+              <div className="grid gap-1.5">
+                {DIVIDER_STYLE_OPTIONS.map(option => (
+                  <button key={option.value} type="button" onClick={() => handleUpdatePreference('dividerStyle', option.value)} className={choiceClass((currentPrefs.dividerStyle || 'default') === option.value)}>
+                    <span>{option.label}</span>
+                    {(currentPrefs.dividerStyle || 'default') === option.value ? <Check size={12} /> : null}
                   </button>
                 ))}
               </div>
