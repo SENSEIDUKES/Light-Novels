@@ -57,6 +57,9 @@ export const persistGeneratedChapter = async (
 
   const freshStories = await storyStorage.getStories();
   if (!accountIsCurrent()) return undefined;
+  if (!Array.isArray(freshStories)) {
+    throw new Error('The story library could not be loaded.');
+  }
   const updatedStories = freshStories.map((s: Story) => {
     if (s.id !== activeStory.id) return s;
 

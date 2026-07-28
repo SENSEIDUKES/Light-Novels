@@ -134,6 +134,9 @@ export const useArcSteering = () => {
 
       const data = await response.json();
       if (!accountIsCurrent()) return;
+      if (!Array.isArray(data?.chapters)) {
+        throw new Error('Story steering returned invalid chapter data.');
+      }
 
       const nextChapters: Chapter[] = data.chapters.map((ch: any) => ({
         number: ch.number,
@@ -144,6 +147,9 @@ export const useArcSteering = () => {
 
       const freshStories = await storyStorage.getStories();
       if (!accountIsCurrent()) return;
+      if (!Array.isArray(freshStories)) {
+        throw new Error('The story library could not be loaded.');
+      }
       const updatedStories = freshStories.map(s => {
         if (s.id !== activeStory.id) return s;
 
@@ -338,6 +344,9 @@ export const useArcSteering = () => {
 
       const data = await response.json();
       if (!accountIsCurrent()) return;
+      if (!Array.isArray(data?.chapters)) {
+        throw new Error('Story fork returned invalid chapter data.');
+      }
 
       const nextChapters: Chapter[] = data.chapters.map((ch: any) => ({
         number: ch.number,
@@ -348,6 +357,9 @@ export const useArcSteering = () => {
 
       const freshStories = await storyStorage.getStories();
       if (!accountIsCurrent()) return;
+      if (!Array.isArray(freshStories)) {
+        throw new Error('The story library could not be loaded.');
+      }
       const updatedStories = freshStories.map((s: StoryWorld) => {
         if (s.id !== newStory.id) return s;
 

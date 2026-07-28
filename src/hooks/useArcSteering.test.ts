@@ -166,6 +166,40 @@ describe('useArcSteering - Steering action processing', () => {
     expect(setAppErrorSpy).toHaveBeenCalledWith('Steering Failed');
   });
 
+  it('surfaces invalid steering chapter data for the current account', async () => {
+    const { result } = renderHook(() => useArcSteering());
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ chapters: null }),
+    });
+
+    await act(async () => {
+      await result.current.handleSteerArc('Direction', '3');
+    });
+
+    expect(setAppErrorSpy).toHaveBeenCalledWith('Story steering returned invalid chapter data.');
+    expect(saveStoriesSpy).not.toHaveBeenCalled();
+  });
+
+  it('surfaces an invalid persisted story collection for the current account', async () => {
+    const { result } = renderHook(() => useArcSteering());
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        title: 'Next Arc',
+        chapters: [{ number: 2, title: 'C2', premise: 'P2' }],
+      }),
+    });
+    (storyStorage.getStories as any).mockResolvedValue({});
+
+    await act(async () => {
+      await result.current.handleSteerArc('Direction', '3');
+    });
+
+    expect(setAppErrorSpy).toHaveBeenCalledWith('The story library could not be loaded.');
+    expect(saveStoriesSpy).not.toHaveBeenCalled();
+  });
+
   it('does not change the new account chapter selection after an old steering request resolves', async () => {
     let resolveSteering!: (value: any) => void;
     (global.fetch as any).mockReturnValue(new Promise(resolve => { resolveSteering = resolve; }));
