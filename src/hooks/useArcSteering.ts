@@ -6,7 +6,7 @@ import { Chapter, StoryArc, StoryWorld, Character } from '../types';
 import { storyStorage } from '../lib/storage';
 import { awardQi } from '../lib/qi';
 import { getApiHeaders } from './storyEngineHelpers';
-import { getFateLockMessage } from './chapterPipeline/chapterBatch';
+import { getFateLockMessage } from '../lib/fateLock';
 import { stripAuthorControlledCodexFields } from '../lib/codexContext';
 import { ACTIVE_CONTEXT_ENGINE } from '../lib/contextBlocks';
 

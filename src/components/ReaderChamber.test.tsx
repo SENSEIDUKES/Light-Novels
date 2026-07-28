@@ -59,4 +59,54 @@ describe('ReaderChamber', () => {
     );
     expect(container).toBeDefined();
   });
+
+  it('presents the fate-lock contract through reader controls', () => {
+    const chapters = [{
+      number: 2,
+      title: 'Ch 2',
+      status: 'read' as const,
+      premise: 'Some premise',
+      generatedContent: 'Hello',
+    }];
+    const mockStory = {
+      id: 'test-story',
+      title: 'Test',
+      memory: { glossary: [] },
+      arcs: [{ chapters }],
+      chapterGenerationBatch: {
+        id: 'batch-1',
+        chapterNumbers: [1, 2, 3, 4, 5],
+        status: 'generating',
+        currentChapterNumber: 3,
+        completedChapterNumbers: [1, 2],
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    };
+
+    const { getAllByRole, getByText } = render(
+      <ReaderChamber
+        chapters={chapters}
+        currentPowerStage="Foundation"
+        selectedChapterNum={2}
+        setSelectedChapterNum={vi.fn()}
+        onGenerateChapter={vi.fn()}
+        onGenerateNextFiveChapters={vi.fn()}
+        isGenerating={false}
+        onToggleRead={vi.fn()}
+        arcTitle="First Arc"
+        onSwitchTab={vi.fn()}
+        activeStory={mockStory as any}
+        onUpdateStory={vi.fn()}
+        handleAlterFate={vi.fn()}
+      />,
+    );
+
+    const message = 'Fate may be altered after Chapter 5.';
+    expect(getByText(message)).toBeDefined();
+    const alterFateButtons = getAllByRole('button', { name: message });
+    expect(alterFateButtons).toHaveLength(2);
+    alterFateButtons.forEach(button => {
+      expect((button as HTMLButtonElement).disabled).toBe(true);
+    });
+  });
 });
