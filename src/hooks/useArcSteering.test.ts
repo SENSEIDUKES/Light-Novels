@@ -3,6 +3,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useArcSteering } from './useArcSteering';
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
+import { auth } from '../lib/firebase';
 
 vi.mock('../store/useAppStore', () => ({
   useAppStore: vi.fn(),
@@ -26,6 +27,8 @@ vi.mock('../lib/qi', () => ({
 vi.mock('./storyEngineHelpers', () => ({
   getApiHeaders: vi.fn().mockResolvedValue({ 'Authorization': 'Bearer test' }),
 }));
+
+vi.mock('../lib/firebase', () => ({ auth: { currentUser: { uid: 'reader-a' } } }));
 
 describe('useArcSteering - Steering action processing', () => {
   let mockStore: any;
@@ -72,6 +75,7 @@ describe('useArcSteering - Steering action processing', () => {
       return mockStore;
     });
     (useAppStore as any).getState = vi.fn().mockReturnValue(mockStore);
+    (auth as any).currentUser = { uid: 'reader-a' };
     
     (storyStorage.getStories as any).mockResolvedValue(mockStore.stories);
     (storyStorage.getChapterContent as any).mockResolvedValue({ generatedContent: 'content', blocks: [] });
@@ -160,6 +164,70 @@ describe('useArcSteering - Steering action processing', () => {
     });
 
     expect(setAppErrorSpy).toHaveBeenCalledWith('Steering Failed');
+  });
+
+  it('surfaces invalid steering chapter data for the current account', async () => {
+    const { result } = renderHook(() => useArcSteering());
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ chapters: null }),
+    });
+
+    await act(async () => {
+      await result.current.handleSteerArc('Direction', '3');
+    });
+
+    expect(setAppErrorSpy).toHaveBeenCalledWith('Story steering returned invalid chapter data.');
+    expect(saveStoriesSpy).not.toHaveBeenCalled();
+  });
+
+  it('surfaces an invalid persisted story collection for the current account', async () => {
+    const { result } = renderHook(() => useArcSteering());
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        title: 'Next Arc',
+        chapters: [{ number: 2, title: 'C2', premise: 'P2' }],
+      }),
+    });
+    (storyStorage.getStories as any).mockResolvedValue({});
+
+    await act(async () => {
+      await result.current.handleSteerArc('Direction', '3');
+    });
+
+    expect(setAppErrorSpy).toHaveBeenCalledWith('The story library could not be loaded.');
+    expect(saveStoriesSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not change the new account chapter selection after an old steering request resolves', async () => {
+    let resolveSteering!: (value: any) => void;
+    (global.fetch as any).mockReturnValue(new Promise(resolve => { resolveSteering = resolve; }));
+    const { result } = renderHook(() => useArcSteering());
+
+    let steering!: Promise<void>;
+    act(() => {
+      steering = result.current.handleSteerArc('Account A direction', 'Private context');
+    });
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledOnce());
+
+    (auth as any).currentUser = { uid: 'reader-b' };
+    mockStore.isGenerating = false;
+    resolveSteering({
+      ok: true,
+      json: () => Promise.resolve({
+        title: 'Discarded Arc',
+        chapters: [{ number: 2, title: 'Discarded', premise: '' }],
+      }),
+    });
+
+    await act(async () => {
+      await steering;
+    });
+
+    expect(saveStoriesSpy).not.toHaveBeenCalled();
+    expect(mockStore.setSelectedChapterNum).not.toHaveBeenCalled();
+    expect(setAppErrorSpy).not.toHaveBeenCalledWith(expect.any(String));
   });
 
   it('handleAlterFate skips if generation already in progress', async () => {
@@ -259,6 +327,32 @@ describe('useArcSteering - Steering action processing', () => {
     expect(steeredStories[0].memory.characters[0]).not.toHaveProperty('contextPriority');
     expect(steeredStories[0].memory.characters[0]).not.toHaveProperty('authorContextNote');
     expect(steeredStories[0].memory.characters[0]).not.toHaveProperty('provenance');
+  });
+
+  it('does not save an Alter Fate fork after its account changes during chapter hydration', async () => {
+    let resolveContent!: (value: any) => void;
+    (storyStorage.getChapterContent as any).mockReturnValue(
+      new Promise(resolve => { resolveContent = resolve; }),
+    );
+    const { result } = renderHook(() => useArcSteering());
+
+    let alteration!: Promise<void>;
+    act(() => {
+      alteration = result.current.handleAlterFate(1, 'Account A fork', 'Private direction');
+    });
+    await vi.waitFor(() => expect(storyStorage.getChapterContent).toHaveBeenCalledOnce());
+
+    (auth as any).currentUser = { uid: 'reader-b' };
+    mockStore.isGenerating = false;
+    resolveContent({ generatedContent: 'Old account content', blocks: [] });
+
+    await act(async () => {
+      await alteration;
+    });
+
+    expect(saveStoriesSpy).not.toHaveBeenCalled();
+    expect(mockStore.setActiveStoryId).not.toHaveBeenCalled();
+    expect(setAppErrorSpy).not.toHaveBeenCalled();
   });
 
   it('handles API error correctly in handleAlterFate', async () => {

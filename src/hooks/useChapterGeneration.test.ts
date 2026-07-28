@@ -3,6 +3,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useChapterGeneration } from './useChapterGeneration';
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
+import { auth } from '../lib/firebase';
 
 vi.mock('../store/useAppStore', () => ({
   useAppStore: vi.fn()
@@ -26,6 +27,8 @@ vi.mock('../lib/qi', () => ({
   awardQi: vi.fn()
 }));
 
+vi.mock('../lib/firebase', () => ({ auth: { currentUser: { uid: 'reader-a' } } }));
+
 describe('useChapterGeneration - Stream parsing & error handling', () => {
   let mockStore: any;
   let setIsGeneratingSpy: any;
@@ -34,7 +37,7 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    setIsGeneratingSpy = vi.fn();
+    setIsGeneratingSpy = vi.fn((value: boolean) => { mockStore.isGenerating = value; });
     setAppErrorSpy = vi.fn();
     saveStoriesSpy = vi.fn();
 
@@ -72,6 +75,7 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
     });
     (useAppStore as any).getState = vi.fn().mockReturnValue(mockStore);
     (useAppStore as any).setState = vi.fn();
+    (auth as any).currentUser = { uid: 'reader-a' };
     (storyStorage.getStories as any).mockResolvedValue(mockStore.stories);
     global.fetch = vi.fn();
   });
@@ -188,6 +192,63 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
 
     expect(setAppErrorSpy).toHaveBeenCalledWith(expect.stringContaining('LLM Failed'));
     expect(mockStore.setStreamingChapter).toHaveBeenLastCalledWith(null);
+  });
+
+  it('does not let an abandoned chapter generation clear a newer account run', async () => {
+    let resolveAccountAResponse!: (value: any) => void;
+    let resolveAccountBResponse!: (value: any) => void;
+    const accountAResponse = new Promise(resolve => { resolveAccountAResponse = resolve; });
+    const accountBResponse = new Promise(resolve => { resolveAccountBResponse = resolve; });
+    let streamRequestCount = 0;
+    (global.fetch as any).mockImplementation((url: string) => {
+      if (!url.includes('generate-chapter-stream')) {
+        throw new Error(`Unexpected request: ${url}`);
+      }
+      streamRequestCount += 1;
+      return streamRequestCount === 1 ? accountAResponse : accountBResponse;
+    });
+    const { result } = renderHook(() => useChapterGeneration());
+
+    let accountAGeneration!: Promise<void>;
+    act(() => {
+      accountAGeneration = result.current.handleGenerateChapter(1);
+    });
+    await vi.waitFor(() => expect(streamRequestCount).toBe(1));
+
+    // Mirrors App.tsx's immediate account-change generation runtime reset.
+    (auth as any).currentUser = { uid: 'reader-b' };
+    mockStore.isGenerating = false;
+
+    let accountBGeneration!: Promise<void>;
+    act(() => {
+      accountBGeneration = result.current.handleGenerateChapter(1);
+    });
+    await vi.waitFor(() => expect(streamRequestCount).toBe(2));
+    const clearsBeforeOldCompletion = setIsGeneratingSpy.mock.calls
+      .filter(([value]: [boolean]) => value === false)
+      .length;
+
+    resolveAccountAResponse({
+      ok: true,
+      body: { getReader: () => ({ read: vi.fn().mockResolvedValue({ done: true }) }) },
+    });
+    await act(async () => {
+      await accountAGeneration;
+    });
+
+    expect(mockStore.isGenerating).toBe(true);
+    expect(setIsGeneratingSpy.mock.calls.filter(([value]: [boolean]) => value === false)).toHaveLength(
+      clearsBeforeOldCompletion,
+    );
+    expect(mockStore.setStreamingChapter).not.toHaveBeenCalledWith(null);
+
+    resolveAccountBResponse({
+      ok: true,
+      body: { getReader: () => ({ read: vi.fn().mockResolvedValue({ done: true }) }) },
+    });
+    await act(async () => {
+      await accountBGeneration;
+    });
   });
 
   it('clears the streaming payload when a five-chapter batch fails', async () => {
