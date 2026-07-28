@@ -972,6 +972,7 @@ export interface ReaderPreferences {
   highlightStyle?: "full" | "underline" | "tint";
   playerStyle?: "vinyl" | "minimal" | "ethereal";
   particleIntensity?: "off" | "low" | "default" | "high";
+  dividerStyle?: "none" | "minimal" | "ornate" | "sword" | "constellation";
 }
 
 export interface ReaderAccessibilitySettings {

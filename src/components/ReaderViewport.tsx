@@ -35,6 +35,64 @@ function getFallbackBackdrop(id: string) {
   return FALLBACK_BACKDROPS[index];
 }
 
+function DecorativeDivider({ style }: { style: "none" | "minimal" | "ornate" | "sword" | "constellation" }) {
+  if (style === "none") return null;
+
+  const content = (() => {
+    switch (style) {
+      case "minimal":
+        return (
+          <svg width="120" height="12" viewBox="0 0 120 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-portal opacity-50 mx-auto">
+            <circle cx="60" cy="6" r="3" fill="currentColor" />
+            <path d="M20 6H50M70 6H100" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeDasharray="2 4" />
+          </svg>
+        );
+      case "ornate":
+        return (
+          <svg width="180" height="24" viewBox="0 0 180 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-gold-accent opacity-60 mx-auto">
+            <path d="M90 2L100 12L90 22L80 12L90 2Z" fill="currentColor" />
+            <path d="M40 12L75 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            <path d="M105 12L140 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            <circle cx="20" cy="12" r="2" fill="currentColor" />
+            <circle cx="160" cy="12" r="2" fill="currentColor" />
+          </svg>
+        );
+      case "sword":
+        return (
+          <svg width="240" height="20" viewBox="0 0 240 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-portal opacity-70 mx-auto">
+            <path d="M30 10H100L115 5L120 10L115 15L100 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M210 10H140L125 5L120 10L125 15L140 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="120" cy="10" r="4" fill="currentColor" />
+            <circle cx="120" cy="10" r="1.5" fill="#000" />
+          </svg>
+        );
+      case "constellation":
+        return (
+          <svg width="200" height="30" viewBox="0 0 200 30" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-gold-accent opacity-50 mx-auto">
+            <path d="M20 15L50 5L100 25L150 10L180 15" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" />
+            <circle cx="20" cy="15" r="2" fill="currentColor" />
+            <circle cx="50" cy="5" r="3" fill="currentColor" />
+            <circle cx="100" cy="25" r="4" fill="currentColor" />
+            <circle cx="100" cy="25" r="1.5" fill="#000" />
+            <circle cx="150" cy="10" r="3" fill="currentColor" />
+            <circle cx="180" cy="15" r="2" fill="currentColor" />
+            <path d="M50 5L70 12" stroke="currentColor" strokeWidth="0.5" />
+            <path d="M150 10L130 18" stroke="currentColor" strokeWidth="0.5" />
+          </svg>
+        );
+      default:
+        return null;
+    }
+  })();
+
+  return (
+    <div className="w-full flex justify-center items-center py-6 pointer-events-none select-none">
+      {content}
+    </div>
+  );
+}
+
+
 interface ReaderViewportProps {
   readerRef: React.RefObject<HTMLDivElement | null>;
   isReaderFullscreen: boolean;
@@ -955,8 +1013,10 @@ export function ReaderViewport({
 
           <ContextInspector manifest={selectedChapter.contextManifest} />
 
+          <DecorativeDivider style={currentPrefs.dividerStyle || 'none'} />
+
           {/* Navigation links at bottom of chapter */}
-          <div className="flex items-center justify-between border-t border-neutral-900 pt-8 mt-16 pb-8">
+          <div className={`flex items-center justify-between border-t border-neutral-900 pt-8 pb-8 ${currentPrefs.dividerStyle && currentPrefs.dividerStyle !== 'none' ? 'mt-8' : 'mt-16'}`}>
             <button
                tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={navigatePrev}
               disabled={selectedChapterNum === 1}

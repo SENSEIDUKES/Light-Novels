@@ -41,6 +41,14 @@ const PARTICLE_INTENSITY_OPTIONS = [
   { value: 'high', label: 'High' },
 ] as const;
 
+const DIVIDER_STYLE_OPTIONS = [
+  { value: 'none', label: 'None' },
+  { value: 'minimal', label: 'Minimal' },
+  { value: 'ornate', label: 'Ornate' },
+  { value: 'sword', label: 'Sword' },
+  { value: 'constellation', label: 'Constellation' },
+] as const;
+
 type NumericTypographyPreference =
   | 'lineHeightScale'
   | 'paragraphSpacingScale'
@@ -238,6 +246,21 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
           </section>
 
           <section className="space-y-6 rounded-xl border border-neutral-800 bg-[#070a0d]/80 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.2)]">
+            <PreferenceGroup
+              label="Chapter Divider"
+              icon={<Sparkles size={13} />}
+              summary={DIVIDER_STYLE_OPTIONS.find(option => option.value === (currentPrefs.dividerStyle || 'none'))?.label}
+            >
+              <div className="grid gap-1.5">
+                {DIVIDER_STYLE_OPTIONS.map(option => (
+                  <button key={option.value} type="button" onClick={() => handleUpdatePreference('dividerStyle', option.value)} className={choiceClass((currentPrefs.dividerStyle || 'none') === option.value)}>
+                    <span>{option.label}</span>
+                    {(currentPrefs.dividerStyle || 'none') === option.value ? <Check size={12} /> : null}
+                  </button>
+                ))}
+              </div>
+            </PreferenceGroup>
+
             <PreferenceGroup label="Visual Scale" icon={<Sliders size={13} />} summary={currentPrefs.fontSize.toUpperCase()}>
               <div className="grid gap-1.5">
                 {SIZE_OPTIONS.map(size => (
