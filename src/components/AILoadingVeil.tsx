@@ -62,7 +62,7 @@ const LibrarySeal: React.FC<{ progress: number | null; isVersa: boolean }> = ({ 
         <motion.g
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 3, ease: 'linear' }}
-          style={{ originX: '32px', originY: '32px' }}
+          style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
         >
           <circle
             cx="32" cy="32" r={R} fill="none"
@@ -92,13 +92,13 @@ const LibrarySeal: React.FC<{ progress: number | null; isVersa: boolean }> = ({ 
  */
 const CelestialSigil: React.FC<{ isVersa: boolean }> = ({ isVersa }) => {
   const accent = isVersa ? ACCENT.versa : ACCENT.scout;
-  const stars: Array<[number, number, number, number]> = [
+  const stars = React.useMemo<Array<[number, number, number, number]>>(() => [
     // [cx, cy, r, opacity]
     [38, 52, 1.1, 0.5], [196, 64, 0.9, 0.4], [52, 178, 1.2, 0.45], [188, 186, 0.8, 0.35],
     [86, 30, 0.7, 0.4], [152, 34, 1.0, 0.45], [28, 118, 0.8, 0.35], [210, 122, 1.1, 0.4],
     [104, 208, 0.9, 0.4], [140, 204, 0.7, 0.3], [64, 96, 0.6, 0.3], [176, 100, 0.6, 0.3],
-  ];
-  const ticks = Array.from({ length: 12 }, (_, i) => i * 30);
+  ], []);
+  const ticks = React.useMemo(() => Array.from({ length: 12 }, (_, i) => i * 30), []);
 
   return (
     <svg viewBox="0 0 240 240" className="absolute w-[280px] h-[280px] pointer-events-none" aria-hidden="true">
@@ -106,7 +106,7 @@ const CelestialSigil: React.FC<{ isVersa: boolean }> = ({ isVersa }) => {
       <motion.g
         animate={{ rotate: 360 }}
         transition={{ repeat: Infinity, duration: 80, ease: 'linear' }}
-        style={{ originX: '32px', originY: '32px', transformBox: 'fill-box', transformOrigin: 'center' }}
+        style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
       >
         <circle cx="120" cy="120" r="110" fill="none" stroke={accent} strokeWidth="0.8" strokeDasharray="1 6" opacity="0.3" />
         {/* Cardinal diamond sparks riding the outer ring */}
@@ -180,12 +180,15 @@ export default function AILoadingVeil() {
 
   // Rotate Versa's status quotes every few seconds while she works.
   React.useEffect(() => {
-    if (!shouldShowFullScreen || !isChapterPhase) return;
+    if (!shouldShowFullScreen || !isChapterPhase) {
+      setQuoteIndex(0);
+      return;
+    }
     const id = setInterval(() => {
       setQuoteIndex(i => (i + 1) % VERSA_QUOTES.length);
     }, 3500);
     return () => clearInterval(id);
-  }, [shouldShowFullScreen, isChapterPhase]);
+  }, [shouldShowFullScreen, isChapterPhase, generatingChapterNum]);
 
   const statusQuote = isChapterPhase
     ? VERSA_QUOTES[quoteIndex]
