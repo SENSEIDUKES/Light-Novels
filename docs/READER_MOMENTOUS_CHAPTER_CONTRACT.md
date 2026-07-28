@@ -131,6 +131,12 @@ Malformed blocks (`null`, primitives, a non-array block collection) are skipped
 instead of throwing. Inline, they raised inside the Reader's render memo, which
 was a crash rather than a scoring decision.
 
+The arc-finale prior requires the final chapter to carry a real numeric
+`number`. Inline, an unnumbered final chapter made `undefined === undefined`
+true for every other unnumbered chapter, so each of them collected the 15-point
+prior and could crowd a genuinely momentous chapter out of the three peak slots.
+Well-formed arcs are unaffected, since every chapter there has a number.
+
 ## Changing a signal in future
 
 The contract, its weights and its tests move together. To add, remove or

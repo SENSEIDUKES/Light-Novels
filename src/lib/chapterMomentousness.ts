@@ -272,11 +272,17 @@ export const assessMomentousChapter = (
     return { ...NOT_MOMENTOUS };
   }
 
-  const finalChapterNumber = chapters[chapters.length - 1]?.number;
+  // Requiring a real number is load-bearing. If the last chapter is malformed
+  // and carries no number, an unguarded identity check matches every other
+  // unnumbered chapter, handing each of them the finale prior and letting them
+  // crowd a genuinely momentous chapter out of the peak slots.
+  const lastChapterNumber = chapters[chapters.length - 1]?.number;
+  const finalChapterNumber = typeof lastChapterNumber === 'number' ? lastChapterNumber : null;
+
   const scored = chapters.map(chapter => ({
     number: chapter?.number,
     ...scoreMomentousChapter(chapter, {
-      isArcFinal: chapter?.number === finalChapterNumber,
+      isArcFinal: finalChapterNumber !== null && chapter?.number === finalChapterNumber,
       arcChapterCount: chapters.length,
     }),
   }));

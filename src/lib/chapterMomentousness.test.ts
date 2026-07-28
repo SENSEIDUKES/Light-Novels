@@ -583,6 +583,54 @@ describe('assessMomentousChapter', () => {
       const arc = { chapters: [null, chapterScoring(2, 40), undefined] } as never;
       expect(assessMomentousChapter(arc, 2)).toMatchObject({ isMomentous: true, score: 40 });
     });
+
+    // An unnumbered final chapter must not make every other unnumbered chapter
+    // an arc finale, or the prior gets handed out repeatedly and the bogus rows
+    // crowd a real chapter out of the peak slots.
+    it('withholds the finale prior when the final chapter carries no number', () => {
+      const arc = {
+        chapters: [
+          chapterScoring(1, MOMENTOUS_SCORE_THRESHOLD),
+          { chapterCue: { mysticism: 1 } },
+          { chapterCue: { mysticism: 1 } },
+          { chapterCue: { mysticism: 1 } },
+        ],
+      };
+
+      expect(assessMomentousChapter(arc, 1)).toMatchObject({
+        isMomentous: true,
+        score: MOMENTOUS_SCORE_THRESHOLD,
+      });
+      expect(
+        arc.chapters.filter(chapter => scoreMomentousChapter(chapter, {
+          isArcFinal: true,
+          arcChapterCount: arc.chapters.length,
+        }).score >= MOMENTOUS_SCORE_THRESHOLD),
+      ).toHaveLength(4);
+    });
+
+    it.each([
+      { name: 'a null final chapter', last: null },
+      { name: 'a final chapter with a null number', last: { number: null } },
+      { name: 'a final chapter with a non-numeric number', last: { number: '4' } },
+    ])('withholds the finale prior for $name', ({ last }) => {
+      const arc = {
+        chapters: [chapterScoring(1, 1), chapterScoring(2, 1), chapterScoring(3, 1), last],
+      } as never;
+
+      // No chapter reaches the threshold, so nothing received the 15-point prior.
+      expect(assessMomentousChapter(arc, 1)).toMatchObject({ isMomentous: false, score: 1 });
+      expect(assessMomentousChapter(arc, 2).isMomentous).toBe(false);
+      expect(assessMomentousChapter(arc, 3).isMomentous).toBe(false);
+    });
+
+    it('still gives the finale prior when the final chapter is properly numbered', () => {
+      const arc = {
+        chapters: [chapterScoring(1, 1), chapterScoring(2, 1), chapterScoring(3, 1), chapterScoring(4, 1)],
+      };
+
+      expect(assessMomentousChapter(arc, 4)).toMatchObject({ isMomentous: true, score: 16 });
+    });
   });
 
   describe('purity', () => {

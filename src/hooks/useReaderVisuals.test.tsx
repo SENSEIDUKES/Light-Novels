@@ -295,6 +295,28 @@ describe('useReaderVisuals', () => {
       expect(result.current.isMomentousChapter).toBe(false);
     });
 
+    // Legacy and partially hydrated stories reach the Reader with these
+    // collections missing or holding a non-array; the lookup must degrade to
+    // "not momentous" rather than throwing during render.
+    it.each([
+      { name: 'a missing arc collection', arcs: undefined },
+      { name: 'a non-array arc collection', arcs: { 0: { chapters: [] } } },
+      { name: 'an arc with a missing chapter collection', arcs: [{ title: "Arc 1" }] },
+      { name: 'an arc with a non-array chapter collection', arcs: [{ title: "Arc 1", chapters: {} }] },
+      { name: 'an arc holding a null chapter', arcs: [{ title: "Arc 1", chapters: [null] }] },
+    ])('degrades gracefully for $name', ({ arcs }) => {
+      const story = { ...(storyWithArc() as object), arcs } as never;
+
+      const render = () => renderHook(() => useReaderVisuals({
+        selectedChapter: arcChapters[2] as never,
+        activeStory: story,
+        readerMode: "standard",
+      }));
+
+      expect(render).not.toThrow();
+      expect(render().result.current.isMomentousChapter).toBe(false);
+    });
+
     it('gates hero generation on the assessment result', () => {
       renderForChapter(3).result.current.triggerHeroGeneration();
       expect(imageManifest.manifestChapterHero).toHaveBeenCalledWith(3, expect.stringContaining("The seal breaks."));

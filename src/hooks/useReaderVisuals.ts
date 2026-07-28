@@ -28,9 +28,14 @@ export function useReaderVisuals({
   // does not weight generation signals, so it reads no cue or block scoring
   // field here — only the arc structure needed to locate the chapter.
   const momentousAssessment = useMemo(() => {
-    if (!activeStory || !selectedChapter) return null;
+    if (!activeStory || !selectedChapter || !Array.isArray(activeStory.arcs)) return null;
 
-    const currentArc = activeStory.arcs.find(a => a.chapters.some(c => c.number === selectedChapter.number));
+    // Legacy and partially hydrated stories can carry a missing or non-array
+    // chapter collection. The contract itself tolerates that, so guarding the
+    // lookup keeps the whole path graceful instead of throwing during render.
+    const currentArc = activeStory.arcs.find(
+      a => Array.isArray(a?.chapters) && a.chapters.some(c => c?.number === selectedChapter.number),
+    );
     if (!currentArc) return null;
 
     return assessMomentousChapter(
