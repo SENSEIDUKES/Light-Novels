@@ -34,6 +34,7 @@ interface PointerState {
   py: number;
   vx: number; // grid cells / second
   vy: number;
+  travel: number; // cumulative drag distance in grid cells
   lastMoveAt: number;
   lastRippleAt: number;
 }
@@ -73,7 +74,12 @@ function bilinearSample(field: Float32Array, cols: number, rows: number, x: numb
 export const DestinedEndingWaterCard: React.FC<{ text: string }> = ({ text }) => {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [drained, setDrained] = useState(false);
+  // Drained state is tied to the copy it drained for, so a different ending
+  // (e.g. switching stories without unmounting) gets a fresh curtain.
+  const [drainedText, setDrainedText] = useState<string | null>(null);
+  const drained = drainedText === text;
+  // Keyboard trigger for the simulation's drain, wired up inside the effect.
+  const forceDrainRef = useRef<(() => void) | null>(null);
 
   useLayoutEffect(() => {
     const wrap = wrapRef.current;
@@ -119,6 +125,7 @@ export const DestinedEndingWaterCard: React.FC<{ text: string }> = ({ text }) =>
       py: 0,
       vx: 0,
       vy: 0,
+      travel: 0,
       lastMoveAt: 0,
       lastRippleAt: 0,
     };
@@ -496,7 +503,7 @@ export const DestinedEndingWaterCard: React.FC<{ text: string }> = ({ text }) =>
       render();
       if (finished) {
         running = false;
-        setDrained(true);
+        setDrainedText(text);
         return;
       }
       rafId = requestAnimationFrame(frame);
@@ -546,6 +553,7 @@ export const DestinedEndingWaterCard: React.FC<{ text: string }> = ({ text }) =>
       pointer.py = gy;
       pointer.vx = 0;
       pointer.vy = 0;
+      pointer.travel = 0;
       pointer.lastMoveAt = performance.now();
       startLoop();
     }
@@ -558,6 +566,7 @@ export const DestinedEndingWaterCard: React.FC<{ text: string }> = ({ text }) =>
       // Smoothed pointer velocity drives wake width, curvature and ripples.
       pointer.vx = pointer.vx * 0.6 + ((gx - pointer.x) / dt) * 0.4;
       pointer.vy = pointer.vy * 0.6 + ((gy - pointer.y) / dt) * 0.4;
+      pointer.travel += Math.hypot(gx - pointer.x, gy - pointer.y);
       pointer.x = gx;
       pointer.y = gy;
       pointer.lastMoveAt = now;
@@ -566,9 +575,10 @@ export const DestinedEndingWaterCard: React.FC<{ text: string }> = ({ text }) =>
     function endDrag() {
       pointer.dragging = false;
       pointer.lastMoveAt = performance.now();
-      // Reduced motion: after the touch-following reveal, a short downward
-      // dissolve finishes the curtain instead of leaving it half open.
-      if (reducedMotion && drainTime < 0 && !finished) {
+      // Reduced motion: after a genuine touch-following reveal gesture, a
+      // short downward dissolve finishes the curtain. A bare tap must not
+      // spoil the ending, so require a minimal drag distance first.
+      if (reducedMotion && drainTime < 0 && !finished && pointer.travel >= 4) {
         drainTime = 0;
         startLoop();
       }
@@ -618,8 +628,18 @@ export const DestinedEndingWaterCard: React.FC<{ text: string }> = ({ text }) =>
     render();
     startLoop();
 
+    // Keyboard / switch-device reveal path (the canvas itself stays
+    // aria-hidden and unfocusable).
+    forceDrainRef.current = () => {
+      if (!finished && drainTime < 0) {
+        drainTime = 0;
+        startLoop();
+      }
+    };
+
     return () => {
       isDestroyed = true;
+      forceDrainRef.current = null;
       stopLoop();
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
@@ -649,6 +669,15 @@ export const DestinedEndingWaterCard: React.FC<{ text: string }> = ({ text }) =>
             cursor: "crosshair",
           }}
         />
+      )}
+      {!drained && (
+        <button
+          type="button"
+          onClick={() => forceDrainRef.current?.()}
+          className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-void/85 font-sc text-xs font-bold uppercase tracking-widest text-neutral-200 opacity-0 pointer-events-none transition-opacity focus:opacity-100 focus:pointer-events-auto"
+        >
+          Reveal Destined Ending
+        </button>
       )}
     </div>
   );
