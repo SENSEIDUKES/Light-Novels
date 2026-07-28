@@ -94,9 +94,10 @@ export const GlobalHeader: React.FC = () => {
           }}
           aria-label="Return to Home"
         >
-          <img 
-            src="https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/images/CELESTIAL%20LIBRARY%20ICON.jpg" 
-            alt="Celestial Library Logo" 
+          <img
+            id="celestial-library-emblem"
+            src="https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/images/CELESTIAL%20LIBRARY%20ICON.jpg"
+            alt="Celestial Library Logo"
             className="h-7 sm:h-10 w-auto object-contain brightness-110 filter drop-shadow-[0_0_8px_rgba(4,172,255,0.3)] shrink-0 rounded-2xl"
             referrerPolicy="no-referrer"
           />

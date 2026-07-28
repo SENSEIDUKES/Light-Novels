@@ -10,14 +10,26 @@ const mocks = vi.hoisted(() => ({
   authCurrentUser: { uid: 'test-user' } as any,
 }));
 
-vi.mock('motion/react', () => ({
-  motion: {
-    div: ({ children, initial: _initial, animate: _animate, exit: _exit, transition: _transition, ...props }: any) => (
-      <div {...props}>{children}</div>
+vi.mock('motion/react', () => {
+  const strip = ({ children, initial: _i, animate: _a, exit: _e, transition: _t, ...props }: any) => (
+    <div {...props}>{children}</div>
+  );
+  const Button = React.forwardRef(
+    ({ children, initial: _i, animate: _a, exit: _e, transition: _t, ...props }: any, ref: any) => (
+      <button {...props} ref={ref}>{children}</button>
     ),
-  },
-  AnimatePresence: ({ children }: any) => <>{children}</>,
-}));
+  );
+  return {
+    motion: {
+      div: strip,
+      button: Button,
+      span: ({ children, initial: _i, animate: _a, exit: _e, transition: _t, ...props }: any) => (
+        <span {...props}>{children}</span>
+      ),
+    },
+    AnimatePresence: ({ children }: any) => <>{children}</>,
+  };
+});
 
 vi.mock('../store/useAppStore', () => ({
   useAppStore: (selector: (state: unknown) => unknown) => selector({
@@ -69,7 +81,7 @@ describe('IdleCultivationModal', () => {
     render(<IdleCultivationModal qiEarned={12} onClose={onClose} />);
 
     expect(screen.getByRole('dialog')).toBeDefined();
-    expect(screen.getByText('+12')).toBeDefined();
+    expect(screen.getByText('+12 QI')).toBeDefined();
 
     const claimButton = screen.getByRole('button', { name: 'Claim & Awaken' });
     await act(async () => {
@@ -79,6 +91,8 @@ describe('IdleCultivationModal', () => {
 
     expect(claimButton).toHaveProperty('disabled', true);
     expect(screen.getByRole('button', { name: 'Absorbing Qi...' })).toBeDefined();
+    // the qi-flight particle overlay appears while claiming
+    expect(document.querySelector('.z-\\[110\\]')).not.toBeNull();
     expect(mocks.awardDirectQi).toHaveBeenCalledWith(12, expect.stringMatching(/^idle-cultivation-/));
     expect(mocks.setUserProfile).toHaveBeenCalledWith({
       dao_xp: 19,
@@ -88,7 +102,7 @@ describe('IdleCultivationModal', () => {
     });
 
     await act(async () => {
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(2000);
     });
 
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -110,7 +124,7 @@ describe('IdleCultivationModal', () => {
     expect(onClose).not.toHaveBeenCalled();
 
     await act(async () => {
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(2000);
     });
 
     expect(consoleError).toHaveBeenCalledWith('Failed to claim idle qi:', expect.any(Error));
@@ -132,7 +146,7 @@ describe('IdleCultivationModal', () => {
     expect(mocks.setUserProfile).toHaveBeenCalled();
 
     await act(async () => {
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(2000);
     });
   });
 
@@ -151,7 +165,26 @@ describe('IdleCultivationModal', () => {
     expect(mocks.setUserProfile).not.toHaveBeenCalled();
 
     await act(async () => {
-      vi.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(2000);
     });
+  });
+
+  it('collapses into a tiny waiting icon when left unclaimed, and re-expands on tap', () => {
+    render(<IdleCultivationModal qiEarned={12} onClose={vi.fn()} />);
+
+    expect(screen.getByRole('dialog')).toBeDefined();
+
+    act(() => {
+      vi.advanceTimersByTime(7000);
+    });
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    const waitingIcon = screen.getByRole('button', { name: 'Open closed-door cultivation reward' });
+    expect(waitingIcon).toBeDefined();
+
+    // the reward is still waiting — tapping the icon brings the vignette back
+    fireEvent.click(waitingIcon);
+    expect(screen.getByRole('dialog')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Claim & Awaken' })).toBeDefined();
   });
 });
