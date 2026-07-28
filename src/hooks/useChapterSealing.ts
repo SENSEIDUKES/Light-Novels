@@ -70,21 +70,30 @@ export const useChapterSealing = () => {
       branchAnchor: generateUUID(),
     };
 
+    let wasAlreadySealed = true;
+
     await useAppStore.getState().updateChapter(
       activeStory.id,
       chapterNumber,
-      sealPatch,
+      (chapter) => {
+        wasAlreadySealed = !!chapter.isSealed;
+        if (wasAlreadySealed) return {};
+        return sealPatch;
+      },
     );
-    awardQi('chapter_sealed');
 
-    // Scan sealed chapter content for artifacts if it contains major milestones
-    const sealedCh = { ...targetChapter, ...sealPatch };
-    const fullText = (sealedCh.generatedContent || "") + " " + (sealedCh.blocks || []).map((b: any) => b.text).join(" ");
-    import('../lib/artifacts').then(({ scanChapterForArtifacts }) => {
-      scanChapterForArtifacts(activeStory.id, activeStory.title, chapterNumber, fullText, sealedCh).catch((err) => {
-        console.error("Failed to scan sealed chapter for artifacts:", err);
+    if (!wasAlreadySealed) {
+      awardQi('chapter_sealed');
+
+      // Scan sealed chapter content for artifacts if it contains major milestones
+      const sealedCh = { ...targetChapter, ...sealPatch };
+      const fullText = (sealedCh.generatedContent || "") + " " + (sealedCh.blocks || []).map((b: any) => b.text).join(" ");
+      import('../lib/artifacts').then(({ scanChapterForArtifacts }) => {
+        scanChapterForArtifacts(activeStory.id, activeStory.title, chapterNumber, fullText, sealedCh).catch((err) => {
+          console.error("Failed to scan sealed chapter for artifacts:", err);
+        });
       });
-    });
+    }
   };
 
   return {

@@ -1,7 +1,22 @@
-✦ Nova: Added missing aria-labels to icon-only "Trash2" buttons for improved accessibility
+🌱 Brute: fix race condition in chapter sealing
 
-🧭 Problem: Several icon-only "delete" or "release" buttons across the application (using the Trash2 icon) were missing descriptive `aria-label` attributes, making their purpose unclear to screen reader users.
-✦ Improvement: Added appropriate, context-aware `aria-label` attributes to these icon-only buttons (e.g. "Release Anchor", "Release bookmark", "Purge link", "Purge Spirit [Name]").
-👤 User Impact: Screen reader users can now clearly understand the destructive actions associated with these buttons, preventing accidental deletions and improving overall accessibility.
-✅ Verification: Tested via unit tests and verified code statically to ensure `aria-label` attributes were added without altering any visual layouts or behavior.
-🧱 Scope: Changes were strictly limited to adding `aria-label`s to existing `Trash2` buttons. No layout or logical changes were introduced.
+Failure Tested:
+Double-clicking the "Seal Chapter" button triggers multiple concurrent invocations of the `handleSealChapter` action.
+
+Actual Behavior:
+Because the previous implementation captured `isSealed` via an upstream read, rapid sequential clicks would all evaluate `isSealed` as `false`, causing `awardQi('chapter_sealed')` to be executed multiple times and multiple `scanChapterForArtifacts` tasks to be enqueued for the same chapter.
+
+Expected Behavior:
+Only the first seal operation should trigger side effects (Qi awards and artifact scanning).
+
+Impact:
+Users could double-click "Seal Chapter" to erroneously earn duplicate points and spam the artifact scanning background process.
+
+Resolution:
+Refactored `handleSealChapter` in `src/hooks/useChapterSealing.ts` to evaluate the chapter's `isSealed` state from within the store's `updateChapter` functional callback. The side-effects are now gated behind a `wasAlreadySealed` flag returned from the patch operation.
+
+Verification:
+Added `handleSealChapter seals the chapter and prevents multiple awards` to `src/hooks/useChapterSealing.test.ts` to simulate `Promise.all` overlapping invocations, confirming only one award is issued.
+
+Limits:
+No architectural changes were made to how `updateChapter` is implemented or enqueued, only how `handleSealChapter` utilizes it.
