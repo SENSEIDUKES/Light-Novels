@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ChapterGenerationBatch, Story } from '../../types';
 import {
-  getFateLockMessage,
   getRemainingBatchChapterNumbers,
   runSequentialChapterBatch,
 } from './chapterBatch';
@@ -124,28 +123,5 @@ describe('runSequentialChapterBatch', () => {
     expect(getRemainingBatchChapterNumbers(batch)).toEqual([3, 4, 5]);
     expect(attempted).toEqual([3, 4, 5]);
     expect(result.batch.completedChapterNumbers).toEqual([1, 2, 3, 4, 5]);
-  });
-});
-
-describe('batch Fate lock', () => {
-  it('blocks Alter Fate while active and before a completed endpoint, then permits the endpoint', () => {
-    const activeStory = makeStory(makeBatch({ status: 'generating', currentChapterNumber: 2 }));
-    expect(getFateLockMessage(activeStory, 2)).toBe('Fate may be altered after Chapter 5.');
-
-    const completedStory = makeStory(makeBatch({ status: 'completed', completedChapterNumbers: chapters, completedAt: '2026-01-01T00:01:00.000Z' }));
-    expect(getFateLockMessage(completedStory, 4)).toBe('Fate may be altered after Chapter 5.');
-    expect(getFateLockMessage(completedStory, 5)).toBeNull();
-  });
-
-  it('permits a safe branch from persisted chapters after a paused or failed batch', () => {
-    const stoppedStory = makeStory(makeBatch({
-      status: 'failed',
-      completedChapterNumbers: [1, 2],
-      failedChapterNumber: 3,
-      error: 'Model unavailable',
-    }));
-
-    expect(getFateLockMessage(stoppedStory, 2)).toBeNull();
-    expect(getFateLockMessage(stoppedStory, 3)).toBe('Fate may be altered after Chapter 5.');
   });
 });

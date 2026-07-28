@@ -29,7 +29,7 @@ import { ReaderControls } from "./ReaderControls";
 import { useCinematicScroll } from "../hooks/useCinematicScroll";
 import { cinematicEffectGovernor } from "../lib/effects/cinematicEffectGovernor";
 import { useReadingPosition } from "../hooks/useReadingPosition";
-import { getFateLockMessage } from '../hooks/chapterPipeline/chapterBatch';
+import { getFateLockMessage } from '../lib/fateLock';
 import { DEFAULT_READER_TYPOGRAPHY } from '../lib/readerTypography';
 import { SYSTEM_LEGEND_DISMISSED_STORAGE_KEY } from '../lib/readerLegend';
 import { createCodexHighlighter, splitByCodexTerms } from '../lib/codexHighlighting';
