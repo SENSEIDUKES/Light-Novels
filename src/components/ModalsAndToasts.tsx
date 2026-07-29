@@ -802,7 +802,9 @@ export const ModalsAndToasts: React.FC = () => {
               }}
             >
               {/* Immersive interactive canvas celestial particle shower */}
-              <CelestialParticleShower />
+              <CelestialParticleShower
+                accent={(RARITY_THEMES[unlockedArtifactAlert.rarity] ?? NEUTRAL_THEME).hex}
+              />
 
               <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 {/* Floating particle ambient glow */}
@@ -820,6 +822,7 @@ export const ModalsAndToasts: React.FC = () => {
                   exit={shouldReduceMotion ? { opacity: 0 } : { scale: 1.1, opacity: 0, rotateY: 90 }}
                   transition={shouldReduceMotion ? { duration: 0 } : { type: "spring", damping: 20, stiffness: 100 }}
                   className="relative group cursor-pointer"
+                  data-celestial-foreground
                   onClick={(e) => {
                     e.stopPropagation();
                     vibrate('heavyTap');
@@ -845,6 +848,7 @@ export const ModalsAndToasts: React.FC = () => {
                   animate={shouldReduceMotion ? { opacity: 1 } : { scale: 1, opacity: 1, rotateY: 0 }}
                   transition={shouldReduceMotion ? { duration: 0 } : { type: "spring", damping: 22, stiffness: 150 }}
                   className="relative max-w-[300px] sm:max-w-[340px] w-full z-10"
+                  data-celestial-foreground
                   style={{ transformPerspective: 1200 }}
                   onClick={(e) => e.stopPropagation()}
                 >

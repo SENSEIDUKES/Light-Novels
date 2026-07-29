@@ -1,6 +1,15 @@
+import type { ReactNode } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, render } from '@testing-library/react';
+import { act, fireEvent, render, waitFor } from '@testing-library/react';
 import { ModalsAndToasts } from './ModalsAndToasts';
+
+vi.mock('motion/react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('motion/react')>();
+  return {
+    ...actual,
+    AnimatePresence: ({ children }: { children: ReactNode }) => <>{children}</>,
+  };
+});
 
 const { useAppStoreMock } = vi.hoisted(() => {
   const state = {
@@ -42,6 +51,12 @@ const { useAppStoreMock } = vi.hoisted(() => {
 
 vi.mock('../store/useAppStore', () => ({
   useAppStore: useAppStoreMock
+}));
+
+vi.mock('./CelestialParticleShower', () => ({
+  CelestialParticleShower: ({ accent }: { accent?: string }) => (
+    <canvas data-testid="celestial-particle-shower" data-accent={accent} />
+  )
 }));
 
 describe('ModalsAndToasts', () => {
@@ -97,6 +112,30 @@ describe('Relic reveal — rarity ranks', () => {
     getByText(rarity, { exact: true });
     getByText('Relic', { exact: true });
 
+    unmount();
+  });
+
+  it('opens, displays, and closes the relic reveal with the rarity-themed celestial backdrop', async () => {
+    const {
+      container,
+      getByRole,
+      getByTestId,
+      getByText,
+      queryByText,
+      unmount,
+    } = await revealArtifact('Legendary');
+
+    getByText('Legendary Test Relic');
+    const particleCanvas = getByTestId('celestial-particle-shower');
+    expect(particleCanvas.getAttribute('data-accent')).toBe('#f59e0b');
+    expect(container.querySelector('[data-celestial-foreground]')).not.toBeNull();
+
+    vi.useRealTimers();
+    fireEvent.click(getByRole('button', { name: 'Claim Relic' }));
+
+    await waitFor(() => {
+      expect(queryByText('Legendary Test Relic')).toBeNull();
+    });
     unmount();
   });
 });
