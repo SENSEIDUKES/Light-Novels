@@ -89,4 +89,22 @@ describe('ReaderPreferencesPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /Celestial Crest/i }));
     expect(handleUpdatePreference).toHaveBeenCalledWith('dividerStyle', 'celestial');
   });
+
+  it('allows customizing the chamber shading style and triggers updates', async () => {
+    const handleUpdatePreference = vi.fn();
+    render(
+      <ReaderPreferencesPanel
+        currentPrefs={{ fontFamily: 'serif', fontSize: 'lg', lineHeight: 'relaxed', paragraphSpacing: 'normal', themeOverride: 'void', vignetteStyle: 'default' }}
+        handleUpdatePreference={handleUpdatePreference}
+        onResetTypography={vi.fn()}
+      />,
+    );
+
+    const vignetteToggle = screen.getByRole('button', { name: /Chamber Shading/i });
+    expect(vignetteToggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('button', { name: /Cosmic Mist Aura/i })).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: /Cosmic Mist Aura/i }));
+    expect(handleUpdatePreference).toHaveBeenCalledWith('vignetteStyle', 'cosmic_mist');
+  });
 });

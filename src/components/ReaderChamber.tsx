@@ -851,6 +851,69 @@ export default function ReaderChamber({
       : "reading-focus-dimmed";
   };
 
+  const renderChamberVignette = () => {
+    const vignette = currentPrefs.vignetteStyle || "default";
+    if (vignette === "default") return null;
+
+    const t = currentPrefs.themeOverride || "void";
+    const accentColor = (() => {
+      switch (t) {
+        case "crimson": return "#8B0000";
+        case "abyss": return "#04ACFF";
+        case "sepia": return "#8b5a2b";
+        case "emerald": return "#10B981";
+        default: return "#04ACFF";
+      }
+    })();
+
+    if (vignette === "cinematic") {
+      return (
+        <div
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_35%,rgba(0,0,0,0.65)_100%)] z-10 transition-opacity duration-500"
+          aria-hidden="true"
+        />
+      );
+    }
+
+    if (vignette === "cosmic_mist") {
+      return (
+        <div className="pointer-events-none absolute inset-0 overflow-hidden z-10" aria-hidden="true">
+          {/* Top Left Glow */}
+          <div
+            className="absolute -top-32 -left-32 w-80 h-80 rounded-full blur-[110px] opacity-25 mix-blend-screen animate-pulse motion-reduce:animate-none transition-colors"
+            style={{ backgroundColor: accentColor, animationDuration: '8s' }}
+          />
+          {/* Bottom Right Glow */}
+          <div
+            className="absolute -bottom-32 -right-32 w-80 h-80 rounded-full blur-[110px] opacity-25 mix-blend-screen animate-pulse motion-reduce:animate-none transition-colors"
+            style={{ backgroundColor: accentColor, animationDuration: '10s' }}
+          />
+        </div>
+      );
+    }
+
+    if (vignette === "ancient_scroll") {
+      return (
+        <div className="pointer-events-none absolute inset-0 z-10" aria-hidden="true">
+          {/* Soft parchment paper-like texture using CSS pattern */}
+          <div
+            className="absolute inset-0 opacity-[0.035] mix-blend-overlay"
+            style={{
+              backgroundImage: `radial-gradient(${accentColor} 1px, transparent 0), radial-gradient(${accentColor} 1px, transparent 0)`,
+              backgroundSize: '16px 16px',
+              backgroundPosition: '0 0, 8px 8px'
+            }}
+          />
+          {/* Elegant Left/Right side trim borders */}
+          <div className="absolute inset-y-0 left-3 sm:left-6 md:left-10 w-[1px] bg-gradient-to-b from-transparent via-current to-transparent opacity-20" style={{ color: accentColor }} />
+          <div className="absolute inset-y-0 right-3 sm:right-6 md:right-10 w-[1px] bg-gradient-to-b from-transparent via-current to-transparent opacity-20" style={{ color: accentColor }} />
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   const getParticleCount = () => {
     switch (currentPrefs.particleIntensity) {
       case 'off': return 0;
@@ -866,6 +929,7 @@ export default function ReaderChamber({
       className={`flex flex-col min-h-[85dvh] rounded-t-xl transition-colors duration-500 relative overflow-hidden ${getThemeClasses()} ${isShaking ? "animate-screen-shake" : ""}`}
       id="reader-chamber-root"
     >
+      {renderChamberVignette()}
       {particleCount > 0 && (
         <ParticleSystem
           count={particleCount}

@@ -973,6 +973,7 @@ export interface ReaderPreferences {
   playerStyle?: "vinyl" | "minimal" | "ethereal";
   particleIntensity?: "off" | "low" | "default" | "high";
   dividerStyle?: "default" | "celestial" | "sword_qi" | "lotus_path";
+  vignetteStyle?: "default" | "cinematic" | "cosmic_mist" | "ancient_scroll";
 }
 
 export interface ReaderAccessibilitySettings {
