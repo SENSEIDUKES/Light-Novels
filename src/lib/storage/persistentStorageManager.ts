@@ -2780,6 +2780,11 @@ export class PersistentStorageManager implements StorageAdapter {
    * replays only the fields a summary actually owns on top. A summary that
    * cannot be resolved is never written: losing the save is recoverable, and
    * deleting the story's chapters is not.
+   *
+   * The caller must already hold this story's record lock. `getStory` takes no
+   * record lock of its own, so reading under the lock is safe — and necessary:
+   * resolving outside it would let a concurrent write land between the read and
+   * the write, and this story would then be published from the older snapshot.
    */
   private async resolveSummaryStoryForWrite(
     story: StoryWorld,
@@ -2826,13 +2831,14 @@ export class PersistentStorageManager implements StorageAdapter {
   }
 
   async saveStory(story: StoryWorld): Promise<void> {
-    // Resolve before any lock is taken: `getStory` acquires the same story lock
-    // and `withRecordLock` is not reentrant.
-    story = await this.resolveSummaryStoryForWrite(story);
     story = normalizeStoryImageOwnership(story);
     const currentUserId = this.getCurrentUserId();
     await this.awaitAccountScope(currentUserId);
     if (this.activeTransaction) {
+      // A staged story is resolved at commit, not here: `commitTransaction`
+      // clears the transaction and re-enters this method, which resolves it
+      // under the record lock. Resolving now would read the transaction's own
+      // staged copy back through `getStory` and see the summary it just stored.
       const existingLocal =
         this.activeTransaction.stories.get(story.id) ??
         (await this.localAdapter.getStory(story.id));
@@ -2864,9 +2870,14 @@ export class PersistentStorageManager implements StorageAdapter {
 
     await this.withRecordLock(this.storyLockKey(story.id), async () => {
       if (!LOCAL_ONLY_MODE) this.assertCurrentAccount(currentUserId);
-      // Keep preparation, extracted chapter writes, and the final parent write in
-      // one story critical section. Otherwise a slow earlier save can finish its
-      // preparation after a later save and overwrite the newer completed value.
+      // Keep resolution, preparation, extracted chapter writes, and the final
+      // parent write in one story critical section. Otherwise a slow earlier
+      // save can finish its preparation after a later save and overwrite the
+      // newer completed value — and a summary resolved before the lock would be
+      // merged onto a snapshot a concurrent write had already superseded.
+      story = normalizeStoryImageOwnership(
+        await this.resolveSummaryStoryForWrite(story),
+      );
       const existingLocal = await this.localAdapter.getStory(story.id);
       if (!LOCAL_ONLY_MODE) this.assertCurrentAccount(currentUserId);
       const ownerId =

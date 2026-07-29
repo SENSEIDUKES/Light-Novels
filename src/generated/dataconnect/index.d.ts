@@ -1757,6 +1757,7 @@ export interface AdminListOwnedStoriesVariables {
   ownerUid: string;
   limit?: number | null;
   offset?: number | null;
+  skipChapterCounts?: boolean | null;
 }
 
 export interface AdminListOwnedStoryChangesData {

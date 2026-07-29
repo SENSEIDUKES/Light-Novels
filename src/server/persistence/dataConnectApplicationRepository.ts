@@ -417,10 +417,16 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     const rows: Awaited<ReturnType<typeof adminListOwnedStories>>['data']['stories'] = [];
     let tallies = new Map<string, StoryChapterTally>();
     for (let offset = 0; ; offset += PAGE_SIZE) {
-      const result = await adminListOwnedStories({ ownerUid, limit: PAGE_SIZE, offset });
+      // The aggregate covers the whole account and would repeat identically on
+      // every page, so only the first page asks for it. `@skip` keeps the extra
+      // pages from paying for a grouped count they would discard.
+      const result = await adminListOwnedStories({
+        ownerUid,
+        limit: PAGE_SIZE,
+        offset,
+        skipChapterCounts: offset > 0,
+      });
       rows.push(...result.data.stories);
-      // The aggregate covers the whole account and repeats identically on every
-      // page; the first one is the answer.
       if (offset === 0) tallies = chapterTalliesByStoryId(result.data.chapterCounts);
       if (result.data.stories.length < PAGE_SIZE) return { rows, tallies };
     }

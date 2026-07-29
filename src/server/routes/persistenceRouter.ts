@@ -245,6 +245,21 @@ function isInvalidArgument(error: unknown): boolean {
   );
 }
 
+/**
+ * The reason to send back with an `invalid_argument`. Only this repository's own
+ * tagged errors reach here, but a rejection that crossed a serialization
+ * boundary arrives as a plain object rather than an `Error`, and its message is
+ * the whole value of the response.
+ */
+function rejectionReason(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === 'object' && 'message' in error) {
+    const { message } = error as { message: unknown };
+    if (typeof message === 'string' && message) return message;
+  }
+  return fallback;
+}
+
 export function createPersistenceRouter(
   dependencies: PersistenceRouteDependencies = defaultDependencies,
 ): express.Router {
@@ -543,7 +558,7 @@ export function createPersistenceRouter(
         res,
         400,
         'invalid_argument',
-        error instanceof Error ? error.message : 'The persistence payload was rejected.',
+        rejectionReason(error, 'The persistence payload was rejected.'),
       );
       return;
     }

@@ -489,8 +489,12 @@ query ListMyMediaSlotHistory($targetKind: String!, $targetKey: String!, $purpose
   }
 }
 
-query AdminListOwnedStories($ownerUid: String!, $limit: Int = 200, $offset: Int = 0)
-  @auth(level: NO_ACCESS) {
+query AdminListOwnedStories(
+  $ownerUid: String!
+  $limit: Int = 200
+  $offset: Int = 0
+  $skipChapterCounts: Boolean = false
+) @auth(level: NO_ACCESS) {
   stories(
     where: { ownerUid: { eq: $ownerUid } }
     orderBy: [{ updatedAt: DESC }]
@@ -531,7 +535,9 @@ query AdminListOwnedStories($ownerUid: String!, $limit: Int = 200, $offset: Int 
   # generated when it has a body row — the same test `hydrateChapterScaffold`
   # applies, so a card and an opened story never disagree. See
   # GENERATED_CHAPTER_SQL_PREDICATE in src/lib/chapterCounts.ts, which a
-  # contract test pins against this literal.
+  # contract test pins against this literal. The aggregate covers the whole
+  # account and repeats identically on every page, so a paging caller asks for
+  # it once and skips it thereafter.
   chapterCounts: _select(
     sql: """
       SELECT
@@ -546,7 +552,7 @@ query AdminListOwnedStories($ownerUid: String!, $limit: Int = 200, $offset: Int 
       GROUP BY c.story_id
     """
     params: [$ownerUid]
-  )
+  ) @skip(if: $skipChapterCounts)
 }
 
 query AdminListOwnedStoryCoverSlots(

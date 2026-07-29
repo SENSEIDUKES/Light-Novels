@@ -2667,6 +2667,7 @@ export interface AdminListOwnedStoriesVariables {
   ownerUid: string;
   limit?: number | null;
   offset?: number | null;
+  skipChapterCounts?: boolean | null;
 }
 ```
 ### Return Type
@@ -2717,13 +2718,14 @@ const adminListOwnedStoriesVars: AdminListOwnedStoriesVariables = {
   ownerUid: ..., 
   limit: ..., // optional
   offset: ..., // optional
+  skipChapterCounts: ..., // optional
 };
 
 // Call the `adminListOwnedStories()` function to execute the query.
 // You can use the `await` keyword to wait for the promise to resolve.
 const { data } = await adminListOwnedStories(adminListOwnedStoriesVars);
 // Variables can be defined inline as well.
-const { data } = await adminListOwnedStories({ ownerUid: ..., limit: ..., offset: ..., });
+const { data } = await adminListOwnedStories({ ownerUid: ..., limit: ..., offset: ..., skipChapterCounts: ..., });
 
 // You can also pass in a `DataConnect` instance to the action shortcut function.
 const dataConnect = getDataConnect(connectorConfig);
@@ -2751,12 +2753,13 @@ const adminListOwnedStoriesVars: AdminListOwnedStoriesVariables = {
   ownerUid: ..., 
   limit: ..., // optional
   offset: ..., // optional
+  skipChapterCounts: ..., // optional
 };
 
 // Call the `adminListOwnedStoriesRef()` function to get a reference to the query.
 const ref = adminListOwnedStoriesRef(adminListOwnedStoriesVars);
 // Variables can be defined inline as well.
-const ref = adminListOwnedStoriesRef({ ownerUid: ..., limit: ..., offset: ..., });
+const ref = adminListOwnedStoriesRef({ ownerUid: ..., limit: ..., offset: ..., skipChapterCounts: ..., });
 
 // You can also pass in a `DataConnect` instance to the `QueryRef` function.
 const dataConnect = getDataConnect(connectorConfig);

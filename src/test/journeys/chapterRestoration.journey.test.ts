@@ -92,13 +92,25 @@ function chapterOne(story: StoryWorld | null) {
   return story?.arcs.flatMap((arc) => arc.chapters).find((chapter) => chapter.number === 1);
 }
 
+/**
+ * Scaffold the story and, unless told otherwise, generate chapter 1 — the
+ * setup every test in this file starts from. Runs on `harness.storage`, the
+ * device that authored the content; each test then restores a fresh device
+ * from whatever this left in the cloud.
+ */
+async function seedStory(options: { generateChapterOne?: boolean } = {}): Promise<void> {
+  await harness.storage.saveStory(scaffoldedStory());
+  if (options.generateChapterOne !== false) {
+    await generateChapterOne(harness.storage);
+  }
+  await harness.sync();
+}
+
 describe('Fresh-login chapter restoration journey', () => {
   it('restores a generated chapter, its prose and the Hub counts on an empty cache', async () => {
     // 1. Generate a chapter, and confirm both halves of the split record: the
     //    body in its own store and the `hasContent` marker on the scaffold.
-    await harness.storage.saveStory(scaffoldedStory());
-    await generateChapterOne(harness.storage);
-    await harness.sync();
+    await seedStory();
 
     const authored = await harness.storage.getStory(STORY_ID);
     expect(chapterOne(authored)?.hasContent).toBe(true);
@@ -154,9 +166,7 @@ describe('Fresh-login chapter restoration journey', () => {
   });
 
   it('keeps the Hub counts correct across a sign-out and a browser reload', async () => {
-    await harness.storage.saveStory(scaffoldedStory());
-    await generateChapterOne(harness.storage);
-    await harness.sync();
+    await seedStory();
 
     await harness.signOut();
     const reloaded = await harness.reload();
@@ -177,9 +187,7 @@ describe('Fresh-login chapter restoration journey', () => {
    * batch) was enough to wipe a fully written story.
    */
   it('never publishes a catalog summary as a whole story', async () => {
-    await harness.storage.saveStory(scaffoldedStory());
-    await generateChapterOne(harness.storage);
-    await harness.sync();
+    await seedStory();
 
     const fresh = await harness.newDevice();
     await harness.signIn(JOURNEY_UID, 'reader@example.com');
@@ -244,9 +252,7 @@ describe('Chapter read and write failures', () => {
    * a stored chapter as empty.
    */
   it('surfaces a failed chapter read instead of reporting an ungenerated chapter', async () => {
-    await harness.storage.saveStory(scaffoldedStory());
-    await generateChapterOne(harness.storage);
-    await harness.sync();
+    await seedStory();
 
     const fresh = await harness.newDevice();
     await harness.signIn(JOURNEY_UID, 'reader@example.com');
@@ -267,8 +273,7 @@ describe('Chapter read and write failures', () => {
   });
 
   it('does not let a failed chapter write look like a successful save', async () => {
-    await harness.storage.saveStory(scaffoldedStory());
-    await harness.sync();
+    await seedStory({ generateChapterOne: false });
 
     await withFailingRequests(
       (url, method) => method === 'PUT' && url.includes('/chapters/1'),
