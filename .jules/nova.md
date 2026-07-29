@@ -1,3 +1,6 @@
 ## 2024-07-24 - Accessibility labels on Voice generation buttons
 **Learning:** Icon-only buttons and state-toggling buttons (e.g., Play/Stop voice, generate actions) across components often lack `aria-label` attributes. When multiple characters are listed, their 'Play Voice' actions are indistinguishable for screen readers without a descriptive `aria-label` providing context (e.g., character name).
 **Action:** Always ensure descriptive, context-aware `aria-label`s (e.g., including the entity's name) are included to help screen reader users distinguish between multiple similar actions on a page.
+## 2026-07-28 - Consistent Destructive Action Modals Accessibility
+**Learning:** Destructive confirmation actions across different screens (like the 'Sever Karma' modal in the library, codex, and settings) used an 'Auto-Fill' button that lacked focus states, ARIA labels, and used redundant keyboard handlers (`tabIndex={0}`/`onKeyDown`) on a native `<button>` element. Standardizing accessibility and removing these anti-patterns improves consistency.
+**Action:** When updating or reviewing similar confirmation dialogs, always ensure native `<button>` tags are used without redundant tab/keyboard handlers, apply descriptive `aria-label`s to auxiliary controls (like auto-fill), and include standard `focus-visible` ring classes.

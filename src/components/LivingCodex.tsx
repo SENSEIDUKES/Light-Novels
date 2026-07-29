@@ -624,9 +624,10 @@ export default function LivingCodex({
                   Type <span className="text-red-400 font-bold">DELETE</span> to confirm{' '}
                   <button
                     type="button"
-                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setDeleteInput('DELETE')}
-                    className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-sc font-bold border border-portal/30 bg-portal/10 text-portal hover:bg-portal hover:text-black rounded transition-all duration-300 cursor-pointer"
-                    title="Auto-fill delete text"
+                    onClick={() => setDeleteInput('DELETE')}
+                    className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-sc font-bold border border-portal/30 bg-portal/10 text-portal hover:bg-portal hover:text-black rounded transition-all duration-300 cursor-pointer focus-visible:ring-2 focus-visible:ring-portal focus-visible:outline-none focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
+                    title="Auto-fill DELETE confirmation"
+                    aria-label="Auto-fill DELETE confirmation"
                   >
                     Auto-Fill
                   </button>
@@ -636,6 +637,7 @@ export default function LivingCodex({
                   placeholder="DELETE"
                   value={deleteInput}
                   onChange={(e) => setDeleteInput(e.target.value)}
+                  aria-label="Type DELETE to confirm codex item destruction"
                   className="w-full bg-void text-xs text-signal border border-neutral-700 focus:border-red-500 p-2 rounded focus:outline-none font-mono placeholder:text-neutral-700" id="a11y-control-vksku3q"
                 />
               </div>
