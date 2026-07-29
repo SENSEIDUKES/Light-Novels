@@ -134,12 +134,18 @@ export const CelestialParticleShower: React.FC<CelestialParticleShowerProps> = R
       const motionPreference = window.matchMedia?.('(prefers-reduced-motion: reduce)');
       let prefersReducedMotion = motionPreference?.matches ?? false;
       let scheduleRender = () => {};
-      let width = (canvas.width = window.innerWidth);
-      let height = (canvas.height = window.innerHeight);
+
+      let width = 0;
+      let height = 0;
+      const measureCanvas = () => {
+        const rect = canvas.getBoundingClientRect();
+        width = canvas.width = Math.max(1, Math.round(rect.width));
+        height = canvas.height = Math.max(1, Math.round(rect.height));
+      };
+      measureCanvas();
 
       const handleResize = () => {
-        width = canvas.width = window.innerWidth;
-        height = canvas.height = window.innerHeight;
+        measureCanvas();
         scheduleRender();
       };
       window.addEventListener('resize', handleResize);

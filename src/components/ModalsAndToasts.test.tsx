@@ -1,6 +1,15 @@
+import type { ReactNode } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, fireEvent, render, waitFor } from '@testing-library/react';
 import { ModalsAndToasts } from './ModalsAndToasts';
+
+vi.mock('motion/react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('motion/react')>();
+  return {
+    ...actual,
+    AnimatePresence: ({ children }: { children: ReactNode }) => <>{children}</>,
+  };
+});
 
 const { useAppStoreMock } = vi.hoisted(() => {
   const state = {
@@ -112,12 +121,12 @@ describe('Relic reveal — rarity ranks', () => {
       getByRole,
       getByTestId,
       getByText,
+      queryByText,
       unmount,
     } = await revealArtifact('Legendary');
 
     getByText('Legendary Test Relic');
     const particleCanvas = getByTestId('celestial-particle-shower');
-    const revealBackdrop = particleCanvas.parentElement;
     expect(particleCanvas.getAttribute('data-accent')).toBe('#f59e0b');
     expect(container.querySelector('[data-celestial-foreground]')).not.toBeNull();
 
@@ -125,7 +134,7 @@ describe('Relic reveal — rarity ranks', () => {
     fireEvent.click(getByRole('button', { name: 'Claim Relic' }));
 
     await waitFor(() => {
-      expect(revealBackdrop?.style.opacity).toBe('0');
+      expect(queryByText('Legendary Test Relic')).toBeNull();
     });
     unmount();
   });
