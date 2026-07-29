@@ -87,7 +87,7 @@ export const useChapterSealing = () => {
 
       // Scan sealed chapter content for artifacts if it contains major milestones
       const sealedCh = { ...targetChapter, ...sealPatch };
-      const fullText = (sealedCh.generatedContent || "") + " " + (sealedCh.blocks || []).map((b: any) => b.text).join(" ");
+      const fullText = (sealedCh.generatedContent || "") + " " + (Array.isArray(sealedCh.blocks) ? sealedCh.blocks.map((b: any) => b.text).join(" ") : "");
       import('../lib/artifacts').then(({ scanChapterForArtifacts }) => {
         scanChapterForArtifacts(activeStory.id, activeStory.title, chapterNumber, fullText, sealedCh).catch((err) => {
           console.error("Failed to scan sealed chapter for artifacts:", err);
