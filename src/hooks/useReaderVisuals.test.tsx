@@ -332,5 +332,33 @@ describe('useReaderVisuals', () => {
       renderForChapter(3).result.current.triggerHeroGeneration();
       expect(imageManifest.manifestChapterHero).not.toHaveBeenCalled();
     });
+
+    it('does not replace a persisted hero whose delivery URL is unavailable', () => {
+      const selectedChapter = {
+        ...arcChapters[2],
+        heroImageAssetId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        assetManifest: undefined,
+      };
+      const story = {
+        ...(storyWithArc() as any),
+        arcs: [{
+          title: 'Arc 1',
+          isCompleted: false,
+          chapters: arcChapters.map(chapter =>
+            chapter.number === selectedChapter.number ? selectedChapter : chapter),
+        }],
+      };
+
+      const { result } = renderHook(() => useReaderVisuals({
+        selectedChapter: selectedChapter as never,
+        activeStory: story as never,
+        readerMode: 'standard',
+      }));
+
+      result.current.triggerHeroGeneration();
+
+      expect(result.current.isMomentousChapter).toBe(true);
+      expect(imageManifest.manifestChapterHero).not.toHaveBeenCalled();
+    });
   });
 });

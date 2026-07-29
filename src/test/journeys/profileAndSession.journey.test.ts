@@ -15,7 +15,10 @@ vi.mock('../../generated/dataconnect-admin', async (importActual) => {
 
 import {
   getUserProfile,
+  persistenceRequest,
+  recoverPendingUserPortraits,
   saveUserProfile,
+  selectUserPortrait,
 } from '../../lib/persistence/persistenceClient';
 import {
   createCelestialHarness,
@@ -32,6 +35,7 @@ import {
 } from '../support/journeyFixtures';
 
 const PORTRAIT_ASSET_ID = '7d5b1c98-3a62-4c14-b6f7-51e0c8a2d43b';
+const OLDER_PENDING_PORTRAIT_ID = '6d5b1c98-3a62-4c14-b6f7-51e0c8a2d43a';
 
 let harness: CelestialHarness;
 
@@ -82,7 +86,7 @@ describe('Profile journey', () => {
 
   it('renders the account portrait from its canonical asset after a sign-in', async () => {
     await saveUserProfile({ uid: JOURNEY_UID, username: 'LedgerKeeper' });
-    await harness.publishMedia({
+    await harness.publishAccountMedia({
       assetId: PORTRAIT_ASSET_ID,
       ownerUid: JOURNEY_UID,
       targetKind: 'PORTRAIT',
@@ -90,16 +94,166 @@ describe('Profile journey', () => {
       purpose: 'CELESTIAL_PORTRAIT',
       body: 'portrait-bytes',
     });
-    await saveUserProfile({ uid: JOURNEY_UID, activePortraitId: PORTRAIT_ASSET_ID });
+    await selectUserPortrait({
+      assetId: PORTRAIT_ASSET_ID,
+      prompt: 'A portrait selected through the production profile route.',
+      usedReferenceImage: false,
+    }, JOURNEY_UID, 'portrait-selection-journey-key');
 
+    // Production account portraits do not create story slots or attachments.
+    expect(harness.store.mediaSlots).toHaveLength(0);
+    expect(harness.store.mediaAttachments).toHaveLength(0);
+
+    await harness.newDevice();
     await harness.signOut();
     await harness.signIn(JOURNEY_UID, 'reader@example.com');
-    const profile = await getUserProfile();
+    const profile = await getUserProfile(JOURNEY_UID);
 
     expect(profile?.activePortraitId).toBe(PORTRAIT_ASSET_ID);
     expect(profile?.avatarUrl).toMatch(/^blob:/);
     // A signed portrait link must never be retained by the client.
     expect(profile?.avatarMediaDescriptor?.deliveryUrl).toBe('');
+  });
+
+  it('recovers a READY account portrait stranded before profile selection', async () => {
+    await saveUserProfile({ uid: JOURNEY_UID, username: 'LedgerKeeper' });
+    await harness.publishAccountMedia({
+      assetId: PORTRAIT_ASSET_ID,
+      ownerUid: JOURNEY_UID,
+      targetKind: 'PORTRAIT',
+      targetKey: JOURNEY_UID,
+      purpose: 'CELESTIAL_PORTRAIT',
+      body: 'recoverable-portrait-bytes',
+    });
+
+    await expect(recoverPendingUserPortraits(
+      JOURNEY_UID,
+      'portrait-recovery-journey-key',
+    )).resolves.toBe(1);
+    await harness.newDevice();
+    const profile = await getUserProfile(JOURNEY_UID);
+
+    expect(profile).toMatchObject({
+      activePortraitId: PORTRAIT_ASSET_ID,
+      avatarUrl: expect.stringMatching(/^blob:/),
+      avatarMediaDescriptor: {
+        id: PORTRAIT_ASSET_ID,
+        deliveryUrl: '',
+      },
+    });
+    expect(harness.store.mediaSlots).toHaveLength(0);
+  });
+
+  it('retains the PostgreSQL profile when portrait signing is unavailable', async () => {
+    await saveUserProfile({ uid: JOURNEY_UID, username: 'LedgerKeeper' });
+    await harness.publishAccountMedia({
+      assetId: PORTRAIT_ASSET_ID,
+      ownerUid: JOURNEY_UID,
+      targetKind: 'PORTRAIT',
+      targetKey: JOURNEY_UID,
+      purpose: 'CELESTIAL_PORTRAIT',
+      body: 'portrait-with-temporary-delivery-failure',
+    });
+    await selectUserPortrait({
+      assetId: PORTRAIT_ASSET_ID,
+      usedReferenceImage: false,
+    }, JOURNEY_UID, 'portrait-delivery-degradation-key');
+    harness.failNextMediaStage('delivery');
+
+    await expect(getUserProfile(JOURNEY_UID)).resolves.toMatchObject({
+      uid: JOURNEY_UID,
+      username: 'LedgerKeeper',
+      activePortraitId: PORTRAIT_ASSET_ID,
+      avatarUrl: '',
+      avatarDeliveryError: {
+        code: 'portrait_delivery_unavailable',
+        recoverable: true,
+      },
+    });
+
+    // The next read can project the same canonical asset once signing recovers.
+    await expect(getUserProfile(JOURNEY_UID)).resolves.toMatchObject({
+      activePortraitId: PORTRAIT_ASSET_ID,
+      avatarUrl: expect.stringMatching(/^blob:/),
+      avatarMediaDescriptor: { deliveryUrl: '' },
+    });
+  });
+
+  it('does not let recovery overwrite a newer explicit portrait selection', async () => {
+    await saveUserProfile({ uid: JOURNEY_UID, username: 'LedgerKeeper' });
+    await harness.publishAccountMedia({
+      assetId: OLDER_PENDING_PORTRAIT_ID,
+      ownerUid: JOURNEY_UID,
+      targetKind: 'PORTRAIT',
+      targetKey: JOURNEY_UID,
+      purpose: 'CELESTIAL_PORTRAIT',
+      body: 'older-pending-portrait',
+    });
+    await harness.publishAccountMedia({
+      assetId: PORTRAIT_ASSET_ID,
+      ownerUid: JOURNEY_UID,
+      targetKind: 'PORTRAIT',
+      targetKey: JOURNEY_UID,
+      purpose: 'CELESTIAL_PORTRAIT',
+      body: 'newer-selected-portrait',
+    });
+    await selectUserPortrait({
+      assetId: PORTRAIT_ASSET_ID,
+      usedReferenceImage: false,
+    }, JOURNEY_UID, 'newer-explicit-selection-key');
+
+    await expect(recoverPendingUserPortraits(
+      JOURNEY_UID,
+      'do-not-overwrite-newer-selection-key',
+    )).resolves.toBe(0);
+    await expect(getUserProfile(JOURNEY_UID)).resolves.toMatchObject({
+      activePortraitId: PORTRAIT_ASSET_ID,
+    });
+  });
+
+  it('rejects a story-scoped image that tries to impersonate an account portrait', async () => {
+    await saveUserProfile({ uid: JOURNEY_UID, username: 'LedgerKeeper' });
+    await harness.storage.saveStory(makeStory());
+    await harness.sync();
+    await harness.publishMedia({
+      assetId: PORTRAIT_ASSET_ID,
+      ownerUid: JOURNEY_UID,
+      storyId: STORY_ID,
+      targetKind: 'STORY',
+      targetKey: STORY_ID,
+      purpose: 'STORY_COVER',
+      body: 'not-an-account-portrait',
+    });
+
+    await expect(selectUserPortrait({
+      assetId: PORTRAIT_ASSET_ID,
+      usedReferenceImage: false,
+    }, JOURNEY_UID, 'reject-cover-as-portrait-key')).rejects.toMatchObject({
+      code: 'invalid_argument',
+      status: 400,
+      recoverable: false,
+    });
+    expect((await getUserProfile(JOURNEY_UID))?.activePortraitId).toBeUndefined();
+  });
+
+  it('rejects generic profile patches that bypass portrait selection', async () => {
+    await saveUserProfile({ uid: JOURNEY_UID, username: 'LedgerKeeper' });
+
+    await expect(persistenceRequest('/profile', {
+      method: 'PUT',
+      body: JSON.stringify({
+        value: {
+          uid: JOURNEY_UID,
+          activePortraitId: PORTRAIT_ASSET_ID,
+        },
+        idempotencyKey: 'generic-portrait-bypass-key',
+      }),
+    }, JOURNEY_UID)).rejects.toMatchObject({
+      code: 'invalid_argument',
+      status: 400,
+      recoverable: false,
+    });
+    expect((await getUserProfile(JOURNEY_UID))?.activePortraitId).toBeUndefined();
   });
 
   it('never returns one account profile to another account', async () => {

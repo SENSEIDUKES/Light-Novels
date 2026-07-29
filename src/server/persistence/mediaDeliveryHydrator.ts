@@ -1,4 +1,4 @@
-import { isSameAssetId } from '../../contracts/assetIdentity';
+import { canonicalAssetId, isSameAssetId } from '../../contracts/assetIdentity';
 import type { MediaAssetDescriptor } from '../../contracts/mediaAssets';
 import type { BaseCodexEntry, GeneratedImage, StoryWorld, UserProfile } from '../../types';
 
@@ -14,6 +14,7 @@ interface GraphMediaAttachment {
 
 type VisualEntity = BaseCodexEntry & {
   id: string;
+  isBeast?: boolean;
   imageUrl?: string;
   imageAssetId?: string;
   imageHistory?: GeneratedImage[];
@@ -21,23 +22,54 @@ type VisualEntity = BaseCodexEntry & {
   voiceClipUrl?: string;
 };
 
-function visualEntities(story: StoryWorld): VisualEntity[] {
+interface VisualEntityOwner {
+  entity: VisualEntity;
+  targetKind: string;
+}
+
+function visualEntityOwners(story: StoryWorld): VisualEntityOwner[] {
   return [
-    ...story.memory.characters,
-    ...(story.memory.locations ?? []),
-    ...(story.memory.artifacts ?? []),
-    ...(story.memory.factions ?? []),
+    ...story.memory.characters.map(entity => ({
+      entity,
+      targetKind: entity.isBeast ? 'BEAST' : 'CHARACTER',
+    })),
+    ...(story.memory.locations ?? []).map(entity => ({
+      entity,
+      targetKind: 'LOCATION',
+    })),
+    ...(story.memory.artifacts ?? []).map(entity => ({
+      entity,
+      targetKind: 'ARTIFACT',
+    })),
+    ...(story.memory.factions ?? []).map(entity => ({
+      entity,
+      targetKind: 'FACTION',
+    })),
     ...(story.memory.abilities ?? []).filter(
       (ability): ability is Exclude<typeof ability, string> => typeof ability !== 'string',
-    ),
-  ] as VisualEntity[];
+    ).map(entity => ({
+      entity,
+      targetKind: 'ABILITY',
+    })),
+  ] as VisualEntityOwner[];
 }
 
 function delivery(
   descriptors: ReadonlyMap<string, MediaAssetDescriptor>,
   assetId: string | undefined,
 ): string | undefined {
-  return assetId ? descriptors.get(assetId)?.deliveryUrl : undefined;
+  return descriptorFor(descriptors, assetId)?.deliveryUrl;
+}
+
+function descriptorFor(
+  descriptors: ReadonlyMap<string, MediaAssetDescriptor>,
+  assetId: string | undefined,
+): MediaAssetDescriptor | undefined {
+  if (!assetId) return undefined;
+  const canonical = canonicalAssetId(assetId);
+  return descriptors.get(assetId)
+    ?? descriptors.get(canonical)
+    ?? [...descriptors.values()].find(descriptor => isSameAssetId(descriptor.id, canonical));
 }
 
 function hydrateHistory(
@@ -46,15 +78,16 @@ function hydrateHistory(
 ): GeneratedImage[] | undefined {
   return history?.map(image => ({
     ...image,
+    ...(image.assetId ? { assetId: canonicalAssetId(image.assetId) } : {}),
     imageUrl: delivery(descriptors, image.assetId) ?? image.imageUrl,
     assetVersion: image.assetId
-      ? descriptors.get(image.assetId)?.version ?? image.assetVersion
+      ? descriptorFor(descriptors, image.assetId)?.version ?? image.assetVersion
       : image.assetVersion,
     checksumSha256: image.assetId
-      ? descriptors.get(image.assetId)?.checksumSha256 ?? image.checksumSha256
+      ? descriptorFor(descriptors, image.assetId)?.checksumSha256 ?? image.checksumSha256
       : image.checksumSha256,
     deliveryUrlExpiresAt: image.assetId
-      ? descriptors.get(image.assetId)?.deliveryUrlExpiresAt ?? image.deliveryUrlExpiresAt
+      ? descriptorFor(descriptors, image.assetId)?.deliveryUrlExpiresAt ?? image.deliveryUrlExpiresAt
       : image.deliveryUrlExpiresAt,
   }));
 }
@@ -66,15 +99,22 @@ export function hydrateStoryMediaDelivery(
   descriptors: ReadonlyMap<string, MediaAssetDescriptor>,
 ): StoryWorld {
   const clone = structuredClone(story);
+  if (clone.coverAssetId) clone.coverAssetId = canonicalAssetId(clone.coverAssetId);
   clone.imageHistory = hydrateHistory(clone.imageHistory, descriptors);
   clone.imageUrl = delivery(descriptors, clone.coverAssetId) ?? clone.imageUrl;
 
+  const entityOwners = visualEntityOwners(clone);
   const byPersistenceId = new Map(
-    visualEntities(clone)
-      .filter(entity => entity.persistenceId)
-      .map(entity => [entity.persistenceId as string, entity]),
+    entityOwners
+      .filter(({ entity }) => entity.persistenceId)
+      .map(owner => [
+        canonicalAssetId(owner.entity.persistenceId as string),
+        owner,
+      ]),
   );
-  for (const entity of visualEntities(clone)) {
+  for (const { entity } of entityOwners) {
+    if (entity.imageAssetId) entity.imageAssetId = canonicalAssetId(entity.imageAssetId);
+    if (entity.voiceAssetId) entity.voiceAssetId = canonicalAssetId(entity.voiceAssetId);
     entity.imageHistory = hydrateHistory(entity.imageHistory, descriptors);
     entity.imageUrl = delivery(descriptors, entity.imageAssetId) ?? entity.imageUrl;
     entity.voiceClipUrl = delivery(descriptors, entity.voiceAssetId) ?? entity.voiceClipUrl;
@@ -83,36 +123,100 @@ export function hydrateStoryMediaDelivery(
   const chapters = new Map(
     clone.arcs.flatMap(arc => arc.chapters)
       .filter(chapter => chapter.persistenceId)
-      .map(chapter => [chapter.persistenceId as string, chapter]),
+      .map(chapter => [canonicalAssetId(chapter.persistenceId as string), chapter]),
   );
   for (const chapter of chapters.values()) {
+    if (chapter.heroImageAssetId) {
+      chapter.heroImageAssetId = canonicalAssetId(chapter.heroImageAssetId);
+      const heroImage = delivery(descriptors, chapter.heroImageAssetId);
+      if (heroImage) {
+        chapter.assetManifest = {
+          ...(chapter.assetManifest ?? {}),
+          heroImage,
+        };
+      }
+    }
     chapter.imageHistory = hydrateHistory(chapter.imageHistory, descriptors);
   }
   for (const attachment of attachments) {
     if (!attachment.isCurrent) continue;
-    const url = delivery(descriptors, attachment.assetId);
+    const assetId = canonicalAssetId(attachment.assetId);
+    const url = delivery(descriptors, assetId);
     if (!url) continue;
-    if (attachment.purpose === 'STORY_COVER') {
-      clone.coverAssetId = attachment.assetId;
+    if (
+      attachment.purpose === 'STORY_COVER'
+      && attachment.targetKind === 'STORY'
+      && !attachment.chapterId
+      && !attachment.entityId
+      && (
+        !clone.persistenceId
+        || isSameAssetId(attachment.targetKey, clone.persistenceId)
+      )
+    ) {
+      if (
+        clone.coverAssetId
+        && !isSameAssetId(clone.coverAssetId, assetId)
+      ) {
+        continue;
+      }
+      clone.coverAssetId = assetId;
       clone.imageUrl = url;
       continue;
     }
-    if (attachment.entityId) {
-      const entity = byPersistenceId.get(attachment.entityId);
-      if (!entity) continue;
+    if (
+      attachment.entityId
+      && isSameAssetId(attachment.targetKey, attachment.entityId)
+      && (
+        attachment.purpose === 'MANIFESTATION'
+        || attachment.purpose === 'VOICE_CARD'
+      )
+    ) {
+      const owner = byPersistenceId.get(canonicalAssetId(attachment.entityId));
+      if (!owner) continue;
+      if (
+        attachment.targetKind !== owner.targetKind
+        && attachment.targetKind !== 'ENTITY'
+        && attachment.targetKind !== 'CODEX_ENTITY'
+      ) {
+        continue;
+      }
+      const { entity } = owner;
       if (attachment.purpose === 'VOICE_CARD') {
-        entity.voiceAssetId = attachment.assetId;
+        if (
+          entity.voiceAssetId
+          && !isSameAssetId(entity.voiceAssetId, assetId)
+        ) {
+          continue;
+        }
+        entity.voiceAssetId = assetId;
         entity.voiceClipUrl = url;
-      } else {
-        entity.imageAssetId = attachment.assetId;
+      } else if (attachment.purpose === 'MANIFESTATION') {
+        if (
+          entity.imageAssetId
+          && !isSameAssetId(entity.imageAssetId, assetId)
+        ) {
+          continue;
+        }
+        entity.imageAssetId = assetId;
         entity.imageUrl = url;
       }
       continue;
     }
-    if (attachment.chapterId && attachment.purpose === 'CHAPTER_HERO') {
-      const chapter = chapters.get(attachment.chapterId);
+    if (
+      attachment.chapterId
+      && attachment.purpose === 'CHAPTER_HERO'
+      && attachment.targetKind === 'CHAPTER'
+      && isSameAssetId(attachment.targetKey, attachment.chapterId)
+    ) {
+      const chapter = chapters.get(canonicalAssetId(attachment.chapterId));
       if (!chapter) continue;
-      chapter.heroImageAssetId = attachment.assetId;
+      if (
+        chapter.heroImageAssetId
+        && !isSameAssetId(chapter.heroImageAssetId, assetId)
+      ) {
+        continue;
+      }
+      chapter.heroImageAssetId = assetId;
       chapter.assetManifest = { ...(chapter.assetManifest ?? {}), heroImage: url };
     }
   }

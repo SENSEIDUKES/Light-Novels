@@ -93,6 +93,8 @@ export interface CultivatorPortraitAsset {
   id: string;
   userId: string;
   imageUrl: string;
+  /** Canonical durable metadata. Signed delivery URLs are blanked before caching. */
+  avatarMediaDescriptor: import("./contracts/mediaAssets").MediaAssetDescriptor;
   assetVersion?: number;
   checksumSha256?: string;
   deliveryUrlExpiresAt?: string;
@@ -120,6 +122,18 @@ export interface UserProfile {
   activePortraitId?: string;
   /** Transient/canonical portrait metadata; signed delivery URLs are never cached. */
   avatarMediaDescriptor?: import("./contracts/mediaAssets").MediaAssetDescriptor;
+  /**
+   * Structured profile state remains usable when only portrait delivery fails.
+   * This is a transient projection and is never written back to PostgreSQL.
+   */
+  avatarDeliveryError?: {
+    code:
+      | 'portrait_descriptor_unavailable'
+      | 'portrait_delivery_unavailable'
+      | 'portrait_download_unavailable';
+    message: string;
+    recoverable: boolean;
+  };
   preferredLanguage: string;
   defaultTranslationLanguage: string;
   /** Default copied onto newly created stories; existing stories keep their saved value. */
@@ -1226,8 +1240,10 @@ export interface StoryUpdateOptions {
 /**
  * The only story fields Reader and Living Codex surfaces may patch directly.
  * Aggregate identity, chapter collections, arcs, and story-level media
- * ownership deliberately do not appear here. `memory` remains available
- * because the Codex owns its entity records and their manifestation media.
+ * ownership deliberately do not appear here. `mediaDescriptors` is only the
+ * disposable local cache index for those owner records, never ownership.
+ * `memory` remains available because the Codex owns its entity records and
+ * their manifestation media.
  */
 export type ReaderCodexStoryPatch = Partial<Pick<StoryWorld,
   | 'assignedRevealBackdrops'
@@ -1236,6 +1252,7 @@ export type ReaderCodexStoryPatch = Partial<Pick<StoryWorld,
   | 'lastReadAt'
   | 'lastReadChapter'
   | 'lastReadScrollPosition'
+  | 'mediaDescriptors'
   | 'memory'
   | 'motionCoverActive'
   | 'readerPreferences'

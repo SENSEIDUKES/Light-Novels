@@ -88,6 +88,54 @@ describe('useAppStore', () => {
     expect(storyStorage.saveStory).not.toHaveBeenCalled();
   });
 
+  it('rejects an account-stale queued patch before it can target a same-id story', async () => {
+    const sharedStoryId = 'shared-story-id';
+    const accountAStory = {
+      id: sharedStoryId,
+      persistenceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      userId: 'account-a',
+      title: 'Private A',
+      coverAssetId: 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa',
+      imageUrl: 'blob:account-a-cover',
+      arcs: [],
+      memory: {},
+    } as any;
+    const accountBStory = {
+      id: sharedStoryId,
+      persistenceId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      userId: 'account-b',
+      title: 'Private B',
+      coverAssetId: 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb',
+      imageUrl: 'blob:account-b-cover',
+      arcs: [],
+      memory: {},
+    } as any;
+
+    (auth as any).currentUser = { uid: 'account-a' };
+    useAppStore.getState().setStories([accountAStory]);
+    const stalePatch = useAppStore.getState().updateStory(
+      sharedStoryId,
+      {
+        coverAssetId: accountAStory.coverAssetId,
+        imageUrl: accountAStory.imageUrl,
+      },
+      { markEdited: false },
+    );
+
+    // saveStories always enters through a promise queue, so this synchronous
+    // transition occurs after enqueue but before the updater's queue turn.
+    (auth as any).currentUser = { uid: 'account-b' };
+    useAppStore.getState().setStories([accountBStory]);
+    const accountBState = useAppStore.getState().stories;
+
+    await expect(stalePatch).rejects.toThrow(
+      'Active account changed before the queued story save began',
+    );
+    expect(useAppStore.getState().stories).toEqual(accountBState);
+    expect(storyStorage.startTransaction).not.toHaveBeenCalled();
+    expect(storyStorage.saveStory).not.toHaveBeenCalled();
+  });
+
   it('clears optimistic stories when the account changes during persistence', async () => {
     let releaseSave!: () => void;
     vi.mocked(storyStorage.saveStory).mockReturnValueOnce(

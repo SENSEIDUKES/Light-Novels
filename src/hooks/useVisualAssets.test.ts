@@ -4,7 +4,10 @@ import { useVisualAssets } from './useVisualAssets';
 import { useAppStore } from '../store/useAppStore';
 import { storyApi } from '../services/api';
 import { auth } from '../lib/firebase';
-import { saveMediaAsset } from '../lib/media/mediaAssetClient';
+import {
+  saveMediaAsset,
+  selectMediaAsset,
+} from '../lib/media/mediaAssetClient';
 import { resolveMediaAssetForDisplay } from '../lib/media/privateMediaResolver';
 import { createRunHarness, makeActiveRun } from '../test/support/generationRun';
 
@@ -106,6 +109,106 @@ describe('useVisualAssets account-transition isolation', () => {
     expect(state.activeGenerationRun).toBeNull();
   });
 
+  it('retains a blank local descriptor when a permanent cover is applied', async () => {
+    const descriptor = {
+      id: 'asset-cover',
+      version: 2,
+      checksumSha256: 'checksum',
+      deliveryUrl: 'https://signed.example/cover?X-Amz-Signature=abc',
+    };
+    vi.mocked(saveMediaAsset).mockResolvedValue(descriptor as any);
+    vi.mocked(resolveMediaAssetForDisplay).mockResolvedValue({
+      assetId: descriptor.id,
+      descriptor: descriptor as any,
+      url: 'blob:asset-cover',
+      source: 'network',
+    });
+    const { result } = renderHook(() => useVisualAssets());
+
+    await act(async () => {
+      await result.current.handleApplyCover(
+        'https://image.test/cover.png',
+        'Account A prompt',
+      );
+    });
+
+    expect(saveMediaAsset).toHaveBeenCalledWith(expect.objectContaining({
+      expectedOwnerUid: 'reader-a',
+    }));
+    expect(resolveMediaAssetForDisplay).toHaveBeenCalledWith(
+      descriptor,
+      'reader-a',
+    );
+    expect(state.updateStory).toHaveBeenCalledWith(
+      'story-a',
+      expect.objectContaining({
+        coverAssetId: 'asset-cover',
+        imageUrl: 'blob:asset-cover',
+        mediaDescriptors: {
+          'asset-cover': expect.objectContaining({
+            id: 'asset-cover',
+            version: 2,
+            checksumSha256: 'checksum',
+            deliveryUrl: '',
+          }),
+        },
+      }),
+      { markEdited: false, touchUpdatedAt: true },
+    );
+  });
+
+  it('keeps a saved cover canonical when only its delivery resolution fails', async () => {
+    const descriptor = {
+      id: 'asset-cover',
+      version: 2,
+      checksumSha256: 'checksum',
+      deliveryUrl: '',
+    };
+    vi.mocked(saveMediaAsset).mockResolvedValue(descriptor as any);
+    vi.mocked(resolveMediaAssetForDisplay).mockRejectedValue(
+      new Error('R2 signing unavailable'),
+    );
+    const { result } = renderHook(() => useVisualAssets());
+
+    let failure: unknown;
+    await act(async () => {
+      try {
+        await result.current.handleApplyCover(
+          'https://image.test/cover.png',
+          'Account A prompt',
+        );
+      } catch (error) {
+        failure = error;
+      }
+    });
+
+    expect(state.updateStory).toHaveBeenCalledWith(
+      'story-a',
+      expect.objectContaining({
+        coverAssetId: 'asset-cover',
+        imageUrl: '',
+        imageHistory: [
+          expect.objectContaining({
+            assetId: 'asset-cover',
+            imageUrl: '',
+            isCurrent: true,
+          }),
+        ],
+        mediaDescriptors: {
+          'asset-cover': expect.objectContaining({
+            id: 'asset-cover',
+            deliveryUrl: '',
+          }),
+        },
+      }),
+      { markEdited: false, touchUpdatedAt: true },
+    );
+    expect(failure).toMatchObject({
+      code: 'media/delivery-unavailable',
+      selectionPersisted: true,
+    });
+  });
+
   it('discards an old cover result before it can reach permanent media', async () => {
     let resolveImage!: (value: any) => void;
     vi.mocked(storyApi.generateCardImage).mockReturnValue(
@@ -160,5 +263,114 @@ describe('useVisualAssets account-transition isolation', () => {
 
     expect(resolveMediaAssetForDisplay).not.toHaveBeenCalled();
     expect(state.updateStory).not.toHaveBeenCalled();
+  });
+
+  it('keeps a committed cover selection when only delivery resolution fails', async () => {
+    state.stories[0].imageHistory = [{
+      id: 'history-old',
+      assetId: 'asset-old',
+      entityType: 'cover',
+      entityId: 'story-a',
+      imageUrl: '',
+      isCurrent: false,
+    }];
+    const descriptor = {
+      id: 'asset-old',
+      version: 2,
+      checksumSha256: 'checksum',
+      deliveryUrl: 'https://signed.example/old',
+    };
+    vi.mocked(selectMediaAsset).mockResolvedValue(descriptor as any);
+    vi.mocked(resolveMediaAssetForDisplay).mockRejectedValue(
+      new Error('R2 signing unavailable'),
+    );
+    const { result } = renderHook(() => useVisualAssets());
+
+    let failure: unknown;
+    await act(async () => {
+      try {
+        await result.current.handleSelectCover('asset-old');
+      } catch (error) {
+        failure = error;
+      }
+    });
+
+    expect(selectMediaAsset).toHaveBeenCalledWith(
+      'asset-old',
+      expect.objectContaining({ purpose: 'STORY_COVER' }),
+      'reader-a',
+    );
+    expect(state.updateStory).toHaveBeenCalledWith(
+      'story-a',
+      expect.objectContaining({
+        coverAssetId: 'asset-old',
+        imageUrl: '',
+        imageHistory: [
+          expect.objectContaining({
+            assetId: 'asset-old',
+            isCurrent: true,
+            imageUrl: '',
+          }),
+        ],
+        mediaDescriptors: {
+          'asset-old': expect.objectContaining({
+            id: 'asset-old',
+            deliveryUrl: '',
+          }),
+        },
+      }),
+      { markEdited: false, touchUpdatedAt: true },
+    );
+    expect(failure).toMatchObject({
+      code: 'media/delivery-unavailable',
+      selectionPersisted: true,
+    });
+  });
+
+  it('selects and de-currents legacy untyped story-cover history', async () => {
+    state.stories[0].imageHistory = [{
+      id: 'history-old',
+      assetId: 'asset-old',
+      imageUrl: '',
+      isCurrent: false,
+    }, {
+      id: 'history-current',
+      assetId: 'asset-current',
+      imageUrl: 'blob:asset-current',
+      isCurrent: true,
+    }];
+    const descriptor = {
+      id: 'asset-old',
+      version: 3,
+      checksumSha256: 'checksum',
+      deliveryUrl: 'https://signed.example/old',
+    };
+    vi.mocked(selectMediaAsset).mockResolvedValue(descriptor as any);
+    vi.mocked(resolveMediaAssetForDisplay).mockResolvedValue({
+      assetId: descriptor.id,
+      descriptor: descriptor as any,
+      url: 'blob:asset-old',
+      source: 'network',
+    });
+    const { result } = renderHook(() => useVisualAssets());
+
+    await act(async () => {
+      await result.current.handleSelectCover('asset-old');
+    });
+
+    const update = vi.mocked(state.updateStory).mock.calls[0][1];
+    expect(update.imageHistory).toEqual([
+      expect.objectContaining({
+        id: 'history-old',
+        assetId: 'asset-old',
+        entityType: 'cover',
+        isCurrent: true,
+      }),
+      expect.objectContaining({
+        id: 'history-current',
+        assetId: 'asset-current',
+        isCurrent: false,
+      }),
+    ]);
   });
 });

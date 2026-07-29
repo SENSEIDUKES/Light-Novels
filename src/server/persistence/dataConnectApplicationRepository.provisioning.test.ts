@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({
   seedGraph: null as any,
   chapterGraph: null as any,
   recoveryCalls: 0,
+  portraitSelections: [] as any[],
   storyReadIds: [] as string[],
   receipts: new Map<string, any>(),
   executed: [] as string[],
@@ -142,12 +143,27 @@ vi.mock('../../generated/dataconnect-admin', () => ({
     state.recoveryCalls++;
     return { data: { recovered: 1 } };
   }),
-  adminSelectUserPortrait: vi.fn(), adminUpdateAccountAccess: vi.fn(),
+  adminSelectUserPortrait: vi.fn(async (variables: any) => {
+    state.portraitSelections.push(variables);
+    state.profileGraph.profile = {
+      ...state.profileGraph.profile,
+      activePortraitAssetId: variables.assetId,
+      syncRevision: variables.newSyncRevision,
+      revision: variables.newRevision,
+    };
+  }),
+  adminUpdateAccountAccess: vi.fn(),
 }));
 
-import { DataConnectApplicationRepository } from './dataConnectApplicationRepository';
+import {
+  DataConnectApplicationRepository,
+  type DataConnectApplicationRepositoryOptions,
+} from './dataConnectApplicationRepository';
 
-function makeRepo() {
+function makeRepo(
+  loadMediaDescriptor: NonNullable<DataConnectApplicationRepositoryOptions['loadMediaDescriptor']>
+    = async () => null,
+) {
   return new DataConnectApplicationRepository({
     executeRetiredMutation: async (name: string, variables: any) => {
       state.executed.push(name);
@@ -169,7 +185,7 @@ function makeRepo() {
       }
       return { data: {} };
     },
-    loadMediaDescriptor: async () => null,
+    loadMediaDescriptor,
   });
 }
 
@@ -180,6 +196,7 @@ describe('canonical profile provisioning', () => {
     state.seedGraph = null;
     state.chapterGraph = null;
     state.recoveryCalls = 0;
+    state.portraitSelections = [];
     state.storyReadIds = [];
     state.receipts.clear();
     state.executed = [];
@@ -236,6 +253,110 @@ describe('canonical profile provisioning', () => {
     expect(state.storyReadIds[0]).toBe('770b6a28-d1ed-4d4d-926a-86e592ef656d');
   });
 
+  it('returns the durable story graph when current-media delivery signing fails', async () => {
+    const assetCompact = 'fc0aac17fb014f7ea9bce3121204125d';
+    const assetCanonical = 'fc0aac17-fb01-4f7e-a9bc-e3121204125d';
+    state.profileGraph = emptyProfileGraph();
+    state.storyGraph = emptyStoryGraph();
+    state.storyGraph.mediaSlots = [{
+      targetKind: 'STORY',
+      targetKey: state.storyGraph.story.id,
+      purpose: 'STORY_COVER',
+      currentAssetId: assetCompact,
+      version: '1',
+      updatedAt: NOW,
+    }];
+    state.storyGraph.mediaAttachments = [{
+      id: 'de52773d42dd4aa2932fa4660b2f9d18',
+      assetId: assetCompact,
+      targetKind: 'STORY',
+      targetKey: state.storyGraph.story.id,
+      purpose: 'STORY_COVER',
+      clientHistoryId: 'cover-history-1',
+      promptUsed: 'The archive beneath a storm.',
+      position: 0,
+      isCurrent: true,
+      createdAt: NOW,
+    }];
+    const loadMediaDescriptor = vi.fn(async () => {
+      throw new Error('R2 signing unavailable');
+    });
+    const repo = new DataConnectApplicationRepository({
+      executeRetiredMutation: async () => ({ data: {} }),
+      loadMediaDescriptor,
+    });
+
+    const story = await repo.getStory(ownerUid, state.storyGraph.story.clientStoryId);
+
+    expect(loadMediaDescriptor).toHaveBeenCalledWith(ownerUid, assetCanonical);
+    expect(story).toMatchObject({
+      persistenceHydration: 'full',
+      coverAssetId: assetCanonical,
+      mediaDescriptors: {},
+      imageHistory: [{
+        id: 'cover-history-1',
+        assetId: assetCanonical,
+        isCurrent: true,
+      }],
+    });
+    expect(story?.imageUrl).toBeUndefined();
+  });
+
+  it('returns durable chapter audio references when voice delivery signing fails', async () => {
+    const assetCompact = '12121212121242128212121212121212';
+    const assetCanonical = '12121212-1212-4212-8212-121212121212';
+    state.profileGraph = emptyProfileGraph();
+    state.storyGraph = storyGraphWithNewChapter();
+    state.chapterGraph = {
+      chapter: {
+        ...state.storyGraph.chapters[0],
+        content: {
+          generatedContent: 'The archive opened beneath a truthful moon.',
+          revision: '1',
+          syncRevision: 'chapter-rev-1',
+          updatedAt: NOW,
+        },
+        blocks: [],
+        translations: [],
+        audioManifest: {
+          version: '1',
+          language: 'en',
+          generatedAt: NOW,
+          updatedAt: NOW,
+        },
+        voiceClips: [{
+          id: 'ffffffffffff4fff8fffffffffffffff',
+          blockId: 'eeeeeeeeeeee4eee8eeeeeeeeeeeeeee',
+          position: 0,
+          speakerVoice: 'sage',
+          assetId: assetCompact,
+          createdAt: NOW,
+        }],
+      },
+      fingerprints: [],
+      facts: [],
+    };
+    const loadMediaDescriptor = vi.fn(async () => {
+      throw new Error('R2 signing unavailable');
+    });
+    const repo = makeRepo(loadMediaDescriptor);
+
+    const chapter = await repo.getChapterContent(ownerUid, 'story-client-1', 1);
+
+    expect(loadMediaDescriptor).toHaveBeenCalledWith(ownerUid, assetCanonical);
+    expect(chapter).toMatchObject({
+      storyId: 'story-client-1',
+      generatedContent: 'The archive opened beneath a truthful moon.',
+      audioManifest: {
+        clips: [{
+          assetId: assetCanonical,
+          audioUrl: '',
+          speakerVoice: 'sage',
+        }],
+      },
+    });
+  });
+
   it('reads a newly committed seed directly while the list query is still stale', async () => {
     state.profileGraph = emptyProfileGraph();
     const repo = makeRepo();
@@ -271,6 +392,71 @@ describe('canonical profile provisioning', () => {
 
     expect(state.executed[0]).toBe('AdminUpsertUserProfileGraph');
     expect(state.recoveryCalls).toBe(1);
+  });
+
+  it('rejects active portrait changes through the generic profile mutation', async () => {
+    state.profileGraph = emptyProfileGraph();
+    const repo = makeRepo();
+
+    await expect(repo.saveProfile(
+      ownerUid,
+      { activePortraitId: '11111111-1111-4111-8111-111111111111' },
+      { idempotencyKey: '00000000-0000-4000-8000-000000000004' },
+    )).rejects.toMatchObject({
+      code: 'invalid_argument',
+      message: expect.stringContaining('portrait selection endpoint'),
+    });
+
+    expect(state.executed).not.toContain('AdminUpsertUserProfileGraph');
+  });
+
+  it('acknowledges a committed portrait without depending on R2 delivery signing', async () => {
+    state.profileGraph = emptyProfileGraph();
+    const loadMediaDescriptor = vi.fn(async () => {
+      throw new Error('R2 signing is unavailable.');
+    });
+    const repo = new DataConnectApplicationRepository({
+      executeRetiredMutation: async () => ({ data: {} }),
+      loadMediaDescriptor,
+    });
+
+    await expect(repo.selectPortrait(
+      ownerUid,
+      {
+        assetId: '11111111-1111-4111-8111-111111111111',
+        usedReferenceImage: false,
+      },
+      '00000000-0000-4000-8000-000000000005',
+    )).resolves.toMatchObject({
+      activePortraitId: '11111111-1111-4111-8111-111111111111',
+      avatarUrl: '',
+    });
+
+    expect(loadMediaDescriptor).not.toHaveBeenCalled();
+    expect(state.portraitSelections).toHaveLength(1);
+  });
+
+  it('returns structured profile state when portrait delivery signing fails', async () => {
+    state.profileGraph = emptyProfileGraph();
+    state.profileGraph.profile.activePortraitAssetId =
+      '11111111-1111-4111-8111-111111111111';
+    const repo = new DataConnectApplicationRepository({
+      executeRetiredMutation: async () => ({ data: {} }),
+      loadMediaDescriptor: async () => {
+        throw new Error('R2 signer unavailable');
+      },
+    });
+
+    await expect(repo.getProfile(ownerUid)).resolves.toMatchObject({
+      uid: ownerUid,
+      username: 'cultivator',
+      activePortraitId: '11111111-1111-4111-8111-111111111111',
+      avatarUrl: '',
+      avatarDeliveryError: {
+        code: 'portrait_delivery_unavailable',
+        recoverable: true,
+      },
+    });
   });
 
   it('guards the first chapter content write with the parent story revision', async () => {

@@ -106,7 +106,7 @@ export function LivingCodexCharacters({
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {charsToRender.map((char) => {
                   const isGenerating = generatingId === char.id;
-                  const hasImage = !!char.imageUrl;
+                  const hasImage = Boolean(char.imageAssetId || char.imageUrl);
                   const currentChapter = activeStory.currentChapterNumber || 1;
                   const hasAppeared = char.firstAppeared === undefined || char.firstAppeared <= currentChapter;
                   const activePreview = previews[char.id];
@@ -224,7 +224,7 @@ export function LivingCodexCharacters({
                 ) : (
                   locationsToRender.map((loc) => {
                     const isGenerating = generatingId === loc.id;
-                    const hasImage = !!loc.imageUrl;
+                    const hasImage = Boolean(loc.imageAssetId || loc.imageUrl);
                     const currentChapter = activeStory.currentChapterNumber || 1;
                     const hasAppeared = loc.firstAppeared === undefined || loc.firstAppeared <= currentChapter;
                     const activePreview = previews[loc.id];
@@ -260,7 +260,7 @@ export function LivingCodexCharacters({
                     const isGenerating = generatingId === char.id;
                     const currentChapter = activeStory.currentChapterNumber || 1;
                     const hasAppeared = char.firstAppeared === undefined || char.firstAppeared <= currentChapter;
-                    const hasImage = !!char.imageUrl;
+                    const hasImage = Boolean(char.imageAssetId || char.imageUrl);
                     const canGenerate = hasAppeared && (!hasImage || char.evolutionReady);
 
                     return (
@@ -289,7 +289,7 @@ export function LivingCodexCharacters({
                     const isGenerating = generatingId === loc.id;
                     const currentChapter = activeStory.currentChapterNumber || 1;
                     const hasAppeared = loc.firstAppeared === undefined || loc.firstAppeared <= currentChapter;
-                    const hasImage = !!loc.imageUrl;
+                    const hasImage = Boolean(loc.imageAssetId || loc.imageUrl);
                     const canGenerate = hasAppeared && (!hasImage || loc.evolutionReady);
 
                     return (

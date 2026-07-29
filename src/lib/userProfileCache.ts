@@ -96,7 +96,9 @@ export const createAccountProfileFallback = (user: AppUser): UserProfile => {
     username: cachedProfile?.username || user.email?.split('@')[0] || `user_${user.uid.substring(0, 5)}`,
     displayName: cachedProfile?.displayName || user.displayName || '',
     displayNameColor: cachedProfile?.displayNameColor,
-    avatarUrl: cachedProfile?.avatarUrl || user.photoURL || '',
+    avatarUrl: cachedProfile?.activePortraitId
+      ? ''
+      : user.photoURL || cachedProfile?.avatarUrl || '',
     activePortraitId: cachedProfile?.activePortraitId,
     avatarMediaDescriptor: cachedProfile?.avatarMediaDescriptor,
     preferredLanguage: cachedProfile?.preferredLanguage || 'English',
@@ -136,11 +138,14 @@ export const withIdentityAvatar = (
   profile: UserProfile,
   user: AppUser | null,
 ): UserProfile => {
-  if (profile.activePortraitId || profile.avatarUrl) return profile;
-  const identityAvatar = readCachedAccountProfile(profile.uid)?.avatarUrl
-    || user?.photoURL
+  if (profile.activePortraitId) return profile;
+  const identityAvatar = user?.photoURL
+    || profile.avatarUrl
+    || readCachedAccountProfile(profile.uid)?.avatarUrl
     || '';
-  return identityAvatar ? { ...profile, avatarUrl: identityAvatar } : profile;
+  return identityAvatar !== profile.avatarUrl
+    ? { ...profile, avatarUrl: identityAvatar }
+    : profile;
 };
 
 export const hydrateCachedAccountPortrait = async (
@@ -149,7 +154,7 @@ export const hydrateCachedAccountPortrait = async (
   const descriptor = profile.avatarMediaDescriptor;
   if (!descriptor || !isSameAssetId(descriptor.id, profile.activePortraitId)) return profile;
   try {
-    const resolved = await resolveMediaAssetForDisplay(descriptor);
+    const resolved = await resolveMediaAssetForDisplay(descriptor, profile.uid);
     return {
       ...profile,
       avatarUrl: resolved.url,

@@ -245,4 +245,88 @@ describe('normalizeStoryImageOwnership', () => {
     expect(normalized.arcs).toEqual([]);
     expect(normalized.imageHistory).toEqual([]);
   });
+
+  it('canonicalizes equivalent compact media UUIDs across every image owner', () => {
+    const compact = '1dc21be263c047bda086980e44d67029';
+    const canonical = '1dc21be2-63c0-47bd-a086-980e44d67029';
+    const base = storyWithLegacyCombinedHistory();
+    const story: StoryWorld = {
+      ...base,
+      coverAssetId: compact,
+      imageHistory: [{
+        id: 'cover-history',
+        assetId: compact,
+        entityId: 'story-1',
+        entityType: 'cover',
+        imageUrl: '',
+        promptUsed: 'Cover',
+        createdAt: '2026-07-01T00:00:00.000Z',
+        isCurrent: true,
+      }],
+      mediaDescriptors: {
+        [compact]: {
+          id: compact,
+          assetType: 'IMAGE',
+          purpose: 'STORY_COVER',
+          visibility: 'PRIVATE',
+          status: 'READY',
+          mimeType: 'image/png',
+          byteSize: '1',
+          checksumSha256: 'a'.repeat(64),
+          version: 1,
+          deliveryUrl: '',
+          createdAt: '2026-07-01T00:00:00.000Z',
+        },
+      },
+      memory: {
+        ...base.memory,
+        characters: [{
+          ...base.memory.characters[0],
+          imageAssetId: compact,
+          voiceAssetId: compact,
+          imageHistory: [{
+            id: 'character-history',
+            assetId: compact,
+            entityId: 'character-1',
+            entityType: 'character',
+            imageUrl: '',
+            promptUsed: 'Character',
+            createdAt: '2026-07-01T00:00:00.000Z',
+            isCurrent: true,
+          }],
+        }],
+      },
+      arcs: [{
+        ...base.arcs[0],
+        chapters: [{
+          ...base.arcs[0].chapters[0],
+          heroImageAssetId: compact,
+          imageHistory: [{
+            id: 'chapter-history',
+            assetId: compact,
+            entityId: 'chapter-1',
+            entityType: 'chapterHero',
+            imageUrl: '',
+            promptUsed: 'Chapter',
+            createdAt: '2026-07-01T00:00:00.000Z',
+            isCurrent: true,
+          }],
+        }],
+      }],
+    };
+
+    const normalized = normalizeStoryImageOwnership(story);
+
+    expect(normalized.coverAssetId).toBe(canonical);
+    expect(normalized.imageHistory?.[0].assetId).toBe(canonical);
+    expect(normalized.memory.characters[0].imageAssetId).toBe(canonical);
+    expect(normalized.memory.characters[0].voiceAssetId).toBe(canonical);
+    expect(normalized.memory.characters[0].imageHistory?.[0].assetId).toBe(canonical);
+    expect(normalized.arcs[0].chapters[0].heroImageAssetId).toBe(canonical);
+    expect(normalized.arcs[0].chapters[0].imageHistory?.[0].assetId).toBe(canonical);
+    expect(normalized.mediaDescriptors).toEqual({
+      [canonical]: expect.objectContaining({ id: canonical }),
+    });
+    expect(normalizeStoryImageOwnership(normalized)).toEqual(normalized);
+  });
 });

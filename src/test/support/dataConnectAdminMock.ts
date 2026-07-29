@@ -81,7 +81,8 @@ export function createDataConnectAdminMock(actual: Record<string, unknown>) {
       dataConnectStore.selectUserPortrait(vars);
       return ok({});
     },
-    adminRecoverPendingUserPortraits: async () => ok({ recovered: 0 }),
+    adminRecoverPendingUserPortraits: async (vars: Vars) =>
+      ok({ recovered: dataConnectStore.recoverPendingUserPortraits(vars) }),
     adminConsumeImageGenerationQuota: async (vars: Vars) => {
       dataConnectStore.consumeImageQuota(vars);
       return ok({});

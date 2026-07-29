@@ -5,7 +5,19 @@ const mocks = vi.hoisted(() => ({
   saveMediaAsset: vi.fn(),
   selectMediaAsset: vi.fn(),
   getState: vi.fn(),
+  resolveMediaAssetForDisplay: vi.fn(async (descriptor: { id: string }) => ({
+    assetId: descriptor.id,
+    descriptor,
+    url: `blob:${descriptor.id}`,
+    source: 'network' as const,
+  })),
 }));
+
+const authState = vi.hoisted(() => ({
+  currentUser: { uid: 'reader-a' } as { uid: string } | null,
+}));
+
+vi.mock('../lib/firebase', () => ({ auth: authState }));
 
 vi.mock('../lib/media/mediaAssetClient', () => ({
   MEDIA_PURPOSE: { MANIFESTATION: 'MANIFESTATION' },
@@ -13,6 +25,7 @@ vi.mock('../lib/media/mediaAssetClient', () => ({
     ARTIFACT: 'ARTIFACT',
     BEAST: 'BEAST',
     CHARACTER: 'CHARACTER',
+    FACTION: 'FACTION',
     LOCATION: 'LOCATION',
   },
   requirePersistenceUuid: (value: string) => value,
@@ -25,12 +38,7 @@ vi.mock('../store/useAppStore', () => ({
 }));
 
 vi.mock('../lib/media/privateMediaResolver', () => ({
-  resolveMediaAssetForDisplay: vi.fn(async (descriptor: { id: string }) => ({
-    assetId: descriptor.id,
-    descriptor,
-    url: `blob:${descriptor.id}`,
-    source: 'network' as const,
-  })),
+  resolveMediaAssetForDisplay: mocks.resolveMediaAssetForDisplay,
   discardCachedMedia: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -71,7 +79,14 @@ const activeStory = {
 describe('useCodexImageEvolution error handling', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    mocks.getState.mockReturnValue({ stories: [] });
+    authState.currentUser = { uid: 'reader-a' };
+    mocks.resolveMediaAssetForDisplay.mockImplementation(async (descriptor: { id: string }) => ({
+      assetId: descriptor.id,
+      descriptor,
+      url: `blob:${descriptor.id}`,
+      source: 'network' as const,
+    }));
+    mocks.getState.mockReturnValue({ stories: [], userProfile: {} });
   });
 
   it('surfaces a failure to resolve a persisted image during revert', async () => {
@@ -122,14 +137,22 @@ describe('useCodexImageEvolution error handling', () => {
       targetKind: 'CHARACTER',
       targetKey: 'character-persistence-id',
       entityId: 'character-persistence-id',
-    }));
+    }), 'reader-a');
     const committed = onUpdateStory.mock.calls[0][1];
     expect(committed.memory.characters[0].imageAssetId).toBe('asset-older');
     expect(committed.memory.characters[0].imageHistory.find((image: { id: string }) => image.id === 'history-older').isCurrent)
       .toBe(true);
     expect(committed.memory.characters[0].imageHistory.find((image: { id: string }) => image.id === 'history-newer').isCurrent)
       .toBe(false);
-    expect(committed).toEqual({ memory: expect.anything() });
+    expect(committed).toEqual({
+      memory: expect.anything(),
+      mediaDescriptors: {
+        'asset-older': expect.objectContaining({
+          id: 'asset-older',
+          deliveryUrl: '',
+        }),
+      },
+    });
   });
 
   // PostgreSQL rebuilds the story-level history from STORY-targeted media
@@ -164,7 +187,11 @@ describe('useCodexImageEvolution error handling', () => {
     });
 
     expect(result.current.generationError).toBeNull();
-    expect(mocks.selectMediaAsset).toHaveBeenCalledWith('asset-older', expect.anything());
+    expect(mocks.selectMediaAsset).toHaveBeenCalledWith(
+      'asset-older',
+      expect.anything(),
+      'reader-a',
+    );
     const character = onUpdateStory.mock.calls[0][1].memory.characters[0];
     expect(character.imageAssetId).toBe('asset-older');
     expect(character.imageUrl).toBe('blob:asset-older');
@@ -224,7 +251,7 @@ describe('useCodexImageEvolution error handling', () => {
       .toBe('That manifestation is no longer stored and cannot be restored.');
   });
 
-  it('does not commit a version whose descriptor resolves to no URL', async () => {
+  it('keeps a committed version selection when delivery resolves to no URL', async () => {
     mocks.selectMediaAsset.mockResolvedValue({ id: 'asset-older', deliveryUrl: '' });
     vi.mocked(resolveMediaAssetForDisplay).mockResolvedValueOnce({
       assetId: 'asset-older',
@@ -254,9 +281,100 @@ describe('useCodexImageEvolution error handling', () => {
       await result.current.handleRevertImage('character-1', 'character', 'history-older');
     });
 
-    expect(onUpdateStory).not.toHaveBeenCalled();
+    expect(onUpdateStory).toHaveBeenCalledWith(
+      activeStory.id,
+      expect.objectContaining({
+        memory: expect.objectContaining({
+          characters: [
+            expect.objectContaining({
+              imageAssetId: 'asset-older',
+              imageUrl: '',
+              imageHistory: [
+                expect.objectContaining({
+                  assetId: 'asset-older',
+                  isCurrent: true,
+                }),
+              ],
+            }),
+          ],
+        }),
+        mediaDescriptors: {
+          'asset-older': expect.objectContaining({
+            id: 'asset-older',
+            deliveryUrl: '',
+          }),
+        },
+      }),
+    );
     expect(result.current.generationError)
-      .toBe('That manifestation could not be resolved and was left unchanged.');
+      .toContain('The manifestation selection was saved, but its image could not be loaded yet.');
+  });
+
+  it('reverts a faction through its own canonical slot and history', async () => {
+    mocks.selectMediaAsset.mockResolvedValue({ id: 'asset-faction-old', deliveryUrl: '' });
+    const onUpdateStory = vi.fn();
+    const factionMemory = {
+      ...memory,
+      factions: [{
+        id: 'faction-1',
+        persistenceId: 'faction-persistence-id',
+        imageAssetId: 'asset-faction-new',
+        imageHistory: [
+          {
+            id: 'faction-history-old',
+            assetId: 'asset-faction-old',
+            entityId: 'faction-1',
+            entityType: 'faction',
+            imageUrl: '',
+            isCurrent: false,
+          },
+          {
+            id: 'faction-history-new',
+            assetId: 'asset-faction-new',
+            entityId: 'faction-1',
+            entityType: 'faction',
+            imageUrl: '',
+            isCurrent: true,
+          },
+        ],
+      }],
+    };
+    const { result } = renderHook(() => useCodexImageEvolution(
+      factionMemory,
+      activeStory,
+      onUpdateStory,
+      undefined,
+      vi.fn(),
+    ));
+
+    await act(async () => {
+      await result.current.handleRevertImage(
+        'faction-1',
+        'faction',
+        'faction-history-old',
+      );
+    });
+
+    expect(mocks.selectMediaAsset).toHaveBeenCalledWith(
+      'asset-faction-old',
+      expect.objectContaining({
+        targetKind: 'FACTION',
+        targetKey: 'faction-persistence-id',
+        entityId: 'faction-persistence-id',
+      }),
+      'reader-a',
+    );
+    const faction = onUpdateStory.mock.calls[0][1].memory.factions[0];
+    expect(faction).toMatchObject({
+      imageAssetId: 'asset-faction-old',
+      imageUrl: 'blob:asset-faction-old',
+    });
+    expect(faction.imageHistory.find(
+      (image: { id: string }) => image.id === 'faction-history-old',
+    ).isCurrent).toBe(true);
+    expect(faction.imageHistory.find(
+      (image: { id: string }) => image.id === 'faction-history-new',
+    ).isCurrent).toBe(false);
   });
 
   it('keeps a preview available when saving its media asset fails', async () => {
@@ -285,5 +403,206 @@ describe('useCodexImageEvolution error handling', () => {
 
     expect(result.current.generationError).toBe('Upload failed');
     expect(result.current.previews['character-1']).toBeDefined();
+  });
+
+  it('retains a blank local descriptor when an evolution is saved', async () => {
+    const descriptor = {
+      id: 'asset-new',
+      version: 2,
+      checksumSha256: 'checksum',
+      deliveryUrl: 'https://signed.example/new?X-Amz-Signature=abc',
+    };
+    mocks.saveMediaAsset.mockResolvedValue(descriptor);
+    const onUpdateStory = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() => useCodexImageEvolution(
+      memory,
+      activeStory,
+      onUpdateStory,
+      undefined,
+      vi.fn(),
+    ));
+    act(() => {
+      result.current.setPreviews({
+        'character-1': {
+          prompt: 'A cultivator',
+          selectedIndex: 0,
+          type: 'character',
+          urls: ['https://example.test/new.png'],
+        },
+      });
+    });
+
+    await act(async () => {
+      await result.current.handleSaveEvolution('character-1', 'character');
+    });
+
+    expect(mocks.saveMediaAsset).toHaveBeenCalledWith(expect.objectContaining({
+      expectedOwnerUid: 'reader-a',
+    }));
+    expect(mocks.resolveMediaAssetForDisplay).toHaveBeenCalledWith(
+      descriptor,
+      'reader-a',
+    );
+    expect(onUpdateStory).toHaveBeenCalledWith(
+      activeStory.id,
+      expect.objectContaining({
+        mediaDescriptors: {
+          'asset-new': expect.objectContaining({
+            id: 'asset-new',
+            version: 2,
+            checksumSha256: 'checksum',
+            deliveryUrl: '',
+          }),
+        },
+      }),
+    );
+  });
+
+  it('keeps a saved evolution canonical when delivery signing fails', async () => {
+    const descriptor = {
+      id: 'asset-new',
+      version: 2,
+      checksumSha256: 'checksum',
+      deliveryUrl: '',
+    };
+    mocks.saveMediaAsset.mockResolvedValue(descriptor);
+    mocks.resolveMediaAssetForDisplay.mockRejectedValue(
+      new Error('R2 signing unavailable'),
+    );
+    const onUpdateStory = vi.fn().mockResolvedValue(undefined);
+    const pushNotification = vi.fn();
+    const { result } = renderHook(() => useCodexImageEvolution(
+      memory,
+      activeStory,
+      onUpdateStory,
+      undefined,
+      pushNotification,
+    ));
+    act(() => {
+      result.current.setPreviews({
+        'character-1': {
+          prompt: 'A cultivator',
+          selectedIndex: 0,
+          type: 'character',
+          urls: ['https://example.test/new.png'],
+        },
+      });
+    });
+
+    await act(async () => {
+      await result.current.handleSaveEvolution('character-1', 'character');
+    });
+
+    expect(onUpdateStory).toHaveBeenCalledWith(
+      activeStory.id,
+      expect.objectContaining({
+        memory: expect.objectContaining({
+          characters: [
+            expect.objectContaining({
+              imageAssetId: 'asset-new',
+              imageUrl: '',
+              imageHistory: expect.arrayContaining([
+                expect.objectContaining({
+                  assetId: 'asset-new',
+                  imageUrl: '',
+                  isCurrent: true,
+                }),
+              ]),
+            }),
+          ],
+        }),
+        mediaDescriptors: {
+          'asset-new': expect.objectContaining({
+            id: 'asset-new',
+            deliveryUrl: '',
+          }),
+        },
+      }),
+    );
+    expect(result.current.previews['character-1']).toBeUndefined();
+    expect(result.current.generationError)
+      .toContain('The manifestation was saved, but its image could not be loaded yet.');
+    expect(pushNotification).not.toHaveBeenCalled();
+  });
+
+  it('abandons a revert when slot selection resolves under another account', async () => {
+    let resolveSelection!: (asset: any) => void;
+    mocks.selectMediaAsset.mockReturnValue(
+      new Promise(resolve => { resolveSelection = resolve; }),
+    );
+    const onUpdateStory = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() => useCodexImageEvolution(
+      memory,
+      activeStory,
+      onUpdateStory,
+      undefined,
+      vi.fn(),
+    ));
+
+    let revert!: Promise<void>;
+    act(() => {
+      revert = result.current.handleRevertImage('character-1', 'character', 'history-id');
+    });
+    await vi.waitFor(() => expect(mocks.selectMediaAsset).toHaveBeenCalledOnce());
+
+    authState.currentUser = { uid: 'reader-b' };
+    resolveSelection({ id: 'asset-id', deliveryUrl: '' });
+
+    await act(async () => {
+      await revert;
+    });
+
+    expect(mocks.resolveMediaAssetForDisplay).not.toHaveBeenCalled();
+    expect(onUpdateStory).not.toHaveBeenCalled();
+    expect(result.current.generationError).toBeNull();
+  });
+
+  it('abandons an evolution save when its media upload resolves under another account', async () => {
+    let resolveAsset!: (asset: any) => void;
+    mocks.saveMediaAsset.mockReturnValue(
+      new Promise(resolve => { resolveAsset = resolve; }),
+    );
+    const onUpdateStory = vi.fn().mockResolvedValue(undefined);
+    const pushNotification = vi.fn();
+    const { result } = renderHook(() => useCodexImageEvolution(
+      memory,
+      activeStory,
+      onUpdateStory,
+      undefined,
+      pushNotification,
+    ));
+
+    act(() => {
+      result.current.setPreviews({
+        'character-1': {
+          prompt: 'A cultivator',
+          selectedIndex: 0,
+          type: 'character',
+          urls: ['https://example.test/new.png'],
+        },
+      });
+    });
+
+    let save!: Promise<void>;
+    act(() => {
+      save = result.current.handleSaveEvolution('character-1', 'character');
+    });
+    await vi.waitFor(() => expect(mocks.saveMediaAsset).toHaveBeenCalledOnce());
+
+    authState.currentUser = { uid: 'reader-b' };
+    resolveAsset({
+      id: 'asset-new',
+      version: 1,
+      checksumSha256: 'a'.repeat(64),
+    });
+
+    await act(async () => {
+      await save;
+    });
+
+    expect(mocks.resolveMediaAssetForDisplay).not.toHaveBeenCalled();
+    expect(onUpdateStory).not.toHaveBeenCalled();
+    expect(pushNotification).not.toHaveBeenCalled();
+    expect(result.current.generationError).toBeNull();
   });
 });

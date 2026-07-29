@@ -39,6 +39,7 @@ const mocks = vi.hoisted(() => ({
   claimedLeases: [] as number[],
   onAuthStateChanged: vi.fn(),
   resolveMedia: vi.fn(),
+  getMediaAsset: vi.fn(),
 }));
 
 vi.mock('./indexedDBAdapter', () => ({
@@ -168,6 +169,9 @@ vi.mock('../media/privateMediaResolver', () => ({
   resolveMediaAssetForDisplay: mocks.resolveMedia,
   resetPrivateMediaResolver: vi.fn(),
 }));
+vi.mock('../media/mediaAssetClient', () => ({
+  getMediaAsset: mocks.getMediaAsset,
+}));
 vi.mock('../firebase', () => ({
   auth: mocks.auth,
   LOCAL_ONLY_MODE: false,
@@ -243,6 +247,20 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
       descriptor,
       url: `resolved:${descriptor.id}`,
       source: 'network',
+    }));
+    mocks.getMediaAsset.mockImplementation(async (assetId: string) => ({
+      id: assetId,
+      assetType: 'IMAGE',
+      purpose: 'STORY_COVER',
+      visibility: 'PRIVATE',
+      status: 'READY',
+      mimeType: 'image/png',
+      byteSize: '4',
+      checksumSha256: 'not-a-real-checksum',
+      version: 1,
+      deliveryUrl: `https://signed.example/${assetId}`,
+      deliveryUrlExpiresAt: '2026-07-30T00:00:00.000Z',
+      createdAt: '2026-07-29T00:00:00.000Z',
     }));
   });
 
@@ -950,6 +968,145 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     ]);
 
     unsubscribe();
+    manager.dispose();
+  });
+
+  it('restores a missing descriptor from its canonical id and discards a stale local URL', async () => {
+    mocks.auth.currentUser = { uid: 'reader' };
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    await vi.waitFor(() => expect((manager as any).activeSyncPromise).toBeNull());
+
+    mocks.idb.getStories.mockResolvedValue([
+      makeStory({
+        coverAssetId: 'cover-without-descriptor',
+        imageUrl: 'blob:https://app.example/dead-after-reload',
+      }),
+    ]);
+
+    const [rendered] = await manager.getStories();
+
+    expect(mocks.getMediaAsset).toHaveBeenCalledWith(
+      'cover-without-descriptor',
+      'reader',
+    );
+    expect(rendered.imageUrl).toBe('resolved:cover-without-descriptor');
+    expect(rendered.mediaDescriptors).toMatchObject({
+      'cover-without-descriptor': {
+        id: 'cover-without-descriptor',
+        deliveryUrl: '',
+      },
+    });
+    expect(JSON.stringify(rendered)).not.toContain('dead-after-reload');
+    manager.dispose();
+  });
+
+  it('writes only canonical media identity to the cloud-mode local replica', async () => {
+    mocks.auth.currentUser = { uid: 'reader' };
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    await vi.waitFor(() => expect((manager as any).activeSyncPromise).toBeNull());
+    (manager as any).isCloudAvailable = false;
+    mocks.idb.saveStory.mockClear();
+
+    await manager.saveStory(makeStory({
+      coverAssetId: 'cover-1',
+      imageUrl: 'blob:https://app.example/current-cover',
+      mediaDescriptors: {
+        'cover-1': {
+          id: 'cover-1',
+          deliveryUrl: 'https://signed.example/cover-1?X-Amz-Signature=abc',
+        },
+      },
+    }) as any);
+
+    const durable = mocks.idb.saveStory.mock.calls.at(-1)?.[0];
+    expect(durable).toMatchObject({
+      coverAssetId: 'cover-1',
+      mediaDescriptors: {
+        'cover-1': { id: 'cover-1', deliveryUrl: '' },
+      },
+    });
+    expect(durable).not.toHaveProperty('imageUrl');
+    expect(JSON.stringify(durable)).not.toMatch(/blob:|X-Amz-Signature/);
+    manager.dispose();
+  });
+
+  it('rejects media hydration that finishes after the active account changes', async () => {
+    mocks.auth.currentUser = { uid: 'reader' };
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    await vi.waitFor(() => expect((manager as any).activeSyncPromise).toBeNull());
+
+    mocks.idb.getStories.mockResolvedValue([
+      makeStory({
+        coverAssetId: 'cover-1',
+        mediaDescriptors: {
+          'cover-1': {
+            id: 'cover-1',
+            deliveryUrl: '',
+          },
+        },
+      }),
+    ]);
+    let finishResolution!: (value: any) => void;
+    mocks.resolveMedia.mockImplementationOnce(
+      () => new Promise((resolve) => {
+        finishResolution = resolve;
+      }),
+    );
+
+    const pendingRead = manager.getStories();
+    await vi.waitFor(() => expect(mocks.resolveMedia).toHaveBeenCalled());
+    mocks.auth.currentUser = { uid: 'other-reader' };
+    finishResolution({
+      assetId: 'cover-1',
+      descriptor: { id: 'cover-1', deliveryUrl: '' },
+      url: 'blob:wrong-account',
+      source: 'network',
+    });
+
+    await expect(pendingRead).rejects.toMatchObject({
+      code: 'auth/account-changed',
+    });
+    manager.dispose();
+  });
+
+  it('rejects single-story media hydration that finishes after an account change', async () => {
+    mocks.auth.currentUser = { uid: 'reader' };
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    await vi.waitFor(() => expect((manager as any).activeSyncPromise).toBeNull());
+
+    mocks.idb.getStory.mockResolvedValue(makeStory({
+      coverAssetId: 'cover-1',
+      mediaDescriptors: {
+        'cover-1': {
+          id: 'cover-1',
+          deliveryUrl: '',
+        },
+      },
+    }));
+    let finishResolution!: (value: any) => void;
+    mocks.resolveMedia.mockImplementationOnce(
+      () => new Promise((resolve) => {
+        finishResolution = resolve;
+      }),
+    );
+
+    const pendingRead = manager.getStory('shared-story');
+    await vi.waitFor(() => expect(mocks.resolveMedia).toHaveBeenCalled());
+    mocks.auth.currentUser = { uid: 'other-reader' };
+    finishResolution({
+      assetId: 'cover-1',
+      descriptor: { id: 'cover-1', deliveryUrl: '' },
+      url: 'blob:wrong-account',
+      source: 'network',
+    });
+
+    await expect(pendingRead).rejects.toMatchObject({
+      code: 'auth/account-changed',
+    });
     manager.dispose();
   });
 

@@ -2,7 +2,7 @@ import type { MediaAssetDescriptor } from "../../contracts/mediaAssets";
 import { auth } from "../firebase";
 import { IndexedDbFoundationCache } from "../foundation/cache/indexedDbFoundationCache";
 import type { FoundationCache } from "../foundation/cache/types";
-import { getMediaAsset } from "./mediaAssetClient";
+import { getMediaAsset, MediaAssetClientError } from "./mediaAssetClient";
 
 const REFRESH_SKEW_MS = 60_000;
 const MEDIA_BLOB_TTL_MS = 24 * 60 * 60 * 1000;
@@ -170,8 +170,22 @@ export class PrivateMediaResolver {
 
 let activeResolver: PrivateMediaResolver | undefined;
 
-function currentResolver(): PrivateMediaResolver {
-  const ownerUid = auth.currentUser?.uid;
+function assertExpectedOwner(expectedOwnerUid?: string): void {
+  if (expectedOwnerUid && auth.currentUser?.uid !== expectedOwnerUid) {
+    throw new MediaAssetClientError(
+      "The active account changed during media URL resolution.",
+      {
+        code: "auth/account-changed",
+        status: 409,
+        recoverable: false,
+      },
+    );
+  }
+}
+
+function currentResolver(expectedOwnerUid?: string): PrivateMediaResolver {
+  assertExpectedOwner(expectedOwnerUid);
+  const ownerUid = expectedOwnerUid ?? auth.currentUser?.uid;
   if (!ownerUid) throw new Error("Authentication is required to resolve private media.");
   if (activeResolver?.ownerUid !== ownerUid) {
     activeResolver?.dispose();
@@ -183,21 +197,61 @@ function currentResolver(): PrivateMediaResolver {
   return activeResolver;
 }
 
+export interface DirectMediaResolutionOptions {
+  getDescriptor?: (assetId: string) => Promise<MediaAssetDescriptor>;
+  now?: () => number;
+}
+
+/**
+ * Resolve a delivery URL without the blob cache.
+ *
+ * Browsers that do not expose IndexedDB still receive the same replicated
+ * descriptor shape as every other device: canonical identity with a deliberately
+ * blank delivery URL. Returning that blank (or an expired signed URL) rendered a
+ * valid permanent asset as missing. Refresh from the canonical id before using
+ * the direct link and fail loudly if the server still cannot provide one.
+ */
+export async function resolveMediaAssetDirectly(
+  input: MediaAssetDescriptor,
+  options: DirectMediaResolutionOptions = {},
+): Promise<ResolvedPrivateMedia> {
+  const getDescriptor = options.getDescriptor ?? getMediaAsset;
+  const now = options.now ?? Date.now;
+  let descriptor = input;
+  if (!descriptor.deliveryUrl?.trim() || isNearlyExpired(descriptor, now())) {
+    descriptor = await getDescriptor(input.id);
+  }
+  if (!descriptor.deliveryUrl?.trim()) {
+    throw new Error(
+      `Media asset ${descriptor.id} has no delivery URL after refresh.`,
+    );
+  }
+  return {
+    assetId: descriptor.id,
+    descriptor,
+    url: descriptor.deliveryUrl,
+    source: "direct",
+  };
+}
+
 export async function resolveMediaAssetForDisplay(
   descriptor: MediaAssetDescriptor,
+  expectedOwnerUid?: string,
 ): Promise<ResolvedPrivateMedia> {
+  assertExpectedOwner(expectedOwnerUid);
   try {
-    return await currentResolver().resolve(descriptor);
+    const resolved = await currentResolver(expectedOwnerUid).resolve(descriptor);
+    assertExpectedOwner(expectedOwnerUid);
+    return resolved;
   } catch (error) {
     if (!(error instanceof Error) || !/IndexedDB is not supported/i.test(error.message)) {
       throw error;
     }
-    return {
-      assetId: descriptor.id,
-      descriptor,
-      url: descriptor.deliveryUrl,
-      source: "direct",
-    };
+    const resolved = await resolveMediaAssetDirectly(descriptor, {
+      getDescriptor: (assetId) => getMediaAsset(assetId, expectedOwnerUid),
+    });
+    assertExpectedOwner(expectedOwnerUid);
+    return resolved;
   }
 }
 

@@ -603,6 +603,9 @@ export function ReaderViewport({
                         });
 
                         const revealImageUrl = revealTerm && 'imageUrl' in revealTerm.entry ? (revealTerm.entry as any).imageUrl : undefined;
+                        const revealImageAssetId = revealTerm && 'imageAssetId' in revealTerm.entry
+                          ? (revealTerm.entry as any).imageAssetId
+                          : undefined;
 
                         const isSenMode = readerMode === "sen";
                         const currentParaIdx = currentNarratedBlockIndex;
@@ -655,7 +658,7 @@ export function ReaderViewport({
                                   // Portrait generation stays gated on the
                                   // editorial manifestation policy; name
                                   // highlighting and hovercards do not.
-                                  revealTerm.type !== 'faction'
+                                  !revealImageAssetId
                                   && isManifestationEligible(revealTerm.entry) && (
                                     <button
                                        tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleManifestReveal(revealTerm.entry, revealTerm.type)}

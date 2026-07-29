@@ -6,6 +6,7 @@ import type {
   MediaAssociation,
   MediaVisibility,
 } from '../../contracts/mediaAssets';
+import { canonicalAssetId } from '../../contracts/assetIdentity';
 
 export const MEDIA_TARGET_KIND = {
   STORY: 'STORY',
@@ -37,6 +38,8 @@ export interface SaveBrowserMediaInput {
   generationJobId?: string | null;
   replacesAssetId?: string | null;
   idempotencyKey?: string;
+  /** Abort publication if authentication changes while the upload is in flight. */
+  expectedOwnerUid?: string;
 }
 
 export class MediaAssetClientError extends Error {
@@ -63,16 +66,33 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3
 /** Resolve canonical SQL UUIDs while accepting the disposable phase-one prefix. */
 export function requirePersistenceUuid(value: string | undefined, label: string): string {
   const normalized = value?.trim() ?? '';
-  if (UUID_PATTERN.test(normalized)) return normalized;
+  const canonical = canonicalAssetId(normalized);
+  if (UUID_PATTERN.test(canonical)) return canonical;
   const prefixed = normalized.match(/^(?:story|seed)-([0-9a-f-]{36})$/i)?.[1];
-  if (prefixed && UUID_PATTERN.test(prefixed)) return prefixed;
+  if (prefixed) {
+    const canonicalPrefixed = canonicalAssetId(prefixed);
+    if (UUID_PATTERN.test(canonicalPrefixed)) return canonicalPrefixed;
+  }
   throw new MediaAssetClientError(
     `${label} has not synchronized with PostgreSQL yet. Retry after synchronization completes.`,
     { code: 'persistence_identity_missing', status: 409, recoverable: true },
   );
 }
 
-async function authHeaders(contentType?: string): Promise<Record<string, string>> {
+function assertExpectedOwner(expectedOwnerUid?: string): void {
+  if (expectedOwnerUid && auth.currentUser?.uid !== expectedOwnerUid) {
+    throw new MediaAssetClientError('The active account changed during media persistence.', {
+      code: 'auth/account-changed',
+      status: 409,
+      recoverable: false,
+    });
+  }
+}
+
+async function authHeaders(
+  contentType?: string,
+  expectedOwnerUid?: string,
+): Promise<Record<string, string>> {
   const user = auth.currentUser;
   if (!user) {
     throw new MediaAssetClientError('Sign in before saving permanent media.', {
@@ -81,7 +101,16 @@ async function authHeaders(contentType?: string): Promise<Record<string, string>
       recoverable: false,
     });
   }
+  assertExpectedOwner(expectedOwnerUid);
+  const ownerUid = user.uid;
   const token = await user.getIdToken();
+  if (auth.currentUser?.uid !== ownerUid) {
+    throw new MediaAssetClientError('The active account changed during media persistence.', {
+      code: 'auth/account-changed',
+      status: 409,
+      recoverable: false,
+    });
+  }
   return {
     Authorization: `Bearer ${token}`,
     ...(contentType ? { 'Content-Type': contentType } : {}),
@@ -140,72 +169,128 @@ function jsonSource(source: string, filename?: string, expectedMimeType?: string
   };
 }
 
+function canonicalDescriptor(descriptor: MediaAssetDescriptor): MediaAssetDescriptor {
+  const id = canonicalAssetId(descriptor.id);
+  return id === descriptor.id ? descriptor : { ...descriptor, id };
+}
+
+function canonicalAssociation<T extends Omit<MediaAssociation, 'purpose'> | MediaAssociation>(
+  association: T,
+): T {
+  const relationalTarget = Boolean(
+    association.storyId || association.chapterId || association.entityId,
+  );
+  return {
+    ...association,
+    // Account target keys are Firebase UIDs, not PostgreSQL UUIDs. A custom
+    // UID may happen to be 32 hex characters and must never be hyphenated.
+    targetKey: relationalTarget
+      ? canonicalAssetId(association.targetKey)
+      : association.targetKey.trim(),
+    ...(association.storyId
+      ? { storyId: canonicalAssetId(association.storyId) }
+      : {}),
+    ...(association.chapterId
+      ? { chapterId: canonicalAssetId(association.chapterId) }
+      : {}),
+    ...(association.entityId
+      ? { entityId: canonicalAssetId(association.entityId) }
+      : {}),
+  };
+}
+
 export async function saveMediaAsset(input: SaveBrowserMediaInput): Promise<MediaAssetDescriptor> {
   const idempotencyKey = input.idempotencyKey ?? generateUUID();
+  const association = canonicalAssociation(input.association);
+  const generationJobId = input.generationJobId
+    ? canonicalAssetId(input.generationJobId)
+    : input.generationJobId;
+  const replacesAssetId = input.replacesAssetId
+    ? canonicalAssetId(input.replacesAssetId)
+    : input.replacesAssetId;
   if (input.source instanceof Blob) {
     const query = new URLSearchParams({
       assetType: input.assetType,
       purpose: input.purpose,
-      targetKind: input.association.targetKind,
-      targetKey: input.association.targetKey,
+      targetKind: association.targetKind,
+      targetKey: association.targetKey,
       idempotencyKey,
       ...(input.visibility ? { visibility: input.visibility } : {}),
-      ...(input.association.storyId ? { storyId: input.association.storyId } : {}),
-      ...(input.association.chapterId ? { chapterId: input.association.chapterId } : {}),
-      ...(input.association.entityId ? { entityId: input.association.entityId } : {}),
-      ...(input.generationJobId ? { generationJobId: input.generationJobId } : {}),
-      ...(input.replacesAssetId ? { replacesAssetId: input.replacesAssetId } : {}),
+      ...(association.storyId ? { storyId: association.storyId } : {}),
+      ...(association.chapterId ? { chapterId: association.chapterId } : {}),
+      ...(association.entityId ? { entityId: association.entityId } : {}),
+      ...(generationJobId ? { generationJobId } : {}),
+      ...(replacesAssetId ? { replacesAssetId } : {}),
       ...(input.filename ? { filename: input.filename } : {}),
     });
     const response = await fetch(`/api/foundation/media-assets/upload?${query}`, {
       method: 'POST',
-      headers: await authHeaders(input.source.type || 'application/octet-stream'),
+      headers: await authHeaders(
+        input.source.type || 'application/octet-stream',
+        input.expectedOwnerUid,
+      ),
       body: input.source,
     });
-    return (await parseResponse<{ asset: MediaAssetDescriptor }>(response)).asset;
+    const asset = (await parseResponse<{ asset: MediaAssetDescriptor }>(response)).asset;
+    assertExpectedOwner(input.expectedOwnerUid);
+    return canonicalDescriptor(asset);
   }
 
   const response = await fetch('/api/foundation/media-assets', {
     method: 'POST',
-    headers: await authHeaders('application/json'),
+    headers: await authHeaders('application/json', input.expectedOwnerUid),
     body: JSON.stringify({
       source: jsonSource(input.source, input.filename, input.expectedMimeType),
       assetType: input.assetType,
       purpose: input.purpose,
       visibility: input.visibility,
-      association: { ...input.association, purpose: input.purpose },
-      generationJobId: input.generationJobId,
-      replacesAssetId: input.replacesAssetId,
+      association: { ...association, purpose: input.purpose },
+      generationJobId,
+      replacesAssetId,
       idempotencyKey,
     }),
   });
-  return (await parseResponse<{ asset: MediaAssetDescriptor }>(response)).asset;
+  const asset = (await parseResponse<{ asset: MediaAssetDescriptor }>(response)).asset;
+  assertExpectedOwner(input.expectedOwnerUid);
+  return canonicalDescriptor(asset);
 }
 
-export async function getMediaAsset(assetId: string): Promise<MediaAssetDescriptor> {
-  const response = await fetch(`/api/foundation/media-assets/${encodeURIComponent(assetId)}`, {
-    headers: await authHeaders(),
+export async function getMediaAsset(
+  assetId: string,
+  expectedOwnerUid?: string,
+): Promise<MediaAssetDescriptor> {
+  const canonicalId = canonicalAssetId(assetId);
+  const response = await fetch(`/api/foundation/media-assets/${encodeURIComponent(canonicalId)}`, {
+    headers: await authHeaders(undefined, expectedOwnerUid),
   });
-  return (await parseResponse<{ asset: MediaAssetDescriptor }>(response)).asset;
+  const asset = (await parseResponse<{ asset: MediaAssetDescriptor }>(response)).asset;
+  assertExpectedOwner(expectedOwnerUid);
+  return canonicalDescriptor(asset);
 }
 
 export async function selectMediaAsset(
   assetId: string,
   association: MediaAssociation,
+  expectedOwnerUid?: string,
 ): Promise<MediaAssetDescriptor> {
+  const canonicalId = canonicalAssetId(assetId);
+  const normalizedAssociation = canonicalAssociation(association);
   const response = await fetch(
-    `/api/foundation/media-assets/${encodeURIComponent(assetId)}/select`,
+    `/api/foundation/media-assets/${encodeURIComponent(canonicalId)}/select`,
     {
       method: 'POST',
-      headers: await authHeaders('application/json'),
-      body: JSON.stringify({ association }),
+      headers: await authHeaders('application/json', expectedOwnerUid),
+      body: JSON.stringify({ association: normalizedAssociation }),
     },
   );
-  return (await parseResponse<{ asset: MediaAssetDescriptor }>(response)).asset;
+  const asset = (await parseResponse<{ asset: MediaAssetDescriptor }>(response)).asset;
+  assertExpectedOwner(expectedOwnerUid);
+  return canonicalDescriptor(asset);
 }
 
 export async function deleteMediaAsset(assetId: string): Promise<void> {
-  const response = await fetch(`/api/foundation/media-assets/${encodeURIComponent(assetId)}`, {
+  const canonicalId = canonicalAssetId(assetId);
+  const response = await fetch(`/api/foundation/media-assets/${encodeURIComponent(canonicalId)}`, {
     method: 'DELETE',
     headers: await authHeaders(),
   });

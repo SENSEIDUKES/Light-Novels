@@ -48,12 +48,18 @@ export function useReaderVisuals({
 
   const triggerHeroGeneration = () => {
     if (!isMomentousChapter || !activeStory || !selectedChapter) return;
-    if (selectedChapter.assetManifest?.heroImage || generatingIds.has(`chapter-hero-${selectedChapter.number}`)) return;
+    if (
+      selectedChapter.heroImageAssetId
+      || selectedChapter.assetManifest?.heroImage
+      || generatingIds.has(`chapter-hero-${selectedChapter.number}`)
+    ) return;
     
     const currentArc = activeStory.arcs.find(a => a.chapters.some(c => c.number === selectedChapter.number));
     if (!currentArc) return;
     
-    const existingHeroImagesCount = currentArc.chapters.filter(c => c.assetManifest && c.assetManifest.heroImage).length;
+    const existingHeroImagesCount = currentArc.chapters.filter(
+      chapter => chapter.heroImageAssetId || chapter.assetManifest?.heroImage,
+    ).length;
     if (existingHeroImagesCount >= 3) return;
     
     const promptText = `A cinematic visual memory of the defining moment that just happened: ${selectedChapter.summary || 'A critical climactic climax in the story.'} Render as a vivid frozen memory capturing the emotional core and exact action of the moment.`;

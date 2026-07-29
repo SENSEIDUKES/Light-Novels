@@ -1,7 +1,19 @@
-import { describe, it, expect } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { LivingCodexCollage } from './LivingCodexCollage';
 import type { StoryMemory, StoryWorld } from '../../types';
+
+const mediaMocks = vi.hoisted(() => ({
+  getMediaAsset: vi.fn(),
+  resolveMediaAssetForDisplay: vi.fn(),
+}));
+
+vi.mock('../../lib/media/mediaAssetClient', () => ({
+  getMediaAsset: mediaMocks.getMediaAsset,
+}));
+vi.mock('../../lib/media/privateMediaResolver', () => ({
+  resolveMediaAssetForDisplay: mediaMocks.resolveMediaAssetForDisplay,
+}));
 
 /**
  * These cases pin the collage to the records that survive a cloud round-trip.
@@ -46,6 +58,20 @@ function renderCollage(story: StoryWorld) {
 }
 
 describe('LivingCodexCollage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mediaMocks.getMediaAsset.mockImplementation(async (assetId: string) => ({
+      id: assetId,
+      deliveryUrl: `https://signed.example/${assetId}`,
+    }));
+    mediaMocks.resolveMediaAssetForDisplay.mockImplementation(async (descriptor: any) => ({
+      assetId: descriptor.id,
+      descriptor,
+      url: `blob:${descriptor.id}`,
+      source: 'network',
+    }));
+  });
+
   it('renders entity portraits the cloud stores on the entity, not on the story', () => {
     const memory: StoryMemory = {
       ...baseMemory,
@@ -350,11 +376,9 @@ describe('LivingCodexCollage', () => {
     expect(screen.getByText('Chronicle Album Empty')).toBeDefined();
   });
 
-  it('shows a placeholder, never a broken image, for an unresolved delivery URL', () => {
-    // The cloud hands back an asset id with an empty delivery URL whenever the
-    // signed link could not be minted. A bare <img src=""> rendered the
-    // browser's broken-image glyph, which reads to the user as lost data.
+  it('lazily resolves a persisted collage asset whose delivery URL is blank', async () => {
     const story = buildStory({
+      userId: 'reader',
       coverAssetId: 'asset-cover',
       imageHistory: [
         {
@@ -372,8 +396,16 @@ describe('LivingCodexCollage', () => {
 
     renderCollage(story);
 
-    expect(screen.queryByAltText(story.title)).toBeNull();
-    expect(screen.getByText('Aura Resealing')).toBeDefined();
+    await waitFor(() => {
+      expect(screen.getByAltText(story.title)).toHaveProperty(
+        'src',
+        'blob:asset-cover',
+      );
+    });
+    expect(mediaMocks.getMediaAsset).toHaveBeenCalledWith(
+      'asset-cover',
+      'reader',
+    );
     expect(screen.getByText('All Memories (1)')).toBeDefined();
   });
 

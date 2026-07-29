@@ -339,7 +339,7 @@ function App() {
             renderedUid: useAppStore.getState().currentUser?.uid ?? null,
           });
 
-          void getUserProfile()
+          void getUserProfile(expectedUid)
             .then((storedProfile) => {
               if (!snapshotIsCurrent()) return;
               if (storedProfile) {
@@ -356,7 +356,22 @@ function App() {
                 );
                 cacheAccountProfile(data);
                 store_setUserProfile(data);
-                void retryPendingCultivatorPortraits(expectedUid);
+                void retryPendingCultivatorPortraits(expectedUid)
+                  .then(async (recovered) => {
+                    if (recovered < 1 || !snapshotIsCurrent()) return;
+                    const recoveredProfile = await getUserProfile(expectedUid);
+                    if (!recoveredProfile || !snapshotIsCurrent()) return;
+                    const recoveredData = withIdentityAvatar(
+                      { ...recoveredProfile, uid: expectedUid },
+                      user,
+                    );
+                    cacheAccountProfile(recoveredData);
+                    store_setUserProfile(recoveredData);
+                  })
+                  .catch((error) => {
+                    if (!snapshotIsCurrent()) return;
+                    console.warn('Pending portrait recovery is temporarily unavailable:', error);
+                  });
               } else {
                 store_setUserProfile(createAccountProfileFallback(user));
               }

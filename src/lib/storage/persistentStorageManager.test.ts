@@ -36,11 +36,17 @@ vi.mock('./inMemoryAdapter', () => ({
     constructor() { return mocks.memory as any; }
   },
 }));
-vi.mock('./dataConnectStorageAdapter', () => ({
-  DataConnectStorageAdapter: class {
-    constructor() { return mocks.cloud as any; }
-  },
-}));
+vi.mock('./dataConnectStorageAdapter', async (importActual) => {
+  const actual = await importActual<
+    typeof import('./dataConnectStorageAdapter')
+  >();
+  return {
+    ...actual,
+    DataConnectStorageAdapter: class {
+      constructor() { return mocks.cloud as any; }
+    },
+  };
+});
 vi.mock('../firebase', () => ({
   auth: { currentUser: null },
   LOCAL_ONLY_MODE: true,

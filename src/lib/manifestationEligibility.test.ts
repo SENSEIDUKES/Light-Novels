@@ -22,5 +22,8 @@ describe('isManifestationEligible', () => {
 
   it('keeps an already manifested entry visible regardless of legacy metadata', () => {
     expect(isManifestationEligible({ imageUrl: 'https://example.com/existing.png' })).toBe(true);
+    expect(isManifestationEligible({
+      imageAssetId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    })).toBe(true);
   });
 });

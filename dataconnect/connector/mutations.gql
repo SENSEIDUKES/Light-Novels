@@ -1866,6 +1866,8 @@ mutation AdminSelectUserPortrait(
     asset: mediaAsset(first: { where: { id: { eq: $assetId }, ownerUid: { eq: $ownerUid }, status: { eq: READY } } })
       @check(expr: "this != null", message: "Ready portrait asset not found") {
       assetType @check(expr: "this == 'IMAGE'", message: "Portrait asset must be an image")
+      purpose @check(expr: "this == 'CELESTIAL_PORTRAIT'", message: "Portrait asset purpose mismatch")
+      storyId @check(expr: "this == null", message: "Portrait asset must be account scoped")
     }
     profile: userProfile(key: { userUid: $ownerUid })
       @check(expr: "this != null", message: "User profile not found") {
@@ -2433,30 +2435,45 @@ mutation AdminRecoverPendingUserPortraits(
   }
   recovered: _execute(
     sql: """
-      WITH candidate AS (
-        SELECT slot.current_asset_id AS asset_id
-        FROM media_slot AS slot
-        JOIN media_asset AS asset
-          ON asset.id = slot.current_asset_id
-         AND asset.owner_uid = slot.owner_uid
-         AND asset.status = 'READY'
-         AND asset.asset_type = 'IMAGE'
-        JOIN user_profile AS profile
-          ON profile.user_uid = slot.owner_uid
-        WHERE slot.owner_uid = $1
-          AND slot.target_kind = 'PORTRAIT'
-          AND slot.target_key = $1
-          AND slot.purpose = 'CELESTIAL_PORTRAIT'
+      WITH profile_state AS (
+        SELECT
+          profile.active_portrait_asset_id,
+          active_portrait.asset_id AS recorded_active_asset_id,
+          active_portrait.updated_at AS active_selected_at
+        FROM user_profile AS profile
+        LEFT JOIN user_portrait AS active_portrait
+          ON active_portrait.asset_id = profile.active_portrait_asset_id
+         AND active_portrait.user_uid = profile.user_uid
+         AND active_portrait.active = TRUE
+        WHERE profile.user_uid = $1
+        FOR UPDATE OF profile
+      ), candidate AS (
+        SELECT asset.id AS asset_id
+        FROM media_asset AS asset
+        CROSS JOIN profile_state AS profile
+        WHERE asset.owner_uid = $1
+          AND asset.status = 'READY'
+          AND asset.asset_type = 'IMAGE'
+          AND asset.purpose = 'CELESTIAL_PORTRAIT'
+          AND asset.story_id IS NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM user_portrait
+            WHERE asset_id = asset.id
+          )
           AND (
-            profile.active_portrait_asset_id IS DISTINCT FROM slot.current_asset_id
-            OR NOT EXISTS (
-              SELECT 1 FROM user_portrait
-              WHERE asset_id = slot.current_asset_id
-                AND user_uid = $1
-                AND active = TRUE
+            profile.active_portrait_asset_id IS NULL
+            OR (
+              profile.recorded_active_asset_id IS NULL
+              AND asset.id = profile.active_portrait_asset_id
+            )
+            OR (
+              profile.recorded_active_asset_id IS NOT NULL
+              AND asset.created_at > profile.active_selected_at
             )
           )
-        ORDER BY slot.updated_at DESC
+        ORDER BY
+          (asset.id = profile.active_portrait_asset_id) DESC,
+          asset.created_at DESC
         LIMIT 1
       ), recovered_portrait AS (
         INSERT INTO user_portrait (

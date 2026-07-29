@@ -338,6 +338,26 @@ export function preparePermanentPersistencePayload<T>(
 }
 
 /**
+ * Shape a story for any durable browser replica.
+ *
+ * Blob URLs and signed delivery URLs are render-time projections. Once a
+ * canonical asset id exists, retaining either URL in IndexedDB or localStorage
+ * makes the next reload look successful while quietly reusing a dead or
+ * expired link. Keep the identity and descriptor metadata, but force every
+ * read path to resolve a fresh delivery URL.
+ *
+ * Unlike the cloud payload helper, this deliberately does not reject
+ * unassociated local-only media. Local-only mode still supports legacy images
+ * that have not been promoted to R2.
+ */
+export function prepareLocalMediaReplicaPayload<T>(value: T): T {
+  return blankDeliveryProjections(
+    stripCanonicalDeliveryUrls(value, new WeakMap<object, unknown>()),
+    new WeakMap<object, unknown>(),
+  ) as T;
+}
+
+/**
  * Shape a cloud DTO for the local offline replica.
  *
  * The replica stores asset *ids*, never signed delivery links, so blanking the
@@ -672,6 +692,11 @@ export class DataConnectStorageAdapter implements StorageAdapter {
       normalizeStoryImageOwnership(story),
       this.temporaryMediaHosts,
     );
+    // Descriptors are an owner-scoped browser cache projection. PostgreSQL
+    // rebuilds them from MediaAsset rows and attachments on every read; even a
+    // first-write bootstrap must not copy this local cache index into story
+    // metadata.
+    delete persistedStory.mediaDescriptors;
     let baseline = this.storySnapshots.get(story.id);
     if (baseline?.persistenceHydration === 'summary') {
       baseline = (await this.getStory(story.id)) ?? undefined;

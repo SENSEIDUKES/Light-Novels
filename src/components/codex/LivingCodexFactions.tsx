@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Plus, Settings2 } from 'lucide-react';
 import { Character, Faction } from '../../types';
 import { useCodex } from './CodexContext';
+import { LivingCodexImageGallery } from './LivingCodexImageGallery';
+import { resolveEntityImageHistory } from './entityImageHistory';
 
 interface LivingCodexFactionsProps {
   factionsToRender: Faction[];
@@ -169,6 +171,30 @@ export function LivingCodexFactions({
 
             return (
               <div key={fac.id} className="p-4 bg-neutral-950/60 border border-neutral-900 rounded-lg space-y-4">
+                {(fac.imageAssetId || fac.imageUrl || (fac.imageHistory?.length ?? 0) > 0) && (
+                  <div className="relative group h-36 overflow-hidden rounded border border-neutral-900 bg-void">
+                    <LivingCodexImageGallery
+                      entityId={fac.id}
+                      type="faction"
+                      imageHistory={resolveEntityImageHistory(fac)}
+                    />
+                    {fac.imageUrl ? (
+                      <img
+                        src={fac.imageUrl}
+                        alt={fac.name}
+                        referrerPolicy="no-referrer"
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <div
+                        className="flex h-full items-center justify-center text-[9px] font-mono uppercase tracking-widest text-neutral-600"
+                        aria-label={`Manifestation for ${fac.name} is awaiting delivery`}
+                      >
+                        Manifestation awaiting delivery
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="flex items-start justify-between flex-wrap gap-2">
                   <div>
                     <span className={`text-[8.5px] font-mono border px-2 py-0.5 rounded uppercase tracking-wider ${alignmentColor}`}>

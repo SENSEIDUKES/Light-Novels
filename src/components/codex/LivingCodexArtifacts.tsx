@@ -145,7 +145,7 @@ export function LivingCodexArtifacts({
         ) : (
           artifactsToRender.map((art) => {
             const isGenerating = generatingId === art.id;
-            const hasImage = !!art.imageUrl;
+            const hasImage = Boolean(art.imageAssetId || art.imageUrl);
             const currentChapter = activeStory.currentChapterNumber || 1;
             const hasAppeared = art.firstAppeared === undefined || art.firstAppeared <= currentChapter;
             const activePreview = previews[art.id];

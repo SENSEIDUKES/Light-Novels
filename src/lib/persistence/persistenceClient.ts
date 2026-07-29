@@ -2,7 +2,12 @@ import { isSameAssetId } from '../../contracts/assetIdentity';
 import { auth } from '../firebase';
 import { generateUUID } from '../id';
 import { resolveMediaAssetForDisplay } from '../media/privateMediaResolver';
-import type { LoreGlossary, StorySeed, UserProfile } from '../../types';
+import type {
+  CultivatorPortraitCustomization,
+  LoreGlossary,
+  StorySeed,
+  UserProfile,
+} from '../../types';
 
 export class PersistenceClientError extends Error {
   readonly code: string;
@@ -105,7 +110,14 @@ export async function persistenceRequest<T>(
   }
   const response = await fetch(`/api/persistence${path}`, { ...init, headers });
   if (auth.currentUser?.uid !== ownerUid) throw accountChangedError();
-  return parseResponse<T>(response);
+  try {
+    const result = await parseResponse<T>(response);
+    if (auth.currentUser?.uid !== ownerUid) throw accountChangedError();
+    return result;
+  } catch (error) {
+    if (auth.currentUser?.uid !== ownerUid) throw accountChangedError();
+    throw error;
+  }
 }
 
 function mutationBody<T>(value: T, options: PersistenceMutationOptions = {}) {
@@ -116,31 +128,112 @@ function mutationBody<T>(value: T, options: PersistenceMutationOptions = {}) {
   });
 }
 
-export async function getUserProfile(): Promise<UserProfile | null> {
-  const result = await persistenceRequest<{ profile: UserProfile | null }>('/profile');
+export async function getUserProfile(expectedUid = auth.currentUser?.uid): Promise<UserProfile | null> {
+  const result = await persistenceRequest<{ profile: UserProfile | null }>(
+    '/profile',
+    {},
+    expectedUid,
+  );
   const profile = result.profile;
   const descriptor = profile?.avatarMediaDescriptor;
   if (!profile || !descriptor || !isSameAssetId(descriptor.id, profile.activePortraitId)) {
     return profile;
   }
-  const resolved = await resolveMediaAssetForDisplay(descriptor);
-  return {
-    ...profile,
-    avatarUrl: resolved.url,
-    avatarMediaDescriptor: { ...resolved.descriptor, deliveryUrl: '' },
-  };
+  try {
+    const resolved = await resolveMediaAssetForDisplay(descriptor, expectedUid);
+    return {
+      ...profile,
+      avatarUrl: resolved.url,
+      avatarMediaDescriptor: { ...resolved.descriptor, deliveryUrl: '' },
+      avatarDeliveryError: undefined,
+    };
+  } catch (error) {
+    if (
+      error
+      && typeof error === 'object'
+      && 'code' in error
+      && String(error.code) === 'auth/account-changed'
+    ) {
+      throw error;
+    }
+    const recoverable = error
+      && typeof error === 'object'
+      && 'recoverable' in error
+      && typeof error.recoverable === 'boolean'
+      ? error.recoverable
+      : true;
+    return {
+      ...profile,
+      avatarUrl: '',
+      avatarMediaDescriptor: { ...descriptor, deliveryUrl: '' },
+      avatarDeliveryError: {
+        code: 'portrait_download_unavailable',
+        message: 'Your profile loaded, but the selected portrait could not be downloaded.',
+        recoverable,
+      },
+    };
+  }
 }
 
 export async function saveUserProfile(
   value: Partial<UserProfile>,
   options: PersistenceMutationOptions = {},
 ): Promise<UserProfile> {
+  if (Object.prototype.hasOwnProperty.call(value, 'activePortraitId')) {
+    throw new PersistenceClientError(
+      'activePortraitId cannot be changed through the generic profile endpoint. Use portrait selection.',
+      { code: 'invalid_argument', status: 400, recoverable: false },
+    );
+  }
   const result = await persistenceRequest<{ profile: UserProfile }>('/profile', {
     method: 'PUT',
     body: mutationBody(value, options),
     keepalive: options.keepalive,
   }, typeof value.uid === 'string' ? value.uid : undefined);
   return result.profile;
+}
+
+export interface PortraitSelectionRequest {
+  assetId: string;
+  prompt?: string;
+  description?: string;
+  daoRank?: string;
+  daoXp?: number;
+  powerStage?: string;
+  equippedArtifactId?: string | null;
+  usedReferenceImage?: boolean;
+  customization?: Partial<CultivatorPortraitCustomization>;
+}
+
+export async function selectUserPortrait(
+  value: PortraitSelectionRequest,
+  expectedUid = auth.currentUser?.uid,
+  idempotencyKey = generateUUID(),
+): Promise<UserProfile> {
+  const result = await persistenceRequest<{ profile: UserProfile }>(
+    '/profile/portrait',
+    {
+      method: 'PUT',
+      body: JSON.stringify({ ...value, idempotencyKey }),
+    },
+    expectedUid,
+  );
+  return result.profile;
+}
+
+export async function recoverPendingUserPortraits(
+  expectedUid = auth.currentUser?.uid,
+  idempotencyKey = generateUUID(),
+): Promise<number> {
+  const result = await persistenceRequest<{ recovered: number }>(
+    '/profile/portraits/recover',
+    {
+      method: 'POST',
+      body: JSON.stringify({ idempotencyKey }),
+    },
+    expectedUid,
+  );
+  return result.recovered;
 }
 
 export async function consumeImageGenerationQuota(): Promise<{

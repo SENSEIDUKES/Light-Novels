@@ -351,6 +351,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
     try {
       let finalUrl = generatedPortraitUrl;
       let activePortraitId = profile?.activePortraitId;
+      let avatarMediaDescriptor = profile?.avatarMediaDescriptor;
 
       if (currentUser) {
         const portrait = await persistCultivatorPortrait({
@@ -366,6 +367,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
         });
         finalUrl = portrait.imageUrl;
         activePortraitId = portrait.id;
+        avatarMediaDescriptor = portrait.avatarMediaDescriptor;
       } else {
         finalUrl = await compressDataUrl(generatedPortraitUrl);
         let localProfile: Partial<UserProfileType> = {};
@@ -389,9 +391,19 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
       // The asset remains correctly owned by A, but it must never be published into B's state.
       if (!identityIsCurrent()) return;
 
-      setFormData(prev => ({ ...prev, avatarUrl: finalUrl, activePortraitId }));
+      setFormData(prev => ({
+        ...prev,
+        avatarUrl: finalUrl,
+        activePortraitId,
+        avatarMediaDescriptor,
+      }));
       if (profile) {
-        const updatedProfile = { ...profile, avatarUrl: finalUrl, activePortraitId };
+        const updatedProfile = {
+          ...profile,
+          avatarUrl: finalUrl,
+          activePortraitId,
+          avatarMediaDescriptor,
+        };
         setProfile(updatedProfile);
         cacheAccountProfile(updatedProfile);
         useAppStore.getState().setUserProfile(updatedProfile);
@@ -412,6 +424,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
             ...fallbackProfile,
             avatarUrl: err.portrait.imageUrl,
             activePortraitId: err.portrait.id,
+            avatarMediaDescriptor: err.portrait.avatarMediaDescriptor,
           };
           setProfile(updatedProfile);
           setFormData(updatedProfile);
@@ -426,9 +439,14 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
           setPortraitError('');
           return;
         }
-        setPortraitError(currentUser
+        const permanentMessage = err instanceof Error
+          && 'recoverable' in err
+          && err.recoverable === false
+          ? err.message
+          : null;
+        setPortraitError(permanentMessage || (currentUser
           ? 'Your portrait could not be saved to your account. The preview has been kept so you can retry.'
-          : 'Your portrait could not be saved on this device. The preview has been kept so you can retry.');
+          : 'Your portrait could not be saved on this device. The preview has been kept so you can retry.'));
       }
     } finally {
       if (identityIsCurrent()) setIsSavingPortrait(false);
@@ -528,7 +546,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
     setIsLoading(true);
     void (async () => {
       try {
-        const stored = await getUserProfile();
+        const stored = await getUserProfile(expectedUid);
         if (!snapshotIsCurrent()) return;
         if (stored) {
           // The stored profile is authoritative for role and tier. The client
@@ -548,7 +566,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
           const visibleData = syncStoreProfile(data);
           cacheAccountProfile(visibleData);
           setProfile(visibleData);
-          setError('');
+          setError(visibleData.avatarDeliveryError?.message || '');
         } else {
           // A read-only placeholder shown while server provisioning completes.
           // It deliberately claims no elevated role: an admin surface it opened
@@ -574,6 +592,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
         const fallbackProfile = await hydrateCachedAccountPortrait(
           createAccountProfileFallback(currentUser),
         );
+        if (!snapshotIsCurrent()) return;
         const visibleProfile = syncStoreProfile(fallbackProfile);
         setProfile(visibleProfile);
         setFormData(visibleProfile);
@@ -937,7 +956,6 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
         username: formData.username,
         displayName: formData.displayName,
         displayNameColor: formData.displayNameColor,
-        avatarUrl: formData.avatarUrl,
         preferredLanguage: preferredLang,
         defaultTranslationLanguage: defaultTransLang,
         updatedAt: new Date().toISOString()
@@ -952,7 +970,10 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
 
       const saved = await saveUserProfile({ uid: expectedUid, ...updates });
       if (activeProfileUidRef.current !== expectedUid) return;
-      const updatedProfile = syncStoreProfile({ ...profile, ...saved });
+      const updatedProfile = syncStoreProfile(withIdentityAvatar(
+        { ...profile, ...saved, uid: expectedUid },
+        currentUser,
+      ));
       setProfile(updatedProfile);
       setFormData(updatedProfile);
       cacheAccountProfile(updatedProfile);
@@ -1047,7 +1068,10 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
         updatedAt: optimisticProfile.updatedAt,
       });
       if (activeProfileUidRef.current !== expectedUid) return;
-      const savedProfile = { ...optimisticProfile, ...saved, uid: expectedUid };
+      const savedProfile = withIdentityAvatar(
+        { ...optimisticProfile, ...saved, uid: expectedUid },
+        currentUser,
+      );
       setProfile(savedProfile);
       setFormData(previous => ({
         ...previous,

@@ -42,6 +42,7 @@ import { getFirebaseAdminApp } from '../firebaseAdmin';
 import { logger } from '../logger';
 import { isSystemOwnerEmail } from '../systemOwners';
 import type { MediaAssetDescriptor } from '../../contracts/mediaAssets';
+import { canonicalAssetId } from '../../contracts/assetIdentity';
 import type {
   ApplicationPersistenceRepository,
   ChapterWriteResult,
@@ -176,6 +177,9 @@ function normalizePersistenceError(error: unknown): never {
   if (/administrator access|required owner|owned by another|owner mismatch/i.test(message)) {
     throw taggedError(message, 'forbidden');
   }
+  if (/portrait asset|portrait.*image|purpose mismatch|account scoped/i.test(message)) {
+    throw taggedError(message, 'invalid_argument');
+  }
   throw error;
 }
 
@@ -289,7 +293,10 @@ function chapterTalliesByStoryId(rows: unknown): Map<string, StoryChapterTally> 
     if (typeof storyId !== 'string' || !Number.isFinite(total) || !Number.isFinite(generated)) {
       continue;
     }
-    tallies.set(storyId, { totalChapterCount: total, generatedChapterCount: generated });
+    tallies.set(
+      canonicalAssetId(storyId),
+      { totalChapterCount: total, generatedChapterCount: generated },
+    );
   }
   return tallies;
 }
@@ -297,9 +304,11 @@ function chapterTalliesByStoryId(rows: unknown): Map<string, StoryChapterTally> 
 function compactStorySummary(
   ownerUid: string,
   row: Awaited<ReturnType<typeof adminListOwnedStories>>['data']['stories'][number],
+  coverAssetId?: string,
   cover?: MediaAssetDescriptor,
   tally?: StoryChapterTally,
 ): StoryWorld {
+  const canonicalStoryId = canonicalAssetId(row.id);
   const summary: StoryWorld = {
     persistenceHydration: 'summary',
     // A summary carries no arcs, so these are the only chapter progress the
@@ -307,9 +316,9 @@ function compactStorySummary(
     // Chapter rows, never from anything the browser reported.
     totalChapterCount: tally?.totalChapterCount ?? 0,
     generatedChapterCount: tally?.generatedChapterCount ?? 0,
-    persistenceId: row.id,
+    persistenceId: canonicalStoryId,
     userId: ownerUid,
-    id: row.clientStoryId ?? row.legacyStoryId ?? row.id,
+    id: row.clientStoryId ?? row.legacyStoryId ?? canonicalStoryId,
     sourceSeedId: row.sourceSeedId ?? undefined,
     parentStoryId: row.parentStoryId ?? undefined,
     forkChapterNumber: row.forkChapterNumber ?? undefined,
@@ -330,7 +339,10 @@ function compactStorySummary(
     },
     arcs: [],
     currentChapterNumber: row.currentChapterNumber,
-    coverAssetId: cover?.id,
+    // The PostgreSQL media slot owns selection. R2 signing is only a
+    // projection, so a temporary descriptor failure must not erase the
+    // canonical cover identity from the Library summary.
+    coverAssetId,
     imageUrl: cover?.deliveryUrl,
     lastImageChapter: row.lastImageChapter ?? undefined,
     evolutionReady: row.evolutionReady,
@@ -484,8 +496,23 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     const assetIds = [...new Set(graph.mediaSlots.map(slot => slot.currentAssetId))];
     const descriptors = new Map<string, MediaAssetDescriptor>();
     await Promise.all(assetIds.map(async assetId => {
-      const descriptor = await this.loadMediaDescriptor(ownerUid, assetId);
-      if (descriptor) descriptors.set(assetId, descriptor);
+      const canonicalId = canonicalAssetId(assetId);
+      try {
+        const descriptor = await this.loadMediaDescriptor(ownerUid, canonicalId);
+        if (descriptor) {
+          const descriptorId = canonicalAssetId(descriptor.id);
+          descriptors.set(descriptorId, { ...descriptor, id: descriptorId });
+        }
+      } catch (error) {
+        // The graph and slot are already authoritative PostgreSQL state.
+        // Preserve their canonical IDs so the client can retry only the
+        // disposable delivery projection instead of treating the image as
+        // deleted or the whole story as unreadable.
+        logger.warn(
+          { err: error, ownerUid, assetId: canonicalId },
+          'Story media delivery hydration failed',
+        );
+      }
     }));
     const hydrated = hydrateStoryMediaDelivery(story, graph.mediaAttachments, descriptors);
     hydrated.mediaDescriptors = Object.fromEntries(descriptors);
@@ -506,8 +533,21 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     )];
     const descriptors = new Map<string, MediaAssetDescriptor>();
     await Promise.all(assetIds.map(async assetId => {
-      const descriptor = await this.loadMediaDescriptor(ownerUid, assetId);
-      if (descriptor) descriptors.set(assetId, descriptor);
+      const canonicalId = canonicalAssetId(assetId);
+      try {
+        const descriptor = await this.loadMediaDescriptor(ownerUid, canonicalId);
+        if (descriptor) {
+          const descriptorId = canonicalAssetId(descriptor.id);
+          descriptors.set(descriptorId, { ...descriptor, id: descriptorId });
+        }
+      } catch (error) {
+        // Voice delivery is a projection over the durable chapter graph. One
+        // signing failure must not make the chapter body itself unreadable.
+        logger.warn(
+          { err: error, ownerUid, assetId: canonicalId },
+          'Chapter voice media delivery hydration failed',
+        );
+      }
     }));
     return {
       ...content,
@@ -516,9 +556,15 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
         ...content.audioManifest,
         clips: content.audioManifest.clips.map(clip => {
           const extended = clip as typeof clip & { assetId?: string };
+          const canonicalClipAssetId = extended.assetId
+            ? canonicalAssetId(extended.assetId)
+            : undefined;
           return {
             ...extended,
-            audioUrl: (extended.assetId ? descriptors.get(extended.assetId)?.deliveryUrl : undefined)
+            ...(canonicalClipAssetId ? { assetId: canonicalClipAssetId } : {}),
+            audioUrl: (canonicalClipAssetId
+              ? descriptors.get(canonicalClipAssetId)?.deliveryUrl
+              : undefined)
               ?? clip.audioUrl,
           };
         }),
@@ -536,23 +582,41 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
         offset,
       });
       for (const slot of result.data.coverSlots) {
-        if (slot.storyId && !coverAssetIdByStoryId.has(slot.storyId)) {
-          coverAssetIdByStoryId.set(slot.storyId, slot.currentAssetId);
+        if (slot.storyId) {
+          const storyId = canonicalAssetId(slot.storyId);
+          if (!coverAssetIdByStoryId.has(storyId)) {
+            coverAssetIdByStoryId.set(storyId, canonicalAssetId(slot.currentAssetId));
+          }
         }
       }
       if (result.data.coverSlots.length < PAGE_SIZE) break;
     }
     const descriptors = new Map<string, MediaAssetDescriptor>();
     await Promise.all([...new Set(coverAssetIdByStoryId.values())].map(async assetId => {
-      const descriptor = await this.loadMediaDescriptor(ownerUid, assetId);
-      if (descriptor) descriptors.set(assetId, descriptor);
+      try {
+        const descriptor = await this.loadMediaDescriptor(ownerUid, assetId);
+        if (descriptor) {
+          const descriptorId = canonicalAssetId(descriptor.id);
+          descriptors.set(descriptorId, { ...descriptor, id: descriptorId });
+        }
+      } catch (error) {
+        logger.warn(
+          { err: error, ownerUid, assetId },
+          'Catalog cover delivery hydration failed',
+        );
+      }
     }));
-    return rows.map(row => compactStorySummary(
-      ownerUid,
-      row,
-      descriptors.get(coverAssetIdByStoryId.get(row.id) ?? ''),
-      tallies.get(row.id),
-    ));
+    return rows.map(row => {
+      const storyId = canonicalAssetId(row.id);
+      const coverAssetId = coverAssetIdByStoryId.get(storyId);
+      return compactStorySummary(
+        ownerUid,
+        row,
+        coverAssetId,
+        descriptors.get(coverAssetId ?? ''),
+        tallies.get(storyId),
+      );
+    });
   }
 
   async getStory(ownerUid: string, storyId: string): Promise<StoryWorld | null> {
@@ -1152,8 +1216,36 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     }
     const profile = hydrateUserProfile(result.data);
     if (!profile?.activePortraitId) return profile;
-    const descriptor = await this.loadMediaDescriptor(ownerUid, profile.activePortraitId);
-    return hydrateProfilePortraitDelivery(profile, descriptor);
+    try {
+      const descriptor = await this.loadMediaDescriptor(ownerUid, profile.activePortraitId);
+      if (!descriptor) {
+        return {
+          ...profile,
+          avatarDeliveryError: {
+            code: 'portrait_descriptor_unavailable',
+            message: 'Your selected portrait is saved, but its media descriptor is temporarily unavailable.',
+            recoverable: true,
+          },
+        };
+      }
+      return hydrateProfilePortraitDelivery(profile, descriptor);
+    } catch (error) {
+      // R2 signing is a delivery projection, not part of the canonical profile
+      // read. Preserve every PostgreSQL field and the active asset identity so
+      // the client can distinguish an unavailable image from a missing profile.
+      logger.warn(
+        { err: error, ownerUid, assetId: profile.activePortraitId },
+        'Profile portrait delivery hydration failed',
+      );
+      return {
+        ...profile,
+        avatarDeliveryError: {
+          code: 'portrait_delivery_unavailable',
+          message: 'Your selected portrait is saved, but its delivery link is temporarily unavailable.',
+          recoverable: true,
+        },
+      };
+    }
   }
 
   async saveProfile(
@@ -1162,6 +1254,12 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     context: PersistenceMutationContext,
   ): Promise<UserProfile> {
     if (patch.uid && patch.uid !== ownerUid) throw taggedError('Profile owner mismatch.', 'forbidden');
+    if (Object.prototype.hasOwnProperty.call(patch, 'activePortraitId')) {
+      throw taggedError(
+        'activePortraitId cannot be changed through the generic profile endpoint. Use the portrait selection endpoint.',
+        'invalid_argument',
+      );
+    }
     const operation = 'UPSERT_USER_PROFILE_GRAPH';
     const hash = mutationIntentHash(operation, ownerUid, patch, context.expected);
     if (await this.receipt(ownerUid, context.idempotencyKey, operation, hash)) {
@@ -1236,17 +1334,23 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     input: PortraitSelectionInput,
     idempotencyKey: string,
   ): Promise<UserProfile> {
+    const readCommittedProfile = async (): Promise<UserProfile> => {
+      // Portrait selection is already committed at this point. Its acknowledgement
+      // must not depend on R2 signing or delivery hydration, otherwise a signing
+      // outage looks like a failed PostgreSQL commit and prompts a duplicate upload.
+      const profile = hydrateUserProfile((await adminGetUserProfileGraph({ ownerUid })).data);
+      if (!profile) throw new Error('Portrait selection receipt exists without a profile.');
+      return profile;
+    };
     if (await this.receipt(ownerUid, idempotencyKey, 'SELECT_USER_PORTRAIT')) {
-      const replay = await this.getProfile(ownerUid);
-      if (!replay) throw new Error('Portrait selection receipt exists without a profile.');
-      return replay;
+      return readCommittedProfile();
     }
     const current = await adminGetUserProfileGraph({ ownerUid });
     if (!current.data.profile) throw new Error('User profile must exist before selecting a portrait.');
     try {
       await adminSelectUserPortrait({
         ownerUid,
-        assetId: input.assetId,
+        assetId: canonicalAssetId(input.assetId),
         idempotencyKey,
         expectedActivePortraitAssetId: current.data.profile.activePortraitAssetId,
         expectedSyncRevision: current.data.profile.syncRevision,
@@ -1271,9 +1375,7 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
         normalizePersistenceError(error);
       }
     }
-    const saved = await this.getProfile(ownerUid);
-    if (!saved) throw new Error('Portrait selected but profile could not be read back.');
-    return saved;
+    return readCommittedProfile();
   }
 
   async recoverPortraits(ownerUid: string, idempotencyKey: string): Promise<number> {

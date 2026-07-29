@@ -1,6 +1,7 @@
 import { AccountScopedChapterContent, StorageAdapter } from "./types";
 import { StoryWorld, ChapterContent } from "../../types";
 import { normalizeStoryImageOwnership } from "../media/imageOwnership";
+import { prepareLocalMediaReplicaPayload } from "./dataConnectStorageAdapter";
 
 const ACCOUNT_KEY_PREFIX = "@seihouse/account/";
 
@@ -346,7 +347,7 @@ export class IndexedDBStorageAdapter implements StorageAdapter {
     }
 
     async saveStory(story: StoryWorld): Promise<void> {
-        story = normalizeStoryImageOwnership(story);
+        story = prepareLocalMediaReplicaPayload(normalizeStoryImageOwnership(story));
         const scope = this.accountScope;
         const db = await this.getDB();
         if (

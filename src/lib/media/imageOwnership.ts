@@ -1,10 +1,12 @@
 import type { GeneratedImage, StoryWorld } from '../../types';
+import { canonicalAssetId, isSameAssetId } from '../../contracts/assetIdentity';
 
 type ImageOwner = {
   id: string;
   persistenceId?: string;
   imageHistory?: GeneratedImage[];
   imageAssetId?: string;
+  voiceAssetId?: string;
   imageUrl?: string;
   isBeast?: boolean;
 };
@@ -26,7 +28,13 @@ export class UnownedLegacyImageError extends Error {
 }
 
 function historyKey(image: GeneratedImage): string {
-  return image.assetId || image.id || image.imageUrl;
+  return image.assetId ? canonicalAssetId(image.assetId) : image.id || image.imageUrl;
+}
+
+function normalizeGeneratedImage(image: GeneratedImage): GeneratedImage {
+  return image.assetId
+    ? { ...image, assetId: canonicalAssetId(image.assetId) }
+    : image;
 }
 
 function mergeHistory(
@@ -41,10 +49,11 @@ function mergeHistory(
   const seen = new Set<string>();
   for (const image of [...safeExisting, ...additions]) {
     if (!image || typeof image !== 'object' || Array.isArray(image)) continue;
-    const key = historyKey(image);
+    const normalized = normalizeGeneratedImage(image);
+    const key = historyKey(normalized);
     if (!key || seen.has(key)) continue;
     seen.add(key);
-    merged.push(image);
+    merged.push(normalized);
   }
   return merged;
 }
@@ -86,8 +95,39 @@ function copyOwners<T extends ImageOwner>(owners: readonly T[] | undefined): T[]
   return Array.isArray(owners)
     ? owners
       .filter((owner): owner is T => Boolean(owner && typeof owner === 'object' && !Array.isArray(owner)))
-      .map(owner => ({ ...owner }))
+      .map(owner => ({
+        ...owner,
+        ...(owner.imageAssetId
+          ? { imageAssetId: canonicalAssetId(owner.imageAssetId) }
+          : {}),
+        ...(owner.voiceAssetId
+          ? { voiceAssetId: canonicalAssetId(owner.voiceAssetId) }
+          : {}),
+        ...(Array.isArray(owner.imageHistory)
+          ? { imageHistory: owner.imageHistory.map(normalizeGeneratedImage) }
+          : {}),
+      }))
     : [];
+}
+
+/**
+ * Identify the story-cover rows accepted by the compatibility normalizer.
+ * Older replicas did not stamp `entityType`, so every consumer that mutates
+ * cover history must use this same owner predicate.
+ */
+export function isStoryCoverHistoryEntry(
+  image: GeneratedImage,
+  story: Pick<StoryWorld, 'id' | 'persistenceId'>,
+): boolean {
+  return image.entityType === 'cover'
+    || (
+      !image.entityType
+      && (
+        !image.entityId
+        || isSameAssetId(image.entityId, story.id)
+        || isSameAssetId(image.entityId, story.persistenceId)
+      )
+    );
 }
 
 /**
@@ -112,21 +152,27 @@ export function normalizeStoryImageOwnership(story: StoryWorld): StoryWorld {
         chapters: Array.isArray(arc.chapters)
           ? arc.chapters
             .filter((chapter): chapter is ChapterOwner => Boolean(chapter && typeof chapter === 'object' && !Array.isArray(chapter)))
-            .map(chapter => ({ ...chapter }))
+            .map(chapter => ({
+              ...chapter,
+              ...(chapter.heroImageAssetId
+                ? { heroImageAssetId: canonicalAssetId(chapter.heroImageAssetId) }
+                : {}),
+              ...(Array.isArray(chapter.imageHistory)
+                ? { imageHistory: chapter.imageHistory.map(normalizeGeneratedImage) }
+                : {}),
+            }))
           : [],
       }))
     : [];
   const legacyHistory = Array.isArray(story.imageHistory)
-    ? story.imageHistory.filter((image): image is GeneratedImage => Boolean(
-      image && typeof image === 'object' && !Array.isArray(image),
-    ))
+    ? story.imageHistory
+      .filter((image): image is GeneratedImage => Boolean(
+        image && typeof image === 'object' && !Array.isArray(image),
+      ))
+      .map(normalizeGeneratedImage)
     : [];
-  const isStoryCover = (image: GeneratedImage) => image.entityType === 'cover'
-    || (!image.entityType && (!image.entityId
-      || image.entityId === story.id
-      || image.entityId === story.persistenceId));
   const covers = legacyHistory
-    .filter(isStoryCover)
+    .filter(image => isStoryCoverHistoryEntry(image, story))
     .map(image => image.entityType === 'cover'
       ? image
       : { ...image, entityId: story.id, entityType: 'cover' as const });
@@ -137,7 +183,7 @@ export function normalizeStoryImageOwnership(story: StoryWorld): StoryWorld {
   };
 
   for (const image of legacyHistory) {
-    if (isStoryCover(image)) continue;
+    if (isStoryCoverHistoryEntry(image, story)) continue;
 
     if (image.entityType === 'chapterHero') {
       const number = legacyChapterNumber(image);
@@ -208,7 +254,12 @@ export function normalizeStoryImageOwnership(story: StoryWorld): StoryWorld {
     normalizedMemory.factions = factions.map(normalizeOwner);
   }
 
-  const normalizedStory: StoryWorld = { ...story };
+  const normalizedStory: StoryWorld = {
+    ...story,
+    ...(story.coverAssetId
+      ? { coverAssetId: canonicalAssetId(story.coverAssetId) }
+      : {}),
+  };
   if (story.imageHistory !== undefined) normalizedStory.imageHistory = covers;
   if (!normalizedStory.coverAssetId && currentCover?.assetId) {
     normalizedStory.coverAssetId = currentCover.assetId;
@@ -218,5 +269,13 @@ export function normalizeStoryImageOwnership(story: StoryWorld): StoryWorld {
   }
   if (normalizedMemory) normalizedStory.memory = normalizedMemory;
   if (story.arcs !== undefined) normalizedStory.arcs = normalizedChapters;
+  if (story.mediaDescriptors) {
+    normalizedStory.mediaDescriptors = Object.fromEntries(
+      Object.values(story.mediaDescriptors).map(descriptor => {
+        const id = canonicalAssetId(descriptor.id);
+        return [id, { ...descriptor, id }];
+      }),
+    );
+  }
   return normalizedStory;
 }

@@ -94,13 +94,44 @@ function mapAsset(value: NonNullable<Awaited<ReturnType<typeof adminGetOwnedMedi
   };
 }
 
+function sameUuidValue(
+  left: string | null | undefined,
+  right: string | null | undefined,
+): boolean {
+  if (!left || !right) return (left ?? null) === (right ?? null);
+  return canonicalUuid(left).toLowerCase() === canonicalUuid(right).toLowerCase();
+}
+
 function matchesAssociationScope(
   value: { storyId?: string | null; chapterId?: string | null; entityId?: string | null },
   association: MediaAssociation,
 ): boolean {
-  return (value.storyId ?? null) === (association.storyId ?? null)
-    && (value.chapterId ?? null) === (association.chapterId ?? null)
-    && (value.entityId ?? null) === (association.entityId ?? null);
+  return sameUuidValue(value.storyId, association.storyId)
+    && sameUuidValue(value.chapterId, association.chapterId)
+    && sameUuidValue(value.entityId, association.entityId);
+}
+
+function mapSlot(slot: MediaSlotState): MediaSlotState {
+  const relationalTarget = Boolean(slot.storyId || slot.chapterId || slot.entityId);
+  return {
+    ...slot,
+    storyId: canonicalUuid(slot.storyId),
+    chapterId: canonicalUuid(slot.chapterId),
+    entityId: canonicalUuid(slot.entityId),
+    targetKey: relationalTarget ? canonicalUuid(slot.targetKey) : slot.targetKey,
+    currentAssetId: canonicalUuid(slot.currentAssetId),
+  };
+}
+
+function mapHistoryEntry(entry: MediaSlotHistoryEntry): MediaSlotHistoryEntry {
+  return {
+    ...entry,
+    id: canonicalUuid(entry.id),
+    assetId: canonicalUuid(entry.assetId),
+    storyId: canonicalUuid(entry.storyId),
+    chapterId: canonicalUuid(entry.chapterId),
+    entityId: canonicalUuid(entry.entityId),
+  };
 }
 
 function isRetryableDataConnectQueryError(error: unknown): boolean {
@@ -126,23 +157,33 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
       }
       return;
     }
-    const story = await adminGetOwnedStoryScope({ ownerUid, storyId: association.storyId });
+    const storyId = canonicalUuid(association.storyId);
+    const story = await adminGetOwnedStoryScope({ ownerUid, storyId });
     if (!story.data.story) throw new Error('Story media target is not owned by the authenticated user.');
     if (association.chapterId) {
-      const chapter = await adminGetOwnedChapterScope({ ownerUid, chapterId: association.chapterId });
-      if (!chapter.data.chapter || chapter.data.chapter.storyId !== association.storyId) throw new Error('Chapter media target is not in the owned story.');
+      const chapterId = canonicalUuid(association.chapterId);
+      const chapter = await adminGetOwnedChapterScope({ ownerUid, chapterId });
+      if (!chapter.data.chapter || !sameUuidValue(chapter.data.chapter.storyId, storyId)) {
+        throw new Error('Chapter media target is not in the owned story.');
+      }
     }
     if (association.entityId) {
-      const entity = await adminGetOwnedEntityScope({ ownerUid, entityId: association.entityId });
-      if (!entity.data.codexEntity || entity.data.codexEntity.storyId !== association.storyId) throw new Error('Codex media target is not in the owned story.');
+      const entityId = canonicalUuid(association.entityId);
+      const entity = await adminGetOwnedEntityScope({ ownerUid, entityId });
+      if (!entity.data.codexEntity || !sameUuidValue(entity.data.codexEntity.storyId, storyId)) {
+        throw new Error('Codex media target is not in the owned story.');
+      }
     }
   }
 
   async assertGenerationJobOwned(ownerUid: string, generationJobId: string, storyId?: string | null): Promise<void> {
-    const result = await adminGetOwnedGenerationJobScope({ ownerUid, generationJobId });
+    const result = await adminGetOwnedGenerationJobScope({
+      ownerUid,
+      generationJobId: canonicalUuid(generationJobId),
+    });
     const job = result.data.generationJob;
     if (!job) throw new Error('Generation job is not owned by the authenticated user.');
-    if (job.storyId && job.storyId !== storyId) {
+    if (job.storyId && !sameUuidValue(job.storyId, storyId)) {
       throw new Error('Generation job is not owned by the requested story scope.');
     }
   }
@@ -152,7 +193,7 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
     const receipt = result.data.mediaUploadReceipt;
     if (!receipt) return null;
     return {
-      assetId: receipt.assetId,
+      assetId: canonicalUuid(receipt.assetId),
       requestHash: receipt.requestHash,
       status: receipt.status,
       createdAt: receipt.createdAt,
@@ -172,7 +213,7 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
     if (!matchesAssociationScope(slot, association)) {
       throw new Error('The media slot relational scope does not match the requested association.');
     }
-    return slot;
+    return mapSlot(slot);
   }
 
   async listOwnedSlotHistory(ownerUid: string, association: MediaAssociation, limit = 200): Promise<MediaSlotHistoryEntry[]> {
@@ -183,7 +224,7 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
       purpose: association.purpose,
       limit,
     });
-    return result.data.mediaAttachments;
+    return result.data.mediaAttachments.map(mapHistoryEntry);
   }
 
   async getOwnedQuotaReservation(ownerUid: string, idempotencyKey: string): Promise<MediaQuotaReservationState | null> {
@@ -191,10 +232,10 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
     const reservation = result.data.storageQuotaReservation;
     if (!reservation) return null;
     return {
-      id: reservation.id,
+      id: canonicalUuid(reservation.id),
       ownerUid: reservation.ownerUid,
-      storyId: reservation.storyId,
-      assetId: reservation.assetId,
+      storyId: canonicalUuid(reservation.storyId),
+      assetId: canonicalUuid(reservation.assetId),
       idempotencyKey: reservation.idempotencyKey,
       requestedBytes: reservation.requestedBytes,
       status: reservation.status,
@@ -401,11 +442,15 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
     expectedSlot: MediaSlotState,
   ): Promise<MediaAssetRecord> {
     const history = await this.listOwnedSlotHistory(ownerUid, association);
-    const matches = history.filter((entry) => entry.assetId === assetId && matchesAssociationScope(entry, association));
+    const canonicalAsset = canonicalUuid(assetId);
+    const matches = history.filter(
+      entry => sameUuidValue(entry.assetId, canonicalAsset)
+        && matchesAssociationScope(entry, association),
+    );
     if (matches.length !== 1) throw new Error('The selected asset is not a unique member of this owned media slot history.');
     const newSlotVersion = (BigInt(expectedSlot.version) + 1n).toString();
     const result = await adminSelectOwnedMediaSlotAsset({
-      assetId,
+      assetId: canonicalAsset,
       ownerUid,
       storyId: association.storyId ?? null,
       chapterId: association.chapterId ?? null,
@@ -423,7 +468,7 @@ export class DataConnectMediaAssetRepository implements MediaAssetRepository {
       || result.data.mediaAttachment_updateMany !== 1) {
       throw new Error('SQL Connect did not atomically select exactly one current history asset.');
     }
-    const saved = await this.getOwned(ownerUid, assetId);
+    const saved = await this.getOwned(ownerUid, canonicalAsset);
     if (!saved || saved.status !== 'READY') throw new Error('SQL Connect returned without the selected ready media asset.');
     return saved;
   }

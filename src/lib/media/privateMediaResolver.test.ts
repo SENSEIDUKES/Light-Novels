@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MediaAssetDescriptor } from "../../contracts/mediaAssets";
 import type { FoundationCache, FoundationCachedMedia } from "../foundation/cache/types";
-import { PrivateMediaResolver } from "./privateMediaResolver";
+import {
+  PrivateMediaResolver,
+  resolveMediaAssetDirectly,
+} from "./privateMediaResolver";
 
 const descriptor: MediaAssetDescriptor = {
   id: "asset-1",
@@ -220,5 +223,47 @@ describe("PrivateMediaResolver", () => {
 
     expect(first.ownerUid).toBe("owner-a");
     expect(second.ownerUid).toBe("owner-b");
+  });
+
+  it("refreshes a blank replicated descriptor in the no-IndexedDB fallback", async () => {
+    const fresh = {
+      ...descriptor,
+      deliveryUrl: "https://signed.example/fresh-direct",
+      deliveryUrlExpiresAt: "2026-07-23T01:00:00.000Z",
+    };
+    const getDescriptor = vi.fn().mockResolvedValue(fresh);
+
+    await expect(resolveMediaAssetDirectly(
+      { ...descriptor, deliveryUrl: "" },
+      {
+        getDescriptor,
+        now: () => Date.parse("2026-07-22T00:01:00.000Z"),
+      },
+    )).resolves.toMatchObject({
+      assetId: descriptor.id,
+      descriptor: fresh,
+      source: "direct",
+      url: fresh.deliveryUrl,
+    });
+    expect(getDescriptor).toHaveBeenCalledWith(descriptor.id);
+  });
+
+  it("refreshes an expired signed URL in the no-IndexedDB fallback", async () => {
+    const fresh = {
+      ...descriptor,
+      deliveryUrl: "https://signed.example/refreshed-direct",
+      deliveryUrlExpiresAt: "2026-07-23T02:00:00.000Z",
+    };
+    const getDescriptor = vi.fn().mockResolvedValue(fresh);
+
+    await expect(resolveMediaAssetDirectly(descriptor, {
+      getDescriptor,
+      now: () => Date.parse("2026-07-23T00:01:00.000Z"),
+    })).resolves.toMatchObject({
+      descriptor: fresh,
+      url: fresh.deliveryUrl,
+      source: "direct",
+    });
+    expect(getDescriptor).toHaveBeenCalledWith(descriptor.id);
   });
 });
