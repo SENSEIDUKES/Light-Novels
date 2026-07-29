@@ -230,6 +230,21 @@ function isForbidden(error: unknown): boolean {
   );
 }
 
+/**
+ * A payload the repository refused on its own terms — a shape that would
+ * destroy data rather than persist it. The reason travels back to the client
+ * verbatim, because "the request was wrong" is only actionable if the caller
+ * learns which part.
+ */
+function isInvalidArgument(error: unknown): boolean {
+  return Boolean(
+    error
+    && typeof error === 'object'
+    && 'code' in error
+    && String(error.code) === 'invalid_argument',
+  );
+}
+
 export function createPersistenceRouter(
   dependencies: PersistenceRouteDependencies = defaultDependencies,
 ): express.Router {
@@ -521,6 +536,15 @@ export function createPersistenceRouter(
     }
     if (isForbidden(error)) {
       sendError(res, 403, 'forbidden', 'The authenticated account cannot access this record.');
+      return;
+    }
+    if (isInvalidArgument(error)) {
+      sendError(
+        res,
+        400,
+        'invalid_argument',
+        error instanceof Error ? error.message : 'The persistence payload was rejected.',
+      );
       return;
     }
     logger.error({ err: error }, 'Application persistence route failed');

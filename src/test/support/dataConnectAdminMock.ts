@@ -31,7 +31,10 @@ export function createDataConnectAdminMock(actual: Record<string, unknown>) {
 
     // -------------------------------------------------------------- stories
     adminListOwnedStories: async (vars: Vars) =>
-      ok({ stories: dataConnectStore.listOwnedStories(vars.ownerUid, vars.limit ?? 200, vars.offset ?? 0) }),
+      ok({
+        stories: dataConnectStore.listOwnedStories(vars.ownerUid, vars.limit ?? 200, vars.offset ?? 0),
+        chapterCounts: dataConnectStore.listOwnedStoryChapterCounts(vars.ownerUid),
+      }),
     adminListOwnedStoryCoverSlots: async (vars: Vars) =>
       ok({ coverSlots: dataConnectStore.listOwnedStoryCoverSlots(vars.ownerUid, vars.limit ?? 200, vars.offset ?? 0) }),
     adminGetOwnedStoryGraph: async (vars: Vars) =>

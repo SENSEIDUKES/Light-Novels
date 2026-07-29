@@ -491,6 +491,30 @@ export class InMemoryDataConnect {
     return all.slice(offset, offset + limit);
   }
 
+  /**
+   * The `_select` aggregate carried by `AdminListOwnedStories`: one row per
+   * story, counting the chapters that have a `chapter_content` row. Counts come
+   * back as bigint strings exactly as the JSON boundary delivers them, so the
+   * repository's normalization is exercised for real.
+   */
+  listOwnedStoryChapterCounts(ownerUid: string): Row[] {
+    const counts: Row[] = [];
+    for (const [storyId, record] of this.stories) {
+      if (record.ownerUid !== ownerUid) continue;
+      const chapters = record.collections.chapters;
+      if (chapters.length === 0) continue;
+      const generated = chapters.filter(
+        (chapter) => Boolean(this.chapterContents.get(String(chapter.id))?.content),
+      ).length;
+      counts.push({
+        storyId,
+        totalChapterCount: String(chapters.length),
+        generatedChapterCount: String(generated),
+      });
+    }
+    return counts;
+  }
+
   getOwnedStoryGraph(ownerUid: string, storyId: string): Row {
     const record = this.stories.get(storyId);
     if (!record || record.ownerUid !== ownerUid) {
@@ -527,7 +551,12 @@ export class InMemoryDataConnect {
       revealBackdrops: collections.revealBackdrops,
       arcs: collections.arcs,
       sceneFingerprints,
-      chapters: collections.chapters,
+      // `content: chapterContent_on_chapter { chapterId }` — the body row's
+      // presence, with none of its prose.
+      chapters: collections.chapters.map((chapter) => {
+        const body = this.chapterContents.get(String(chapter.id))?.content;
+        return body ? { ...chapter, content: { chapterId: chapter.id } } : chapter;
+      }),
       codexEntities: collections.codexEntities.map((entity) => ({
         ...entity,
         aliases: aliasesByEntity.get(String(entity.id)) ?? [],

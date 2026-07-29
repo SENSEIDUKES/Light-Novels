@@ -187,6 +187,31 @@ export async function retrieveRelevantContext(
   const effectiveMaxContextChars = maxContextChars ?? CONTEXT_CHAR_LIMITS[contextEngine];
   let currentTotalChars = 0;
 
+  /**
+   * Best-effort body load for the retrieval window.
+   *
+   * A failed read narrows the context this one generation sees; it never
+   * changes stored chapter state, so it is reported and downgraded to "no body"
+   * here rather than aborting the run. The load is started for every past
+   * chapter but only awaited for the recent ones, so the failure has to be
+   * absorbed at creation — an unattended rejection would otherwise escape as an
+   * unhandled error long after this function returned.
+   */
+  async function loadChapterForRetrieval(
+    storyId: string,
+    chapterNumber: number,
+  ): Promise<ChapterContent | null> {
+    try {
+      return await storyStorage.getChapterContent(storyId, chapterNumber);
+    } catch (error) {
+      console.warn(
+        `Chapter ${storyId}#${chapterNumber} could not be read for retrieval context`,
+        error,
+      );
+      return null;
+    }
+  }
+
   // We want to fetch the real narrative blocks of the most recent chapters (sliding window).
   const allPastChapters: { 
     chapterNumber: number; 
@@ -204,7 +229,7 @@ export async function retrieveRelevantContext(
           summary: ch.summary || "", 
           embedding: ch.embedding,
           isRecent: false,
-          contentPromise: ch.hasContent ? storyStorage.getChapterContent(story.id, ch.number) : null
+          contentPromise: ch.hasContent ? loadChapterForRetrieval(story.id, ch.number) : null
         });
       }
     }

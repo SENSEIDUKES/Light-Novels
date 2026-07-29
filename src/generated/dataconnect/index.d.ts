@@ -1092,6 +1092,9 @@ export interface AdminGetOwnedStoryGraphData {
     hasContinuityFaults: boolean;
     createdAt: TimestampString;
     updatedAt: TimestampString;
+    content?: {
+      chapterId: UUIDString;
+    } & ChapterContent_Key;
   } & Chapter_Key)[];
   codexEntities: ({
     id: UUIDString;
@@ -1747,6 +1750,7 @@ export interface AdminListOwnedStoriesData {
     createdAt: TimestampString;
     updatedAt: TimestampString;
   } & Story_Key)[];
+  chapterCounts?: unknown[] | null;
 }
 
 export interface AdminListOwnedStoriesVariables {

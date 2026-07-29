@@ -262,13 +262,51 @@ function roleToSql(value: UserProfile['role']): AccountRole {
   return AccountRole.USER;
 }
 
+/** Chapter tallies keyed by relational story id, as returned by the catalog query. */
+export interface StoryChapterTally {
+  totalChapterCount: number;
+  generatedChapterCount: number;
+}
+
+/**
+ * Read the catalog query's aggregate rows.
+ *
+ * `_select` is typed as `unknown[]`, and PostgreSQL returns `bigint` counts as
+ * strings through the JSON boundary, so both shapes are normalized here. A row
+ * that cannot be understood is dropped rather than guessed at: a story with no
+ * tally simply reports none, which the Library renders as "not loaded" instead
+ * of a fabricated 0/0.
+ */
+function chapterTalliesByStoryId(rows: unknown): Map<string, StoryChapterTally> {
+  const tallies = new Map<string, StoryChapterTally>();
+  if (!Array.isArray(rows)) return tallies;
+  for (const entry of rows) {
+    if (!entry || typeof entry !== 'object') continue;
+    const record = entry as Record<string, unknown>;
+    const storyId = record.storyId;
+    const total = Number(record.totalChapterCount);
+    const generated = Number(record.generatedChapterCount);
+    if (typeof storyId !== 'string' || !Number.isFinite(total) || !Number.isFinite(generated)) {
+      continue;
+    }
+    tallies.set(storyId, { totalChapterCount: total, generatedChapterCount: generated });
+  }
+  return tallies;
+}
+
 function compactStorySummary(
   ownerUid: string,
   row: Awaited<ReturnType<typeof adminListOwnedStories>>['data']['stories'][number],
   cover?: MediaAssetDescriptor,
+  tally?: StoryChapterTally,
 ): StoryWorld {
   const summary: StoryWorld = {
     persistenceHydration: 'summary',
+    // A summary carries no arcs, so these are the only chapter progress the
+    // Library Hub has until the story is opened. They come straight from the
+    // Chapter rows, never from anything the browser reported.
+    totalChapterCount: tally?.totalChapterCount ?? 0,
+    generatedChapterCount: tally?.generatedChapterCount ?? 0,
     persistenceId: row.id,
     userId: ownerUid,
     id: row.clientStoryId ?? row.legacyStoryId ?? row.id,
@@ -367,11 +405,24 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
   }
 
   private async listStoryRows(ownerUid: string) {
+    return (await this.listStoryCatalog(ownerUid)).rows;
+  }
+
+  /**
+   * One catalog read: the owner's story rows plus the chapter tallies the
+   * Library needs. The tallies are aggregated by the same statement for the
+   * whole account, so paging the story rows does not multiply the aggregate.
+   */
+  private async listStoryCatalog(ownerUid: string) {
     const rows: Awaited<ReturnType<typeof adminListOwnedStories>>['data']['stories'] = [];
+    let tallies = new Map<string, StoryChapterTally>();
     for (let offset = 0; ; offset += PAGE_SIZE) {
       const result = await adminListOwnedStories({ ownerUid, limit: PAGE_SIZE, offset });
       rows.push(...result.data.stories);
-      if (result.data.stories.length < PAGE_SIZE) return rows;
+      // The aggregate covers the whole account and repeats identically on every
+      // page; the first one is the answer.
+      if (offset === 0) tallies = chapterTalliesByStoryId(result.data.chapterCounts);
+      if (result.data.stories.length < PAGE_SIZE) return { rows, tallies };
     }
   }
 
@@ -470,7 +521,7 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
   }
 
   async listStories(ownerUid: string): Promise<StoryWorld[]> {
-    const rows = await this.listStoryRows(ownerUid);
+    const { rows, tallies } = await this.listStoryCatalog(ownerUid);
     const coverAssetIdByStoryId = new Map<string, string>();
     for (let offset = 0; ; offset += PAGE_SIZE) {
       const result = await adminListOwnedStoryCoverSlots({
@@ -494,6 +545,7 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
       ownerUid,
       row,
       descriptors.get(coverAssetIdByStoryId.get(row.id) ?? ''),
+      tallies.get(row.id),
     ));
   }
 
@@ -508,6 +560,16 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     context: PersistenceMutationContext,
   ): Promise<StoryWorld> {
     if (story.userId && story.userId !== ownerUid) throw taggedError('Story owner mismatch.', 'forbidden');
+    // A catalog summary is a projection with no arcs and no Codex, so writing
+    // one as a whole story deletes every chapter scaffold and, transitively,
+    // every generated chapter body. Clients resolve the full record before they
+    // publish; this is the boundary that refuses the lossy shape outright.
+    if (story.persistenceHydration === 'summary') {
+      throw taggedError(
+        'A catalog summary cannot be published as a full story: it carries no chapters or Codex.',
+        'invalid_argument',
+      );
+    }
     // Opening a built-in story adds it to the owner's library. The story graph
     // (Story + StoryMember + version guard) references UserAccount through a
     // non-null foreign key, so the canonical account must exist before this

@@ -29,6 +29,7 @@ import {
 } from "../media/privateMediaResolver";
 import { normalizeStoryImageOwnership } from "../media/imageOwnership";
 import { stripNonPersistedChapterFields } from "../chapterViews";
+import { withRefreshedChapterCounts } from "../chapterCounts";
 
 type DurableSyncTask = Omit<SyncTask, "attempts">;
 
@@ -157,6 +158,30 @@ class VolatileSyncOutboxCache implements SyncOutboxCache {
   }
 
   close(): void {}
+}
+
+/**
+ * A chapter body could not be read, as distinct from a chapter that has none.
+ *
+ * `getChapterContent` returns null only when the chapter genuinely carries no
+ * stored body. Every failure to find out — offline, unauthenticated, a server
+ * fault — throws this instead, so no caller can mistake a broken read for an
+ * ungenerated chapter and overwrite a durable marker on the strength of it.
+ */
+export class ChapterContentReadError extends Error {
+  readonly code = "chapter/read-failed";
+
+  constructor(
+    readonly storyId: string,
+    readonly chapterNumber: number,
+    override readonly cause: unknown,
+  ) {
+    super(
+      `Chapter ${storyId}#${chapterNumber} could not be read: ` +
+        (cause instanceof Error ? cause.message : String(cause)),
+    );
+    this.name = "ChapterContentReadError";
+  }
 }
 
 /**
@@ -1653,11 +1678,27 @@ export class PersistentStorageManager implements StorageAdapter {
       const cloudChars = cloud.memory?.characters?.length || 0;
       if (localChars !== cloudChars) return true;
     }
+    // A chapter body still queued in this device's outbox is legitimately
+    // absent from the cloud, and the cloud reports `hasContent` from the body
+    // row it actually holds. Counting those chapters would turn every ordinary
+    // "generated, not yet uploaded" moment into a conflict prompt.
+    const owner = local.userId ?? this.getCurrentUserId();
+    const pendingChapterNumbers = new Set(
+      this.syncQueue
+        .filter(
+          (task) =>
+            task.type === "chapter" &&
+            task.storyId === local.id &&
+            (!task.userId || task.userId === owner),
+        )
+        .map((task) => task.chapterNumber),
+    );
     const getHasContentCount = (story: StoryWorld) => {
       let count = 0;
       if (story.arcs) {
         for (const arc of story.arcs) {
           for (const ch of arc.chapters) {
+            if (pendingChapterNumbers.has(ch.number)) continue;
             if (ch.hasContent || ch.generatedContent) count++;
           }
         }
@@ -1699,6 +1740,11 @@ export class PersistentStorageManager implements StorageAdapter {
       isEdited: summary.isEdited,
       conflictResolvedAt: summary.conflictResolvedAt,
       deleted: summary.deleted,
+      // The tallies belong to the summary: they are computed from the Chapter
+      // rows this catalog read just observed, so they are newer than anything a
+      // stale local copy of the arcs could report.
+      totalChapterCount: summary.totalChapterCount,
+      generatedChapterCount: summary.generatedChapterCount,
       persistenceHydration:
         local.persistenceHydration === "summary" ? "summary" : "full",
       // The catalog summary only carries the story cover, so it must be layered
@@ -2718,7 +2764,71 @@ export class PersistentStorageManager implements StorageAdapter {
     }
   }
 
+  /**
+   * Turn a catalog summary into an authoritative story before it is written.
+   *
+   * A summary is a lossy projection: `arcs` is empty, `memory` holds no Codex
+   * entities, and every collection the Library card does not render is absent.
+   * The Library Hub holds exactly that shape for every story it has not opened,
+   * so any save originating there — a renamed story, a cover selection, a
+   * paused generation batch — used to be published as if the story genuinely
+   * had no chapters. The relational patch then deleted every arc, every chapter
+   * scaffold and, with them, every generated chapter's `ChapterContent` row.
+   *
+   * Resolving it costs one read of the record this device already caches (which
+   * `getStory` upgrades from PostgreSQL when it is still a summary locally) and
+   * replays only the fields a summary actually owns on top. A summary that
+   * cannot be resolved is never written: losing the save is recoverable, and
+   * deleting the story's chapters is not.
+   */
+  private async resolveSummaryStoryForWrite(
+    story: StoryWorld,
+  ): Promise<StoryWorld> {
+    if (story.persistenceHydration !== "summary") return story;
+    let authoritative: StoryWorld | null = null;
+    try {
+      authoritative = await this.getStory(story.id);
+    } catch (error) {
+      throw new Error(
+        `Cannot save story ${story.id}: its full record could not be loaded, ` +
+          `and publishing the catalog summary would delete its chapters. ` +
+          `Cause: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    if (!authoritative || authoritative.persistenceHydration === "summary") {
+      // No full record exists yet on this device or in the cloud. A brand-new
+      // story is never a summary, so this is a summary whose graph could not be
+      // reached — refuse rather than publish an empty one.
+      throw new Error(
+        `Cannot save story ${story.id} from a catalog summary: its chapters ` +
+          `and Codex are not loaded, so the write would erase them.`,
+      );
+    }
+    // Keep every field the caller actually set and restore only the two
+    // structures a summary hollows out, so a Hub edit still lands while the
+    // story's chapters and Codex come from the authoritative record.
+    return {
+      ...authoritative,
+      ...story,
+      arcs: authoritative.arcs,
+      memory: authoritative.memory,
+      totalChapterCount: authoritative.totalChapterCount,
+      generatedChapterCount: authoritative.generatedChapterCount,
+      mediaDescriptors:
+        story.mediaDescriptors || authoritative.mediaDescriptors
+          ? {
+              ...(authoritative.mediaDescriptors ?? {}),
+              ...(story.mediaDescriptors ?? {}),
+            }
+          : undefined,
+      persistenceHydration: "full" as const,
+    };
+  }
+
   async saveStory(story: StoryWorld): Promise<void> {
+    // Resolve before any lock is taken: `getStory` acquires the same story lock
+    // and `withRecordLock` is not reentrant.
+    story = await this.resolveSummaryStoryForWrite(story);
     story = normalizeStoryImageOwnership(story);
     const currentUserId = this.getCurrentUserId();
     await this.awaitAccountScope(currentUserId);
@@ -2812,6 +2922,12 @@ export class PersistentStorageManager implements StorageAdapter {
           }
         }
       }
+
+      // Re-derive the catalog tallies from the scaffolds just committed. The
+      // Library reads them straight from the local replica, so a chapter that
+      // was generated a moment ago counts immediately instead of waiting for
+      // the next catalog read to bring the server's tally back.
+      Object.assign(strippedStory, withRefreshedChapterCounts(strippedStory));
 
       try {
         await this.localAdapter.saveStory(strippedStory);
@@ -3000,8 +3116,11 @@ export class PersistentStorageManager implements StorageAdapter {
             }
             return cloudItem;
           } catch (e) {
-            console.error("Cloud fetch failed, failing silently", e);
-            return null;
+            // A failed read is not an absent chapter. Returning null here made
+            // an offline device, an expired token and a server fault all look
+            // exactly like "this chapter was never generated", and callers
+            // then reported a stored chapter as empty. Surface it instead.
+            throw new ChapterContentReadError(storyId, chapterNumber, e);
           }
         },
       );
