@@ -1,3 +1,7 @@
 ## 2024-07-23 - Conditional Style Customization for UI Elements
 **Learning:** Adding a styling preference requires passing it through several component layers (from global/context preferences down to the specific UI component). In this case, `playerStyle` had to be added to `ReaderPreferences`, passed from `ReaderChamber` via `PlaybackState` into `ReaderControls`, and finally applied conditionally inside `PlaybackControls`. The existing preference updating mechanism (`handleUpdatePreference`) smoothly handles adding new generic preference keys without requiring complex global state rework.
 **Action:** Next time I add a cosmetic choice, follow the pattern: 1) Add type property to preferences. 2) Add UI control calling `handleUpdatePreference(key, value)`. 3) Thread the property down via props if the target component is deeply nested. 4) Render conditionally using inline classes.
+
+## 2026-07-29 - Safe Layering for Cosmetic Overlays
+**Learning:** When adding atmospheric or visual overlays (like vignettes) across a large reading area, it is critical to add the `pointer-events-none` CSS utility to ensure the cosmetic effect does not block text selection, swipe scrolling, or underlying interactive components.
+**Action:** Next time I add an absolute-positioned aesthetic layer, I must verify it has `pointer-events-none` so that the core reading interaction remains completely unobstructed.

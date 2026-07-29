@@ -874,6 +874,17 @@ export default function ReaderChamber({
         />
       )}
 
+      {/* Vignette Overlay */}
+      {currentPrefs.vignetteStyle === "radial" && (
+        <div className="absolute inset-0 pointer-events-none z-50 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.4)_100%)] transition-opacity duration-500" />
+      )}
+      {currentPrefs.vignetteStyle === "mystic" && (
+        <div className="absolute inset-0 pointer-events-none z-50 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(4,172,255,0.1)_80%,rgba(0,0,0,0.6)_100%)] transition-opacity duration-500" />
+      )}
+      {currentPrefs.vignetteStyle === "scroll" && (
+        <div className="absolute inset-0 pointer-events-none z-50 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.3)_0%,transparent_5%,transparent_95%,rgba(0,0,0,0.3)_100%),linear-gradient(to_right,rgba(0,0,0,0.3)_0%,transparent_5%,transparent_95%,rgba(0,0,0,0.3)_100%)] transition-opacity duration-500" />
+      )}
+
       {/* HEADER: Readability & Chapter Title */}
       {!isReaderFullscreen && (
         <ReaderHeader

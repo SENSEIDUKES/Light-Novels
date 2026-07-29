@@ -49,6 +49,13 @@ const DIVIDER_STYLE_OPTIONS = [
   { value: 'lotus_path', label: 'Lotus Serenity' },
 ] as const;
 
+const VIGNETTE_STYLE_OPTIONS = [
+  { value: 'none', label: 'None' },
+  { value: 'radial', label: 'Cinematic Shadow' },
+  { value: 'mystic', label: 'Mystic Glow' },
+  { value: 'scroll', label: 'Ancient Scroll' },
+] as const;
+
 type NumericTypographyPreference =
   | 'lineHeightScale'
   | 'paragraphSpacingScale'
@@ -254,6 +261,21 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
                   <button key={option.value} type="button" onClick={() => handleUpdatePreference('dividerStyle', option.value)} className={choiceClass((currentPrefs.dividerStyle || 'default') === option.value)}>
                     <span>{option.label}</span>
                     {(currentPrefs.dividerStyle || 'default') === option.value ? <Check size={12} /> : null}
+                  </button>
+                ))}
+              </div>
+            </PreferenceGroup>
+
+            <PreferenceGroup
+              label="Vignette Overlay"
+              icon={<Eye size={13} />}
+              summary={VIGNETTE_STYLE_OPTIONS.find(option => option.value === (currentPrefs.vignetteStyle || 'none'))?.label}
+            >
+              <div className="grid gap-1.5">
+                {VIGNETTE_STYLE_OPTIONS.map(option => (
+                  <button key={option.value} type="button" onClick={() => handleUpdatePreference('vignetteStyle', option.value)} className={choiceClass((currentPrefs.vignetteStyle || 'none') === option.value)}>
+                    <span>{option.label}</span>
+                    {(currentPrefs.vignetteStyle || 'none') === option.value ? <Check size={12} /> : null}
                   </button>
                 ))}
               </div>
