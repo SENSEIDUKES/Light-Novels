@@ -246,6 +246,7 @@ describe('foundation media asset routes', () => {
     ['user_quota_exceeded', 413],
     ['public_storage_prohibited', 403],
     ['idempotency_conflict', 409],
+    ['delivery_not_configured', 503],
   ] as const)('maps %s to HTTP %s', async (code, status) => {
     vi.mocked(service.save).mockRejectedValueOnce(new MediaAssetServiceError('mapped failure', code));
     const response = await fetch(`${baseUrl}/api/foundation/media-assets`, {

@@ -291,6 +291,44 @@ describe('IndexedDBStorageAdapter', () => {
     expect(all[0]).toEqual(story);
   });
 
+  it('does not persist blob or signed URLs for canonical story media', async () => {
+    const story = {
+      ...makeNamespacedStory('media-story', 'Media Story'),
+      coverAssetId: 'cover-1',
+      imageUrl: 'blob:https://app.example/dead-after-reload',
+      imageHistory: [{
+        id: 'cover-old',
+        assetId: 'cover-old',
+        entityId: 'media-story',
+        entityType: 'cover',
+        imageUrl: 'https://signed.example/old?X-Amz-Signature=abc',
+        promptUsed: 'Old cover',
+        createdAt: '2026-07-01T00:00:00.000Z',
+        isCurrent: false,
+      }],
+      mediaDescriptors: {
+        'cover-1': {
+          id: 'cover-1',
+          deliveryUrl: 'https://signed.example/current?X-Amz-Signature=def',
+        },
+      },
+    } as unknown as StoryWorld;
+
+    await adapter.saveStory(story);
+    const retrieved = await adapter.getStory(story.id);
+
+    expect(retrieved).toMatchObject({
+      coverAssetId: 'cover-1',
+      imageHistory: [{ assetId: 'cover-old' }],
+      mediaDescriptors: {
+        'cover-1': { id: 'cover-1', deliveryUrl: '' },
+      },
+    });
+    expect(retrieved).not.toHaveProperty('imageUrl');
+    expect(retrieved?.imageHistory?.[0]).not.toHaveProperty('imageUrl');
+    expect(JSON.stringify(retrieved)).not.toMatch(/blob:|X-Amz-Signature/);
+  });
+
   it('should sort stories descending by updatedAt', async () => {
     const storyOld: StoryWorld = {
       id: 'storyOld',

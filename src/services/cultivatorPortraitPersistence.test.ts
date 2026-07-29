@@ -12,6 +12,9 @@ const mocks = vi.hoisted(() => ({
   },
   generateUUID: vi.fn(() => 'request-key'),
   saveMediaAsset: vi.fn(),
+  resolveMediaAssetForDisplay: vi.fn(),
+  selectUserPortrait: vi.fn(),
+  recoverPendingUserPortraits: vi.fn(),
 }));
 
 vi.mock('../lib/firebase', () => ({ auth: mocks.auth }));
@@ -21,12 +24,38 @@ vi.mock('../lib/media/mediaAssetClient', () => ({
   MEDIA_TARGET_KIND: { PORTRAIT: 'PORTRAIT' },
   saveMediaAsset: mocks.saveMediaAsset,
 }));
+vi.mock('../lib/media/privateMediaResolver', () => ({
+  resolveMediaAssetForDisplay: mocks.resolveMediaAssetForDisplay,
+}));
+vi.mock('../lib/persistence/persistenceClient', () => {
+  class PersistenceClientError extends Error {
+    code: string;
+    status: number;
+    recoverable: boolean;
+
+    constructor(
+      message: string,
+      options: { code?: string; status?: number; recoverable?: boolean } = {},
+    ) {
+      super(message);
+      this.code = options.code ?? 'persistence_request_failed';
+      this.status = options.status ?? 0;
+      this.recoverable = options.recoverable ?? (this.status === 0 || this.status >= 500);
+    }
+  }
+  return {
+    PersistenceClientError,
+    selectUserPortrait: mocks.selectUserPortrait,
+    recoverPendingUserPortraits: mocks.recoverPendingUserPortraits,
+  };
+});
 
 import {
   CultivatorPortraitCommitDeferredError,
   persistCultivatorPortrait,
   retryPendingCultivatorPortraits,
 } from './cultivatorPortraitPersistence';
+import { PersistenceClientError } from '../lib/persistence/persistenceClient';
 
 const descriptor = {
   id: ASSET_ID,
@@ -63,8 +92,6 @@ function makeInput(
 }
 
 describe('cultivator portrait persistence', () => {
-  let fetchMock: ReturnType<typeof vi.fn>;
-
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.auth.currentUser = {
@@ -72,11 +99,17 @@ describe('cultivator portrait persistence', () => {
       getIdToken: vi.fn(async () => 'firebase-token'),
     };
     mocks.saveMediaAsset.mockResolvedValue(descriptor);
-    fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
-    vi.stubGlobal('fetch', fetchMock);
+    mocks.resolveMediaAssetForDisplay.mockResolvedValue({
+      assetId: descriptor.id,
+      descriptor,
+      url: 'blob:canonical-portrait',
+      source: 'network',
+    });
+    mocks.selectUserPortrait.mockResolvedValue({ activePortraitId: descriptor.id });
+    mocks.recoverPendingUserPortraits.mockResolvedValue(0);
   });
 
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => vi.restoreAllMocks());
 
   it('stores the generated source in R2 before selecting the PostgreSQL portrait', async () => {
     const portrait = await persistCultivatorPortrait(makeInput());
@@ -91,11 +124,16 @@ describe('cultivator portrait persistence', () => {
         entityType: 'portrait',
       }),
       idempotencyKey: 'request-key',
+      expectedOwnerUid: 'user-123',
     }));
     expect(portrait).toMatchObject({
       id: ASSET_ID,
       userId: 'user-123',
-      imageUrl: descriptor.deliveryUrl,
+      imageUrl: 'blob:canonical-portrait',
+      avatarMediaDescriptor: {
+        id: ASSET_ID,
+        deliveryUrl: '',
+      },
       assetVersion: 1,
       checksumSha256: 'abc123',
       deliveryUrlExpiresAt: descriptor.deliveryUrlExpiresAt,
@@ -103,19 +141,14 @@ describe('cultivator portrait persistence', () => {
       source: 'generated',
       createdAt: descriptor.readyAt,
     });
-    expect(fetchMock).toHaveBeenCalledWith('/api/persistence/profile/portrait', {
-      method: 'PUT',
-      headers: {
-        Authorization: 'Bearer firebase-token',
-        'Content-Type': 'application/json',
-      },
-      body: expect.any(String),
-    });
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+    expect(mocks.selectUserPortrait).toHaveBeenCalledWith(expect.objectContaining({
       assetId: ASSET_ID,
       usedReferenceImage: true,
-      idempotencyKey: 'request-key',
-    });
+    }), 'user-123', 'request-key');
+    expect(mocks.resolveMediaAssetForDisplay).toHaveBeenCalledWith(
+      descriptor,
+      'user-123',
+    );
   });
 
   it('bounds generation metadata before committing profile state', async () => {
@@ -137,7 +170,11 @@ describe('cultivator portrait persistence', () => {
     const mediaRequest = mocks.saveMediaAsset.mock.calls[0][0];
     expect(mediaRequest.association.promptUsed).toHaveLength(12000);
     expect(mediaRequest.association.label).toHaveLength(500);
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ daoXp: 0 });
+    expect(mocks.selectUserPortrait).toHaveBeenCalledWith(
+      expect.objectContaining({ daoXp: 0 }),
+      'user-123',
+      'request-key',
+    );
   });
 
   it('treats missing runtime text metadata as empty instead of throwing', async () => {
@@ -165,11 +202,10 @@ describe('cultivator portrait persistence', () => {
   });
 
   it('returns the durable R2 asset in a deferred error when profile selection fails', async () => {
-    fetchMock.mockResolvedValue({
-      ok: false,
-      status: 503,
-      json: async () => ({ error: { message: 'PostgreSQL unavailable' } }),
-    });
+    mocks.selectUserPortrait.mockRejectedValue(new PersistenceClientError(
+      'PostgreSQL unavailable',
+      { status: 503, recoverable: true },
+    ));
 
     let caught: unknown;
     try {
@@ -181,34 +217,84 @@ describe('cultivator portrait persistence', () => {
     expect(caught).toBeInstanceOf(CultivatorPortraitCommitDeferredError);
     expect((caught as CultivatorPortraitCommitDeferredError).portrait).toMatchObject({
       id: ASSET_ID,
-      imageUrl: descriptor.deliveryUrl,
+      imageUrl: 'data:image/png;base64,AAEC',
+      avatarMediaDescriptor: { id: ASSET_ID, deliveryUrl: '' },
     });
     expect((caught as Error & { cause?: Error }).cause?.message).toBe('PostgreSQL unavailable');
+    expect(mocks.resolveMediaAssetForDisplay).not.toHaveBeenCalled();
+  });
+
+  it('surfaces permanent selection rejection instead of claiming recovery is pending', async () => {
+    mocks.selectUserPortrait.mockRejectedValue(new PersistenceClientError(
+      'Portrait asset purpose mismatch',
+      { code: 'invalid_argument', status: 400, recoverable: false },
+    ));
+
+    await expect(persistCultivatorPortrait(makeInput())).rejects.toMatchObject({
+      code: 'invalid_argument',
+      message: 'Portrait asset purpose mismatch',
+    });
+    expect(mocks.resolveMediaAssetForDisplay).not.toHaveBeenCalled();
+  });
+
+  it('commits selection before resolving delivery and retains the preview if delivery fails', async () => {
+    const order: string[] = [];
+    mocks.selectUserPortrait.mockImplementation(async () => {
+      order.push('select');
+      return { activePortraitId: ASSET_ID };
+    });
+    mocks.resolveMediaAssetForDisplay.mockImplementation(async () => {
+      order.push('resolve');
+      throw new Error('R2 signing unavailable');
+    });
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const portrait = await persistCultivatorPortrait(makeInput());
+
+    expect(order).toEqual(['select', 'resolve']);
+    expect(portrait).toMatchObject({
+      id: ASSET_ID,
+      imageUrl: 'data:image/png;base64,AAEC',
+      avatarMediaDescriptor: { id: ASSET_ID, deliveryUrl: '' },
+    });
+  });
+
+  it('stops after upload when the active account changes before selection', async () => {
+    mocks.saveMediaAsset.mockImplementation(async () => {
+      mocks.auth.currentUser = {
+        uid: 'account-b',
+        getIdToken: vi.fn(async () => 'account-b-token'),
+      };
+      return descriptor;
+    });
+
+    await expect(persistCultivatorPortrait(makeInput())).rejects.toMatchObject({
+      code: 'auth/account-changed',
+    });
+    expect(mocks.selectUserPortrait).not.toHaveBeenCalled();
+    expect(mocks.resolveMediaAssetForDisplay).not.toHaveBeenCalled();
   });
 
   it('asks the server to recover incomplete portrait selections without local media state', async () => {
     await retryPendingCultivatorPortraits('user-123');
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/persistence/profile/portraits/recover', {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer firebase-token',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ idempotencyKey: 'request-key' }),
-    });
+    expect(mocks.recoverPendingUserPortraits)
+      .toHaveBeenCalledWith('user-123', 'request-key');
 
-    fetchMock.mockClear();
+    mocks.recoverPendingUserPortraits.mockClear();
     await retryPendingCultivatorPortraits('another-user');
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mocks.recoverPendingUserPortraits).not.toHaveBeenCalled();
   });
 
-  it('treats an empty recovery queue as success and surfaces server failures', async () => {
-    fetchMock.mockResolvedValueOnce({ ok: false, status: 404 });
-    await expect(retryPendingCultivatorPortraits('user-123')).resolves.toBeUndefined();
+  it('returns the recovered count and surfaces a missing recovery route', async () => {
+    mocks.recoverPendingUserPortraits.mockResolvedValueOnce(1);
+    await expect(retryPendingCultivatorPortraits('user-123')).resolves.toBe(1);
 
-    fetchMock.mockResolvedValueOnce({ ok: false, status: 503 });
+    mocks.recoverPendingUserPortraits.mockRejectedValueOnce(new PersistenceClientError(
+      'Recovery route not found',
+      { status: 404, recoverable: false },
+    ));
     await expect(retryPendingCultivatorPortraits('user-123'))
-      .rejects.toThrow('could not be scheduled');
+      .rejects.toThrow('Recovery route not found');
   });
 });

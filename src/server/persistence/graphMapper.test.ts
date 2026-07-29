@@ -307,6 +307,96 @@ function chapterGraph(): AdminGetOwnedChapterContentGraphData {
 }
 
 describe('story graph mapping', () => {
+  it('keeps cover and manifestation histories scoped to their actual purpose', () => {
+    const graph = storyGraph();
+    graph.mediaAttachments.push(
+      {
+        id: '10101010-1010-4010-8010-101010101010',
+        assetId: '12121212-1212-4212-8212-121212121212',
+        targetKind: 'STORY',
+        targetKey: STORY_ID,
+        purpose: 'MANIFESTATION',
+        position: 9,
+        isCurrent: false,
+        createdAt: NOW,
+      } as never,
+      {
+        id: '13131313-1313-4313-8313-131313131313',
+        assetId: '14141414-1414-4414-8414-141414141414',
+        entityId: CHARACTER_ID,
+        targetKind: 'CHARACTER',
+        targetKey: 'lin',
+        purpose: 'STORY_COVER',
+        position: 9,
+        isCurrent: false,
+        createdAt: NOW,
+      } as never,
+      {
+        id: '15151515-1515-4515-8515-151515151515',
+        assetId: '16161616-1616-4616-8616-161616161616',
+        entityId: CHARACTER_ID,
+        targetKind: 'CODEX_ENTITY',
+        targetKey: 'lin',
+        purpose: 'MANIFESTATION',
+        clientHistoryId: 'history-lin-generic',
+        position: 10,
+        isCurrent: false,
+        createdAt: NOW,
+      } as never,
+      {
+        id: '17171717-1717-4717-8717-171717171717',
+        assetId: '18181818-1818-4818-8818-181818181818',
+        entityId: CHARACTER_ID,
+        targetKind: 'UNRELATED_TARGET',
+        targetKey: 'lin',
+        purpose: 'MANIFESTATION',
+        clientHistoryId: 'history-lin-wrong-target',
+        position: 11,
+        isCurrent: false,
+        createdAt: NOW,
+      } as never,
+    );
+
+    const story = hydrateStoryWorld(graph);
+
+    expect(story?.imageHistory).toEqual([]);
+    expect(story?.memory.characters[0].imageHistory?.map(image => image.id)).toEqual([
+      'history-lin-1',
+      'history-lin-generic',
+    ]);
+  });
+
+  it('prefers the concrete Codex slot and only falls back to legacy generic kinds', () => {
+    const graph = storyGraph();
+    const wrongKindAssetId = '19191919-1919-4919-8919-191919191919';
+    const legacyAssetId = '20202020-2020-4020-8020-202020202020';
+    graph.mediaSlots.unshift({
+      targetKind: 'LOCATION',
+      targetKey: CHARACTER_ID,
+      purpose: 'MANIFESTATION',
+      entityId: CHARACTER_ID,
+      currentAssetId: wrongKindAssetId,
+      version: '7',
+      updatedAt: NOW,
+    }, {
+      targetKind: 'CODEX_ENTITY',
+      targetKey: CHARACTER_ID,
+      purpose: 'MANIFESTATION',
+      entityId: CHARACTER_ID,
+      currentAssetId: legacyAssetId,
+      version: '6',
+      updatedAt: NOW,
+    });
+
+    expect(hydrateStoryWorld(graph)?.memory.characters[0].imageAssetId)
+      .toBe('cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+
+    graph.mediaSlots = graph.mediaSlots.filter(slot =>
+      !(slot.targetKind === 'CHARACTER' && slot.purpose === 'MANIFESTATION'));
+    expect(hydrateStoryWorld(graph)?.memory.characters[0].imageAssetId)
+      .toBe(legacyAssetId);
+  });
+
   it('hydrates normalized rows and preserves server-owned rows in the exact write manifest', () => {
     const currentGraph = storyGraph();
     const story = hydrateStoryWorld(currentGraph);

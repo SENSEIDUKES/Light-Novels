@@ -17,6 +17,7 @@ export interface ManifestationImportance {
 }
 
 interface ManifestationCandidate {
+  imageAssetId?: string;
   imageUrl?: string;
   manifestationImportance?: ManifestationImportance;
 }
@@ -43,7 +44,7 @@ export const isManifestationEligible = (
   entry: ManifestationCandidate | null | undefined,
 ): boolean => {
   if (!entry) return false;
-  if (entry.imageUrl) return true;
+  if (entry.imageAssetId || entry.imageUrl) return true;
 
   const importance = entry.manifestationImportance;
   if (!importance?.namedStatus || importance.narrativeWeight === 'minor') {

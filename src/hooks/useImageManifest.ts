@@ -13,6 +13,16 @@ import {
   discardCachedMedia,
   resolveMediaAssetForDisplay,
 } from '../lib/media/privateMediaResolver';
+import { auth } from '../lib/firebase';
+import { retainLocalMediaDescriptor } from '../lib/media/localMediaDescriptors';
+import { isSameAssetId } from '../contracts/assetIdentity';
+
+function committedMediaDeliveryError(label: string, cause: unknown): Error {
+  const detail = cause instanceof Error ? ` ${cause.message}` : '';
+  return new Error(
+    `The ${label} was saved permanently, but its image could not be loaded yet.${detail}`,
+  );
+}
 
 export function useImageManifest() {
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
@@ -23,21 +33,30 @@ export function useImageManifest() {
 
   const manifestImage = async (entry: any, type: string) => {
     if (generatingIds.has(entry.id)) return;
-    
+    const initiatingUserId = auth.currentUser?.uid ?? null;
+    const accountIsCurrent = () =>
+      (auth.currentUser?.uid ?? null) === initiatingUserId;
+    const activeStory = stories.find(s => s.id === activeStoryId);
+    if (!activeStory) return;
+    if (activeStory.userId && activeStory.userId !== initiatingUserId) return;
+
     setGeneratingIds(prev => new Set(prev).add(entry.id));
     
     try {
       await checkAndConsumeImageQuota();
+      if (!accountIsCurrent()) return;
 
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
       const gemini = await secureStorage.getItem('@seihouse/api-key-gemini');
+      if (!accountIsCurrent()) return;
       const openrouter = await secureStorage.getItem('@seihouse/api-key-openrouter');
+      if (!accountIsCurrent()) return;
       const ollama = await secureStorage.getItem('@seihouse/api-key-ollama-host');
+      if (!accountIsCurrent()) return;
       if (gemini) apiHeaders['x-gemini-key'] = gemini;
       if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
       if (ollama) apiHeaders['x-ollama-host'] = ollama;
 
-      const activeStory = stories.find(s => s.id === activeStoryId);
       const res = await fetch('/api/generate-card-image', {
         method: 'POST',
         headers: apiHeaders,
@@ -47,8 +66,10 @@ export function useImageManifest() {
           routingConfig
         })
       });
+      if (!accountIsCurrent()) return;
 
       const data = await res.json();
+      if (!accountIsCurrent()) return;
       if (!res.ok) {
         throw new Error(data.error || "Aetherial alignment gate failed to synchronize imagery.");
       }
@@ -105,10 +126,34 @@ export function useImageManifest() {
           },
           replacesAssetId: entry.imageAssetId,
           idempotencyKey: generateUUID(),
+          expectedOwnerUid: initiatingUserId ?? undefined,
         });
-        selectedUrl = (await resolveMediaAssetForDisplay(asset)).url;
-        if (entry.imageAssetId && entry.imageAssetId !== asset.id) {
+        if (!accountIsCurrent()) return;
+        let deliveryFailure: unknown;
+        try {
+          selectedUrl = (
+            await resolveMediaAssetForDisplay(
+              asset,
+              initiatingUserId ?? undefined,
+            )
+          ).url;
+          if (!selectedUrl.trim()) {
+            deliveryFailure = new Error(
+              'The permanent media service returned an empty delivery URL.',
+            );
+          }
+        } catch (error) {
+          if (!accountIsCurrent()) return;
+          selectedUrl = '';
+          deliveryFailure = error;
+        }
+        if (!accountIsCurrent()) return;
+        if (
+          entry.imageAssetId
+          && !isSameAssetId(entry.imageAssetId, asset.id)
+        ) {
           await discardCachedMedia(entry.imageAssetId);
+          if (!accountIsCurrent()) return;
         }
         const newHistoryItem = {
           id: legacyMediaId,
@@ -125,85 +170,89 @@ export function useImageManifest() {
           chapterNumber: currentChapterNumber
         };
 
-        const memory = activeStory.memory;
-        const updatedMemory = { ...memory };
-        if (type === 'character') {
-          updatedMemory.characters = memory.characters.map((c: any) => 
-            c.id === id ? {
-              ...c,
-              persistenceId: entityPersistenceId,
-              imageAssetId: asset.id,
-              imageUrl: selectedUrl,
-              imageHistory: (c.imageHistory || [])
-                .map((img: any) => ({ ...img, isCurrent: false }))
-                .concat(newHistoryItem),
-            } : c
-          );
-        } else if (type === 'location') {
-          updatedMemory.locations = (memory.locations || []).map((l: any) => 
-            l.id === id ? {
-              ...l,
-              persistenceId: entityPersistenceId,
-              imageAssetId: asset.id,
-              imageUrl: selectedUrl,
-              imageHistory: (l.imageHistory || [])
-                .map((img: any) => ({ ...img, isCurrent: false }))
-                .concat(newHistoryItem),
-            } : l
-          );
-        } else if (type === 'artifact') {
-          updatedMemory.artifacts = (memory.artifacts || []).map((a: any) => 
-            a.id === id ? {
-              ...a,
-              persistenceId: entityPersistenceId,
-              imageAssetId: asset.id,
-              imageUrl: selectedUrl,
-              imageHistory: (a.imageHistory || [])
-                .map((img: any) => ({ ...img, isCurrent: false }))
-                .concat(newHistoryItem),
-            } : a
-          );
-        } else if (type === 'beast') {
-          updatedMemory.characters = memory.characters.map((c: any) =>
-            c.id === id ? {
-              ...c,
-              persistenceId: entityPersistenceId,
-              imageAssetId: asset.id,
-              imageUrl: selectedUrl,
-              imageHistory: (c.imageHistory || [])
-                .map((img: any) => ({ ...img, isCurrent: false }))
-                .concat(newHistoryItem),
-            } : c
-          );
-        } else if (type === 'faction') {
-          updatedMemory.factions = (memory.factions || []).map((f: any) =>
-            f.id === id ? {
-              ...f,
-              persistenceId: entityPersistenceId,
-              imageAssetId: asset.id,
-              imageUrl: selectedUrl,
-              imageHistory: (f.imageHistory || [])
-                .map((img: any) => ({ ...img, isCurrent: false }))
-                .concat(newHistoryItem),
-            } : f
-          );
-        }
-
-        const updatedStories = stories.map(s => {
-          if (s.id === activeStoryId) {
-            return {
-              ...s,
-              persistenceId: storyPersistenceId,
-              memory: updatedMemory,
-              updatedAt: new Date().toISOString()
-            };
+        await saveStories(currentStories => currentStories.map(s => {
+          if (s.id !== activeStoryId) return s;
+          const memory = s.memory;
+          const updatedMemory = { ...memory };
+          if (type === 'character') {
+            updatedMemory.characters = memory.characters.map((c: any) =>
+              c.id === id ? {
+                ...c,
+                persistenceId: entityPersistenceId,
+                imageAssetId: asset.id,
+                imageUrl: selectedUrl,
+                imageHistory: (c.imageHistory || [])
+                  .map((img: any) => ({ ...img, isCurrent: false }))
+                  .concat(newHistoryItem),
+              } : c
+            );
+          } else if (type === 'location') {
+            updatedMemory.locations = (memory.locations || []).map((l: any) =>
+              l.id === id ? {
+                ...l,
+                persistenceId: entityPersistenceId,
+                imageAssetId: asset.id,
+                imageUrl: selectedUrl,
+                imageHistory: (l.imageHistory || [])
+                  .map((img: any) => ({ ...img, isCurrent: false }))
+                  .concat(newHistoryItem),
+              } : l
+            );
+          } else if (type === 'artifact') {
+            updatedMemory.artifacts = (memory.artifacts || []).map((a: any) =>
+              a.id === id ? {
+                ...a,
+                persistenceId: entityPersistenceId,
+                imageAssetId: asset.id,
+                imageUrl: selectedUrl,
+                imageHistory: (a.imageHistory || [])
+                  .map((img: any) => ({ ...img, isCurrent: false }))
+                  .concat(newHistoryItem),
+              } : a
+            );
+          } else if (type === 'beast') {
+            updatedMemory.characters = memory.characters.map((c: any) =>
+              c.id === id ? {
+                ...c,
+                persistenceId: entityPersistenceId,
+                imageAssetId: asset.id,
+                imageUrl: selectedUrl,
+                imageHistory: (c.imageHistory || [])
+                  .map((img: any) => ({ ...img, isCurrent: false }))
+                  .concat(newHistoryItem),
+              } : c
+            );
+          } else if (type === 'faction') {
+            updatedMemory.factions = (memory.factions || []).map((f: any) =>
+              f.id === id ? {
+                ...f,
+                persistenceId: entityPersistenceId,
+                imageAssetId: asset.id,
+                imageUrl: selectedUrl,
+                imageHistory: (f.imageHistory || [])
+                  .map((img: any) => ({ ...img, isCurrent: false }))
+                  .concat(newHistoryItem),
+              } : f
+            );
           }
-          return s;
-        });
-
-        await saveStories(updatedStories);
+          return {
+            ...s,
+            persistenceId: storyPersistenceId,
+            memory: updatedMemory,
+            mediaDescriptors: retainLocalMediaDescriptor(
+              s.mediaDescriptors,
+              asset,
+            ),
+            updatedAt: new Date().toISOString(),
+          };
+        }));
+        if (!accountIsCurrent()) return;
+        if (deliveryFailure) {
+          throw committedMediaDeliveryError('manifestation', deliveryFailure);
+        }
       }
       
+      if (!accountIsCurrent()) return;
       setGeneratingIds(prev => {
         const next = new Set(prev);
         next.delete(entry.id);
@@ -211,6 +260,7 @@ export function useImageManifest() {
       });
       return selectedUrl;
     } catch (err: any) {
+      if (!accountIsCurrent()) return;
       setGeneratingIds(prev => {
         const next = new Set(prev);
         next.delete(entry.id);
@@ -230,21 +280,30 @@ export function useImageManifest() {
   const manifestChapterHero = async (chapterNumber: number, promptText: string) => {
     const genId = `chapter-hero-${chapterNumber}`;
     if (generatingIds.has(genId)) return;
-    
+    const initiatingUserId = auth.currentUser?.uid ?? null;
+    const accountIsCurrent = () =>
+      (auth.currentUser?.uid ?? null) === initiatingUserId;
+    const activeStory = stories.find(s => s.id === activeStoryId);
+    if (!activeStory) return;
+    if (activeStory.userId && activeStory.userId !== initiatingUserId) return;
+
     setGeneratingIds(prev => new Set(prev).add(genId));
     
     try {
       await checkAndConsumeImageQuota({ automatic: true });
+      if (!accountIsCurrent()) return;
 
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
       const gemini = await secureStorage.getItem('@seihouse/api-key-gemini');
+      if (!accountIsCurrent()) return;
       const openrouter = await secureStorage.getItem('@seihouse/api-key-openrouter');
+      if (!accountIsCurrent()) return;
       const ollama = await secureStorage.getItem('@seihouse/api-key-ollama-host');
+      if (!accountIsCurrent()) return;
       if (gemini) apiHeaders['x-gemini-key'] = gemini;
       if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
       if (ollama) apiHeaders['x-ollama-host'] = ollama;
 
-      const activeStory = stories.find(s => s.id === activeStoryId);
       const res = await fetch('/api/generate-card-image', {
         method: 'POST',
         headers: apiHeaders,
@@ -254,8 +313,10 @@ export function useImageManifest() {
           routingConfig
         })
       });
+      if (!accountIsCurrent()) return;
 
       const data = await res.json();
+      if (!accountIsCurrent()) return;
       if (!res.ok) {
         throw new Error(data.error || "Aetherial alignment gate failed to synchronize imagery.");
       }
@@ -298,10 +359,34 @@ export function useImageManifest() {
           },
           replacesAssetId: chapter?.heroImageAssetId,
           idempotencyKey: generateUUID(),
+          expectedOwnerUid: initiatingUserId ?? undefined,
         });
-        selectedUrl = (await resolveMediaAssetForDisplay(asset)).url;
-        if (chapter?.heroImageAssetId && chapter.heroImageAssetId !== asset.id) {
+        if (!accountIsCurrent()) return;
+        let deliveryFailure: unknown;
+        try {
+          selectedUrl = (
+            await resolveMediaAssetForDisplay(
+              asset,
+              initiatingUserId ?? undefined,
+            )
+          ).url;
+          if (!selectedUrl.trim()) {
+            deliveryFailure = new Error(
+              'The permanent media service returned an empty delivery URL.',
+            );
+          }
+        } catch (error) {
+          if (!accountIsCurrent()) return;
+          selectedUrl = '';
+          deliveryFailure = error;
+        }
+        if (!accountIsCurrent()) return;
+        if (
+          chapter?.heroImageAssetId
+          && !isSameAssetId(chapter.heroImageAssetId, asset.id)
+        ) {
           await discardCachedMedia(chapter.heroImageAssetId);
+          if (!accountIsCurrent()) return;
         }
         const newHistoryItem = {
           id: legacyMediaId,
@@ -318,42 +403,47 @@ export function useImageManifest() {
           chapterNumber: chapterNumber
         };
 
-        const updatedStories = stories.map(s => {
-          if (s.id === activeStoryId) {
-            const updatedArcs = s.arcs.map(arc => ({
-              ...arc,
-              chapters: arc.chapters.map(ch => {
-                if (ch.number === chapterNumber) {
-                  return {
-                    ...ch,
-                    persistenceId: chapterPersistenceId,
-                    heroImageAssetId: asset.id,
-                    imageHistory: (ch.imageHistory || [])
-                      .map(img => ({ ...img, isCurrent: false }))
-                      .concat(newHistoryItem),
-                    assetManifest: {
-                      ...(ch.assetManifest || {}),
-                      heroImage: selectedUrl
-                    }
-                  };
-                }
-                return ch;
-              })
-            }));
-            
-            return {
-              ...s,
-              persistenceId: storyPersistenceId,
-              arcs: updatedArcs,
-              updatedAt: new Date().toISOString()
-            };
-          }
-          return s;
-        });
+        await saveStories(currentStories => currentStories.map(s => {
+          if (s.id !== activeStoryId) return s;
+          const updatedArcs = s.arcs.map(arc => ({
+            ...arc,
+            chapters: arc.chapters.map(ch => {
+              if (ch.number === chapterNumber) {
+                return {
+                  ...ch,
+                  persistenceId: chapterPersistenceId,
+                  heroImageAssetId: asset.id,
+                  imageHistory: (ch.imageHistory || [])
+                    .map(img => ({ ...img, isCurrent: false }))
+                    .concat(newHistoryItem),
+                  assetManifest: {
+                    ...(ch.assetManifest || {}),
+                    heroImage: selectedUrl,
+                  },
+                };
+              }
+              return ch;
+            }),
+          }));
 
-        await saveStories(updatedStories);
+          return {
+            ...s,
+            persistenceId: storyPersistenceId,
+            arcs: updatedArcs,
+            mediaDescriptors: retainLocalMediaDescriptor(
+              s.mediaDescriptors,
+              asset,
+            ),
+            updatedAt: new Date().toISOString(),
+          };
+        }));
+        if (!accountIsCurrent()) return;
+        if (deliveryFailure) {
+          throw committedMediaDeliveryError('chapter hero', deliveryFailure);
+        }
       }
       
+      if (!accountIsCurrent()) return;
       setGeneratingIds(prev => {
         const next = new Set(prev);
         next.delete(genId);
@@ -361,6 +451,7 @@ export function useImageManifest() {
       });
       return selectedUrl;
     } catch (err: any) {
+      if (!accountIsCurrent()) return;
       setGeneratingIds(prev => {
         const next = new Set(prev);
         next.delete(genId);

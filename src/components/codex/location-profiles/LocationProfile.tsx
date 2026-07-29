@@ -23,7 +23,7 @@ export const LocationProfile: React.FC<LocationProfileProps> = ({
   handleAwakenCardImage,
   setSelectedNodeChar
 }) => {
-  const hasImage = !!loc.imageUrl;
+  const hasImage = Boolean(loc.imageAssetId || loc.imageUrl);
 
   return (
     <div key={loc.id} className="bg-neutral-950 border border-neutral-900 hover:border-neutral-800 rounded-lg p-3 flex flex-col justify-between group transition-all duration-300">

@@ -42,7 +42,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
   handleAwakenCardImage
 }) => {
   const displayedImage = activePreview ? activePreview.urls[activePreview.selectedIndex] : char.imageUrl;
-  const hasImage = !!char.imageUrl;
+  const hasImage = Boolean(char.imageAssetId || char.imageUrl);
   const visualAriaLabel = isGenerating
     ? `VERSA is working on visual for ${char.name}`
     : !hasAppeared

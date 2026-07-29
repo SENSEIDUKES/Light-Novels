@@ -16,6 +16,7 @@ export const CodexHovercard: React.FC<CodexHovercardProps> = ({ type, entry, chi
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLSpanElement>(null);
   const imageUrl = 'imageUrl' in entry ? (entry as any).imageUrl : undefined;
+  const imageAssetId = 'imageAssetId' in entry ? (entry as any).imageAssetId : undefined;
 
   const { manifestImage, generatingIds } = useImageManifest();
   const isGeneratingImage = generatingIds.has(entry.id);
@@ -195,7 +196,7 @@ export const CodexHovercard: React.FC<CodexHovercardProps> = ({ type, entry, chi
                 />
               </div>
             ) : (
-              type !== 'faction' && (
+              !imageAssetId && (
                 <button
                    tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleManifest}
                   disabled={isGeneratingImage}

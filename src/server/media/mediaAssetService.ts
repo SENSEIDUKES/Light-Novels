@@ -50,6 +50,25 @@ const ENTITY_TARGET_KINDS = new Set([
   'GLOSSARY',
 ]);
 
+function validateKnownPurposeTargetKind(purpose: string, targetKind: string): void {
+  const knownPurpose = purpose.trim().toUpperCase();
+  const valid = knownPurpose === 'CELESTIAL_PORTRAIT'
+    ? ACCOUNT_TARGET_KINDS.has(targetKind)
+    : knownPurpose === 'STORY_COVER'
+      ? targetKind === 'STORY'
+      : knownPurpose === 'CHAPTER_HERO'
+        ? targetKind === 'CHAPTER'
+        : knownPurpose === 'MANIFESTATION' || knownPurpose === 'VOICE_CARD'
+          ? ENTITY_TARGET_KINDS.has(targetKind)
+          : true;
+  if (!valid) {
+    throw new MediaAssetServiceError(
+      `Media purpose ${knownPurpose} cannot target ${targetKind}.`,
+      'invalid_metadata',
+    );
+  }
+}
+
 export class MediaAssetServiceError extends Error {
   constructor(
     message: string,
@@ -169,6 +188,7 @@ async function buildRequestHash(
 function validateAssociationShape(ownerUid: string, association: SaveMediaAssetRequest['association']): void {
   const kind = association.targetKind.trim().toUpperCase();
   const targetKey = association.targetKey.trim();
+  validateKnownPurposeTargetKind(association.purpose, kind);
   if (!association.storyId) {
     if (association.chapterId || association.entityId || !ACCOUNT_TARGET_KINDS.has(kind) || targetKey !== ownerUid) {
       throw new MediaAssetServiceError('Account media must target the authenticated owner without story relations.', 'invalid_metadata');
@@ -189,6 +209,16 @@ function validateAssociationShape(ownerUid: string, association: SaveMediaAssetR
   }
   if (ENTITY_TARGET_KINDS.has(kind) && (!association.entityId || targetKey !== association.entityId)) {
     throw new MediaAssetServiceError('Codex media must include the matching owned entity ID.', 'invalid_metadata');
+  }
+  if (
+    kind !== 'STORY'
+    && kind !== 'CHAPTER'
+    && !ENTITY_TARGET_KINDS.has(kind)
+  ) {
+    throw new MediaAssetServiceError(
+      'Story media must use a supported relational target kind.',
+      'invalid_metadata',
+    );
   }
 }
 
@@ -344,7 +374,7 @@ export class MediaAssetService {
         true,
       );
     }
-    if (record.status === 'READY') return this.toDescriptor(record);
+    if (record.status === 'READY') return this.toCommittedDescriptor(record);
     if (['UPLOADING', 'GENERATING', 'PROCESSING'].includes(record.status)) {
       throw new MediaAssetServiceError(
         'The upload with this idempotency key is still in progress.',
@@ -536,7 +566,7 @@ export class MediaAssetService {
         }
       } else if (receipt.assetId === id) {
         const existing = await this.repository.getOwned(owner.uid, id);
-        if (existing?.status === 'READY') return this.toDescriptor(existing);
+        if (existing?.status === 'READY') return this.toCommittedDescriptor(existing);
         databaseReserved = existing?.status === 'UPLOADING';
       } else {
         const duplicate = await this.resolveExistingUpload(owner.uid, request.idempotencyKey, requestHash);
@@ -601,12 +631,12 @@ export class MediaAssetService {
         quotaReservationId,
       }, 'Media database commit failed after R2 upload');
       const reconciliation = await this.reconcileCommitFailure(owner.uid, reservation, error);
-      if (reconciliation.ready) return this.toDescriptor(reconciliation.ready);
+      if (reconciliation.ready) return this.toCommittedDescriptor(reconciliation.ready);
       if (reconciliation.releaseQuota) await this.safeReleaseQuota(owner.uid, quotaReservationId);
       throw new MediaAssetServiceError('R2 upload succeeded, but the PostgreSQL commit could not be confirmed.', 'database_commit_failed', id, reconciliation.recoverable, { cause: error });
     }
 
-    return this.toDescriptor(ready);
+    return this.toCommittedDescriptor(ready);
   }
 
   async get(ownerUid: string, assetId: string): Promise<MediaAssetDescriptor | null> {
@@ -639,10 +669,12 @@ export class MediaAssetService {
 
     const slot = await this.repository.getOwnedSlot(ownerUid, association);
     if (!slot) throw new MediaAssetServiceError('The requested media slot was not found.', 'media_slot_not_found');
-    if (slot.currentAssetId === assetId) return this.toDescriptor(asset);
+    if (slot.currentAssetId === assetId) return this.toCommittedDescriptor(asset);
 
     try {
-      return this.toDescriptor(await this.repository.selectOwnedSlotAsset(ownerUid, assetId, association, slot));
+      return this.toCommittedDescriptor(
+        await this.repository.selectOwnedSlotAsset(ownerUid, assetId, association, slot),
+      );
     } catch (error) {
       if (/history|not found/i.test(errorMessage(error))) {
         throw new MediaAssetServiceError('The selected asset does not belong to this media slot history.', 'history_asset_not_found', assetId, false, { cause: error });
@@ -1076,8 +1108,35 @@ export class MediaAssetService {
     }
   }
 
-  private async toDescriptor(record: MediaAssetRecord): Promise<MediaAssetDescriptor> {
-    if (record.status !== 'READY') throw new MediaAssetServiceError('Only ready media assets can be delivered.', 'asset_not_ready', record.id);
+  /**
+   * A save or history selection is durable before its delivery URL is signed.
+   * Do not turn a transient R2 signing outage into an apparent failed database
+   * commit: return the canonical READY identity with an empty projection and
+   * let the display resolver retry delivery independently.
+   */
+  private async toCommittedDescriptor(record: MediaAssetRecord): Promise<MediaAssetDescriptor> {
+    try {
+      return await this.toDescriptor(record);
+    } catch (error) {
+      if (
+        !(error instanceof MediaAssetServiceError)
+        || error.code !== 'delivery_not_configured'
+      ) {
+        throw error;
+      }
+      logger.warn(
+        { err: error, assetId: record.id },
+        'Media commit succeeded, but its delivery URL is temporarily unavailable',
+      );
+      return this.descriptorWithDelivery(record, '', null);
+    }
+  }
+
+  private descriptorWithDelivery(
+    record: MediaAssetRecord,
+    deliveryUrl: string,
+    deliveryUrlExpiresAt: string | null,
+  ): MediaAssetDescriptor {
     return {
       id: record.id,
       assetType: record.assetType,
@@ -1091,18 +1150,42 @@ export class MediaAssetService {
       height: record.height,
       durationMs: record.durationMs,
       version: record.version,
-      deliveryUrl: await this.objectStore.getDeliveryUrl(
+      deliveryUrl,
+      deliveryUrlExpiresAt,
+      createdAt: record.createdAt,
+      readyAt: record.readyAt,
+    };
+  }
+
+  private async toDescriptor(record: MediaAssetRecord): Promise<MediaAssetDescriptor> {
+    if (record.status !== 'READY') throw new MediaAssetServiceError('Only ready media assets can be delivered.', 'asset_not_ready', record.id);
+    let deliveryUrl: string;
+    try {
+      deliveryUrl = await this.objectStore.getDeliveryUrl(
         record.bucket,
         record.objectKey,
         record.visibility,
         DELIVERY_URL_TTL_SECONDS,
-      ),
-      deliveryUrlExpiresAt: record.visibility === 'PRIVATE'
+      );
+      if (!deliveryUrl.trim()) {
+        throw new Error('The media object store returned an empty delivery URL.');
+      }
+    } catch (error) {
+      throw new MediaAssetServiceError(
+        'The permanent media asset is ready, but its delivery URL could not be issued.',
+        'delivery_not_configured',
+        record.id,
+        true,
+        { cause: error },
+      );
+    }
+    return this.descriptorWithDelivery(
+      record,
+      deliveryUrl,
+      record.visibility === 'PRIVATE'
         ? new Date(this.now().getTime() + DELIVERY_URL_TTL_SECONDS * 1_000).toISOString()
         : null,
-      createdAt: record.createdAt,
-      readyAt: record.readyAt,
-    };
+    );
   }
 
   private async recoverUploadFailure(ownerUid: string, reservation: MediaAssetReservation, error: unknown): Promise<void> {

@@ -23,7 +23,7 @@ export const CharacterProfile: React.FC<CharacterProfileProps> = ({
   handleAwakenCardImage,
   setSelectedNodeChar
 }) => {
-  const hasImage = !!char.imageUrl;
+  const hasImage = Boolean(char.imageAssetId || char.imageUrl);
 
   return (
     <div key={char.id} className="bg-neutral-950 border border-neutral-900 hover:border-neutral-800 rounded-lg p-3 flex flex-col justify-between group transition-all duration-300">

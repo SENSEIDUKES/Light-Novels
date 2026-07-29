@@ -104,6 +104,21 @@ const makeProfile = (uid: string, overrides: Partial<UserProfile> = {}): UserPro
   ...overrides,
 });
 
+const portraitDescriptor = (id: string) => ({
+  id,
+  ownerUid: 'account-a',
+  assetType: 'IMAGE' as const,
+  purpose: 'CELESTIAL_PORTRAIT',
+  visibility: 'PRIVATE' as const,
+  status: 'READY' as const,
+  mimeType: 'image/png',
+  byteSize: '3',
+  checksumSha256: 'a'.repeat(64),
+  version: 1,
+  deliveryUrl: '',
+  createdAt: '2026-07-22T00:00:00.000Z',
+});
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
@@ -141,6 +156,9 @@ describe('useUserProfile PostgreSQL persistence', () => {
     portraitMocks.persistCultivatorPortrait.mockResolvedValue({
       id: '11111111-1111-4111-8111-111111111111',
       imageUrl: 'https://media.example.test/signed-portrait',
+      avatarMediaDescriptor: portraitDescriptor(
+        '11111111-1111-4111-8111-111111111111',
+      ),
     });
   });
 
@@ -339,7 +357,7 @@ describe('useUserProfile PostgreSQL persistence', () => {
 
     expect(result.current.profile).toMatchObject({
       uid: 'account-b',
-      avatarUrl: 'private-b.png',
+      avatarUrl: 'https://avatars.example.test/account-b.png',
     });
   });
 
@@ -353,6 +371,30 @@ describe('useUserProfile PostgreSQL persistence', () => {
       displayName: 'Display account-a',
       avatarUrl: 'https://avatars.example.test/account-a.png',
     });
+  });
+
+  it('keeps PostgreSQL profile fields visible when only portrait delivery is degraded', async () => {
+    persistenceMocks.getUserProfile.mockResolvedValue(makeProfile('account-a', {
+      username: 'DurableCultivator',
+      activePortraitId: '11111111-1111-4111-8111-111111111111',
+      avatarMediaDescriptor: portraitDescriptor(
+        '11111111-1111-4111-8111-111111111111',
+      ),
+      avatarDeliveryError: {
+        code: 'portrait_download_unavailable',
+        message: 'Your profile loaded, but the selected portrait could not be downloaded.',
+        recoverable: true,
+      },
+    }));
+    const { result } = renderProfile();
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.profile).toMatchObject({
+      uid: 'account-a',
+      username: 'DurableCultivator',
+      activePortraitId: '11111111-1111-4111-8111-111111111111',
+    });
+    expect(result.current.error).toContain('profile loaded');
   });
 
   it('publishes a portrait only after R2 upload and PostgreSQL selection succeed', async () => {
@@ -371,13 +413,23 @@ describe('useUserProfile PostgreSQL persistence', () => {
     expect(result.current.profile).toMatchObject({
       activePortraitId: '11111111-1111-4111-8111-111111111111',
       avatarUrl: 'https://media.example.test/signed-portrait',
+      avatarMediaDescriptor: {
+        id: '11111111-1111-4111-8111-111111111111',
+        deliveryUrl: '',
+      },
     });
+    const cached = localStorage.getItem('seihouse-account-profile-cache-v1:account-a') ?? '';
+    expect(cached).toContain('11111111-1111-4111-8111-111111111111');
+    expect(cached).not.toContain('signed-portrait');
   });
 
   it('keeps an R2-safe portrait visible while its PostgreSQL selection is recoverable', async () => {
     const uploaded = {
       id: '22222222-2222-4222-8222-222222222222',
       imageUrl: 'https://media.example.test/recoverable-portrait',
+      avatarMediaDescriptor: portraitDescriptor(
+        '22222222-2222-4222-8222-222222222222',
+      ),
     };
     portraitMocks.persistCultivatorPortrait.mockRejectedValue(
       new CultivatorPortraitCommitDeferredError(uploaded as any),
@@ -397,6 +449,47 @@ describe('useUserProfile PostgreSQL persistence', () => {
     expect(cached).not.toContain(uploaded.imageUrl);
   });
 
+  it('keeps the generated preview retryable when selection is permanently rejected', async () => {
+    portraitMocks.persistCultivatorPortrait.mockRejectedValue(Object.assign(
+      new Error('Portrait asset purpose mismatch'),
+      { recoverable: false, status: 400, code: 'invalid_argument' },
+    ));
+    const { result } = renderProfile();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => result.current.handleGeneratePortrait());
+    await act(async () => result.current.handleApplyPortrait());
+
+    expect(result.current.portraitError).toBe('Portrait asset purpose mismatch');
+    expect(result.current.generatedPortraitUrl).toBe('data:image/png;base64,AAEC');
+    expect(result.current.profile?.activePortraitId).toBeUndefined();
+  });
+
+  it('keeps the Firebase identity avatar after saving ordinary profile fields', async () => {
+    persistenceMocks.saveUserProfile.mockResolvedValue(makeProfile('account-a', {
+      username: 'RenamedCultivator',
+      avatarUrl: '',
+    }));
+    const { result } = renderProfile();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => {
+      result.current.setFormData({
+        ...result.current.profile,
+        username: 'RenamedCultivator',
+      });
+    });
+    await act(async () => result.current.handleSave());
+
+    expect(persistenceMocks.saveUserProfile).toHaveBeenCalledWith(
+      expect.not.objectContaining({ avatarUrl: expect.anything() }),
+    );
+    expect(result.current.profile).toMatchObject({
+      username: 'RenamedCultivator',
+      avatarUrl: 'https://avatars.example.test/account-a.png',
+    });
+  });
+
   it('does not publish an account A portrait after the UI switches to account B', async () => {
     const portraitWrite = deferred<any>();
     portraitMocks.persistCultivatorPortrait.mockReturnValueOnce(portraitWrite.promise);
@@ -414,6 +507,9 @@ describe('useUserProfile PostgreSQL persistence', () => {
     portraitWrite.resolve({
       id: '33333333-3333-4333-8333-333333333333',
       imageUrl: 'https://media.example.test/account-a-portrait',
+      avatarMediaDescriptor: portraitDescriptor(
+        '33333333-3333-4333-8333-333333333333',
+      ),
     });
     await act(async () => apply);
     await waitFor(() => expect(result.current.profile?.uid).toBe('account-b'));

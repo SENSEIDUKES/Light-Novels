@@ -12,6 +12,7 @@ const state = vi.hoisted(() => ({
   /** One entry per page, returned in order. */
   pages: [] as any[][],
   chapterCounts: [] as any[],
+  coverSlots: [] as any[],
   listCalls: [] as any[],
 }));
 
@@ -31,7 +32,7 @@ vi.mock('../../generated/dataconnect-admin', () => ({
       },
     };
   }),
-  adminListOwnedStoryCoverSlots: vi.fn(async () => ({ data: { coverSlots: [] } })),
+  adminListOwnedStoryCoverSlots: vi.fn(async () => ({ data: { coverSlots: state.coverSlots } })),
   adminGetUserProfileGraph: vi.fn(),
   adminGetOwnedStoryGraph: vi.fn(),
   adminGetOwnedChapterContentGraph: vi.fn(),
@@ -78,13 +79,16 @@ function storyRow(id: string, overrides: Record<string, unknown> = {}) {
   };
 }
 
-function repository() {
-  return new DataConnectApplicationRepository({ loadMediaDescriptor: async () => null });
+function repository(
+  loadMediaDescriptor: (ownerUid: string, assetId: string) => Promise<any> = async () => null,
+) {
+  return new DataConnectApplicationRepository({ loadMediaDescriptor });
 }
 
 beforeEach(() => {
   state.pages = [];
   state.chapterCounts = [];
+  state.coverSlots = [];
   state.listCalls = [];
 });
 
@@ -116,6 +120,74 @@ describe('catalog chapter tallies', () => {
 
     expect(a.totalChapterCount).toBe(0);
     expect(a.generatedChapterCount).toBe(0);
+  });
+
+  it('joins compact Data Connect UUIDs to canonical story rows and cover descriptors', async () => {
+    const storyCanonical = '7da538b7-75ce-44f9-bdf9-82e7f9e4d7ae';
+    const storyCompact = '7da538b775ce44f9bdf982e7f9e4d7ae';
+    const assetCanonical = 'fc0aac17-fb01-4f7e-a9bc-e3121204125d';
+    const assetCompact = 'fc0aac17fb014f7ea9bce3121204125d';
+    state.pages = [[storyRow(storyCanonical)]];
+    state.chapterCounts = [{
+      storyId: storyCompact,
+      totalChapterCount: '7',
+      generatedChapterCount: '5',
+    }];
+    state.coverSlots = [{
+      storyId: storyCompact,
+      currentAssetId: assetCompact,
+    }];
+    const loadMediaDescriptor = vi.fn(async () => ({
+      id: assetCompact,
+      ownerUid,
+      assetType: 'IMAGE',
+      purpose: 'STORY_COVER',
+      visibility: 'PRIVATE',
+      status: 'READY',
+      mimeType: 'image/png',
+      byteSize: '3',
+      checksumSha256: 'a'.repeat(64),
+      version: 1,
+      deliveryUrl: 'https://media.example.test/cover',
+      createdAt: NOW,
+    }));
+
+    const [story] = await repository(loadMediaDescriptor).listStories(ownerUid);
+
+    expect(loadMediaDescriptor).toHaveBeenCalledWith(ownerUid, assetCanonical);
+    expect(story).toMatchObject({
+      totalChapterCount: 7,
+      generatedChapterCount: 5,
+      coverAssetId: assetCanonical,
+      imageUrl: 'https://media.example.test/cover',
+    });
+    expect(story.mediaDescriptors).toHaveProperty(assetCanonical);
+  });
+
+  it('retains the canonical cover slot when delivery signing is unavailable', async () => {
+    const storyCanonical = '7da538b7-75ce-44f9-bdf9-82e7f9e4d7ae';
+    const storyCompact = '7da538b775ce44f9bdf982e7f9e4d7ae';
+    const assetCanonical = 'fc0aac17-fb01-4f7e-a9bc-e3121204125d';
+    const assetCompact = 'fc0aac17fb014f7ea9bce3121204125d';
+    state.pages = [[storyRow(storyCanonical)]];
+    state.coverSlots = [{
+      storyId: storyCompact,
+      currentAssetId: assetCompact,
+    }];
+    const loadMediaDescriptor = vi.fn(async () => {
+      throw new Error('R2 signing unavailable');
+    });
+
+    const [story] = await repository(loadMediaDescriptor).listStories(ownerUid);
+
+    expect(loadMediaDescriptor).toHaveBeenCalledWith(ownerUid, assetCanonical);
+    expect(story).toMatchObject({
+      persistenceHydration: 'summary',
+      persistenceId: storyCanonical,
+      coverAssetId: assetCanonical,
+    });
+    expect(story.imageUrl).toBeUndefined();
+    expect(story.mediaDescriptors).toBeUndefined();
   });
 
   /**

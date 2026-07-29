@@ -7,6 +7,7 @@ import {
   DataConnectStorageError,
   normalizeStoryPatchShape,
   PermanentPersistencePayloadError,
+  prepareLocalMediaReplicaPayload,
   type PersistenceAuth,
   type PersistenceAuthUser,
 } from './dataConnectStorageAdapter';
@@ -121,6 +122,36 @@ describe('DataConnectStorageAdapter', () => {
     expect(keys[0]).not.toBe(keys[1]);
     expect(keys[1]).toBe(keys[2]);
     expect(keys[2]).not.toBe(keys[3]);
+  });
+
+  it('never bootstraps local media descriptors into PostgreSQL story metadata', async () => {
+    const storyWithLocalDescriptor = {
+      ...story,
+      mediaDescriptors: {
+        'asset-cover-1': {
+          id: 'asset-cover-1',
+          assetType: 'IMAGE',
+          purpose: 'STORY_COVER',
+          visibility: 'PRIVATE',
+          status: 'READY',
+          mimeType: 'image/png',
+          byteSize: '4',
+          checksumSha256: 'checksum',
+          version: 1,
+          deliveryUrl: '',
+          createdAt: '2026-07-29T00:00:00.000Z',
+        },
+      },
+    } as StoryWorld;
+    fetchMock.mockResolvedValue(jsonResponse({ story: storyWithLocalDescriptor }));
+
+    await adapter.saveStory(storyWithLocalDescriptor);
+
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0][1] as RequestInit).body as string,
+    );
+    expect(body.story).not.toHaveProperty('mediaDescriptors');
+    expect(body.story.coverAssetId).toBe('asset-cover-1');
   });
 
   it('maps a stale conditional write to sync/revision-changed', async () => {
@@ -508,6 +539,51 @@ describe('DataConnectStorageAdapter', () => {
 
     await expect(adapter.getStories()).rejects.toMatchObject({
       code: 'persistence/invalid-response',
+    });
+  });
+});
+
+describe('prepareLocalMediaReplicaPayload', () => {
+  it('keeps canonical media identity while removing page-local delivery projections', () => {
+    const prepared = prepareLocalMediaReplicaPayload({
+      coverAssetId: 'cover-1',
+      imageUrl: 'blob:https://app.example/dead-after-reload',
+      imageHistory: [{
+        assetId: 'cover-old',
+        imageUrl: 'https://signed.example/old?X-Amz-Signature=abc',
+      }],
+      memory: {
+        characters: [{
+          imageAssetId: 'portrait-1',
+          imageUrl: 'https://signed.example/portrait?X-Amz-Signature=def',
+        }],
+      },
+      mediaDescriptors: {
+        'cover-1': {
+          id: 'cover-1',
+          deliveryUrl: 'https://signed.example/current?X-Amz-Signature=ghi',
+        },
+      },
+    });
+
+    expect(prepared).toMatchObject({
+      coverAssetId: 'cover-1',
+      imageHistory: [{ assetId: 'cover-old' }],
+      memory: { characters: [{ imageAssetId: 'portrait-1' }] },
+      mediaDescriptors: {
+        'cover-1': { id: 'cover-1', deliveryUrl: '' },
+      },
+    });
+    expect(prepared).not.toHaveProperty('imageUrl');
+    expect(prepared.imageHistory[0]).not.toHaveProperty('imageUrl');
+    expect(prepared.memory.characters[0]).not.toHaveProperty('imageUrl');
+  });
+
+  it('preserves an unassociated legacy local-only image', () => {
+    expect(prepareLocalMediaReplicaPayload({
+      imageUrl: 'data:image/png;base64,local-only',
+    })).toEqual({
+      imageUrl: 'data:image/png;base64,local-only',
     });
   });
 });

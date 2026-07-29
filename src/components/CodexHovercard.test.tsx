@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { CodexHovercard } from './CodexHovercard';
 
@@ -6,9 +6,13 @@ const storyState = vi.hoisted(() => ({
   current: { id: 'story-1', mcName: 'Li Qiye', readerPreferences: {} as Record<string, unknown> },
 }));
 
+const manifestMocks = vi.hoisted(() => ({
+  manifestImage: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('../hooks/useImageManifest', () => ({
   useImageManifest: () => ({
-    manifestImage: vi.fn(),
+    manifestImage: manifestMocks.manifestImage,
     generatingIds: new Set()
   })
 }));
@@ -39,6 +43,10 @@ function highlightClass(
 }
 
 describe('CodexHovercard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('renders without crashing', () => {
     const { container } = render(
       <CodexHovercard term="Test" type="character" entry={{ id: '1', name: 'Test' } as any}>
@@ -93,5 +101,43 @@ describe('CodexHovercard', () => {
     expect(full).toContain('bg-red-500/10');
     expect(underline).toContain('border-dashed');
     expect(tint).not.toContain('bg-red-500/10');
+  });
+
+  it('offers the existing manifestation path for a faction', () => {
+    const faction = {
+      id: 'faction-1',
+      name: 'Azure Sect',
+      description: 'A major cultivation faction.',
+    };
+    render(
+      <CodexHovercard term={faction.name} type="faction" entry={faction as any}>
+        <span>{faction.name}</span>
+      </CodexHovercard>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: faction.name }));
+    fireEvent.click(screen.getByRole('button', { name: `Manifest portrait for ${faction.name}` }));
+
+    expect(manifestMocks.manifestImage).toHaveBeenCalledWith(faction, 'faction');
+  });
+
+  it('does not offer regeneration when a durable portrait only lacks its URL', () => {
+    const character = {
+      id: 'character-1',
+      name: 'Ye Mo',
+      imageAssetId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      imageUrl: '',
+    };
+    render(
+      <CodexHovercard term={character.name} type="character" entry={character as any}>
+        <span>{character.name}</span>
+      </CodexHovercard>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: character.name }));
+
+    expect(screen.queryByRole('button', {
+      name: `Manifest portrait for ${character.name}`,
+    })).toBeNull();
   });
 });

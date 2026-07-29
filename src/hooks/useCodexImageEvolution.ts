@@ -16,6 +16,10 @@ import {
   discardCachedMedia,
   resolveMediaAssetForDisplay,
 } from '../lib/media/privateMediaResolver';
+import { auth } from '../lib/firebase';
+import { retainLocalMediaDescriptor } from '../lib/media/localMediaDescriptors';
+import { isSameAssetId } from '../contracts/assetIdentity';
+import type { MediaAssetDescriptor } from '../contracts/mediaAssets';
 
 export function useCodexImageEvolution(
   memory: StoryMemory,
@@ -38,11 +42,18 @@ export function useCodexImageEvolution(
    * silently restored whichever one happened to be first.
    */
   const handleRevertImage = async (id: string, type: string, historyId: string) => {
+    const initiatingUserId = auth.currentUser?.uid ?? null;
+    const accountIsCurrent = () =>
+      (auth.currentUser?.uid ?? null) === initiatingUserId;
+    if (activeStory.userId && activeStory.userId !== initiatingUserId) return;
+
     try {
       const entity = type === 'location'
         ? memory.locations?.find(item => item.id === id)
         : type === 'artifact'
           ? memory.artifacts?.find(item => item.id === id)
+          : type === 'faction'
+            ? memory.factions?.find(item => item.id === id)
           : memory.characters?.find(item => item.id === id);
       // Manifestation history belongs to its Codex owner. Story history is
       // cover-only, so consulting it here would revive the old combined-history
@@ -62,11 +73,15 @@ export function useCodexImageEvolution(
         return;
       }
       let selectedUrl = selectedHistory.imageUrl ?? '';
+      let selectedDescriptor: MediaAssetDescriptor | undefined;
+      let deliveryFailure: unknown;
       if (selectedHistory.assetId) {
         const targetKind = type === 'location'
           ? MEDIA_TARGET_KIND.LOCATION
           : type === 'artifact'
             ? MEDIA_TARGET_KIND.ARTIFACT
+            : type === 'faction'
+              ? MEDIA_TARGET_KIND.FACTION
             : type === 'beast'
               ? MEDIA_TARGET_KIND.BEAST
               : MEDIA_TARGET_KIND.CHARACTER;
@@ -74,20 +89,40 @@ export function useCodexImageEvolution(
           entity?.persistenceId ?? entity?.id,
           `${type} entity`,
         );
-        const descriptor = await selectMediaAsset(selectedHistory.assetId, {
+        selectedDescriptor = await selectMediaAsset(selectedHistory.assetId, {
           targetKind,
           targetKey: entityPersistenceId,
           purpose: MEDIA_PURPOSE.MANIFESTATION,
           storyId: requirePersistenceUuid(activeStory.persistenceId ?? activeStory.id, 'Story'),
           entityId: entityPersistenceId,
-        });
+        }, initiatingUserId ?? undefined);
+        if (!accountIsCurrent()) return;
         // Render the cached blob rather than the raw signed URL so a reverted
         // image keeps working after that short-lived signature expires.
-        selectedUrl = (await resolveMediaAssetForDisplay(descriptor)).url;
+        try {
+          selectedUrl = (
+            await resolveMediaAssetForDisplay(
+              selectedDescriptor,
+              initiatingUserId ?? undefined,
+            )
+          ).url;
+          if (!selectedUrl.trim()) {
+            deliveryFailure = new Error(
+              'The permanent media service returned an empty delivery URL.',
+            );
+          }
+        } catch (error) {
+          if (!accountIsCurrent()) return;
+          deliveryFailure = error;
+          selectedUrl = '';
+        }
+        if (!accountIsCurrent()) return;
       }
-      // Resolution can still yield nothing — a descriptor whose delivery URL
-      // could not be signed. Commit only a URL that actually renders.
-      if (!selectedUrl.trim()) {
+      // A legacy version with no permanent descriptor still has no canonical
+      // selection to persist. Once selectMediaAsset succeeds, however, the
+      // server slot is committed even if delivery signing fails; keep local
+      // identity aligned and surface delivery as the separate failure it is.
+      if (!selectedUrl.trim() && !selectedDescriptor) {
         setGenerationError('That manifestation could not be resolved and was left unchanged.');
         return;
       }
@@ -115,10 +150,36 @@ export function useCodexImageEvolution(
         finalMemory = { ...memory, locations: (memory.locations || []).map(revertEntity) };
       } else if (type === 'artifact') {
         finalMemory = { ...memory, artifacts: (memory.artifacts || []).map(revertEntity) };
+      } else if (type === 'faction') {
+        finalMemory = { ...memory, factions: (memory.factions || []).map(revertEntity) };
       }
 
-      void updateStoryFields(activeStory.id, { memory: finalMemory });
+      if (!accountIsCurrent()) return;
+      const latestStory = useAppStore.getState().stories.find(
+        story => story.id === activeStory.id,
+      ) ?? activeStory;
+      await updateStoryFields(activeStory.id, {
+        memory: finalMemory,
+        ...(selectedDescriptor
+          ? {
+            mediaDescriptors: retainLocalMediaDescriptor(
+              latestStory.mediaDescriptors,
+              selectedDescriptor,
+            ),
+          }
+          : {}),
+      });
+      if (!accountIsCurrent()) return;
+      if (deliveryFailure) {
+        const detail = deliveryFailure instanceof Error
+          ? ` ${deliveryFailure.message}`
+          : '';
+        setGenerationError(
+          `The manifestation selection was saved, but its image could not be loaded yet.${detail}`,
+        );
+      }
     } catch (error) {
+      if (!accountIsCurrent()) return;
       console.error('Failed to revert the codex image:', error);
       setGenerationError(error instanceof Error ? error.message : 'Failed to revert the codex image.');
     }
@@ -129,6 +190,11 @@ export function useCodexImageEvolution(
     type: 'character' | 'location' | 'artifact' | 'beast', 
     entity: any
   ) => {
+    const initiatingUserId = auth.currentUser?.uid ?? null;
+    const accountIsCurrent = () =>
+      (auth.currentUser?.uid ?? null) === initiatingUserId;
+    if (activeStory.userId && activeStory.userId !== initiatingUserId) return;
+
     setGeneratingId(id);
     setGenerationError(null);
 
@@ -154,11 +220,15 @@ export function useCodexImageEvolution(
       }
 
       await checkAndConsumeImageQuota();
+      if (!accountIsCurrent()) return;
 
       const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
       const gemini = await secureStorage.getItem('@seihouse/api-key-gemini');
+      if (!accountIsCurrent()) return;
       const openrouter = await secureStorage.getItem('@seihouse/api-key-openrouter');
+      if (!accountIsCurrent()) return;
       const ollama = await secureStorage.getItem('@seihouse/api-key-ollama-host');
+      if (!accountIsCurrent()) return;
       if (gemini) apiHeaders['x-gemini-key'] = gemini;
       if (openrouter) apiHeaders['x-openrouter-key'] = openrouter;
       if (ollama) apiHeaders['x-ollama-host'] = ollama;
@@ -168,8 +238,10 @@ export function useCodexImageEvolution(
         headers: apiHeaders,
         body: JSON.stringify({ prompt: targetPrompt, type, routingConfig })
       });
+      if (!accountIsCurrent()) return;
 
       const data = await res.json();
+      if (!accountIsCurrent()) return;
       
       if (!res.ok) {
         throw new Error(data.error || "Aetherial alignment gate failed to synchronize imagery.");
@@ -180,20 +252,27 @@ export function useCodexImageEvolution(
       if (!newImageUrls && data.fallbackUrl) newImageUrls = [data.fallbackUrl];
 
       if (newImageUrls && newImageUrls.length > 0) {
+        if (!accountIsCurrent()) return;
         setPreviews(prev => ({ ...prev, [id]: { urls: newImageUrls, prompt: targetPrompt, selectedIndex: 0, type } }));
       } else {
         throw new Error("No imagery frames returned.");
       }
 
     } catch (err: any) {
+      if (!accountIsCurrent()) return;
       console.error(err);
       setGenerationError(err.message || "Failed to trigger visual aura synthesis.");
     } finally {
-      setGeneratingId(null);
+      if (accountIsCurrent()) setGeneratingId(null);
     }
   };
 
   const handleSaveEvolution = async (id: string, type: 'character' | 'location' | 'artifact' | 'beast') => {
+    const initiatingUserId = auth.currentUser?.uid ?? null;
+    const accountIsCurrent = () =>
+      (auth.currentUser?.uid ?? null) === initiatingUserId;
+    if (activeStory.userId && activeStory.userId !== initiatingUserId) return;
+
     const preview = previews[id];
     if (!preview) return;
 
@@ -236,10 +315,34 @@ export function useCodexImageEvolution(
         },
         replacesAssetId: entity?.imageAssetId,
         idempotencyKey: generateUUID(),
+        expectedOwnerUid: initiatingUserId ?? undefined,
       });
-      const selectedUrl = (await resolveMediaAssetForDisplay(asset)).url;
-      if (entity?.imageAssetId && entity.imageAssetId !== asset.id) {
+      if (!accountIsCurrent()) return;
+      let selectedUrl = '';
+      let deliveryFailure: unknown;
+      try {
+        selectedUrl = (
+          await resolveMediaAssetForDisplay(
+            asset,
+            initiatingUserId ?? undefined,
+          )
+        ).url;
+        if (!selectedUrl.trim()) {
+          deliveryFailure = new Error(
+            'The permanent media service returned an empty delivery URL.',
+          );
+        }
+      } catch (error) {
+        if (!accountIsCurrent()) return;
+        deliveryFailure = error;
+      }
+      if (!accountIsCurrent()) return;
+      if (
+        entity?.imageAssetId
+        && !isSameAssetId(entity.imageAssetId, asset.id)
+      ) {
         await discardCachedMedia(entity.imageAssetId);
+        if (!accountIsCurrent()) return;
       }
 
       const newHistoryItem: GeneratedImage = {
@@ -312,7 +415,18 @@ export function useCodexImageEvolution(
         finalMemory = { ...memory, artifacts: updated };
       }
 
-      void updateStoryFields(activeStory.id, { memory: finalMemory });
+      if (!accountIsCurrent()) return;
+      const latestStory = useAppStore.getState().stories.find(
+        story => story.id === activeStory.id,
+      ) ?? activeStory;
+      await updateStoryFields(activeStory.id, {
+        memory: finalMemory,
+        mediaDescriptors: retainLocalMediaDescriptor(
+          latestStory.mediaDescriptors,
+          asset,
+        ),
+      });
+      if (!accountIsCurrent()) return;
 
       setPreviews(prev => {
         const next = { ...prev };
@@ -320,8 +434,18 @@ export function useCodexImageEvolution(
         return next;
       });
 
+      if (deliveryFailure) {
+        const detail = deliveryFailure instanceof Error
+          ? ` ${deliveryFailure.message}`
+          : '';
+        setGenerationError(
+          `The manifestation was saved, but its image could not be loaded yet.${detail}`,
+        );
+        return;
+      }
       pushNotification("Evolution successfully bonded to entity record.");
     } catch (error) {
+      if (!accountIsCurrent()) return;
       console.error('Failed to save the codex image evolution:', error);
       setGenerationError(error instanceof Error ? error.message : 'Failed to save the codex image evolution.');
     }

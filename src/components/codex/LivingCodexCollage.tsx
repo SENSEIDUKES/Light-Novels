@@ -3,6 +3,8 @@ import { Camera, Eye, MapPin, Sparkles, BookOpen, Clock, Calendar, ArrowRight, U
 import { motion, AnimatePresence } from 'motion/react';
 import { StoryWorld, StoryMemory, Chapter, GeneratedImage } from '../../types';
 import { handleDownload as utilHandleDownload } from '../../utils/downloadUtils';
+import { useHistoricalMediaUrls } from '../../hooks/useHistoricalMediaUrls';
+import { canonicalAssetId, isSameAssetId } from '../../contracts/assetIdentity';
 
 interface LivingCodexCollageProps {
   activeStory: StoryWorld;
@@ -238,10 +240,12 @@ export function LivingCodexCollage({
     const seenKeys = new Set<string>();
 
     const push = (item: VisualMemory) => {
-      const key = item.assetId || item.url;
+      const key = item.assetId ? canonicalAssetId(item.assetId) : item.url;
       if (!key || seenKeys.has(key)) return;
       seenKeys.add(key);
-      items.push(item);
+      items.push(item.assetId
+        ? { ...item, assetId: canonicalAssetId(item.assetId) }
+        : item);
     };
 
     const tiltFor = (seed: string) => {
@@ -261,7 +265,7 @@ export function LivingCodexCollage({
         imageHistory.forEach((img) => {
           const isCurrentHero = Boolean(img.assetId)
             && Boolean(ch.heroImageAssetId)
-            && img.assetId === ch.heroImageAssetId;
+            && isSameAssetId(img.assetId, ch.heroImageAssetId);
           push({
             id: img.id,
             assetId: img.assetId,
@@ -340,7 +344,7 @@ export function LivingCodexCollage({
           // and rendered it under an older version's prompt and date.
           const isCurrentManifestation = Boolean(img.assetId)
             && Boolean(entry.imageAssetId)
-            && img.assetId === entry.imageAssetId;
+            && isSameAssetId(img.assetId, entry.imageAssetId);
           push({
             id: img.id,
             assetId: img.assetId,
@@ -381,7 +385,11 @@ export function LivingCodexCollage({
         id: img.id,
         assetId: img.assetId,
         url: img.imageUrl
-          || (img.assetId && img.assetId === activeStory.coverAssetId ? activeStory.imageUrl || '' : ''),
+          || (
+            isSameAssetId(img.assetId, activeStory.coverAssetId)
+              ? activeStory.imageUrl || ''
+              : ''
+          ),
         title: activeStory.title,
         subtitle: 'Chronicle Book Cover',
         description: activeStory.customPremise || img.promptUsed || 'Captured memory core.',
@@ -422,11 +430,35 @@ export function LivingCodexCollage({
     safeFormatDate
   ]);
 
+  const historicalUrls = useHistoricalMediaUrls(
+    memories.map((memoryItem) => ({
+      assetId: memoryItem.assetId,
+      imageUrl: memoryItem.url,
+    })),
+    activeStory.userId,
+  );
+  const displayMemories = useMemo(
+    () => memories.map((memoryItem) => {
+      if (memoryItem.url || !memoryItem.assetId) return memoryItem;
+      const url = historicalUrls[canonicalAssetId(memoryItem.assetId)];
+      return url ? { ...memoryItem, url } : memoryItem;
+    }),
+    [historicalUrls, memories],
+  );
+
+  React.useEffect(() => {
+    setSelectedMemory((current) => {
+      if (!current) return current;
+      const refreshed = displayMemories.find((memoryItem) => memoryItem.id === current.id);
+      return refreshed?.url && refreshed.url !== current.url ? refreshed : current;
+    });
+  }, [displayMemories]);
+
   const { scenesCount, entitiesCount } = useMemo(() => {
     let sCount = 0;
     let eCount = 0;
 
-    for (const m of memories) {
+    for (const m of displayMemories) {
       const isScene = m.type === 'scene';
 
       if (isScene) sCount++;
@@ -437,12 +469,12 @@ export function LivingCodexCollage({
       scenesCount: sCount,
       entitiesCount: eCount
     };
-  }, [memories]);
+  }, [displayMemories]);
 
   const filteredMemories = useMemo(() => {
     const filtered: VisualMemory[] = [];
 
-    for (const m of memories) {
+    for (const m of displayMemories) {
       const isScene = m.type === 'scene';
 
       if (filter === 'scenes' && isScene) {
@@ -455,7 +487,7 @@ export function LivingCodexCollage({
     }
 
     return filtered;
-  }, [memories, filter]);
+  }, [displayMemories, filter]);
 
   const handleOpenLightbox = useCallback((memoryItem: VisualMemory) => {
     playAuraChime();
@@ -496,7 +528,7 @@ export function LivingCodexCollage({
                 : 'bg-transparent border-neutral-900 text-neutral-500 hover:border-neutral-800 hover:text-neutral-300'
             }`}
           >
-            All Memories ({memories.length})
+            All Memories ({displayMemories.length})
           </button>
           <button
              tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => setFilter('scenes')}

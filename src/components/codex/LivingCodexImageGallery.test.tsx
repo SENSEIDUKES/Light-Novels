@@ -73,7 +73,10 @@ describe('LivingCodexImageGallery', () => {
   // superseded versions arrive with an empty imageUrl and rendered as blanks.
   it('resolves a superseded version from its canonical asset id', async () => {
     mocks.getMediaAsset.mockResolvedValue({ id: 'asset-older', visibility: 'PRIVATE' });
-    const mockContext = { handleRevertImage: vi.fn() } as any;
+    const mockContext = {
+      handleRevertImage: vi.fn(),
+      activeStory: { userId: 'owner-a' },
+    } as any;
 
     const { container } = render(
       <CodexProvider value={mockContext}>
@@ -93,8 +96,8 @@ describe('LivingCodexImageGallery', () => {
     });
     expect(Array.from(container.querySelectorAll('img'), node => node.getAttribute('src')))
       .toEqual(['blob:asset-older', 'blob:asset-current']);
-    expect(mocks.getMediaAsset).toHaveBeenCalledWith('asset-older');
-    expect(mocks.getMediaAsset).not.toHaveBeenCalledWith('asset-current');
+    expect(mocks.getMediaAsset).toHaveBeenCalledWith('asset-older', 'owner-a');
+    expect(mocks.getMediaAsset).not.toHaveBeenCalledWith('asset-current', 'owner-a');
   });
 
   it('uses human-readable chapter and prompt fallbacks', () => {

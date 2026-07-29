@@ -1,6 +1,7 @@
 import { AccountScopedChapterContent, StorageAdapter } from "./types";
 import { StoryWorld, ChapterContent } from "../../types";
 import { normalizeStoryImageOwnership } from "../media/imageOwnership";
+import { prepareLocalMediaReplicaPayload } from "./dataConnectStorageAdapter";
 
 const timestamp = (value?: string): number => {
   const parsed = value ? new Date(value).getTime() : Number.NaN;
@@ -347,7 +348,9 @@ export class LocalStorageFallbackAdapter implements StorageAdapter {
   }
 
   private stripStoryAssets(story: StoryWorld): StoryWorld {
-    const strippedStory = JSON.parse(JSON.stringify(normalizeStoryImageOwnership(story)));
+    const strippedStory = JSON.parse(JSON.stringify(
+      prepareLocalMediaReplicaPayload(normalizeStoryImageOwnership(story)),
+    ));
     const stripHistoryUrls = (history: unknown) => {
       if (!Array.isArray(history)) return history;
       return history.map((image) => {

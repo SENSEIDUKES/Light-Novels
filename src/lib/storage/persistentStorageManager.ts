@@ -11,6 +11,7 @@ import { LocalStorageFallbackAdapter } from "./localStorageAdapter";
 import {
   DataConnectStorageAdapter,
   prepareCloudReplicaPayload,
+  prepareLocalMediaReplicaPayload,
 } from "./dataConnectStorageAdapter";
 import { auth } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -27,9 +28,12 @@ import {
   resetPrivateMediaResolver,
   resolveMediaAssetForDisplay,
 } from "../media/privateMediaResolver";
+import { getMediaAsset } from "../media/mediaAssetClient";
 import { normalizeStoryImageOwnership } from "../media/imageOwnership";
 import { stripNonPersistedChapterFields } from "../chapterViews";
 import { withRefreshedChapterCounts } from "../chapterCounts";
+import { canonicalAssetId } from "../../contracts/assetIdentity";
+import type { MediaAssetDescriptor } from "../../contracts/mediaAssets";
 
 type DurableSyncTask = Omit<SyncTask, "attempts">;
 
@@ -1760,36 +1764,115 @@ export class PersistentStorageManager implements StorageAdapter {
   }
 
   private async hydrateCurrentMedia(story: StoryWorld): Promise<StoryWorld> {
-    const descriptors = Object.values(story.mediaDescriptors ?? {});
-    if (descriptors.length === 0) return normalizeStoryImageOwnership(story);
+    // Durable replicas may have been written by an older client that retained
+    // a page-local blob URL or a signed delivery URL. Erase those projections
+    // before deciding what is already hydrated; canonical ids are the only
+    // trustworthy restoration inputs after a reload.
+    const normalized = prepareLocalMediaReplicaPayload(
+      normalizeStoryImageOwnership(story),
+    );
+    const descriptors = new Map<string, MediaAssetDescriptor>(
+      Object.values(normalized.mediaDescriptors ?? {}).map((descriptor) => {
+        const id = canonicalAssetId(descriptor.id);
+        return [
+          id,
+          { ...descriptor, id, deliveryUrl: "" },
+        ] as [string, MediaAssetDescriptor];
+      }),
+    );
+    const currentAssetIds = new Set<string>();
+    const addCurrentAsset = (assetId?: string) => {
+      if (assetId?.trim()) currentAssetIds.add(canonicalAssetId(assetId));
+    };
+    addCurrentAsset(normalized.coverAssetId);
+    for (const image of normalized.imageHistory ?? []) {
+      if (image.isCurrent) addCurrentAsset(image.assetId);
+    }
+    const entities = [
+      ...(normalized.memory?.characters ?? []),
+      ...(normalized.memory?.locations ?? []),
+      ...(normalized.memory?.artifacts ?? []),
+      ...(normalized.memory?.factions ?? []),
+      ...(normalized.memory?.abilities ?? []).filter(
+        (entry): entry is Exclude<typeof entry, string> => typeof entry !== "string",
+      ),
+    ];
+    for (const entity of entities) {
+      const visual = entity as typeof entity & {
+        voiceAssetId?: string;
+        imageHistory?: NonNullable<StoryWorld["imageHistory"]>;
+      };
+      addCurrentAsset(visual.imageAssetId);
+      addCurrentAsset(visual.voiceAssetId);
+      for (const image of visual.imageHistory ?? []) {
+        if (image.isCurrent) addCurrentAsset(image.assetId);
+      }
+    }
+    const chapters = (normalized.arcs ?? []).flatMap((arc) => arc.chapters ?? []);
+    for (const chapter of chapters) {
+      addCurrentAsset(chapter.heroImageAssetId);
+      for (const image of chapter.imageHistory ?? []) {
+        if (image.isCurrent) addCurrentAsset(image.assetId);
+      }
+    }
+
+    if (currentAssetIds.size === 0) return normalized;
+
+    const expectedOwnerUid = normalized.userId
+      ?? (LOCAL_ONLY_MODE ? undefined : this.getCurrentUserId() ?? undefined);
     const resolved = new Map<string, string>();
-    await Promise.all(descriptors.map(async (descriptor) => {
+    await Promise.all([...currentAssetIds].map(async (assetId) => {
+      let descriptor = descriptors.get(assetId);
+      if (!descriptor) {
+        try {
+          const fetched = await getMediaAsset(assetId, expectedOwnerUid);
+          const fetchedId = canonicalAssetId(fetched.id);
+          descriptor = { ...fetched, id: fetchedId };
+          descriptors.set(fetchedId, { ...descriptor, deliveryUrl: "" });
+        } catch (error) {
+          console.warn(
+            `Current media descriptor ${assetId} could not be restored.`,
+            error,
+          );
+          return;
+        }
+      }
       try {
+        const descriptorId = canonicalAssetId(descriptor.id);
         resolved.set(
-          descriptor.id,
-          (await resolveMediaAssetForDisplay(descriptor)).url,
+          descriptorId,
+          (
+            await resolveMediaAssetForDisplay(
+              { ...descriptor, id: descriptorId },
+              expectedOwnerUid,
+            )
+          ).url,
         );
       } catch (error) {
-        console.warn(`Current media ${descriptor.id} is unavailable.`, error);
+        console.warn(
+          `Current media delivery ${descriptor.id} could not be resolved.`,
+          error,
+        );
       }
     }));
-    const clone = structuredClone(story);
-    const delivery = (assetId?: string) => assetId ? resolved.get(assetId) : undefined;
+    const clone = structuredClone(normalized);
+    const delivery = (assetId?: string) =>
+      assetId ? resolved.get(canonicalAssetId(assetId)) : undefined;
     clone.imageUrl = delivery(clone.coverAssetId) ?? clone.imageUrl;
     clone.imageHistory = clone.imageHistory?.map((image) => ({
       ...image,
       imageUrl: image.isCurrent ? delivery(image.assetId) ?? image.imageUrl : image.imageUrl,
     }));
-    const entities = [
-      ...clone.memory.characters,
-      ...(clone.memory.locations ?? []),
-      ...(clone.memory.artifacts ?? []),
-      ...(clone.memory.factions ?? []),
-      ...(clone.memory.abilities ?? []).filter(
+    const clonedEntities = [
+      ...(clone.memory?.characters ?? []),
+      ...(clone.memory?.locations ?? []),
+      ...(clone.memory?.artifacts ?? []),
+      ...(clone.memory?.factions ?? []),
+      ...(clone.memory?.abilities ?? []).filter(
         (entry): entry is Exclude<typeof entry, string> => typeof entry !== "string",
       ),
     ];
-    for (const entity of entities) {
+    for (const entity of clonedEntities) {
       const visual = entity as typeof entity & {
         imageUrl?: string;
         voiceAssetId?: string;
@@ -1803,7 +1886,7 @@ export class PersistentStorageManager implements StorageAdapter {
         imageUrl: image.isCurrent ? delivery(image.assetId) ?? image.imageUrl : image.imageUrl,
       }));
     }
-    for (const chapter of clone.arcs.flatMap((arc) => arc.chapters)) {
+    for (const chapter of (clone.arcs ?? []).flatMap((arc) => arc.chapters ?? [])) {
       const heroUrl = delivery(chapter.heroImageAssetId);
       if (heroUrl) {
         chapter.assetManifest = { ...(chapter.assetManifest ?? {}), heroImage: heroUrl };
@@ -1815,10 +1898,7 @@ export class PersistentStorageManager implements StorageAdapter {
           : image.imageUrl,
       }));
     }
-    clone.mediaDescriptors = Object.fromEntries(descriptors.map((descriptor) => [
-      descriptor.id,
-      { ...descriptor, deliveryUrl: "" },
-    ]));
+    clone.mediaDescriptors = Object.fromEntries(descriptors);
     return normalizeStoryImageOwnership(clone);
   }
 
@@ -2614,9 +2694,11 @@ export class PersistentStorageManager implements StorageAdapter {
       local = Array.from(newestById.values());
     }
     if (!this.activeTransaction) {
-      return Promise.all(
+      const hydrated = await Promise.all(
         local.filter((s) => !s.deleted).map((story) => this.hydrateCurrentMedia(story)),
       );
+      if (!LOCAL_ONLY_MODE) this.assertCurrentAccount(currentUserId);
+      return hydrated;
     }
 
     const tx = this.activeTransaction;
@@ -2634,7 +2716,11 @@ export class PersistentStorageManager implements StorageAdapter {
       (a, b) =>
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     );
-    return Promise.all(result.map((story) => this.hydrateCurrentMedia(story)));
+    const hydrated = await Promise.all(
+      result.map((story) => this.hydrateCurrentMedia(story)),
+    );
+    if (!LOCAL_ONLY_MODE) this.assertCurrentAccount(currentUserId);
+    return hydrated;
   }
 
   startTransaction() {
@@ -2713,7 +2799,10 @@ export class PersistentStorageManager implements StorageAdapter {
         }
       }
     }
-    return story ? this.hydrateCurrentMedia(story) : null;
+    if (!story) return null;
+    const hydrated = await this.hydrateCurrentMedia(story);
+    if (!LOCAL_ONLY_MODE) this.assertCurrentAccount(currentUserId);
+    return hydrated;
   }
 
   /**
@@ -2941,7 +3030,14 @@ export class PersistentStorageManager implements StorageAdapter {
       Object.assign(strippedStory, withRefreshedChapterCounts(strippedStory));
 
       try {
-        await this.localAdapter.saveStory(strippedStory);
+        // In cloud mode, the offline replica obeys the same permanent-media
+        // boundary as PostgreSQL: canonical ids survive, while provider,
+        // blob/base64, and signed delivery projections never become durable.
+        // Device-only mode retains its legacy unassociated-image behavior.
+        const durableLocalStory = LOCAL_ONLY_MODE
+          ? strippedStory
+          : prepareCloudReplicaPayload(strippedStory);
+        await this.localAdapter.saveStory(durableLocalStory);
       } catch (e) {
         console.error("Failed to save story locally; cloud sync was not queued:", e);
         throw e;

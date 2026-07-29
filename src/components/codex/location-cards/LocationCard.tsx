@@ -31,7 +31,7 @@ export const LocationCard: React.FC<LocationCardProps> = ({
   openEntryContextEditor,
 }) => {
   const displayedImage = activePreview ? activePreview.urls[activePreview.selectedIndex] : loc.imageUrl;
-  const hasImage = !!loc.imageUrl;
+  const hasImage = Boolean(loc.imageAssetId || loc.imageUrl);
 
   return (
     <div key={loc.id} className={`bg-neutral-950 border ${loc.evolutionReady && !activePreview ? 'border-portal/50 shadow-[0_0_15px_rgba(4,172,255,0.15)]' : 'border-neutral-900'} hover:border-neutral-800 rounded-lg overflow-hidden flex flex-col justify-between group transition-all duration-300`}>

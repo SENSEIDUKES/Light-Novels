@@ -34,6 +34,8 @@ import {
   CHAPTER_WRITING_STYLE_OPTIONS,
   normalizeChapterWritingStyle,
 } from "../lib/chapterWritingStyle";
+import { useHistoricalMediaUrls } from "../hooks/useHistoricalMediaUrls";
+import { canonicalAssetId, isSameAssetId } from "../contracts/assetIdentity";
 
 export const StoryDetailScreen: React.FC<{
   handleGenerateCover: (customModifier?: string) => Promise<
@@ -85,9 +87,31 @@ export const StoryDetailScreen: React.FC<{
     total: 0,
   });
   const [dominantColor, setDominantColor] = useState<string>("rgba(4, 172, 255, 0.6)");
+  const activeStory = stories.find((story) => story.id === activeStoryId);
+  const coverHistory = React.useMemo(
+    () => (
+      Array.isArray(activeStory?.imageHistory)
+        ? activeStory.imageHistory.filter((image) => image.entityType === "cover")
+        : []
+    ),
+    [activeStory],
+  );
+  const historicalCoverUrls = useHistoricalMediaUrls(
+    currentScreen === "detail"
+      ? coverHistory.map((image) => ({
+        assetId: image.assetId,
+        imageUrl: image.imageUrl
+          || (
+            isSameAssetId(image.assetId, activeStory?.coverAssetId)
+              ? activeStory?.imageUrl
+              : undefined
+          ),
+      }))
+      : [],
+    activeStory?.userId,
+  );
 
   React.useEffect(() => {
-    const activeStory = stories.find((s) => s.id === activeStoryId);
     const imageUrl = activeStory?.imageUrl;
     
     if (!imageUrl) {
@@ -130,7 +154,7 @@ export const StoryDetailScreen: React.FC<{
     img.onerror = () => {
       setDominantColor("rgba(4, 172, 255, 0.6)");
     };
-  }, [activeStoryId, stories]);
+  }, [activeStory, activeStoryId, stories]);
 
   const handleDownloadOffline = async () => {
     if (!activeStory) return;
@@ -200,7 +224,6 @@ export const StoryDetailScreen: React.FC<{
 
   if (currentScreen !== "detail") return null;
 
-  const activeStory = stories.find((s) => s.id === activeStoryId);
   if (!activeStory) return null;
 
   const handleToggleMotionCover = async () => {
@@ -224,7 +247,16 @@ export const StoryDetailScreen: React.FC<{
       await handleSelectCover(assetId);
     } catch (error) {
       console.error('Failed to select cover from history:', error);
-      setAppError('The selected cover could not be saved. Please try again.');
+      setAppError(
+        (
+          error
+          && typeof error === 'object'
+          && 'selectionPersisted' in error
+          && error.selectionPersisted === true
+        )
+          ? 'The cover selection was saved, but its image could not be loaded yet. It will retry from permanent media.'
+          : 'The selected cover could not be saved. Please try again.',
+      );
     }
   };
 
@@ -282,6 +314,10 @@ export const StoryDetailScreen: React.FC<{
   const userQi = userProfile?.dao_xp || userProfile?.qi || 0;
   const isSage = userQi >= 12000;
   const isCompletedAndSage = hasReachedEnding && isSage;
+  // Signed/blob delivery URLs are disposable projections. The durable slot
+  // identity is enough to prove this story already owns a cover even while
+  // that projection is being refreshed or is temporarily unavailable.
+  const hasPermanentCover = Boolean(activeStory.coverAssetId || activeStory.imageUrl);
 
   return (
     <motion.div
@@ -705,7 +741,7 @@ export const StoryDetailScreen: React.FC<{
                   }}
                   disabled={
                     isGenerating ||
-                    (!!activeStory.imageUrl && !activeStory.evolutionReady && !isCompletedAndSage)
+                    (hasPermanentCover && !activeStory.evolutionReady && !isCompletedAndSage)
                   }
                   className={`w-full py-2 border text-[10px] font-bold font-sc uppercase tracking-wider rounded hover:bg-portal hover:text-void transition-colors flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(4,172,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed ${
                     isCompletedAndSage
@@ -719,7 +755,7 @@ export const StoryDetailScreen: React.FC<{
                       ? "Sage Upgrade"
                       : activeStory.evolutionReady
                         ? "Awaken Evolution"
-                        : activeStory.imageUrl
+                        : hasPermanentCover
                           ? "Progression"
                           : "Forge Cover"}
                   </span>
@@ -788,7 +824,7 @@ export const StoryDetailScreen: React.FC<{
                 }}
                 disabled={
                   isGenerating ||
-                  (!!activeStory.imageUrl && !activeStory.evolutionReady && !isCompletedAndSage)
+                  (hasPermanentCover && !activeStory.evolutionReady && !isCompletedAndSage)
                 }
                 className={`w-full py-2.5 border text-[11px] font-bold font-sc uppercase tracking-wider rounded flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed transition-all ${
                   isCompletedAndSage
@@ -802,7 +838,7 @@ export const StoryDetailScreen: React.FC<{
                     ? "Sage Cover Upgrade"
                     : activeStory.evolutionReady
                       ? "Awaken Evolution"
-                      : activeStory.imageUrl
+                      : hasPermanentCover
                         ? "Progression Required"
                         : "Forge Core Cover"}
                 </span>
@@ -837,13 +873,21 @@ export const StoryDetailScreen: React.FC<{
             )}
 
             {/* Cover Image History */}
-            {activeStory.imageHistory &&
-              activeStory.imageHistory.filter((img) => img.entityType === "cover")
-                .length > 1 && (
+            {coverHistory.length > 1 && (
                 <div className="flex space-x-1.5 overflow-x-auto p-1.5 bg-neutral-950 border border-neutral-900 rounded custom-scrollbar mt-2">
-                  {activeStory.imageHistory
-                    .filter((img) => img.entityType === "cover")
-                    .map((img) => (
+                  {coverHistory.map((img) => {
+                    const thumbnailUrl = img.imageUrl
+                      || (
+                        isSameAssetId(img.assetId, activeStory.coverAssetId)
+                          ? activeStory.imageUrl
+                          : undefined
+                      )
+                      || (
+                        img.assetId
+                          ? historicalCoverUrls[canonicalAssetId(img.assetId)]
+                          : undefined
+                      );
+                    return (
                       <div
                         key={img.id}
                         className="relative flex-shrink-0 w-10 h-14 rounded overflow-hidden border border-neutral-800 cursor-pointer hover:border-portal transition-colors shadow-lg"
@@ -859,14 +903,24 @@ export const StoryDetailScreen: React.FC<{
                         aria-label={`Apply cover image from chapter ${img.chapterNumber || "Unknown"}`}
                         title={`Generated at Chapter ${img.chapterNumber || "Unknown"}\nPrompt: ${img.promptUsed}`}
                       >
-                        <img
-                          src={img.imageUrl}
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                          alt=""
-                        />
+                        {thumbnailUrl ? (
+                          <img
+                            src={thumbnailUrl}
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                            alt=""
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-neutral-950 flex items-center justify-center">
+                            <Sparkles
+                              size={12}
+                              className="text-neutral-700 animate-pulse"
+                            />
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    );
+                  })}
                 </div>
               )}
           </div>

@@ -121,8 +121,10 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
   // starts once call N-1 has fully settled, success or failure.
   let saveQueueTail: Promise<void> = Promise.resolve();
 
-  const performSaveStories = async (updated: Story[]): Promise<void> => {
-    const expectedUid = auth.currentUser?.uid;
+  const performSaveStories = async (
+    updated: Story[],
+    expectedUid: string | undefined,
+  ): Promise<void> => {
     if (!LOCAL_ONLY_MODE) {
       const foreignStory = updated.find(
         story => story.userId && story.userId !== expectedUid,
@@ -430,11 +432,23 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
   },
 
   saveStories: (updated: Story[] | ((current: Story[]) => Story[])) => {
+    const queuedUid = auth.currentUser?.uid;
     // Resolve a functional `updated` only once this call reaches the front
     // of the queue, not when it is enqueued — see the interface doc comment.
-    const run = () => performSaveStories(
-      typeof updated === 'function' ? updated(get().stories) : updated,
-    );
+    const run = () => {
+      // The deferred updater closes over the initiating operation's payload,
+      // but reads the story library only when its queue turn begins. If the
+      // account changed while it was waiting, evaluating that updater against
+      // the new account's same-id story would let the stale payload inherit
+      // the new story's owner and pass the foreign-story check below.
+      if (!LOCAL_ONLY_MODE && auth.currentUser?.uid !== queuedUid) {
+        throw new Error('Active account changed before the queued story save began');
+      }
+      return performSaveStories(
+        typeof updated === 'function' ? updated(get().stories) : updated,
+        queuedUid,
+      );
+    };
     // Chain onto the tail unconditionally (via .then(onFulfilled, onRejected))
     // so a prior failure never blocks later saves from running.
     const result = saveQueueTail.then(run, run);

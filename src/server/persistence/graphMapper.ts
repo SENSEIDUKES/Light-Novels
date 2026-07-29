@@ -24,6 +24,7 @@ import type {
 } from '../../types';
 import { normalizeChapterWritingStyle } from '../../lib/chapterWritingStyle';
 import { countHydratedChapters } from '../../lib/chapterCounts';
+import { canonicalAssetId } from '../../contracts/assetIdentity';
 import { assertPermanentMediaMetadata } from '../media/permanentMediaGuard';
 
 type GraphRow = Record<string, unknown>;
@@ -353,22 +354,37 @@ function currentEntityId(
   return persistenceUuid(value.persistenceId ?? value.id, 'codex-entity', storyId, kind, value.id);
 }
 
+function sameCanonicalIdentifier(
+  left: string | null | undefined,
+  right: string | null | undefined,
+): boolean {
+  if (!left || !right) return left === right;
+  return canonicalAssetId(left).toLowerCase() === canonicalAssetId(right).toLowerCase();
+}
+
 function graphMediaHistory(
   graph: StoryGraph,
-  target: { targetKind?: string; entityId?: string; chapterId?: string; purpose?: string },
+  target: {
+    targetKind?: string;
+    targetKinds?: readonly string[];
+    entityId?: string;
+    chapterId?: string;
+    purpose?: string;
+  },
   entityType: GeneratedImage['entityType'],
   entityId: string,
 ): GeneratedImage[] {
   return graph.mediaAttachments
     .filter(attachment =>
-      (target.entityId ? attachment.entityId === target.entityId : true)
-      && (target.chapterId ? attachment.chapterId === target.chapterId : true)
+      (target.entityId ? sameCanonicalIdentifier(attachment.entityId, target.entityId) : true)
+      && (target.chapterId ? sameCanonicalIdentifier(attachment.chapterId, target.chapterId) : true)
       && (target.targetKind ? attachment.targetKind === target.targetKind : true)
+      && (target.targetKinds ? target.targetKinds.includes(attachment.targetKind) : true)
       && (target.purpose ? attachment.purpose === target.purpose : true)
       && attachment.purpose !== 'VOICE_CARD')
     .map(attachment => ({
       id: attachment.clientHistoryId ?? attachment.id,
-      assetId: attachment.assetId,
+      assetId: canonicalAssetId(attachment.assetId),
       entityId,
       entityType,
       imageUrl: '',
@@ -384,20 +400,42 @@ function graphMediaHistory(
 function currentSlotAsset(
   graph: StoryGraph,
   purpose: string,
-  target: { targetKind?: string; entityId?: string; chapterId?: string },
+  target: {
+    targetKind?: string;
+    targetKinds?: readonly string[];
+    entityId?: string;
+    chapterId?: string;
+  },
 ): string | undefined {
-  const slot = graph.mediaSlots.find(candidate =>
-    candidate.purpose === purpose
-    && (target.targetKind ? candidate.targetKind === target.targetKind : true)
-    && (target.entityId ? candidate.entityId === target.entityId : true)
-    && (target.chapterId ? candidate.chapterId === target.chapterId : true));
-  if (slot) return slot.currentAssetId;
-  return graph.mediaAttachments.find(attachment =>
-    attachment.isCurrent
-    && attachment.purpose === purpose
-    && (target.entityId ? attachment.entityId === target.entityId : true)
-    && (target.chapterId ? attachment.chapterId === target.chapterId : true)
-    && (target.targetKind ? attachment.targetKind === target.targetKind : true))?.assetId;
+  const targetKinds = target.targetKinds
+    ?? (target.targetKind ? [target.targetKind] : [undefined]);
+  const matchesScope = (
+    candidate: {
+      purpose: string;
+      targetKind: string;
+      entityId?: string | null;
+      chapterId?: string | null;
+    },
+    targetKind: string | undefined,
+  ) => candidate.purpose === purpose
+    && (targetKind ? candidate.targetKind === targetKind : true)
+    && (target.entityId ? sameCanonicalIdentifier(candidate.entityId, target.entityId) : true)
+    && (target.chapterId ? sameCanonicalIdentifier(candidate.chapterId, target.chapterId) : true);
+
+  // MediaSlot is authoritative. Prefer the entity's concrete kind, then the
+  // two generic target kinds emitted by older clients.
+  for (const targetKind of targetKinds) {
+    const slot = graph.mediaSlots.find(candidate =>
+      matchesScope(candidate, targetKind));
+    if (slot) return canonicalAssetId(slot.currentAssetId);
+  }
+  for (const targetKind of targetKinds) {
+    const attachmentAssetId = graph.mediaAttachments.find(attachment =>
+      attachment.isCurrent
+      && matchesScope(attachment, targetKind))?.assetId;
+    if (attachmentAssetId) return canonicalAssetId(attachmentAssetId);
+  }
+  return undefined;
 }
 
 function attributeMap(
@@ -479,8 +517,15 @@ function hydrateCodexEntity(
 ): { collection: keyof Pick<StoryMemory, 'characters' | 'factions' | 'locations' | 'artifacts' | 'abilities'>; value: unknown } | null {
   const attributes = attributeMap(entity.attributes);
   const base = codexBase(entity);
-  const imageAssetId = currentSlotAsset(graph, 'MANIFESTATION', { entityId: entity.id });
-  const voiceAssetId = currentSlotAsset(graph, 'VOICE_CARD', { entityId: entity.id });
+  const compatibleTargetKinds = [entity.kind, 'ENTITY', 'CODEX_ENTITY'];
+  const imageAssetId = currentSlotAsset(graph, 'MANIFESTATION', {
+    entityId: entity.id,
+    targetKinds: compatibleTargetKinds,
+  });
+  const voiceAssetId = currentSlotAsset(graph, 'VOICE_CARD', {
+    entityId: entity.id,
+    targetKinds: compatibleTargetKinds,
+  });
   const common = {
     ...base,
     id: entity.stableKey,
@@ -489,7 +534,14 @@ function hydrateCodexEntity(
     imageAssetId,
     imageHistory: graphMediaHistory(
       graph,
-      { entityId: entity.id },
+      {
+        entityId: entity.id,
+        purpose: 'MANIFESTATION',
+        // Current clients use the concrete Codex kind. Preserve the two
+        // generic keys written by older clients, but never let an arbitrary
+        // same-entity target leak into this owner's version history.
+        targetKinds: [entity.kind, 'ENTITY', 'CODEX_ENTITY'],
+      },
       entity.kind === 'BEAST' ? 'beast' : lowerEnum(entity.kind, 'character') as GeneratedImage['entityType'],
       entity.stableKey,
     ),
@@ -762,7 +814,12 @@ export function hydrateStoryWorld(graph: StoryGraph): StoryWorld | null {
     arcs,
     currentChapterNumber: source.currentChapterNumber,
     coverAssetId,
-    imageHistory: graphMediaHistory(graph, { targetKind: 'STORY' }, 'cover', source.id),
+    imageHistory: graphMediaHistory(
+      graph,
+      { targetKind: 'STORY', purpose: 'STORY_COVER' },
+      'cover',
+      source.id,
+    ),
     lastImageChapter: source.lastImageChapter ?? undefined,
     evolutionReady: source.evolutionReady,
     evolutionReason: source.evolutionReason ?? undefined,

@@ -513,8 +513,11 @@ class FakeObjectStore implements MediaObjectStore {
   objects = new Map<string, StoredObjectMetadata>();
   markers: CleanupMarker[] = [];
   putCalls = 0;
+  deliveryCalls = 0;
   failPut = false;
   failDelete = false;
+  failDelivery = false;
+  emptyDelivery = false;
   publicDeliveryConfigured = true;
 
   assertDeliveryConfigured(visibility: 'PRIVATE' | 'PUBLIC'): void {
@@ -548,6 +551,9 @@ class FakeObjectStore implements MediaObjectStore {
   }
 
   async getDeliveryUrl(_bucket: string, objectKey: string): Promise<string> {
+    this.deliveryCalls += 1;
+    if (this.failDelivery) throw new Error('R2 signing unavailable');
+    if (this.emptyDelivery) return '';
     return `https://clean-session.example/${encodeURIComponent(objectKey)}`;
   }
 
@@ -636,6 +642,73 @@ describe('MediaAssetService', () => {
     expect(descriptor.deliveryUrlExpiresAt).toBe('2026-07-21T00:15:00.000Z');
     expect(store.objects.size).toBe(1);
     expect(repo.records.get(descriptor.id)?.status).toBe('READY');
+  });
+
+  it('returns durable identity when delivery signing fails after a successful commit', async () => {
+    const repo = new FakeRepository();
+    const store = new FakeObjectStore();
+    store.failDelivery = true;
+
+    const descriptor = await service(repo, store).save(OWNER, createRequest());
+
+    expect(descriptor).toMatchObject({
+      status: 'READY',
+      deliveryUrl: '',
+      deliveryUrlExpiresAt: null,
+    });
+    expect(store.objects.size).toBe(1);
+    expect(repo.records.get(descriptor.id)?.status).toBe('READY');
+    expect([...repo.slots.values()][0]?.currentAssetId).toBe(descriptor.id);
+    expect([...repo.histories.values()][0]?.filter(entry => entry.isCurrent))
+      .toHaveLength(1);
+  });
+
+  it('returns a durable selection when its new delivery projection cannot be signed', async () => {
+    const repo = new FakeRepository();
+    const store = new FakeObjectStore();
+    const previous = readyRecord();
+    repo.seed(previous);
+    const s = service(repo, store);
+    const replacement = await s.save(OWNER, createRequest(previous.id));
+    store.failDelivery = true;
+
+    const selected = await s.select(
+      OWNER.uid,
+      previous.id,
+      createRequest().association,
+    );
+
+    expect(selected).toMatchObject({
+      id: previous.id,
+      status: 'READY',
+      deliveryUrl: '',
+      deliveryUrlExpiresAt: null,
+    });
+    expect([...repo.slots.values()][0]?.currentAssetId).toBe(previous.id);
+    expect(repo.records.get(replacement.id)?.status).toBe('READY');
+  });
+
+  it('classifies a read-time signing outage separately from missing media', async () => {
+    const repo = new FakeRepository();
+    const store = new FakeObjectStore();
+    const record = readyRecord();
+    repo.seed(record);
+    store.failDelivery = true;
+
+    await expect(service(repo, store).get(OWNER.uid, record.id)).rejects.toMatchObject({
+      name: 'MediaAssetServiceError',
+      code: 'delivery_not_configured',
+      assetId: record.id,
+      recoverable: true,
+    });
+    store.failDelivery = false;
+    store.emptyDelivery = true;
+    await expect(service(repo, store).get(OWNER.uid, record.id)).rejects.toMatchObject({
+      code: 'delivery_not_configured',
+      assetId: record.id,
+      recoverable: true,
+    });
+    expect(repo.records.get(record.id)?.status).toBe('READY');
   });
 
   it('returns the original ready asset when an authenticated upload retry reuses its request key', async () => {
@@ -830,6 +903,98 @@ describe('MediaAssetService', () => {
     const foreignJob = { ...createRequest(), generationJobId: '33333333-3333-4333-8333-333333333333' };
     await expect(service(repo, store).save(OWNER, foreignJob)).rejects.toThrow(/generation job not owned/);
     expect(store.putCalls).toBe(0);
+  });
+
+  it('rejects unsupported story target kinds before reserving or uploading media', async () => {
+    const repo = new FakeRepository();
+    const store = new FakeObjectStore();
+    const request = createRequest();
+    request.association = {
+      ...request.association,
+      targetKind: 'DISPLAY_NAME',
+      targetKey: 'Azure Gate Sect',
+      entityId: '99999999-9999-4999-8999-999999999999',
+    };
+
+    await expect(service(repo, store).save(OWNER, request)).rejects.toMatchObject({
+      code: 'invalid_metadata',
+    });
+    expect(repo.quotaReservations.size).toBe(0);
+    expect(repo.records.size).toBe(0);
+    expect(store.putCalls).toBe(0);
+  });
+
+  it('rejects known purpose/target mismatches before storage while allowing future purposes', async () => {
+    const storyId = '11111111-1111-4111-8111-111111111111';
+    const chapterId = '22222222-2222-4222-8222-222222222222';
+    const entityId = '99999999-9999-4999-8999-999999999999';
+    const mismatches: Array<{
+      purpose: string;
+      association: MediaAssociation;
+    }> = [{
+      purpose: 'CELESTIAL_PORTRAIT',
+      association: {
+        targetKind: 'STORY',
+        targetKey: storyId,
+        purpose: 'CELESTIAL_PORTRAIT',
+        storyId,
+      },
+    }, {
+      purpose: 'STORY_COVER',
+      association: {
+        targetKind: 'CHARACTER',
+        targetKey: entityId,
+        purpose: 'STORY_COVER',
+        storyId,
+        entityId,
+      },
+    }, {
+      purpose: 'CHAPTER_HERO',
+      association: {
+        targetKind: 'STORY',
+        targetKey: storyId,
+        purpose: 'CHAPTER_HERO',
+        storyId,
+      },
+    }, {
+      purpose: 'MANIFESTATION',
+      association: {
+        targetKind: 'STORY',
+        targetKey: storyId,
+        purpose: 'MANIFESTATION',
+        storyId,
+      },
+    }, {
+      purpose: 'VOICE_CARD',
+      association: {
+        targetKind: 'CHAPTER',
+        targetKey: chapterId,
+        purpose: 'VOICE_CARD',
+        storyId,
+        chapterId,
+      },
+    }];
+
+    for (const mismatch of mismatches) {
+      const repo = new FakeRepository();
+      const store = new FakeObjectStore();
+      await expect(service(repo, store).save(OWNER, {
+        ...createRequest(),
+        purpose: mismatch.purpose,
+        association: mismatch.association,
+      })).rejects.toMatchObject({ code: 'invalid_metadata' });
+      expect(repo.quotaReservations.size).toBe(0);
+      expect(repo.records.size).toBe(0);
+      expect(store.putCalls).toBe(0);
+    }
+
+    const futurePurpose = createRequest();
+    futurePurpose.purpose = 'FUTURE_STORY_VISUAL';
+    futurePurpose.association.purpose = 'FUTURE_STORY_VISUAL';
+    await expect(service(new FakeRepository(), new FakeObjectStore()).save(
+      OWNER,
+      futurePurpose,
+    )).resolves.toMatchObject({ status: 'READY' });
   });
 
   it('marks a failed upload without ever producing a ready asset', async () => {

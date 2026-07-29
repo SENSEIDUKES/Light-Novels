@@ -14,6 +14,24 @@ import {
   resolveMediaAssetForDisplay,
 } from '../lib/media/privateMediaResolver';
 import { auth } from '../lib/firebase';
+import { retainLocalMediaDescriptor } from '../lib/media/localMediaDescriptors';
+import { isSameAssetId } from '../contracts/assetIdentity';
+import { isStoryCoverHistoryEntry } from '../lib/media/imageOwnership';
+
+export interface PersistedMediaDeliveryError extends Error {
+  code: 'media/delivery-unavailable';
+  selectionPersisted: true;
+}
+
+function persistedDeliveryError(cause: unknown): PersistedMediaDeliveryError {
+  const detail = cause instanceof Error ? ` ${cause.message}` : '';
+  const error = new Error(
+    `The cover selection was saved, but its image could not be loaded yet.${detail}`,
+  ) as PersistedMediaDeliveryError;
+  error.code = 'media/delivery-unavailable';
+  error.selectionPersisted = true;
+  return error;
+}
 
 export const useVisualAssets = () => {
   const handleGenerateCover = async (customModifier?: string): Promise<{ imageUrls: string[], promptUsed: string } | undefined> => {
@@ -72,6 +90,7 @@ export const useVisualAssets = () => {
       (auth.currentUser?.uid ?? null) === initiatingUserId;
     const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
     if (!activeStory) return;
+    if (activeStory.userId && activeStory.userId !== initiatingUserId) return;
 
     try {
       const legacyMediaId = generateId(8);
@@ -99,11 +118,32 @@ export const useVisualAssets = () => {
         },
         replacesAssetId: activeStory.coverAssetId,
         idempotencyKey: generateUUID(),
+        expectedOwnerUid: initiatingUserId ?? undefined,
       });
       if (!accountIsCurrent()) return;
-      const resolved = await resolveMediaAssetForDisplay(asset);
+      let selectedUrl = '';
+      let deliveryFailure: unknown;
+      try {
+        selectedUrl = (
+          await resolveMediaAssetForDisplay(
+            asset,
+            initiatingUserId ?? undefined,
+          )
+        ).url;
+        if (!selectedUrl.trim()) {
+          deliveryFailure = new Error(
+            'The permanent media service returned an empty delivery URL.',
+          );
+        }
+      } catch (error) {
+        if (!accountIsCurrent()) return;
+        deliveryFailure = error;
+      }
       if (!accountIsCurrent()) return;
-      if (activeStory.coverAssetId && activeStory.coverAssetId !== asset.id) {
+      if (
+        activeStory.coverAssetId
+        && !isSameAssetId(activeStory.coverAssetId, asset.id)
+      ) {
         if (!accountIsCurrent()) return;
         await discardCachedMedia(activeStory.coverAssetId);
         if (!accountIsCurrent()) return;
@@ -117,7 +157,7 @@ export const useVisualAssets = () => {
         deliveryUrlExpiresAt: asset.deliveryUrlExpiresAt ?? undefined,
         entityId: activeStory.id,
         entityType: 'cover',
-        imageUrl: resolved.url,
+        imageUrl: selectedUrl,
         promptUsed,
         createdAt: new Date().toISOString(),
         isCurrent: true,
@@ -136,7 +176,9 @@ export const useVisualAssets = () => {
       ) ?? activeStory;
       const currentHistory = latestStory.imageHistory || [];
       const updatedHistory: GeneratedImage[] = currentHistory.map(img =>
-        img.entityType === 'cover' ? { ...img, isCurrent: false } : img
+        isStoryCoverHistoryEntry(img, latestStory)
+          ? { ...img, isCurrent: false }
+          : img
       ).concat(imageRecord);
 
     // Was a hook-local full-story replacement (read stories, swap the
@@ -146,9 +188,13 @@ export const useVisualAssets = () => {
         activeStory.id,
         {
           persistenceId: storyId,
-          imageUrl: resolved.url,
+          imageUrl: selectedUrl,
           coverAssetId: asset.id,
           imageHistory: updatedHistory,
+          mediaDescriptors: retainLocalMediaDescriptor(
+            latestStory.mediaDescriptors,
+            asset,
+          ),
           evolutionReady: false,
           availableVisualUpdate: false,
           lastImageChapter: activeStory.currentChapterNumber
@@ -156,6 +202,7 @@ export const useVisualAssets = () => {
         { markEdited: false, touchUpdatedAt: true },
       );
       if (!accountIsCurrent()) return;
+      if (deliveryFailure) throw persistedDeliveryError(deliveryFailure);
     } catch (error) {
       if (!accountIsCurrent()) return;
       throw error;
@@ -181,9 +228,11 @@ export const useVisualAssets = () => {
       story => story.id === currentStoreState.activeStoryId,
     );
     if (!activeStory) return;
+    if (activeStory.userId && activeStory.userId !== initiatingUserId) return;
 
     const selectedHistory = activeStory.imageHistory?.find(
-      image => image.entityType === 'cover' && image.assetId === selectedAssetId,
+      image => isStoryCoverHistoryEntry(image, activeStory)
+        && isSameAssetId(image.assetId, selectedAssetId),
     );
     if (!selectedHistory) {
       throw new Error('That cover is not recorded in this story\'s saved cover history.');
@@ -201,13 +250,27 @@ export const useVisualAssets = () => {
         purpose: MEDIA_PURPOSE.STORY_COVER,
         storyId,
         entityType: 'cover',
-      });
+      }, initiatingUserId ?? undefined);
       if (!accountIsCurrent()) return;
-      const resolved = await resolveMediaAssetForDisplay(selectedAsset);
-      if (!accountIsCurrent()) return;
-      if (!resolved.url.trim()) {
-        throw new Error('The selected cover could not be resolved and was left unchanged.');
+      let selectedUrl = '';
+      let deliveryFailure: unknown;
+      try {
+        selectedUrl = (
+          await resolveMediaAssetForDisplay(
+            selectedAsset,
+            initiatingUserId ?? undefined,
+          )
+        ).url;
+        if (!selectedUrl.trim()) {
+          deliveryFailure = new Error(
+            'The permanent media service returned an empty delivery URL.',
+          );
+        }
+      } catch (error) {
+        if (!accountIsCurrent()) return;
+        deliveryFailure = error;
       }
+      if (!accountIsCurrent()) return;
 
       // Re-read state after the media request so a concurrent story edit is not
       // overwritten while the selected cover is being made current.
@@ -218,20 +281,25 @@ export const useVisualAssets = () => {
       ) ?? activeStory;
       const latestHistory = latestStory.imageHistory ?? [];
       const historyWithSelectedCover = latestHistory.some(
-        image => image.entityType === 'cover' && image.assetId === selectedAsset.id,
+        image => isStoryCoverHistoryEntry(image, latestStory)
+          && isSameAssetId(image.assetId, selectedAsset.id),
       )
         ? latestHistory
         : [...latestHistory, selectedHistory];
       const updatedHistory = historyWithSelectedCover.map(image => {
-        if (image.entityType !== 'cover') return image;
-        if (image.assetId !== selectedAsset.id) return { ...image, isCurrent: false };
+        if (!isStoryCoverHistoryEntry(image, latestStory)) return image;
+        if (!isSameAssetId(image.assetId, selectedAsset.id)) {
+          return { ...image, isCurrent: false };
+        }
         return {
           ...image,
+          entityId: latestStory.id,
+          entityType: 'cover' as const,
           assetId: selectedAsset.id,
           assetVersion: selectedAsset.version,
           checksumSha256: selectedAsset.checksumSha256,
           deliveryUrlExpiresAt: selectedAsset.deliveryUrlExpiresAt ?? undefined,
-          imageUrl: resolved.url,
+          imageUrl: selectedUrl,
           isCurrent: true,
         };
       });
@@ -246,12 +314,17 @@ export const useVisualAssets = () => {
         {
           persistenceId: storyId,
           coverAssetId: selectedAsset.id,
-          imageUrl: resolved.url,
+          imageUrl: selectedUrl,
           imageHistory: updatedHistory,
+          mediaDescriptors: retainLocalMediaDescriptor(
+            latestStory.mediaDescriptors,
+            selectedAsset,
+          ),
         },
         { markEdited: false, touchUpdatedAt: true },
       );
       if (!accountIsCurrent()) return;
+      if (deliveryFailure) throw persistedDeliveryError(deliveryFailure);
     } catch (error) {
       if (!accountIsCurrent()) return;
       throw error;

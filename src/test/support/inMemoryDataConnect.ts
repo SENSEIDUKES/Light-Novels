@@ -17,6 +17,9 @@
  * backend was lenient.
  */
 
+import { canonicalAssetId, isSameAssetId } from '../../contracts/assetIdentity';
+import type { MediaAssociation } from '../../contracts/mediaAssets';
+
 type Row = Record<string, unknown>;
 
 const STORY_COLLECTIONS = [
@@ -83,7 +86,9 @@ export interface MediaAssetRow {
   id: string;
   ownerUid: string;
   storyId?: string | null;
+  assetType: 'IMAGE';
   purpose: string;
+  visibility: 'PRIVATE';
   status: string;
   mimeType: string;
   checksumSha256: string;
@@ -91,6 +96,7 @@ export interface MediaAssetRow {
   byteSize: string;
   deliveryUrl: string;
   deliveryUrlExpiresAt?: string;
+  createdAt: string;
 }
 
 export interface MediaSlotRow {
@@ -129,6 +135,14 @@ export interface MediaAttachmentRow {
 
 function clone<T>(value: T): T {
   return value === undefined ? value : (structuredClone(value) as T);
+}
+
+function sameScopedId(
+  left: string | null | undefined,
+  right: string | null | undefined,
+): boolean {
+  if (!left || !right) return (left ?? null) === (right ?? null);
+  return canonicalAssetId(left) === canonicalAssetId(right);
 }
 
 function emptyCollections(): Record<StoryCollection, Row[]> {
@@ -730,7 +744,22 @@ export class InMemoryDataConnect {
     if ((variables.expectedSyncRevision ?? null) !== (record.profile.syncRevision ?? null)) {
       throw staleError('The active portrait');
     }
-    const assetId = String(variables.assetId);
+    const assetId = canonicalAssetId(String(variables.assetId));
+    const asset = this.mediaAssets.get(assetId);
+    if (!asset || asset.ownerUid !== ownerUid || asset.status !== 'READY') {
+      throw new Error('Ready portrait asset not found');
+    }
+    if (asset.assetType !== 'IMAGE') throw new Error('Portrait asset must be an image');
+    if (asset.purpose !== 'CELESTIAL_PORTRAIT') {
+      throw new Error('Portrait asset purpose mismatch');
+    }
+    if (asset.storyId != null) throw new Error('Portrait asset must be account scoped');
+    const now = new Date().toISOString();
+    record.portraits = record.portraits.map(portrait => ({
+      ...portrait,
+      active: false,
+      updatedAt: now,
+    }));
     record.portraits = [
       ...record.portraits.filter((portrait) => String(portrait.assetId) !== assetId),
       {
@@ -745,7 +774,9 @@ export class InMemoryDataConnect {
         glowId: variables.glowId ?? null,
         bannerId: variables.bannerId ?? null,
         effectIds: variables.effectIds ?? [],
-        createdAt: new Date().toISOString(),
+        active: true,
+        createdAt: now,
+        updatedAt: now,
       },
     ];
     record.profile = {
@@ -755,6 +786,76 @@ export class InMemoryDataConnect {
       revision: variables.newRevision,
     };
     this.recordReceipt('SELECT_USER_PORTRAIT', ownerUid, variables);
+  }
+
+  recoverPendingUserPortraits(variables: Row): number {
+    const ownerUid = String(variables.ownerUid);
+    const record = this.profiles.get(ownerUid);
+    if (!record) throw new Error('User profile not found');
+    this.assertReceiptAvailable('RECOVER_PENDING_USER_PORTRAITS', ownerUid, variables);
+
+    const activeAssetId = typeof record.profile.activePortraitAssetId === 'string'
+      ? canonicalAssetId(record.profile.activePortraitAssetId)
+      : null;
+    const activePortrait = activeAssetId
+      ? record.portraits.find(portrait =>
+        isSameAssetId(String(portrait.assetId), activeAssetId)
+        && portrait.active === true)
+      : undefined;
+    const activeSelectedAt = Date.parse(String(activePortrait?.updatedAt ?? ''));
+    const candidate = [...this.mediaAssets.values()]
+      .filter(asset =>
+        asset.ownerUid === ownerUid
+        && asset.status === 'READY'
+        && asset.assetType === 'IMAGE'
+        && asset.purpose === 'CELESTIAL_PORTRAIT'
+        && asset.storyId == null
+        && !record.portraits.some(portrait => isSameAssetId(
+          String(portrait.assetId),
+          asset.id,
+        ))
+        && (
+          activeAssetId === null
+          || (!activePortrait && isSameAssetId(asset.id, activeAssetId))
+          || (
+            Boolean(activePortrait)
+            && Date.parse(asset.createdAt) > activeSelectedAt
+          )
+        ))
+      .sort((left, right) => {
+        const leftIsActive = activeAssetId && isSameAssetId(left.id, activeAssetId) ? 1 : 0;
+        const rightIsActive = activeAssetId && isSameAssetId(right.id, activeAssetId) ? 1 : 0;
+        return rightIsActive - leftIsActive
+          || Date.parse(right.createdAt) - Date.parse(left.createdAt);
+      })[0];
+
+    if (candidate) {
+      const now = new Date().toISOString();
+      record.portraits = [
+        ...record.portraits.map(portrait => ({
+          ...portrait,
+          active: false,
+          updatedAt: now,
+        })),
+        {
+          assetId: candidate.id,
+          userUid: ownerUid,
+          usedReferenceImage: false,
+          active: true,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ];
+      record.profile = {
+        ...record.profile,
+        activePortraitAssetId: candidate.id,
+        syncRevision: variables.idempotencyKey,
+        revision: String(Number(record.profile.revision ?? 0) + 1),
+        updatedAt: now,
+      };
+    }
+    this.recordReceipt('RECOVER_PENDING_USER_PORTRAITS', ownerUid, variables);
+    return candidate ? 1 : 0;
   }
 
   consumeImageQuota(variables: Row): void {
@@ -860,22 +961,54 @@ export class InMemoryDataConnect {
     mimeType?: string;
     promptUsed?: string | null;
     clientHistoryId?: string | null;
+    entityType?: string | null;
     chapterNumber?: number | null;
+    arcTitle?: string | null;
     label?: string | null;
   }): MediaAssetRow {
     const now = new Date().toISOString();
-    const asset: MediaAssetRow = {
-      id: input.assetId,
-      ownerUid: input.ownerUid,
-      storyId: input.storyId ?? null,
+    const assetId = canonicalAssetId(input.assetId);
+    const storyId = input.storyId ? canonicalAssetId(input.storyId) : input.storyId ?? null;
+    const chapterId = input.chapterId ? canonicalAssetId(input.chapterId) : input.chapterId ?? null;
+    const entityId = input.entityId ? canonicalAssetId(input.entityId) : input.entityId ?? null;
+    const targetKey = storyId || chapterId || entityId
+      ? canonicalAssetId(input.targetKey)
+      : input.targetKey;
+    this.assertMediaAssociationOwned(input.ownerUid, {
+      storyId,
+      chapterId,
+      entityId,
+      targetKind: input.targetKind,
+      targetKey,
       purpose: input.purpose,
+    });
+    if (input.purpose === 'CELESTIAL_PORTRAIT') {
+      throw new Error('Account portraits must be committed without a story media slot.');
+    }
+    const previousSlot = this.mediaSlots.find(
+      slot => slot.ownerUid === input.ownerUid
+        && slot.targetKind === input.targetKind
+        && slot.targetKey === targetKey
+        && slot.purpose === input.purpose,
+    );
+    const previousVersion = previousSlot
+      ? this.mediaAssets.get(previousSlot.currentAssetId)?.version ?? 0
+      : 0;
+    const asset: MediaAssetRow = {
+      id: assetId,
+      ownerUid: input.ownerUid,
+      storyId,
+      assetType: 'IMAGE',
+      purpose: input.purpose,
+      visibility: 'PRIVATE',
       status: 'READY',
       mimeType: input.mimeType ?? 'image/png',
       checksumSha256: input.checksumSha256 ?? 'a'.repeat(64),
-      version: 1,
+      version: previousVersion + 1,
       byteSize: '2048',
       deliveryUrl: input.deliveryUrl,
       deliveryUrlExpiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      createdAt: now,
     };
     this.mediaAssets.set(asset.id, asset);
 
@@ -883,16 +1016,16 @@ export class InMemoryDataConnect {
       (slot) =>
         slot.ownerUid === input.ownerUid &&
         slot.targetKind === input.targetKind &&
-        slot.targetKey === input.targetKey &&
+        slot.targetKey === targetKey &&
         slot.purpose === input.purpose,
     );
     const slot: MediaSlotRow = {
       ownerUid: input.ownerUid,
-      storyId: input.storyId ?? null,
-      chapterId: input.chapterId ?? null,
-      entityId: input.entityId ?? null,
+      storyId,
+      chapterId,
+      entityId,
       targetKind: input.targetKind,
-      targetKey: input.targetKey,
+      targetKey,
       purpose: input.purpose,
       currentAssetId: asset.id,
       version: String(slotIndex >= 0 ? Number(this.mediaSlots[slotIndex].version) + 1 : 1),
@@ -905,7 +1038,7 @@ export class InMemoryDataConnect {
       if (
         attachment.ownerUid === input.ownerUid &&
         attachment.targetKind === input.targetKind &&
-        attachment.targetKey === input.targetKey &&
+        attachment.targetKey === targetKey &&
         attachment.purpose === input.purpose
       ) {
         attachment.isCurrent = false;
@@ -916,16 +1049,16 @@ export class InMemoryDataConnect {
       id: `attachment-${this.mediaAttachments.length + 1}-${asset.id}`,
       ownerUid: input.ownerUid,
       assetId: asset.id,
-      storyId: input.storyId ?? null,
-      chapterId: input.chapterId ?? null,
-      entityId: input.entityId ?? null,
+      storyId,
+      chapterId,
+      entityId,
       targetKind: input.targetKind,
-      targetKey: input.targetKey,
+      targetKey,
       purpose: input.purpose,
       clientHistoryId: input.clientHistoryId ?? null,
       promptUsed: input.promptUsed ?? null,
       chapterNumber: input.chapterNumber ?? null,
-      arcTitle: null,
+      arcTitle: input.arcTitle ?? null,
       label: input.label ?? null,
       position: this.mediaAttachments.length,
       isCurrent: true,
@@ -934,17 +1067,174 @@ export class InMemoryDataConnect {
     return asset;
   }
 
+  /**
+   * Publish account-scoped media exactly like AdminCommitAccountMediaAsset:
+   * READY asset metadata only, with no story attachment or MediaSlot row.
+   */
+  attachAccountMedia(input: {
+    assetId: string;
+    ownerUid: string;
+    targetKind: string;
+    targetKey: string;
+    purpose: string;
+    deliveryUrl: string;
+    checksumSha256?: string;
+    mimeType?: string;
+  }): MediaAssetRow {
+    const targetKey = input.targetKey;
+    this.assertMediaAssociationOwned(input.ownerUid, {
+      targetKind: input.targetKind,
+      targetKey,
+      purpose: input.purpose,
+    });
+    const now = new Date().toISOString();
+    const asset: MediaAssetRow = {
+      id: canonicalAssetId(input.assetId),
+      ownerUid: input.ownerUid,
+      storyId: null,
+      assetType: 'IMAGE',
+      purpose: input.purpose,
+      visibility: 'PRIVATE',
+      status: 'READY',
+      mimeType: input.mimeType ?? 'image/png',
+      checksumSha256: input.checksumSha256 ?? 'a'.repeat(64),
+      version: 1,
+      byteSize: '2048',
+      deliveryUrl: input.deliveryUrl,
+      deliveryUrlExpiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      createdAt: now,
+    };
+    this.mediaAssets.set(asset.id, asset);
+    return asset;
+  }
+
+  selectMedia(
+    ownerUid: string,
+    assetId: string,
+    association: MediaAssociation,
+  ): MediaAssetRow {
+    const canonicalId = canonicalAssetId(assetId);
+    this.assertMediaAssociationOwned(ownerUid, association);
+    const asset = this.mediaAssets.get(canonicalId);
+    if (!asset || asset.ownerUid !== ownerUid || asset.status !== 'READY') {
+      throw new Error('The selected media asset is not owned by the authenticated owner.');
+    }
+    const targetKey = association.storyId || association.chapterId || association.entityId
+      ? canonicalAssetId(association.targetKey)
+      : association.targetKey;
+    const history = this.mediaAttachments.filter(attachment =>
+      attachment.ownerUid === ownerUid
+      && isSameAssetId(attachment.assetId, canonicalId)
+      && attachment.targetKind === association.targetKind
+      && canonicalAssetId(attachment.targetKey) === targetKey
+      && attachment.purpose === association.purpose
+      && sameScopedId(attachment.storyId, association.storyId)
+      && sameScopedId(attachment.chapterId, association.chapterId)
+      && sameScopedId(attachment.entityId, association.entityId));
+    if (history.length !== 1) {
+      throw new Error('The selected media asset is not a member of this owned media slot history.');
+    }
+    const slot = this.mediaSlots.find(candidate =>
+      candidate.ownerUid === ownerUid
+      && candidate.targetKind === association.targetKind
+      && canonicalAssetId(candidate.targetKey) === targetKey
+      && candidate.purpose === association.purpose);
+    if (!slot) throw new Error('The owned media slot does not exist.');
+    const now = new Date().toISOString();
+    for (const attachment of this.mediaAttachments) {
+      if (attachment.ownerUid !== ownerUid
+        || attachment.targetKind !== association.targetKind
+        || canonicalAssetId(attachment.targetKey) !== targetKey
+        || attachment.purpose !== association.purpose) continue;
+      attachment.isCurrent = isSameAssetId(attachment.assetId, canonicalId);
+      attachment.endedAt = attachment.isCurrent ? null : attachment.endedAt ?? now;
+    }
+    slot.currentAssetId = canonicalId;
+    slot.version = String(Number(slot.version) + 1);
+    slot.updatedAt = now;
+    return asset;
+  }
+
+  /**
+   * The journey's real MediaAssetService repository uses the same ownership
+   * predicate as the relational fixture before it reserves an upload.
+   */
+  assertOwnedMediaAssociation(ownerUid: string, association: MediaAssociation): void {
+    this.assertMediaAssociationOwned(ownerUid, association);
+  }
+
+  private assertMediaAssociationOwned(ownerUid: string, association: MediaAssociation): void {
+    const storyId = association.storyId ? canonicalAssetId(association.storyId) : null;
+    const chapterId = association.chapterId ? canonicalAssetId(association.chapterId) : null;
+    const entityId = association.entityId ? canonicalAssetId(association.entityId) : null;
+    const targetKey = storyId || chapterId || entityId
+      ? canonicalAssetId(association.targetKey)
+      : association.targetKey;
+    if (association.purpose === 'CELESTIAL_PORTRAIT') {
+      if (association.targetKind !== 'PORTRAIT'
+        || targetKey !== ownerUid
+        || storyId
+        || chapterId
+        || entityId) {
+        throw new Error('Account portraits require the authenticated owner portrait scope.');
+      }
+      return;
+    }
+    if (!storyId) throw new Error('Story media requires an owned story scope.');
+    const story = this.stories.get(storyId);
+    if (story && story.ownerUid !== ownerUid) {
+      throw new Error('The story media target is not owned by the authenticated owner.');
+    }
+    if (association.purpose === 'STORY_COVER') {
+      if (association.targetKind !== 'STORY'
+        || targetKey !== storyId
+        || chapterId
+        || entityId) {
+        throw new Error('Story covers require the canonical story target.');
+      }
+      return;
+    }
+    if (association.purpose === 'CHAPTER_HERO') {
+      if (association.targetKind !== 'CHAPTER'
+        || !chapterId
+        || targetKey !== chapterId
+        || entityId) {
+        throw new Error('Chapter heroes require the canonical chapter target.');
+      }
+      if (story && !story.collections.chapters.some(row => row.id === chapterId)) {
+        throw new Error('The chapter media target is not owned by the story.');
+      }
+      return;
+    }
+    if (association.purpose === 'MANIFESTATION') {
+      if (!entityId
+        || targetKey !== entityId
+        || chapterId
+        || !['CHARACTER', 'BEAST', 'LOCATION', 'ARTIFACT', 'FACTION'].includes(
+          association.targetKind,
+        )) {
+        throw new Error('Codex manifestations require the canonical entity target.');
+      }
+      if (story && !story.collections.codexEntities.some(row => row.id === entityId)) {
+        throw new Error('The Codex media target is not owned by the story.');
+      }
+      return;
+    }
+    throw new Error(`Unsupported image purpose ${association.purpose}.`);
+  }
+
   /** Descriptor loader with the exact contract the repository expects. */
   loadMediaDescriptor = async (ownerUid: string, assetId: string) => {
-    const asset = this.mediaAssets.get(assetId);
+    const canonicalId = canonicalAssetId(assetId);
+    const asset = this.mediaAssets.get(canonicalId);
     if (!asset || asset.ownerUid !== ownerUid) return null;
     return {
       id: asset.id,
       ownerUid: asset.ownerUid,
       storyId: asset.storyId,
-      assetType: 'IMAGE' as const,
+      assetType: asset.assetType,
       purpose: asset.purpose,
-      visibility: 'PRIVATE' as const,
+      visibility: asset.visibility,
       status: asset.status as 'READY',
       mimeType: asset.mimeType,
       byteSize: asset.byteSize,
@@ -952,8 +1242,8 @@ export class InMemoryDataConnect {
       version: asset.version,
       deliveryUrl: asset.deliveryUrl,
       deliveryUrlExpiresAt: asset.deliveryUrlExpiresAt,
-      createdAt: new Date(0).toISOString(),
-      updatedAt: new Date(0).toISOString(),
+      createdAt: asset.createdAt,
+      updatedAt: asset.createdAt,
     };
   };
 

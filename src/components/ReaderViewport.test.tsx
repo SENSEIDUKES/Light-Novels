@@ -270,4 +270,82 @@ describe('ReaderViewport', () => {
     expect(props.handleGenerate).toHaveBeenCalledTimes(1);
     expect(props.handleGenerateNextFive).toHaveBeenCalledTimes(1);
   });
+
+  it('offers the reveal manifestation path for an eligible faction', () => {
+    const faction = {
+      id: 'faction-1',
+      name: 'Azure Sect',
+      description: 'A major cultivation faction.',
+      manifestationImportance: {
+        narrativeWeight: 'major' as const,
+        namedStatus: true,
+        recurrence: true,
+        plotRelevance: true,
+      },
+    };
+    const handleManifestReveal = vi.fn();
+    const selectedChapter = {
+      ...baseChapter,
+      generatedContent: undefined,
+      blocks: [{
+        id: 'block-1',
+        text: 'The Azure Sect descends.',
+        metadata: {
+          entities: [{ name: faction.name, mention: 'reveal' }],
+        },
+      }],
+    } as never;
+
+    render(<ReaderViewport {...makeProps({
+      selectedChapter,
+      codexTerms: [{
+        term: faction.name,
+        type: 'faction',
+        entry: faction,
+        isCanonicalName: true,
+      }],
+      handleManifestReveal,
+    })} />);
+
+    fireEvent.click(screen.getByRole('button', {
+      name: `Manifest portrait for ${faction.name}`,
+    }));
+
+    expect(handleManifestReveal).toHaveBeenCalledWith(faction, 'faction');
+  });
+
+  it('does not offer reveal regeneration for a durable portrait with no URL', () => {
+    const character = {
+      id: 'character-1',
+      name: 'Ye Mo',
+      description: 'A recurring rival.',
+      imageAssetId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      imageUrl: '',
+    };
+    const selectedChapter = {
+      ...baseChapter,
+      generatedContent: undefined,
+      blocks: [{
+        id: 'block-1',
+        text: 'Ye Mo steps through the gate.',
+        metadata: {
+          entities: [{ name: character.name, mention: 'reveal' }],
+        },
+      }],
+    } as never;
+
+    render(<ReaderViewport {...makeProps({
+      selectedChapter,
+      codexTerms: [{
+        term: character.name,
+        type: 'character',
+        entry: character,
+        isCanonicalName: true,
+      }],
+    })} />);
+
+    expect(screen.queryByRole('button', {
+      name: `Manifest portrait for ${character.name}`,
+    })).toBeNull();
+  });
 });

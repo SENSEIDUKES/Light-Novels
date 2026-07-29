@@ -58,7 +58,7 @@ describe('account profile cache', () => {
       uid: user.uid,
       username: 'reader',
       displayName: 'Cultivator Name',
-      avatarUrl: 'provider-photo.png',
+      avatarUrl: '',
       activePortraitId: 'portrait-1',
       avatarMediaDescriptor: expect.objectContaining({
         id: 'portrait-1',
@@ -113,10 +113,11 @@ describe('account profile cache', () => {
     expect(withIdentityAvatar(stored, user).avatarUrl).toBe('provider-photo.png');
   });
 
-  it('prefers the cached identity avatar over the provider photo', () => {
+  it('prefers the current identity-provider photo over a stale cached avatar', () => {
     cacheAccountProfile({ ...profile, activePortraitId: undefined, avatarUrl: 'cached-photo.png' });
     const stored: UserProfile = { ...profile, avatarUrl: '', activePortraitId: undefined };
-    expect(withIdentityAvatar(stored, user).avatarUrl).toBe('cached-photo.png');
+    expect(withIdentityAvatar(stored, user).avatarUrl).toBe('provider-photo.png');
+    expect(createAccountProfileFallback(user).avatarUrl).toBe('provider-photo.png');
   });
 
   it('never replaces a committed Celestial Portrait with the identity photo', () => {
