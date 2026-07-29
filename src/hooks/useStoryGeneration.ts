@@ -90,41 +90,36 @@ export const useStoryGeneration = () => {
     const store_setActiveStoryId = useAppStore(state => state.setActiveStoryId);
     const store_setSelectedChapterNum = useAppStore(state => state.setSelectedChapterNum);
     const store_setCurrentScreen = useAppStore(state => state.setCurrentScreen);
-    const store_setAppError = useAppStore(state => state.setAppError);
-    const store_setIsGenerating = useAppStore(state => state.setIsGenerating);
-    const store_setGenerationPhase = useAppStore(state => state.setGenerationPhase);
-    const store_setActiveAgentId = useAppStore(state => state.setActiveAgentId);
+    const store_setActiveAgentIdForRun = useAppStore(state => state.setActiveAgentIdForRun);
 
   const handleGenerateBlueprint = async (intake: IntakeData): Promise<WorldBlueprint> => {
     const currentStoreState = useAppStore.getState();
-    const initiatingUserId = auth.currentUser?.uid ?? null;
-    const accountIsCurrent = () =>
-      (auth.currentUser?.uid ?? null) === initiatingUserId;
-    if (currentStoreState.isGenerating) {
+    const run = currentStoreState.startGenerationRun({
+      operation: 'blueprint',
+      userId: auth.currentUser?.uid ?? null,
+    });
+    if (!run) {
       console.warn("Generation already in progress. Ignoring duplicate click.");
       return {} as any;
     }
-    currentStoreState.setIsGenerating(true);
-    currentStoreState.setGenerationPhase('blueprint');
-    currentStoreState.setActiveAgentId('versa');
+    const runId = run.runId;
+    const runIsCurrent = () => useAppStore.getState().ownsActiveRun(runId);
+
+    store_setActiveAgentIdForRun(runId, 'versa');
     currentStoreState.setAppError(null);
     try {
       const blueprint = await storyApi.generateBlueprint(intake, currentStoreState.routingConfig.storyMaker);
-      if (!accountIsCurrent()) {
+      if (!runIsCurrent()) {
         throw new Error('Active account changed while generating the blueprint');
       }
       return blueprint;
     } catch (err: any) {
-      if (!accountIsCurrent()) throw err;
+      if (!runIsCurrent()) throw err;
       console.error(err);
-      currentStoreState.setAppError(err.message || "Failed to generate world blueprint.");
+      useAppStore.getState().failGenerationRun(runId, err.message || "Failed to generate world blueprint.");
       throw err;
     } finally {
-      if (accountIsCurrent()) {
-        currentStoreState.setIsGenerating(false);
-        currentStoreState.setGenerationPhase(null);
-        currentStoreState.setActiveAgentId(null);
-      }
+      useAppStore.getState().completeGenerationRun(runId);
     }
   };
 
@@ -136,15 +131,18 @@ export const useStoryGeneration = () => {
   ) => {
     const currentStoreState = useAppStore.getState();
     const initiatingUserId = auth.currentUser?.uid ?? null;
-    const accountIsCurrent = () =>
-      (auth.currentUser?.uid ?? null) === initiatingUserId;
-    if (currentStoreState.isGenerating) {
+    const run = currentStoreState.startGenerationRun({
+      operation: 'initial-arc',
+      userId: initiatingUserId,
+    });
+    if (!run) {
       console.warn("Generation already in progress. Ignoring duplicate click.");
       return;
     }
-    currentStoreState.setIsGenerating(true);
-    currentStoreState.setGenerationPhase('initial-arc');
-    currentStoreState.setActiveAgentId('versa');
+    const runId = run.runId;
+    const accountIsCurrent = () => useAppStore.getState().ownsActiveRun(runId);
+
+    store_setActiveAgentIdForRun(runId, 'versa');
     currentStoreState.setAppError(null);
 
     try {
@@ -236,13 +234,9 @@ export const useStoryGeneration = () => {
     } catch (err: any) {
       if (!accountIsCurrent()) return;
       console.error(err);
-      store_setAppError(err.message || "Failed to align celestial gates.");
+      useAppStore.getState().failGenerationRun(runId, err.message || "Failed to align celestial gates.");
     } finally {
-      if (accountIsCurrent()) {
-        store_setIsGenerating(false);
-        store_setGenerationPhase(null);
-        store_setActiveAgentId(null);
-      }
+      useAppStore.getState().completeGenerationRun(runId);
     }
   };
 

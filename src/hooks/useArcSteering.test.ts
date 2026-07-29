@@ -4,6 +4,7 @@ import { useArcSteering } from './useArcSteering';
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
 import { auth } from '../lib/firebase';
+import { createRunHarness, makeActiveRun } from '../test/support/generationRun';
 
 vi.mock('../store/useAppStore', () => ({
   useAppStore: vi.fn(),
@@ -34,16 +35,17 @@ describe('useArcSteering - Steering action processing', () => {
   let mockStore: any;
   let saveStoriesSpy: any;
   let setAppErrorSpy: any;
-  let setIsGeneratingSpy: any;
+  /** What App.tsx does on a resolved account change: new session, run dropped. */
+  let endAccountSession: () => void;
 
   beforeEach(() => {
     vi.clearAllMocks();
     saveStoriesSpy = vi.fn();
     setAppErrorSpy = vi.fn();
-    setIsGeneratingSpy = vi.fn();
 
     mockStore = {
-      isGenerating: false,
+      activeGenerationRun: null,
+      authSessionGeneration: 0,
       activeStoryId: 'story-1',
       stories: [
         {
@@ -59,13 +61,26 @@ describe('useArcSteering - Steering action processing', () => {
         }
       ],
       routingConfig: { storyMaker: 'default' },
-      setIsGenerating: setIsGeneratingSpy,
       setAppError: setAppErrorSpy,
       saveStories: saveStoriesSpy,
-      setGenerationPhase: vi.fn(),
-      setActiveAgentId: vi.fn(),
       setSelectedChapterNum: vi.fn(),
       setActiveStoryId: vi.fn(),
+    };
+
+    const runHarness = createRunHarness(mockStore);
+    Object.assign(mockStore, {
+      startGenerationRun: vi.fn(runHarness.startGenerationRun),
+      ownsActiveRun: vi.fn(runHarness.ownsActiveRun),
+      completeGenerationRun: vi.fn(runHarness.completeGenerationRun),
+      failGenerationRun: vi.fn(runHarness.failGenerationRun),
+      setActiveAgentIdForRun: vi.fn(runHarness.setActiveAgentIdForRun),
+      setStreamingChapterForRun: vi.fn(runHarness.setStreamingChapterForRun),
+      setGeneratingChapterNumForRun: vi.fn(runHarness.setGeneratingChapterNumForRun),
+      setGenerationProgressMessageForRun: vi.fn(runHarness.setGenerationProgressMessageForRun),
+    });
+    endAccountSession = () => {
+      mockStore.authSessionGeneration += 1;
+      runHarness.clearActiveRunForAccountTransition();
     };
 
     (useAppStore as any).mockImplementation((selector: any) => {
@@ -83,22 +98,26 @@ describe('useArcSteering - Steering action processing', () => {
     global.fetch = vi.fn();
   });
 
-  it('handleSteerArc skips if generation already in progress', async () => {
-    mockStore.isGenerating = true;
+  it('handleSteerArc opens no second run while one is in progress', async () => {
+    const inFlight = makeActiveRun({ runId: 'run-in-flight', operation: 'chapter' });
+    mockStore.activeGenerationRun = inFlight;
     const { result } = renderHook(() => useArcSteering());
     await act(async () => {
       await result.current.handleSteerArc('Go to the mountains', '3');
     });
-    expect(setIsGeneratingSpy).not.toHaveBeenCalledWith(true);
+    expect(mockStore.startGenerationRun).toHaveReturnedWith(null);
+    expect(mockStore.activeGenerationRun).toBe(inFlight);
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it('handleSteerArc skips if no active story', async () => {
+  it('handleSteerArc claims no run when there is no active story', async () => {
     mockStore.activeStoryId = null;
     const { result } = renderHook(() => useArcSteering());
     await act(async () => {
       await result.current.handleSteerArc('Go to the mountains', '3');
     });
-    expect(setIsGeneratingSpy).toHaveBeenCalledWith(false);
+    expect(mockStore.startGenerationRun).not.toHaveBeenCalled();
+    expect(mockStore.activeGenerationRun).toBeNull();
   });
 
   it('processes steering action to generate new arc', async () => {
@@ -212,7 +231,7 @@ describe('useArcSteering - Steering action processing', () => {
     await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledOnce());
 
     (auth as any).currentUser = { uid: 'reader-b' };
-    mockStore.isGenerating = false;
+    endAccountSession();
     resolveSteering({
       ok: true,
       json: () => Promise.resolve({
@@ -230,13 +249,16 @@ describe('useArcSteering - Steering action processing', () => {
     expect(setAppErrorSpy).not.toHaveBeenCalledWith(expect.any(String));
   });
 
-  it('handleAlterFate skips if generation already in progress', async () => {
-    mockStore.isGenerating = true;
+  it('handleAlterFate opens no second run while one is in progress', async () => {
+    const inFlight = makeActiveRun({ runId: 'run-in-flight', operation: 'chapter' });
+    mockStore.activeGenerationRun = inFlight;
     const { result } = renderHook(() => useArcSteering());
     await act(async () => {
       await result.current.handleAlterFate(1, 'New path', 'Prompt');
     });
-    expect(setIsGeneratingSpy).not.toHaveBeenCalledWith(true);
+    expect(mockStore.startGenerationRun).toHaveReturnedWith(null);
+    expect(mockStore.activeGenerationRun).toBe(inFlight);
+    expect(saveStoriesSpy).not.toHaveBeenCalled();
   });
 
   it('rejects Alter Fate during a batch run even when invoked without the reader UI', async () => {
@@ -255,16 +277,17 @@ describe('useArcSteering - Steering action processing', () => {
     });
 
     expect(setAppErrorSpy).toHaveBeenCalledWith('Fate may be altered after Chapter 5.');
-    expect(setIsGeneratingSpy).not.toHaveBeenCalledWith(true);
+    expect(mockStore.startGenerationRun).not.toHaveBeenCalled();
   });
 
-  it('handleAlterFate skips if no active story', async () => {
+  it('handleAlterFate claims no run when there is no active story', async () => {
     mockStore.activeStoryId = null;
     const { result } = renderHook(() => useArcSteering());
     await act(async () => {
       await result.current.handleAlterFate(1, 'New path', 'Prompt');
     });
-    expect(setIsGeneratingSpy).toHaveBeenCalledWith(false);
+    expect(mockStore.startGenerationRun).not.toHaveBeenCalled();
+    expect(mockStore.activeGenerationRun).toBeNull();
   });
 
   it('handleAlterFate forks story and steers successfully', async () => {
@@ -329,6 +352,43 @@ describe('useArcSteering - Steering action processing', () => {
     expect(steeredStories[0].memory.characters[0]).not.toHaveProperty('provenance');
   });
 
+  it('keeps Alter Fate ownership through its internal switch to the fork story', async () => {
+    const { result } = renderHook(() => useArcSteering());
+    let ownedAfterStorySwitch: boolean | null = null;
+
+    // The fork becomes the active story mid-run. Ownership must not move with it.
+    mockStore.setActiveStoryId.mockImplementation((id: string) => {
+      mockStore.activeStoryId = id;
+      const run = mockStore.activeGenerationRun;
+      ownedAfterStorySwitch = run ? mockStore.ownsActiveRun(run.runId) : false;
+    });
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        title: 'Forked Arc',
+        chapters: [{ number: 2, title: 'C2', premise: 'P2' }],
+      }),
+    });
+    (storyStorage.getStories as any).mockImplementation(() => Promise.resolve(saveStoriesSpy.mock.calls[0][0]));
+
+    await act(async () => {
+      await result.current.handleAlterFate(1, 'Dark path', 'custom');
+    });
+
+    // The run was claimed against the fork id, minted before the run started.
+    const claimedStoryId = mockStore.startGenerationRun.mock.calls[0][0].storyId;
+    const forkedStory = saveStoriesSpy.mock.calls[0][0][0];
+    expect(claimedStoryId).toBe(forkedStory.id);
+    expect(mockStore.startGenerationRun.mock.calls[0][0].operation).toBe('steer');
+    expect(mockStore.setActiveStoryId).toHaveBeenCalledWith(forkedStory.id);
+    expect(ownedAfterStorySwitch).toBe(true);
+    // ...and the run survived to persist the steered arc and settle normally.
+    expect(saveStoriesSpy).toHaveBeenCalledTimes(2);
+    expect(mockStore.setSelectedChapterNum).toHaveBeenCalledWith(2);
+    expect(setAppErrorSpy).not.toHaveBeenCalledWith(expect.stringContaining('Failed'));
+    expect(mockStore.activeGenerationRun).toBeNull();
+  });
+
   it('does not save an Alter Fate fork after its account changes during chapter hydration', async () => {
     let resolveContent!: (value: any) => void;
     (storyStorage.getChapterContent as any).mockReturnValue(
@@ -343,7 +403,7 @@ describe('useArcSteering - Steering action processing', () => {
     await vi.waitFor(() => expect(storyStorage.getChapterContent).toHaveBeenCalledOnce());
 
     (auth as any).currentUser = { uid: 'reader-b' };
-    mockStore.isGenerating = false;
+    endAccountSession();
     resolveContent({ generatedContent: 'Old account content', blocks: [] });
 
     await act(async () => {

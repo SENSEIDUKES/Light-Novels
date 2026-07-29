@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { ArrowLeft, Sparkles, BookA } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
+import { selectIsGenerating } from "../store/useGenerationStore";
 import SteerPortal from "./SteerPortal";
 import ReaderChamber from "./ReaderChamber";
 import { GlossarySidePanel } from "./GlossarySidePanel";
@@ -115,7 +116,7 @@ export const ReaderScreen: React.FC<{
     const stories = useAppStore(state => state.stories);
     const selectedChapterNum = useAppStore(state => state.selectedChapterNum);
     const setSelectedChapterNum = useAppStore(state => state.setSelectedChapterNum);
-    const isGenerating = useAppStore(state => state.isGenerating);
+    const isGenerating = useAppStore(selectIsGenerating);
     const routingConfig = useAppStore(state => state.routingConfig);
     const streamingChapter = useAppStore(state => state.streamingChapter);
     const isReaderFullscreen = useAppStore(state => state.isReaderFullscreen);

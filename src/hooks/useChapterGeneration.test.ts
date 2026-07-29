@@ -4,6 +4,8 @@ import { useChapterGeneration } from './useChapterGeneration';
 import { useAppStore } from '../store/useAppStore';
 import { storyStorage } from '../lib/storage';
 import { auth } from '../lib/firebase';
+import { createRunHarness, makeActiveRun } from '../test/support/generationRun';
+import { readGenerationRecoverySnapshot } from '../lib/generationRecovery';
 
 vi.mock('../store/useAppStore', () => ({
   useAppStore: vi.fn()
@@ -31,18 +33,20 @@ vi.mock('../lib/firebase', () => ({ auth: { currentUser: { uid: 'reader-a' } } }
 
 describe('useChapterGeneration - Stream parsing & error handling', () => {
   let mockStore: any;
-  let setIsGeneratingSpy: any;
   let setAppErrorSpy: any;
   let saveStoriesSpy: any;
+  /** What App.tsx does on a resolved account change: new session, run dropped. */
+  let endAccountSession: () => void;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    setIsGeneratingSpy = vi.fn((value: boolean) => { mockStore.isGenerating = value; });
+    localStorage.clear();
     setAppErrorSpy = vi.fn();
     saveStoriesSpy = vi.fn();
 
     mockStore = {
-      isGenerating: false,
+      activeGenerationRun: null,
+      authSessionGeneration: 0,
       activeStoryId: 'story-123',
       stories: [
         {
@@ -58,13 +62,24 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
         }
       ],
       routingConfig: { storyMaker: 'default' },
-      setIsGenerating: setIsGeneratingSpy,
-      setGeneratingChapterNum: vi.fn(),
-      setGenerationPhase: vi.fn(),
       setAppError: setAppErrorSpy,
-      setActiveAgentId: vi.fn(),
-      setStreamingChapter: vi.fn(),
       saveStories: saveStoriesSpy,
+    };
+
+    const runHarness = createRunHarness(mockStore);
+    Object.assign(mockStore, {
+      startGenerationRun: vi.fn(runHarness.startGenerationRun),
+      ownsActiveRun: vi.fn(runHarness.ownsActiveRun),
+      completeGenerationRun: vi.fn(runHarness.completeGenerationRun),
+      failGenerationRun: vi.fn(runHarness.failGenerationRun),
+      setActiveAgentIdForRun: vi.fn(runHarness.setActiveAgentIdForRun),
+      setStreamingChapterForRun: vi.fn(runHarness.setStreamingChapterForRun),
+      setGeneratingChapterNumForRun: vi.fn(runHarness.setGeneratingChapterNumForRun),
+      setGenerationProgressMessageForRun: vi.fn(runHarness.setGenerationProgressMessageForRun),
+    });
+    endAccountSession = () => {
+      mockStore.authSessionGeneration += 1;
+      runHarness.clearActiveRunForAccountTransition();
     };
 
     (useAppStore as any).mockImplementation((selector: any) => {
@@ -139,6 +154,199 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
     expect(ch.contextManifest).toEqual(contextManifest);
   });
 
+  it('opens no second run for a duplicated chapter request', async () => {
+    const { result } = renderHook(() => useChapterGeneration());
+    let resolveStream!: (value: any) => void;
+    (global.fetch as any).mockReturnValue(new Promise(resolve => { resolveStream = resolve; }));
+
+    let firstAttempt!: Promise<void>;
+    act(() => {
+      firstAttempt = result.current.handleGenerateChapter(1);
+    });
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledOnce());
+    const claimedRun = mockStore.activeGenerationRun;
+
+    await act(async () => {
+      await result.current.handleGenerateChapter(1);
+    });
+
+    expect(mockStore.startGenerationRun).toHaveBeenCalledTimes(2);
+    expect(mockStore.startGenerationRun).toHaveLastReturnedWith(null);
+    expect(mockStore.activeGenerationRun).toBe(claimedRun);
+    expect(global.fetch).toHaveBeenCalledOnce();
+
+    resolveStream({
+      ok: true,
+      body: { getReader: () => ({ read: vi.fn().mockResolvedValue({ done: true }) }) },
+    });
+    await act(async () => {
+      await firstAttempt;
+    });
+  });
+
+  // The snapshot itself is written by the store; this pins the claim that
+  // carries the story and chapter it is frozen from.
+  it('claims a single-chapter run naming the story and chapter to recover', async () => {
+    const { result } = renderHook(() => useChapterGeneration());
+    let resolveStream!: (value: any) => void;
+    (global.fetch as any).mockReturnValue(new Promise(resolve => { resolveStream = resolve; }));
+
+    let generation!: Promise<void>;
+    act(() => {
+      generation = result.current.handleGenerateChapter(1);
+    });
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledOnce());
+
+    expect(mockStore.startGenerationRun).toHaveBeenCalledWith({
+      operation: 'chapter',
+      userId: 'reader-a',
+      storyId: 'story-123',
+      chapterNumber: 1,
+    });
+
+    resolveStream({
+      ok: true,
+      body: { getReader: () => ({ read: vi.fn().mockResolvedValue({ done: true }) }) },
+    });
+    await act(async () => {
+      await generation;
+    });
+
+    expect(mockStore.completeGenerationRun).toHaveBeenCalled();
+    expect(readGenerationRecoverySnapshot()).toBeNull();
+  });
+
+  it('claims a batch run without a chapter number, so it writes no recovery snapshot', async () => {
+    mockStore.stories[0].arcs[0].chapters = [
+      { number: 1, title: 'C1', premise: 'P1' },
+      { number: 2, title: 'C2', premise: 'P2' },
+      { number: 3, title: 'C3', premise: 'P3' },
+      { number: 4, title: 'C4', premise: 'P4' },
+      { number: 5, title: 'C5', premise: 'P5' },
+    ];
+    const { result } = renderHook(() => useChapterGeneration());
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: () => Promise.resolve({ error: 'LLM Failed' }),
+    });
+
+    await act(async () => {
+      await result.current.handleGenerateNextFiveChapters(1);
+    });
+
+    expect(mockStore.startGenerationRun).toHaveBeenCalledWith({
+      operation: 'chapter',
+      userId: 'reader-a',
+      storyId: 'story-123',
+      chapterNumber: null,
+    });
+    expect(readGenerationRecoverySnapshot()).toBeNull();
+  });
+
+  it('resumes a paused five-chapter batch from its checkpoint, unchanged by run ownership', async () => {
+    mockStore.stories[0].arcs[0].chapters = [
+      { number: 1, title: 'C1', premise: 'P1', hasContent: true },
+      { number: 2, title: 'C2', premise: 'P2', hasContent: true },
+      { number: 3, title: 'C3', premise: 'P3' },
+      { number: 4, title: 'C4', premise: 'P4' },
+      { number: 5, title: 'C5', premise: 'P5' },
+    ];
+    mockStore.stories[0].chapterGenerationBatch = {
+      id: 'batch-1',
+      chapterNumbers: [1, 2, 3, 4, 5],
+      status: 'paused',
+      currentChapterNumber: null,
+      completedChapterNumbers: [1, 2],
+      createdAt: '2026-01-01T00:00:00.000Z',
+      error: 'Generation was paused because the browser session ended.',
+    };
+    const { result } = renderHook(() => useChapterGeneration());
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: () => Promise.resolve({ error: 'LLM Failed' }),
+    });
+
+    await act(async () => {
+      await result.current.handleGenerateNextFiveChapters(1);
+    });
+
+    const persistedBatches = saveStoriesSpy.mock.calls.map(
+      ([stories]: [any[]]) => stories[0].chapterGenerationBatch,
+    );
+    // The resumed batch keeps its completions and restarts at chapter 3.
+    expect(persistedBatches[0]).toMatchObject({
+      id: 'batch-1',
+      status: 'queued',
+      completedChapterNumbers: [1, 2],
+      error: undefined,
+    });
+    expect(persistedBatches.find((batch: any) => batch.status === 'generating')?.currentChapterNumber).toBe(3);
+    expect(persistedBatches.at(-1)).toMatchObject({
+      status: 'failed',
+      failedChapterNumber: 3,
+      completedChapterNumbers: [1, 2],
+    });
+    // Chapters 1 and 2 were never regenerated.
+    expect((global.fetch as any).mock.calls.every(
+      ([url]: [string]) => !url.includes('chapterNumber=1'),
+    )).toBe(true);
+    expect(readGenerationRecoverySnapshot()).toBeNull();
+  });
+
+  it('turns a stale run\'s progress, agent and streaming writes into no-ops', async () => {
+    const { result } = renderHook(() => useChapterGeneration());
+    let resolveStream!: (value: any) => void;
+    const mockReader = { read: vi.fn() };
+    const encoder = new TextEncoder();
+    (global.fetch as any).mockImplementation((url: string) => {
+      if (url.includes('generate-chapter-stream')) {
+        return new Promise(resolve => { resolveStream = resolve; });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ warnings: [] }) });
+    });
+
+    let generation!: Promise<void>;
+    act(() => {
+      generation = result.current.handleGenerateChapter(1);
+    });
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledOnce());
+    const abandoned = mockStore.activeGenerationRun;
+
+    // The reader signs out mid-stream; a newer run then owns the pipeline.
+    endAccountSession();
+    mockStore.activeGenerationRun = makeActiveRun({
+      runId: 'run-newer',
+      authSessionGeneration: mockStore.authSessionGeneration,
+    });
+    mockStore.generationProgressMessage = 'the current run';
+    mockStore.activeAgentId = 'scout';
+
+    mockReader.read.mockResolvedValueOnce({
+      done: false,
+      value: encoder.encode(`data: {"chunk": "{\\"text\\": \\"${'A'.repeat(160)}\\"}\\n"}\n`),
+    });
+    mockReader.read.mockResolvedValue({ done: true, value: undefined });
+    resolveStream({ ok: true, body: { getReader: () => mockReader } });
+    await act(async () => {
+      await generation;
+    });
+
+    // Every late write named the abandoned run and changed nothing.
+    expect(mockStore.setStreamingChapterForRun.mock.calls.every(
+      ([runId]: [string]) => runId === abandoned.runId,
+    )).toBe(true);
+    expect(mockStore.streamingChapter ?? null).toBeNull();
+    expect(mockStore.generationProgressMessage).toBe('the current run');
+    expect(mockStore.activeAgentId).toBe('scout');
+    expect(mockStore.activeGenerationRun.runId).toBe('run-newer');
+    // Only the run-start reset (`null`) — no error was published for the
+    // abandoned run, and nothing it produced was persisted.
+    expect(setAppErrorSpy).not.toHaveBeenCalledWith(expect.any(String));
+    expect(saveStoriesSpy).not.toHaveBeenCalled();
+  });
+
   it('publishes streaming payloads while running and clears them on completion', async () => {
     const { result } = renderHook(() => useChapterGeneration());
 
@@ -170,11 +378,12 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
       await result.current.handleGenerateChapter(1);
     });
 
-    const calls = mockStore.setStreamingChapter.mock.calls;
+    const calls = mockStore.setStreamingChapterForRun.mock.calls;
     // At least one live payload, addressed to the chapter being generated.
-    expect(calls.some(([payload]: any[]) => payload?.number === 1)).toBe(true);
-    // The run's `finally` block hands the reader back to the persisted chapter.
-    expect(calls[calls.length - 1][0]).toBeNull();
+    expect(calls.some(([, payload]: any[]) => payload?.number === 1)).toBe(true);
+    // Settling the run hands the reader back to the persisted chapter.
+    expect(mockStore.streamingChapter).toBeNull();
+    expect(mockStore.activeGenerationRun).toBeNull();
     expect(setAppErrorSpy).not.toHaveBeenCalledWith(expect.any(String));
   });
 
@@ -191,7 +400,8 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
     });
 
     expect(setAppErrorSpy).toHaveBeenCalledWith(expect.stringContaining('LLM Failed'));
-    expect(mockStore.setStreamingChapter).toHaveBeenLastCalledWith(null);
+    expect(mockStore.streamingChapter).toBeNull();
+    expect(mockStore.activeGenerationRun).toBeNull();
   });
 
   it('does not let an abandoned chapter generation clear a newer account run', async () => {
@@ -215,18 +425,19 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
     });
     await vi.waitFor(() => expect(streamRequestCount).toBe(1));
 
-    // Mirrors App.tsx's immediate account-change generation runtime reset.
+    const abandonedRun = mockStore.activeGenerationRun;
+    // Mirrors App.tsx's account-change handling: a new auth session generation
+    // and the outgoing account's run invalidated.
     (auth as any).currentUser = { uid: 'reader-b' };
-    mockStore.isGenerating = false;
+    endAccountSession();
 
     let accountBGeneration!: Promise<void>;
     act(() => {
       accountBGeneration = result.current.handleGenerateChapter(1);
     });
     await vi.waitFor(() => expect(streamRequestCount).toBe(2));
-    const clearsBeforeOldCompletion = setIsGeneratingSpy.mock.calls
-      .filter(([value]: [boolean]) => value === false)
-      .length;
+    const accountBRun = mockStore.activeGenerationRun;
+    expect(accountBRun.runId).not.toBe(abandonedRun.runId);
 
     resolveAccountAResponse({
       ok: true,
@@ -236,11 +447,10 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
       await accountAGeneration;
     });
 
-    expect(mockStore.isGenerating).toBe(true);
-    expect(setIsGeneratingSpy.mock.calls.filter(([value]: [boolean]) => value === false)).toHaveLength(
-      clearsBeforeOldCompletion,
-    );
-    expect(mockStore.setStreamingChapter).not.toHaveBeenCalledWith(null);
+    // The abandoned run settled nothing belonging to the run that replaced it.
+    expect(mockStore.activeGenerationRun).toBe(accountBRun);
+    expect(mockStore.ownsActiveRun(abandonedRun.runId)).toBe(false);
+    expect(mockStore.streamingChapter ?? null).toBeNull();
 
     resolveAccountBResponse({
       ok: true,
@@ -270,7 +480,8 @@ describe('useChapterGeneration - Stream parsing & error handling', () => {
       await result.current.handleGenerateNextFiveChapters(1);
     });
 
-    expect(mockStore.setStreamingChapter).toHaveBeenLastCalledWith(null);
+    expect(mockStore.streamingChapter).toBeNull();
+    expect(mockStore.activeGenerationRun).toBeNull();
   });
 
   it('handles malformed LLM responses with safe fallbacks', async () => {

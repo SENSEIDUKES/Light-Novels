@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Copy, Cloud, ArrowRight } from 'lucide-react';
 import { IntakeData, StorySeed, StorySeedPayload, WorldBlueprint } from '../types';
 import { useAppStore } from '../store/useAppStore';
+import { selectIsGenerating } from '../store/useGenerationStore';
 import { auth, LOCAL_ONLY_MODE } from '../lib/firebase';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { AGENTS } from '../lib/agents';
@@ -84,7 +85,7 @@ const createDefaultIntake = (): IntakeData => ({
 });
 
 export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGenerating: isGeneratingProp, error }: CreationPortalProps) {
-  const storeIsGenerating = useAppStore(state => state.isGenerating);
+  const storeIsGenerating = useAppStore(selectIsGenerating);
     const activeAgentId = useAppStore(state => state.activeAgentId);
     const currentUser = useAppStore(state => state.currentUser);
   const seedReferenceSignature = useAppStore(state => state.stories
@@ -189,7 +190,7 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
 
   const handleGenerateBlueprintClick = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isGenerating || useAppStore.getState().isGenerating) return;
+    if (isGenerating || selectIsGenerating(useAppStore.getState())) return;
     if (!intake.corePremise?.trim() || !intake.genrePath) return;
     try {
       const bp = await onGenerateBlueprint(intake);
@@ -208,7 +209,7 @@ export default function CreationPortal({ onStartStory, onGenerateBlueprint, isGe
   };
 
   const handleStartStoryClick = async () => {
-    if (isGenerating || useAppStore.getState().isGenerating) return;
+    if (isGenerating || selectIsGenerating(useAppStore.getState())) return;
     if (!blueprint) return;
     const cleanBlueprint = {
       ...blueprint,

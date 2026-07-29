@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ReaderChapter, VoiceClip } from "../types";
 import { useAppStore } from "../store/useAppStore";
+import { selectIsGenerating } from "../store/useGenerationStore";
 import { dispatchNarration, dispatchNarrativeCue } from "../lib/narrativeCues";
 import { cinematicEffectGovernor } from "../lib/effects/cinematicEffectGovernor";
 import { collectBlockAutoCues } from "../lib/audio/autoCuePolicy";
@@ -49,7 +50,7 @@ export function useReaderPlayback({
   const immersion = useAppStore((state) => state.immersion);
   const autoPlayNarration = useAppStore((state) => state.autoPlayNarration);
   const setAutoPlayNarration = useAppStore((state) => state.setAutoPlayNarration);
-  const isGenerating = useAppStore((state) => state.isGenerating);
+  const isGenerating = useAppStore(selectIsGenerating);
   const streamingChapter = useAppStore((state) => state.streamingChapter);
 
   const [isPlayingText, setIsPlayingText] = useState(false);

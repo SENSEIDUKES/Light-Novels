@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAppStore } from '../store/useAppStore';
+import { selectGenerationPhase, selectIsGenerating } from '../store/useGenerationStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, Compass, Maximize2, Minimize2, Loader2 } from 'lucide-react';
 import { AGENTS } from '../lib/agents';
@@ -150,8 +151,8 @@ const CelestialSigil: React.FC<{ isVersa: boolean }> = ({ isVersa }) => {
 export default function AILoadingVeil() {
   const [showDetails, setShowDetails] = React.useState(false);
   const [quoteIndex, setQuoteIndex] = React.useState(0);
-  const isGenerating = useAppStore(state => state.isGenerating);
-    const generationPhase = useAppStore(state => state.generationPhase);
+  const isGenerating = useAppStore(selectIsGenerating);
+    const generationPhase = useAppStore(selectGenerationPhase);
     const generationProgressMessage = useAppStore(state => state.generationProgressMessage);
     const estimatedSecondsRemaining = useAppStore(state => state.estimatedSecondsRemaining);
     const activeAgentId = useAppStore(state => state.activeAgentId);

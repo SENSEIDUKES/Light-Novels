@@ -1330,7 +1330,14 @@ export interface FateSurvivalRun {
   completedAt?: string;
 }
 
+/**
+ * The frozen chapter draft a crash left behind, offered back to the reader.
+ *
+ * Both fields come from the snapshot the interrupted run wrote when it
+ * started, so the offer stays bound to that story and chapter no matter where
+ * the reader has navigated since.
+ */
 export interface DraftRecoverySession {
-  activeStoryId: string;
-  generatingChapterNum: number;
+  storyId: string;
+  chapterNumber: number;
 }

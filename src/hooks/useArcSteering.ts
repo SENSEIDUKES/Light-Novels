@@ -51,13 +51,10 @@ const sanitizeProviderCharacter = (value: unknown): Character => {
  * or branch out from a specific chapter to rewrite history.
  */
 export const useArcSteering = () => {
-  const store_setActiveAgentId = useAppStore(state => state.setActiveAgentId);
+  const store_setActiveAgentIdForRun = useAppStore(state => state.setActiveAgentIdForRun);
     const store_routingConfig = useAppStore(state => state.routingConfig);
     const store_saveStories = useAppStore(state => state.saveStories);
     const store_setSelectedChapterNum = useAppStore(state => state.setSelectedChapterNum);
-    const store_setAppError = useAppStore(state => state.setAppError);
-    const store_setIsGenerating = useAppStore(state => state.setIsGenerating);
-    const store_setGenerationPhase = useAppStore(state => state.setGenerationPhase);
 
   /**
    * Appends a new arc to the active story driven by a specific directional prompt.
@@ -66,24 +63,23 @@ export const useArcSteering = () => {
    */
   const handleSteerArc = async (direction: string, customPrompt: string) => {
     const currentStoreState = useAppStore.getState();
-    const initiatingUserId = auth.currentUser?.uid ?? null;
-    const accountIsCurrent = () =>
-      (auth.currentUser?.uid ?? null) === initiatingUserId;
-    if (currentStoreState.isGenerating) {
+    const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
+    if (!activeStory) return;
+
+    // Claimed synchronously, before any async work, so a second click cannot
+    // open a second run.
+    const run = currentStoreState.startGenerationRun({
+      operation: 'steer',
+      userId: auth.currentUser?.uid ?? null,
+      storyId: activeStory.id,
+    });
+    if (!run) {
       console.warn("Generation already in progress. Ignoring duplicate click.");
       return;
     }
-    // Synchronously set generating state on the global store before any async operations
-    currentStoreState.setIsGenerating(true);
+    const runId = run.runId;
+    const accountIsCurrent = () => useAppStore.getState().ownsActiveRun(runId);
 
-    const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
-    if (!activeStory) {
-      if (accountIsCurrent()) {
-        currentStoreState.setIsGenerating(false);
-      }
-      return;
-    }
-    currentStoreState.setGenerationPhase('steer');
     currentStoreState.setAppError(null);
 
     const totalPreviousChapters = activeStory.arcs.reduce((acc, arc) => acc + arc.chapters.length, 0);
@@ -91,7 +87,7 @@ export const useArcSteering = () => {
     const nextChapterNumber = totalPreviousChapters + 1;
     
     try {
-      store_setActiveAgentId('scout');
+      store_setActiveAgentIdForRun(runId, 'scout');
       const apiHeaders = await getApiHeaders();
       if (!accountIsCurrent()) return;
 
@@ -107,7 +103,7 @@ export const useArcSteering = () => {
       );
       if (!accountIsCurrent()) return;
 
-      store_setActiveAgentId('versa');
+      store_setActiveAgentIdForRun(runId, 'versa');
       const response = await fetch('/api/steer-arc', {
         method: 'POST',
         headers: apiHeaders,
@@ -202,13 +198,12 @@ export const useArcSteering = () => {
     } catch (err: any) {
       if (!accountIsCurrent()) return;
       console.error(err);
-      store_setAppError(err.message || "Failed to steer next story arc successfully.");
+      useAppStore.getState().failGenerationRun(
+        runId,
+        err.message || "Failed to steer next story arc successfully.",
+      );
     } finally {
-      if (accountIsCurrent()) {
-        store_setIsGenerating(false);
-        store_setGenerationPhase(null);
-        store_setActiveAgentId(null);
-      }
+      useAppStore.getState().completeGenerationRun(runId);
     }
   };
 
@@ -220,27 +215,31 @@ export const useArcSteering = () => {
    */
   const handleAlterFate = async (chapterNumber: number, direction: string, customPrompt: string) => {
     const currentStoreState = useAppStore.getState();
-    const initiatingUserId = auth.currentUser?.uid ?? null;
-    const accountIsCurrent = () =>
-      (auth.currentUser?.uid ?? null) === initiatingUserId;
     const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
-    if (!activeStory) {
-      if (accountIsCurrent()) {
-        currentStoreState.setIsGenerating(false);
-      }
-      return;
-    }
+    if (!activeStory) return;
     const fateLockMessage = getFateLockMessage(activeStory, chapterNumber);
     if (fateLockMessage) {
       currentStoreState.setAppError(fateLockMessage);
       return;
     }
-    if (currentStoreState.isGenerating) {
+
+    // The fork's id is minted here, before the run is claimed, so the run owns
+    // the story it will actually write to. The origin story stays in this
+    // closure, and the `setActiveStoryId(newStory.id)` further down is only a
+    // reader selection change — it cannot move what this run owns.
+    const newStoryId = generateUUID();
+    // Claimed synchronously, before any async/complex operations.
+    const run = currentStoreState.startGenerationRun({
+      operation: 'steer',
+      userId: auth.currentUser?.uid ?? null,
+      storyId: newStoryId,
+    });
+    if (!run) {
       console.warn("Generation already in progress. Ignoring duplicate click.");
       return;
     }
-    // Synchronously set generating state on the global store before any async/complex operations
-    currentStoreState.setIsGenerating(true);
+    const runId = run.runId;
+    const accountIsCurrent = () => useAppStore.getState().ownsActiveRun(runId);
 
     try {
     const clonedArcsRaw = await Promise.all(activeStory.arcs.map(async arc => {
@@ -271,7 +270,6 @@ export const useArcSteering = () => {
 
     const clonedBookmarks = (activeStory.bookmarks || []).filter(b => b.chapterNumber <= chapterNumber);
 
-    const newStoryId = generateUUID();
     const newStory: StoryWorld = {
       ...activeStory,
       id: newStoryId,
@@ -293,15 +291,14 @@ export const useArcSteering = () => {
     await currentStoreState.saveStories(updated);
     if (!accountIsCurrent()) return;
     currentStoreState.setActiveStoryId(newStory.id);
-    
-    currentStoreState.setGenerationPhase('steer');
+
     currentStoreState.setAppError(null);
 
     const totalPreviousChapters = clonedArcs.reduce((acc, arc) => acc + arc.chapters.length, 0);
     const queryIntent = `Overall Arc Direction: ${direction}. Extra Context: ${customPrompt || ''}`;
     const nextChapterNumber = totalPreviousChapters + 1;
     
-      store_setActiveAgentId('scout');
+      store_setActiveAgentIdForRun(runId, 'scout');
       const apiHeaders = await getApiHeaders();
       if (!accountIsCurrent()) return;
 
@@ -317,7 +314,7 @@ export const useArcSteering = () => {
       );
       if (!accountIsCurrent()) return;
 
-      store_setActiveAgentId('versa');
+      store_setActiveAgentIdForRun(runId, 'versa');
       const response = await fetch('/api/steer-arc', {
         method: 'POST',
         headers: apiHeaders,
@@ -414,13 +411,12 @@ export const useArcSteering = () => {
     } catch (err: any) {
       if (!accountIsCurrent()) return;
       console.error(err);
-      store_setAppError(err.message || "Failed to alter fate successfully.");
+      useAppStore.getState().failGenerationRun(
+        runId,
+        err.message || "Failed to alter fate successfully.",
+      );
     } finally {
-      if (accountIsCurrent()) {
-        store_setIsGenerating(false);
-        store_setGenerationPhase(null);
-        store_setActiveAgentId(null);
-      }
+      useAppStore.getState().completeGenerationRun(runId);
     }
   };
 

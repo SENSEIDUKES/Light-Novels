@@ -4,7 +4,7 @@ import CreationPortal from './CreationPortal';
 
 const mocks = vi.hoisted(() => ({
   state: {
-    isGenerating: false,
+    activeGenerationRun: null,
     activeAgentId: null,
     currentUser: { uid: 'reader-1' },
     stories: [],
@@ -78,7 +78,7 @@ const savedSeed = {
 describe('CreationPortal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.state.isGenerating = false;
+    mocks.state.activeGenerationRun = null;
     mocks.listStorySeeds.mockResolvedValue([]);
     mocks.createStorySeed.mockResolvedValue(savedSeed);
     mocks.updateStorySeed.mockResolvedValue(savedSeed);

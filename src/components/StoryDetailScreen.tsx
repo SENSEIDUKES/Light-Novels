@@ -21,6 +21,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
+import { selectIsGenerating } from "../store/useGenerationStore";
 import { DestinedEndingWaterCard } from "./DestinedEndingWaterCard";
 import { DestinyChoicePanel } from "./DestinyChoicePanel";
 import { FateTimeline } from "./FateTimeline";
@@ -59,7 +60,7 @@ export const StoryDetailScreen: React.FC<{
     const setCurrentScreen = useAppStore(state => state.setCurrentScreen);
     const activeStoryId = useAppStore(state => state.activeStoryId);
     const stories = useAppStore(state => state.stories);
-    const isGenerating = useAppStore(state => state.isGenerating);
+    const isGenerating = useAppStore(selectIsGenerating);
     const setSelectedChapterNum = useAppStore(state => state.setSelectedChapterNum);
     const userProfile = useAppStore(state => state.userProfile);
     const saveStories = useAppStore(state => state.saveStories);

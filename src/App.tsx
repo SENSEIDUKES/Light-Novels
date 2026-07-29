@@ -5,6 +5,12 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 // Store & Hooks
 import { useAppStore } from './store/useAppStore';
+import { selectIsGenerating } from './store/useGenerationStore';
+import {
+  clearGenerationRecoverySnapshot,
+  readGenerationRecoverySnapshot,
+  shouldPreserveRecoverySnapshotOnAuthResolution,
+} from './lib/generationRecovery';
 import { useStoryEngine } from './hooks/useStoryEngine';
 import { useStoryExporter } from './hooks/useStoryExporter';
 import { storyStorage } from './lib/storage';
@@ -68,7 +74,7 @@ function App() {
     const store_selectedChapterNum = useAppStore(state => state.selectedChapterNum);
     const store_setAppError = useAppStore(state => state.setAppError);
     const store_currentScreen = useAppStore(state => state.currentScreen);
-    const store_isGenerating = useAppStore(state => state.isGenerating);
+    const store_isGenerating = useAppStore(selectIsGenerating);
     const store_appError = useAppStore(state => state.appError);
     const store_setStoryToDelete = useAppStore(state => state.setStoryToDelete);
     const store_setIsCodexSheetOpen = useAppStore(state => state.setIsCodexSheetOpen);
@@ -76,11 +82,17 @@ function App() {
     const store_setIsShortcutsOpen = useAppStore(state => state.setIsShortcutsOpen);
     const store_currentUser = useAppStore(state => state.currentUser);
     const store_setCurrentScreen = useAppStore(state => state.setCurrentScreen);
-    const store_resetGenerationRuntime = useAppStore(state => state.resetGenerationRuntime);
+    const store_clearActiveRunForAccountTransition = useAppStore(state => state.clearActiveRunForAccountTransition);
+    const store_bumpAuthSessionGeneration = useAppStore(state => state.bumpAuthSessionGeneration);
   const storyEngine = useStoryEngine();
   const storyExporter = useStoryExporter();
 
   const [isInitializing, setIsInitializing] = useState(true);
+  // Firebase has answered at least once during this page session. Until it
+  // has, a recovery offer cannot be judged: the snapshot's owner is only known
+  // to be the current reader after the first resolved authentication state.
+  const [hasResolvedAuth, setHasResolvedAuth] = useState(LOCAL_ONLY_MODE);
+  const recoveryOfferSettledRef = useRef(false);
   const seedBackfillInFlightRef = useRef(new Set<string>());
   const seedBackfillFailedRef = useRef(new Set<string>());
   const [syncProgress, setSyncProgress] = useState<SyncProgress>({
@@ -88,27 +100,6 @@ function App() {
     completed: 0,
     total: 0,
   });
-
-  // Save active generation state to localStorage on any store change
-  useEffect(() => {
-    const unsubscribe = useAppStore.subscribe((state) => {
-      if (state.isGenerating) {
-        const activeGen = {
-          isGenerating: state.isGenerating,
-          generationPhase: state.generationPhase,
-          activeStoryId: state.activeStoryId,
-          generatingChapterNum: state.generatingChapterNum,
-          timestamp: Date.now()
-        };
-        try {
-          localStorage.setItem('seihouse_active_generation', JSON.stringify(activeGen));
-        } catch(e) {}
-      } else {
-        localStorage.removeItem('seihouse_active_generation');
-      }
-    });
-    return () => unsubscribe();
-  }, []);
 
   // Set HTML lang attribute based on preferred language for native browser UI translation
   useEffect(() => {
@@ -132,41 +123,55 @@ function App() {
     document.documentElement.lang = langCode;
   }, [store_userProfile?.preferredLanguage]);
 
-  // Check for unsaved chapter session after initialization
+  // Check for an unsaved chapter session once storage and authentication have
+  // both settled. The snapshot is written once, by the run that owned it, and
+  // removed by that same run or by an account transition — nothing rewrites it
+  // from live state, so it still names the story and chapter that run was
+  // working on. Waiting for authentication is what keeps the offer honest: the
+  // snapshot survives the first resolution only for the account that wrote it.
   useEffect(() => {
-    if (isInitializing) return;
+    if (isInitializing || !hasResolvedAuth || recoveryOfferSettledRef.current) return;
 
-    const savedGen = localStorage.getItem('seihouse_active_generation');
-    if (savedGen) {
-      try {
-        const parsed = JSON.parse(savedGen);
-        const state = useAppStore.getState();
-        // If we are actively generating right now, don't trigger recovery
-        if (state.isGenerating) return;
-        
-        if (parsed && parsed.isGenerating && Date.now() - parsed.timestamp < 10 * 60 * 1000) {
-          const activeStory = state.stories.find(s => s.id === parsed.activeStoryId);
-          if (activeStory) {
-            const batch = activeStory.chapterGenerationBatch;
-            if (batch && (batch.status === 'queued' || batch.status === 'generating' || batch.status === 'paused')) {
-              // Batch recovery is driven by its persisted checkpoint, never the
-              // legacy single-chapter recovery modal.
-              localStorage.removeItem('seihouse_active_generation');
-              return;
-            }
-            if (parsed.generationPhase === 'chapter' && parsed.generatingChapterNum) {
-              store_setDraftRecoverySession(parsed);
-            }
-          } else {
-            localStorage.removeItem('seihouse_active_generation');
-          }
-        }
-      } catch (err) {
-        console.error("Failed to restore active generation state:", err);
-      }
+    const snapshot = readGenerationRecoverySnapshot();
+    if (!snapshot) {
+      recoveryOfferSettledRef.current = true;
+      return;
     }
-    // We only want to run this once after initialization completes
-  }, [isInitializing, store_setDraftRecoverySession]);
+
+    // If we are actively generating right now, don't trigger recovery
+    if (selectIsGenerating(useAppStore.getState())) {
+      recoveryOfferSettledRef.current = true;
+      return;
+    }
+    if (Date.now() - snapshot.timestamp >= 10 * 60 * 1000) {
+      clearGenerationRecoverySnapshot();
+      recoveryOfferSettledRef.current = true;
+      return;
+    }
+
+    const savedStory = store_stories.find(s => s.id === snapshot.storyId);
+    if (!savedStory) {
+      // The library republishes asynchronously after an account is resolved.
+      // Wait for it rather than discarding a valid draft against an empty one.
+      if (store_stories.length === 0) return;
+      clearGenerationRecoverySnapshot();
+      recoveryOfferSettledRef.current = true;
+      return;
+    }
+
+    recoveryOfferSettledRef.current = true;
+    const batch = savedStory.chapterGenerationBatch;
+    if (batch && (batch.status === 'queued' || batch.status === 'generating' || batch.status === 'paused')) {
+      // Batch recovery is driven by its persisted checkpoint, never the
+      // single-chapter recovery modal.
+      clearGenerationRecoverySnapshot();
+      return;
+    }
+    store_setDraftRecoverySession({
+      storyId: snapshot.storyId,
+      chapterNumber: snapshot.chapterNumber,
+    });
+  }, [isInitializing, hasResolvedAuth, store_stories, store_setDraftRecoverySession]);
 
   // A browser reload cannot keep a model request alive. Convert any persisted
   // in-flight batch to an explicit paused state so the user can safely resume
@@ -277,6 +282,12 @@ function App() {
 
     let profileSubscriptionVersion = 0;
 
+    // A reload and a real account transition are not the same event. The first
+    // resolved authentication state of a page session may legitimately inherit
+    // the draft this same reader left behind; every later one is a transition
+    // and must not let one account claim another's draft.
+    let hasResolvedAuthOnce = false;
+
     let unsubAuth = () => {};
     if (LOCAL_ONLY_MODE) {
       store_setCurrentUser(null);
@@ -284,6 +295,23 @@ function App() {
     } else {
       unsubAuth = onAuthStateChanged(auth, async (user) => {
         const subscriptionVersion = ++profileSubscriptionVersion;
+        const isFirstAuthResolution = !hasResolvedAuthOnce;
+        hasResolvedAuthOnce = true;
+
+        const snapshot = readGenerationRecoverySnapshot();
+        if (snapshot && !shouldPreserveRecoverySnapshotOnAuthResolution({
+          snapshot,
+          isFirstAuthResolution,
+          resolvedUserId: user?.uid ?? null,
+        })) {
+          clearGenerationRecoverySnapshot();
+        }
+        // Every resolution — including the first — invalidates whatever run is
+        // in memory. Signing back in as the same uid still produces a new
+        // generation number, so the previous session's run can never resume
+        // writing into this one.
+        store_bumpAuthSessionGeneration();
+        store_clearActiveRunForAccountTransition();
         // Local persistence survives authentication changes. Clear the rendered
         // library and reader selection immediately so one account's stories can
         // never remain visible while the next account's scope is being restored.
@@ -298,13 +326,9 @@ function App() {
         store_setIsCodexSheetOpen(false);
         store_setCurrentScreen('home');
         useAppStore.getState().setActiveConflict(null);
-        // A chapter still streaming for the outgoing account must not survive
-        // into the next one. `setActiveStoryId(null)` above already resets this
-        // whenever a story was open; reset explicitly so an account transition
-        // that begins with no active story is covered too.
-        store_resetGenerationRuntime();
         store_setCurrentUser(user);
-        
+        setHasResolvedAuth(true);
+
         if (user) {
           const expectedUid = user.uid;
           const snapshotIsCurrent = () => isProfileSnapshotStillCurrent({

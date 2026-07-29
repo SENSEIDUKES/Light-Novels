@@ -2,12 +2,13 @@ import { beforeEach, describe, it, expect } from 'vitest';
 import { fireEvent, render } from '@testing-library/react';
 import AILoadingVeil from './AILoadingVeil';
 import { useAppStore } from '../store/useAppStore';
+import { makeActiveRun } from '../test/support/generationRun';
 
 describe('AILoadingVeil', () => {
   beforeEach(() => {
     useAppStore.setState({
-      isGenerating: false,
-      generationPhase: null,
+      activeGenerationRun: null,
+      authSessionGeneration: 0,
       generationProgressMessage: '',
       generatingChapterNum: null,
       isVeilMinimized: false,
@@ -27,8 +28,7 @@ describe('AILoadingVeil', () => {
 
   it('keeps the full-screen veil and its existing minimize control for chapter generation', () => {
     useAppStore.setState({
-      isGenerating: true,
-      generationPhase: 'chapter',
+      activeGenerationRun: makeActiveRun({ operation: 'chapter' }),
       generatingChapterNum: 3,
       generationProgressMessage: 'Forging Chapter 3 · 3 of 5',
       isVeilMinimized: false,
@@ -45,8 +45,7 @@ describe('AILoadingVeil', () => {
     // selects it from the composed store, so its live progress readout must be
     // unchanged by the ownership move.
     useAppStore.setState({
-      isGenerating: true,
-      generationPhase: 'chapter',
+      activeGenerationRun: makeActiveRun({ operation: 'chapter' }),
       generatingChapterNum: 2,
       isVeilMinimized: false,
       streamingChapter: {
@@ -65,8 +64,7 @@ describe('AILoadingVeil', () => {
 
   it('falls back to the idle channel copy once the stream is cleared', () => {
     useAppStore.setState({
-      isGenerating: true,
-      generationPhase: 'chapter',
+      activeGenerationRun: makeActiveRun({ operation: 'chapter' }),
       generatingChapterNum: 2,
       isVeilMinimized: false,
       streamingChapter: null,
@@ -78,7 +76,7 @@ describe('AILoadingVeil', () => {
 
   it('describes whether the compact details toggle will show or hide details', () => {
     useAppStore.setState({
-      isGenerating: true,
+      activeGenerationRun: makeActiveRun({ operation: 'chapter' }),
       isVeilMinimized: true,
     });
     const { getByRole } = render(<AILoadingVeil />);
