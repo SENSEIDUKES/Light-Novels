@@ -5,6 +5,7 @@ import { storyApi } from '../services/api';
 import { awardQi } from '../lib/qi';
 import { useAppStore } from '../store/useAppStore';
 import { auth } from '../lib/firebase';
+import { createRunHarness, makeActiveRun } from '../test/support/generationRun';
 
 vi.mock('../services/api', () => ({
   storyApi: {
@@ -19,12 +20,15 @@ vi.mock('../store/useAppStore', () => ({ useAppStore: vi.fn() }));
 
 describe('useStoryGeneration', () => {
   let state: any;
+  /** What App.tsx does on a resolved account change: new session, run dropped. */
+  let endAccountSession: () => void;
 
   beforeEach(() => {
     vi.clearAllMocks();
     (auth as any).currentUser = { uid: 'reader-1' };
     state = {
-      isGenerating: false,
+      activeGenerationRun: null,
+      authSessionGeneration: 0,
       stories: [{ id: 'existing-story' }],
       userProfile: { defaultChapterWritingStyle: 'Easy Read' },
       routingConfig: { storyMaker: { provider: 'gemini' } },
@@ -33,9 +37,18 @@ describe('useStoryGeneration', () => {
       setSelectedChapterNum: vi.fn(),
       setCurrentScreen: vi.fn(),
       setAppError: vi.fn(),
-      setIsGenerating: vi.fn((value: boolean) => { state.isGenerating = value; }),
-      setGenerationPhase: vi.fn(),
-      setActiveAgentId: vi.fn(),
+    };
+    const runHarness = createRunHarness(state);
+    Object.assign(state, {
+      startGenerationRun: vi.fn(runHarness.startGenerationRun),
+      ownsActiveRun: vi.fn(runHarness.ownsActiveRun),
+      completeGenerationRun: vi.fn(runHarness.completeGenerationRun),
+      failGenerationRun: vi.fn(runHarness.failGenerationRun),
+      setActiveAgentIdForRun: vi.fn(runHarness.setActiveAgentIdForRun),
+    });
+    endAccountSession = () => {
+      state.authSessionGeneration += 1;
+      runHarness.clearActiveRunForAccountTransition();
     };
     vi.mocked(useAppStore).mockImplementation((selector: any) => selector(state));
     (useAppStore as any).getState = vi.fn(() => state);
@@ -147,8 +160,11 @@ describe('useStoryGeneration', () => {
     expect(state.setSelectedChapterNum).toHaveBeenCalledWith(1);
     expect(state.setCurrentScreen).toHaveBeenCalledWith('detail');
     expect(awardQi).toHaveBeenCalledWith('world_created');
-    expect(state.setIsGenerating).toHaveBeenLastCalledWith(false);
-    expect(state.setGenerationPhase).toHaveBeenLastCalledWith(null);
+    expect(state.startGenerationRun).toHaveBeenCalledWith({
+      operation: 'initial-arc',
+      userId: 'reader-1',
+    });
+    expect(state.activeGenerationRun).toBeNull();
   });
 
   it('does not guess intake aliases for renamed or ambiguous generated characters', async () => {
@@ -190,9 +206,9 @@ describe('useStoryGeneration', () => {
     await expect(result.current.handleGenerateBlueprint({})).rejects.toThrow('Provider unavailable');
 
     expect(state.setAppError).toHaveBeenCalledWith('Provider unavailable');
-    expect(state.setIsGenerating).toHaveBeenLastCalledWith(false);
-    expect(state.setGenerationPhase).toHaveBeenLastCalledWith(null);
-    expect(state.setActiveAgentId).toHaveBeenLastCalledWith(null);
+    expect(state.failGenerationRun).toHaveBeenCalledWith(expect.any(String), 'Provider unavailable');
+    expect(state.activeGenerationRun).toBeNull();
+    expect(state.activeAgentId).toBeNull();
   });
 
   it('rejects a delayed blueprint result after the account changes', async () => {
@@ -210,7 +226,15 @@ describe('useStoryGeneration', () => {
       expect(storyApi.generateBlueprint).toHaveBeenCalledOnce();
     });
 
+    const abandonedRun = state.activeGenerationRun;
     (auth as any).currentUser = { uid: 'reader-2' };
+    endAccountSession();
+    const replacementRun = makeActiveRun({
+      runId: 'run-newer',
+      authSessionGeneration: state.authSessionGeneration,
+      operation: 'blueprint',
+    });
+    state.activeGenerationRun = replacementRun;
     resolveBlueprint({ title: 'Private Account A blueprint' });
 
     await expect(generation).rejects.toThrow(
@@ -219,19 +243,21 @@ describe('useStoryGeneration', () => {
     expect(state.setAppError).not.toHaveBeenCalledWith(
       'Active account changed while generating the blueprint',
     );
-    expect(state.setIsGenerating).not.toHaveBeenCalledWith(false);
-    expect(state.setGenerationPhase).not.toHaveBeenCalledWith(null);
-    expect(state.setActiveAgentId).not.toHaveBeenCalledWith(null);
+    expect(state.failGenerationRun).not.toHaveBeenCalled();
+    // The abandoned run settled nothing that belongs to the newer run.
+    expect(state.completeGenerationRun).toHaveBeenCalledWith(abandonedRun.runId);
+    expect(state.activeGenerationRun).toBe(replacementRun);
   });
 
   it('does not start a second generation while one is already active', async () => {
-    state.isGenerating = true;
+    state.activeGenerationRun = makeActiveRun({ runId: 'run-in-flight' });
     const { result } = renderHook(() => useStoryGeneration());
 
     await act(async () => {
       await result.current.handleStartStory({} as any, {} as any, 1);
     });
 
+    expect(state.startGenerationRun).toHaveReturnedWith(null);
     expect(storyApi.generateInitialArc).not.toHaveBeenCalled();
     expect(state.saveStories).not.toHaveBeenCalled();
   });
@@ -256,7 +282,15 @@ describe('useStoryGeneration', () => {
       expect(storyApi.generateInitialArc).toHaveBeenCalledOnce();
     });
 
+    const abandonedRun = state.activeGenerationRun;
     (auth as any).currentUser = { uid: 'reader-2' };
+    endAccountSession();
+    const replacementRun = makeActiveRun({
+      runId: 'run-newer',
+      authSessionGeneration: state.authSessionGeneration,
+      operation: 'initial-arc',
+    });
+    state.activeGenerationRun = replacementRun;
     resolveGeneration({
       title: 'Must be discarded',
       chapters: [{ number: 1, title: 'One', premise: '' }],
@@ -271,8 +305,8 @@ describe('useStoryGeneration', () => {
     expect(state.saveStories).not.toHaveBeenCalled();
     expect(state.setActiveStoryId).not.toHaveBeenCalled();
     expect(awardQi).not.toHaveBeenCalled();
-    expect(state.setIsGenerating).not.toHaveBeenCalledWith(false);
-    expect(state.setGenerationPhase).not.toHaveBeenCalledWith(null);
-    expect(state.setActiveAgentId).not.toHaveBeenCalledWith(null);
+    expect(state.failGenerationRun).not.toHaveBeenCalled();
+    expect(state.completeGenerationRun).toHaveBeenCalledWith(abandonedRun.runId);
+    expect(state.activeGenerationRun).toBe(replacementRun);
   });
 });

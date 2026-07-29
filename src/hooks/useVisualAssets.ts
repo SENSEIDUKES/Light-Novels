@@ -16,29 +16,23 @@ import {
 import { auth } from '../lib/firebase';
 
 export const useVisualAssets = () => {
-  const store_setAppError = useAppStore(state => state.setAppError);
-  const store_setIsGenerating = useAppStore(state => state.setIsGenerating);
-  const store_setGenerationPhase = useAppStore(state => state.setGenerationPhase);
-
   const handleGenerateCover = async (customModifier?: string): Promise<{ imageUrls: string[], promptUsed: string } | undefined> => {
     const currentStoreState = useAppStore.getState();
-    const initiatingUserId = auth.currentUser?.uid ?? null;
-    const accountIsCurrent = () =>
-      (auth.currentUser?.uid ?? null) === initiatingUserId;
-    if (currentStoreState.isGenerating) {
+    const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
+    if (!activeStory) return undefined;
+
+    const run = currentStoreState.startGenerationRun({
+      operation: 'cover',
+      userId: auth.currentUser?.uid ?? null,
+      storyId: activeStory.id,
+    });
+    if (!run) {
       console.warn("Generation already in progress. Ignoring duplicate click.");
       return undefined;
     }
-    currentStoreState.setIsGenerating(true);
+    const runId = run.runId;
+    const accountIsCurrent = () => useAppStore.getState().ownsActiveRun(runId);
 
-    const activeStory = currentStoreState.stories.find(s => s.id === currentStoreState.activeStoryId);
-    if (!activeStory) {
-      if (accountIsCurrent()) {
-        currentStoreState.setIsGenerating(false);
-      }
-      return undefined;
-    }
-    currentStoreState.setGenerationPhase('cover');
     currentStoreState.setAppError(null);
     try {
       const styleConfig = activeStory.blueprint?.styleBible || "Chinese light novel world aesthetic, xianxia / wuxia fantasy illustration, cinematic, mystical, premium webnovel art.";
@@ -64,12 +58,9 @@ export const useVisualAssets = () => {
       }
     } catch(err: any) {
       if (!accountIsCurrent()) return undefined;
-      store_setAppError(err.message || "Failed to forge new cover.");
+      useAppStore.getState().failGenerationRun(runId, err.message || "Failed to forge new cover.");
     } finally {
-      if (accountIsCurrent()) {
-        store_setIsGenerating(false);
-        store_setGenerationPhase(null);
-      }
+      useAppStore.getState().completeGenerationRun(runId);
     }
     return undefined;
   };

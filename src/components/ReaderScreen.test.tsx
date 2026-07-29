@@ -16,7 +16,7 @@ vi.mock('../store/useAppStore', () => ({
       }],
       selectedChapterNum: 1,
       setSelectedChapterNum: vi.fn(),
-      isGenerating: false,
+      activeGenerationRun: null,
       routingConfig: {},
       streamingChapter: null,
       isReaderFullscreen: false,

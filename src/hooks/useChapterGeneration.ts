@@ -1,4 +1,5 @@
 import { useAppStore } from '../store/useAppStore';
+import { selectIsGenerating } from '../store/useGenerationStore';
 import { Story, ChapterGenerationBatch } from '../types';
 import { awardQi } from '../lib/qi';
 import { unlockCosmicArtifact } from '../lib/artifacts';
@@ -25,15 +26,12 @@ type BatchProgress = { index: number; total: number } | null;
  * Qi, and artifacts never diverge.
  */
 export const useChapterGeneration = () => {
-  const store_setActiveAgentId = useAppStore(state => state.setActiveAgentId);
+  const store_setActiveAgentIdForRun = useAppStore(state => state.setActiveAgentIdForRun);
   const store_routingConfig = useAppStore(state => state.routingConfig);
   const store_saveStories = useAppStore(state => state.saveStories);
   const store_setAppError = useAppStore(state => state.setAppError);
-  const store_setIsGenerating = useAppStore(state => state.setIsGenerating);
-  const store_setGenerationPhase = useAppStore(state => state.setGenerationPhase);
-  const store_setGeneratingChapterNum = useAppStore(state => state.setGeneratingChapterNum);
-  const store_setStreamingChapter = useAppStore(state => state.setStreamingChapter);
-  const store_setGenerationProgressMessage = useAppStore(state => state.setGenerationProgressMessage);
+  const store_setGeneratingChapterNumForRun = useAppStore(state => state.setGeneratingChapterNumForRun);
+  const store_setGenerationProgressMessageForRun = useAppStore(state => state.setGenerationProgressMessageForRun);
 
   const persistBatch = async (
     story: Story,
@@ -58,6 +56,7 @@ export const useChapterGeneration = () => {
   const generateOneChapter = async (
     activeStory: Story,
     chapterNumber: number,
+    runId: string,
     accountIsCurrent: () => boolean,
     batchProgress: BatchProgress = null,
   ): Promise<Story> => {
@@ -74,10 +73,13 @@ export const useChapterGeneration = () => {
       const prefix = batchProgress
         ? `Forging Chapter ${chapterNumber} · ${batchProgress.index} of ${batchProgress.total}`
         : '';
-      store_setGenerationProgressMessage?.(prefix && message ? `${prefix} — ${message}` : prefix || message);
+      store_setGenerationProgressMessageForRun?.(
+        runId,
+        prefix && message ? `${prefix} — ${message}` : prefix || message,
+      );
     };
 
-    store_setActiveAgentId('scout');
+    store_setActiveAgentIdForRun(runId, 'scout');
     const apiHeaders = await getApiHeaders();
     if (!accountIsCurrent()) return activeStory;
     const {
@@ -88,7 +90,7 @@ export const useChapterGeneration = () => {
     } = await buildChapterContext(activeStory, targetChapter, apiHeaders);
     if (!accountIsCurrent()) return activeStory;
 
-    store_setActiveAgentId('versa');
+    store_setActiveAgentIdForRun(runId, 'versa');
     setProgress('VERSA is weaving the chapter into being...');
     const { accumulatedRaw, contextManifest } = await streamChapterBlocks(
       activeStory,
@@ -99,7 +101,7 @@ export const useChapterGeneration = () => {
       apiHeaders,
       (currentChapterText, blocksData, raw) => {
         if (!accountIsCurrent()) return;
-        useAppStore.getState().setStreamingChapter({
+        useAppStore.getState().setStreamingChapterForRun(runId, {
           number: chapterNumber,
           content: currentChapterText || raw,
           blocks: blocksData,
@@ -207,52 +209,49 @@ export const useChapterGeneration = () => {
 
   const handleGenerateChapter = async (chapterNumber: number) => {
     const state = useAppStore.getState();
-    const initiatingUserId = auth.currentUser?.uid ?? null;
-    const accountIsCurrent = () =>
-      (auth.currentUser?.uid ?? null) === initiatingUserId;
-    if (state.isGenerating) {
+    const activeStory = state.stories.find(story => story.id === state.activeStoryId);
+    if (!activeStory) return;
+
+    // Claiming the run is what makes a second click a no-op, and it is the
+    // single-chapter claim that freezes this chapter's crash-recovery snapshot.
+    const run = state.startGenerationRun({
+      operation: 'chapter',
+      userId: auth.currentUser?.uid ?? null,
+      storyId: activeStory.id,
+      chapterNumber,
+    });
+    if (!run) {
       console.warn('Generation already in progress. Ignoring duplicate click.');
       return;
     }
+    const runId = run.runId;
+    const runIsCurrent = () => useAppStore.getState().ownsActiveRun(runId);
 
-    state.setIsGenerating(true);
-    state.setGeneratingChapterNum(chapterNumber);
+    store_setGeneratingChapterNumForRun(runId, chapterNumber);
     state.setIsVeilMinimized?.(false);
-    const activeStory = state.stories.find(story => story.id === state.activeStoryId);
-    if (!activeStory) {
-      if (accountIsCurrent()) {
-        state.setIsGenerating(false);
-        state.setGeneratingChapterNum(null);
-      }
-      return;
-    }
-
-    state.setGenerationPhase('chapter');
     state.setAppError(null);
     try {
-      await generateOneChapter(activeStory, chapterNumber, accountIsCurrent);
+      await generateOneChapter(activeStory, chapterNumber, runId, runIsCurrent);
     } catch (err: any) {
-      if (!accountIsCurrent()) return;
+      if (!runIsCurrent()) return;
       console.error(err);
-      store_setAppError(err.message || 'Celestial feedback received. Chapter generation failed.');
+      useAppStore.getState().failGenerationRun(
+        runId,
+        err.message || 'Celestial feedback received. Chapter generation failed.',
+      );
     } finally {
-      if (accountIsCurrent()) {
-        store_setIsGenerating(false);
-        store_setGenerationPhase(null);
-        store_setGeneratingChapterNum(null);
-        store_setActiveAgentId(null);
-        store_setStreamingChapter(null);
-        store_setGenerationProgressMessage?.('');
-      }
+      // A run that lost ownership settles nothing: the guard inside the store
+      // leaves whatever run replaced it untouched.
+      useAppStore.getState().completeGenerationRun(runId);
     }
   };
 
   const handleGenerateNextFiveChapters = async (fromChapterNumber: number) => {
     const state = useAppStore.getState();
-    const initiatingUserId = auth.currentUser?.uid ?? null;
-    const accountIsCurrent = () =>
-      (auth.currentUser?.uid ?? null) === initiatingUserId;
-    if (state.isGenerating) {
+    // Checked up front so a duplicate request cannot raise the batch-planning
+    // error against a story a live run is already working through. Claiming the
+    // run below is still what actually decides the race.
+    if (selectIsGenerating(state)) {
       console.warn('Generation already in progress. Ignoring duplicate batch request.');
       return;
     }
@@ -290,43 +289,54 @@ export const useChapterGeneration = () => {
           createdAt: new Date().toISOString(),
         };
 
-    state.setIsGenerating(true);
-    state.setGenerationPhase('chapter');
+    // No chapter number: a batch owns several, and its persisted
+    // `chapterGenerationBatch` checkpoint — not a frozen snapshot — is what
+    // resumes it after an interruption.
+    const run = state.startGenerationRun({
+      operation: 'chapter',
+      userId: auth.currentUser?.uid ?? null,
+      storyId: activeStory.id,
+      chapterNumber: null,
+    });
+    if (!run) {
+      console.warn('Generation already in progress. Ignoring duplicate batch request.');
+      return;
+    }
+    const runId = run.runId;
+    const runIsCurrent = () => useAppStore.getState().ownsActiveRun(runId);
+
     state.setIsVeilMinimized?.(false);
     state.setAppError(null);
     try {
-      const preparedStory = await persistBatch(activeStory, batch, accountIsCurrent);
-      if (!accountIsCurrent()) return;
+      const preparedStory = await persistBatch(activeStory, batch, runIsCurrent);
+      if (!runIsCurrent()) return;
       await runSequentialChapterBatch({
         story: preparedStory,
         batch,
-        persistBatch: (story, nextBatch) => persistBatch(story, nextBatch, accountIsCurrent),
-        accountIsCurrent,
+        persistBatch: (story, nextBatch) => persistBatch(story, nextBatch, runIsCurrent),
+        accountIsCurrent: runIsCurrent,
         generateChapter: (story, chapterNumber) => {
-          if (!accountIsCurrent()) return Promise.resolve(story);
+          if (!runIsCurrent()) return Promise.resolve(story);
           const index = batch.chapterNumbers.indexOf(chapterNumber) + 1;
-          state.setGeneratingChapterNum(chapterNumber);
+          store_setGeneratingChapterNumForRun(runId, chapterNumber);
           return generateOneChapter(
             story,
             chapterNumber,
-            accountIsCurrent,
+            runId,
+            runIsCurrent,
             { index, total: batch.chapterNumbers.length },
           );
         },
       });
     } catch (err: any) {
-      if (!accountIsCurrent()) return;
+      if (!runIsCurrent()) return;
       console.error(err);
-      store_setAppError(err.message || 'Celestial feedback received. Chapter batch generation failed.');
+      useAppStore.getState().failGenerationRun(
+        runId,
+        err.message || 'Celestial feedback received. Chapter batch generation failed.',
+      );
     } finally {
-      if (accountIsCurrent()) {
-        store_setIsGenerating(false);
-        store_setGenerationPhase(null);
-        store_setGeneratingChapterNum(null);
-        store_setActiveAgentId(null);
-        store_setStreamingChapter(null);
-        store_setGenerationProgressMessage?.('');
-      }
+      useAppStore.getState().completeGenerationRun(runId);
     }
   };
 

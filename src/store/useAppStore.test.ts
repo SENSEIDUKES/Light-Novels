@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useAppStore } from './useAppStore';
+import { selectGenerationPhase, selectIsGenerating } from './useGenerationStore';
 import { storyStorage } from '../lib/storage';
 import { secureStorage } from '../lib/encryption';
 import { auth } from '../lib/firebase';
@@ -53,6 +54,7 @@ describe('useAppStore', () => {
     setStoryToDelete(null);
     setActiveConflict(null);
     setAppError(null);
+    useAppStore.setState({ activeGenerationRun: null, authSessionGeneration: 0 });
     vi.mocked(storyStorage.saveStory).mockResolvedValue(undefined);
     vi.mocked(storyStorage.saveChapterContent).mockResolvedValue(undefined);
     vi.mocked(storyStorage.performSync).mockResolvedValue(undefined);
@@ -552,18 +554,20 @@ describe('useAppStore', () => {
     expect(state.stories).toEqual([]);
     expect(state.activeStoryId).toBeNull();
     expect(state.currentScreen).toBe('home');
-    expect(state.isGenerating).toBe(false);
+    expect(state.activeGenerationRun).toBeNull();
+    expect(selectIsGenerating(state)).toBe(false);
   });
 
   it('setters update state correctly', () => {
     const store = useAppStore.getState();
-    
+
     store.setCurrentScreen('reader');
     expect(useAppStore.getState().currentScreen).toBe('reader');
-    
-    store.setIsGenerating(true);
-    expect(useAppStore.getState().isGenerating).toBe(true);
-    
+
+    const run = store.startGenerationRun({ operation: 'chapter', userId: null });
+    expect(run).not.toBeNull();
+    expect(selectIsGenerating(useAppStore.getState())).toBe(true);
+
     store.setActiveStoryId('test-story-id');
     expect(useAppStore.getState().activeStoryId).toBe('test-story-id');
     
@@ -576,19 +580,19 @@ describe('useAppStore', () => {
     store.setAppError('test error');
     expect(useAppStore.getState().appError).toBe('test error');
     
-    store.setGenerationPhase('chapter');
-    expect(useAppStore.getState().generationPhase).toBe('chapter');
-    
-    store.setGenerationProgressMessage('msg');
+    expect(selectGenerationPhase(useAppStore.getState())).toBe('chapter');
+
+    const runId = run!.runId;
+    store.setGenerationProgressMessageForRun(runId, 'msg');
     expect(useAppStore.getState().generationProgressMessage).toBe('msg');
-    
-    store.setEstimatedSecondsRemaining(10);
+
+    store.setEstimatedSecondsRemainingForRun(runId, 10);
     expect(useAppStore.getState().estimatedSecondsRemaining).toBe(10);
 
-    store.setStreamingChapter({} as any);
+    store.setStreamingChapterForRun(runId, {} as any);
     expect(useAppStore.getState().streamingChapter).toBeDefined();
 
-    store.setActiveAgentId('versa');
+    store.setActiveAgentIdForRun(runId, 'versa');
     expect(useAppStore.getState().activeAgentId).toBe('versa');
 
     store.setSyncStatus('synced');

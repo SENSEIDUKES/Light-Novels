@@ -6,6 +6,7 @@ import { storyApi } from '../services/api';
 import { auth } from '../lib/firebase';
 import { saveMediaAsset } from '../lib/media/mediaAssetClient';
 import { resolveMediaAssetForDisplay } from '../lib/media/privateMediaResolver';
+import { createRunHarness, makeActiveRun } from '../test/support/generationRun';
 
 vi.mock('../store/useAppStore', () => ({ useAppStore: vi.fn() }));
 
@@ -30,12 +31,15 @@ vi.mock('../lib/media/privateMediaResolver', () => ({
 
 describe('useVisualAssets account-transition isolation', () => {
   let state: any;
+  /** What App.tsx does on a resolved account change: new session, run dropped. */
+  let endAccountSession: () => void;
 
   beforeEach(() => {
     vi.clearAllMocks();
     (auth as any).currentUser = { uid: 'reader-a' };
     state = {
-      isGenerating: false,
+      activeGenerationRun: null,
+      authSessionGeneration: 0,
       activeStoryId: 'story-a',
       stories: [{
         id: 'story-a',
@@ -50,9 +54,18 @@ describe('useVisualAssets account-transition isolation', () => {
       }],
       routingConfig: { imageGenerator: 'default' },
       setAppError: vi.fn(),
-      setIsGenerating: vi.fn((value: boolean) => { state.isGenerating = value; }),
-      setGenerationPhase: vi.fn(),
       updateStory: vi.fn().mockResolvedValue(undefined),
+    };
+    const runHarness = createRunHarness(state);
+    Object.assign(state, {
+      startGenerationRun: vi.fn(runHarness.startGenerationRun),
+      ownsActiveRun: vi.fn(runHarness.ownsActiveRun),
+      completeGenerationRun: vi.fn(runHarness.completeGenerationRun),
+      failGenerationRun: vi.fn(runHarness.failGenerationRun),
+    });
+    endAccountSession = () => {
+      state.authSessionGeneration += 1;
+      runHarness.clearActiveRunForAccountTransition();
     };
     vi.mocked(useAppStore).mockImplementation((selector: any) => selector(state));
     (useAppStore as any).getState = vi.fn(() => state);
@@ -69,8 +82,12 @@ describe('useVisualAssets account-transition isolation', () => {
 
     expect(generated).toMatchObject({ imageUrls: ['https://image.test/cover.png'] });
     expect(state.setAppError).toHaveBeenCalledWith(null);
-    expect(state.setIsGenerating).toHaveBeenLastCalledWith(false);
-    expect(state.setGenerationPhase).toHaveBeenLastCalledWith(null);
+    expect(state.startGenerationRun).toHaveBeenCalledWith({
+      operation: 'cover',
+      userId: 'reader-a',
+      storyId: 'story-a',
+    });
+    expect(state.activeGenerationRun).toBeNull();
   });
 
   it('keeps same-account cover failures visible and restores runtime state', async () => {
@@ -82,8 +99,11 @@ describe('useVisualAssets account-transition isolation', () => {
     });
 
     expect(state.setAppError).toHaveBeenCalledWith('Image provider unavailable');
-    expect(state.setIsGenerating).toHaveBeenLastCalledWith(false);
-    expect(state.setGenerationPhase).toHaveBeenLastCalledWith(null);
+    expect(state.failGenerationRun).toHaveBeenCalledWith(
+      expect.any(String),
+      'Image provider unavailable',
+    );
+    expect(state.activeGenerationRun).toBeNull();
   });
 
   it('discards an old cover result before it can reach permanent media', async () => {
@@ -99,15 +119,23 @@ describe('useVisualAssets account-transition isolation', () => {
     });
     await vi.waitFor(() => expect(storyApi.generateCardImage).toHaveBeenCalledOnce());
 
+    const abandonedRun = state.activeGenerationRun;
     (auth as any).currentUser = { uid: 'reader-b' };
-    state.isGenerating = false;
+    endAccountSession();
+    const replacementRun = makeActiveRun({
+      runId: 'run-newer',
+      authSessionGeneration: state.authSessionGeneration,
+      operation: 'cover',
+    });
+    state.activeGenerationRun = replacementRun;
     resolveImage({ imageUrls: ['https://image.test/account-a.png'] });
 
     await expect(generation).resolves.toBeUndefined();
     expect(saveMediaAsset).not.toHaveBeenCalled();
     expect(state.setAppError).not.toHaveBeenCalledWith(expect.any(String));
-    expect(state.setIsGenerating).not.toHaveBeenCalledWith(false);
-    expect(state.setGenerationPhase).not.toHaveBeenCalledWith(null);
+    expect(state.failGenerationRun).not.toHaveBeenCalled();
+    expect(state.completeGenerationRun).toHaveBeenCalledWith(abandonedRun.runId);
+    expect(state.activeGenerationRun).toBe(replacementRun);
   });
 
   it('does not update a cover after a media save resolves under another account', async () => {

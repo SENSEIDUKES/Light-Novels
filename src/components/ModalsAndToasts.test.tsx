@@ -2,6 +2,10 @@ import type { ReactNode } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, fireEvent, render, waitFor } from '@testing-library/react';
 import { ModalsAndToasts } from './ModalsAndToasts';
+import {
+  ACTIVE_GENERATION_STORAGE_KEY,
+  writeGenerationRecoverySnapshot,
+} from '../lib/generationRecovery';
 
 vi.mock('motion/react', async (importOriginal) => {
   const actual = await importOriginal<typeof import('motion/react')>();
@@ -10,6 +14,14 @@ vi.mock('motion/react', async (importOriginal) => {
     AnimatePresence: ({ children }: { children: ReactNode }) => <>{children}</>,
   };
 });
+
+const { handleGenerateChapterMock } = vi.hoisted(() => ({
+  handleGenerateChapterMock: vi.fn(),
+}));
+
+vi.mock('../hooks/useStoryEngine', () => ({
+  useStoryEngine: () => ({ handleGenerateChapter: handleGenerateChapterMock }),
+}));
 
 const { useAppStoreMock } = vi.hoisted(() => {
   const state = {
@@ -41,7 +53,15 @@ const { useAppStoreMock } = vi.hoisted(() => {
       storyMaker: { provider: 'google' },
       imageGenerator: { provider: 'google' }
     },
-    setRoutingConfig: vi.fn()
+    setRoutingConfig: vi.fn(),
+    // The reader has navigated on to story B since the interrupted run.
+    activeStoryId: 'story-b',
+    selectedChapterNum: 1,
+    draftRecoverySession: null as { storyId: string; chapterNumber: number } | null,
+    setDraftRecoverySession: vi.fn(),
+    setActiveStoryId: vi.fn(),
+    setSelectedChapterNum: vi.fn(),
+    setCurrentScreen: vi.fn(),
   };
   const mock: any = (selector?: any) => selector ? selector(state) : state;
   mock.setState = vi.fn();
@@ -65,6 +85,54 @@ describe('ModalsAndToasts', () => {
       <ModalsAndToasts />
     );
     expect(container).toBeDefined();
+  });
+});
+
+describe('Draft recovery offer', () => {
+  const state = useAppStoreMock.getState();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    // The frozen snapshot names story A, chapter 12 — the run that was in
+    // flight when the tab died, not the story open now.
+    state.draftRecoverySession = { storyId: 'story-a', chapterNumber: 12 };
+    writeGenerationRecoverySnapshot({
+      runId: 'run-interrupted',
+      userId: 'reader-a',
+      storyId: 'story-a',
+      chapterNumber: 12,
+      timestamp: Date.now(),
+    });
+  });
+
+  afterEach(() => {
+    state.draftRecoverySession = null;
+  });
+
+  it('restores the frozen story and chapter, not wherever the reader is now', () => {
+    const { getByRole, getByText, unmount } = render(<ModalsAndToasts />);
+
+    getByText(/interrupted draft for Chapter 12/);
+    fireEvent.click(getByRole('button', { name: 'Restore Draft' }));
+
+    expect(state.setActiveStoryId).toHaveBeenCalledWith('story-a');
+    expect(state.setSelectedChapterNum).toHaveBeenCalledWith(12);
+    expect(state.setCurrentScreen).toHaveBeenCalledWith('reader');
+    expect(handleGenerateChapterMock).toHaveBeenCalledWith(12);
+    expect(state.setDraftRecoverySession).toHaveBeenCalledWith(null);
+    unmount();
+  });
+
+  it('discards the frozen snapshot when the reader declines', () => {
+    const { getByRole, unmount } = render(<ModalsAndToasts />);
+
+    fireEvent.click(getByRole('button', { name: 'Discard' }));
+
+    expect(localStorage.getItem(ACTIVE_GENERATION_STORAGE_KEY)).toBeNull();
+    expect(state.setDraftRecoverySession).toHaveBeenCalledWith(null);
+    expect(handleGenerateChapterMock).not.toHaveBeenCalled();
+    unmount();
   });
 });
 

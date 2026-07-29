@@ -14,7 +14,7 @@ vi.mock('../store/useAppStore', () => ({
     setCurrentScreen: vi.fn(),
     activeStoryId: 'test-story',
     stories: [storeMocks.story],
-    isGenerating: false,
+    activeGenerationRun: null,
     setSelectedChapterNum: vi.fn(),
     userProfile: { qi: 0 },
     saveStories: storeMocks.saveStories,

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { useReaderPlayback, extractSFXCues } from './useReaderPlayback';
 import { useAppStore } from '../store/useAppStore';
 import { dispatchNarration } from '../lib/narrativeCues';
+import { makeActiveRun } from '../test/support/generationRun';
 
 vi.mock('../lib/narrativeCues', () => ({
   dispatchNarration: vi.fn(),
@@ -31,13 +32,13 @@ describe('useReaderPlayback', () => {
   describe('auto-continue (listening mode)', () => {
     afterEach(() => {
       useAppStore.getState().setAutoPlayNarration(false);
-      useAppStore.setState({ readerMode: 'teleprompter', isGenerating: false, streamingChapter: null });
+      useAppStore.setState({ readerMode: 'teleprompter', activeGenerationRun: null, streamingChapter: null });
     });
 
     it('auto-starts narration for a ready chapter when listening mode is on', () => {
       vi.useFakeTimers();
       try {
-        useAppStore.setState({ readerMode: 'teleprompter', isGenerating: false, streamingChapter: null });
+        useAppStore.setState({ readerMode: 'teleprompter', activeGenerationRun: null, streamingChapter: null });
         useAppStore.getState().setAutoPlayNarration(true);
 
         renderHook(() => useReaderPlayback({
@@ -61,7 +62,7 @@ describe('useReaderPlayback', () => {
     it('does NOT auto-start when listening mode is off', () => {
       vi.useFakeTimers();
       try {
-        useAppStore.setState({ readerMode: 'teleprompter', isGenerating: false, streamingChapter: null });
+        useAppStore.setState({ readerMode: 'teleprompter', activeGenerationRun: null, streamingChapter: null });
         useAppStore.getState().setAutoPlayNarration(false);
 
         renderHook(() => useReaderPlayback({
@@ -100,7 +101,7 @@ describe('useReaderPlayback', () => {
         onvoiceschanged: undefined,
       });
       try {
-        useAppStore.setState({ readerMode: 'teleprompter', isGenerating: false, streamingChapter: null });
+        useAppStore.setState({ readerMode: 'teleprompter', activeGenerationRun: null, streamingChapter: null });
         useAppStore.getState().setAutoPlayNarration(false);
 
         const { result, unmount } = renderHook(() => useReaderPlayback({
@@ -159,7 +160,7 @@ describe('useReaderPlayback', () => {
         onvoiceschanged: undefined,
       });
       try {
-        useAppStore.setState({ readerMode: 'teleprompter', isGenerating: false, streamingChapter: null });
+        useAppStore.setState({ readerMode: 'teleprompter', activeGenerationRun: null, streamingChapter: null });
         // Listening mode already on: the auto-continue effect schedules its
         // deferred start for this chapter as soon as it renders.
         useAppStore.getState().setAutoPlayNarration(true);
@@ -201,7 +202,7 @@ describe('useReaderPlayback', () => {
     it('does NOT auto-start while the chapter is still generating', () => {
       vi.useFakeTimers();
       try {
-        useAppStore.setState({ readerMode: 'teleprompter', isGenerating: true, streamingChapter: null });
+        useAppStore.setState({ readerMode: 'teleprompter', activeGenerationRun: makeActiveRun(), streamingChapter: null });
         useAppStore.getState().setAutoPlayNarration(true);
 
         renderHook(() => useReaderPlayback({

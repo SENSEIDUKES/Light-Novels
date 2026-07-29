@@ -4,6 +4,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { AlertCircle, X, Sliders, Award, Shield, Sparkles, Compass, Globe, Key, Zap, RefreshCw, Save } from 'lucide-react';
 import { vibrate } from '../lib/vibration';
 import { useAppStore } from '../store/useAppStore';
+import { clearGenerationRecoverySnapshot } from '../lib/generationRecovery';
 import { useStoryEngine } from '../hooks/useStoryEngine';
 import { SearchableModelSelector } from './SearchableModelSelector';
 import { secureStorage } from '../lib/encryption';
@@ -189,8 +190,6 @@ export const ModalsAndToasts: React.FC = () => {
     const setActiveStoryId = useAppStore(state => state.setActiveStoryId);
     const setSelectedChapterNum = useAppStore(state => state.setSelectedChapterNum);
     const setCurrentScreen = useAppStore(state => state.setCurrentScreen);
-    const setIsGenerating = useAppStore(state => state.setIsGenerating);
-    const setGeneratingChapterNum = useAppStore(state => state.setGeneratingChapterNum);
 
   const storyEngine = useStoryEngine();
 
@@ -1182,15 +1181,17 @@ export const ModalsAndToasts: React.FC = () => {
                     Unsaved Session Detected
                   </h4>
                   <p className="font-mono text-[11px] leading-relaxed text-neutral-300 mb-3">
-                    An interrupted draft for Chapter {draftRecoverySession.generatingChapterNum} was found in the astral weave. Do you wish to restore it?
+                    An interrupted draft for Chapter {draftRecoverySession.chapterNumber} was found in the astral weave. Do you wish to restore it?
                   </p>
                   <div className="flex space-x-3">
                     <button
                        tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
-                        setActiveStoryId(draftRecoverySession.activeStoryId);
-                        setSelectedChapterNum(draftRecoverySession.generatingChapterNum);
+                        // Restore against the frozen snapshot, not the current
+                        // selection: the reader may have moved on since.
+                        setActiveStoryId(draftRecoverySession.storyId);
+                        setSelectedChapterNum(draftRecoverySession.chapterNumber);
                         setCurrentScreen('reader');
-                        storyEngine.handleGenerateChapter(draftRecoverySession.generatingChapterNum);
+                        storyEngine.handleGenerateChapter(draftRecoverySession.chapterNumber);
                         setDraftRecoverySession(null);
                       }}
                       className="px-3 py-1.5 bg-portal/10 border border-portal/30 text-portal text-[10px] font-bold uppercase font-mono rounded hover:bg-portal hover:text-void transition-colors"
@@ -1199,7 +1200,7 @@ export const ModalsAndToasts: React.FC = () => {
                     </button>
                     <button
                       onClick={() => {
-                        localStorage.removeItem('seihouse_active_generation');
+                        clearGenerationRecoverySnapshot();
                         setDraftRecoverySession(null);
                       }}
                       className="px-3 py-1.5 bg-void border border-neutral-700 text-neutral-400 text-[10px] uppercase font-mono rounded hover:bg-neutral-800 transition-colors"
@@ -1211,7 +1212,7 @@ export const ModalsAndToasts: React.FC = () => {
               </div>
               <button
                 onClick={() => {
-                  localStorage.removeItem('seihouse_active_generation');
+                  clearGenerationRecoverySnapshot();
                   setDraftRecoverySession(null);
                 }}
                 className="absolute top-4 right-4 text-neutral-500 hover:text-signal transition-colors p-1 bg-black/20 rounded backdrop-blur"
