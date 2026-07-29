@@ -114,6 +114,7 @@ export const CelestialParticleShower: React.FC<CelestialParticleShowerProps> = R
     className = '',
   }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const glyphsRef = useRef<HTMLImageElement[]>([]);
 
     useEffect(() => {
       const canvas = canvasRef.current;
@@ -123,7 +124,7 @@ export const CelestialParticleShower: React.FC<CelestialParticleShowerProps> = R
       if (!ctx) return;
 
       // Resolve the accent: prop → CSS variable → default gold.
-      const cssAccent = getComputedStyle(canvas).getPropertyValue('--celestial-accent');
+      const cssAccent = getComputedStyle(canvas)?.getPropertyValue('--celestial-accent') ?? '';
       const accentRgb =
         (accent && hexToRgb(accent)) || (cssAccent && hexToRgb(cssAccent)) || DEFAULT_ACCENT;
       const palette = buildPalette(accentRgb);
@@ -155,6 +156,7 @@ export const CelestialParticleShower: React.FC<CelestialParticleShowerProps> = R
             .filter((element) => {
               if (element === canvas) return false;
               const style = getComputedStyle(element);
+              if (!style) return false;
               return style.display !== 'none' && style.visibility !== 'hidden';
             })
             .map((element) => element.getBoundingClientRect())
@@ -182,21 +184,29 @@ export const CelestialParticleShower: React.FC<CelestialParticleShowerProps> = R
       refreshForegroundZones();
 
       const particles: Particle[] = [];
-      const glyphs = [
-        '/icons/yin-yang.svg',
-        '/icons/shen-long-dragon.svg',
-        '/icons/sacred-tree.svg',
-        '/icons/thunder-cloud.svg',
-        '/icons/book-scroll.svg',
-        '/icons/cultivator.svg',
-      ].map((source) => {
-        const glyph = new Image();
-        glyph.decoding = 'async';
-        glyph.addEventListener('load', () => {
-          if (prefersReducedMotion) scheduleRender();
+      if (glyphsRef.current.length === 0) {
+        glyphsRef.current = [
+          '/icons/yin-yang.svg',
+          '/icons/shen-long-dragon.svg',
+          '/icons/sacred-tree.svg',
+          '/icons/thunder-cloud.svg',
+          '/icons/book-scroll.svg',
+          '/icons/cultivator.svg',
+        ].map((source) => {
+          const glyph = new Image();
+          glyph.decoding = 'async';
+          glyph.src = source;
+          return glyph;
         });
-        glyph.src = source;
-        return glyph;
+      }
+      const glyphs = glyphsRef.current;
+      const handleGlyphLoad = () => {
+        if (prefersReducedMotion) scheduleRender();
+      };
+      glyphs.forEach((glyph) => {
+        if (!glyph.complete) {
+          glyph.addEventListener('load', handleGlyphLoad);
+        }
       });
 
       // Mostly accent-derived tones; a neutral minority keeps depth.
@@ -556,6 +566,9 @@ export const CelestialParticleShower: React.FC<CelestialParticleShowerProps> = R
         disposed = true;
         window.removeEventListener('resize', handleResize);
         motionPreference?.removeEventListener('change', handleMotionPreferenceChange);
+        glyphs.forEach((glyph) => {
+          glyph.removeEventListener('load', handleGlyphLoad);
+        });
         cancelAnimationFrame(animationId);
       };
     }, [accent, foregroundPadding, foregroundSelector]);
