@@ -23,6 +23,7 @@ import type {
   UserProfile,
 } from '../../types';
 import { normalizeChapterWritingStyle } from '../../lib/chapterWritingStyle';
+import { countHydratedChapters } from '../../lib/chapterCounts';
 import { assertPermanentMediaMetadata } from '../media/permanentMediaGuard';
 
 type GraphRow = Record<string, unknown>;
@@ -604,19 +605,18 @@ function hydrateChapterScaffold(
     title: chapter.title,
     premise: chapter.premise ?? '',
     status: lowerEnum(chapter.status, 'unlocked') as Chapter['status'],
-    // A body may leave no summary behind (a placeholder summary is persisted as
-    // an empty string), so the hash is the primary evidence. READ/SEALED are
-    // only reached after generation, which keeps rows written before chapter
-    // writes recorded a hash from hydrating as contentless — the reader skips
-    // fetching a body it believes does not exist.
-    hasContent: Boolean(
-      chapter.contentHash
-      || chapter.versionId
-      || chapter.summary
-      || chapter.isSealed
-      || chapter.status === 'READ'
-      || chapter.status === 'SEALED',
-    ),
+    // The ChapterContent row is the body. Its existence is therefore the whole
+    // of `hasContent`, and the only evidence a browser cannot manufacture.
+    //
+    // This used to be inferred from the scaffold's own columns — a content
+    // hash, a summary, a READ/SEALED status. Every one of those except the hash
+    // is written by the *story* mutation, which runs ahead of the chapter body
+    // and succeeds independently of it. A generation whose body write failed
+    // still published `status: READ` and a summary, so the next device read the
+    // chapter as generated and then found no prose behind it. Reading the body
+    // row costs one join and no prose, and it cannot say yes before the write
+    // that stores the chapter has committed.
+    hasContent: Boolean(chapter.content),
     isSealed: chapter.isSealed,
     contentHash: chapter.contentHash ?? undefined,
     sealedAt: chapter.sealedAt ? Date.parse(chapter.sealedAt) : undefined,
@@ -732,8 +732,19 @@ export function hydrateStoryWorld(graph: StoryGraph): StoryWorld | null {
   const generationBatch = graph.generationBatches.at(-1);
   const coverAssetId = currentSlotAsset(graph, 'STORY_COVER', { targetKind: 'STORY' });
 
+  // A full story keeps the same two tallies the catalog row carries, derived
+  // from the scaffolds it just hydrated. The Library therefore reads identical
+  // progress whether it is looking at a summary or an opened story, and a
+  // hydrated story that replaces a summary in the local replica does not drop
+  // the counts the Hub renders.
+  const chapterCounts = countHydratedChapters({ arcs }) ?? {
+    totalChapterCount: 0,
+    generatedChapterCount: 0,
+  };
+
   return {
     persistenceHydration: 'full',
+    ...chapterCounts,
     persistenceId: source.id,
     userId: source.ownerUid,
     id: source.clientStoryId ?? source.legacyStoryId ?? source.id,

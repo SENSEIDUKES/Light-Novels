@@ -9,7 +9,18 @@ import { PRESET_CHALLENGES } from '../data/challenges';
 import { auth } from '../lib/firebase';
 import { resolveReaderOpeningChapter } from '../lib/readerNavigation';
 import { normalizeChapterWritingStyle } from '../lib/chapterWritingStyle';
+import { isGeneratedChapter, resolveChapterCounts } from '../lib/chapterCounts';
 
+/**
+ * Chapter progress for a Library card.
+ *
+ * A story restored on a fresh device is a catalog summary with no arcs, so
+ * counting arcs alone rendered every card as 0/0 until the whole story graph
+ * had been downloaded. `totalChapterCount`/`generatedChapterCount` are computed
+ * from the persisted Chapter rows and travel with the summary, so the card is
+ * right on the first paint. Hydrated arcs still win: they include a chapter
+ * generated in this session that the server has not been asked about again.
+ */
 function getStoryChapterStats(story?: Story | null) {
   let totalChapters = 0;
   let readChapters = 0;
@@ -22,7 +33,18 @@ function getStoryChapterStats(story?: Story | null) {
       if (!chapter) continue;
       totalChapters++;
       if (chapter.status === 'read') readChapters++;
-      if (chapter.hasContent || !!chapter.generatedContent) generated++;
+      if (isGeneratedChapter(chapter)) generated++;
+    }
+  }
+
+  if (totalChapters === 0) {
+    const counts = resolveChapterCounts(story);
+    if (counts) {
+      return {
+        totalChapters: counts.totalChapterCount,
+        readChapters: 0,
+        generated: counts.generatedChapterCount,
+      };
     }
   }
 

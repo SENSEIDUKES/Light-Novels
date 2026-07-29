@@ -420,16 +420,17 @@ describe('story graph mapping', () => {
     ]);
   });
 
-  it('hydrates a body-bearing chapter as content even without a summary', () => {
+  it('hydrates a body-bearing chapter as content even without a summary or hash', () => {
     const graph = storyGraph();
     // A row written before chapter writes recorded a hash: no hash, no version,
-    // no summary — only the READ status that generation leaves behind.
+    // no summary. The body row is what makes it generated.
     graph.chapters = [{
       ...graph.chapters[0],
       status: 'READ',
       summary: null,
       contentHash: null,
       versionId: null,
+      content: { chapterId: CHAPTER_ID },
     } as (typeof graph.chapters)[number]];
 
     expect(hydrateStoryWorld(graph)!.arcs[0].chapters[0].hasContent).toBe(true);
@@ -447,6 +448,49 @@ describe('story graph mapping', () => {
     } as (typeof graph.chapters)[number]];
 
     expect(hydrateStoryWorld(graph)!.arcs[0].chapters[0].hasContent).toBe(false);
+  });
+
+  /**
+   * Regression: `hasContent` used to be inferred from the scaffold's own
+   * columns. The story mutation writes those columns and commits independently
+   * of the chapter body, so a generation whose body write failed still
+   * published a READ status, a summary and a hash — and the next device read
+   * the chapter as generated, then found no prose behind it.
+   */
+  it('refuses to call a chapter generated when no body row exists', () => {
+    const graph = storyGraph();
+    graph.chapters = [{
+      ...graph.chapters[0],
+      status: 'READ',
+      summary: 'Lin wakes and the gate opens.',
+      contentHash: 'a-hash-from-a-previous-write',
+      versionId: 'v1',
+      isSealed: true,
+    } as (typeof graph.chapters)[number]];
+
+    const chapter = hydrateStoryWorld(graph)!.arcs[0].chapters[0];
+    expect(chapter.hasContent).toBe(false);
+    // The scaffold's own state is untouched; only the content claim is refused.
+    expect(chapter.status).toBe('read');
+    expect(chapter.summary).toBe('Lin wakes and the gate opens.');
+  });
+
+  it('counts generated chapters for the catalog from the same body rows', () => {
+    const graph = storyGraph();
+    graph.chapters = [
+      { ...graph.chapters[0], content: { chapterId: CHAPTER_ID } },
+      {
+        ...graph.chapters[0],
+        id: '4b3a2c1d-5e6f-4a7b-8c9d-0e1f2a3b4c5d',
+        chapterNumber: 2,
+        status: 'READ',
+        summary: 'Claimed, but never written.',
+      },
+    ] as (typeof graph.chapters);
+
+    const story = hydrateStoryWorld(graph)!;
+    expect(story.totalChapterCount).toBe(2);
+    expect(story.generatedChapterCount).toBe(1);
   });
 
   it('derives stable UUIDs for legacy client IDs', () => {

@@ -489,8 +489,12 @@ query ListMyMediaSlotHistory($targetKind: String!, $targetKey: String!, $purpose
   }
 }
 
-query AdminListOwnedStories($ownerUid: String!, $limit: Int = 200, $offset: Int = 0)
-  @auth(level: NO_ACCESS) {
+query AdminListOwnedStories(
+  $ownerUid: String!
+  $limit: Int = 200
+  $offset: Int = 0
+  $skipChapterCounts: Boolean = false
+) @auth(level: NO_ACCESS) {
   stories(
     where: { ownerUid: { eq: $ownerUid } }
     orderBy: [{ updatedAt: DESC }]
@@ -524,6 +528,31 @@ query AdminListOwnedStories($ownerUid: String!, $limit: Int = 200, $offset: Int 
     createdAt
     updatedAt
   }
+  # Authoritative chapter tallies for the Library Hub. A catalog row carries no
+  # arcs, so the Hub used to count 0/0 for every restored story until its full
+  # graph had been downloaded. Aggregating in SQL keeps the catalog read one
+  # round trip instead of one story graph per card. A chapter counts as
+  # generated when it has a body row — the same test `hydrateChapterScaffold`
+  # applies, so a card and an opened story never disagree. See
+  # GENERATED_CHAPTER_SQL_PREDICATE in src/lib/chapterCounts.ts, which a
+  # contract test pins against this literal. The aggregate covers the whole
+  # account and repeats identically on every page, so a paging caller asks for
+  # it once and skips it thereafter.
+  chapterCounts: _select(
+    sql: """
+      SELECT
+        c.story_id AS "storyId",
+        COUNT(*)::bigint AS "totalChapterCount",
+        COUNT(*) FILTER (
+          WHERE EXISTS (SELECT 1 FROM chapter_content cc WHERE cc.chapter_id = c.id)
+        )::bigint AS "generatedChapterCount"
+      FROM chapter c
+      JOIN story s ON s.id = c.story_id
+      WHERE s.owner_uid = $1
+      GROUP BY c.story_id
+    """
+    params: [$ownerUid]
+  ) @skip(if: $skipChapterCounts)
 }
 
 query AdminListOwnedStoryCoverSlots(
@@ -759,6 +788,13 @@ query AdminGetOwnedStoryGraph($ownerUid: String!, $storyId: UUID!) @auth(level: 
     hasContinuityFaults
     createdAt
     updatedAt
+    # Whether a body actually exists, without loading a word of it. This is the
+    # only unforgeable evidence that a chapter was generated: a browser can put
+    # a READ status or a summary on a scaffold before — or instead of — its body
+    # reaching PostgreSQL, and `hasContent` must never outrun the prose.
+    content: chapterContent_on_chapter {
+      chapterId
+    }
   }
   codexEntities(
     where: { storyId: { eq: $storyId }, story: { ownerUid: { eq: $ownerUid } } }

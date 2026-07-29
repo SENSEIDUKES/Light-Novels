@@ -152,6 +152,11 @@ function stripDerivedMediaState(value: unknown): unknown {
   delete story.imageHistory;
   delete story.coverAssetId;
   delete story.imageUrl;
+  // Chapter tallies are a server-computed projection of the Chapter rows, not
+  // story state. Diffing them would spend the bounded patch budget restating a
+  // count the server recomputes from the very rows the patch is writing.
+  delete story.totalChapterCount;
+  delete story.generatedChapterCount;
 
   const stripVisualEntity = (entry: unknown): unknown => {
     if (!isRecord(entry)) return entry;
@@ -183,6 +188,11 @@ function stripDerivedMediaState(value: unknown): unknown {
           const stableChapter = { ...chapter };
           delete stableChapter.imageHistory;
           delete stableChapter.heroImageAssetId;
+          // `hasContent` is the server's reading of the chapter body row, not a
+          // column a story write can set. A device that has generated a chapter
+          // locally legitimately disagrees with the cloud until the body write
+          // lands, and that disagreement must not become a patch operation.
+          delete stableChapter.hasContent;
           if (isRecord(stableChapter.assetManifest)) {
             const assetManifest = { ...stableChapter.assetManifest };
             delete assetManifest.heroImage;

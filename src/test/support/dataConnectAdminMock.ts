@@ -30,8 +30,16 @@ export function createDataConnectAdminMock(actual: Record<string, unknown>) {
       ok({ persistenceReceipt: dataConnectStore.getPersistenceReceipt(vars.ownerUid, vars.idempotencyKey) }),
 
     // -------------------------------------------------------------- stories
+    // `@skip(if: $skipChapterCounts)` omits the field entirely rather than
+    // returning an empty array, so a caller that skips it and then reads it
+    // fails here the same way it would against the real connector.
     adminListOwnedStories: async (vars: Vars) =>
-      ok({ stories: dataConnectStore.listOwnedStories(vars.ownerUid, vars.limit ?? 200, vars.offset ?? 0) }),
+      ok({
+        stories: dataConnectStore.listOwnedStories(vars.ownerUid, vars.limit ?? 200, vars.offset ?? 0),
+        ...(vars.skipChapterCounts
+          ? {}
+          : { chapterCounts: dataConnectStore.listOwnedStoryChapterCounts(vars.ownerUid) }),
+      }),
     adminListOwnedStoryCoverSlots: async (vars: Vars) =>
       ok({ coverSlots: dataConnectStore.listOwnedStoryCoverSlots(vars.ownerUid, vars.limit ?? 200, vars.offset ?? 0) }),
     adminGetOwnedStoryGraph: async (vars: Vars) =>

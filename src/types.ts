@@ -1130,6 +1130,18 @@ export interface StorySeed extends StorySeedPayload {
 export interface StoryWorld {
   /** Catalog rows remain compact until the story is explicitly opened. */
   persistenceHydration?: "summary" | "full";
+  /**
+   * Authoritative chapter tallies carried by every catalog row.
+   *
+   * A summary has no `arcs`, so counting them yields 0/0 and the Library used
+   * to render a restored story as empty until its full graph was downloaded.
+   * These two fields are computed from persisted server state — the Chapter
+   * rows themselves — so the Hub renders real progress without hydrating a
+   * single story graph. They are advisory display state: `arcs` remains the
+   * authority whenever a story is fully hydrated.
+   */
+  totalChapterCount?: number;
+  generatedChapterCount?: number;
   /** Transient current-surface descriptors; delivery URLs are never authoritative state. */
   mediaDescriptors?: Record<string, import("./contracts/mediaAssets").MediaAssetDescriptor>;
   /** Canonical Data Connect row identity; new stories use this as `id`. */
