@@ -430,11 +430,15 @@ export function LivingCodexCollage({
     safeFormatDate
   ]);
 
-  const historicalUrls = useHistoricalMediaUrls(
-    memories.map((memoryItem) => ({
+  const historicalReferences = useMemo(
+    () => memories.map((memoryItem) => ({
       assetId: memoryItem.assetId,
       imageUrl: memoryItem.url,
     })),
+    [memories],
+  );
+  const historicalUrls = useHistoricalMediaUrls(
+    historicalReferences,
     activeStory.userId,
   );
   const displayMemories = useMemo(

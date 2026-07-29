@@ -96,18 +96,29 @@ export const StoryDetailScreen: React.FC<{
     ),
     [activeStory],
   );
+  const historicalCoverReferences = React.useMemo(
+    () => (
+      currentScreen === "detail"
+        ? coverHistory.map((image) => ({
+          assetId: image.assetId,
+          imageUrl: image.imageUrl
+            || (
+              isSameAssetId(image.assetId, activeStory?.coverAssetId)
+                ? activeStory?.imageUrl
+                : undefined
+            ),
+        }))
+        : []
+    ),
+    [
+      activeStory?.coverAssetId,
+      activeStory?.imageUrl,
+      coverHistory,
+      currentScreen,
+    ],
+  );
   const historicalCoverUrls = useHistoricalMediaUrls(
-    currentScreen === "detail"
-      ? coverHistory.map((image) => ({
-        assetId: image.assetId,
-        imageUrl: image.imageUrl
-          || (
-            isSameAssetId(image.assetId, activeStory?.coverAssetId)
-              ? activeStory?.imageUrl
-              : undefined
-          ),
-      }))
-      : [],
+    historicalCoverReferences,
     activeStory?.userId,
   );
 
