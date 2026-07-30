@@ -375,7 +375,8 @@ export interface AdminCompleteStoryDeletionJobVariables {
 }
 
 export interface AdminConsumeImageGenerationQuotaData {
-  consumed?: number | null;
+  charged?: unknown | null;
+  consumed?: unknown | null;
 }
 
 export interface AdminConsumeImageGenerationQuotaVariables {
@@ -1971,9 +1972,9 @@ export interface AdminPurgeFoundationStoryVariables {
 
 export interface AdminRecoverPendingUserPortraitsData {
   recoveredPortrait?: unknown | null;
-  deactivated?: number | null;
+  deactivated?: unknown[] | null;
   updatedProfile?: unknown | null;
-  recovered?: number | null;
+  recovered?: unknown | null;
   persistenceReceipt_insert: PersistenceReceipt_Key;
 }
 

@@ -2378,43 +2378,58 @@ mutation AdminConsumeImageGenerationQuota(
       idempotencyKey
     }
   }
-  consumed: _execute(
+  # Keep each write in its own returning native field. The production
+  # transactional wrapper rejects both the old data-modifying CTE and split
+  # plain _execute fields before PostgreSQL can perform either write.
+  charged: _executeReturningFirst(
     sql: """
-      WITH charged AS (
-        UPDATE user_profile
-        SET image_generation_count = CASE
-              WHEN image_quota_reset_at IS NULL OR image_quota_reset_at <= $2 THEN 1
-              ELSE image_generation_count + 1
-            END,
-            image_quota_reset_at = CASE
-              WHEN image_quota_reset_at IS NULL OR image_quota_reset_at <= $2 THEN $3
-              ELSE image_quota_reset_at
-            END,
-            revision = revision + 1,
-            updated_at = NOW()
-        WHERE user_uid = $1
-          AND (
-            image_quota_reset_at IS NULL
-            OR image_quota_reset_at <= $2
-            OR subscription_tier <> 'MORTAL'
-            OR image_generation_count < 4
-          )
-          AND NOT EXISTS (
-            SELECT 1 FROM image_quota_consumption
-            WHERE owner_uid = $1 AND idempotency_key = $4
-          )
-        RETURNING user_uid, image_generation_count, image_quota_reset_at
-      )
-      INSERT INTO image_quota_consumption (
-        owner_uid, idempotency_key, image_generation_count, image_quota_reset_at, consumed_at
-      )
-      SELECT user_uid, $4, image_generation_count, image_quota_reset_at, NOW()
-      FROM charged
+      UPDATE user_profile
+      SET image_generation_count = CASE
+            WHEN image_quota_reset_at IS NULL OR image_quota_reset_at <= $2 THEN 1
+            ELSE image_generation_count + 1
+          END,
+          image_quota_reset_at = CASE
+            WHEN image_quota_reset_at IS NULL OR image_quota_reset_at <= $2 THEN $3
+            ELSE image_quota_reset_at
+          END,
+          revision = revision + 1,
+          updated_at = NOW()
+      WHERE user_uid = $1
+        AND (
+          image_quota_reset_at IS NULL
+          OR image_quota_reset_at <= $2
+          OR subscription_tier <> 'MORTAL'
+          OR image_generation_count < 4
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM image_quota_consumption
+          WHERE owner_uid = $1 AND idempotency_key = $4
+        )
+      RETURNING user_uid AS "userUid"
     """
     params: [$ownerUid, $now, $nextReset, $idempotencyKey]
   ) @check(
-    expr: "this == 1"
+    expr: "this != null"
     message: "Mortal tier limits reached (4 manifestations max per day)"
+  )
+  consumed: _executeReturningFirst(
+    sql: """
+      INSERT INTO image_quota_consumption (
+        owner_uid, idempotency_key, image_generation_count, image_quota_reset_at, consumed_at
+      )
+      SELECT user_uid, $2, image_generation_count, image_quota_reset_at, NOW()
+      FROM user_profile
+      WHERE user_uid = $1
+        AND NOT EXISTS (
+          SELECT 1 FROM image_quota_consumption
+          WHERE owner_uid = $1 AND idempotency_key = $2
+        )
+      RETURNING owner_uid AS "ownerUid"
+    """
+    params: [$ownerUid, $idempotencyKey]
+  ) @check(
+    expr: "this != null"
+    message: "Image quota receipt was not recorded"
   )
 }
 
@@ -2492,7 +2507,7 @@ mutation AdminRecoverPendingUserPortraits(
     """
     params: [$ownerUid]
   )
-  deactivated: _execute(
+  deactivated: _executeReturning(
     sql: """
       UPDATE user_portrait
       SET active = FALSE, updated_at = NOW()
@@ -2500,6 +2515,7 @@ mutation AdminRecoverPendingUserPortraits(
         AND CAST($2 AS uuid) IS NOT NULL
         AND asset_id <> $2
         AND active = TRUE
+      RETURNING asset_id AS "assetId"
     """
     params: [
       $ownerUid
@@ -2523,7 +2539,7 @@ mutation AdminRecoverPendingUserPortraits(
       $idempotencyKey
     ]
   )
-  recovered: _execute(
+  recovered: _executeReturningFirst(
     sql: """
       INSERT INTO persistence_aggregate_version (
         owner_uid, aggregate_kind, aggregate_id, sync_revision, revision, updated_at
@@ -2536,6 +2552,7 @@ mutation AdminRecoverPendingUserPortraits(
         sync_revision = EXCLUDED.sync_revision,
         revision = EXCLUDED.revision,
         updated_at = NOW()
+      RETURNING owner_uid AS "ownerUid"
     """
     params: [
       $ownerUid

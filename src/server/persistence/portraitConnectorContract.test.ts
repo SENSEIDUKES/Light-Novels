@@ -2,7 +2,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-const mutations = readFileSync('dataconnect/connector/mutations.gql', 'utf8');
+const mutations = readFileSync('dataconnect/connector/mutations.gql', 'utf8').replace(
+  /\r\n/g,
+  '\n',
+);
 
 function operation(name: string, nextName: string): string {
   const start = mutations.indexOf(`mutation ${name}(`);
@@ -38,11 +41,15 @@ describe('portrait Data Connect contracts', () => {
     expect(recovery).toContain(
       '{_expr: "response.recoveredPortrait == null ? null : response.recoveredPortrait.assetId"}',
     );
+    expect(recovery).toContain('deactivated: _executeReturning(');
+    expect(recovery).toContain('RETURNING asset_id AS "assetId"');
     expect(recovery).toContain('updatedProfile: _executeReturningFirst(');
     expect(recovery).toContain(
       'SET active_portrait_asset_id = $2,\n          sync_revision = $3,',
     );
-    expect(recovery).toContain('recovered: _execute(');
-    expect(recovery).not.toContain('recovered: _execute(\n    sql: """\n      WITH');
+    expect(recovery).toContain('recovered: _executeReturningFirst(');
+    expect(recovery).toContain('RETURNING owner_uid AS "ownerUid"');
+    expect(recovery).not.toContain('deactivated: _execute(');
+    expect(recovery).not.toContain('recovered: _execute(');
   });
 });
