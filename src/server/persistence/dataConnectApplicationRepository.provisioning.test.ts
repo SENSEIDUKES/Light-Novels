@@ -141,7 +141,7 @@ vi.mock('../../generated/dataconnect-admin', () => ({
   adminListOwnedStorySeeds: vi.fn(async () => ({ data: { storySeeds: [] } })),
   adminRecoverPendingUserPortraits: vi.fn(async () => {
     state.recoveryCalls++;
-    return { data: { recovered: 1 } };
+    return { data: { recoveredPortrait: { assetId: 'recovered-portrait' } } };
   }),
   adminSelectUserPortrait: vi.fn(async (variables: any) => {
     state.portraitSelections.push(variables);

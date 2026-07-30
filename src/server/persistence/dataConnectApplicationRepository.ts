@@ -1384,7 +1384,8 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     if (await this.receipt(ownerUid, idempotencyKey, operation)) return 0;
     try {
       const result = await adminRecoverPendingUserPortraits({ ownerUid, idempotencyKey });
-      return result.data.recovered ?? 0;
+      if (result.data.recoveredPortrait != null) return 1;
+      return typeof result.data.recovered === 'number' ? result.data.recovered : 0;
     } catch (error) {
       if (await this.receipt(ownerUid, idempotencyKey, operation)) return 0;
       throw error;

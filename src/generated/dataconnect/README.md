@@ -11018,7 +11018,8 @@ Recall that executing the `AdminConsumeImageGenerationQuota` mutation returns a 
 The `data` property is an object of type `AdminConsumeImageGenerationQuotaData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 ```typescript
 export interface AdminConsumeImageGenerationQuotaData {
-  consumed?: number | null;
+  charged?: unknown | null;
+  consumed?: unknown | null;
 }
 ```
 ### Using `AdminConsumeImageGenerationQuota`'s action shortcut function
@@ -11045,11 +11046,13 @@ const { data } = await adminConsumeImageGenerationQuota({ ownerUid: ..., idempot
 const dataConnect = getDataConnect(connectorConfig);
 const { data } = await adminConsumeImageGenerationQuota(dataConnect, adminConsumeImageGenerationQuotaVars);
 
+console.log(data.charged);
 console.log(data.consumed);
 
 // Or, you can use the `Promise` API.
 adminConsumeImageGenerationQuota(adminConsumeImageGenerationQuotaVars).then((response) => {
   const data = response.data;
+  console.log(data.charged);
   console.log(data.consumed);
 });
 ```
@@ -11081,11 +11084,13 @@ const ref = adminConsumeImageGenerationQuotaRef(dataConnect, adminConsumeImageGe
 // You can use the `await` keyword to wait for the promise to resolve.
 const { data } = await executeMutation(ref);
 
+console.log(data.charged);
 console.log(data.consumed);
 
 // Or, you can use the `Promise` API.
 executeMutation(ref).then((response) => {
   const data = response.data;
+  console.log(data.charged);
   console.log(data.consumed);
 });
 ```
@@ -11135,9 +11140,9 @@ The `data` property is an object of type `AdminRecoverPendingUserPortraitsData`,
 ```typescript
 export interface AdminRecoverPendingUserPortraitsData {
   recoveredPortrait?: unknown | null;
-  deactivated?: number | null;
+  deactivated?: unknown[] | null;
   updatedProfile?: unknown | null;
-  recovered?: number | null;
+  recovered?: unknown | null;
   persistenceReceipt_insert: PersistenceReceipt_Key;
 }
 ```
