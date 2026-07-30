@@ -22,10 +22,20 @@ describe('image quota Data Connect contracts', () => {
     expect(quota).toContain('@auth(level: NO_ACCESS) @transaction');
     expect(quota).toContain('charged: _executeReturningFirst(');
     expect(quota).toContain('UPDATE user_profile');
-    expect(quota).toContain('RETURNING user_uid AS "userUid"');
+    expect(quota).toContain('user_uid AS "userUid"');
+    expect(quota).toContain('image_generation_count AS "imageGenerationCount"');
+    expect(quota).toContain('image_quota_reset_at AS "imageQuotaResetAt"');
     expect(quota).toContain('consumed: _executeReturningFirst(');
     expect(quota).toContain('INSERT INTO image_quota_consumption');
     expect(quota).toContain('RETURNING owner_uid AS "ownerUid"');
+    expect(quota).toContain(
+      '{_expr: "response.charged == null ? null : response.charged.imageGenerationCount"}',
+    );
+    expect(quota).toContain(
+      '{_expr: "response.charged == null ? null : response.charged.imageQuotaResetAt"}',
+    );
+    expect(quota).toContain('CAST($4 AS timestamptz) IS NOT NULL');
+    expect(quota).not.toContain('FROM user_profile');
     expect(quota.indexOf('UPDATE user_profile')).toBeLessThan(
       quota.indexOf('INSERT INTO image_quota_consumption'),
     );

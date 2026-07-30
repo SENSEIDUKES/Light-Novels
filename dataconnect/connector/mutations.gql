@@ -2405,7 +2405,10 @@ mutation AdminConsumeImageGenerationQuota(
           SELECT 1 FROM image_quota_consumption
           WHERE owner_uid = $1 AND idempotency_key = $4
         )
-      RETURNING user_uid AS "userUid"
+      RETURNING
+        user_uid AS "userUid",
+        image_generation_count AS "imageGenerationCount",
+        image_quota_reset_at AS "imageQuotaResetAt"
     """
     params: [$ownerUid, $now, $nextReset, $idempotencyKey]
   ) @check(
@@ -2417,16 +2420,22 @@ mutation AdminConsumeImageGenerationQuota(
       INSERT INTO image_quota_consumption (
         owner_uid, idempotency_key, image_generation_count, image_quota_reset_at, consumed_at
       )
-      SELECT user_uid, $2, image_generation_count, image_quota_reset_at, NOW()
-      FROM user_profile
-      WHERE user_uid = $1
+      SELECT $1, $2, $3, $4, NOW()
+      WHERE CAST($1 AS text) IS NOT NULL
+        AND CAST($3 AS integer) IS NOT NULL
+        AND CAST($4 AS timestamptz) IS NOT NULL
         AND NOT EXISTS (
           SELECT 1 FROM image_quota_consumption
           WHERE owner_uid = $1 AND idempotency_key = $2
         )
       RETURNING owner_uid AS "ownerUid"
     """
-    params: [$ownerUid, $idempotencyKey]
+    params: [
+      {_expr: "response.charged == null ? null : response.charged.userUid"}
+      $idempotencyKey
+      {_expr: "response.charged == null ? null : response.charged.imageGenerationCount"}
+      {_expr: "response.charged == null ? null : response.charged.imageQuotaResetAt"}
+    ]
   ) @check(
     expr: "this != null"
     message: "Image quota receipt was not recorded"
@@ -2531,7 +2540,10 @@ mutation AdminRecoverPendingUserPortraits(
           updated_at = NOW()
       WHERE user_uid = $1
         AND CAST($2 AS uuid) IS NOT NULL
-      RETURNING user_uid AS "userUid"
+      RETURNING
+        user_uid AS "userUid",
+        sync_revision AS "syncRevision",
+        revision AS "revision"
     """
     params: [
       $ownerUid
@@ -2544,10 +2556,10 @@ mutation AdminRecoverPendingUserPortraits(
       INSERT INTO persistence_aggregate_version (
         owner_uid, aggregate_kind, aggregate_id, sync_revision, revision, updated_at
       )
-      SELECT user_uid, 'USER_PROFILE', user_uid, sync_revision, revision, NOW()
-      FROM user_profile
-      WHERE user_uid = $1
-        AND CAST($2 AS uuid) IS NOT NULL
+      SELECT $1, 'USER_PROFILE', $1, $2, $3, NOW()
+      WHERE CAST($1 AS text) IS NOT NULL
+        AND CAST($2 AS text) IS NOT NULL
+        AND CAST($3 AS bigint) IS NOT NULL
       ON CONFLICT (owner_uid, aggregate_kind, aggregate_id) DO UPDATE SET
         sync_revision = EXCLUDED.sync_revision,
         revision = EXCLUDED.revision,
@@ -2555,8 +2567,9 @@ mutation AdminRecoverPendingUserPortraits(
       RETURNING owner_uid AS "ownerUid"
     """
     params: [
-      $ownerUid
-      {_expr: "response.recoveredPortrait == null ? null : response.recoveredPortrait.assetId"}
+      {_expr: "response.updatedProfile == null ? null : response.updatedProfile.userUid"}
+      {_expr: "response.updatedProfile == null ? null : response.updatedProfile.syncRevision"}
+      {_expr: "response.updatedProfile == null ? null : response.updatedProfile.revision"}
     ]
   )
   persistenceReceipt_insert(
