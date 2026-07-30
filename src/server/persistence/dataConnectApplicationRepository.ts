@@ -67,6 +67,7 @@ import {
   type AdminUpsertStorySeedGraphVariables,
   type AdminUpsertUserProfileGraphVariables,
 } from './graphMapper';
+import { normalizeChapterContentBlockTypes } from '../../lib/chapterBlockNormalization';
 import {
   hydrateProfilePortraitDelivery,
   hydrateStoryMediaDelivery,
@@ -832,18 +833,19 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     if (content.userId && content.userId !== ownerUid) {
       throw taggedError('Chapter content owner mismatch.', 'forbidden');
     }
+    const normalizedContent = normalizeChapterContentBlockTypes(content);
     const operation = 'UPSERT_CHAPTER_CONTENT_GRAPH';
     const hash = mutationIntentHash(
       operation,
       ownerUid,
-      { storyId, content },
+      { storyId, content: normalizedContent },
       context.expected,
     );
     if (await this.receipt(ownerUid, context.idempotencyKey, operation, hash)) {
       const replay = await this.chapterContentWithParentRevision(
         ownerUid,
         storyId,
-        content.chapterNumber,
+        normalizedContent.chapterNumber,
       );
       if (!replay.content) {
         throw new Error('Chapter persistence receipt exists without its content graph.');
@@ -851,7 +853,7 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
       return replay as ChapterWriteResult;
     }
     const storyGraph = await this.storyGraph(ownerUid, storyId);
-    const chapter = storyGraph?.chapters.find(value => value.chapterNumber === content.chapterNumber);
+    const chapter = storyGraph?.chapters.find(value => value.chapterNumber === normalizedContent.chapterNumber);
     if (!storyGraph?.story || !chapter) throw new Error('Chapter scaffold was not found in the owned story.');
     const currentResult = await adminGetOwnedChapterContentGraph({
       ownerUid,
@@ -869,7 +871,10 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     const variables: AdminUpsertChapterContentGraphVariables = mapChapterContentToGraphVariables({
       ownerUid,
       storyId: storyGraph.story.id,
-      content: { ...content, storyId: storyGraph.story.clientStoryId ?? content.storyId },
+      content: {
+        ...normalizedContent,
+        storyId: storyGraph.story.clientStoryId ?? normalizedContent.storyId,
+      },
       currentGraph: currentResult.data,
       // The retired chapter mutation advances the parent Story aggregate guard,
       // not the Chapter row guard. A newly scaffolded chapter intentionally has
@@ -888,7 +893,7 @@ export class DataConnectApplicationRepository implements ApplicationPersistenceR
     const saved = await this.chapterContentWithParentRevision(
       ownerUid,
       storyGraph.story.id,
-      content.chapterNumber,
+      normalizedContent.chapterNumber,
     );
     if (!saved.content) throw new Error('Chapter content committed but could not be read back.');
     return saved as ChapterWriteResult;

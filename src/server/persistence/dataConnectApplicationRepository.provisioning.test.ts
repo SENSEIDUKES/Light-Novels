@@ -496,4 +496,66 @@ describe('canonical profile provisioning', () => {
     expect(write.variables.expectedSyncRevision).toBe('story-rev-5');
     expect(write.variables.newRevision).toBe('6');
   });
+
+  it('canonicalizes a missing seventeenth block type before hashing and mutation execution', async () => {
+    state.profileGraph = emptyProfileGraph();
+    state.storyGraph = storyGraphWithNewChapter();
+    state.chapterGraph = newChapterGraph();
+    const repo = makeRepo();
+    const idempotencyKey = '00000000-0000-4000-8000-000000000017';
+    const blocks = Array.from({ length: 17 }, (_, index) => ({
+      id: `block-${index}`,
+      type: 'paragraph',
+      text: `Chapter prose ${index}.`,
+      metadata: index === 16 ? { sceneType: 'climax', annotations: ['keep-me'] } : undefined,
+    })) as any[];
+    delete blocks[16].type;
+    const content = {
+      storyId: 'story-client-1',
+      userId: ownerUid,
+      chapterNumber: 1,
+      generatedContent: blocks.map(block => block.text).join('\n\n'),
+      blocks,
+      updatedAt: NOW,
+    };
+
+    await expect(repo.saveChapterContent(
+      ownerUid,
+      'story-client-1',
+      content,
+      { idempotencyKey, expected: undefined },
+    )).resolves.toMatchObject({
+      content: {
+        storyId: 'story-client-1',
+        chapterNumber: 1,
+      },
+    });
+
+    const writes = state.executedVars.filter(
+      entry => entry.name === 'AdminUpsertChapterContentGraph',
+    );
+    expect(writes).toHaveLength(1);
+    expect(writes[0].variables.blocks).toHaveLength(17);
+    expect(writes[0].variables.blocks[16]).toMatchObject({
+      legacyBlockId: 'block-16',
+      blockType: 'paragraph',
+      text: 'Chapter prose 16.',
+      sceneType: 'climax',
+    });
+    expect(writes[0].variables.requestHash).toMatch(/^[0-9a-f]{64}$/);
+
+    state.receipts.set(idempotencyKey, {
+      operation: 'UPSERT_CHAPTER_CONTENT_GRAPH',
+      requestHash: writes[0].variables.requestHash,
+    });
+    await expect(repo.saveChapterContent(
+      ownerUid,
+      'story-client-1',
+      content,
+      { idempotencyKey, expected: undefined },
+    )).resolves.toBeTruthy();
+    expect(state.executedVars.filter(
+      entry => entry.name === 'AdminUpsertChapterContentGraph',
+    )).toHaveLength(1);
+  });
 });

@@ -22,6 +22,7 @@ import type {
   StoryWorld,
   UserProfile,
 } from '../../types';
+import { normalizeChapterContentBlockTypes } from '../../lib/chapterBlockNormalization';
 import { normalizeChapterWritingStyle } from '../../lib/chapterWritingStyle';
 import { countHydratedChapters } from '../../lib/chapterCounts';
 import { canonicalAssetId } from '../../contracts/assetIdentity';
@@ -1896,15 +1897,16 @@ function chapterRowFromCurrent(
 export function mapChapterContentToGraphVariables(
   input: ChapterGraphWriteInput,
 ): AdminUpsertChapterContentGraphVariables {
+  const content = normalizeChapterContentBlockTypes(input.content);
   const chapter = input.currentGraph.chapter;
   if (!chapter) throw new Error('Cannot replace chapter content without its current relational scaffold.');
-  if (chapter.storyId !== input.storyId || chapter.chapterNumber !== input.content.chapterNumber) {
+  if (chapter.storyId !== input.storyId || chapter.chapterNumber !== content.chapterNumber) {
     throw new Error('Chapter content identity does not match the current relational graph.');
   }
   const currentContent = chapter.content;
   const allInputBlocks = [
-    ...(input.content.blocks ?? []).map(block => ({ block, isArchived: false })),
-    ...(input.content.archivedBlocks ?? []).map(block => ({ block, isArchived: true })),
+    ...(content.blocks ?? []).map(block => ({ block, isArchived: false })),
+    ...(content.archivedBlocks ?? []).map(block => ({ block, isArchived: true })),
   ];
   const currentByLegacyId = new Map(
     chapter.blocks.map(block => [block.legacyBlockId ?? block.id, block]),
@@ -1965,16 +1967,16 @@ export function mapChapterContentToGraphVariables(
     });
   });
 
-  const translations = input.content.translations === undefined
+  const translations = content.translations === undefined
     ? chapter.translations.map(translation => row({ chapterId: chapter.id, ...translation }))
-    : Object.entries(input.content.translations).map(([languageCode, translation]) => row({
+    : Object.entries(content.translations).map(([languageCode, translation]) => row({
         chapterId: chapter.id,
         languageCode,
         title: translation.title,
         content: translation.content,
         translatedAt: new Date(translation.translatedAt).toISOString(),
       }));
-  const fingerprintSource = input.content.handoff?.fingerprints;
+  const fingerprintSource = content.handoff?.fingerprints;
   const fingerprints = fingerprintSource === undefined
     ? input.currentGraph.fingerprints.map(fingerprint => row({
         id: fingerprint.id,
@@ -1997,9 +1999,9 @@ export function mapChapterContentToGraphVariables(
         location: fingerprint.location,
         outcome: fingerprint.outcome,
         participants: fingerprint.participants,
-        createdAt: input.content.updatedAt ?? chapter.updatedAt,
+        createdAt: content.updatedAt ?? chapter.updatedAt,
       }));
-  const completedEvents = input.content.handoff?.completedEvents;
+  const completedEvents = content.handoff?.completedEvents;
   const facts = completedEvents === undefined
     ? input.currentGraph.facts.map(fact => row({
         id: fact.id,
@@ -2022,7 +2024,7 @@ export function mapChapterContentToGraphVariables(
         factKind: 'COMPLETED_EVENT',
         factText,
         isPinned: false,
-        createdAt: input.content.updatedAt ?? chapter.updatedAt,
+        createdAt: content.updatedAt ?? chapter.updatedAt,
       }));
   const retainedFactIds = new Set(facts.map(fact => fact.id));
   const factSupersessions = input.currentGraph.facts.flatMap(fact =>
@@ -2034,7 +2036,7 @@ export function mapChapterContentToGraphVariables(
         }))
       : []);
 
-  const audioManifest = input.content.audioManifest;
+  const audioManifest = content.audioManifest;
   const audioManifests = audioManifest === undefined
     ? chapter.audioManifest ? [row({ chapterId: chapter.id, ...chapter.audioManifest })] : []
     : [row({
@@ -2042,7 +2044,7 @@ export function mapChapterContentToGraphVariables(
         version: audioManifest.version,
         language: audioManifest.language,
         generatedAt: new Date(audioManifest.generatedAt).toISOString(),
-        updatedAt: input.content.updatedAt ?? chapter.updatedAt,
+        updatedAt: content.updatedAt ?? chapter.updatedAt,
       })];
   const currentVoiceByBlock = new Map(
     chapter.voiceClips.map(clip => [
@@ -2066,7 +2068,7 @@ export function mapChapterContentToGraphVariables(
           speakerVoice: clip.speakerVoice,
           assetId,
           catalogId,
-          createdAt: current?.createdAt ?? input.content.updatedAt ?? chapter.updatedAt,
+          createdAt: current?.createdAt ?? content.updatedAt ?? chapter.updatedAt,
         })];
       });
 
@@ -2076,34 +2078,34 @@ export function mapChapterContentToGraphVariables(
     chapterId: chapter.id,
     chapter: chapterRowFromCurrent(
       chapter,
-      input.content,
+      content,
       blocks,
       input.newSyncRevision,
       int64(input.newRevision),
     ),
     content: row({
       chapterId: chapter.id,
-      generatedContent: input.content.generatedContent,
-      statsChangeMessage: input.content.statsChangeMessage,
+      generatedContent: content.generatedContent,
+      statsChangeMessage: content.statsChangeMessage,
       contextEngine: currentContent?.contextEngine,
       contextRoute: currentContent?.contextRoute,
       contextEstimatedTokens: currentContent?.contextEstimatedTokens,
       contextBudgetTokens: currentContent?.contextBudgetTokens,
-      contractObjective: input.content.contract?.objective ?? currentContent?.contractObjective,
-      contractRequiredOpening: input.content.contract?.requiredOpening ?? currentContent?.contractRequiredOpening,
-      handoffNextImmediateAction: input.content.handoff?.nextImmediateAction,
-      handoffEndLocation: input.content.handoff?.endState.location,
-      handoffEndTimeMarker: input.content.handoff?.endState.timeMarker,
-      handoffMainCharacterCondition: input.content.handoff?.endState.mcCondition,
-      handoffOpenTension: input.content.handoff?.endState.openTension,
-      revisionId: input.content.revisionId,
+      contractObjective: content.contract?.objective ?? currentContent?.contractObjective,
+      contractRequiredOpening: content.contract?.requiredOpening ?? currentContent?.contractRequiredOpening,
+      handoffNextImmediateAction: content.handoff?.nextImmediateAction,
+      handoffEndLocation: content.handoff?.endState.location,
+      handoffEndTimeMarker: content.handoff?.endState.timeMarker,
+      handoffMainCharacterCondition: content.handoff?.endState.mcCondition,
+      handoffOpenTension: content.handoff?.endState.openTension,
+      revisionId: content.revisionId,
       syncRevision: input.newSyncRevision,
       revision: int64(input.newRevision),
-      cuePayload: input.content.cuePayload ? boundedAny(input.content.cuePayload) : undefined,
-      contextManifest: input.content.contextManifest ? boundedAny(input.content.contextManifest) : undefined,
-      handoff: input.content.handoff ? boundedAny(input.content.handoff) : undefined,
-      contract: input.content.contract ? boundedAny(input.content.contract) : undefined,
-      updatedAt: input.content.updatedAt ?? chapter.updatedAt,
+      cuePayload: content.cuePayload ? boundedAny(content.cuePayload) : undefined,
+      contextManifest: content.contextManifest ? boundedAny(content.contextManifest) : undefined,
+      handoff: content.handoff ? boundedAny(content.handoff) : undefined,
+      contract: content.contract ? boundedAny(content.contract) : undefined,
+      updatedAt: content.updatedAt ?? chapter.updatedAt,
     }),
     blockIds: blocks.map(block => String(block.id)),
     blocks,
