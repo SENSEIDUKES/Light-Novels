@@ -1,4 +1,5 @@
 import { secureStorage } from '../lib/encryption';
+import { normalizeStoryBlockType } from '../lib/chapterBlockNormalization';
 import { StoryMemory } from '../types';
 
 export const getApiHeaders = async () => {
@@ -66,11 +67,11 @@ const normalizeGeneratedWorldCard = (worldCard: any) => {
   return Object.keys(sound).length > 0 ? { ...card, sound } : card;
 };
 
-const normalizeBlockText = (b: any) => ({
+const normalizeGeneratedBlock = (b: any, index: number) => normalizeStoryBlockType({
   ...b,
   ...(b.worldCard ? { worldCard: normalizeGeneratedWorldCard(b.worldCard) } : {}),
   text: typeof b.text === 'string' && b.text ? b.text : (typeof b.content === 'string' ? b.content : (b.text ?? '')),
-});
+}, `blocks[${index}]`);
 
 export const extractJsonBlocks = (rawStr: string): any[] => {
   try {
@@ -78,7 +79,7 @@ export const extractJsonBlocks = (rawStr: string): any[] => {
     if (arrayMatch) {
        const parsed = JSON.parse(arrayMatch[0]);
        if (Array.isArray(parsed) && parsed.length > 0 && isRenderableBlock(parsed[0])) {
-          return parsed.map(normalizeBlockText);
+          return parsed.map(normalizeGeneratedBlock);
        }
     }
   } catch {}
@@ -91,7 +92,7 @@ export const extractJsonBlocks = (rawStr: string): any[] => {
       try {
         const obj = JSON.parse(trimmed);
         if (isRenderableBlock(obj)) {
-          blocks.push(normalizeBlockText(obj));
+          blocks.push(normalizeGeneratedBlock(obj, blocks.length));
         }
       } catch {}
     }
@@ -134,7 +135,7 @@ export const extractJsonBlocks = (rawStr: string): any[] => {
             const fixStr = currentBlock.replace(/,\s*([\]}])/g, '$1');
             const obj = JSON.parse(fixStr);
             if (isRenderableBlock(obj)) {
-              braceBlocks.push(normalizeBlockText(obj));
+              braceBlocks.push(normalizeGeneratedBlock(obj, braceBlocks.length));
             }
           } catch {}
         }

@@ -15,6 +15,7 @@ Some text after`;
       expect(result).toHaveLength(2);
       expect(result[0].text).toBe('block 1');
       expect(result[1].text).toBe('block 2');
+      expect(result.map(block => block.type)).toEqual(['paragraph', 'paragraph']);
     });
 
     it('extracts individual JSON objects from lines', () => {
@@ -27,6 +28,7 @@ some random text
       expect(result).toHaveLength(2);
       expect(result[0].text).toBe('block 1');
       expect(result[1].text).toBe('block 2');
+      expect(result.map(block => block.type)).toEqual(['paragraph', 'paragraph']);
     });
 
     it('extracts nested JSON objects safely', () => {
@@ -58,6 +60,7 @@ some random text
       expect(result).toHaveLength(1);
       expect(result[0].worldCard.entityName).toBe('Moon Cauldron');
       expect(result[0].text).toBe('');
+      expect(result[0].type).toBe('paragraph');
     });
 
     it('keeps generated World Card sound hints but strips catalog identities and URLs', () => {
@@ -98,6 +101,26 @@ some random text
       expect(result[0].system.kind).toBe('level_up');
       expect(result[0].system.rows).toHaveLength(1);
       expect(result[0].system.rarity).toBe('Mythic');
+    });
+
+    it('repairs a missing type on the seventeenth generated prose block', () => {
+      const raw = Array.from({ length: 17 }, (_, index) => JSON.stringify({
+        id: `c1-p${index + 1}`,
+        ...(index === 16 ? {} : { type: index === 3 ? 'dialogue' : 'paragraph' }),
+        text: `Generated block ${index + 1}.`,
+        ...(index === 16 ? { metadata: { sceneType: 'climax', intensity: 0.9 } } : {}),
+      })).join('\n');
+
+      const result = extractJsonBlocks(raw);
+
+      expect(result).toHaveLength(17);
+      expect(result[16]).toMatchObject({
+        id: 'c1-p17',
+        type: 'paragraph',
+        text: 'Generated block 17.',
+        metadata: { sceneType: 'climax', intensity: 0.9 },
+      });
+      expect(result[3].type).toBe('dialogue');
     });
   });
 

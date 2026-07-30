@@ -866,6 +866,145 @@ describe('chapter content graph mapping', () => {
     });
   });
 
+  it('normalizes missing active and archived block types without losing chapter data', () => {
+    const currentGraph = chapterGraph();
+    const content = hydrateChapterContent(currentGraph)!;
+    const activeBlocks = Array.from({ length: 17 }, (_, index) => ({
+      ...content.blocks![0],
+      id: `active-${index}`,
+      type: index === 0 ? 'narration' : 'paragraph',
+      text: `Active prose ${index}`,
+      metadata: index === 16 ? {
+        speakerName: 'Lin',
+        speakerRole: 'main_character',
+        mode: 'narration',
+        sceneType: 'climax',
+        environment: ['moon-terrace'],
+        atmosphereTags: ['silver-wind'],
+        theme: ['resolve'],
+        motion: 'advancing',
+        emotion: 'determined',
+        intensity: 0.9,
+        tension: 0.8,
+        danger: 0.7,
+        mysticism: 0.6,
+        audioSignature: 'moon-climax',
+        entities: [{ name: 'Lin', type: 'character', mention: 'reference' }],
+        music: { mood: 'triumph', intensity: 0.8 },
+      } : undefined,
+    })) as any[];
+    delete activeBlocks[16].type;
+    const archivedBlocks = [
+      {
+        id: 'archived-system',
+        text: '',
+        system: {
+          kind: 'level_up',
+          promptType: 'breakthrough',
+          title: 'Moon Core Awakened',
+        },
+      },
+      {
+        id: 'archived-card',
+        type: '   ',
+        text: '',
+        worldCard: {
+          entityType: 'artifact',
+          entityName: 'Moon Ledger',
+          displayTitle: 'Moon Ledger',
+        },
+      },
+      {
+        id: 'archived-null-type',
+        type: null,
+        text: 'An archived paragraph keeps its original prose.',
+        metadata: { emotion: 'reflective' },
+      },
+    ] as any[];
+
+    const variables = mapChapterContentToGraphVariables({
+      ownerUid: 'owner-a',
+      storyId: STORY_ID,
+      content: { ...content, blocks: activeBlocks, archivedBlocks },
+      currentGraph,
+      ...mutationMetadata(),
+    });
+
+    expect(variables.blocks).toHaveLength(20);
+    expect(variables.blocks.every(block =>
+      typeof block.blockType === 'string' && block.blockType.length > 0,
+    )).toBe(true);
+    expect(variables.blocks.map(block => block.position)).toEqual(
+      Array.from({ length: 20 }, (_, index) => index),
+    );
+    expect(variables.blocks[0]).toMatchObject({
+      legacyBlockId: 'active-0',
+      blockType: 'narration',
+      text: 'Active prose 0',
+      isArchived: false,
+    });
+    expect(variables.blocks[16]).toMatchObject({
+      legacyBlockId: 'active-16',
+      blockType: 'paragraph',
+      text: 'Active prose 16',
+      speakerName: 'Lin',
+      speakerRole: 'main_character',
+      mode: 'narration',
+      sceneType: 'climax',
+      environment: ['moon-terrace'],
+      atmosphereTags: ['silver-wind'],
+      theme: ['resolve'],
+      motion: 'advancing',
+      emotion: 'determined',
+      intensity: 0.9,
+      tension: 0.8,
+      danger: 0.7,
+      mysticism: 0.6,
+      audioSignature: 'moon-climax',
+      music: { mood: 'triumph', intensity: 0.8 },
+      isArchived: false,
+    });
+    expect(variables.blockEntityMentions).toEqual([
+      expect.objectContaining({ blockId: variables.blocks[16].id, name: 'Lin' }),
+    ]);
+    expect(variables.blocks[17]).toMatchObject({
+      legacyBlockId: 'archived-system',
+      blockType: 'paragraph',
+      text: '',
+      isArchived: true,
+      systemEvent: expect.objectContaining({ title: 'Moon Core Awakened' }),
+    });
+    expect(variables.blocks[18]).toMatchObject({
+      legacyBlockId: 'archived-card',
+      blockType: 'paragraph',
+      text: '',
+      isArchived: true,
+      worldCard: expect.objectContaining({ entityName: 'Moon Ledger' }),
+    });
+    expect(variables.blocks[19]).toMatchObject({
+      legacyBlockId: 'archived-null-type',
+      blockType: 'paragraph',
+      text: 'An archived paragraph keeps its original prose.',
+      emotion: 'reflective',
+      isArchived: true,
+    });
+  });
+
+  it('fails before Data Connect when a missing block type cannot be inferred safely', () => {
+    const currentGraph = chapterGraph();
+    const content = hydrateChapterContent(currentGraph)!;
+
+    expect(() => mapChapterContentToGraphVariables({
+      ownerUid: 'owner-a',
+      storyId: STORY_ID,
+      content: { ...content, blocks: [{ id: 'empty', text: '' } as any] },
+      currentGraph,
+      ...mutationMetadata(),
+    })).toThrow(
+      'Chapter blocks[0] is missing a block type and has no prose, system event, or world card to infer safely.',
+    );
+  });
+
   // `hasContent` is derived from `contentHash || versionId || summary`. A
   // placeholder summary persists as an empty string, so without a hash the
   // scaffold hydrated as contentless and the reader never fetched the body.
@@ -912,6 +1051,11 @@ describe('chapter content graph mapping', () => {
         metadata: { ...content.blocks![0].metadata, speakerName: 'Kang' },
       }],
     })).not.toBe(baseline);
+    const missingType = { ...content.blocks![0] } as any;
+    delete missingType.type;
+    expect(hashFor({ blocks: [missingType] })).toBe(hashFor({
+      blocks: [{ ...content.blocks![0], type: 'paragraph' }],
+    }));
     // Re-saving identical content must not churn the hash.
     expect(hashFor({})).toBe(baseline);
     // A scaffold with no body must not mint a hash that fakes content.

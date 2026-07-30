@@ -423,9 +423,15 @@ export class InMemoryDataConnect {
       [clone(variables.chapter as Row)],
       ['id'],
     );
+    const chapterBlocks = rows(variables, 'blocks');
+    chapterBlocks.forEach((block, index) => {
+      if (typeof block.blockType !== 'string' || block.blockType.trim().length === 0) {
+        throw new Error(`$blocks[${index}].blockType (String) is missing`);
+      }
+    });
     this.chapterContents.set(chapterId, {
       content: clone(variables.content as Row),
-      blocks: rows(variables, 'blocks'),
+      blocks: chapterBlocks,
       blockAttributes: rows(variables, 'blockAttributes'),
       blockEntityMentions: rows(variables, 'blockEntityMentions'),
       translations: rows(variables, 'translations'),

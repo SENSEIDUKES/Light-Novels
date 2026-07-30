@@ -24,6 +24,7 @@ import {
 import {
   JOURNEY_UID,
   STORY_ID,
+  makeChapterBlocks,
   makeChapterContent,
   makeStory,
 } from '../support/journeyFixtures';
@@ -72,6 +73,64 @@ describe('Chapter persistence journey', () => {
 
     expect(content?.generatedContent).toContain('azure gate hummed');
     expect(content?.blocks).toHaveLength(4);
+  });
+
+  it('restores one complete generated chapter and a 1/10 catalog tally in a fresh session', async () => {
+    const chapters = Array.from({ length: 10 }, (_, index) => ({
+      number: index + 1,
+      title: `Chapter ${index + 1}`,
+      premise: `Scaffold ${index + 1}`,
+      status: 'unread' as const,
+    }));
+    await harness.storage.saveStory(makeStory({
+      currentChapterNumber: 1,
+      arcs: [{
+        title: 'Act I: Ten Scaffolds',
+        isCompleted: false,
+        chapters,
+      }],
+    }));
+    await harness.sync();
+
+    const blocks = [
+      ...makeChapterBlocks(),
+      ...Array.from({ length: 13 }, (_, index) => ({
+        id: `chapter-one-extra-${index + 5}`,
+        type: 'paragraph',
+        text: `Chapter One durable prose block ${index + 5}.`,
+        metadata: { sceneType: 'ascent', orderMarker: index + 5 },
+      })),
+    ] as any[];
+    delete blocks[16].type;
+    const completeProse = blocks.map(block => block.text).join('\n\n');
+    await harness.storage.saveChapterContent(makeChapterContent({
+      chapterNumber: 1,
+      generatedContent: completeProse,
+      blocks,
+      summary: 'Shuye completes the first of ten chapter scaffolds.',
+    }));
+    await harness.sync();
+
+    const fresh = await harness.newDevice();
+    await harness.signIn(JOURNEY_UID, 'reader@example.com');
+    const catalogStory = (await fresh.getStories()).find(story => story.id === STORY_ID);
+    const fullStory = await fresh.getStory(STORY_ID);
+    const restored = await fresh.getChapterContent(STORY_ID, 1);
+
+    expect(catalogStory).toMatchObject({
+      totalChapterCount: 10,
+      generatedChapterCount: 1,
+    });
+    expect(fullStory?.arcs).toHaveLength(1);
+    expect(fullStory?.arcs[0].chapters).toHaveLength(10);
+    expect(restored?.generatedContent).toBe(completeProse);
+    expect(restored?.blocks).toHaveLength(17);
+    expect(restored?.blocks?.[16]).toMatchObject({
+      id: 'chapter-one-extra-17',
+      type: 'paragraph',
+      text: 'Chapter One durable prose block 17.',
+      metadata: { sceneType: 'ascent' },
+    });
   });
 
   it('keeps a chapter edit after a reload and republishes it to the cloud', async () => {
