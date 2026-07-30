@@ -138,7 +138,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                   <button
                     type="button"
                     onClick={() => setDeleteInput('DELETE')}
-                    className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-sc font-bold border border-portal/30 bg-portal/10 text-portal hover:bg-portal hover:text-black rounded transition-all duration-300 cursor-pointer focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2"
+                    className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-sc font-bold border border-portal/30 bg-portal/10 text-portal hover:bg-portal hover:text-black rounded transition-all duration-300 cursor-pointer focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
                     title="Auto-fill delete text"
                     aria-label="Auto-fill delete text"
                   >
@@ -150,7 +150,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                   placeholder="DELETE"
                   value={deleteInput}
                   onChange={(e) => setDeleteInput(e.target.value)}
-                  className="w-full bg-void text-xs text-signal border border-neutral-700 focus:border-red-500 p-2 rounded focus:outline-none font-mono placeholder:text-neutral-700 focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2" id="a11y-control-yjtvc74"
+                  className="w-full bg-void text-xs text-signal border border-neutral-700 focus:border-red-500 p-2 rounded font-mono placeholder:text-neutral-700 focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900" id="a11y-control-yjtvc74"
                 />
               </div>
 
@@ -161,7 +161,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                     setDeletePrompt(null);
                     setDeleteInput('');
                   }}
-                  className="px-4 py-2 bg-void border border-neutral-700 text-neutral-300 rounded font-sc text-xs hover:bg-neutral-800 transition-colors focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2"
+                  className="px-4 py-2 bg-void border border-neutral-700 text-neutral-300 rounded font-sc text-xs hover:bg-neutral-800 transition-colors focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
                 >
                   Cancel
                 </button>
@@ -178,7 +178,7 @@ export default function AkashaRecord({ memory, onUpdateMemory }: AkashaRecordPro
                       setDeleteInput('');
                     }
                   }}
-                  className={`px-4 py-2 bg-red-900 border border-red-700 text-white rounded font-sc font-bold text-xs transition-colors focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2 ${deleteInput === 'DELETE' ? 'hover:bg-red-800' : 'opacity-50 cursor-not-allowed'}`}
+                  className={`px-4 py-2 bg-red-900 border border-red-700 text-white rounded font-sc font-bold text-xs transition-colors focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900 ${deleteInput === 'DELETE' ? 'hover:bg-red-800' : 'opacity-50 cursor-not-allowed'}`}
                 >
                   Sever Karma
                 </button>
