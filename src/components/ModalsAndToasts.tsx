@@ -736,28 +736,29 @@ export const ModalsAndToasts: React.FC = () => {
               </p>
               
               <div className="mb-6">
-                <label className="text-[10px] text-neutral-500 uppercase tracking-widest font-mono block mb-2" htmlFor="delete-story-input">
-                  Type <span className="text-red-400 font-bold">DELETE</span> to confirm{' '}
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <label className="text-[10px] text-neutral-500 uppercase tracking-widest font-mono" htmlFor="delete-story-input">
+                    Type <span className="text-red-400 font-bold">DELETE</span> to confirm
+                  </label>
                   <button
                     type="button"
                     onClick={() => {
                       vibrate('softTap');
                       setDeleteText('DELETE');
                     }}
-                    className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-sc font-bold border border-portal/30 bg-portal/10 text-portal hover:bg-portal hover:text-black rounded transition-all duration-300 cursor-pointer focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2"
+                    className="inline-flex shrink-0 items-center px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-sc font-bold border border-portal/30 bg-portal/10 text-portal hover:bg-portal hover:text-black rounded transition-all duration-300 cursor-pointer focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2"
                     title="Auto-fill delete text"
                     aria-label="Auto-fill delete text"
                   >
                     Auto-Fill
                   </button>
-                </label>
+                </div>
                 <input
                   type="text"
                   id="delete-story-input"
                   placeholder="DELETE"
                   value={deleteText}
                   onChange={(e) => setDeleteText(e.target.value)}
-                  aria-label="Type DELETE to confirm"
                   className="w-full bg-void text-xs text-signal border border-neutral-700 focus:border-red-500 p-2 rounded focus:outline-none font-mono placeholder:text-neutral-700 focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2"
                 />
               </div>
