@@ -11134,6 +11134,9 @@ Recall that executing the `AdminRecoverPendingUserPortraits` mutation returns a 
 The `data` property is an object of type `AdminRecoverPendingUserPortraitsData`, which is defined in [dataconnect/index.d.ts](./index.d.ts). It has the following fields:
 ```typescript
 export interface AdminRecoverPendingUserPortraitsData {
+  recoveredPortrait?: unknown | null;
+  deactivated?: number | null;
+  updatedProfile?: unknown | null;
   recovered?: number | null;
   persistenceReceipt_insert: PersistenceReceipt_Key;
 }
@@ -11160,12 +11163,18 @@ const { data } = await adminRecoverPendingUserPortraits({ ownerUid: ..., idempot
 const dataConnect = getDataConnect(connectorConfig);
 const { data } = await adminRecoverPendingUserPortraits(dataConnect, adminRecoverPendingUserPortraitsVars);
 
+console.log(data.recoveredPortrait);
+console.log(data.deactivated);
+console.log(data.updatedProfile);
 console.log(data.recovered);
 console.log(data.persistenceReceipt_insert);
 
 // Or, you can use the `Promise` API.
 adminRecoverPendingUserPortraits(adminRecoverPendingUserPortraitsVars).then((response) => {
   const data = response.data;
+  console.log(data.recoveredPortrait);
+  console.log(data.deactivated);
+  console.log(data.updatedProfile);
   console.log(data.recovered);
   console.log(data.persistenceReceipt_insert);
 });
@@ -11196,12 +11205,18 @@ const ref = adminRecoverPendingUserPortraitsRef(dataConnect, adminRecoverPending
 // You can use the `await` keyword to wait for the promise to resolve.
 const { data } = await executeMutation(ref);
 
+console.log(data.recoveredPortrait);
+console.log(data.deactivated);
+console.log(data.updatedProfile);
 console.log(data.recovered);
 console.log(data.persistenceReceipt_insert);
 
 // Or, you can use the `Promise` API.
 executeMutation(ref).then((response) => {
   const data = response.data;
+  console.log(data.recoveredPortrait);
+  console.log(data.deactivated);
+  console.log(data.updatedProfile);
   console.log(data.recovered);
   console.log(data.persistenceReceipt_insert);
 });

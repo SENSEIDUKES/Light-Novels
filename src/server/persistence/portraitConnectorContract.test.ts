@@ -30,5 +30,12 @@ describe('portrait Data Connect contracts', () => {
     expect(recovery).toContain('SELECT 1 FROM user_portrait');
     expect(recovery).toContain('asset.created_at > profile.active_selected_at');
     expect(recovery).toContain('FOR UPDATE OF profile');
+    expect(recovery).toContain('recoveredPortrait: _executeReturningFirst(');
+    expect(recovery).toContain('RETURNING asset_id AS "assetId"');
+    expect(recovery).toContain(
+      '{_expr: "response.recoveredPortrait == null ? null : response.recoveredPortrait.assetId"}',
+    );
+    expect(recovery).toContain('recovered: _execute(');
+    expect(recovery).not.toContain('recovered: _execute(\n    sql: """\n      WITH');
   });
 });
