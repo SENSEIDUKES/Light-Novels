@@ -7,19 +7,17 @@ const mutations = readFileSync('dataconnect/connector/mutations.gql', 'utf8').re
   '\n',
 );
 
-function operation(name: string, nextName: string): string {
+function operation(name: string): string {
   const start = mutations.indexOf(`mutation ${name}(`);
-  const end = mutations.indexOf(`mutation ${nextName}(`, start + 1);
-  if (start < 0 || end < 0) throw new Error(`Could not locate ${name} in the connector.`);
+  if (start < 0) throw new Error(`Could not locate ${name} in the connector.`);
+  const nextMutation = mutations.indexOf('\nmutation ', start + 1);
+  const end = nextMutation < 0 ? mutations.length : nextMutation;
   return mutations.slice(start, end);
 }
 
 describe('image quota Data Connect contracts', () => {
   it('executes the quota charge and receipt insert as separate transactional writes', () => {
-    const quota = operation(
-      'AdminConsumeImageGenerationQuota',
-      'AdminRecoverPendingUserPortraits',
-    );
+    const quota = operation('AdminConsumeImageGenerationQuota');
 
     expect(quota).toContain('@auth(level: NO_ACCESS) @transaction');
     expect(quota).toContain('charged: _executeReturningFirst(');

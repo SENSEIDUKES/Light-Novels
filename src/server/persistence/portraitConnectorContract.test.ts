@@ -7,16 +7,17 @@ const mutations = readFileSync('dataconnect/connector/mutations.gql', 'utf8').re
   '\n',
 );
 
-function operation(name: string, nextName: string): string {
+function operation(name: string): string {
   const start = mutations.indexOf(`mutation ${name}(`);
-  const end = mutations.indexOf(`mutation ${nextName}(`, start + 1);
-  if (start < 0 || end < 0) throw new Error(`Could not locate ${name} in the connector.`);
+  if (start < 0) throw new Error(`Could not locate ${name} in the connector.`);
+  const nextMutation = mutations.indexOf('\nmutation ', start + 1);
+  const end = nextMutation < 0 ? mutations.length : nextMutation;
   return mutations.slice(start, end);
 }
 
 describe('portrait Data Connect contracts', () => {
   it('accepts only READY account-scoped Celestial Portrait images for selection', () => {
-    const selection = operation('AdminSelectUserPortrait', 'AdminEnsureMediaDeletionIntent');
+    const selection = operation('AdminSelectUserPortrait');
 
     expect(selection).toContain("assetType @check(expr: \"this == 'IMAGE'\"");
     expect(selection).toContain("purpose @check(expr: \"this == 'CELESTIAL_PORTRAIT'\"");
@@ -24,7 +25,7 @@ describe('portrait Data Connect contracts', () => {
   });
 
   it('recovers account portrait assets directly without requiring a story media slot', () => {
-    const recovery = operation('AdminRecoverPendingUserPortraits', 'AdminUpdateAccountAccess');
+    const recovery = operation('AdminRecoverPendingUserPortraits');
 
     expect(recovery).toContain('FROM media_asset AS asset');
     expect(recovery).not.toContain('FROM media_slot');
