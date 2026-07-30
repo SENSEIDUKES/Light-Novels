@@ -2497,6 +2497,7 @@ mutation AdminRecoverPendingUserPortraits(
       UPDATE user_portrait
       SET active = FALSE, updated_at = NOW()
       WHERE user_uid = $1
+        AND CAST($2 AS uuid) IS NOT NULL
         AND asset_id <> $2
         AND active = TRUE
     """

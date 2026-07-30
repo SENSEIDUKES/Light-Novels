@@ -33,6 +33,9 @@ describe('portrait Data Connect contracts', () => {
     expect(recovery).toContain('recoveredPortrait: _executeReturningFirst(');
     expect(recovery).toContain('RETURNING asset_id AS "assetId"');
     expect(recovery).toContain(
+      'WHERE user_uid = $1\n        AND CAST($2 AS uuid) IS NOT NULL\n        AND asset_id <> $2',
+    );
+    expect(recovery).toContain(
       '{_expr: "response.recoveredPortrait == null ? null : response.recoveredPortrait.assetId"}',
     );
     expect(recovery).toContain('recovered: _execute(');
