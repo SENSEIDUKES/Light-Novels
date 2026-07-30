@@ -429,6 +429,25 @@ function dropTransientMedia(
 }
 
 /**
+ * Prepare a locally-created cloud-mode story for its durable replica.
+ *
+ * Generated stories can still carry render-only previews before their media
+ * has a canonical asset id. Dropping those known transient fields keeps the
+ * permanent narrative and lets the durable outbox record the write. The
+ * regular cloud helper still performs the final strict assertion, so binary
+ * data or temporary media under any unrelated field continues to fail loudly.
+ */
+export function prepareCloudStoryReplicaPayload<T>(
+  value: T,
+  temporaryMediaHosts: readonly string[] = DEFAULT_TEMPORARY_MEDIA_HOSTS,
+): T {
+  return prepareCloudReplicaPayload(
+    dropTransientMedia(value, temporaryMediaHosts, new WeakMap<object, unknown>()) as T,
+    temporaryMediaHosts,
+  );
+}
+
+/**
  * Prepare a chapter body for PostgreSQL.
  *
  * A block's `worldCard.imageUrl` routinely holds a provider preview that the

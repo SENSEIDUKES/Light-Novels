@@ -2433,7 +2433,10 @@ mutation AdminRecoverPendingUserPortraits(
       idempotencyKey
     }
   }
-  recovered: _execute(
+  # SQL Connect wraps each native root field before PostgreSQL executes it, so
+  # data-modifying CTEs here are not top-level DML at runtime. Keep each write
+  # separate and pass the recovered key through the transactional response.
+  recoveredPortrait: _executeReturningFirst(
     sql: """
       WITH profile_state AS (
         SELECT
@@ -2475,46 +2478,69 @@ mutation AdminRecoverPendingUserPortraits(
           (asset.id = profile.active_portrait_asset_id) DESC,
           asset.created_at DESC
         LIMIT 1
-      ), recovered_portrait AS (
-        INSERT INTO user_portrait (
-          asset_id, user_uid, used_reference_image, active, created_at, updated_at
-        )
-        SELECT asset_id, $1, FALSE, TRUE, NOW(), NOW()
-        FROM candidate
-        ON CONFLICT (asset_id) DO UPDATE SET
-          user_uid = EXCLUDED.user_uid,
-          active = TRUE,
-          updated_at = NOW()
-        RETURNING asset_id, user_uid
-      ), deactivated AS (
-        UPDATE user_portrait AS portrait
-        SET active = FALSE, updated_at = NOW()
-        FROM recovered_portrait
-        WHERE portrait.user_uid = $1
-          AND portrait.asset_id <> recovered_portrait.asset_id
-          AND portrait.active = TRUE
-        RETURNING portrait.asset_id
-      ), updated_profile AS (
-        UPDATE user_profile AS profile
-        SET active_portrait_asset_id = recovered_portrait.asset_id,
-            sync_revision = $2,
-            revision = profile.revision + 1,
-            updated_at = NOW()
-        FROM recovered_portrait
-        WHERE profile.user_uid = $1
-        RETURNING profile.user_uid, profile.sync_revision, profile.revision
       )
+      INSERT INTO user_portrait (
+        asset_id, user_uid, used_reference_image, active, created_at, updated_at
+      )
+      SELECT asset_id, $1, FALSE, TRUE, NOW(), NOW()
+      FROM candidate
+      ON CONFLICT (asset_id) DO UPDATE SET
+        user_uid = EXCLUDED.user_uid,
+        active = TRUE,
+        updated_at = NOW()
+      RETURNING asset_id AS "assetId"
+    """
+    params: [$ownerUid]
+  )
+  deactivated: _execute(
+    sql: """
+      UPDATE user_portrait
+      SET active = FALSE, updated_at = NOW()
+      WHERE user_uid = $1
+        AND CAST($2 AS uuid) IS NOT NULL
+        AND asset_id <> $2
+        AND active = TRUE
+    """
+    params: [
+      $ownerUid
+      {_expr: "response.recoveredPortrait == null ? null : response.recoveredPortrait.assetId"}
+    ]
+  )
+  updatedProfile: _executeReturningFirst(
+    sql: """
+      UPDATE user_profile
+      SET active_portrait_asset_id = $2,
+          sync_revision = $3,
+          revision = revision + 1,
+          updated_at = NOW()
+      WHERE user_uid = $1
+        AND CAST($2 AS uuid) IS NOT NULL
+      RETURNING user_uid AS "userUid"
+    """
+    params: [
+      $ownerUid
+      {_expr: "response.recoveredPortrait == null ? null : response.recoveredPortrait.assetId"}
+      $idempotencyKey
+    ]
+  )
+  recovered: _execute(
+    sql: """
       INSERT INTO persistence_aggregate_version (
         owner_uid, aggregate_kind, aggregate_id, sync_revision, revision, updated_at
       )
       SELECT user_uid, 'USER_PROFILE', user_uid, sync_revision, revision, NOW()
-      FROM updated_profile
+      FROM user_profile
+      WHERE user_uid = $1
+        AND CAST($2 AS uuid) IS NOT NULL
       ON CONFLICT (owner_uid, aggregate_kind, aggregate_id) DO UPDATE SET
         sync_revision = EXCLUDED.sync_revision,
         revision = EXCLUDED.revision,
         updated_at = NOW()
     """
-    params: [$ownerUid, $idempotencyKey]
+    params: [
+      $ownerUid
+      {_expr: "response.recoveredPortrait == null ? null : response.recoveredPortrait.assetId"}
+    ]
   )
   persistenceReceipt_insert(
     data: {

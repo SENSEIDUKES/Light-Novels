@@ -11,6 +11,7 @@ import { LocalStorageFallbackAdapter } from "./localStorageAdapter";
 import {
   DataConnectStorageAdapter,
   prepareCloudReplicaPayload,
+  prepareCloudStoryReplicaPayload,
   prepareLocalMediaReplicaPayload,
 } from "./dataConnectStorageAdapter";
 import { auth } from "../firebase";
@@ -3033,10 +3034,13 @@ export class PersistentStorageManager implements StorageAdapter {
         // In cloud mode, the offline replica obeys the same permanent-media
         // boundary as PostgreSQL: canonical ids survive, while provider,
         // blob/base64, and signed delivery projections never become durable.
+        // A locally-generated story may still carry render-only media without
+        // an asset id; drop only those known projections before validating the
+        // rest of the payload.
         // Device-only mode retains its legacy unassociated-image behavior.
         const durableLocalStory = LOCAL_ONLY_MODE
           ? strippedStory
-          : prepareCloudReplicaPayload(strippedStory);
+          : prepareCloudStoryReplicaPayload(strippedStory);
         await this.localAdapter.saveStory(durableLocalStory);
       } catch (e) {
         console.error("Failed to save story locally; cloud sync was not queued:", e);

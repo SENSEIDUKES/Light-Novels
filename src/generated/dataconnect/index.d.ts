@@ -1970,6 +1970,9 @@ export interface AdminPurgeFoundationStoryVariables {
 }
 
 export interface AdminRecoverPendingUserPortraitsData {
+  recoveredPortrait?: unknown | null;
+  deactivated?: number | null;
+  updatedProfile?: unknown | null;
   recovered?: number | null;
   persistenceReceipt_insert: PersistenceReceipt_Key;
 }
