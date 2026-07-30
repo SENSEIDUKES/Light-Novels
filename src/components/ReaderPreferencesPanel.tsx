@@ -4,6 +4,7 @@ import {
   Check,
   ChevronDown,
   Eye,
+  Layers,
   Palette,
   Play,
   RotateCcw,
@@ -47,6 +48,13 @@ const DIVIDER_STYLE_OPTIONS = [
   { value: 'celestial', label: 'Celestial Crest' },
   { value: 'sword_qi', label: 'Sword Qi Horizon' },
   { value: 'lotus_path', label: 'Lotus Serenity' },
+] as const;
+
+const VIGNETTE_STYLE_OPTIONS = [
+  { value: 'off', label: 'Classic Clean' },
+  { value: 'cinematic', label: 'Radial Shadow' },
+  { value: 'cosmic', label: 'Celestial Mist' },
+  { value: 'scroll', label: 'Ancient Scroll' },
 ] as const;
 
 type NumericTypographyPreference =
@@ -297,6 +305,21 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
                   <button key={option.value} type="button" onClick={() => handleUpdatePreference('playerStyle', option.value)} className={choiceClass((currentPrefs.playerStyle || 'vinyl') === option.value)}>
                     <span>{option.label}</span>
                     {(currentPrefs.playerStyle || 'vinyl') === option.value ? <Check size={12} /> : null}
+                  </button>
+                ))}
+              </div>
+            </PreferenceGroup>
+
+            <PreferenceGroup
+              label="Chapter Vignette"
+              icon={<Layers size={13} />}
+              summary={VIGNETTE_STYLE_OPTIONS.find(option => option.value === (currentPrefs.vignetteStyle || 'off'))?.label}
+            >
+              <div className="grid gap-1.5">
+                {VIGNETTE_STYLE_OPTIONS.map(option => (
+                  <button key={option.value} type="button" onClick={() => handleUpdatePreference('vignetteStyle', option.value)} className={choiceClass((currentPrefs.vignetteStyle || 'off') === option.value)}>
+                    <span>{option.label}</span>
+                    {(currentPrefs.vignetteStyle || 'off') === option.value ? <Check size={12} /> : null}
                   </button>
                 ))}
               </div>

@@ -327,6 +327,7 @@ export default function ReaderChamber({
     lineHeight: "relaxed",
     paragraphSpacing: "normal",
     themeOverride: "void",
+    vignetteStyle: "off",
     ...DEFAULT_READER_TYPOGRAPHY,
   };
 
@@ -861,11 +862,74 @@ export default function ReaderChamber({
   };
   const particleCount = getParticleCount();
 
+  const renderVignetteOverlay = () => {
+    const style = currentPrefs.vignetteStyle || "off";
+    if (style === "off") return null;
+
+    const theme = currentPrefs.themeOverride || "void";
+
+    if (style === "cinematic") {
+      return (
+        <div
+          className="absolute inset-0 pointer-events-none z-10 bg-[radial-gradient(circle_at_center,transparent_40%,rgba(0,0,0,0.45)_100%)] mix-blend-multiply"
+          aria-hidden="true"
+        />
+      );
+    }
+
+    if (style === "cosmic") {
+      // Theme-aware glowing cosmic mists with slow-breathing animations
+      const glowColorMap: Record<string, string> = {
+        crimson: "from-[#8B0000]/10 via-[#4a0000]/5 to-transparent",
+        abyss: "from-[#04ACFF]/10 via-[#025680]/5 to-transparent",
+        sepia: "from-[#8b5a2b]/10 via-[#4f3318]/5 to-transparent",
+        emerald: "from-[#10B981]/10 via-[#05402c]/5 to-transparent",
+        void: "from-[#04ACFF]/10 via-[#025680]/5 to-transparent",
+      };
+
+      const glowColor = glowColorMap[theme] || glowColorMap.void;
+
+      return (
+        <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden" aria-hidden="true">
+          {/* Top Left Mist */}
+          <div className={`absolute -top-32 -left-32 w-80 h-80 rounded-full bg-gradient-to-br ${glowColor} blur-[60px] opacity-70 animate-pulse motion-reduce:animate-none`} style={{ animationDuration: '8s' }} />
+          {/* Bottom Right Mist */}
+          <div className={`absolute -bottom-32 -right-32 w-80 h-80 rounded-full bg-gradient-to-tl ${glowColor} blur-[60px] opacity-70 animate-pulse motion-reduce:animate-none`} style={{ animationDuration: '10s' }} />
+        </div>
+      );
+    }
+
+    if (style === "scroll") {
+      // Ancient scroll borders: warm golden/amber fading gradients from left and right edges
+      const scrollBorderColorMap: Record<string, string> = {
+        crimson: "from-[#1d0a0a]/30",
+        abyss: "from-[#0a1222]/35",
+        sepia: "from-[#2a2420]/45",
+        emerald: "from-[#0a1c12]/35",
+        void: "from-black/50",
+      };
+      const scrollColor = scrollBorderColorMap[theme] || scrollBorderColorMap.void;
+
+      return (
+        <div className="absolute inset-y-0 inset-x-0 pointer-events-none z-10 flex justify-between" aria-hidden="true">
+          {/* Left scroll border */}
+          <div className={`w-8 sm:w-16 h-full bg-gradient-to-r ${scrollColor} to-transparent`} />
+          {/* Right scroll border */}
+          <div className={`w-8 sm:w-16 h-full bg-gradient-to-l ${scrollColor} to-transparent`} />
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <div
       className={`flex flex-col min-h-[85dvh] rounded-t-xl transition-colors duration-500 relative overflow-hidden ${getThemeClasses()} ${isShaking ? "animate-screen-shake" : ""}`}
       id="reader-chamber-root"
     >
+      {renderVignetteOverlay()}
+
       {particleCount > 0 && (
         <ParticleSystem
           count={particleCount}

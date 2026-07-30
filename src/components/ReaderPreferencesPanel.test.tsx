@@ -89,4 +89,22 @@ describe('ReaderPreferencesPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /Celestial Crest/i }));
     expect(handleUpdatePreference).toHaveBeenCalledWith('dividerStyle', 'celestial');
   });
+
+  it('allows customizing the chapter vignette style and triggers updates', async () => {
+    const handleUpdatePreference = vi.fn();
+    render(
+      <ReaderPreferencesPanel
+        currentPrefs={{ fontFamily: 'serif', fontSize: 'lg', lineHeight: 'relaxed', paragraphSpacing: 'normal', themeOverride: 'void', vignetteStyle: 'off' }}
+        handleUpdatePreference={handleUpdatePreference}
+        onResetTypography={vi.fn()}
+      />,
+    );
+
+    const vignetteToggle = screen.getByRole('button', { name: /Chapter Vignette/i });
+    expect(vignetteToggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('button', { name: /Celestial Mist/i })).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: /Celestial Mist/i }));
+    expect(handleUpdatePreference).toHaveBeenCalledWith('vignetteStyle', 'cosmic');
+  });
 });
