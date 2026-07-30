@@ -48,7 +48,18 @@ describe('portrait Data Connect contracts', () => {
     expect(recovery).toContain(
       'SET active_portrait_asset_id = $2,\n          sync_revision = $3,',
     );
+    expect(recovery).toContain('sync_revision AS "syncRevision"');
+    expect(recovery).toContain('revision AS "revision"');
     expect(recovery).toContain('recovered: _executeReturningFirst(');
+    expect(recovery).toContain(
+      '{_expr: "response.updatedProfile == null ? null : response.updatedProfile.syncRevision"}',
+    );
+    expect(recovery).toContain(
+      '{_expr: "response.updatedProfile == null ? null : response.updatedProfile.revision"}',
+    );
+    expect(recovery).toContain('CAST($3 AS bigint) IS NOT NULL');
+    const recoveredAggregate = recovery.slice(recovery.indexOf('recovered:'));
+    expect(recoveredAggregate).not.toContain('FROM user_profile');
     expect(recovery).toContain('RETURNING owner_uid AS "ownerUid"');
     expect(recovery).not.toContain('deactivated: _execute(');
     expect(recovery).not.toContain('recovered: _execute(');
