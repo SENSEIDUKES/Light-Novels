@@ -62,10 +62,13 @@ export function normalizeStoryBlockType<T>(
 }
 
 function normalizeBlockCollection(
-  value: ChapterContent['blocks'],
+  value: ChapterContent['blocks'] | null,
   collection: 'blocks' | 'archivedBlocks',
 ): ChapterContent['blocks'] {
-  if (value === undefined) return undefined;
+  // Older JSON/database payloads used null for an absent optional collection.
+  // Preserve the mapper's previous nullish-coalescing behavior by canonicalizing
+  // that legacy representation to the domain's current `undefined` shape.
+  if (value == null) return undefined;
   if (!Array.isArray(value)) {
     throw new Error(`Chapter ${collection} cannot be normalized because it is not an array.`);
   }

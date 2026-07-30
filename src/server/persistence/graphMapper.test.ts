@@ -1005,6 +1005,19 @@ describe('chapter content graph mapping', () => {
     );
   });
 
+  it('preserves legacy null block collections as absent optional content', () => {
+    const currentGraph = chapterGraph();
+    const content = hydrateChapterContent(currentGraph)!;
+
+    expect(() => mapChapterContentToGraphVariables({
+      ownerUid: 'owner-a',
+      storyId: STORY_ID,
+      content: { ...content, blocks: null, archivedBlocks: null } as any,
+      currentGraph,
+      ...mutationMetadata(),
+    })).not.toThrow();
+  });
+
   // `hasContent` is derived from `contentHash || versionId || summary`. A
   // placeholder summary persists as an empty string, so without a hash the
   // scaffold hydrated as contentless and the reader never fetched the body.
