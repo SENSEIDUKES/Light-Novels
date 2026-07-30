@@ -1032,6 +1032,87 @@ describe('PersistentStorageManager interaction-gated inbound sync', () => {
     manager.dispose();
   });
 
+  it('keeps permanent story data and queues sync when render-only media has no asset id', async () => {
+    mocks.auth.currentUser = { uid: 'reader' };
+    const manager = new PersistentStorageManager();
+    await manager.init();
+    await vi.waitFor(() => expect((manager as any).activeSyncPromise).toBeNull());
+    (manager as any).isCloudAvailable = false;
+    mocks.idb.saveStory.mockClear();
+
+    await expect(manager.saveStory(makeStory({
+      title: 'The narrative survives',
+      imageUrl: 'blob:https://app.example/render-only-cover',
+      memory: {
+        powerSystem: 'The permanent cultivation law',
+        characters: [{
+          id: 'guide-1',
+          name: 'The Guide',
+          role: 'Mentor',
+          description: 'Permanent character context',
+          imageUrl: 'data:image/png;base64,iVBORw0KGgo=',
+        }],
+        currentPowerStage: 'Mortal',
+        worldRules: ['The permanent world rule'],
+        unresolvedPlotThreads: ['The permanent mystery'],
+        resolvedPlotThreads: [],
+      },
+      arcs: [{
+        title: 'Opening Arc',
+        isCompleted: false,
+        chapters: [{
+          number: 1,
+          title: 'Awakening',
+          premise: 'Permanent chapter premise',
+          status: 'unread',
+          imageHistory: [{
+            id: 'chapter-preview',
+            imageUrl: 'https://image.pollinations.ai/prompt/awakening',
+            prompt: 'Disposable render preview',
+            timestamp: 1,
+            isCurrent: true,
+            type: 'chapterHero',
+          }],
+        }],
+      }],
+    }) as any)).resolves.toBeUndefined();
+
+    const durable = mocks.idb.saveStory.mock.calls.at(-1)?.[0];
+    expect(durable).toMatchObject({
+      title: 'The narrative survives',
+      memory: {
+        powerSystem: 'The permanent cultivation law',
+        characters: [{
+          id: 'guide-1',
+          name: 'The Guide',
+          description: 'Permanent character context',
+        }],
+        worldRules: ['The permanent world rule'],
+        unresolvedPlotThreads: ['The permanent mystery'],
+      },
+      arcs: [{
+        title: 'Opening Arc',
+        chapters: [{
+          number: 1,
+          title: 'Awakening',
+          premise: 'Permanent chapter premise',
+          imageHistory: [{
+            id: 'chapter-preview',
+            prompt: 'Disposable render preview',
+          }],
+        }],
+      }],
+    });
+    expect(JSON.stringify(durable)).not.toMatch(
+      /blob:|data:image|image\.pollinations\.ai/,
+    );
+    expect(
+      [...(mocks.outboxByOwner.get('reader')?.values() ?? [])]
+        .filter((row) => row.operation === 'storage.sync.story'),
+    ).toHaveLength(1);
+    manager.dispose();
+  });
+
   it('rejects media hydration that finishes after the active account changes', async () => {
     mocks.auth.currentUser = { uid: 'reader' };
     const manager = new PersistentStorageManager();
