@@ -38,6 +38,10 @@ describe('portrait Data Connect contracts', () => {
     expect(recovery).toContain(
       '{_expr: "response.recoveredPortrait == null ? null : response.recoveredPortrait.assetId"}',
     );
+    expect(recovery).toContain('updatedProfile: _executeReturningFirst(');
+    expect(recovery).toContain(
+      'SET active_portrait_asset_id = $2,\n          sync_revision = $3,',
+    );
     expect(recovery).toContain('recovered: _execute(');
     expect(recovery).not.toContain('recovered: _execute(\n    sql: """\n      WITH');
   });
