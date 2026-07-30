@@ -740,12 +740,13 @@ export const ModalsAndToasts: React.FC = () => {
                   Type <span className="text-red-400 font-bold">DELETE</span> to confirm{' '}
                   <button
                     type="button"
-                     tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
+                    onClick={() => {
                       vibrate('softTap');
                       setDeleteText('DELETE');
                     }}
-                    className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-sc font-bold border border-portal/30 bg-portal/10 text-portal hover:bg-portal hover:text-black rounded transition-all duration-300 cursor-pointer"
+                    className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-sc font-bold border border-portal/30 bg-portal/10 text-portal hover:bg-portal hover:text-black rounded transition-all duration-300 cursor-pointer focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2"
                     title="Auto-fill delete text"
+                    aria-label="Auto-fill delete text"
                   >
                     Auto-Fill
                   </button>
@@ -756,14 +757,14 @@ export const ModalsAndToasts: React.FC = () => {
                   placeholder="DELETE"
                   value={deleteText}
                   onChange={(e) => setDeleteText(e.target.value)}
-                  className="w-full bg-void text-xs text-signal border border-neutral-700 focus:border-red-500 p-2 rounded focus:outline-none font-mono placeholder:text-neutral-700"
+                  className="w-full bg-void text-xs text-signal border border-neutral-700 focus:border-red-500 p-2 rounded focus:outline-none font-mono placeholder:text-neutral-700 focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2"
                 />
               </div>
 
               <div className="flex justify-end space-x-3">
                 <button
-                   tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={cancelDeleteStory}
-                  className="px-4 py-2 bg-void border border-neutral-700 text-neutral-300 rounded font-sc text-xs hover:bg-neutral-800 transition-colors"
+                  onClick={cancelDeleteStory}
+                  className="px-4 py-2 bg-void border border-neutral-700 text-neutral-300 rounded font-sc text-xs hover:bg-neutral-800 transition-colors focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2"
                 >
                   Cancel
                 </button>
@@ -775,7 +776,7 @@ export const ModalsAndToasts: React.FC = () => {
                       confirmDeleteStory();
                     }
                   }}
-                  className={`px-4 py-2 bg-red-900 border border-red-700 text-white rounded font-sc font-bold text-xs transition-colors ${deleteText === 'DELETE' ? 'hover:bg-red-800' : 'opacity-50 cursor-not-allowed'}`}
+                  className={`px-4 py-2 bg-red-900 border border-red-700 text-white rounded font-sc font-bold text-xs transition-colors focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2 ${deleteText === 'DELETE' ? 'hover:bg-red-800' : 'opacity-50 cursor-not-allowed'}`}
                 >
                   Sever Karma
                 </button>
