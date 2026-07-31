@@ -506,7 +506,7 @@ function App() {
 
   // Development previews need one readable story to exercise the real
   // Library -> detail -> Reader Chamber path. Keep it in memory, only for an
-  // unauthenticated dev build, so it cannot enter production persistence.
+  // unauthenticated dev/preview build, so it cannot enter production persistence.
   useEffect(() => {
     if (
       isInitializing

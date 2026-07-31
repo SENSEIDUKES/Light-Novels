@@ -12,7 +12,10 @@ export function isDevBuild(): boolean {
   // time. Hiding import.meta behind an alias leaves it undefined in the
   // browser bundle.
   const viteEnv = (import.meta as ImportMeta & {
-    env?: { DEV?: boolean; TEST?: boolean };
+    env?: { DEV?: boolean; TEST?: boolean; VITE_SEIHOUSE_DEV_PREVIEW?: boolean };
   }).env;
-  return !!viteEnv?.DEV && !viteEnv?.TEST;
+  return (
+    (!!viteEnv?.DEV && !viteEnv?.TEST)
+    || viteEnv?.VITE_SEIHOUSE_DEV_PREVIEW === true
+  );
 }
