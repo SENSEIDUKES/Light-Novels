@@ -257,7 +257,7 @@ export async function* routeTextGenerationStream(
         }
       }
     } catch (error: any) {
-      logger.error({ error: error }, "[aiRouter] Gemini provider encountered error during stream:");
+      logger.error({ err: error }, "[aiRouter] Gemini provider encountered error during stream:");
       if (error.status === 429 || error.status === 503 || (error.message && (error.message.includes("429") || error.message.includes("503")))) {
         const apiKey = customKeys?.openrouterApiKey || process.env.OPENROUTER_API_KEY;
         if (apiKey && apiKey !== "MY_OPENROUTER_API_KEY") {
@@ -345,7 +345,7 @@ export async function* routeTextGenerationStream(
         }
       }
     } catch (error: any) {
-      logger.error({ error: error }, "[aiRouter] OpenRouter provider encountered error during stream:");
+      logger.error({ err: error }, "[aiRouter] OpenRouter provider encountered error during stream:");
       throw error;
     }
   } else if (provider === "ollama") {
@@ -437,7 +437,6 @@ export async function routeTextGeneration(
   if (process.env.NODE_ENV !== "production") {
     logger.info(`[aiRouter] Routing task '${routeKey}' via Route '${route}' -> Provider: '${provider}', Model: '${model}'`);
   }
-
   if (provider === "gemini") {
     // -------------------------------------------------------------
     // GOOGLE GEMINI ROUTE
@@ -485,7 +484,7 @@ export async function routeTextGeneration(
         throw parseError;
       }
     } catch (error: any) {
-      logger.error({ error: error }, "[aiRouter] Gemini provider encountered error:");
+      logger.error({ err: error }, "[aiRouter] Gemini provider encountered error:");
       
       // If we failed even to query with responseSchema, try querying without it before failing completely
       if (responseSchema && !error.message?.includes("429") && !error.message?.includes("503") && error.status !== 429 && error.status !== 503) {
@@ -502,7 +501,7 @@ export async function routeTextGeneration(
             return cleanAndParseJSON(fallbackResponse.text);
           }
         } catch (innerError) {
-          logger.error({ error: innerError }, "[aiRouter] Fallback query without schema also failed:");
+          logger.error({ err: innerError }, "[aiRouter] Fallback query without schema also failed:");
         }
       }
 
@@ -574,7 +573,7 @@ export async function routeTextGeneration(
 
       return cleanAndParseJSON(content);
     } catch (error: any) {
-      logger.error({ error: error }, "[aiRouter] OpenRouter provider encountered error:");
+      logger.error({ err: error }, "[aiRouter] OpenRouter provider encountered error:");
       throw error;
     }
   } else if (provider === "ollama") {
@@ -616,7 +615,7 @@ export async function routeTextGeneration(
 
       return cleanAndParseJSON(content);
     } catch (error: any) {
-      logger.error({ error: error }, "[aiRouter] Ollama provider encountered error:");
+      logger.error({ err: error }, "[aiRouter] Ollama provider encountered error:");
       throw new Error(`Ollama server at ${host} is unreachable. Please verify Ollama is running locally and CORS is enabled via OLLAMA_ORIGINS="*" before calling Local route: ${error.message}`);
     }
   } else {
@@ -724,7 +723,7 @@ export async function routeImageGeneration(
               }
             }
           } catch (e: any) {
-            logger.warn({ error: e }, `[aiRouter] Single image generation attempt failed:`);
+            logger.warn({ err: e }, `[aiRouter] Single image generation attempt failed:`);
           }
           return null;
         };
@@ -741,7 +740,7 @@ export async function routeImageGeneration(
 
       return { imageUrls: [imageUrls[0]] };
     } catch (error: any) {
-      logger.warn({ error: error }, "[aiRouter] Gemini image gen failed, serving fallback:");
+      logger.warn({ err: error }, "[aiRouter] Gemini image gen failed, serving fallback:");
       return {
         imageUrls: getFallbackImages(1),
         note: `Projected via cosmic fallback: ${error.message || "quota reserve limit reached"}.`,
@@ -789,7 +788,7 @@ export async function routeImageGeneration(
       const url = await generateOne();
       return { imageUrls: [url] };
     } catch (error: any) {
-      logger.warn({ error: error }, "[aiRouter] OpenRouter image gen failed, serving fallback:");
+      logger.warn({ err: error }, "[aiRouter] OpenRouter image gen failed, serving fallback:");
       return {
         imageUrls: getFallbackImages(1),
         note: `OpenRouter image generation failed for ${imageModel}. Falling back to Pollinations. Reason: ${error.message}`,
