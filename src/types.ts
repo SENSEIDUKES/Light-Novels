@@ -1188,6 +1188,8 @@ export interface StoryWorld {
   blueprint?: WorldBlueprint;
   isEdited?: boolean; // Track if the user has modified/actively worked on the demo story
   motionCoverActive?: boolean; // Alternative video covers active state
+  /** This story's own Cloudflare R2 motion cover video. No fallback to another story's video when unset. */
+  videoUrl?: string;
   hardcoreFateMode?: boolean;
   fatePressure?: "Relaxed" | "Balanced" | "Hardcore" | "Dao Master";
   /** Applies only to future chapter prose generation. */

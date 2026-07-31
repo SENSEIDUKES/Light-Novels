@@ -705,7 +705,7 @@ export const StoryDetailScreen: React.FC<{
 
               {/* Canva Video Peak Overlay */}
               <AnimatePresence>
-                {activeStory.motionCoverActive && (
+                {activeStory.motionCoverActive && activeStory.videoUrl && (
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -714,7 +714,7 @@ export const StoryDetailScreen: React.FC<{
                     className="absolute inset-0 w-full h-full bg-void z-10"
                   >
                     <video
-                      src="https://pub-e482c2dbbb984c3c87ecdd8ae3a92183.r2.dev/LIBRARY/videos/VIDEO/Apocalypse%20Cultivation%20CANVA.mp4"
+                      src={activeStory.videoUrl}
                       className="w-full h-full object-cover"
                       autoPlay
                       muted
