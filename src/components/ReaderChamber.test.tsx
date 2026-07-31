@@ -21,6 +21,41 @@ vi.mock('../store/useAppStore', () => ({
   }
 }));
 
+const chapters = [{
+  number: 1,
+  title: 'Ch 1',
+  status: 'read' as const,
+  premise: 'Some premise',
+  generatedContent: 'Hello',
+}];
+
+function renderReader(vignetteStyle?: 'off' | 'radial' | 'cosmic' | 'scroll') {
+  const mockStory = {
+    id: 'test-story',
+    title: 'Test',
+    memory: { glossary: [] },
+    arcs: [{ chapters }],
+    readerPreferences: vignetteStyle ? { vignetteStyle, themeOverride: 'abyss' } : undefined,
+  };
+
+  return render(
+    <ReaderChamber
+      chapters={chapters}
+      currentPowerStage="Foundation"
+      selectedChapterNum={1}
+      setSelectedChapterNum={vi.fn()}
+      onGenerateChapter={vi.fn()}
+      onGenerateNextFiveChapters={vi.fn()}
+      isGenerating={false}
+      onToggleRead={vi.fn()}
+      arcTitle="First Arc"
+      onSwitchTab={vi.fn()}
+      activeStory={mockStory as any}
+      updateStoryFields={vi.fn()}
+    />
+  );
+}
+
 describe('ReaderChamber', () => {
   beforeEach(() => {
     window.IntersectionObserver = vi.fn().mockImplementation(function() {
@@ -33,35 +68,12 @@ describe('ReaderChamber', () => {
   });
 
   it('renders without crashing', () => {
-    const chapters = [{ number: 1, title: 'Ch 1', status: 'read' as const, premise: 'Some premise', generatedContent: 'Hello' }];
-    const mockStory = { 
-      id: 'test-story', 
-      title: 'Test', 
-      memory: { glossary: [] }, 
-      arcs: [{ chapters }] 
-    };
-    
-    const { container } = render(
-      <ReaderChamber 
-        chapters={chapters} 
-        currentPowerStage="Foundation"
-        selectedChapterNum={1} 
-        setSelectedChapterNum={vi.fn()} 
-        onGenerateChapter={vi.fn()} 
-        onGenerateNextFiveChapters={vi.fn()}
-        isGenerating={false}
-        onToggleRead={vi.fn()}
-        arcTitle="First Arc"
-        onSwitchTab={vi.fn()}
-        activeStory={mockStory as any}
-        updateStoryFields={vi.fn()}
-      />
-    );
+    const { container } = renderReader();
     expect(container).toBeDefined();
   });
 
   it('presents the fate-lock contract through reader controls', () => {
-    const chapters = [{
+    const fateChapters = [{
       number: 2,
       title: 'Ch 2',
       status: 'read' as const,
@@ -72,7 +84,7 @@ describe('ReaderChamber', () => {
       id: 'test-story',
       title: 'Test',
       memory: { glossary: [] },
-      arcs: [{ chapters }],
+      arcs: [{ chapters: fateChapters }],
       chapterGenerationBatch: {
         id: 'batch-1',
         chapterNumbers: [1, 2, 3, 4, 5],
@@ -85,7 +97,7 @@ describe('ReaderChamber', () => {
 
     const { getAllByRole, getByText } = render(
       <ReaderChamber
-        chapters={chapters}
+        chapters={fateChapters}
         currentPowerStage="Foundation"
         selectedChapterNum={2}
         setSelectedChapterNum={vi.fn()}
@@ -110,35 +122,21 @@ describe('ReaderChamber', () => {
     });
   });
 
-  it('renders correct vignette overlay according to vignetteStyle', () => {
-    const chapters = [{ number: 1, title: 'Ch 1', status: 'read' as const, premise: 'Some premise', generatedContent: 'Hello' }];
-    const mockStory = {
-      id: 'test-story',
-      title: 'Test',
-      memory: { glossary: [] },
-      arcs: [{ chapters }],
-      readerPreferences: { vignetteStyle: 'radial' }
-    };
+  it.each(['radial', 'cosmic', 'scroll'] as const)(
+    'renders a stable, non-interactive %s vignette overlay',
+    (vignetteStyle) => {
+      const { queryByTestId } = renderReader(vignetteStyle);
+      const overlay = queryByTestId('vignette-overlay');
 
-    const { container } = render(
-      <ReaderChamber
-        chapters={chapters}
-        currentPowerStage="Foundation"
-        selectedChapterNum={1}
-        setSelectedChapterNum={vi.fn()}
-        onGenerateChapter={vi.fn()}
-        onGenerateNextFiveChapters={vi.fn()}
-        isGenerating={false}
-        onToggleRead={vi.fn()}
-        arcTitle="First Arc"
-        onSwitchTab={vi.fn()}
-        activeStory={mockStory as any}
-        updateStoryFields={vi.fn()}
-      />
-    );
+      expect(overlay).not.toBeNull();
+      expect(overlay?.getAttribute('data-style')).toBe(vignetteStyle);
+      expect(overlay?.classList.contains('pointer-events-none')).toBe(true);
+      expect(overlay?.classList.contains('z-0')).toBe(true);
+    },
+  );
 
-    const vignetteEl = container.querySelector('.pointer-events-none.absolute.inset-0.z-10.bg-\\[radial-gradient\\(circle\\2c _transparent_55\\%\\2c _rgba\\(0\\2c 0\\2c 0\\2c 0\\.65\\)_100\\%\\)\\]');
-    expect(vignetteEl).toBeDefined();
-    expect(vignetteEl?.classList.contains('pointer-events-none')).toBe(true);
+  it('does not render a vignette overlay when the preference is off', () => {
+    const { queryByTestId } = renderReader('off');
+    expect(queryByTestId('vignette-overlay')).toBeNull();
   });
 });
