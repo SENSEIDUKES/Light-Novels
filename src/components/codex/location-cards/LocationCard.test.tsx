@@ -6,8 +6,8 @@ import type { Location, Story } from '../../../types';
 
 const handleDownload = vi.hoisted(() => vi.fn());
 
-vi.mock('../LivingCodexImageGallery', () => ({
-  LivingCodexImageGallery: () => null,
+vi.mock('../ReaderCodexImageGallery', () => ({
+  ReaderCodexImageGallery: () => null,
 }));
 
 vi.mock('../../../utils/downloadUtils', () => ({

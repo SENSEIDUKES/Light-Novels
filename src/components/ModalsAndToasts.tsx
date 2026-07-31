@@ -8,7 +8,7 @@ import { clearGenerationRecoverySnapshot } from '../lib/generationRecovery';
 import { useStoryEngine } from '../hooks/useStoryEngine';
 import { SearchableModelSelector } from './SearchableModelSelector';
 import { secureStorage } from '../lib/encryption';
-import { CelestialParticleShower } from './CelestialParticleShower';
+import { ParticleEffect } from './ParticleEffect';
 import { SyncConflictModal } from './SyncConflictModal';
 
 type RarityTheme = {
@@ -805,7 +805,7 @@ export const ModalsAndToasts: React.FC = () => {
               }}
             >
               {/* Immersive interactive canvas celestial particle shower */}
-              <CelestialParticleShower
+              <ParticleEffect
                 accent={(RARITY_THEMES[unlockedArtifactAlert.rarity] ?? NEUTRAL_THEME).hex}
               />
 

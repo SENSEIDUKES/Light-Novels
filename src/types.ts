@@ -69,16 +69,16 @@ export interface CosmicArtifact {
   rewardValueSectMerit?: number;
 }
 
-export type CultivatorPortraitMimeType = 'image/jpeg' | 'image/png' | 'image/webp';
+export type ProfilePictureMimeType = 'image/jpeg' | 'image/png' | 'image/webp';
 
-export interface CultivatorPortraitCustomization {
+export interface ProfilePictureCustomization {
   frameId: string | null;
   glowId: string | null;
   bannerId: string | null;
   effectIds: string[];
 }
 
-export interface CultivatorPortraitGeneration {
+export interface ProfilePictureGeneration {
   prompt: string;
   description: string;
   daoRank: string;
@@ -88,7 +88,7 @@ export interface CultivatorPortraitGeneration {
   usedReferenceImage: boolean;
 }
 
-export interface CultivatorPortraitAsset {
+export interface ProfilePictureAsset {
   schemaVersion: 1;
   id: string;
   userId: string;
@@ -98,12 +98,12 @@ export interface CultivatorPortraitAsset {
   assetVersion?: number;
   checksumSha256?: string;
   deliveryUrlExpiresAt?: string;
-  mimeType: CultivatorPortraitMimeType;
+  mimeType: ProfilePictureMimeType;
   source: 'generated';
   createdAt: string;
   updatedAt: string;
-  generation: CultivatorPortraitGeneration;
-  customization: CultivatorPortraitCustomization;
+  generation: ProfilePictureGeneration;
+  customization: ProfilePictureCustomization;
 }
 
 export type ChapterWritingStyle =

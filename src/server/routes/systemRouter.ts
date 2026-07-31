@@ -14,7 +14,7 @@ import {
   suggestTagsSchema,
   steerArcSchema,
   generateCardImageSchema,
-  generateCultivatorPortraitSchema,
+  generateProfilePictureSchema,
   generateCustomGlossarySchema,
   translateChapterSchema,
   generateAudioSchema

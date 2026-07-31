@@ -73,8 +73,8 @@ vi.mock('../store/useAppStore', () => ({
   useAppStore: useAppStoreMock
 }));
 
-vi.mock('./CelestialParticleShower', () => ({
-  CelestialParticleShower: ({ accent }: { accent?: string }) => (
+vi.mock('./ParticleEffect', () => ({
+  ParticleEffect: ({ accent }: { accent?: string }) => (
     <canvas data-testid="celestial-particle-shower" data-accent={accent} />
   )
 }));

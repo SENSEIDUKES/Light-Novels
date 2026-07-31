@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
-import LivingCodex from './LivingCodex';
+import ReaderCodex from './ReaderCodex';
 import { UpdateStoryFields } from '../types';
 
 export const CodexSheetOverlay: React.FC<{
@@ -56,7 +56,7 @@ export const CodexSheetOverlay: React.FC<{
             
             <div className="flex-1 overflow-y-auto px-4 pb-12 custom-scrollbar">
               <div className="max-w-6xl mx-auto">
-                <LivingCodex
+                <ReaderCodex
                   memory={activeStory.memory}
                   arcs={activeStory.arcs}
                   onUpdateMemory={handleUpdateMemoryManual}

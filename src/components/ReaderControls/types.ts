@@ -37,7 +37,7 @@ export interface FateActions {
   handleAlterFate?: (chapterNum: number, direction: string, customPrompt?: string) => Promise<void>;
   setIsAlterFateOpen: (isOpen: boolean) => void;
   handleExportText: () => void;
-  fateLockMessage?: string | null;
+  alterFateLockMessage?: string | null;
 }
 
 export interface ReaderControlsProps {

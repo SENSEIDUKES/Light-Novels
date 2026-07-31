@@ -3,10 +3,10 @@ import { StoryMemory, UpdateStoryFields } from '../types';
 import { awardQi } from '../lib/qi';
 import { extractJsonBlocks, extractJsonMeta } from './storyEngineHelpers';
 import { useChapterGeneration } from './useChapterGeneration';
-import { useArcSteering } from './useArcSteering';
+import { useStorySteering } from './useStorySteering';
 import { useStoryGeneration } from './useStoryGeneration';
 import { useVisualAssets } from './useVisualAssets';
-import { useChapterSealing } from './useChapterSealing';
+import { useChapterLock } from './useChapterLock';
 
 export { extractJsonBlocks, extractJsonMeta };
 
@@ -22,10 +22,10 @@ export const useStoryEngine = () => {
   // the stories array and never re-renders merely because some unrelated
   // story changed.
   const { handleGenerateChapter, handleGenerateNextFiveChapters } = useChapterGeneration();
-  const { handleSteerArc, handleAlterFate } = useArcSteering();
+  const { handleSteerArc, handleAlterFate } = useStorySteering();
   const { handleGenerateBlueprint, handleStartStory } = useStoryGeneration();
   const { handleGenerateCover, handleApplyCover, handleSelectCover } = useVisualAssets();
-  const { handleCheckConsistency, handleSealChapter } = useChapterSealing();
+  const { handleCheckConsistency, handleSealChapter } = useChapterLock();
 
   /**
    * Replaces the story's memory explicitly.

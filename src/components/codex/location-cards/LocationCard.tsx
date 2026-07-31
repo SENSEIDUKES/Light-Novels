@@ -1,7 +1,7 @@
 import React from 'react';
 import { Location, Story } from '../../../types';
 import { Download, Compass, Lock, MapPin, Eye, RefreshCcw, Loader2, Sparkles, Settings2 } from 'lucide-react';
-import { LivingCodexImageGallery } from '../LivingCodexImageGallery';
+import { ReaderCodexImageGallery } from '../ReaderCodexImageGallery';
 import { resolveEntityImageHistory } from '../entityImageHistory';
 import { handleDownload } from '../../../utils/downloadUtils';
 
@@ -37,7 +37,7 @@ export const LocationCard: React.FC<LocationCardProps> = ({
     <div key={loc.id} className={`bg-neutral-950 border ${loc.evolutionReady && !activePreview ? 'border-portal/50 shadow-[0_0_15px_rgba(4,172,255,0.15)]' : 'border-neutral-900'} hover:border-neutral-800 rounded-lg overflow-hidden flex flex-col justify-between group transition-all duration-300`}>
       {/* Location Scenery Header */}
       <div className="h-36 w-full bg-void relative flex items-center justify-center overflow-hidden border-b border-neutral-900 group">
-        <LivingCodexImageGallery
+        <ReaderCodexImageGallery
           entityId={loc.id}
           type="location"
           imageHistory={resolveEntityImageHistory(loc)}

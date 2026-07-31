@@ -31,7 +31,7 @@ import { ReaderControls } from "./ReaderControls";
 import { useCinematicScroll } from "../hooks/useCinematicScroll";
 import { cinematicEffectGovernor } from "../lib/effects/cinematicEffectGovernor";
 import { useReadingPosition } from "../hooks/useReadingPosition";
-import { getFateLockMessage } from '../lib/fateLock';
+import { getFateLockMessage } from '../lib/alterFateLock';
 import { DEFAULT_READER_TYPOGRAPHY } from '../lib/readerTypography';
 import { SYSTEM_LEGEND_DISMISSED_STORAGE_KEY } from '../lib/readerLegend';
 import { createCodexHighlighter, splitByCodexTerms } from '../lib/codexHighlighting';
@@ -758,7 +758,7 @@ export default function ReaderChamber({
     onGenerateNextFiveChapters(selectedChapter.number);
   };
 
-  const fateLockMessage = getFateLockMessage(activeStory, selectedChapterNum);
+  const alterFateLockMessage = getFateLockMessage(activeStory, selectedChapterNum);
 
   const handleExportText = () => {
     let textToExport = selectedChapter.generatedContent || "";
@@ -1013,7 +1013,7 @@ export default function ReaderChamber({
           handleAlterFate,
           setIsAlterFateOpen,
           handleExportText,
-          fateLockMessage,
+          alterFateLockMessage,
         }}
       />
 
