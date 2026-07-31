@@ -1,4 +1,5 @@
-## 2025-02-20 - Adding Rate Limiting to Express API
-**Vulnerability:** The Express API in `src/server.ts` lacked rate limiting on its `/api` endpoints, making it vulnerable to brute-force and Denial of Service (DoS) attacks.
-**Learning:** Adding rate limiting using `express-rate-limit` is a safe, standard defense-in-depth measure that avoids breaking functionality, unlike adding `helmet` with default configurations, which was found to break the Vite frontend's HMR due to strict default Content Security Policies (CSP). Additionally, using `Math.random()` for non-cryptographic seeds (like image generation) isn't a true security vulnerability and shouldn't be "fixed" with crypto functions if it doesn't serve a real security purpose.
-**Prevention:** Apply `express-rate-limit` to API routes. Be cautious with `helmet` when serving a Vite frontend from the same Express app, as specific CSP configurations are required. Only apply cryptographic randomness where security genuinely depends on unpredictability (like tokens or IDs).
+# Sentinel Learnings
+
+*   **Centralized Logging:** Replaced raw `console.error`, `console.warn`, and `console.log` calls in backend modules (e.g., `src/aiRouter.ts`) with a structured Pino logger (`src/server/logger.ts`).
+*   **Error Object Sanitization:** When logging errors with Pino, it's crucial to pass the error object within a structured payload (e.g., `logger.error({ error }, "msg")`). This allows Pino's configured serializers and redact rules (such as stripping standard authorization or custom API key headers) to function correctly and prevent sensitive data leakage.
+*   **Test Mocking:** When refactoring from global `console` to an imported `logger`, ensure all test suites that previously spied on or mocked `console.warn` or `console.error` are updated to mock the new logger module (e.g., `vi.spyOn(logger, 'warn')`).
