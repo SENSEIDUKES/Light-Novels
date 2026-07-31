@@ -510,13 +510,13 @@ function App() {
   useEffect(() => {
     if (
       isInitializing
+      || !hasResolvedAuth
       || !isDevBuild()
       || store_currentUser
-      || auth.currentUser
       || store_stories.length > 0
     ) return;
     store_setStories([getDevPreviewStory()]);
-  }, [isInitializing, store_currentUser, store_stories.length, store_setStories]);
+  }, [isInitializing, hasResolvedAuth, store_currentUser, store_stories.length, store_setStories]);
 
   // Dynamically fetch missing content for active chapter
   useEffect(() => {
