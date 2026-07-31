@@ -251,7 +251,7 @@ export function ImmersionSettings({
       <button
         onClick={() => setShowImmersionPopover(!showImmersionPopover)}
         aria-label="Immersion Settings"
-        className={`p-2 border rounded-full transition-colors focus:outline-none ${showImmersionPopover ? "bg-neutral-800 border-neutral-700 text-signal" : "bg-void border-neutral-800 hover:text-signal hover:bg-neutral-900 text-neutral-400"}`}
+        className={`p-2 border rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900 ${showImmersionPopover ? "bg-neutral-800 border-neutral-700 text-signal" : "bg-void border-neutral-800 hover:text-signal hover:bg-neutral-900 text-neutral-400"}`}
       >
         <Settings size={16} />
       </button>
