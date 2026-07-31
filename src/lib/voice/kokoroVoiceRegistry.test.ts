@@ -19,7 +19,7 @@ describe("Kokoro Voice Registry", () => {
   it("should have defined and non-empty providerVoiceIds for all presets", () => {
     KOKORO_VOICE_PRESETS.forEach((preset) => {
       expect(preset.providerVoiceId).toBeDefined();
-      expect(preset.providerVoiceId.length).toBeGreaterThan(0);
+      expect(preset.providerVoiceId.trim()).not.toBe("");
     });
   });
 
