@@ -15,4 +15,3 @@ Recording learnings... Added exhaustive-deps rule enforcement and fixed App.tsx.
 ## 2026-07-19 - Optimize character categorization in ReaderCodex
 **Learning:** Found an anti-pattern in ReaderCodex where filtering functions were creating new array instances conditionally on every render loop, degrading performance.
 **Action:** Wrapped declarative operations in `useMemo` and destructured to preserve readability and reference stability.
-Learned that parallelizing independent tasks using Promise.allSettled significantly improves loop processing time in media asset purging (measured ~92x faster for mock 100 items).
