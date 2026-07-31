@@ -35,7 +35,7 @@ test.describe('Critical Paths', () => {
     await expect(createBtn).toBeVisible();
     await createBtn.click();
 
-    // Verify CreationPortal loaded
+    // Verify CreationModal loaded
     await expect(page.locator('text=Celestial Forge')).toBeVisible();
   });
 

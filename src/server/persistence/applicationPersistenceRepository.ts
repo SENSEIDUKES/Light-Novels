@@ -1,6 +1,6 @@
 import type {
   ChapterContent,
-  CultivatorPortraitAsset,
+  ProfilePictureAsset,
   LoreGlossary,
   StorySeed,
   StoryWorld,
@@ -156,6 +156,6 @@ export interface ApplicationPersistenceRepository {
 }
 
 export interface HydratedPortraitResult {
-  portrait: CultivatorPortraitAsset;
+  portrait: ProfilePictureAsset;
   profile: UserProfile;
 }

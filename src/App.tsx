@@ -34,7 +34,7 @@ import {
   createAccountProfileFallback,
   withIdentityAvatar,
 } from './lib/userProfileCache';
-import { retryPendingCultivatorPortraits } from './services/cultivatorPortraitPersistence';
+import { retryPendingProfilePictures } from './services/profilePicturePersistence';
 import { ensureAccountSeedForStory } from './lib/storySeedStorage';
 import { getUserProfile } from './lib/persistence';
 import { isDevBuild } from './lib/env';
@@ -52,14 +52,14 @@ import { KeyboardShortcuts } from './components/KeyboardShortcuts';
 // Global FX & Audio
 import { AtmosphericAudio } from './components/AtmosphericAudio';
 import { ParticleSystem } from './components/ParticleSystem';
-import CreationPortal from './components/CreationPortal';
+import CreationModal from './components/CreationModal';
 import AILoadingVeil from './components/AILoadingVeil';
 import { PricingScreen } from './components/PricingScreen';
 import UserProfile from './components/UserProfile';
 import { ChallengeScreen } from './components/ChallengeScreen';
-import { SectsScreen } from './components/SectsScreen';
-import { IdleCultivationModal } from './components/IdleCultivationModal';
-import { useIdleCultivation } from './hooks/useIdleCultivation';
+import { SectPage } from './components/SectPage';
+import { ClosedDoorCultivationModal } from './components/ClosedDoorCultivationModal';
+import { useClosedDoorCultivation } from './hooks/useClosedDoorCultivation';
 import { RankUpCelebration } from './components/RankUpCelebration';
 
 function App() {
@@ -359,7 +359,7 @@ function App() {
                 );
                 cacheAccountProfile(data);
                 store_setUserProfile(data);
-                void retryPendingCultivatorPortraits(expectedUid)
+                void retryPendingProfilePictures(expectedUid)
                   .then(async (recovered) => {
                     if (recovered < 1 || !snapshotIsCurrent()) return;
                     const recoveredProfile = await getUserProfile(expectedUid);
@@ -567,7 +567,7 @@ function App() {
     daysCultivating,
     claimIdleQi,
     closeIdleQi,
-  } = useIdleCultivation(isInitializing);
+  } = useClosedDoorCultivation(isInitializing);
 
   useEffect(() => {
     if (!isInitializing) {
@@ -630,7 +630,7 @@ function App() {
               transition={{ duration: 0.3 }}
               className="px-4 py-8 max-w-4xl mx-auto w-full"
             >
-              <CreationPortal
+              <CreationModal
                 onGenerateBlueprint={storyEngine.handleGenerateBlueprint}
                 onStartStory={storyEngine.handleStartStory}
                 isGenerating={store_isGenerating}
@@ -736,7 +736,7 @@ function App() {
               transition={{ duration: 0.3 }}
               className="w-full"
             >
-              <SectsScreen />
+              <SectPage />
             </motion.div>
           )}
         </AnimatePresence>
@@ -763,7 +763,7 @@ function App() {
       <ModalsAndToasts />
       <KeyboardShortcuts />
       <AtmosphericAudio />
-      <IdleCultivationModal
+      <ClosedDoorCultivationModal
         qiEarned={idleQiEarned}
         onClose={closeIdleQi}
         onClaim={claimIdleQi}

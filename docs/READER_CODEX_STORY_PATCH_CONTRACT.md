@@ -36,7 +36,7 @@ values use the newest committed story.
 - `ReaderViewport`: reveal-backdrop assignments use the store's functional
   patch path directly.
 - `StoryDetailScreen`: motion-cover toggling is a functional store patch.
-- `LivingCodex`, its context, relationships, deletion hook, and image
+- `ReaderCodex`, its context, relationships, deletion hook, and image
   evolution hook now receive the narrow callback and send only their owned
   fields.
 - `useCosmicBookmarking` and `useReadingPosition` use the same narrow shape.

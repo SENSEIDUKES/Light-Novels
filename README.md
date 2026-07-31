@@ -47,7 +47,7 @@ system, plot controls, content preferences, and the details that make a realm
 feel yours. The Library turns that intake into a reviewable world blueprint,
 then into an opening story that can keep growing chapter by chapter.
 
-**For developers.** `CreationPortal` composes the structured intake and calls
+**For developers.** `CreationModal` composes the structured intake and calls
 the blueprint and initial-story generation flows. A **Story Seed** preserves
 the intake plus blueprint for a signed-in account, so a world can be reused,
 imported, exported, or shared where native sharing is available. Seeds are

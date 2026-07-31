@@ -10,7 +10,7 @@ interface Props {
 
 export function ChapterNavigation({ navigation, actions, isDesktop = false }: Props) {
   const { selectedChapterNum, maxChapterNum, navigatePrev, navigateNext, onSwitchTab } = navigation;
-  const { handleAlterFate, setIsAlterFateOpen, fateLockMessage } = actions;
+  const { handleAlterFate, setIsAlterFateOpen, alterFateLockMessage } = actions;
 
   if (isDesktop) {
     return (
@@ -50,14 +50,14 @@ export function ChapterNavigation({ navigation, actions, isDesktop = false }: Pr
 
         {handleAlterFate && (
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setIsAlterFateOpen(true)} disabled={Boolean(fateLockMessage)} title={fateLockMessage || 'Alter Fate (Branch)'} aria-label={fateLockMessage || 'Alter Fate (Branch)'}
+            <button type="button" onClick={() => setIsAlterFateOpen(true)} disabled={Boolean(alterFateLockMessage)} title={alterFateLockMessage || 'Alter Fate (Branch)'} aria-label={alterFateLockMessage || 'Alter Fate (Branch)'}
               className="px-4 py-2 border border-portal text-portal font-sc font-bold uppercase tracking-wider text-[10px] rounded-full hover:bg-portal hover:text-void transition-colors flex items-center gap-2 shadow-[0_0_10px_rgba(4,172,255,0.15)] shrink-0 focus-visible:ring-2 focus-visible:ring-portal outline-none disabled:opacity-45 disabled:cursor-not-allowed"
             >
               <Zap size={14} />
               <span className="hidden sm:inline">Alter Fate (Branch)</span>
               <span className="sm:hidden">Alter Fate</span>
             </button>
-            {fateLockMessage && <span className="max-w-36 text-[9px] leading-tight text-neutral-500">{fateLockMessage}</span>}
+            {alterFateLockMessage && <span className="max-w-36 text-[9px] leading-tight text-neutral-500">{alterFateLockMessage}</span>}
           </div>
         )}
       </div>
@@ -71,10 +71,10 @@ export function ChapterNavigation({ navigation, actions, isDesktop = false }: Pr
         <button
           type="button"
           onClick={() => setIsAlterFateOpen(true)}
-          disabled={Boolean(fateLockMessage)}
+          disabled={Boolean(alterFateLockMessage)}
           className="p-2 border border-portal/60 text-portal font-sc font-bold rounded-full hover:bg-portal hover:text-void transition-colors shadow-[0_0_10px_rgba(4,172,255,0.15)] shrink-0 focus-visible:ring-2 focus-visible:ring-portal outline-none disabled:opacity-45 disabled:cursor-not-allowed"
-          title={fateLockMessage || 'Alter Fate (Branch)'}
-          aria-label={fateLockMessage || 'Alter Fate (Branch)'}
+          title={alterFateLockMessage || 'Alter Fate (Branch)'}
+          aria-label={alterFateLockMessage || 'Alter Fate (Branch)'}
         >
           <Zap size={16} />
         </button>

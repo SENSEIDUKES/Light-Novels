@@ -8,8 +8,8 @@ vi.mock('../../aiRouter', () => ({
 }));
 
 import { routeImageGeneration } from '../../aiRouter';
-import { generateCultivatorPortrait } from './mediaRouter';
-import { generateCultivatorPortraitSchema } from '../schemas';
+import { generateProfilePicture } from './mediaRouter';
+import { generateProfilePictureSchema } from '../schemas';
 
 describe('cultivator portrait route', () => {
   const originalGeminiKey = process.env.GEMINI_API_KEY;
@@ -27,7 +27,7 @@ describe('cultivator portrait route', () => {
   });
 
   it('accepts description-only portrait generation and forwards it to the image provider', async () => {
-    expect(generateCultivatorPortraitSchema.safeParse({
+    expect(generateProfilePictureSchema.safeParse({
       description: 'A scholar beneath a starry sky',
       routingConfig: {},
     }).success).toBe(true);
@@ -47,7 +47,7 @@ describe('cultivator portrait route', () => {
       json,
     } as any;
 
-    await generateCultivatorPortrait(req, res);
+    await generateProfilePicture(req, res);
 
     expect(routeImageGeneration).toHaveBeenCalledWith(
       expect.stringContaining('A scholar beneath a starry sky'),

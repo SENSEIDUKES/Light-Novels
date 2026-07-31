@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import { selectIsGenerating } from "../store/useGenerationStore";
-import { DestinedEndingWaterCard } from "./DestinedEndingWaterCard";
+import { DestinedEndingCard } from "./DestinedEndingCard";
 import { DestinyChoicePanel } from "./DestinyChoicePanel";
 import { FateTimeline } from "./FateTimeline";
 import { storyStorage } from "../lib/storage";
@@ -1055,7 +1055,7 @@ export const StoryDetailScreen: React.FC<{
                 <Sparkles size={12} />
                 Destined Ending
               </h3>
-              <DestinedEndingWaterCard text={activeStory.blueprint.destinedEnding} />
+              <DestinedEndingCard text={activeStory.blueprint.destinedEnding} />
             </div>
           )}
 

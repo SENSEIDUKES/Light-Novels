@@ -15,7 +15,7 @@ import {
   suggestTagsSchema,
   steerArcSchema,
   generateCardImageSchema,
-  generateCultivatorPortraitSchema,
+  generateProfilePictureSchema,
   generateCustomGlossarySchema,
   translateChapterSchema,
   generateAudioSchema
@@ -46,7 +46,7 @@ mediaRouter.post("/api/test-image-gen", async (req, res) => {
     res.status(500).json({error: err.message});
   }
 });
-export const generateCultivatorPortrait = async (req: express.Request, res: express.Response) => {
+export const generateProfilePicture = async (req: express.Request, res: express.Response) => {
   const { image, description, daoRank, daoXp, powerStage, equippedArtifact, routingConfig } = req.body;
   try {
     const customKeys = getCustomKeys(req);
@@ -135,7 +135,7 @@ GENERAL CONSTRAINTS:
     return res.status(500).json({ error: error.message || "Celestial alignment interrupted." });
   }
 };
-mediaRouter.post("/api/generate-cultivator-portrait", validateBody(generateCultivatorPortraitSchema), generateCultivatorPortrait);
+mediaRouter.post("/api/generate-cultivator-portrait", validateBody(generateProfilePictureSchema), generateProfilePicture);
 mediaRouter.post("/api/generate-audio", validateBody(generateAudioSchema), async (req, res) => {
   try {
     const { text, speakerVoice } = req.body;

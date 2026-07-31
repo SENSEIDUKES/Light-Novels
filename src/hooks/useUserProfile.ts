@@ -11,11 +11,11 @@ import { useAppStore } from '../store/useAppStore';
 import { getDaoRankData } from '../lib/qi';
 import { getApiHeaders } from '../hooks/storyEngineHelpers';
 import { generateId } from '../lib/id';
-import { generateCultivatorPortrait } from '../services/cultivatorPortrait';
+import { generateProfilePicture } from '../services/profilePicture';
 import {
-  CultivatorPortraitCommitDeferredError,
-  persistCultivatorPortrait,
-} from '../services/cultivatorPortraitPersistence';
+  ProfilePictureCommitDeferredError,
+  persistProfilePicture,
+} from '../services/profilePicturePersistence';
 import {
   cacheAccountProfile,
   createAccountProfileFallback,
@@ -277,7 +277,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
 
     try {
       const apiHeaders = await getApiHeaders();
-      const generatedPortrait = await generateCultivatorPortrait({
+      const generatedPortrait = await generateProfilePicture({
         image: portraitUploadBase64 || undefined,
         description: portraitDesc,
         daoRank: profile?.dao_rank || "Mortal Reader",
@@ -354,7 +354,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
       let avatarMediaDescriptor = profile?.avatarMediaDescriptor;
 
       if (currentUser) {
-        const portrait = await persistCultivatorPortrait({
+        const portrait = await persistProfilePicture({
           userId: expectedUid!,
           imageSource: generatedPortraitUrl,
           prompt: generatedPortraitPrompt,
@@ -418,7 +418,7 @@ export function useUserProfile({ currentUser, stories, onLogout, onNavigateHome 
     } catch (err) {
       console.error('Failed to save cultivator portrait:', err);
       if (identityIsCurrent()) {
-        if (err instanceof CultivatorPortraitCommitDeferredError) {
+        if (err instanceof ProfilePictureCommitDeferredError) {
           const fallbackProfile = profile || createAccountProfileFallback(currentUser!);
           const updatedProfile = {
             ...fallbackProfile,

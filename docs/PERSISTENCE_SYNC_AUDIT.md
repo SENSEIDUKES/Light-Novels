@@ -88,7 +88,7 @@ Answers to the specific priority questions:
 | Field missing / wrong type / unsupported / renamed / stripped / wrong operation? | Present but carries an **unsupported `undefined` value**; correct operation. |
 | Browser holding an old queued entry under a previous schema? | **No.** The strict guard throws *before* writing, so a poisoned row can never be persisted. Each attempt is a fresh enqueue failure. |
 | Can current code safely process/migrate older queued operations? | **Yes.** `loadQueueForScope` validates each row with `isSyncTask` and discards/`completeOutbox`es unrecognized rows ([:477-516](../src/lib/storage/persistentStorageManager.ts#L477)); legacy localStorage queue is JSON (cannot carry `undefined`) and is validated in `migrateLegacyQueue`. |
-| Does accepting a blueprint partially create story/seed before failing? | **Yes, both.** (a) The **source Seed** is saved first via the *immediate-fetch* authority (`persistSeed` → `saveStorySeed`, [CreationPortal.tsx:221](../src/components/CreationPortal.tsx#L221)) before `onStartStory`. (b) The **story shell** is written to the local adapter ([:2639](../src/lib/storage/persistentStorageManager.ts#L2639)) *before* the enqueue throws ([:2645](../src/lib/storage/persistentStorageManager.ts#L2645)). Result: cloud has the seed, local disk has an orphan story shell, cloud has no story, and the in-memory store never commits it (`set({stories})` never runs). |
+| Does accepting a blueprint partially create story/seed before failing? | **Yes, both.** (a) The **source Seed** is saved first via the *immediate-fetch* authority (`persistSeed` → `saveStorySeed`, [CreationModal.tsx:221](../src/components/CreationModal.tsx#L221)) before `onStartStory`. (b) The **story shell** is written to the local adapter ([:2639](../src/lib/storage/persistentStorageManager.ts#L2639)) *before* the enqueue throws ([:2645](../src/lib/storage/persistentStorageManager.ts#L2645)). Result: cloud has the seed, local disk has an orphan story shell, cloud has no story, and the in-memory store never commits it (`set({stories})` never runs). |
 | Does retrying create duplicates/conflicts? | Each retry mints a new `generateUUID()` story id ([useStoryGeneration.ts:182](../src/hooks/useStoryGeneration.ts#L182)) → a new local-only shell each time. No cloud duplicates (nothing reaches cloud); the seed is reused, not duplicated. Orphan local shells accumulate. |
 | Did the latest persistence PR change producer and consumer consistently? | **No.** Strict consumer guard added; producer still emits `undefined`; volatile fallback + test mock stayed lenient and masked it. |
 | Local cache making a failed remote write look successful? | **Yes.** The local shell is written before the throw, so on reload `getStories()` shows the story even though it never synced and will re-throw on every subsequent save. |
@@ -235,7 +235,7 @@ a story cannot exist locally without a queued sync.
 
 **Surfacing / callers**
 - `src/hooks/useStoryGeneration.ts` — `handleStartStory` (129-239), error catch (232)
-- `src/components/CreationPortal.tsx` — `persistSeed` + accept flow (152, 221-224)
+- `src/components/CreationModal.tsx` — `persistSeed` + accept flow (152, 221-224)
 - `src/features/creation/components/BlueprintReview.tsx` — button (346-360)
 - `src/store/useStoryStore.ts` — `performSaveStories` transaction (96-191)
 - `src/components/ModalsAndToasts.tsx` — "Celestial Disruption" toast (823)

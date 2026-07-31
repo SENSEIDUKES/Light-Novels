@@ -1,7 +1,7 @@
 import React from 'react';
 import { Character, Story } from '../../../types';
 import { Download, Compass, Lock, Award, Play, Square, Loader2, Volume2, Sparkles } from 'lucide-react';
-import { LivingCodexImageGallery } from '../LivingCodexImageGallery';
+import { ReaderCodexImageGallery } from '../ReaderCodexImageGallery';
 import { resolveEntityImageHistory } from '../entityImageHistory';
 import { handleDownload } from '../../../utils/downloadUtils';
 import { AGENTS } from '../../../lib/agents';
@@ -64,7 +64,7 @@ export const CharacterCard: React.FC<CharacterCardProps> = ({
     >
       {/* Visual Stage illustration header */}
       <div className="h-44 w-full bg-void relative flex items-center justify-center overflow-hidden border-b border-neutral-900 group">
-        <LivingCodexImageGallery
+        <ReaderCodexImageGallery
           entityId={char.id}
           type={char.isBeast ? 'beast' : 'character'}
           imageHistory={resolveEntityImageHistory(char)}

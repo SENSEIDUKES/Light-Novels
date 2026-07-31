@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const readerCodexSources = [
   'src/components/ReaderChamber.tsx',
   'src/components/ReaderScreen.tsx',
-  'src/components/LivingCodex.tsx',
+  'src/components/ReaderCodex.tsx',
   'src/components/codex/CodexContext.tsx',
   'src/hooks/useCodexDeletions.ts',
   'src/hooks/useCodexImageEvolution.ts',

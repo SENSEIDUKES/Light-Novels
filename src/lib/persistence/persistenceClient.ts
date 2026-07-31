@@ -3,7 +3,7 @@ import { auth } from '../firebase';
 import { generateUUID } from '../id';
 import { resolveMediaAssetForDisplay } from '../media/privateMediaResolver';
 import type {
-  CultivatorPortraitCustomization,
+  ProfilePictureCustomization,
   LoreGlossary,
   StorySeed,
   UserProfile,
@@ -202,7 +202,7 @@ export interface PortraitSelectionRequest {
   powerStage?: string;
   equippedArtifactId?: string | null;
   usedReferenceImage?: boolean;
-  customization?: Partial<CultivatorPortraitCustomization>;
+  customization?: Partial<ProfilePictureCustomization>;
 }
 
 export async function selectUserPortrait(

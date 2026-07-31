@@ -11,8 +11,8 @@ const persistenceMocks = vi.hoisted(() => ({
 }));
 
 const portraitMocks = vi.hoisted(() => ({
-  generateCultivatorPortrait: vi.fn(),
-  persistCultivatorPortrait: vi.fn(),
+  generateProfilePicture: vi.fn(),
+  persistProfilePicture: vi.fn(),
 }));
 
 const storeMocks = vi.hoisted(() => {
@@ -53,12 +53,12 @@ vi.mock('../store/useAppStore', () => ({ useAppStore: storeMocks.hook }));
 vi.mock('./storyEngineHelpers', () => ({
   getApiHeaders: vi.fn().mockResolvedValue({ Authorization: 'Bearer test' }),
 }));
-vi.mock('../services/cultivatorPortrait', () => ({
-  generateCultivatorPortrait: portraitMocks.generateCultivatorPortrait,
+vi.mock('../services/profilePicture', () => ({
+  generateProfilePicture: portraitMocks.generateProfilePicture,
 }));
 vi.mock('../lib/persistence', () => persistenceMocks);
-vi.mock('../services/cultivatorPortraitPersistence', () => {
-  class CultivatorPortraitCommitDeferredError extends Error {
+vi.mock('../services/profilePicturePersistence', () => {
+  class ProfilePictureCommitDeferredError extends Error {
     portrait: any;
 
     constructor(portrait: any) {
@@ -67,16 +67,16 @@ vi.mock('../services/cultivatorPortraitPersistence', () => {
     }
   }
   return {
-    CultivatorPortraitCommitDeferredError,
-    persistCultivatorPortrait: portraitMocks.persistCultivatorPortrait,
+    ProfilePictureCommitDeferredError,
+    persistProfilePicture: portraitMocks.persistProfilePicture,
   };
 });
 
-import { generateCultivatorPortrait } from '../services/cultivatorPortrait';
+import { generateProfilePicture } from '../services/profilePicture';
 import {
-  CultivatorPortraitCommitDeferredError,
-  persistCultivatorPortrait,
-} from '../services/cultivatorPortraitPersistence';
+  ProfilePictureCommitDeferredError,
+  persistProfilePicture,
+} from '../services/profilePicturePersistence';
 import { useUserProfile } from './useUserProfile';
 
 const makeUser = (uid: string, email = `${uid}@example.com`) => ({
@@ -149,11 +149,11 @@ describe('useUserProfile PostgreSQL persistence', () => {
     persistenceMocks.getUserProfile.mockResolvedValue(makeProfile('account-a'));
     persistenceMocks.saveUserProfile.mockImplementation(async (profile) => profile);
     persistenceMocks.getPersistenceAdminOverview.mockResolvedValue({ users: [], stories: [] });
-    portraitMocks.generateCultivatorPortrait.mockResolvedValue({
+    portraitMocks.generateProfilePicture.mockResolvedValue({
       imageUrl: 'data:image/png;base64,AAEC',
       promptUsed: 'moonlit cultivator',
     });
-    portraitMocks.persistCultivatorPortrait.mockResolvedValue({
+    portraitMocks.persistProfilePicture.mockResolvedValue({
       id: '11111111-1111-4111-8111-111111111111',
       imageUrl: 'https://media.example.test/signed-portrait',
       avatarMediaDescriptor: portraitDescriptor(
@@ -404,8 +404,8 @@ describe('useUserProfile PostgreSQL persistence', () => {
     await act(async () => result.current.handleGeneratePortrait());
     await act(async () => result.current.handleApplyPortrait());
 
-    expect(generateCultivatorPortrait).toHaveBeenCalled();
-    expect(persistCultivatorPortrait).toHaveBeenCalledWith(expect.objectContaining({
+    expect(generateProfilePicture).toHaveBeenCalled();
+    expect(persistProfilePicture).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'account-a',
       imageSource: 'data:image/png;base64,AAEC',
       prompt: 'moonlit cultivator',
@@ -431,8 +431,8 @@ describe('useUserProfile PostgreSQL persistence', () => {
         '22222222-2222-4222-8222-222222222222',
       ),
     };
-    portraitMocks.persistCultivatorPortrait.mockRejectedValue(
-      new CultivatorPortraitCommitDeferredError(uploaded as any),
+    portraitMocks.persistProfilePicture.mockRejectedValue(
+      new ProfilePictureCommitDeferredError(uploaded as any),
     );
     const { result } = renderProfile();
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -450,7 +450,7 @@ describe('useUserProfile PostgreSQL persistence', () => {
   });
 
   it('keeps the generated preview retryable when selection is permanently rejected', async () => {
-    portraitMocks.persistCultivatorPortrait.mockRejectedValue(Object.assign(
+    portraitMocks.persistProfilePicture.mockRejectedValue(Object.assign(
       new Error('Portrait asset purpose mismatch'),
       { recoverable: false, status: 400, code: 'invalid_argument' },
     ));
@@ -492,7 +492,7 @@ describe('useUserProfile PostgreSQL persistence', () => {
 
   it('does not publish an account A portrait after the UI switches to account B', async () => {
     const portraitWrite = deferred<any>();
-    portraitMocks.persistCultivatorPortrait.mockReturnValueOnce(portraitWrite.promise);
+    portraitMocks.persistProfilePicture.mockReturnValueOnce(portraitWrite.promise);
     const { result, rerender } = renderProfile();
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     await act(async () => result.current.handleGeneratePortrait());
@@ -501,7 +501,7 @@ describe('useUserProfile PostgreSQL persistence', () => {
     act(() => {
       apply = result.current.handleApplyPortrait();
     });
-    await waitFor(() => expect(portraitMocks.persistCultivatorPortrait).toHaveBeenCalled());
+    await waitFor(() => expect(portraitMocks.persistProfilePicture).toHaveBeenCalled());
     persistenceMocks.getUserProfile.mockResolvedValueOnce(makeProfile('account-b'));
     rerender({ currentUser: makeUser('account-b') });
     portraitWrite.resolve({

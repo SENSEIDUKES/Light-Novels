@@ -425,7 +425,7 @@ export const generateCardImageSchema = z.object({
   routingConfig: routingConfigSchema,
 });
 
-export const generateCultivatorPortraitSchema = z.object({
+export const generateProfilePictureSchema = z.object({
   image: z.string().optional(),
   description: z.string().optional(),
   daoRank: z.string().optional(),

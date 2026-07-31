@@ -30,8 +30,8 @@ vi.mock('../lib/encryption', () => ({
 vi.mock('./useChapterGeneration', () => ({
   useChapterGeneration: () => ({ handleGenerateChapter: vi.fn(), handleGenerateNextFiveChapters: vi.fn() })
 }));
-vi.mock('./useArcSteering', () => ({
-  useArcSteering: () => ({ handleSteerArc: vi.fn(), handleAlterFate: vi.fn() })
+vi.mock('./useStorySteering', () => ({
+  useStorySteering: () => ({ handleSteerArc: vi.fn(), handleAlterFate: vi.fn() })
 }));
 vi.mock('./useStoryGeneration', () => ({
   useStoryGeneration: () => ({ handleGenerateBlueprint: vi.fn(), handleStartStory: vi.fn() })
@@ -39,8 +39,8 @@ vi.mock('./useStoryGeneration', () => ({
 vi.mock('./useVisualAssets', () => ({
   useVisualAssets: () => ({ handleGenerateCover: vi.fn(), handleApplyCover: vi.fn(), handleSelectCover: vi.fn() })
 }));
-vi.mock('./useChapterSealing', () => ({
-  useChapterSealing: () => ({ handleCheckConsistency: vi.fn(), handleSealChapter: vi.fn() })
+vi.mock('./useChapterLock', () => ({
+  useChapterLock: () => ({ handleCheckConsistency: vi.fn(), handleSealChapter: vi.fn() })
 }));
 vi.mock('../lib/qi', () => ({
   awardQi: vi.fn()

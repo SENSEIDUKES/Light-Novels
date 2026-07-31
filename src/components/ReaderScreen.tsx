@@ -3,7 +3,7 @@ import { motion } from "motion/react";
 import { ArrowLeft, Sparkles, BookA } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import { selectIsGenerating } from "../store/useGenerationStore";
-import SteerPortal from "./SteerPortal";
+import StorySteeringModal from "./StorySteeringModal";
 import ReaderChamber from "./ReaderChamber";
 import { GlossarySidePanel } from "./GlossarySidePanel";
 import { Chapter, ChapterContent, ReaderChapter, Story, StoryBlock, StreamingChapter, UpdateStoryFields } from "../types";
@@ -548,7 +548,7 @@ export const ReaderScreen: React.FC<{
         </div>
       ) : selectedChapterNum === -1 ? (
         <div className="animate-fadeIn max-w-4xl mx-auto shadow-2xl">
-          <SteerPortal
+          <StorySteeringModal
             isSteering={isGenerating}
             onSteerArc={handleSteerArc}
             currentArcIndex={activeStory.arcs.length}

@@ -8,7 +8,7 @@ import {
   MAX_IDLE_QI_REWARD,
   isIdleBaselineClaimed,
   markIdleBaselineClaimed,
-} from './idleCultivation';
+} from './closedDoorCultivation';
 
 interface PendingProfileSync {
   updates: Partial<UserProfile>;

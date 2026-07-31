@@ -715,7 +715,7 @@ export async function scanChapterForArtifacts(
 
   // Call Drop Engine to process remaining selective block-based drops
   try {
-    const { processChapterDrops } = await import('./dropEngine');
+    const { processChapterDrops } = await import('./relicDropEngine');
     await processChapterDrops({ ...metadata, number: chapterNumber, blocks }, { id: storyId, title: storyTitle });
   } catch (err) {
     console.error("Failed to run Drop Engine during scanChapterForArtifacts:", err);

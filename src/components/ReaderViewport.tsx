@@ -10,8 +10,8 @@ import { CodexHovercard } from './CodexHovercard';
 import { WorldEntityCard } from './WorldEntityCard';
 import { useAppStore } from '../store/useAppStore';
 import { ReaderFateAlerts } from './ReaderFateAlerts';
-import { AetherialSystemLegend } from './AetherialSystemLegend';
-import { ManifestHeroImage } from './ManifestHeroImage';
+import { SystemColorLegend } from './SystemColorLegend';
+import { ManifestationImage } from './ManifestationImage';
 import { anchorAttributes } from '../lib/cinematicScroll/anchors';
 import { ContextInspector } from './ContextInspector';
 import { getReaderTypography, getReadingDirection } from '../lib/readerTypography';
@@ -475,7 +475,7 @@ export function ReaderViewport({
               )}
 
               {showLegend && hasSystemBlocks && (
-                <AetherialSystemLegend 
+                <SystemColorLegend 
                   currentPrefs={currentPrefs}
                   handleUpdatePreference={handleUpdatePreference}
                   setShowLegend={setShowLegend}
@@ -1079,7 +1079,7 @@ export function ReaderViewport({
               </div>
               
               {isMomentousChapter && (
-                <ManifestHeroImage
+                <ManifestationImage
                   selectedChapter={selectedChapter}
                   generatingIds={generatingIds}
                   triggerHeroGeneration={triggerHeroGeneration}
