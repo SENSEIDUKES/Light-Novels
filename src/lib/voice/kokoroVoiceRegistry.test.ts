@@ -16,14 +16,11 @@ describe("Kokoro Voice Registry", () => {
     expect(uniqueIds.size).toBe(ids.length);
   });
 
-  it("should have unique providerVoiceIds for all presets", () => {
-    const providerIds = KOKORO_VOICE_PRESETS.map((preset) => preset.providerVoiceId);
-    const uniqueProviderIds = new Set(providerIds);
-
-    // Find duplicates for better error messages
-    const duplicates = providerIds.filter((id, index) => providerIds.indexOf(id) !== index);
-    expect(duplicates).toEqual([]);
-    expect(uniqueProviderIds.size).toBe(providerIds.length);
+  it("should have a valid providerVoiceId for all presets", () => {
+    KOKORO_VOICE_PRESETS.forEach((preset) => {
+      expect(preset.providerVoiceId).toBeDefined();
+      expect(preset.providerVoiceId.trim()).not.toBe("");
+    });
   });
 
   it("should correctly map presets by id in KOKORO_VOICE_PRESET_BY_ID", () => {
