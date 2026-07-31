@@ -37,6 +37,8 @@ import {
 import { retryPendingCultivatorPortraits } from './services/cultivatorPortraitPersistence';
 import { ensureAccountSeedForStory } from './lib/storySeedStorage';
 import { getUserProfile } from './lib/persistence';
+import { isDevBuild } from './lib/env';
+import { getDevPreviewStory } from './store/devPreviewStory';
 
 // Top-Level Layout Components
 import { GlobalHeader } from './components/GlobalHeader';
@@ -501,6 +503,20 @@ function App() {
     store_setSyncStatus,
     store_setUserProfile
   ]);
+
+  // Development previews need one readable story to exercise the real
+  // Library -> detail -> Reader Chamber path. Keep it in memory, only for an
+  // unauthenticated dev build, so it cannot enter production persistence.
+  useEffect(() => {
+    if (
+      isInitializing
+      || !isDevBuild()
+      || store_currentUser
+      || auth.currentUser
+      || store_stories.length > 0
+    ) return;
+    store_setStories([getDevPreviewStory()]);
+  }, [isInitializing, store_currentUser, store_stories.length, store_setStories]);
 
   // Dynamically fetch missing content for active chapter
   useEffect(() => {
