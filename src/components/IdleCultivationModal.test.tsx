@@ -3,13 +3,6 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { IdleCultivationModal } from './IdleCultivationModal';
 
-const mocks = vi.hoisted(() => ({
-  awardDirectQi: vi.fn(),
-  setUserProfile: vi.fn(),
-  userProfile: null as any,
-  authCurrentUser: { uid: 'test-user' } as any,
-}));
-
 vi.mock('motion/react', () => {
   const strip = ({ children, initial: _i, animate: _a, exit: _e, transition: _t, ...props }: any) => (
     <div {...props}>{children}</div>
@@ -28,40 +21,33 @@ vi.mock('motion/react', () => {
       ),
     },
     AnimatePresence: ({ children }: any) => <>{children}</>,
+    useReducedMotion: () => false,
   };
 });
 
-vi.mock('../store/useAppStore', () => ({
-  useAppStore: (selector: (state: unknown) => unknown) => selector({
-    userProfile: mocks.userProfile,
-    setUserProfile: mocks.setUserProfile,
-  }),
-}));
-
-vi.mock('../lib/qi', () => ({
-  awardDirectQi: mocks.awardDirectQi,
-}));
-
-vi.mock('../lib/firebase', () => ({
-  auth: {
-    get currentUser() {
-      return mocks.authCurrentUser;
-    },
-  },
-}));
+const renderModal = (
+  props: Partial<React.ComponentProps<typeof IdleCultivationModal>> = {},
+) => {
+  const onClose = props.onClose ?? vi.fn();
+  const onClaim = props.onClaim ?? vi.fn().mockResolvedValue(undefined);
+  const utils = render(
+    <IdleCultivationModal
+      qiEarned={12}
+      onClose={onClose}
+      onClaim={onClaim}
+      daysCultivating={7}
+      {...props}
+    />,
+  );
+  return { onClose, onClaim, ...utils };
+};
 
 describe('IdleCultivationModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
-    mocks.userProfile = {
-      dao_xp: 7,
-      qi: 3,
-      heavenly_qi: 5,
-      sect_qi: 0,
-    };
-    mocks.authCurrentUser = { uid: 'test-user' };
-    mocks.awardDirectQi.mockResolvedValue(undefined);
+    // Deterministic quote rolls: always the progression line, never timeless.
+    vi.spyOn(Math, 'random').mockReturnValue(0.99);
   });
 
   afterEach(() => {
@@ -70,107 +56,145 @@ describe('IdleCultivationModal', () => {
   });
 
   it('does not render when there is no idle qi to claim', () => {
-    render(<IdleCultivationModal qiEarned={null} onClose={vi.fn()} />);
-
+    renderModal({ qiEarned: null });
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('awards qi, updates the profile, and closes after claiming', async () => {
-    const onClose = vi.fn();
-
-    render(<IdleCultivationModal qiEarned={12} onClose={onClose} />);
-
+  it('shows the cultivation composition with dynamic day count and progression quote', () => {
+    renderModal({ daysCultivating: 7 });
     expect(screen.getByRole('dialog')).toBeDefined();
+    expect(screen.getByText('Days Cultivating')).toBeDefined();
+    expect(screen.getByText('7 DAYS')).toBeDefined();
+    expect(screen.getByText('Just getting your feet wet.')).toBeDefined();
     expect(screen.getByText('+12 QI')).toBeDefined();
-
-    const claimButton = screen.getByRole('button', { name: 'Claim & Awaken' });
-    await act(async () => {
-      fireEvent.click(claimButton);
-      await Promise.resolve();
-    });
-
-    expect(claimButton).toHaveProperty('disabled', true);
-    expect(screen.getByRole('button', { name: 'Absorbing Qi...' })).toBeDefined();
-    // the qi-flight particle overlay appears while claiming
-    expect(document.querySelector('.z-\\[110\\]')).not.toBeNull();
-    expect(mocks.awardDirectQi).toHaveBeenCalledWith(12, expect.stringMatching(/^idle-cultivation-/));
-    expect(mocks.setUserProfile).toHaveBeenCalledWith({
-      dao_xp: 19,
-      qi: 15,
-      heavenly_qi: 17,
-      sect_qi: 12,
-    });
-
-    await act(async () => {
-      vi.advanceTimersByTime(2000);
-    });
-
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Closed-Door Cultivation')).toBeDefined();
   });
 
-  it('still closes after an award failure without updating the profile', async () => {
-    mocks.awardDirectQi.mockRejectedValueOnce(new Error('network'));
-    const onClose = vi.fn();
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+  it.each([
+    [1, 'The first step has been taken.'],
+    [3, 'Still finding your footing.'],
+    [7, 'Just getting your feet wet.'],
+    [10, 'The Library is becoming familiar.'],
+    [30, 'One month of steady cultivation.'],
+    [179, 'Your dedication speaks for itself.'],
+    [180, 'Half a year upon the path.'],
+    [400, 'Half a year upon the path.'],
+  ])('shows the milestone quote for %i cultivating days', (days, quote) => {
+    renderModal({ daysCultivating: days });
+    expect(screen.getByText(quote)).toBeDefined();
+  });
 
-    render(<IdleCultivationModal qiEarned={12} onClose={onClose} />);
+  it('floors the displayed day count at 1 day', () => {
+    renderModal({ daysCultivating: 0 });
+    expect(screen.getByText('1 DAY')).toBeDefined();
+    expect(screen.getByText('The first step has been taken.')).toBeDefined();
+  });
+
+  it('occasionally replaces the milestone quote with a timeless one', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.01);
+    renderModal({ daysCultivating: 7 });
+    expect(screen.queryByText('Just getting your feet wet.')).toBeNull();
+    expect(
+      screen.getByText((_content, element) =>
+        element?.tagName === 'SPAN' &&
+        [
+          'Even the longest paths begin in silence.',
+          'The heavens favor those who return.',
+          'A quiet mind gathers boundless Qi.',
+          "Today's effort shapes tomorrow's realm.",
+          'Some breakthroughs happen when no one is watching.',
+        ].includes(element.textContent ?? ''),
+      ),
+    ).toBeDefined();
+  });
+
+  it('keeps the chosen quote stable across re-renders', () => {
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const { rerender } = render(
+      <IdleCultivationModal qiEarned={12} onClose={vi.fn()} onClaim={vi.fn()} daysCultivating={7} />,
+    );
+    const firstQuote = screen.getByText('Just getting your feet wet.');
+    const rollsAtOpen = randomSpy.mock.calls.length;
+    rerender(
+      <IdleCultivationModal qiEarned={12} onClose={vi.fn()} onClaim={vi.fn()} daysCultivating={7} />,
+    );
+    expect(randomSpy.mock.calls.length).toBe(rollsAtOpen);
+    expect(screen.getByText('Just getting your feet wet.')).toBe(firstQuote);
+  });
+
+  it('starts the absorption immediately, then closes 2.5s after the claim started', async () => {
+    let resolveClaim!: () => void;
+    const onClaim = vi.fn().mockImplementation(
+      () => new Promise<void>(resolve => { resolveClaim = resolve; }),
+    );
+    const onClose = vi.fn();
+    renderModal({ onClaim, onClose });
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Claim & Awaken' }));
       await Promise.resolve();
     });
 
-    expect(mocks.setUserProfile).not.toHaveBeenCalled();
+    // the three-phase sequence (dantian absorption + emblem flight) starts at once
+    expect(onClaim).toHaveBeenCalledWith(12);
+    expect(screen.getByRole('button', { name: 'Absorbing Qi...' })).toBeDefined();
+    expect(document.querySelectorAll('.z-\\[110\\]').length).toBe(2);
+    expect(onClose).not.toHaveBeenCalled();
+
+    // the claim sequence is latency-independent: even a slow transaction does
+    // not extend the 2.5s window measured from the tap
+    await act(async () => {
+      vi.advanceTimersByTime(1200);
+      resolveClaim();
+      await Promise.resolve();
+    });
     expect(onClose).not.toHaveBeenCalled();
 
     await act(async () => {
-      vi.advanceTimersByTime(2000);
+      vi.advanceTimersByTime(1299);
     });
+    expect(onClose).not.toHaveBeenCalled();
 
-    expect(consoleError).toHaveBeenCalledWith('Failed to claim idle qi:', expect.any(Error));
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+    });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('updates the profile without awarding qi when no auth user exists', async () => {
-    mocks.authCurrentUser = null;
+  it('keeps the veil open and allows retrying when the claim fails', async () => {
+    const onClaim = vi.fn()
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce(undefined);
     const onClose = vi.fn();
-
-    render(<IdleCultivationModal qiEarned={12} onClose={onClose} />);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    renderModal({ onClaim, onClose });
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Claim & Awaken' }));
       await Promise.resolve();
     });
 
-    expect(mocks.awardDirectQi).not.toHaveBeenCalled();
-    expect(mocks.setUserProfile).toHaveBeenCalled();
-
-    await act(async () => {
-      vi.advanceTimersByTime(2000);
-    });
-  });
-
-  it('awards qi without updating the profile when no profile exists', async () => {
-    mocks.userProfile = null;
-    const onClose = vi.fn();
-
-    render(<IdleCultivationModal qiEarned={12} onClose={onClose} />);
+    expect(consoleError).toHaveBeenCalledWith('Failed to claim idle qi:', expect.any(Error));
+    expect(onClose).not.toHaveBeenCalled();
+    // the reward is still waiting: overlays cleared, dialog restored for a retry
+    expect(document.querySelectorAll('.z-\\[110\\]').length).toBe(0);
+    expect(screen.getByRole('dialog')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Claim & Awaken' })).toBeDefined();
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Claim & Awaken' }));
       await Promise.resolve();
     });
-
-    expect(mocks.awardDirectQi).toHaveBeenCalledWith(12, expect.stringMatching(/^idle-cultivation-/));
-    expect(mocks.setUserProfile).not.toHaveBeenCalled();
+    expect(onClaim).toHaveBeenCalledTimes(2);
 
     await act(async () => {
-      vi.advanceTimersByTime(2000);
+      vi.advanceTimersByTime(2500);
     });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('collapses into a tiny waiting icon when left unclaimed, and re-expands on tap', () => {
-    render(<IdleCultivationModal qiEarned={12} onClose={vi.fn()} />);
+    renderModal();
 
     expect(screen.getByRole('dialog')).toBeDefined();
 
@@ -182,9 +206,37 @@ describe('IdleCultivationModal', () => {
     const waitingIcon = screen.getByRole('button', { name: 'Open closed-door cultivation reward' });
     expect(waitingIcon).toBeDefined();
 
-    // the reward is still waiting — tapping the icon brings the vignette back
     fireEvent.click(waitingIcon);
     expect(screen.getByRole('dialog')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Claim & Awaken' })).toBeDefined();
+  });
+
+  it('resets the claim state when a new reward cycle begins', async () => {
+    const onClaim = vi.fn().mockResolvedValue(undefined);
+    const onClose = vi.fn();
+    const { rerender } = render(
+      <IdleCultivationModal qiEarned={12} onClose={onClose} onClaim={onClaim} daysCultivating={7} />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Claim & Awaken' }));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(2500);
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <IdleCultivationModal qiEarned={null} onClose={onClose} onClaim={onClaim} daysCultivating={7} />,
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    rerender(
+      <IdleCultivationModal qiEarned={5} onClose={onClose} onClaim={onClaim} daysCultivating={8} />,
+    );
+    expect(screen.getByRole('dialog')).toBeDefined();
+    expect(screen.getByText('+5 QI')).toBeDefined();
     expect(screen.getByRole('button', { name: 'Claim & Awaken' })).toBeDefined();
   });
 });

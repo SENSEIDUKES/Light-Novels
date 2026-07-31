@@ -48,10 +48,12 @@ vi.mock('../store/useAppStore', () => ({
 import {
   awardDirectQi,
   awardQi,
+  claimIdleQiReward,
   DAO_RANKS,
   flushPendingProfileSync,
   getAuraColorForXp,
   getDaoRankData,
+  recordLibrarySessionEnd,
 } from './qi';
 
 const makeProfile = (uid: string, xp = 0): UserProfile => ({
@@ -204,6 +206,180 @@ describe('Qi', () => {
     it('handles award errors gracefully', async () => {
       mocks.getUserProfile.mockRejectedValueOnce(new Error('offline'));
       await expect(awardQi('chapter_read', '10')).resolves.toBeUndefined();
+    });
+  });
+
+  describe('closed-door cultivation claims', () => {
+    const BASELINE = '2026-07-29T10:00:00.000Z';
+    const CLAIM_KEY = `idle-cultivation-claim-account-a-${BASELINE}`;
+
+    it('deposits exactly the displayed amount, ignoring status-effect multipliers', async () => {
+      mocks.state.userProfile = {
+        ...makeProfile('account-a', 100),
+        activeStatusEffects: [
+          {
+            id: 'effect-mult',
+            effectDef: {
+              name: 'Moon Blessing',
+              type: 'Blessing',
+              description: 'Doubles qi',
+              durationMs: 60_000,
+              scope: 'Account-wide',
+              qiMultiplier: 2,
+            },
+            appliedAt: '2026-07-26T00:00:00.000Z',
+            expiresAt: '2099-07-26T00:00:00.000Z',
+          } as any,
+          {
+            id: 'effect-demonic',
+            effectDef: {
+              name: 'Demonic Corruption',
+              type: 'Mutation',
+              description: 'Corrupting',
+              durationMs: 60_000,
+              scope: 'Account-wide',
+            },
+            appliedAt: '2026-07-26T00:00:00.000Z',
+            expiresAt: '2099-07-26T00:00:00.000Z',
+          } as any,
+        ],
+      };
+
+      const result = await claimIdleQiReward(12, BASELINE);
+
+      expect(result).toBe('claimed');
+      // exactly +12 despite the active 2x multiplier; demonic qi keeps its 50% tithe
+      expect(mocks.saveUserProfile).toHaveBeenCalledTimes(1);
+      expect(mocks.saveUserProfile).toHaveBeenCalledWith(
+        expect.objectContaining({
+          uid: 'account-a',
+          dao_xp: 112,
+          qi: 112,
+          heavenly_qi: 112,
+          sect_qi: 12,
+          demonic_qi: 6,
+          lastSessionEnd: expect.any(String),
+          updatedAt: expect.any(String),
+        }),
+        { idempotencyKey: CLAIM_KEY },
+      );
+      // the consumed baseline is recorded server-side and newer than the baseline
+      const saved = mocks.saveUserProfile.mock.calls[0][0];
+      expect(Date.parse(saved.lastSessionEnd)).toBeGreaterThan(Date.parse(BASELINE));
+      expect(mocks.state.userProfile).toMatchObject({ dao_xp: 112, qi: 112 });
+      expect(mocks.cacheAccountProfile).toHaveBeenCalled();
+      expect(localStorage.getItem('seihouse-idle-claim:account-a')).toBe(BASELINE);
+    });
+
+    it('hard-caps any single claim at 350 Qi', async () => {
+      mocks.state.userProfile = makeProfile('account-a', 0);
+
+      const result = await claimIdleQiReward(9999, BASELINE);
+
+      expect(result).toBe('claimed');
+      expect(mocks.saveUserProfile).toHaveBeenCalledWith(
+        expect.objectContaining({ dao_xp: 350, qi: 350 }),
+        { idempotencyKey: CLAIM_KEY },
+      );
+    });
+
+    it('skips the deposit when the baseline was already claimed on this device', async () => {
+      localStorage.setItem('seihouse-idle-claim:account-a', BASELINE);
+      mocks.state.userProfile = makeProfile('account-a', 100);
+
+      const result = await claimIdleQiReward(12, BASELINE);
+
+      expect(result).toBe('already-claimed');
+      expect(mocks.saveUserProfile).not.toHaveBeenCalled();
+      expect(mocks.state.userProfile.dao_xp).toBe(100);
+    });
+
+    it('skips the deposit when the server lastSessionEnd is newer than the baseline', async () => {
+      mocks.state.userProfile = {
+        ...makeProfile('account-a', 100),
+        lastSessionEnd: '2026-07-30T00:00:00.000Z',
+      };
+
+      const result = await claimIdleQiReward(12, BASELINE);
+
+      expect(result).toBe('already-claimed');
+      expect(mocks.saveUserProfile).not.toHaveBeenCalled();
+      expect(mocks.state.userProfile.dao_xp).toBe(100);
+      expect(localStorage.getItem('seihouse-idle-claim:account-a')).toBe(BASELINE);
+    });
+
+    it('folds pending syncs into the claim write and restores them on failure', async () => {
+      mocks.state.userProfile = makeProfile('account-a', 100);
+      await awardDirectQi(5, 'pre-claim-award');
+      expect(mocks.state.userProfile.dao_xp).toBe(105);
+
+      mocks.saveUserProfile.mockRejectedValueOnce(new Error('offline'));
+
+      await expect(claimIdleQiReward(12, BASELINE)).rejects.toThrow('offline');
+      // no premature store update: only the earlier award is visible
+      expect(mocks.state.userProfile.dao_xp).toBe(105);
+      expect(localStorage.getItem('seihouse-idle-claim:account-a')).toBeNull();
+
+      // the folded pending sync was restored and still flushes the pre-claim award
+      await flushPendingProfileSync('account-a');
+      expect(mocks.saveUserProfile).toHaveBeenLastCalledWith(
+        expect.objectContaining({ uid: 'account-a', dao_xp: 105 }),
+        { keepalive: false },
+      );
+    });
+
+    it('resolves already-claimed when a conflicting write consumed the baseline first', async () => {
+      mocks.state.userProfile = makeProfile('account-a', 100);
+      mocks.saveUserProfile.mockRejectedValueOnce(new Error('User profile expected revision is stale'));
+      mocks.getUserProfile.mockResolvedValueOnce({
+        ...makeProfile('account-a', 112),
+        lastSessionEnd: '2026-07-30T00:00:00.000Z',
+      });
+
+      const result = await claimIdleQiReward(12, BASELINE);
+
+      expect(result).toBe('already-claimed');
+      // the store adopts the server's truth instead of double-awarding
+      expect(mocks.state.userProfile).toMatchObject({ dao_xp: 112 });
+      expect(localStorage.getItem('seihouse-idle-claim:account-a')).toBe(BASELINE);
+    });
+
+    it('records the session end through the debounced profile sync without bumping updatedAt', async () => {
+      mocks.state.userProfile = makeProfile('account-a', 100);
+      const sessionEnd = '2026-07-30T10:00:00.000Z';
+
+      recordLibrarySessionEnd(sessionEnd);
+      expect(mocks.state.userProfile.lastSessionEnd).toBe(sessionEnd);
+
+      await flushPendingProfileSync('account-a');
+      expect(mocks.saveUserProfile).toHaveBeenCalledTimes(1);
+      const saved = mocks.saveUserProfile.mock.calls[0][0];
+      expect(saved).toMatchObject({ uid: 'account-a', lastSessionEnd: sessionEnd });
+      expect(saved.updatedAt).toBeUndefined();
+    });
+
+    it('does not record the session end before the profile has loaded', async () => {
+      mocks.state.userProfile = null;
+
+      recordLibrarySessionEnd('2026-07-30T10:00:00.000Z');
+      await flushPendingProfileSync('account-a');
+
+      expect(mocks.saveUserProfile).not.toHaveBeenCalled();
+    });
+
+    it('flushes the session end immediately with keepalive during page teardown', async () => {
+      mocks.state.userProfile = makeProfile('account-a', 100);
+      const sessionEnd = '2026-07-30T10:00:00.000Z';
+
+      recordLibrarySessionEnd(sessionEnd, true);
+      // chain after the in-flight keepalive flush so the assertion sees it
+      await flushPendingProfileSync('account-a');
+
+      expect(mocks.saveUserProfile).toHaveBeenCalledTimes(1);
+      expect(mocks.saveUserProfile).toHaveBeenCalledWith(
+        expect.objectContaining({ uid: 'account-a', lastSessionEnd: sessionEnd }),
+        { keepalive: true },
+      );
     });
   });
 });

@@ -57,6 +57,7 @@ import UserProfile from './components/UserProfile';
 import { ChallengeScreen } from './components/ChallengeScreen';
 import { SectsScreen } from './components/SectsScreen';
 import { IdleCultivationModal } from './components/IdleCultivationModal';
+import { useIdleCultivation } from './hooks/useIdleCultivation';
 import { RankUpCelebration } from './components/RankUpCelebration';
 
 function App() {
@@ -545,62 +546,18 @@ function App() {
   }, [store_activeStoryId, store_selectedChapterNum, store_setAppError, store_setStories]); // Removed store.stories
 
   // --- IDLE CULTIVATION ---
-  const [idleQiEarned, setIdleQiEarned] = useState<number | null>(null);
+  const {
+    idleQiEarned,
+    daysCultivating,
+    claimIdleQi,
+    closeIdleQi,
+  } = useIdleCultivation(isInitializing);
 
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        try {
-          localStorage.setItem('seihouse-last-session-end', new Date().toISOString());
-        } catch (e) {}
-      } else if (document.visibilityState === 'visible') {
-        checkIdleQi();
-      }
-    };
-    
-    const handleBeforeUnload = () => {
-      try {
-        localStorage.setItem('seihouse-last-session-end', new Date().toISOString());
-      } catch (e) {}
-    };
-
-    const checkIdleQi = () => {
-      const lastSessionStr = localStorage.getItem('seihouse-last-session-end');
-      if (lastSessionStr && idleQiEarned === null) {
-        const lastSession = new Date(lastSessionStr).getTime();
-        const now = Date.now();
-        const diffMs = now - lastSession;
-        
-        const minTimeMs = 60 * 1000; // 1 minute (for testing/realism combo, scale down from 10 mins)
-        const maxTimeMs = 24 * 60 * 60 * 1000; // 24 hours
-        
-        if (diffMs > minTimeMs) {
-           const cappedDiff = Math.min(diffMs, maxTimeMs);
-           // Calculate Qi: 1 Qi per 10 minutes -> 6 Qi per hour -> 144 Qi per 24 hours.
-           const qiEarned = Math.floor(cappedDiff / (10 * 60 * 1000));
-           
-           if (qiEarned > 0) {
-             setIdleQiEarned(qiEarned);
-             localStorage.removeItem('seihouse-last-session-end');
-           }
-        }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    // Initial check on load
     if (!isInitializing) {
-      checkIdleQi();
       autoSubmitPreviousWeeksOfferings().catch(console.error);
     }
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [isInitializing, idleQiEarned]);
+  }, [isInitializing]);
   // ------------------------
 
   if (isInitializing) {
@@ -790,7 +747,12 @@ function App() {
       <ModalsAndToasts />
       <KeyboardShortcuts />
       <AtmosphericAudio />
-      <IdleCultivationModal qiEarned={idleQiEarned} onClose={() => setIdleQiEarned(null)} />
+      <IdleCultivationModal
+        qiEarned={idleQiEarned}
+        onClose={closeIdleQi}
+        onClaim={claimIdleQi}
+        daysCultivating={daysCultivating}
+      />
     </div>
   );
 }
