@@ -42,6 +42,7 @@ describe('handleDownload', () => {
     expect(link.click).toHaveBeenCalledOnce();
   });
 
+
   it('allows relative download URLs', async () => {
     const link = { href: '', download: '', target: '', click: vi.fn() } as any;
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
@@ -55,4 +56,26 @@ describe('handleDownload', () => {
     expect(link.href).toBe('/downloads/chapter.mp3');
     expect(link.click).toHaveBeenCalledOnce();
   });
+
+  it('blocks downloads from internal/local network addresses', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubGlobal('fetch', vi.fn());
+
+    await handleDownload('http://169.254.169.254/latest', 'meta.txt');
+    expect(consoleError).toHaveBeenCalledWith('Security validation failed or invalid URL', expect.any(Error));
+    expect(fetch).not.toHaveBeenCalled();
+
+    await handleDownload('http://localhost:8080/data', 'data.json');
+    expect(consoleError).toHaveBeenCalledWith('Security validation failed or invalid URL', expect.any(Error));
+    expect(fetch).not.toHaveBeenCalled();
+
+    await handleDownload('http://127.0.0.1/admin', 'admin.html');
+    expect(consoleError).toHaveBeenCalledWith('Security validation failed or invalid URL', expect.any(Error));
+    expect(fetch).not.toHaveBeenCalled();
+
+    await handleDownload('http://[::1]/admin', 'admin.html');
+    expect(consoleError).toHaveBeenCalledWith('Security validation failed or invalid URL', expect.any(Error));
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
 });
