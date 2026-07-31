@@ -437,6 +437,7 @@ export async function routeTextGeneration(
   if (process.env.NODE_ENV !== "production") {
     logger.info(`[aiRouter] Routing task '${routeKey}' via Route '${route}' -> Provider: '${provider}', Model: '${model}'`);
   }
+
   if (provider === "gemini") {
     // -------------------------------------------------------------
     // GOOGLE GEMINI ROUTE
