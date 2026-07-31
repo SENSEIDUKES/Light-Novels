@@ -109,4 +109,36 @@ describe('ReaderChamber', () => {
       expect((button as HTMLButtonElement).disabled).toBe(true);
     });
   });
+
+  it('renders correct vignette overlay according to vignetteStyle', () => {
+    const chapters = [{ number: 1, title: 'Ch 1', status: 'read' as const, premise: 'Some premise', generatedContent: 'Hello' }];
+    const mockStory = {
+      id: 'test-story',
+      title: 'Test',
+      memory: { glossary: [] },
+      arcs: [{ chapters }],
+      readerPreferences: { vignetteStyle: 'radial' }
+    };
+
+    const { container } = render(
+      <ReaderChamber
+        chapters={chapters}
+        currentPowerStage="Foundation"
+        selectedChapterNum={1}
+        setSelectedChapterNum={vi.fn()}
+        onGenerateChapter={vi.fn()}
+        onGenerateNextFiveChapters={vi.fn()}
+        isGenerating={false}
+        onToggleRead={vi.fn()}
+        arcTitle="First Arc"
+        onSwitchTab={vi.fn()}
+        activeStory={mockStory as any}
+        updateStoryFields={vi.fn()}
+      />
+    );
+
+    const vignetteEl = container.querySelector('.pointer-events-none.absolute.inset-0.z-10.bg-\\[radial-gradient\\(circle\\2c _transparent_55\\%\\2c _rgba\\(0\\2c 0\\2c 0\\2c 0\\.65\\)_100\\%\\)\\]');
+    expect(vignetteEl).toBeDefined();
+    expect(vignetteEl?.classList.contains('pointer-events-none')).toBe(true);
+  });
 });

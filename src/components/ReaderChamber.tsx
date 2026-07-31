@@ -874,6 +874,53 @@ export default function ReaderChamber({
         />
       )}
 
+      {/* Cinematic Vignette Overlay */}
+      {(() => {
+        const vignette = currentPrefs.vignetteStyle || "off";
+        if (vignette === "off") return null;
+
+        if (vignette === "radial") {
+          return (
+            <div
+              className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(circle,_transparent_55%,_rgba(0,0,0,0.65)_100%)] mix-blend-multiply transition-all duration-500"
+              aria-hidden="true"
+            />
+          );
+        }
+
+        if (vignette === "cosmic") {
+          const t = currentPrefs.themeOverride || "void";
+          const themeColor = t === "crimson" ? "#8B0000" :
+                             t === "abyss" ? "#04ACFF" :
+                             t === "sepia" ? "#8b5a2b" :
+                             t === "emerald" ? "#10B981" :
+                             "#04ACFF";
+          return (
+            <div
+              className="pointer-events-none absolute inset-0 z-10 animate-[pulse_4s_ease-in-out_infinite] motion-reduce:animate-none transition-all duration-500"
+              style={{
+                backgroundImage: `radial-gradient(circle, transparent 65%, ${themeColor}1f 100%)`,
+                boxShadow: `inset 0 0 45px ${themeColor}1a`
+              }}
+              aria-hidden="true"
+            />
+          );
+        }
+
+        if (vignette === "scroll") {
+          return (
+            <div className="pointer-events-none absolute inset-0 z-10 transition-all duration-500" aria-hidden="true">
+              {/* Elegant faded paper margins */}
+              <div className="absolute inset-0 bg-[linear-gradient(to_right,_rgba(25,20,15,0.15)_0%,_transparent_12%,_transparent_88%,_rgba(25,20,15,0.15)_100%)]" />
+              {/* Decorative ancient double-border frame */}
+              <div className="absolute inset-2 sm:inset-4 border-2 border-double border-amber-950/15 rounded opacity-60" />
+            </div>
+          );
+        }
+
+        return null;
+      })()}
+
       {/* HEADER: Readability & Chapter Title */}
       {!isReaderFullscreen && (
         <ReaderHeader
