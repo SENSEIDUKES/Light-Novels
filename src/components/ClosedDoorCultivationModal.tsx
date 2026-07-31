@@ -345,7 +345,13 @@ export interface ClosedDoorCultivationModalProps {
   daysCultivating?: number;
 }
 
-export function ClosedDoorCultivationModal({ qiEarned, onClose, onClaim, targetElementId = 'celestial-library-emblem', daysCultivating = 1 }: ClosedDoorCultivationModalProps) {
+export function ClosedDoorCultivationModal({
+  qiEarned,
+  onClose,
+  onClaim,
+  targetElementId = 'celestial-library-emblem',
+  daysCultivating = 1
+}: ClosedDoorCultivationModalProps) {
   const [isClaiming, setIsClaiming] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [absorb, setAbsorb] = useState<Absorb | null>(null);

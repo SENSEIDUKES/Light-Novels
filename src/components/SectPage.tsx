@@ -274,7 +274,17 @@ export const SectPage: React.FC = () => {
                        <span className={`w-2 h-2 rounded-full ${factionData.bgClass}`}></span>
                        <span className={`text-[10px] font-mono uppercase tracking-widest ${factionData.colorClass}`}>{factionData.name}</span>
                     </div>
-                    <button  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => handleJoinSect(activeSect)} className={`px-4 py-2 ${factionData.bgClass} text-white rounded-lg text-sm font-sans font-bold shadow-lg hover:opacity-90 transition-colors`}>
+                    <button
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          e.currentTarget.click();
+                        }
+                      }}
+                      onClick={() => handleJoinSect(activeSect)}
+                      className={`px-4 py-2 ${factionData.bgClass} text-white rounded-lg text-sm font-sans font-bold shadow-lg hover:opacity-90 transition-colors`}
+                    >
                       Join Sect
                     </button>
                   </div>
