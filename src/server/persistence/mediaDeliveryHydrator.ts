@@ -67,29 +67,32 @@ function descriptorFor(
 ): MediaAssetDescriptor | undefined {
   if (!assetId) return undefined;
   const canonical = canonicalAssetId(assetId);
-  return descriptors.get(assetId)
-    ?? descriptors.get(canonical)
-    ?? [...descriptors.values()].find(descriptor => isSameAssetId(descriptor.id, canonical));
+  const directMatch = descriptors.get(assetId) ?? descriptors.get(canonical);
+  if (directMatch) return directMatch;
+
+  for (const descriptor of descriptors.values()) {
+    if (isSameAssetId(descriptor.id, canonical)) {
+      return descriptor;
+    }
+  }
+  return undefined;
 }
 
 function hydrateHistory(
   history: GeneratedImage[] | undefined,
   descriptors: ReadonlyMap<string, MediaAssetDescriptor>,
 ): GeneratedImage[] | undefined {
-  return history?.map(image => ({
-    ...image,
-    ...(image.assetId ? { assetId: canonicalAssetId(image.assetId) } : {}),
-    imageUrl: delivery(descriptors, image.assetId) ?? image.imageUrl,
-    assetVersion: image.assetId
-      ? descriptorFor(descriptors, image.assetId)?.version ?? image.assetVersion
-      : image.assetVersion,
-    checksumSha256: image.assetId
-      ? descriptorFor(descriptors, image.assetId)?.checksumSha256 ?? image.checksumSha256
-      : image.checksumSha256,
-    deliveryUrlExpiresAt: image.assetId
-      ? descriptorFor(descriptors, image.assetId)?.deliveryUrlExpiresAt ?? image.deliveryUrlExpiresAt
-      : image.deliveryUrlExpiresAt,
-  }));
+  return history?.map(image => {
+    const descriptor = image.assetId ? descriptorFor(descriptors, image.assetId) : undefined;
+    return {
+      ...image,
+      ...(image.assetId ? { assetId: canonicalAssetId(image.assetId) } : {}),
+      imageUrl: descriptor?.deliveryUrl ?? image.imageUrl,
+      assetVersion: descriptor?.version ?? image.assetVersion,
+      checksumSha256: descriptor?.checksumSha256 ?? image.checksumSha256,
+      deliveryUrlExpiresAt: descriptor?.deliveryUrlExpiresAt ?? image.deliveryUrlExpiresAt,
+    };
+  });
 }
 
 /** Hydrate transient signed URLs only after canonical asset references exist. */
