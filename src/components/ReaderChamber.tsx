@@ -113,9 +113,9 @@ export default function ReaderChamber({
   const setReaderMode = useAppStore((state) => state.setReaderMode);
   const setImmersion = useAppStore((state) => state.setImmersion);
 
-  const { 
-    handleManifestReveal, 
-    generatingRevealId, 
+  const {
+    handleManifestReveal,
+    generatingRevealId,
     codexTerms,
     manifestChapterHero,
     generatingIds,
@@ -290,7 +290,7 @@ export default function ReaderChamber({
         textToTranslate = selectedChapter.blocks.map(b => b.text).join('\n\n');
       }
       if (!textToTranslate) return;
-      
+
       if (selectedChapter.translations?.[preferredLang]) {
         setActiveTranslationContent(
           selectedChapter.translations[preferredLang].content,
@@ -331,11 +331,11 @@ export default function ReaderChamber({
   };
 
   const currentPrefs = { ...defaultPrefs, ...activeStory.readerPreferences };
-  
+
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute('data-palette', currentPrefs.colorPaletteId || 'default');
-    
+
     return () => {
       root.removeAttribute('data-palette');
     };
@@ -369,9 +369,9 @@ export default function ReaderChamber({
   const isDeathOrCriticalHealthScene = useMemo(() => {
     const textToMatch = `${selectedChapter.title || ""} ${selectedChapter.summary || ""}`.toLowerCase();
     const deathKeywords = [
-      "death", "die", "dying", "killed", "fatal", "perish", 
-      "critical health", "near-death", "near death", "slain", "demise", 
-      "sacrificed", "mortal wound", "critical damage", "heart stops", 
+      "death", "die", "dying", "killed", "fatal", "perish",
+      "critical health", "near-death", "near death", "slain", "demise",
+      "sacrificed", "mortal wound", "critical damage", "heart stops",
       "breathes last", "breath last"
     ];
     const hasKeyword = deathKeywords.some(keyword => textToMatch.includes(keyword));
@@ -380,8 +380,8 @@ export default function ReaderChamber({
       const blockText = (b.text || "").toLowerCase();
       const systemTitle = (b.system?.title || "").toLowerCase();
       const systemKind = (b.system?.kind || "").toLowerCase();
-      
-      return blockText.includes("death flag") || 
+
+      return blockText.includes("death flag") ||
              blockText.includes("critical health") ||
              blockText.includes("near death") ||
              systemTitle.includes("death flag") ||
@@ -393,7 +393,7 @@ export default function ReaderChamber({
 
     const cue = selectedChapter.cuePayload;
     const isCriticalDangerCue = cue && (
-      cue.danger >= 9.5 || 
+      cue.danger >= 9.5 ||
       (cue.danger >= 8 && (cue.emotion === "sorrow" || cue.emotion === "grief" || cue.emotion === "fear"))
     );
 
@@ -420,12 +420,12 @@ export default function ReaderChamber({
         return "bg-[#050f0a] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0a1c12] to-[#020805] text-[#b9d6c1] border-t border-[#0f5132]/40 selection:bg-[#0f5132]/40 selection:text-white";
       return "bg-[#0a0a0a] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#141414] to-[#050505] text-[#e8e8e8] border-t border-neutral-800/60 selection:bg-neutral-700 selection:text-white"; // default void style
     })();
-    
+
     const dynamicShading = getDynamicShadingClasses();
     if (dynamicShading) {
       return `${baseClasses} ${dynamicShading}`;
     }
-    
+
     // Add default static shadow if no dynamic shading
     if (t === "crimson") return `${baseClasses} shadow-[inset_0_0_120px_rgba(139,0,0,0.08)] ring-1 ring-[#8B0000]/10`;
     if (t === "abyss") return `${baseClasses} shadow-[inset_0_0_120px_rgba(4,172,255,0.06)] ring-1 ring-[#04ACFF]/10`;
@@ -486,7 +486,7 @@ export default function ReaderChamber({
         }
       }
     };
-    
+
     window.addEventListener('narrative-cue', handleCue);
     return () => window.removeEventListener('narrative-cue', handleCue);
   }, [selectedChapterNum]);
@@ -503,7 +503,7 @@ export default function ReaderChamber({
   const renderHighlightedText = React.useCallback((text: string, paragraphIndex: number) => {
     const isPlaying = isPlayingText || isPausedText;
     let ttsHighlight = "";
-    
+
     if (isPlaying) {
       const currentChunk = activeChunks[currentChunkIndex];
       if (currentChunk && currentChunk.paragraphIndex === paragraphIndex) {
@@ -874,6 +874,66 @@ export default function ReaderChamber({
         />
       )}
 
+      {/* Cinematic Vignette Overlay */}
+      {(() => {
+        const vignette = currentPrefs.vignetteStyle || "off";
+        if (vignette === "off") return null;
+
+        const THEME_ACCENT_HEX = {
+          crimson: "#8B0000",
+          abyss: "#04ACFF",
+          sepia: "#8b5a2b",
+          emerald: "#10B981",
+          void: "#04ACFF",
+        } as const;
+
+        if (vignette === "radial") {
+          return (
+            <div
+              className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle,_transparent_55%,_rgba(0,0,0,0.65)_100%)] mix-blend-multiply transition-all duration-500"
+              aria-hidden="true"
+              data-testid="vignette-overlay"
+              data-style="radial"
+            />
+          );
+        }
+
+        if (vignette === "cosmic") {
+          const t = currentPrefs.themeOverride || "void";
+          const themeColor = THEME_ACCENT_HEX[t as keyof typeof THEME_ACCENT_HEX] || THEME_ACCENT_HEX.void;
+          return (
+            <div
+              className="pointer-events-none absolute inset-0 z-0 animate-[pulse_4s_ease-in-out_infinite] motion-reduce:animate-none transition-all duration-500"
+              style={{
+                backgroundImage: `radial-gradient(circle, transparent 65%, ${themeColor}1f 100%)`,
+                boxShadow: `inset 0 0 45px ${themeColor}1a`
+              }}
+              aria-hidden="true"
+              data-testid="vignette-overlay"
+              data-style="cosmic"
+            />
+          );
+        }
+
+        if (vignette === "scroll") {
+          return (
+            <div
+              className="pointer-events-none absolute inset-0 z-0 transition-all duration-500"
+              aria-hidden="true"
+              data-testid="vignette-overlay"
+              data-style="scroll"
+            >
+              {/* Elegant faded paper margins */}
+              <div className="absolute inset-0 bg-[linear-gradient(to_right,_rgba(25,20,15,0.15)_0%,_transparent_12%,_transparent_88%,_rgba(25,20,15,0.15)_100%)] pointer-events-none" />
+              {/* Decorative ancient double-border frame */}
+              <div className="absolute inset-2 sm:inset-4 border-2 border-double border-amber-950/15 rounded opacity-60 pointer-events-none" />
+            </div>
+          );
+        }
+
+        return null;
+      })()}
+
       {/* HEADER: Readability & Chapter Title */}
       {!isReaderFullscreen && (
         <ReaderHeader
@@ -895,7 +955,7 @@ export default function ReaderChamber({
       {/* Dynamic Collapsible Reader Preferences Panel */}
       <AnimatePresence>
         {showReaderPreferences && (
-          <ReaderPreferencesPanel 
+          <ReaderPreferencesPanel
             currentPrefs={currentPrefs}
             handleUpdatePreference={handleUpdatePreference}
             onResetTypography={handleResetTypography}
@@ -929,7 +989,7 @@ export default function ReaderChamber({
         currentPowerStage={currentPowerStage}
         selectedChapterNum={selectedChapterNum}
         maxChapterNum={maxChapterNum}
-        
+
         codexTerms={codexTerms}
         generatingRevealId={generatingRevealId}
         handleManifestReveal={handleManifestReveal}
@@ -937,13 +997,13 @@ export default function ReaderChamber({
         generatingIds={generatingIds}
         isMomentousChapter={isMomentousChapter}
         triggerHeroGeneration={triggerHeroGeneration}
-        
+
         readerMode={readerMode}
         immersion={immersion}
         isPlayingText={isPlayingText}
         isPausedText={isPausedText}
         currentNarratedBlockIndex={currentNarratedBlockIndex}
-        
+
         currentPrefs={currentPrefs}
         handleUpdatePreference={handleUpdatePreference}
         activeBookmarks={activeBookmarks}
@@ -953,23 +1013,23 @@ export default function ReaderChamber({
         setBookmarkNoteText={setBookmarkNoteText}
         handleRemoveBookmark={handleRemoveBookmark}
         handleSaveBookmark={handleSaveBookmark}
-        
+
         activeTranslationContent={activeTranslationContent}
         renderHighlightedText={renderHighlightedText}
         getFocusClass={getFocusClass}
-        
+
         navigatePrev={navigatePrev}
         navigateNext={navigateNext}
-        
+
         handleSealChapter={handleSealChapter}
         handleSealClick={handleSealClick}
         isCheckingConsistency={isCheckingConsistency}
-        
+
         isGenerating={isGenerating}
         handleGenerate={handleGenerate}
         handleGenerateNextFive={handleGenerateNextFive}
         activeAgentId={activeAgentId}
-        
+
         showFateCodex={showFateCodex}
         setShowFateCodex={setShowFateCodex}
         showLegend={showLegend}

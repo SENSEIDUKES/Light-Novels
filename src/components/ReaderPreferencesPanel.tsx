@@ -49,6 +49,13 @@ const DIVIDER_STYLE_OPTIONS = [
   { value: 'lotus_path', label: 'Lotus Serenity' },
 ] as const;
 
+const VIGNETTE_STYLE_OPTIONS = [
+  { value: 'off', label: 'Pure Focus (Off)' },
+  { value: 'radial', label: 'Cinematic Shadow' },
+  { value: 'cosmic', label: 'Glowing Cosmic Mist' },
+  { value: 'scroll', label: 'Ancient Parchment' },
+] as const;
+
 type NumericTypographyPreference =
   | 'lineHeightScale'
   | 'paragraphSpacingScale'
@@ -297,6 +304,21 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
                   <button key={option.value} type="button" onClick={() => handleUpdatePreference('playerStyle', option.value)} className={choiceClass((currentPrefs.playerStyle || 'vinyl') === option.value)}>
                     <span>{option.label}</span>
                     {(currentPrefs.playerStyle || 'vinyl') === option.value ? <Check size={12} /> : null}
+                  </button>
+                ))}
+              </div>
+            </PreferenceGroup>
+
+            <PreferenceGroup
+              label="Cinematic Vignette"
+              icon={<Sparkles size={13} />}
+              summary={VIGNETTE_STYLE_OPTIONS.find(option => option.value === (currentPrefs.vignetteStyle || 'off'))?.label}
+            >
+              <div className="grid gap-1.5">
+                {VIGNETTE_STYLE_OPTIONS.map(option => (
+                  <button key={option.value} type="button" onClick={() => handleUpdatePreference('vignetteStyle', option.value)} className={choiceClass((currentPrefs.vignetteStyle || 'off') === option.value)}>
+                    <span>{option.label}</span>
+                    {(currentPrefs.vignetteStyle || 'off') === option.value ? <Check size={12} /> : null}
                   </button>
                 ))}
               </div>
