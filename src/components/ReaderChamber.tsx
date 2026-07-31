@@ -861,11 +861,25 @@ export default function ReaderChamber({
   };
   const particleCount = getParticleCount();
 
+  const getVignetteClasses = () => {
+    switch (currentPrefs.vignetteStyle) {
+      case 'radial': return 'bg-[radial-gradient(ellipse_at_center,_transparent_40%,_rgba(0,0,0,0.6)_100%)]';
+      case 'cosmic': return 'bg-[radial-gradient(circle_at_50%_0%,_rgba(4,172,255,0.1)_0%,_transparent_60%),_radial-gradient(circle_at_50%_100%,_rgba(0,0,0,0.8)_0%,_transparent_80%)]';
+      case 'scroll': return 'bg-[linear-gradient(to_bottom,_rgba(0,0,0,0.4)_0%,_transparent_15%,_transparent_85%,_rgba(0,0,0,0.6)_100%)]';
+      case 'off':
+      default: return '';
+    }
+  };
+
   return (
     <div
       className={`flex flex-col min-h-[85dvh] rounded-t-xl transition-colors duration-500 relative overflow-hidden ${getThemeClasses()} ${isShaking ? "animate-screen-shake" : ""}`}
       id="reader-chamber-root"
     >
+      {currentPrefs.vignetteStyle && currentPrefs.vignetteStyle !== 'off' && (
+        <div className={`absolute inset-0 z-0 pointer-events-none transition-opacity duration-700 ${getVignetteClasses()}`} />
+      )}
+
       {particleCount > 0 && (
         <ParticleSystem
           count={particleCount}

@@ -7,6 +7,7 @@ import {
   Palette,
   Play,
   RotateCcw,
+  ScanEye,
   Sliders,
   Sparkle,
   Sparkles,
@@ -47,6 +48,13 @@ const DIVIDER_STYLE_OPTIONS = [
   { value: 'celestial', label: 'Celestial Crest' },
   { value: 'sword_qi', label: 'Sword Qi Horizon' },
   { value: 'lotus_path', label: 'Lotus Serenity' },
+] as const;
+
+const VIGNETTE_STYLE_OPTIONS = [
+  { value: 'off', label: 'None' },
+  { value: 'radial', label: 'Radial' },
+  { value: 'cosmic', label: 'Cosmic' },
+  { value: 'scroll', label: 'Scroll' },
 ] as const;
 
 type NumericTypographyPreference =
@@ -213,6 +221,21 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
                   <button key={option.value} type="button" onClick={() => handleUpdatePreference('fontFamily', option.value)} className={choiceClass(currentPrefs.fontFamily === option.value)}>
                     <span>{option.label}</span>
                     {currentPrefs.fontFamily === option.value ? <Check size={12} /> : null}
+                  </button>
+                ))}
+              </div>
+            </PreferenceGroup>
+
+            <PreferenceGroup
+              label="Vignette Overlay"
+              icon={<ScanEye size={13} />}
+              summary={VIGNETTE_STYLE_OPTIONS.find(option => option.value === (currentPrefs.vignetteStyle || 'off'))?.label}
+            >
+              <div className="grid gap-1.5">
+                {VIGNETTE_STYLE_OPTIONS.map(option => (
+                  <button key={option.value} type="button" onClick={() => handleUpdatePreference('vignetteStyle', option.value)} className={choiceClass((currentPrefs.vignetteStyle || 'off') === option.value)}>
+                    <span>{option.label}</span>
+                    {(currentPrefs.vignetteStyle || 'off') === option.value ? <Check size={12} /> : null}
                   </button>
                 ))}
               </div>
