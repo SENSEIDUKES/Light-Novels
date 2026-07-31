@@ -881,16 +881,21 @@ export class MediaAssetService {
     }
     const completedBefore = new Date(this.now().getTime() - retentionMs).toISOString();
     const jobs = await this.repository.listExpiredStoryTombstones(completedBefore, limit);
+
+    const results = await Promise.allSettled(
+      jobs.map((job) => this.repository.purgeExpiredStoryTombstone(job.id, job.storyId, completedBefore))
+    );
+
     let completed = 0;
     let failed = 0;
-    for (const job of jobs) {
-      try {
-        await this.repository.purgeExpiredStoryTombstone(job.id, job.storyId, completedBefore);
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
         completed += 1;
-      } catch {
+      } else {
         failed += 1;
       }
     }
+
     return { attempted: jobs.length, completed, failed };
   }
 
