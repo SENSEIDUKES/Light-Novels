@@ -220,7 +220,24 @@ describe('useIdleCultivation', () => {
     });
 
     expect(readLocalSessionEnd()).not.toBeNull();
-    expect(mocks.recordLibrarySessionEnd).toHaveBeenCalledWith(expect.any(String));
+    // passive hide rides the debounced sync; no immediate flush
+    expect(mocks.recordLibrarySessionEnd).toHaveBeenCalledWith(expect.any(String), false);
+  });
+
+  it('flushes the session end immediately during page teardown', () => {
+    mocks.state.currentUser = { uid: 'user-a' };
+    mocks.state.userProfile = { uid: 'user-a', dao_xp: 0 };
+    renderHook(() => useIdleCultivation(false));
+
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'));
+    });
+    expect(mocks.recordLibrarySessionEnd).toHaveBeenCalledWith(expect.any(String), true);
+
+    act(() => {
+      window.dispatchEvent(new Event('beforeunload'));
+    });
+    expect(mocks.recordLibrarySessionEnd).toHaveBeenCalledWith(expect.any(String), true);
   });
 
   it('does not offer a reward while initializing', () => {

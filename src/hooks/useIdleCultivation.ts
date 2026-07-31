@@ -76,10 +76,10 @@ export function useIdleCultivation(isInitializing: boolean) {
 
     evaluate();
 
-    const recordSessionEnd = () => {
+    const recordSessionEnd = (flushImmediately = false) => {
       const iso = new Date().toISOString();
       writeLocalSessionEnd(iso);
-      recordLibrarySessionEnd(iso);
+      recordLibrarySessionEnd(iso, flushImmediately);
     };
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
@@ -88,14 +88,17 @@ export function useIdleCultivation(isInitializing: boolean) {
         evaluate();
       }
     };
+    // Dedicated handlers so the event object is never mistaken for the flag.
+    const handleBeforeUnload = () => recordSessionEnd(true);
+    const handlePageHide = () => recordSessionEnd(true);
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('beforeunload', recordSessionEnd);
-    window.addEventListener('pagehide', recordSessionEnd);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handlePageHide);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('beforeunload', recordSessionEnd);
-      window.removeEventListener('pagehide', recordSessionEnd);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handlePageHide);
     };
   }, [isInitializing, evaluate]);
 

@@ -366,5 +366,20 @@ describe('Qi', () => {
 
       expect(mocks.saveUserProfile).not.toHaveBeenCalled();
     });
+
+    it('flushes the session end immediately with keepalive during page teardown', async () => {
+      mocks.state.userProfile = makeProfile('account-a', 100);
+      const sessionEnd = '2026-07-30T10:00:00.000Z';
+
+      recordLibrarySessionEnd(sessionEnd, true);
+      // chain after the in-flight keepalive flush so the assertion sees it
+      await flushPendingProfileSync('account-a');
+
+      expect(mocks.saveUserProfile).toHaveBeenCalledTimes(1);
+      expect(mocks.saveUserProfile).toHaveBeenCalledWith(
+        expect.objectContaining({ uid: 'account-a', lastSessionEnd: sessionEnd }),
+        { keepalive: true },
+      );
+    });
   });
 });

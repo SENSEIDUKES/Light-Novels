@@ -741,7 +741,7 @@ export async function awardDirectQi(amount: number, reason: string) {
  * baseline and, after a claim, the consumed-reward marker. Rides the existing
  * debounced profile sync (flushed with keepalive on page teardown).
  */
-export function recordLibrarySessionEnd(iso: string) {
+export function recordLibrarySessionEnd(iso: string, flushImmediately = false) {
   const user = auth.currentUser;
   if (!user) return;
   const storeProfile = getStoreProfile();
@@ -750,6 +750,12 @@ export function recordLibrarySessionEnd(iso: string) {
   // updatedAt deliberately untouched: a passive session-end must not make a
   // stale local profile look freshly updated to recency-based merge guards.
   queueProfileSync({ lastSessionEnd: iso }, user.uid);
+  if (flushImmediately) {
+    // Page teardown: qi.ts's own keepalive flush listener is registered at
+    // module load and runs before late-registered listeners queue this write,
+    // so the session-end must be flushed here or it is lost with the page.
+    void flushPendingProfileSync(user.uid, { keepalive: true });
+  }
 }
 
 export type IdleClaimResult = 'claimed' | 'already-claimed';
