@@ -6,7 +6,12 @@ import {defineConfig} from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
+  const isVercelPreview = process.env.VERCEL_ENV === 'preview';
+
   return {
+    define: {
+      'import.meta.env.VITE_SEIHOUSE_DEV_PREVIEW': JSON.stringify(isVercelPreview),
+    },
     build: {
       rollupOptions: {
         output: {

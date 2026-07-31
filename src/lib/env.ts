@@ -8,6 +8,14 @@ export function isDevBuild(): boolean {
   if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
     return true;
   }
-  const meta = import.meta as ImportMeta & { env?: { DEV?: boolean; TEST?: boolean } };
-  return !!meta.env?.DEV && !meta.env?.TEST;
+  // Keep the access direct so Vite can replace import.meta.env.DEV at build
+  // time. Hiding import.meta behind an alias leaves it undefined in the
+  // browser bundle.
+  type ViteImportMeta = ImportMeta & {
+    env?: { DEV?: boolean; TEST?: boolean; VITE_SEIHOUSE_DEV_PREVIEW?: boolean };
+  };
+  return (
+    (!!(import.meta as ViteImportMeta).env?.DEV && !(import.meta as ViteImportMeta).env?.TEST)
+    || (import.meta as ViteImportMeta).env?.VITE_SEIHOUSE_DEV_PREVIEW === true
+  );
 }
