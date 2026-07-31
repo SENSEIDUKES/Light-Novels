@@ -4,6 +4,11 @@ import type { ActiveStatusEffect, UserProfile } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { getUserProfile, saveUserProfile } from './persistence';
 import { cacheAccountProfile } from './userProfileCache';
+import {
+  MAX_IDLE_QI_REWARD,
+  isIdleBaselineClaimed,
+  markIdleBaselineClaimed,
+} from './idleCultivation';
 
 interface PendingProfileSync {
   updates: Partial<UserProfile>;
@@ -12,17 +17,19 @@ interface PendingProfileSync {
 
 const pendingProfileSyncs = new Map<string, PendingProfileSync>();
 const profileSyncInFlight = new Map<string, Promise<void>>();
-const cultivationAwardInFlight = new Map<string, Promise<void>>();
+const cultivationAwardInFlight = new Map<string, Promise<unknown>>();
 
-function queueCultivationAward(uid: string, award: () => Promise<void>): Promise<void> {
+function queueCultivationAward<T>(uid: string, award: () => Promise<T>): Promise<T> {
   const previous = cultivationAwardInFlight.get(uid) ?? Promise.resolve();
   const current = previous.catch(() => undefined).then(award);
   cultivationAwardInFlight.set(uid, current);
-  void current.finally(() => {
+  const cleanup = () => {
     if (cultivationAwardInFlight.get(uid) === current) {
       cultivationAwardInFlight.delete(uid);
     }
-  });
+  };
+  // then/catch-style cleanup so a rejecting award never floats an unhandled rejection.
+  void current.then(cleanup, cleanup);
   return current;
 }
 
@@ -725,6 +732,195 @@ export async function awardDirectQi(amount: number, reason: string) {
    } catch (error) {
     console.error('Failed to award direct Qi:', error);
    }
+  });
+}
+
+/**
+ * Closed-Door Cultivation: record that the signed-in user's session ended at
+ * `iso`. The server-side `lastSessionEnd` is the cross-device time-away
+ * baseline and, after a claim, the consumed-reward marker. Rides the existing
+ * debounced profile sync (flushed with keepalive on page teardown).
+ */
+export function recordLibrarySessionEnd(iso: string) {
+  const user = auth.currentUser;
+  if (!user) return;
+  const storeProfile = getStoreProfile();
+  if (!storeProfile || storeProfile.uid !== user.uid) return;
+  updateStoreProfile({ ...storeProfile, lastSessionEnd: iso });
+  // updatedAt deliberately untouched: a passive session-end must not make a
+  // stale local profile look freshly updated to recency-based merge guards.
+  queueProfileSync({ lastSessionEnd: iso }, user.uid);
+}
+
+export type IdleClaimResult = 'claimed' | 'already-claimed';
+
+/**
+ * Closed-Door Cultivation: claim the return reward measured from
+ * `baselineIso`, depositing exactly `amount` Qi (hard-capped at
+ * MAX_IDLE_QI_REWARD) so the displayed cloud always matches the real balance.
+ *
+ * Claim-safe by construction:
+ *  - resolves 'already-claimed' without depositing when this baseline was
+ *    consumed (local marker, or a server `lastSessionEnd` newer than the
+ *    baseline — a successful claim always writes `lastSessionEnd = claim time`
+ *    in the same confirmed profile write as the deposit);
+ *  - the write is awaited before the caller may play the disappearance
+ *    animation, carries a deterministic idempotency key per reward cycle
+ *    (retries and simultaneous multi-device claims collapse into one
+ *    server-side receipt), and conflicts are re-checked against the server
+ *    before being reported as failures.
+ *
+ * Throws when the transaction could not be recorded; the caller must keep the
+ * veil open and allow a retry.
+ */
+export async function claimIdleQiReward(amount: number, baselineIso: string): Promise<IdleClaimResult> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Cannot claim closed-door cultivation Qi without a signed-in user.');
+  const deposit = Math.min(Math.floor(amount), MAX_IDLE_QI_REWARD);
+  if (!Number.isFinite(deposit) || deposit <= 0) return 'already-claimed';
+
+  return queueCultivationAward(user.uid, async (): Promise<IdleClaimResult> => {
+    if (auth.currentUser?.uid !== user.uid) throw new Error('Account changed during idle Qi claim.');
+    if (isIdleBaselineClaimed(user.uid, baselineIso)) return 'already-claimed';
+
+    const data = await getAuthoritativeCultivationProfile(user.uid);
+    if (!data || auth.currentUser?.uid !== user.uid) throw new Error('Profile unavailable for idle Qi claim.');
+
+    // Another device/tab may already have consumed this baseline: a completed
+    // claim always leaves lastSessionEnd newer than the baseline it consumed.
+    if (data.lastSessionEnd && Date.parse(data.lastSessionEnd) > Date.parse(baselineIso)) {
+      markIdleBaselineClaimed(user.uid, baselineIso);
+      return 'already-claimed';
+    }
+
+    // Same field math as awardDirectQi, except the deposit is exactly the
+    // displayed amount — status-effect multipliers must not make the real
+    // balance diverge from the number the user tapped.
+    let currentXp = data?.dao_xp;
+    if (currentXp === undefined && data?.qi !== undefined) {
+      currentXp = data.qi;
+    } else if (currentXp === undefined) {
+      currentXp = 0;
+    }
+
+    let currentHeavenlyQi = data?.heavenly_qi;
+    if (currentHeavenlyQi === undefined) {
+      currentHeavenlyQi = currentXp;
+    }
+    const currentSectQi = data?.sect_qi || 0;
+    const currentDemonicQi = data?.demonic_qi || 0;
+
+    const newXp = currentXp + deposit;
+    const newHeavenlyQi = currentHeavenlyQi + deposit;
+    const newSectQi = currentSectQi + deposit;
+
+    // Demonic Qi keeps its proportional gain (a separate side balance).
+    let demonicQiGain = 0;
+    if (data?.activeStatusEffects) {
+      const now = new Date().toISOString();
+      const hasDemonic = data.activeStatusEffects.some(
+        (effect: any) =>
+          (effect.effectDef.name === 'Demonic Corruption' || effect.effectDef.type === 'Mutation') &&
+          effect.expiresAt > now
+      );
+      if (hasDemonic) {
+        demonicQiGain = Math.round(deposit * 0.5);
+      }
+    }
+    const newDemonicQi = currentDemonicQi + demonicQiGain;
+
+    const newRank = getDaoRankData(newXp).rank;
+
+    // Automatically check and award persistent Cosmic Artifacts for this rank
+    checkAndAwardRankArtifacts(newRank);
+
+    let updatedEffects = data?.activeStatusEffects ? [...data.activeStatusEffects] : [];
+    if (updatedEffects.length > 0) {
+      const now = new Date().toISOString();
+      updatedEffects = updatedEffects.map((effect: ActiveStatusEffect) => {
+        if (effect.expiresAt > now && !effect.completedAt) {
+          if (effect.progress !== undefined && effect.targetProgress !== undefined) {
+            const nextProgress = (effect.progress || 0) + deposit;
+            const completedAt = nextProgress >= effect.targetProgress ? now : undefined;
+            return {
+              ...effect,
+              progress: Math.min(effect.targetProgress, nextProgress),
+              completedAt
+            };
+          }
+        }
+        return effect;
+      });
+    }
+
+    const claimTime = new Date().toISOString();
+    const userUpdates: Partial<UserProfile> = {
+      dao_xp: newXp,
+      qi: newXp,
+      heavenly_qi: newHeavenlyQi,
+      sect_qi: newSectQi,
+      demonic_qi: newDemonicQi,
+      dao_rank: newRank,
+      activeStatusEffects: updatedEffects,
+      lastSessionEnd: claimTime,
+      updatedAt: claimTime
+    };
+
+    // Fold any debounced profile sync into this confirmed write so a later
+    // flush cannot re-write a pre-claim snapshot over the claim. The pending
+    // updates are absolute values already reflected in `data`, so merging
+    // them here loses nothing; they are restored if the claim write fails.
+    const pending = pendingProfileSyncs.get(user.uid);
+    if (pending?.timeout) clearTimeout(pending.timeout);
+    pendingProfileSyncs.delete(user.uid);
+    const payload: Partial<UserProfile> = { ...(pending?.updates ?? {}), ...userUpdates };
+
+    // Chain onto the per-user sync lane so this write cannot race a flush.
+    const previousSync = profileSyncInFlight.get(user.uid) ?? Promise.resolve();
+    const claimSync = previousSync.catch(() => undefined).then(async () => {
+      try {
+        await saveUserProfile(
+          { uid: user.uid, ...payload },
+          { idempotencyKey: `idle-cultivation-claim-${user.uid}-${baselineIso}` },
+        );
+      } catch (error) {
+        if (pending) queueProfileSync(pending.updates, user.uid);
+        throw error;
+      }
+    });
+    profileSyncInFlight.set(user.uid, claimSync);
+    const cleanupSync = () => {
+      if (profileSyncInFlight.get(user.uid) === claimSync) {
+        profileSyncInFlight.delete(user.uid);
+      }
+    };
+    void claimSync.then(cleanupSync, cleanupSync);
+
+    try {
+      await claimSync;
+    } catch (error) {
+      // A conflict usually means another tab/device consumed this baseline
+      // first. Verify against the server before reporting failure so the veil
+      // only stays open when the reward genuinely never landed.
+      try {
+        const fresh = await getUserProfile(user.uid);
+        if (fresh?.lastSessionEnd && Date.parse(fresh.lastSessionEnd) > Date.parse(baselineIso)) {
+          updateStoreProfile(fresh);
+          cacheAccountProfile(fresh);
+          markIdleBaselineClaimed(user.uid, baselineIso);
+          return 'already-claimed';
+        }
+      } catch {
+        /* the original claim error stands */
+      }
+      throw error;
+    }
+
+    const updatedProfile = { ...data, ...payload };
+    updateStoreProfile(updatedProfile);
+    cacheAccountProfile(updatedProfile);
+    markIdleBaselineClaimed(user.uid, baselineIso);
+    return 'claimed';
   });
 }
 
