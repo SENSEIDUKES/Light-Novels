@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { cleanAndParseJSON } from './aiRouter';
+import { logger } from './server/logger';
 
 describe('cleanAndParseJSON', () => {
   beforeEach(() => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(logger, 'warn').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -43,7 +44,7 @@ describe('cleanAndParseJSON', () => {
   it('should extract JSON using regex if direct parse fails', () => {
     const input = 'Here is the result: {"key": "value"} hope it helps!';
     expect(cleanAndParseJSON(input)).toEqual({ key: 'value' });
-    expect(console.warn).toHaveBeenCalledWith("Direct JSON parse failed, trying regex extraction");
+    expect(vi.mocked(logger.warn)).toHaveBeenCalledWith("Direct JSON parse failed, trying regex extraction");
   });
 
   it('should extract JSON array using regex', () => {
@@ -104,7 +105,7 @@ describe('cleanAndParseJSON', () => {
   it('should handle incomplete <think> blocks by falling back to regex', () => {
     const input = '<think>I am thinking but never finish {"key": "value"}';
     expect(cleanAndParseJSON(input)).toEqual({ key: 'value' });
-    expect(console.warn).toHaveBeenCalledWith("Direct JSON parse failed, trying regex extraction");
+    expect(vi.mocked(logger.warn)).toHaveBeenCalledWith("Direct JSON parse failed, trying regex extraction");
   });
 
   it('should handle multiple <think> blocks correctly (non-greedy)', () => {

@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { isValidOllamaHost } from "./server/helpers";
 import { RouteConfig, MultiModelRouting } from "./types";
+import { logger } from "./server/logger";
 
 // Lazy-loaded Gemini clients
 let defaultAIClient: GoogleGenAI | null = null;
@@ -151,7 +152,7 @@ export function cleanAndParseJSON(rawText: string) {
   try {
     return JSON.parse(stripped);
   } catch (err: any) {
-    console.warn("Direct JSON parse failed, trying regex extraction");
+    logger.warn("Direct JSON parse failed, trying regex extraction");
     // 3. Recover the first complete JSON value. This handles valid JSON
     // followed by a malformed tail (for example a repetition loop of `}`).
     const balancedJson = extractBalancedJson(stripped);
@@ -184,12 +185,12 @@ export function cleanAndParseJSON(rawText: string) {
           try {
             return JSON.parse(innerClean);
           } catch {
-            console.warn("[aiRouter] Model response was not valid JSON", { length: rawText.length });
+            logger.warn({ length: rawText.length }, "[aiRouter] Model response was not valid JSON");
             throw new Error("The model returned an invalid structured response. Please retry generation.");
           }
         }
       }
-    console.warn("[aiRouter] Model response was not valid JSON", { length: rawText.length });
+    logger.warn({ length: rawText.length }, "[aiRouter] Model response was not valid JSON");
     throw new Error("The model returned an invalid structured response. Please retry generation.");
   }
 }
@@ -198,7 +199,7 @@ export function cleanAndParseJSON(rawText: string) {
 function safeTruncate(text: string, maxLimit: number = 800000): string {
   if (!text) return text;
   if (text.length > maxLimit) {
-    console.warn(`[aiRouter] Truncating payload from ${text.length} to ${maxLimit} to prevent token limit crash.`);
+    logger.warn(`[aiRouter] Truncating payload from ${text.length} to ${maxLimit} to prevent token limit crash.`);
     return text.substring(0, maxLimit) + "\n...[TRUNCATED TO PRESERVE MERIDIANS]...";
   }
   return text;
@@ -232,7 +233,7 @@ export async function* routeTextGenerationStream(
   model = resolveRouteModel(route, provider, model);
   const effectiveTemperature = resolveGenerationTemperature(provider, model, temperature);
   if (process.env.NODE_ENV !== "production") {
-    console.log(`[aiRouter] Streaming task '${routeKey}' via Route '${route}' -> Provider: '${provider}', Model: '${model}'`);
+    logger.info(`[aiRouter] Streaming task '${routeKey}' via Route '${route}' -> Provider: '${provider}', Model: '${model}'`);
   }
 
   if (provider === "gemini") {
@@ -256,11 +257,11 @@ export async function* routeTextGenerationStream(
         }
       }
     } catch (error: any) {
-      console.error("[aiRouter] Gemini provider encountered error during stream:", error);
+      logger.error({ err: error }, "[aiRouter] Gemini provider encountered error during stream:");
       if (error.status === 429 || error.status === 503 || (error.message && (error.message.includes("429") || error.message.includes("503")))) {
         const apiKey = customKeys?.openrouterApiKey || process.env.OPENROUTER_API_KEY;
         if (apiKey && apiKey !== "MY_OPENROUTER_API_KEY") {
-          console.warn("[aiRouter] Rate limit or high demand hit. Applying graceful fallback: Switching from Gemini to OpenRouter.");
+          logger.warn("[aiRouter] Rate limit or high demand hit. Applying graceful fallback: Switching from Gemini to OpenRouter.");
           const fallbackModel = route === "storyMaker" ? ROUTER_PRESETS.storyMaker.openrouter[0] : "deepseek/deepseek-chat";
           
           yield* routeTextGenerationStream(
@@ -344,7 +345,7 @@ export async function* routeTextGenerationStream(
         }
       }
     } catch (error: any) {
-      console.error("[aiRouter] OpenRouter provider encountered error during stream:", error);
+      logger.error({ err: error }, "[aiRouter] OpenRouter provider encountered error during stream:");
       throw error;
     }
   } else if (provider === "ollama") {
@@ -434,7 +435,7 @@ export async function routeTextGeneration(
   model = resolveRouteModel(route, provider, model);
   const effectiveTemperature = resolveGenerationTemperature(provider, model, temperature);
   if (process.env.NODE_ENV !== "production") {
-    console.log(`[aiRouter] Routing task '${routeKey}' via Route '${route}' -> Provider: '${provider}', Model: '${model}'`);
+    logger.info(`[aiRouter] Routing task '${routeKey}' via Route '${route}' -> Provider: '${provider}', Model: '${model}'`);
   }
 
   if (provider === "gemini") {
@@ -469,7 +470,7 @@ export async function routeTextGeneration(
         return cleanAndParseJSON(response.text);
       } catch (parseError) {
         if (responseSchema) {
-          console.warn("[aiRouter] JSON parse failed with responseSchema. Retrying without strict responseSchema...");
+          logger.warn("[aiRouter] JSON parse failed with responseSchema. Retrying without strict responseSchema...");
           const fallbackConfig = { ...config };
           delete fallbackConfig.responseSchema;
           const fallbackResponse = await ai.models.generateContent({
@@ -484,12 +485,12 @@ export async function routeTextGeneration(
         throw parseError;
       }
     } catch (error: any) {
-      console.error("[aiRouter] Gemini provider encountered error:", error);
+      logger.error({ err: error }, "[aiRouter] Gemini provider encountered error:");
       
       // If we failed even to query with responseSchema, try querying without it before failing completely
       if (responseSchema && !error.message?.includes("429") && !error.message?.includes("503") && error.status !== 429 && error.status !== 503) {
         try {
-          console.warn("[aiRouter] Schema query error. Retrying request without strict responseSchema...");
+          logger.warn("[aiRouter] Schema query error. Retrying request without strict responseSchema...");
           const fallbackConfig = { ...config };
           delete fallbackConfig.responseSchema;
           const fallbackResponse = await ai.models.generateContent({
@@ -501,14 +502,14 @@ export async function routeTextGeneration(
             return cleanAndParseJSON(fallbackResponse.text);
           }
         } catch (innerError) {
-          console.error("[aiRouter] Fallback query without schema also failed:", innerError);
+          logger.error({ err: innerError }, "[aiRouter] Fallback query without schema also failed:");
         }
       }
 
       if (error.status === 429 || error.status === 503 || (error.message && (error.message.includes("429") || error.message.includes("503")))) {
         const apiKey = customKeys?.openrouterApiKey || process.env.OPENROUTER_API_KEY;
         if (apiKey && apiKey !== "MY_OPENROUTER_API_KEY") {
-          console.warn("[aiRouter] Rate limit or high demand hit. Applying graceful fallback: Switching from Gemini to OpenRouter.");
+          logger.warn("[aiRouter] Rate limit or high demand hit. Applying graceful fallback: Switching from Gemini to OpenRouter.");
           const fallbackModel = route === "storyMaker" ? ROUTER_PRESETS.storyMaker.openrouter[0] : "deepseek/deepseek-chat";
           
           return routeTextGeneration(
@@ -573,7 +574,7 @@ export async function routeTextGeneration(
 
       return cleanAndParseJSON(content);
     } catch (error: any) {
-      console.error("[aiRouter] OpenRouter provider encountered error:", error);
+      logger.error({ err: error }, "[aiRouter] OpenRouter provider encountered error:");
       throw error;
     }
   } else if (provider === "ollama") {
@@ -615,7 +616,7 @@ export async function routeTextGeneration(
 
       return cleanAndParseJSON(content);
     } catch (error: any) {
-      console.error("[aiRouter] Ollama provider encountered error:", error);
+      logger.error({ err: error }, "[aiRouter] Ollama provider encountered error:");
       throw new Error(`Ollama server at ${host} is unreachable. Please verify Ollama is running locally and CORS is enabled via OLLAMA_ORIGINS="*" before calling Local route: ${error.message}`);
     }
   } else {
@@ -645,7 +646,7 @@ export async function routeImageGeneration(
   let { model } = activeConfig;
   model = resolveRouteModel("imageGenerator", provider, model);
   if (process.env.NODE_ENV !== "production") {
-    console.log(`[aiRouter] Routing Image task -> Provider: '${provider}', Model: '${model}'`);
+    logger.info(`[aiRouter] Routing Image task -> Provider: '${provider}', Model: '${model}'`);
   }
 
   const styleEnhancer = activeConfig.model === "@preset/library-pictures"
@@ -723,7 +724,7 @@ export async function routeImageGeneration(
               }
             }
           } catch (e: any) {
-            console.warn(`[aiRouter] Single image generation attempt failed:`, e);
+            logger.warn({ err: e }, `[aiRouter] Single image generation attempt failed:`);
           }
           return null;
         };
@@ -740,7 +741,7 @@ export async function routeImageGeneration(
 
       return { imageUrls: [imageUrls[0]] };
     } catch (error: any) {
-      console.warn("[aiRouter] Gemini image gen failed, serving fallback:", error);
+      logger.warn({ err: error }, "[aiRouter] Gemini image gen failed, serving fallback:");
       return {
         imageUrls: getFallbackImages(1),
         note: `Projected via cosmic fallback: ${error.message || "quota reserve limit reached"}.`,
@@ -788,7 +789,7 @@ export async function routeImageGeneration(
       const url = await generateOne();
       return { imageUrls: [url] };
     } catch (error: any) {
-      console.warn("[aiRouter] OpenRouter image gen failed, serving fallback:", error);
+      logger.warn({ err: error }, "[aiRouter] OpenRouter image gen failed, serving fallback:");
       return {
         imageUrls: getFallbackImages(1),
         note: `OpenRouter image generation failed for ${imageModel}. Falling back to Pollinations. Reason: ${error.message}`,
