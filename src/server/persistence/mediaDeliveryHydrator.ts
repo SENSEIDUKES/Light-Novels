@@ -82,7 +82,8 @@ function hydrateHistory(
   history: GeneratedImage[] | undefined,
   descriptors: ReadonlyMap<string, MediaAssetDescriptor>,
 ): GeneratedImage[] | undefined {
-  return history?.map(image => {
+  if (!Array.isArray(history)) return undefined;
+  return history.map(image => {
     const descriptor = image.assetId ? descriptorFor(descriptors, image.assetId) : undefined;
     return {
       ...image,
