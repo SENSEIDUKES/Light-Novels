@@ -15,5 +15,3 @@ Recording learnings... Added exhaustive-deps rule enforcement and fixed App.tsx.
 ## 2026-07-19 - Optimize character categorization in ReaderCodex
 **Learning:** Found an anti-pattern in ReaderCodex where filtering functions were creating new array instances conditionally on every render loop, degrading performance.
 **Action:** Wrapped declarative operations in `useMemo` and destructured to preserve readability and reference stability.
-
-- **Promise.all Concurrent Processing:** For sequential cleanup loops that perform network and DB operations per item, using `Promise.all` with a mapping function reduces overall time dramatically (from O(N) sequential blocking time to near O(1) concurrent time). My test benchmarked execution taking 1541ms sequentially dropping to 20ms using this optimization.

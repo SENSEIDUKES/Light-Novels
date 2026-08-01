@@ -754,37 +754,29 @@ export class MediaAssetService {
     const tasks = await this.repository.listCleanupTasks(limit);
     let completed = 0;
     let failed = 0;
-
-    await Promise.all(
-      tasks.map(async (task) => {
-        if (!task.assetId) return;
-        try {
-          if (task.idempotencyKey) {
-            await this.executeDeletionIntentCleanup(task);
-          } else {
-            await this.assertCleanupTaskMatchesOwnedAsset(task);
-            await this.deleteAndConfirm(task.bucket, task.objectKey);
-            await this.repository.completeCleanup(task.id, task.assetId);
-          }
-          completed += 1;
-        } catch (error) {
-          if (!task.idempotencyKey) {
-            try {
-              await this.repository.failCleanup(
-                task.id,
-                errorMessage(error),
-                this.nextCleanupAttempt(task.attemptCount + 1),
-              );
-            } catch {
-              // The task remains durable. A future run will reclaim it once its
-              // lease/backoff permits rather than risking an untracked delete.
-            }
-          }
-          failed += 1;
+    for (const task of tasks) {
+      if (!task.assetId) continue;
+      try {
+        if (task.idempotencyKey) {
+          await this.executeDeletionIntentCleanup(task);
+        } else {
+          await this.assertCleanupTaskMatchesOwnedAsset(task);
+          await this.deleteAndConfirm(task.bucket, task.objectKey);
+          await this.repository.completeCleanup(task.id, task.assetId);
         }
-      }),
-    );
-
+        completed += 1;
+      } catch (error) {
+        if (!task.idempotencyKey) {
+          try {
+            await this.repository.failCleanup(task.id, errorMessage(error), this.nextCleanupAttempt(task.attemptCount + 1));
+          } catch {
+            // The task remains durable. A future run will reclaim it once its
+            // lease/backoff permits rather than risking an untracked delete.
+          }
+        }
+        failed += 1;
+      }
+    }
     return { attempted: tasks.length, completed, failed };
   }
 
