@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Copy, Cloud, ArrowRight } from 'lucide-react';
+import { Copy, ArrowRight } from 'lucide-react';
+import StoryAuthGate, { STORY_AUTH_DISSOLVE_MS } from './StoryAuthGate';
 import { IntakeData, StorySeed, StorySeedPayload, WorldBlueprint } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { selectIsGenerating } from '../store/useGenerationStore';
 import { auth, LOCAL_ONLY_MODE } from '../lib/firebase';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { AGENTS } from '../lib/agents';
 
 // Feature components
@@ -37,6 +37,8 @@ interface CreationModalProps {
   isGenerating: boolean;
   error: string | null;
 }
+
+type PendingGenerationAction = 'blueprint' | 'story';
 
 const getRandomName = () => {
   const names = ['Ye Chen', 'Xiao Yan', 'Lin Dong', 'Wang Lin', 'Meng Hao', 'Bai Xiaochun', 'Su Ming', 'Li Qiye', 'Chu Feng', 'Ji Ning'];
@@ -101,6 +103,7 @@ export default function CreationModal({ onStartStory, onGenerateBlueprint, isGen
   const [seedError, setSeedError] = useState<string | null>(null);
   const [chapterCount] = useState(10);
   const [activeSection, setActiveSection] = useState<FormSectionId>('core');
+  const [pendingGenerationAction, setPendingGenerationAction] = useState<PendingGenerationAction | null>(null);
 
   const [intake, setIntake] = useState<IntakeData>(createDefaultIntake);
 
@@ -136,21 +139,12 @@ export default function CreationModal({ onStartStory, onGenerateBlueprint, isGen
     setIntake(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleLogin = async () => {
-    try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-    } catch (error) {
-      console.error("Login failed", error);
-    }
-  };
-
-  const rememberSeed = (seed: StorySeed) => {
+  const rememberSeed = useCallback((seed: StorySeed) => {
     setCurrentSeed(seed);
     setSavedSeeds(previous => [seed, ...previous.filter(item => item.id !== seed.id)]);
-  };
+  }, []);
 
-  const persistSeed = async (payload: StorySeedPayload): Promise<StorySeed | null> => {
+  const persistSeed = useCallback(async (payload: StorySeedPayload): Promise<StorySeed | null> => {
     if (LOCAL_ONLY_MODE) return null;
     if (!currentUser) throw new Error('Sign in to save this story seed to your account.');
     const saved = currentSeed
@@ -158,7 +152,7 @@ export default function CreationModal({ onStartStory, onGenerateBlueprint, isGen
       : await createStorySeed(payload);
     rememberSeed(saved);
     return saved;
-  };
+  }, [currentSeed, currentUser, rememberSeed]);
 
   const handleImport = async (payloads: StorySeedPayload[]) => {
     if (payloads.length === 0) return;
@@ -188,8 +182,7 @@ export default function CreationModal({ onStartStory, onGenerateBlueprint, isGen
     setSeedError(null);
   };
 
-  const handleGenerateBlueprintClick = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const generateBlueprint = useCallback(async () => {
     if (isGenerating || selectIsGenerating(useAppStore.getState())) return;
     if (!intake.corePremise?.trim() || !intake.genrePath) return;
     try {
@@ -206,9 +199,9 @@ export default function CreationModal({ onStartStory, onGenerateBlueprint, isGen
     } catch (err) {
       // Error handled in parent
     }
-  };
+  }, [intake, isGenerating, onGenerateBlueprint, persistSeed]);
 
-  const handleStartStoryClick = async () => {
+  const startStory = useCallback(async () => {
     if (isGenerating || selectIsGenerating(useAppStore.getState())) return;
     if (!blueprint) return;
     const cleanBlueprint = {
@@ -227,6 +220,37 @@ export default function CreationModal({ onStartStory, onGenerateBlueprint, isGen
       console.error('Failed to persist source story seed:', seedSaveError);
       setSeedError('The story was not started because its source seed could not be saved to your account.');
     }
+  }, [blueprint, chapterCount, intake, isGenerating, onStartStory, persistSeed]);
+
+  useEffect(() => {
+    if (LOCAL_ONLY_MODE || !currentUser || !pendingGenerationAction) return;
+    const action = pendingGenerationAction;
+    const timer = setTimeout(() => {
+      setPendingGenerationAction(null);
+      void (action === 'blueprint' ? generateBlueprint() : startStory());
+    }, STORY_AUTH_DISSOLVE_MS);
+    return () => clearTimeout(timer);
+  }, [currentUser, generateBlueprint, pendingGenerationAction, startStory]);
+
+  const handleGenerateBlueprintClick = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isGenerating || selectIsGenerating(useAppStore.getState())) return;
+    if (!intake.corePremise?.trim() || !intake.genrePath) return;
+    if (!LOCAL_ONLY_MODE && !currentUser) {
+      setPendingGenerationAction('blueprint');
+      return;
+    }
+    await generateBlueprint();
+  };
+
+  const handleStartStoryClick = async () => {
+    if (isGenerating || selectIsGenerating(useAppStore.getState())) return;
+    if (!blueprint) return;
+    if (!LOCAL_ONLY_MODE && !currentUser) {
+      setPendingGenerationAction('story');
+      return;
+    }
+    await startStory();
   };
 
   const handleExportCurrentSeed = () => {
@@ -259,24 +283,8 @@ export default function CreationModal({ onStartStory, onGenerateBlueprint, isGen
     });
   };
 
-  if (!currentUser && !LOCAL_ONLY_MODE) {
-    return (
-      <div className="max-w-xl mx-auto pb-20 pt-20 text-center" id="creation-portal-root">
-        <h1 className="font-display font-bold text-3xl sm:text-4xl text-signal tracking-tight mb-4">
-          Authentication Required
-        </h1>
-        <p className="font-sans font-light text-neutral-400 text-sm mx-auto leading-relaxed mb-8">
-          You must link your spirit to the matrix before forging a new destiny. Anonymous creation is sealed to prevent celestial authorization breaches.
-        </p>
-        <button
-           tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={handleLogin}
-          className="font-sc px-8 py-3 rounded text-sm uppercase tracking-widest font-bold inline-flex items-center space-x-2 bg-human text-signal border border-human hover:bg-void hover:text-human hover:border-human shadow-[0_0_15px_rgba(139,0,0,0.3)] transition-all"
-        >
-          <Cloud size={18} />
-          <span>Sync Spirit (Sign In)</span>
-        </button>
-      </div>
-    );
+  if (pendingGenerationAction && !LOCAL_ONLY_MODE) {
+    return <StoryAuthGate />;
   }
 
   if (stage === 'blueprint' && blueprint) {
