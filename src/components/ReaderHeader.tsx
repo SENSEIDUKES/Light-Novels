@@ -67,7 +67,7 @@ export function ReaderHeader({
         <AudioWidget />
         <button
            tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => onToggleRead(selectedChapter.number)}
-          className={`p-2 rounded-full border flex items-center justify-center transition-all focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900 ${
+          className={`p-2 rounded-full border flex items-center justify-center transition-all focus-visible:ring-2 focus-visible:ring-portal outline-none ${
             selectedChapter.status === "read"
               ? "border-gold-accent bg-gold-accent/10 text-gold-accent"
               : "border-neutral-800 text-neutral-400 hover:text-signal hover:bg-neutral-900"
@@ -81,7 +81,7 @@ export function ReaderHeader({
         <button
           onClick={() => setShowReaderPreferences(!showReaderPreferences)}
           aria-expanded={showReaderPreferences}
-          className={`p-2 rounded-full border flex items-center justify-center transition-all focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900 ${
+          className={`p-2 rounded-full border flex items-center justify-center transition-all focus-visible:ring-2 focus-visible:ring-portal outline-none ${
             showReaderPreferences
               ? "border-portal bg-portal/10 text-portal"
               : "border-neutral-800 text-neutral-400 hover:text-signal hover:bg-neutral-900"
@@ -95,7 +95,7 @@ export function ReaderHeader({
         <button
           onClick={() => setShowBookmarksPanel(!showBookmarksPanel)}
           aria-expanded={showBookmarksPanel}
-          className={`p-2 rounded-full border flex items-center justify-center transition-all relative focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900 ${
+          className={`p-2 rounded-full border flex items-center justify-center transition-all relative focus-visible:ring-2 focus-visible:ring-portal outline-none ${
             showBookmarksPanel
               ? "border-gold-accent bg-gold-accent/15 text-gold-accent"
               : activeBookmarks.length > 0
