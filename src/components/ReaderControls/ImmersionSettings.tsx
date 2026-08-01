@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Settings } from 'lucide-react';
 import {
   AudioSettings,
@@ -22,6 +22,17 @@ export function ImmersionSettings({
 }: Props) {
   const [showImmersionPopover, setShowImmersionPopover] = useState<boolean>(false);
   const [showVoiceDetail, setShowVoiceDetail] = useState<boolean>(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setShowImmersionPopover(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const renderSettingsPopover = (isMobile: boolean) => (
     <div className={isMobile
@@ -247,7 +258,7 @@ export function ImmersionSettings({
   );
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <button
         onClick={() => setShowImmersionPopover(!showImmersionPopover)}
         aria-label="Immersion Settings"
