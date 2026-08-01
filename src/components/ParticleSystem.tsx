@@ -4,12 +4,14 @@ interface ParticleSystemProps {
   count?: number;
   className?: string;
   color?: string;
+  particleStyle?: "default" | "sword_qi" | "lotus_blossom";
 }
 
 export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({ 
   count = 20, 
   className = '',
-  color = 'bg-cyan-100' 
+  color = 'bg-cyan-100',
+  particleStyle = 'default'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
@@ -79,7 +81,23 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
 
     if (offCtx) {
       offCtx.beginPath();
-      offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+      if (particleStyle === 'sword_qi') {
+        // Slender sharp double-pointed diamond / sword-like shard
+        offCtx.moveTo(center, center - maxSize);
+        offCtx.lineTo(center + maxSize / 4, center);
+        offCtx.lineTo(center, center + maxSize);
+        offCtx.lineTo(center - maxSize / 4, center);
+        offCtx.closePath();
+      } else if (particleStyle === 'lotus_blossom') {
+        // Soft curved organic teardrop / petal shape
+        offCtx.moveTo(center, center - maxSize);
+        offCtx.quadraticCurveTo(center + maxSize * 0.6, center - maxSize * 0.2, center, center + maxSize * 0.8);
+        offCtx.quadraticCurveTo(center - maxSize * 0.6, center - maxSize * 0.2, center, center - maxSize);
+        offCtx.closePath();
+      } else {
+        // Default circle / celestial embers
+        offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+      }
       offCtx.fillStyle = resolvedColor;
       offCtx.shadowBlur = blur;
       offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
@@ -148,7 +166,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
     };
-  }, [particles, resolvedColor]);
+  }, [particles, resolvedColor, particleStyle]);
 
   return (
     <>
