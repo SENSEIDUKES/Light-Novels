@@ -42,6 +42,12 @@ const PARTICLE_INTENSITY_OPTIONS = [
   { value: 'high', label: 'High' },
 ] as const;
 
+const PARTICLE_STYLE_OPTIONS = [
+  { value: 'default', label: 'Orb (Default)' },
+  { value: 'sword_qi', label: 'Sword Qi (Diamond)' },
+  { value: 'lotus_blossom', label: 'Lotus Blossom' },
+] as const;
+
 const DIVIDER_STYLE_OPTIONS = [
   { value: 'default', label: 'Classic Minimal' },
   { value: 'celestial', label: 'Celestial Crest' },
@@ -250,6 +256,23 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
                 ))}
               </div>
             </PreferenceGroup>
+
+            {currentPrefs.particleIntensity !== 'off' && (
+              <PreferenceGroup
+                label="Particle Shape"
+                icon={<Sparkles size={13} />}
+                summary={PARTICLE_STYLE_OPTIONS.find(option => option.value === (currentPrefs.particleStyle || 'default'))?.label}
+              >
+                <div className="grid gap-1.5">
+                  {PARTICLE_STYLE_OPTIONS.map(option => (
+                    <button key={option.value} type="button" onClick={() => handleUpdatePreference('particleStyle', option.value)} className={choiceClass((currentPrefs.particleStyle || 'default') === option.value)}>
+                      <span>{option.label}</span>
+                      {(currentPrefs.particleStyle || 'default') === option.value ? <Check size={12} /> : null}
+                    </button>
+                  ))}
+                </div>
+              </PreferenceGroup>
+            )}
 
             <PreferenceGroup
               label="Chapter Divider"

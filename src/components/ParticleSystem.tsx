@@ -4,12 +4,14 @@ interface ParticleSystemProps {
   count?: number;
   className?: string;
   color?: string;
+  particleStyle?: "default" | "sword_qi" | "lotus_blossom";
 }
 
 export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({ 
   count = 20, 
   className = '',
-  color = 'bg-cyan-100' 
+  color = 'bg-cyan-100',
+  particleStyle = 'default'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
@@ -78,11 +80,34 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     const center = canvasSize / 2;
 
     if (offCtx) {
-      offCtx.beginPath();
-      offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
       offCtx.fillStyle = resolvedColor;
       offCtx.shadowBlur = blur;
       offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+
+      if (particleStyle === 'sword_qi') {
+        offCtx.beginPath();
+        offCtx.moveTo(center, padding);
+        offCtx.lineTo(center + maxSize / 2, center);
+        offCtx.lineTo(center, center + maxSize / 2);
+        offCtx.lineTo(center - maxSize / 2, center);
+        offCtx.closePath();
+      } else if (particleStyle === 'lotus_blossom') {
+        // Draw 5 petals
+        offCtx.beginPath();
+        for (let i = 0; i < 5; i++) {
+          const angle = (i * Math.PI * 2) / 5 - Math.PI / 2;
+          const petalX = center + Math.cos(angle) * (maxSize / 4);
+          const petalY = center + Math.sin(angle) * (maxSize / 4);
+          offCtx.moveTo(center, center);
+          offCtx.arc(petalX, petalY, maxSize / 3, angle - Math.PI / 2, angle + Math.PI / 2);
+        }
+        offCtx.closePath();
+      } else {
+        // default circle
+        offCtx.beginPath();
+        offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+      }
+
       offCtx.fill();
       
       // Fill again without shadow for a more solid core
@@ -148,7 +173,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
     };
-  }, [particles, resolvedColor]);
+  }, [particles, resolvedColor, particleStyle]);
 
   return (
     <>
