@@ -10,12 +10,16 @@ export const handleDownload = async (url: string, filename: string) => {
         const hostname = parsedUrl.hostname.toLowerCase();
         const isInternal =
           hostname === 'localhost' ||
+          hostname === '0.0.0.0' ||
           hostname === '[::1]' ||
-          hostname.startsWith('127.') ||
-          hostname.startsWith('10.') ||
-          /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname) ||
-          hostname.startsWith('192.168.') ||
-          hostname.startsWith('169.254.') ||
+          hostname === '[::]' ||
+          /^127\.(?:[0-9]{1,3}\.){2}[0-9]{1,3}$/.test(hostname) ||
+          /^10\.(?:[0-9]{1,3}\.){2}[0-9]{1,3}$/.test(hostname) ||
+          /^172\.(?:1[6-9]|2[0-9]|3[0-1])\.[0-9]{1,3}\.[0-9]{1,3}$/.test(hostname) ||
+          /^192\.168\.[0-9]{1,3}\.[0-9]{1,3}$/.test(hostname) ||
+          /^169\.254\.[0-9]{1,3}\.[0-9]{1,3}$/.test(hostname) ||
+          /^\[f[cd][0-9a-f:]+\]$/i.test(hostname) ||
+          /^\[fe80:[0-9a-f:]+\]$/i.test(hostname) ||
           hostname.endsWith('.localhost') ||
           hostname.endsWith('.local') ||
           hostname.endsWith('.internal');
