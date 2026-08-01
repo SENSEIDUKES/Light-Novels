@@ -668,6 +668,7 @@ export default function ReaderChamber({
 
   const handleSealClick = async () => {
     if (!handleSealChapter) return;
+    if (isCheckingConsistency) return;
     if (!handleCheckConsistency) {
       handleSealChapter(selectedChapter.number);
       return;
