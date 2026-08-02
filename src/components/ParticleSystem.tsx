@@ -4,12 +4,14 @@ interface ParticleSystemProps {
   count?: number;
   className?: string;
   color?: string;
+  particleStyle?: 'default' | 'sword_qi' | 'lotus_blossom';
 }
 
 export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({ 
   count = 20, 
   className = '',
-  color = 'bg-cyan-100' 
+  color = 'bg-cyan-100',
+  particleStyle = 'default'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
@@ -33,14 +35,31 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
 
   const particles = useMemo(() => {
     return Array.from({ length: count }).map((_, i) => {
-      const size = Math.random() * 3 + 1; // 1 to 4px
+      let size = Math.random() * 3 + 1; // 1 to 4px
+      let duration = (Math.random() * 15 + 10) * 1000; // 10 to 25s
+      let yOffset = -Math.random() * 100 - 100; // go up by 100 to 200px
+      let xOffset = (Math.random() - 0.5) * 60; // sway left/right
+      let maxOpacity = Math.random() * 0.4 + 0.2;
+      let rotationSpeed = 0;
+
+      if (particleStyle === 'sword_qi') {
+        size = Math.random() * 2 + 1; // slightly finer needles
+        duration = (Math.random() * 6 + 4) * 1000; // 4 to 10s (faster!)
+        yOffset = -Math.random() * 200 - 150; // rise higher
+        xOffset = (Math.random() - 0.5) * 20; // very straight rise
+        maxOpacity = Math.random() * 0.5 + 0.3; // slightly brighter
+      } else if (particleStyle === 'lotus_blossom') {
+        size = Math.random() * 4 + 2; // slightly larger soft petals
+        duration = (Math.random() * 20 + 15) * 1000; // 15 to 35s (slower, serene)
+        yOffset = -Math.random() * 80 - 50; // rise/float up slower
+        xOffset = (Math.random() - 0.5) * 100; // wider sway
+        maxOpacity = Math.random() * 0.3 + 0.25;
+        rotationSpeed = (Math.random() - 0.5) * 0.002; // slow spin
+      }
+
       const startY = Math.random();
       const startX = Math.random();
-      const duration = (Math.random() * 15 + 10) * 1000; // 10 to 25s
       const delay = (Math.random() * -20) * 1000; // -20s to 0
-      const yOffset = -Math.random() * 100 - 100; // go up by 100 to 200px
-      const maxOpacity = Math.random() * 0.4 + 0.2;
-      const xOffset = (Math.random() - 0.5) * 60; // sway left/right
 
       return {
         id: i,
@@ -51,10 +70,11 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
         delay,
         yOffset,
         xOffset,
-        maxOpacity
+        maxOpacity,
+        rotationSpeed
       };
     });
-  }, [count]);
+  }, [count, particleStyle]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -78,16 +98,45 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     const center = canvasSize / 2;
 
     if (offCtx) {
-      offCtx.beginPath();
-      offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
-      offCtx.fillStyle = resolvedColor;
-      offCtx.shadowBlur = blur;
-      offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
-      offCtx.fill();
-      
-      // Fill again without shadow for a more solid core
-      offCtx.shadowBlur = 0;
-      offCtx.fill();
+      if (particleStyle === 'sword_qi') {
+        // Needle/diamond shape for sharp sword qi
+        offCtx.beginPath();
+        offCtx.moveTo(center, center - maxSize);
+        offCtx.lineTo(center + maxSize / 3, center);
+        offCtx.lineTo(center, center + maxSize);
+        offCtx.lineTo(center - maxSize / 3, center);
+        offCtx.closePath();
+        offCtx.fillStyle = resolvedColor;
+        offCtx.shadowBlur = blur;
+        offCtx.shadowColor = 'rgba(255, 255, 255, 0.9)';
+        offCtx.fill();
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      } else if (particleStyle === 'lotus_blossom') {
+        // Gentle petal shape (ellipse/oval)
+        offCtx.beginPath();
+        if (typeof offCtx.ellipse === 'function') {
+          offCtx.ellipse(center, center, maxSize / 2, maxSize / 3, 0, 0, Math.PI * 2);
+        } else {
+          offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+        }
+        offCtx.fillStyle = resolvedColor;
+        offCtx.shadowBlur = blur / 2;
+        offCtx.shadowColor = 'rgba(255, 255, 255, 0.5)';
+        offCtx.fill();
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      } else {
+        // 'default' classic circle
+        offCtx.beginPath();
+        offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+        offCtx.fillStyle = resolvedColor;
+        offCtx.shadowBlur = blur;
+        offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+        offCtx.fill();
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      }
     }
 
     const resizeObserver = new ResizeObserver(entries => {
@@ -132,11 +181,22 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
         // Draw offscreen canvas at correct size and position
         const scale = p.size / maxSize;
         const drawSize = canvasSize * scale;
-        const drawX = currentX - drawSize / 2;
-        const drawY = currentY - drawSize / 2;
 
+        ctx.save();
         ctx.globalAlpha = Math.max(0, easedOpacity);
-        ctx.drawImage(offscreen, drawX, drawY, drawSize, drawSize);
+        ctx.translate(currentX, currentY);
+
+        if (particleStyle === 'lotus_blossom') {
+          // Spin based on elapsed time and random rotation speed
+          ctx.rotate((time - start) * p.rotationSpeed);
+        } else if (particleStyle === 'sword_qi') {
+          // Sharp angle slightly aligned with horizontal sway direction
+          const swayDirection = p.xOffset * (progress < 0.5 ? 2 : -2);
+          ctx.rotate(swayDirection * 0.005);
+        }
+
+        ctx.drawImage(offscreen, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+        ctx.restore();
       });
 
       animationFrameId = requestAnimationFrame(render);
@@ -148,7 +208,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
     };
-  }, [particles, resolvedColor]);
+  }, [particles, resolvedColor, particleStyle]);
 
   return (
     <>
