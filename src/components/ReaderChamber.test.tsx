@@ -208,3 +208,55 @@ describe('ReaderChamber', () => {
     expect(vignetteEl).toBeNull();
   });
 });
+
+  it('prevents multiple consistency checks from concurrent clicks', async () => {
+    const chapters = [{ number: 1, title: 'Ch 1', status: 'read' as const, premise: 'Some premise', generatedContent: 'Hello' }];
+    const mockStory = {
+      id: 'test-story',
+      title: 'Test',
+      memory: { glossary: [] },
+      arcs: [{ chapters }]
+    };
+
+    let checkConsistencyCount = 0;
+    const handleCheckConsistency = vi.fn().mockImplementation(async () => {
+      checkConsistencyCount++;
+      return new Promise(resolve => setTimeout(() => resolve([]), 50));
+    });
+
+    const handleSealChapter = vi.fn();
+
+    const { getByText } = render(
+      <ReaderChamber
+        chapters={chapters}
+        currentPowerStage="Foundation"
+        selectedChapterNum={1}
+        setSelectedChapterNum={vi.fn()}
+        onGenerateChapter={vi.fn()}
+        onGenerateNextFiveChapters={vi.fn()}
+        isGenerating={false}
+        onToggleRead={vi.fn()}
+        arcTitle="First Arc"
+        onSwitchTab={vi.fn()}
+        activeStory={mockStory as any}
+        updateStoryFields={vi.fn()}
+        handleCheckConsistency={handleCheckConsistency}
+        handleSealChapter={handleSealChapter}
+      />
+    );
+
+    const sealButton = getByText("Seal Chapter (Publish)").closest('button');
+    if (!sealButton) throw new Error('Seal button not found');
+
+    // Simulate multiple concurrent clicks while it processes the first one
+    sealButton.click();
+    sealButton.click();
+    sealButton.click();
+
+    // Wait for the async work to complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // The lock should have prevented multiple calls
+    expect(checkConsistencyCount).toBe(1);
+    expect(handleSealChapter).toHaveBeenCalledTimes(1);
+  });

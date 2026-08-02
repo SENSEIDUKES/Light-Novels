@@ -107,6 +107,7 @@ export default function ReaderChamber({
   const [showFateCodex, setShowFateCodex] = useState(false);
   const [isCheckingConsistency, setIsCheckingConsistency] = useState(false);
   const [consistencyWarnings, setConsistencyWarnings] = useState<string[] | null>(null);
+  const sealInFlightRef = useRef(false);
   const readerRef = useRef<HTMLDivElement>(null);
   const readerMode = useAppStore((state) => state.readerMode);
   const immersion = useAppStore((state) => state.immersion);
@@ -668,9 +669,15 @@ export default function ReaderChamber({
 
   const handleSealClick = async () => {
     if (!handleSealChapter) return;
-    if (isCheckingConsistency) return;
+    if (sealInFlightRef.current) return;
+    sealInFlightRef.current = true;
+
     if (!handleCheckConsistency) {
-      handleSealChapter(selectedChapter.number);
+      try {
+        await handleSealChapter(selectedChapter.number);
+      } finally {
+        sealInFlightRef.current = false;
+      }
       return;
     }
     setIsCheckingConsistency(true);
@@ -686,6 +693,7 @@ export default function ReaderChamber({
       await handleSealChapter(selectedChapter.number);
     } finally {
       setIsCheckingConsistency(false);
+      sealInFlightRef.current = false;
     }
   };
 
