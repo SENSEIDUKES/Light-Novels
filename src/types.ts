@@ -986,6 +986,7 @@ export interface ReaderPreferences {
   highlightStyle?: "full" | "underline" | "tint";
   playerStyle?: "vinyl" | "minimal" | "ethereal";
   particleIntensity?: "off" | "low" | "default" | "high";
+  particleStyle?: "default" | "sword_qi" | "lotus_blossom";
   dividerStyle?: "default" | "celestial" | "sword_qi" | "lotus_path";
   vignetteStyle?: "off" | "radial" | "cosmic" | "scroll";
 }

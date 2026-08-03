@@ -327,6 +327,7 @@ export default function ReaderChamber({
     lineHeight: "relaxed",
     paragraphSpacing: "normal",
     themeOverride: "void",
+    particleStyle: "default",
     ...DEFAULT_READER_TYPOGRAPHY,
   };
 
@@ -871,6 +872,7 @@ export default function ReaderChamber({
           count={particleCount}
           className="opacity-20 pointer-events-none mix-blend-screen z-0 transition-colors duration-500"
           color={getParticleColor()}
+          style={currentPrefs.particleStyle}
         />
       )}
 
