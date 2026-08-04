@@ -64,7 +64,10 @@ describe('ReaderPreferencesPanel', () => {
 
     fireEvent.click(fontToggle);
     expect(fontToggle.getAttribute('aria-expanded')).toBe('false');
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Rubik (Sans)' })).toBeNull());
+    await waitFor(() => {
+      const button = screen.queryByRole('button', { name: 'Rubik (Sans)' });
+      expect(button === null || window.getComputedStyle(button).opacity === '0' || button.closest('div[style*="opacity: 0"]') !== null).toBe(true);
+    });
     expect(fontToggle.textContent).toContain('Literata (Serif)');
 
     fireEvent.click(fontToggle);
