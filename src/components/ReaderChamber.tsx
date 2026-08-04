@@ -880,6 +880,7 @@ export default function ReaderChamber({
           count={particleCount}
           className="opacity-20 pointer-events-none mix-blend-screen z-0 transition-colors duration-500"
           color={getParticleColor()}
+          style={currentPrefs.particleStyle}
         />
       )}
 

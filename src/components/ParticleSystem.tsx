@@ -4,12 +4,14 @@ interface ParticleSystemProps {
   count?: number;
   className?: string;
   color?: string;
+  style?: "default" | "sword_qi" | "lotus_blossom";
 }
 
 export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({ 
   count = 20, 
   className = '',
-  color = 'bg-cyan-100' 
+  color = 'bg-cyan-100',
+  style: styleProp = 'default'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
@@ -66,28 +68,61 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     let width = 0;
     let height = 0;
 
-    // Create offscreen particle for performance
-    const offscreen = document.createElement('canvas');
-    const offCtx = offscreen.getContext('2d', { alpha: true });
-    const maxSize = 4;
+    const style = styleProp || 'default';
+    const maxSize = style === 'default' ? 4 : 8;
     const blur = 8;
     const padding = blur * 2;
     const canvasSize = maxSize + padding * 2;
-    offscreen.width = canvasSize;
-    offscreen.height = canvasSize;
     const center = canvasSize / 2;
 
+    // Create offscreen particle for performance
+    const offscreen = document.createElement('canvas');
+    const offCtx = offscreen.getContext('2d', { alpha: true });
+    offscreen.width = canvasSize;
+    offscreen.height = canvasSize;
+
     if (offCtx) {
-      offCtx.beginPath();
-      offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
-      offCtx.fillStyle = resolvedColor;
-      offCtx.shadowBlur = blur;
-      offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
-      offCtx.fill();
-      
-      // Fill again without shadow for a more solid core
-      offCtx.shadowBlur = 0;
-      offCtx.fill();
+      if (style === 'sword_qi') {
+        // Sharp diagonal needle/shard shape representing sword-force/Qi
+        offCtx.beginPath();
+        offCtx.moveTo(center, center - maxSize / 2 - 2);
+        offCtx.lineTo(center + maxSize / 4, center);
+        offCtx.lineTo(center, center + maxSize / 2 + 2);
+        offCtx.lineTo(center - maxSize / 4, center);
+        offCtx.closePath();
+        offCtx.fillStyle = resolvedColor;
+        offCtx.shadowBlur = blur;
+        offCtx.shadowColor = resolvedColor;
+        offCtx.fill();
+
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      } else if (style === 'lotus_blossom') {
+        // Soft dual-quadratic curved petal
+        offCtx.beginPath();
+        offCtx.moveTo(center, center - maxSize / 2);
+        offCtx.quadraticCurveTo(center + maxSize / 2, center, center, center + maxSize / 2);
+        offCtx.quadraticCurveTo(center - maxSize / 2, center, center, center - maxSize / 2);
+        offCtx.closePath();
+        offCtx.fillStyle = resolvedColor;
+        offCtx.shadowBlur = blur;
+        offCtx.shadowColor = resolvedColor;
+        offCtx.fill();
+
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      } else {
+        // Default circular glowing mote
+        offCtx.beginPath();
+        offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+        offCtx.fillStyle = resolvedColor;
+        offCtx.shadowBlur = blur;
+        offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+        offCtx.fill();
+
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      }
     }
 
     const resizeObserver = new ResizeObserver(entries => {
@@ -132,11 +167,28 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
         // Draw offscreen canvas at correct size and position
         const scale = p.size / maxSize;
         const drawSize = canvasSize * scale;
-        const drawX = currentX - drawSize / 2;
-        const drawY = currentY - drawSize / 2;
+
+        // Determine angle of rotation based on style
+        let angle = 0;
+        if (style === 'lotus_blossom') {
+          angle = (progress * Math.PI * 1.5) + (p.startX * 5);
+        } else if (style === 'sword_qi') {
+          const dx = p.xOffset * (progress < 0.5 ? 2 : -2);
+          angle = Math.atan2(p.yOffset, dx) + Math.PI / 2;
+        }
 
         ctx.globalAlpha = Math.max(0, easedOpacity);
-        ctx.drawImage(offscreen, drawX, drawY, drawSize, drawSize);
+        if (angle !== 0) {
+          ctx.save();
+          ctx.translate(currentX, currentY);
+          ctx.rotate(angle);
+          ctx.drawImage(offscreen, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+          ctx.restore();
+        } else {
+          const drawX = currentX - drawSize / 2;
+          const drawY = currentY - drawSize / 2;
+          ctx.drawImage(offscreen, drawX, drawY, drawSize, drawSize);
+        }
       });
 
       animationFrameId = requestAnimationFrame(render);
@@ -148,7 +200,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
     };
-  }, [particles, resolvedColor]);
+  }, [particles, resolvedColor, styleProp]);
 
   return (
     <>
