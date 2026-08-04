@@ -4,12 +4,14 @@ interface ParticleSystemProps {
   count?: number;
   className?: string;
   color?: string;
+  particleStyle?: "default" | "sword_qi" | "lotus_blossom";
 }
 
 export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({ 
   count = 20, 
   className = '',
-  color = 'bg-cyan-100' 
+  color = 'bg-cyan-100',
+  particleStyle = 'default'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
@@ -41,6 +43,8 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       const yOffset = -Math.random() * 100 - 100; // go up by 100 to 200px
       const maxOpacity = Math.random() * 0.4 + 0.2;
       const xOffset = (Math.random() - 0.5) * 60; // sway left/right
+      const startRotation = Math.random() * Math.PI * 2;
+      const rotationSpeed = (Math.random() - 0.5) * 2; // radians per second
 
       return {
         id: i,
@@ -51,7 +55,9 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
         delay,
         yOffset,
         xOffset,
-        maxOpacity
+        maxOpacity,
+        startRotation,
+        rotationSpeed
       };
     });
   }, [count]);
@@ -69,7 +75,10 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     // Create offscreen particle for performance
     const offscreen = document.createElement('canvas');
     const offCtx = offscreen.getContext('2d', { alpha: true });
-    const maxSize = 4;
+
+    // Determine bounds based on style
+    const isSpecialShape = particleStyle === 'sword_qi' || particleStyle === 'lotus_blossom';
+    const maxSize = isSpecialShape ? 12 : 4;
     const blur = 8;
     const padding = blur * 2;
     const canvasSize = maxSize + padding * 2;
@@ -78,16 +87,47 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     const center = canvasSize / 2;
 
     if (offCtx) {
-      offCtx.beginPath();
-      offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
       offCtx.fillStyle = resolvedColor;
       offCtx.shadowBlur = blur;
       offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
-      offCtx.fill();
       
-      // Fill again without shadow for a more solid core
-      offCtx.shadowBlur = 0;
-      offCtx.fill();
+      if (particleStyle === 'sword_qi') {
+        // Draw an elongated shard/sword shape
+        offCtx.beginPath();
+        offCtx.moveTo(center, center - maxSize / 2); // Top tip
+        offCtx.lineTo(center + maxSize / 6, center); // Right side
+        offCtx.lineTo(center, center + maxSize / 2); // Bottom tip
+        offCtx.lineTo(center - maxSize / 6, center); // Left side
+        offCtx.closePath();
+        offCtx.fill();
+
+        // Fill again for solid core
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      } else if (particleStyle === 'lotus_blossom') {
+        // Draw a lotus petal shape
+        offCtx.beginPath();
+        offCtx.moveTo(center, center - maxSize / 2); // Top tip
+        // Right curve
+        offCtx.quadraticCurveTo(center + maxSize / 2, center - maxSize / 4, center, center + maxSize / 2);
+        // Left curve
+        offCtx.quadraticCurveTo(center - maxSize / 2, center - maxSize / 4, center, center - maxSize / 2);
+        offCtx.closePath();
+        offCtx.fill();
+
+        // Fill again for solid core
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      } else {
+        // Default circle
+        offCtx.beginPath();
+        offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+        offCtx.fill();
+
+        // Fill again without shadow for a more solid core
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      }
     }
 
     const resizeObserver = new ResizeObserver(entries => {
@@ -130,13 +170,23 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
         const currentY = (p.startY * height) + (p.yOffset * easedProgress);
 
         // Draw offscreen canvas at correct size and position
-        const scale = p.size / maxSize;
+        // When special shape is active, scale size up a bit more relative to base size
+        const isSpecialShape = particleStyle === 'sword_qi' || particleStyle === 'lotus_blossom';
+        const displaySize = isSpecialShape ? p.size * 3 : p.size;
+        const scale = displaySize / maxSize;
         const drawSize = canvasSize * scale;
-        const drawX = currentX - drawSize / 2;
-        const drawY = currentY - drawSize / 2;
 
+        ctx.save();
         ctx.globalAlpha = Math.max(0, easedOpacity);
-        ctx.drawImage(offscreen, drawX, drawY, drawSize, drawSize);
+        ctx.translate(currentX, currentY);
+
+        if (isSpecialShape) {
+          const rotation = p.startRotation + (elapsed / 1000) * p.rotationSpeed;
+          ctx.rotate(rotation);
+        }
+
+        ctx.drawImage(offscreen, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+        ctx.restore();
       });
 
       animationFrameId = requestAnimationFrame(render);
@@ -148,7 +198,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
     };
-  }, [particles, resolvedColor]);
+  }, [particles, resolvedColor, particleStyle]);
 
   return (
     <>
