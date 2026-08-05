@@ -42,6 +42,12 @@ const PARTICLE_INTENSITY_OPTIONS = [
   { value: 'high', label: 'High' },
 ] as const;
 
+const PARTICLE_STYLE_OPTIONS = [
+  { value: 'default', label: 'Motifs' },
+  { value: 'sword_qi', label: 'Sword Qi' },
+  { value: 'lotus_blossom', label: 'Lotus Blossom' },
+] as const;
+
 const DIVIDER_STYLE_OPTIONS = [
   { value: 'default', label: 'Classic Minimal' },
   { value: 'celestial', label: 'Celestial Crest' },
@@ -241,13 +247,26 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
               icon={<Sparkles size={13} />}
               summary={PARTICLE_INTENSITY_OPTIONS.find(option => option.value === (currentPrefs.particleIntensity || 'default'))?.label}
             >
-              <div className="grid gap-1.5">
-                {PARTICLE_INTENSITY_OPTIONS.map(option => (
-                  <button key={option.value} type="button" onClick={() => handleUpdatePreference('particleIntensity', option.value)} className={choiceClass((currentPrefs.particleIntensity || 'default') === option.value)}>
-                    <span>{option.label}</span>
-                    {(currentPrefs.particleIntensity || 'default') === option.value ? <Check size={12} /> : null}
-                  </button>
-                ))}
+              <div className="flex flex-col gap-3">
+                <div className="grid gap-1.5">
+                  {PARTICLE_INTENSITY_OPTIONS.map(option => (
+                    <button key={option.value} type="button" onClick={() => handleUpdatePreference('particleIntensity', option.value)} className={choiceClass((currentPrefs.particleIntensity || 'default') === option.value)}>
+                      <span>{option.label}</span>
+                      {(currentPrefs.particleIntensity || 'default') === option.value ? <Check size={12} /> : null}
+                    </button>
+                  ))}
+                </div>
+                {(!currentPrefs.particleIntensity || currentPrefs.particleIntensity !== 'off') && (
+                  <div className="pt-2 border-t border-white/5 grid gap-1.5">
+                    <span className="text-[10px] uppercase tracking-wider text-white/40 mb-1">Particle Style</span>
+                    {PARTICLE_STYLE_OPTIONS.map(option => (
+                      <button key={option.value} type="button" onClick={() => handleUpdatePreference('particleStyle', option.value)} className={choiceClass((currentPrefs.particleStyle || 'default') === option.value)}>
+                        <span>{option.label}</span>
+                        {(currentPrefs.particleStyle || 'default') === option.value ? <Check size={12} /> : null}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </PreferenceGroup>
 
