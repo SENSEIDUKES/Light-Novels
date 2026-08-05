@@ -1,4 +1,5 @@
 import { useAppStore } from '../store/useAppStore';
+import { selectIsGenerating } from '../store/useGenerationStore';
 import { awardQi } from '../lib/qi';
 import { unlockCosmicArtifact } from '../lib/artifacts';
 import { storyApi } from '../services/api';
@@ -33,6 +34,8 @@ export const useChapterLock = () => {
   };
 
   const handleSealChapter = async (chapterNumber: number) => {
+    if (selectIsGenerating(useAppStore.getState())) return;
+
     const activeStory = store_stories.find((s) => s.id === store_activeStoryId);
     if (!activeStory) return;
 

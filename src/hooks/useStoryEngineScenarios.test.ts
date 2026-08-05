@@ -75,6 +75,52 @@ describe('useStoryEngine Scenarios', () => {
       // Swapped back
       expect(state.stories[0].arcs[0].chapters[0].status).toBe('unread');
     });
+
+    it('should not allow toggle read if generation is in progress', async () => {
+      const { result } = renderHook(() => useStoryEngine());
+
+      // Start a generation run
+      useAppStore.getState().startGenerationRun({
+        operation: 'chapter',
+        userId: null,
+        storyId: 'test_story',
+        chapterNumber: 1,
+      });
+
+      await act(async () => {
+        await result.current.handleToggleRead(1);
+      });
+
+      const state = useAppStore.getState();
+      // Status should remain unchanged (unread) instead of swapping to read
+      expect(state.stories[0].arcs[0].chapters[0].status).toBe('unread');
+
+      // Clear the run to not affect other tests
+      useAppStore.getState().completeGenerationRun(useAppStore.getState().activeGenerationRun!.runId);
+    });
+
+    it('should not allow sealing a chapter if generation is in progress', async () => {
+      const { result } = renderHook(() => useStoryEngine());
+
+      // Start a generation run
+      useAppStore.getState().startGenerationRun({
+        operation: 'chapter',
+        userId: null,
+        storyId: 'test_story',
+        chapterNumber: 1,
+      });
+
+      await act(async () => {
+        await result.current.handleSealChapter(1);
+      });
+
+      const state = useAppStore.getState();
+      // Chapter should not be sealed
+      expect(state.stories[0].arcs[0].chapters[0].isSealed).toBeFalsy();
+
+      // Clear the run to not affect other tests
+      useAppStore.getState().completeGenerationRun(useAppStore.getState().activeGenerationRun!.runId);
+    });
   });
 
   describe('Forking at chapter N (handleAlterFate)', () => {
