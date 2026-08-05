@@ -8,4 +8,14 @@ describe('ParticleSystem', () => {
     const { container } = render(<ParticleSystem count={10} />);
     expect(container).toBeDefined();
   });
+
+  it('renders with sword_qi style without crashing', () => {
+    const { container } = render(<ParticleSystem count={10} particleStyle="sword_qi" />);
+    expect(container).toBeDefined();
+  });
+
+  it('renders with lotus_blossom style without crashing', () => {
+    const { container } = render(<ParticleSystem count={10} particleStyle="lotus_blossom" />);
+    expect(container).toBeDefined();
+  });
 });
