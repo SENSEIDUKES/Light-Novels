@@ -9,7 +9,7 @@ interface ParticleSystemProps {
 export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({ 
   count = 20, 
   className = '',
-  color = 'bg-cyan-100' 
+  color = 'bg-cyan-100'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
@@ -84,7 +84,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       offCtx.shadowBlur = blur;
       offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
       offCtx.fill();
-      
+
       // Fill again without shadow for a more solid core
       offCtx.shadowBlur = 0;
       offCtx.fill();
