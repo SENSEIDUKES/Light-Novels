@@ -75,21 +75,16 @@ export const useStoryEngine = () => {
    * (network, storage, account change) awards nothing.
    */
   const handleToggleRead = async (charNum: number) => {
+    if (selectIsGenerating(useAppStore.getState())) return;
+
     const storyId = useAppStore.getState().activeStoryId;
     if (!storyId) return;
-
     let didTransitionToRead = false;
     await useAppStore.getState().updateChapter(storyId, charNum, (chapter) => {
-      // This callback executes only when the queued mutation reaches the
-      // serialized save boundary. Rechecking here closes the window where a
-      // generation run can begin after the click but before the update applies.
-      if (selectIsGenerating(useAppStore.getState())) return {};
-
       const newStatus = chapter.status === 'read' ? 'unread' : 'read';
       didTransitionToRead = newStatus === 'read';
       return { status: newStatus };
     });
-
     if (didTransitionToRead) {
       awardQi('chapter_finished');
       // Dao Pillar (Daily Reading Streak) is now an active check-in mechanic on the UserProfile page.
