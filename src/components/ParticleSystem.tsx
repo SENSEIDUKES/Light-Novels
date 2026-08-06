@@ -4,12 +4,14 @@ interface ParticleSystemProps {
   count?: number;
   className?: string;
   color?: string;
+  particleStyle?: 'default' | 'sword_qi' | 'lotus_blossom';
 }
 
 export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({ 
   count = 20, 
   className = '',
-  color = 'bg-cyan-100' 
+  color = 'bg-cyan-100',
+  particleStyle = 'default'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
@@ -41,6 +43,8 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       const yOffset = -Math.random() * 100 - 100; // go up by 100 to 200px
       const maxOpacity = Math.random() * 0.4 + 0.2;
       const xOffset = (Math.random() - 0.5) * 60; // sway left/right
+      const rotation = Math.random() * Math.PI * 2;
+      const rotationSpeed = (Math.random() - 0.5) * 0.001;
 
       return {
         id: i,
@@ -51,7 +55,9 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
         delay,
         yOffset,
         xOffset,
-        maxOpacity
+        maxOpacity,
+        rotation,
+        rotationSpeed
       };
     });
   }, [count]);
@@ -69,7 +75,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     // Create offscreen particle for performance
     const offscreen = document.createElement('canvas');
     const offCtx = offscreen.getContext('2d', { alpha: true });
-    const maxSize = 4;
+    const maxSize = particleStyle === 'default' ? 4 : 8;
     const blur = 8;
     const padding = blur * 2;
     const canvasSize = maxSize + padding * 2;
@@ -78,16 +84,34 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     const center = canvasSize / 2;
 
     if (offCtx) {
-      offCtx.beginPath();
-      offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
       offCtx.fillStyle = resolvedColor;
       offCtx.shadowBlur = blur;
       offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+
+      offCtx.translate(center, center);
+
+      if (particleStyle === 'sword_qi') {
+        offCtx.beginPath();
+        offCtx.moveTo(0, -maxSize / 2);
+        offCtx.lineTo(maxSize / 4, 0);
+        offCtx.lineTo(0, maxSize / 2);
+        offCtx.lineTo(-maxSize / 4, 0);
+        offCtx.closePath();
+      } else if (particleStyle === 'lotus_blossom') {
+        offCtx.beginPath();
+        offCtx.ellipse(0, 0, maxSize / 4, maxSize / 2, 0, 0, Math.PI * 2);
+      } else {
+        offCtx.beginPath();
+        offCtx.arc(0, 0, maxSize / 2, 0, Math.PI * 2);
+      }
+
       offCtx.fill();
       
       // Fill again without shadow for a more solid core
       offCtx.shadowBlur = 0;
       offCtx.fill();
+
+      offCtx.translate(-center, -center);
     }
 
     const resizeObserver = new ResizeObserver(entries => {
@@ -136,7 +160,16 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
         const drawY = currentY - drawSize / 2;
 
         ctx.globalAlpha = Math.max(0, easedOpacity);
-        ctx.drawImage(offscreen, drawX, drawY, drawSize, drawSize);
+
+        if (particleStyle !== 'default') {
+            ctx.save();
+            ctx.translate(currentX, currentY);
+            ctx.rotate(p.rotation + (time * p.rotationSpeed));
+            ctx.drawImage(offscreen, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+            ctx.restore();
+        } else {
+            ctx.drawImage(offscreen, drawX, drawY, drawSize, drawSize);
+        }
       });
 
       animationFrameId = requestAnimationFrame(render);
@@ -148,7 +181,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
     };
-  }, [particles, resolvedColor]);
+  }, [particles, resolvedColor, particleStyle]);
 
   return (
     <>
