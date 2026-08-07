@@ -4,12 +4,14 @@ interface ParticleSystemProps {
   count?: number;
   className?: string;
   color?: string;
+  particleStyle?: "default" | "sword_qi" | "lotus_blossom";
 }
 
 export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({ 
   count = 20, 
   className = '',
-  color = 'bg-cyan-100' 
+  color = 'bg-cyan-100',
+  particleStyle = 'default'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
@@ -33,7 +35,11 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
 
   const particles = useMemo(() => {
     return Array.from({ length: count }).map((_, i) => {
-      const size = Math.random() * 3 + 1; // 1 to 4px
+      const size = particleStyle === 'default'
+        ? Math.random() * 3 + 1 // 1 to 4px
+        : particleStyle === 'sword_qi'
+          ? Math.random() * 4 + 2 // 2 to 6px
+          : Math.random() * 5 + 3; // 3 to 8px (lotus blossoms can be slightly larger)
       const startY = Math.random();
       const startX = Math.random();
       const duration = (Math.random() * 15 + 10) * 1000; // 10 to 25s
@@ -41,6 +47,10 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       const yOffset = -Math.random() * 100 - 100; // go up by 100 to 200px
       const maxOpacity = Math.random() * 0.4 + 0.2;
       const xOffset = (Math.random() - 0.5) * 60; // sway left/right
+
+      // Dynamic rotation parameters for advanced shapes
+      const initialRotation = Math.random() * Math.PI * 2;
+      const rotationSpeed = (Math.random() * 0.4 + 0.1) * (Math.random() > 0.5 ? 1 : -1) * 0.001; // radians per ms
 
       return {
         id: i,
@@ -51,10 +61,12 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
         delay,
         yOffset,
         xOffset,
-        maxOpacity
+        maxOpacity,
+        initialRotation,
+        rotationSpeed
       };
     });
-  }, [count]);
+  }, [count, particleStyle]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -69,7 +81,9 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     // Create offscreen particle for performance
     const offscreen = document.createElement('canvas');
     const offCtx = offscreen.getContext('2d', { alpha: true });
-    const maxSize = 4;
+
+    // We increase sizes a bit to fit premium shapes with detail
+    const maxSize = 8;
     const blur = 8;
     const padding = blur * 2;
     const canvasSize = maxSize + padding * 2;
@@ -78,16 +92,50 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     const center = canvasSize / 2;
 
     if (offCtx) {
-      offCtx.beginPath();
-      offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
       offCtx.fillStyle = resolvedColor;
-      offCtx.shadowBlur = blur;
-      offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
-      offCtx.fill();
       
-      // Fill again without shadow for a more solid core
-      offCtx.shadowBlur = 0;
-      offCtx.fill();
+      if (particleStyle === 'sword_qi') {
+        // Render a sharp, sleek sword shard (slanted narrow diamond)
+        offCtx.beginPath();
+        offCtx.moveTo(center, center - maxSize / 2); // Top tip
+        offCtx.lineTo(center + maxSize / 4, center); // Right corner
+        offCtx.lineTo(center, center + maxSize / 2); // Bottom tip
+        offCtx.lineTo(center - maxSize / 4, center); // Left corner
+        offCtx.closePath();
+
+        offCtx.shadowBlur = blur;
+        offCtx.shadowColor = resolvedColor;
+        offCtx.fill();
+
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      } else if (particleStyle === 'lotus_blossom') {
+        // Render a miniature curved lotus petal
+        offCtx.beginPath();
+        // Curving left side
+        offCtx.moveTo(center, center - maxSize / 2);
+        offCtx.quadraticCurveTo(center - maxSize / 2, center, center, center + maxSize / 2);
+        // Curving right side
+        offCtx.quadraticCurveTo(center + maxSize / 2, center, center, center - maxSize / 2);
+        offCtx.closePath();
+
+        offCtx.shadowBlur = blur;
+        offCtx.shadowColor = resolvedColor;
+        offCtx.fill();
+
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      } else {
+        // Default circular motes
+        offCtx.beginPath();
+        offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+        offCtx.shadowBlur = blur;
+        offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+        offCtx.fill();
+
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      }
     }
 
     const resizeObserver = new ResizeObserver(entries => {
@@ -129,14 +177,21 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
         const currentX = (p.startX * width) + (p.xOffset * easedXProgress);
         const currentY = (p.startY * height) + (p.yOffset * easedProgress);
 
-        // Draw offscreen canvas at correct size and position
+        // Draw offscreen canvas at correct size, position, and rotation
         const scale = p.size / maxSize;
         const drawSize = canvasSize * scale;
-        const drawX = currentX - drawSize / 2;
-        const drawY = currentY - drawSize / 2;
 
+        ctx.save();
         ctx.globalAlpha = Math.max(0, easedOpacity);
-        ctx.drawImage(offscreen, drawX, drawY, drawSize, drawSize);
+
+        // Move to particle's central coordinate, rotate, then draw centered
+        ctx.translate(currentX, currentY);
+        if (particleStyle !== 'default') {
+          const rotation = p.initialRotation + elapsed * p.rotationSpeed;
+          ctx.rotate(rotation);
+        }
+        ctx.drawImage(offscreen, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+        ctx.restore();
       });
 
       animationFrameId = requestAnimationFrame(render);
@@ -148,7 +203,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
     };
-  }, [particles, resolvedColor]);
+  }, [particles, resolvedColor, particleStyle]);
 
   return (
     <>
