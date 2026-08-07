@@ -9,7 +9,7 @@ interface ParticleSystemProps {
 export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({ 
   count = 20, 
   className = '',
-  color = 'bg-cyan-100' 
+  color = 'bg-cyan-100'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
