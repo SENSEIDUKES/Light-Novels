@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BookA, X, Plus, Trash2, Check, Save } from 'lucide-react';
 import {
@@ -23,6 +23,7 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
   // New term form state
   const [newSource, setNewSource] = useState('');
   const [newTarget, setNewTarget] = useState('');
+  const isSaving = useRef(false);
 
   const loadTerms = React.useCallback(async () => {
     setIsLoading(true);
@@ -43,8 +44,9 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
   }, [isOpen, novelId, loadTerms]);
 
   const handleAddWord = async () => {
-    if (!newSource.trim() || !newTarget.trim()) return;
+    if (!newSource.trim() || !newTarget.trim() || isSaving.current) return;
 
+    isSaving.current = true;
     const termData = {
       novel_id: novelId,
       source_text: newSource.trim(),
@@ -59,6 +61,8 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
       loadTerms();
     } catch (e) {
       console.error("Failed to save term:", e);
+    } finally {
+      isSaving.current = false;
     }
   };
 
