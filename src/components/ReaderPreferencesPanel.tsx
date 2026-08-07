@@ -42,12 +42,6 @@ const PARTICLE_INTENSITY_OPTIONS = [
   { value: 'high', label: 'High' },
 ] as const;
 
-const PARTICLE_STYLE_OPTIONS = [
-  { value: 'default', label: 'Aetherial Orbs' },
-  { value: 'sword_qi', label: 'Sword Qi Shards' },
-  { value: 'lotus_blossom', label: 'Lotus Petals' },
-] as const;
-
 const DIVIDER_STYLE_OPTIONS = [
   { value: 'default', label: 'Classic Minimal' },
   { value: 'celestial', label: 'Celestial Crest' },
@@ -245,32 +239,15 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
             <PreferenceGroup
               label="Atmospheric Particles"
               icon={<Sparkles size={13} />}
-              summary={`${PARTICLE_INTENSITY_OPTIONS.find(option => option.value === (currentPrefs.particleIntensity || 'default'))?.label} · ${PARTICLE_STYLE_OPTIONS.find(option => option.value === (currentPrefs.particleStyle || 'default'))?.label}`}
+              summary={PARTICLE_INTENSITY_OPTIONS.find(option => option.value === (currentPrefs.particleIntensity || 'default'))?.label}
             >
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <span className="text-[8px] font-mono uppercase tracking-widest text-neutral-500 block">Flow Intensity</span>
-                  <div className="grid gap-1.5">
-                    {PARTICLE_INTENSITY_OPTIONS.map(option => (
-                      <button key={option.value} type="button" onClick={() => handleUpdatePreference('particleIntensity', option.value)} className={choiceClass((currentPrefs.particleIntensity || 'default') === option.value)}>
-                        <span>{option.label}</span>
-                        {(currentPrefs.particleIntensity || 'default') === option.value ? <Check size={12} /> : null}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <span className="text-[8px] font-mono uppercase tracking-widest text-neutral-500 block">Aura Particle Shape</span>
-                  <div className="grid gap-1.5">
-                    {PARTICLE_STYLE_OPTIONS.map(option => (
-                      <button key={option.value} type="button" onClick={() => handleUpdatePreference('particleStyle', option.value)} className={choiceClass((currentPrefs.particleStyle || 'default') === option.value)}>
-                        <span>{option.label}</span>
-                        {(currentPrefs.particleStyle || 'default') === option.value ? <Check size={12} /> : null}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              <div className="grid gap-1.5">
+                {PARTICLE_INTENSITY_OPTIONS.map(option => (
+                  <button key={option.value} type="button" onClick={() => handleUpdatePreference('particleIntensity', option.value)} className={choiceClass((currentPrefs.particleIntensity || 'default') === option.value)}>
+                    <span>{option.label}</span>
+                    {(currentPrefs.particleIntensity || 'default') === option.value ? <Check size={12} /> : null}
+                  </button>
+                ))}
               </div>
             </PreferenceGroup>
 
