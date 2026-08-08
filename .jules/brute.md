@@ -1,19 +1,6 @@
 # Brute Learnings
+## 2024-05-27 - Double-click toggle exploits closure state   **Learning:** Async UI event handlers in React hooks that use component closure variables for Zustand/Redux state are highly susceptible to race conditions. If a user double-clicks rapidly, multiple invocations execute before the component re-renders, causing them to use the same stale state and duplicate destructive operations (e.g. `awardQi` being called twice for marking one chapter as read).   **Action:** When testing for race conditions in asynchronous actions (e.g., toggles, save buttons), always simulate rapid repeated events. Ensure that handler functions fetch the fresh store state synchronously (`useAppStore.getState()`) rather than relying on React closure variables, or ensure there is an atomic local lock.
 
-## 2024-05-27 - Double-click toggle exploits closure state
+## 2024-05-27 - Double-click toggle exploits button disabled state delay   **Learning:** Async UI event handlers in React hooks that use component local state (like `isCheckingConsistency` flag) to disable buttons (`disabled={isCheckingConsistency}`) are highly susceptible to race conditions if users double-click quickly. The second click can fire before React has finished re-rendering the component to actually disable the `<button>`.   **Action:** When a button triggers an async function, ensure there is an atomic local lock (e.g., `useRef(false)`) inside the component or hook to return early before any async work, rather than relying on React state (`useState`) variables which can be stale before the component re-renders.
 
-**Learning:** Async UI event handlers in React hooks that use component closure variables for Zustand/Redux state are highly susceptible to race conditions. If a user double-clicks rapidly, multiple invocations execute before the component re-renders, causing them to use the same stale state and duplicate destructive operations (e.g. `awardQi` being called twice for marking one chapter as read).
-
-**Action:** When testing for race conditions in asynchronous actions (e.g., toggles, save buttons), always simulate rapid repeated events. Ensure that handler functions fetch the fresh store state synchronously (`useAppStore.getState()`) rather than relying on React closure variables, or ensure there is an atomic local lock.
-
-## 2024-05-27 - Double-click toggle exploits button disabled state delay
-
-**Learning:** Async UI event handlers in React hooks that use component local state (like `isCheckingConsistency` flag) to disable buttons (`disabled={isCheckingConsistency}`) are highly susceptible to race conditions if users double-click quickly. The second click can fire before React has finished re-rendering the component to actually disable the `<button>`.
-
-**Action:** When a button triggers an async function, ensure there is an atomic local lock (e.g., `useRef(false)`) inside the component or hook to return early before any async work, rather than relying on React state (`useState`) variables which can be stale before the component re-renders.
-
-## 2024-05-01 - Duplicate Interaction Data Generation
-
-**Learning:** Concurrent state transitions triggered by rapid repeated user clicks on UI handlers that directly execute async data-writing (e.g., adding glossary words) will duplicate data unless explicitly locked via `useRef`.
-
-**Action:** When implementing async data mutation bound to click/enter events in React, intentionally test rapid multi-clicks and use an atomic `useRef` lock rather than relying on component lifecycle state to prevent duplicate writes.
+## 2024-05-01 - [Duplicate Interaction Data Generation]   **Learning:** [Concurrent state transitions triggered by rapid repeated user clicks on UI handlers that directly execute async data-writing (e.g., adding glossary words) will duplicate data unless explicitly locked via `useRef`.]   **Action:** [When implementing async data mutation bound to click/enter events in React, intentionally test rapid multi-clicks or use `useRef` boolean lock rather than relying on component-lifecycle state to prevent the issue.]

@@ -23,8 +23,8 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
   // New term form state
   const [newSource, setNewSource] = useState('');
   const [newTarget, setNewTarget] = useState('');
+  const isSavingLock = useRef(false);
   const [isSaving, setIsSaving] = useState(false);
-  const isSavingRef = useRef(false);
 
   const loadTerms = React.useCallback(async () => {
     setIsLoading(true);
@@ -45,9 +45,9 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
   }, [isOpen, novelId, loadTerms]);
 
   const handleAddWord = async () => {
-    if (!newSource.trim() || !newTarget.trim() || isSavingRef.current) return;
+    if (!newSource.trim() || !newTarget.trim() || isSavingLock.current) return;
 
-    isSavingRef.current = true;
+    isSavingLock.current = true;
     setIsSaving(true);
     const termData = {
       novel_id: novelId,
@@ -64,7 +64,7 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
     } catch (e) {
       console.error("Failed to save term:", e);
     } finally {
-      isSavingRef.current = false;
+      isSavingLock.current = false;
       setIsSaving(false);
     }
   };
