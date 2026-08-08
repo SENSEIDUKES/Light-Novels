@@ -53,6 +53,7 @@ describe('GlossarySidePanel', () => {
     await waitFor(() => {
       expect((sourceInput as HTMLInputElement).value).toBe('');
       expect((targetInput as HTMLInputElement).value).toBe('');
+      expect(screen.queryByText('Loading terms...')).toBeNull();
     });
 
     expect(mockSaveLoreGlossaryTerm).toHaveBeenCalledTimes(1);
