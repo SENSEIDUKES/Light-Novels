@@ -23,7 +23,8 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
   // New term form state
   const [newSource, setNewSource] = useState('');
   const [newTarget, setNewTarget] = useState('');
-  const isSaving = useRef(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
 
   const loadTerms = React.useCallback(async () => {
     setIsLoading(true);
@@ -44,9 +45,10 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
   }, [isOpen, novelId, loadTerms]);
 
   const handleAddWord = async () => {
-    if (!newSource.trim() || !newTarget.trim() || isSaving.current) return;
+    if (!newSource.trim() || !newTarget.trim() || isSavingRef.current) return;
 
-    isSaving.current = true;
+    isSavingRef.current = true;
+    setIsSaving(true);
     const termData = {
       novel_id: novelId,
       source_text: newSource.trim(),
@@ -62,7 +64,8 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
     } catch (e) {
       console.error("Failed to save term:", e);
     } finally {
-      isSaving.current = false;
+      isSavingRef.current = false;
+      setIsSaving(false);
     }
   };
 
@@ -187,7 +190,7 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
                   />
                   <button
                     onClick={handleAddWord}
-                    disabled={!newSource.trim() || !newTarget.trim()}
+                    disabled={!newSource.trim() || !newTarget.trim() || isSaving}
                     aria-label="Add term"
                     className="bg-portal/20 text-portal hover:bg-portal hover:text-black disabled:opacity-50 disabled:cursor-not-allowed px-3 rounded flex items-center justify-center transition-colors"
                   >
