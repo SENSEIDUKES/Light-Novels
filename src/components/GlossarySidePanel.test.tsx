@@ -36,7 +36,6 @@ describe('GlossarySidePanel', () => {
   it('prevents adding the same term multiple times if clicked rapidly', async () => {
     render(<GlossarySidePanel isOpen={true} onClose={vi.fn()} novelId="test" />);
 
-    // Fill in the form
     const sourceInput = screen.getByPlaceholderText('Original word (e.g. Courting death)');
     const targetInput = screen.getByPlaceholderText('Translation');
     const addButton = screen.getByLabelText('Add term');
@@ -44,16 +43,18 @@ describe('GlossarySidePanel', () => {
     fireEvent.change(sourceInput, { target: { value: 'Source' } });
     fireEvent.change(targetInput, { target: { value: 'Target' } });
 
-    // Click twice rapidly
     fireEvent.click(addButton);
     fireEvent.click(addButton);
 
-    // Wait for mock to be called
     await waitFor(() => {
-      expect(mockSaveLoreGlossaryTerm).toHaveBeenCalled();
+      expect(mockSaveLoreGlossaryTerm).toHaveBeenCalledTimes(1);
     });
 
-    // Check how many times it was called
+    await waitFor(() => {
+      expect((sourceInput as HTMLInputElement).value).toBe('');
+      expect((targetInput as HTMLInputElement).value).toBe('');
+    });
+
     expect(mockSaveLoreGlossaryTerm).toHaveBeenCalledTimes(1);
   });
 });
