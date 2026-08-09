@@ -27,11 +27,24 @@ vi.mock('../lib/storage', () => {
    }
 });
 
+const deferred = <T,>() => {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+};
+
 describe('useStoryEngine Scenarios', () => {
   beforeEach(() => {
     global.fetch = vi.fn();
+    vi.mocked(storyStorage.saveStory).mockReset();
+    vi.mocked(storyStorage.saveStory).mockResolvedValue(undefined);
     useAppStore.setState({
       activeStoryId: 'test_story',
+      activeGenerationRun: null,
       stories: [{
         id: 'test_story',
         title: 'Story 1',
@@ -74,6 +87,103 @@ describe('useStoryEngine Scenarios', () => {
       state = useAppStore.getState();
       // Swapped back
       expect(state.stories[0].arcs[0].chapters[0].status).toBe('unread');
+    });
+
+    it('should not allow toggle read if generation is in progress', async () => {
+      const { result } = renderHook(() => useStoryEngine());
+
+      // Start a generation run
+      useAppStore.getState().startGenerationRun({
+        operation: 'chapter',
+        userId: null,
+        storyId: 'test_story',
+        chapterNumber: 1,
+      });
+
+      await act(async () => {
+        await result.current.handleToggleRead(1);
+      });
+
+      const state = useAppStore.getState();
+      // Status should remain unchanged (unread) instead of swapping to read
+      expect(state.stories[0].arcs[0].chapters[0].status).toBe('unread');
+
+      // Clear the run to not affect other tests
+      useAppStore.getState().completeGenerationRun(useAppStore.getState().activeGenerationRun!.runId);
+    });
+
+    it('should not allow sealing a chapter if generation is in progress', async () => {
+      const { result } = renderHook(() => useStoryEngine());
+
+      // Start a generation run
+      useAppStore.getState().startGenerationRun({
+        operation: 'chapter',
+        userId: null,
+        storyId: 'test_story',
+        chapterNumber: 1,
+      });
+
+      await act(async () => {
+        await result.current.handleSealChapter(1);
+      });
+
+      const state = useAppStore.getState();
+      // Chapter should not be sealed
+      expect(state.stories[0].arcs[0].chapters[0].isSealed).toBeFalsy();
+
+      // Clear the run to not affect other tests
+      useAppStore.getState().completeGenerationRun(useAppStore.getState().activeGenerationRun!.runId);
+    });
+
+    it('should reject sealing if generation starts after the handler begins', async () => {
+      const { result } = renderHook(() => useStoryEngine());
+
+      const sealPromise = result.current.handleSealChapter(1);
+      useAppStore.getState().startGenerationRun({
+        operation: 'chapter',
+        userId: null,
+        storyId: 'test_story',
+        chapterNumber: 1,
+      });
+
+      await act(async () => {
+        await sealPromise;
+      });
+
+      const state = useAppStore.getState();
+      expect(state.stories[0].arcs[0].chapters[0].isSealed).toBeFalsy();
+      state.completeGenerationRun(state.activeGenerationRun!.runId);
+    });
+
+    it('should reject a queued read toggle if generation starts before it applies', async () => {
+      const saveStarted = deferred<void>();
+      const releaseSave = deferred<void>();
+      vi.mocked(storyStorage.saveStory).mockImplementationOnce(async () => {
+        saveStarted.resolve();
+        await releaseSave.promise;
+      });
+
+      const blockingSave = useAppStore.getState().updateStory('test_story', { title: 'Queued save' });
+      await saveStarted.promise;
+
+      const { result } = renderHook(() => useStoryEngine());
+      const togglePromise = result.current.handleToggleRead(1);
+      useAppStore.getState().startGenerationRun({
+        operation: 'chapter',
+        userId: null,
+        storyId: 'test_story',
+        chapterNumber: 1,
+      });
+
+      releaseSave.resolve();
+      await act(async () => {
+        await blockingSave;
+        await togglePromise;
+      });
+
+      const state = useAppStore.getState();
+      expect(state.stories[0].arcs[0].chapters[0].status).toBe('unread');
+      state.completeGenerationRun(state.activeGenerationRun!.runId);
     });
   });
 

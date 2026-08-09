@@ -7,6 +7,7 @@ import { useStorySteering } from './useStorySteering';
 import { useStoryGeneration } from './useStoryGeneration';
 import { useVisualAssets } from './useVisualAssets';
 import { useChapterLock } from './useChapterLock';
+import { selectIsGenerating } from '../store/useGenerationStore';
 
 export { extractJsonBlocks, extractJsonMeta };
 
@@ -74,10 +75,17 @@ export const useStoryEngine = () => {
    * (network, storage, account change) awards nothing.
    */
   const handleToggleRead = async (charNum: number) => {
+    if (selectIsGenerating(useAppStore.getState())) return;
+
     const storyId = useAppStore.getState().activeStoryId;
     if (!storyId) return;
     let didTransitionToRead = false;
     await useAppStore.getState().updateChapter(storyId, charNum, (chapter) => {
+      // This updater runs only when the queued mutation reaches the
+      // serialized save boundary. Recheck generation here so a run that
+      // starts after the click but before the update applies still blocks it.
+      if (selectIsGenerating(useAppStore.getState())) return {};
+
       const newStatus = chapter.status === 'read' ? 'unread' : 'read';
       didTransitionToRead = newStatus === 'read';
       return { status: newStatus };
