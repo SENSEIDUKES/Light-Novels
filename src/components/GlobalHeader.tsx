@@ -28,7 +28,7 @@ export const GlobalHeader: React.FC = () => {
   const hubRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (hubRef.current && !hubRef.current.contains(event.target as Node)) {
         setIsHubOpen(false);
       }
@@ -40,10 +40,12 @@ export const GlobalHeader: React.FC = () => {
     };
     if (isHubOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
       document.addEventListener('keydown', handleEscapeKey);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
       document.removeEventListener('keydown', handleEscapeKey);
     };
   }, [isHubOpen]);
