@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BookA, X, Plus, Trash2, Check, Save } from 'lucide-react';
 import {
@@ -23,6 +23,8 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
   // New term form state
   const [newSource, setNewSource] = useState('');
   const [newTarget, setNewTarget] = useState('');
+  const isSavingLock = useRef(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const loadTerms = React.useCallback(async () => {
     setIsLoading(true);
@@ -43,8 +45,10 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
   }, [isOpen, novelId, loadTerms]);
 
   const handleAddWord = async () => {
-    if (!newSource.trim() || !newTarget.trim()) return;
+    if (!newSource.trim() || !newTarget.trim() || isSavingLock.current) return;
 
+    isSavingLock.current = true;
+    setIsSaving(true);
     const termData = {
       novel_id: novelId,
       source_text: newSource.trim(),
@@ -59,6 +63,9 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
       loadTerms();
     } catch (e) {
       console.error("Failed to save term:", e);
+    } finally {
+      isSavingLock.current = false;
+      setIsSaving(false);
     }
   };
 
@@ -183,7 +190,7 @@ export function GlossarySidePanel({ isOpen, onClose, novelId }: GlossarySidePane
                   />
                   <button
                     onClick={handleAddWord}
-                    disabled={!newSource.trim() || !newTarget.trim()}
+                    disabled={!newSource.trim() || !newTarget.trim() || isSaving}
                     aria-label="Add term"
                     className="bg-portal/20 text-portal hover:bg-portal hover:text-black disabled:opacity-50 disabled:cursor-not-allowed px-3 rounded flex items-center justify-center transition-colors"
                   >
