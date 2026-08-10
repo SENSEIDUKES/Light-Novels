@@ -4,12 +4,14 @@ interface ParticleSystemProps {
   count?: number;
   className?: string;
   color?: string;
+  stylePreference?: "default" | "sword_qi" | "lotus_blossom";
 }
 
 export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({ 
   count = 20, 
   className = '',
-  color = 'bg-cyan-100' 
+  color = 'bg-cyan-100',
+  stylePreference = 'default'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
@@ -42,6 +44,10 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       const maxOpacity = Math.random() * 0.4 + 0.2;
       const xOffset = (Math.random() - 0.5) * 60; // sway left/right
 
+      // Dynamic rotation offsets and speeds for spinning styles
+      const initialRotation = Math.random() * Math.PI * 2;
+      const rotationSpeed = (Math.random() - 0.5) * 0.001; // rad/ms - gentle spin
+
       return {
         id: i,
         size,
@@ -51,7 +57,9 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
         delay,
         yOffset,
         xOffset,
-        maxOpacity
+        maxOpacity,
+        initialRotation,
+        rotationSpeed
       };
     });
   }, [count]);
@@ -78,16 +86,45 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     const center = canvasSize / 2;
 
     if (offCtx) {
-      offCtx.beginPath();
-      offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
       offCtx.fillStyle = resolvedColor;
-      offCtx.shadowBlur = blur;
-      offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
-      offCtx.fill();
-      
-      // Fill again without shadow for a more solid core
-      offCtx.shadowBlur = 0;
-      offCtx.fill();
+      offCtx.shadowColor = resolvedColor;
+
+      if (stylePreference === 'sword_qi') {
+        // Slanted energetic shard / sharp slim diamond
+        offCtx.beginPath();
+        offCtx.moveTo(center, center - maxSize * 1.5); // Sharp top tip
+        offCtx.lineTo(center + maxSize * 0.5, center); // Right corner
+        offCtx.lineTo(center, center + maxSize * 1.5); // Bottom tip
+        offCtx.lineTo(center - maxSize * 0.5, center); // Left corner
+        offCtx.closePath();
+        offCtx.shadowBlur = blur;
+        offCtx.fill();
+
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      } else if (stylePreference === 'lotus_blossom') {
+        // Curved teardrop/petal shape pointing upwards
+        offCtx.beginPath();
+        offCtx.moveTo(center, center - maxSize);
+        offCtx.quadraticCurveTo(center - maxSize * 1.2, center, center, center + maxSize * 1.2);
+        offCtx.quadraticCurveTo(center + maxSize * 1.2, center, center, center - maxSize);
+        offCtx.closePath();
+        offCtx.shadowBlur = blur;
+        offCtx.fill();
+
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      } else {
+        // Default circular glow dust
+        offCtx.beginPath();
+        offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+        offCtx.shadowBlur = blur;
+        offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+        offCtx.fill();
+
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      }
     }
 
     const resizeObserver = new ResizeObserver(entries => {
@@ -106,6 +143,9 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     const easeInOut = (t: number) => {
       return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
     };
+
+    const prefersReducedMotion = typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const render = (time: number) => {
       ctx.clearRect(0, 0, width, height);
@@ -136,7 +176,21 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
         const drawY = currentY - drawSize / 2;
 
         ctx.globalAlpha = Math.max(0, easedOpacity);
-        ctx.drawImage(offscreen, drawX, drawY, drawSize, drawSize);
+
+        if (stylePreference === 'lotus_blossom' || stylePreference === 'sword_qi') {
+          // Check for reduced motion to stop spinning over time
+          const rotation = prefersReducedMotion
+            ? p.initialRotation
+            : p.initialRotation + (elapsed * p.rotationSpeed);
+
+          ctx.save();
+          ctx.translate(currentX, currentY);
+          ctx.rotate(rotation);
+          ctx.drawImage(offscreen, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+          ctx.restore();
+        } else {
+          ctx.drawImage(offscreen, drawX, drawY, drawSize, drawSize);
+        }
       });
 
       animationFrameId = requestAnimationFrame(render);
@@ -148,7 +202,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
     };
-  }, [particles, resolvedColor]);
+  }, [particles, resolvedColor, stylePreference]);
 
   return (
     <>
