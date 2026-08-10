@@ -48,6 +48,7 @@ export const AlterFatePanel: React.FC<AlterFatePanelProps> = ({ isOpen, onClose,
   }, [isOpen]);
 
   useEffect(() => {
+    if (!isMenuOpen) return;
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsMenuOpen(false);
@@ -59,7 +60,7 @@ export const AlterFatePanel: React.FC<AlterFatePanelProps> = ({ isOpen, onClose,
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
     };
-  }, []);
+  }, [isMenuOpen]);
 
   const activeTemplate = FORK_TEMPLATES.find(t => t.id === selectedTemplate) || FORK_TEMPLATES[0];
 
