@@ -40,12 +40,12 @@ export const GlobalHeader: React.FC = () => {
     };
     if (isHubOpen) {
       document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('touchstart', handleClickOutside, true);
+      document.addEventListener('touchstart', handleClickOutside, { capture: true });
       document.addEventListener('keydown', handleEscapeKey);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('touchstart', handleClickOutside, true);
+      document.removeEventListener('touchstart', handleClickOutside, { capture: true });
       document.removeEventListener('keydown', handleEscapeKey);
     };
   }, [isHubOpen]);
