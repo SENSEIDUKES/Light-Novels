@@ -51,14 +51,22 @@ export const SearchableModelSelector: React.FC<SearchableModelSelectorProps> = (
   }, [value]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isOpen]);
 
   const borderFocusClass = accentColorClass === 'portal' ? 'focus:border-portal' : 'focus:border-human';
   const textThemeClass = accentColorClass === 'portal' ? 'text-portal font-semibold' : 'text-human font-semibold';
