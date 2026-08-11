@@ -5,7 +5,7 @@ import { Story } from '../types';
 import { storyStorage } from '../lib/storage';
 
 describe('useStoryExporter', () => {
-  it('should clean novelty formatting properly before export', () => {
+  it('should clean novelty formatting properly before export', async () => {
     const { result } = renderHook(() => useStoryExporter());
     const exporter = result.current;
     
@@ -51,7 +51,9 @@ Suddenly!
       ]
     };
 
-    exporter.handleExportFullTome(testStory);
+    await act(async () => {
+      await exporter.handleExportFullTome(testStory);
+    });
 
     expect(mockAnchor.setAttribute).toHaveBeenCalledWith('download', 'TOME_tome_of_tests.html');
 
@@ -68,6 +70,65 @@ Suddenly!
     expect(decodedHtml).not.toContain('[Audio: dramatic.mp3]');
     expect(decodedHtml).not.toContain('{"statsChangeMessage"');
 
+    createElementSpy.mockRestore();
+    appendSpy.mockRestore();
+  });
+
+
+  it('should hydrate offloaded chapter content for HTML export', async () => {
+    const { result } = renderHook(() => useStoryExporter());
+    const createElementSpy = vi.spyOn(document, 'createElement');
+    const mockAnchor = {
+      setAttribute: vi.fn(),
+      click: vi.fn(),
+      remove: vi.fn()
+    };
+    // @ts-expect-error - mock anchor
+    createElementSpy.mockReturnValue(mockAnchor);
+    const appendSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => null);
+
+    const contentSpy = vi.spyOn(storyStorage, 'getChapterContent').mockResolvedValue({
+      storyId: '456',
+      chapterNumber: 2,
+      generatedContent: 'Hydrated HTML prose.',
+      statsChangeMessage: 'Gained +5 HTML',
+    } as any);
+
+    await act(async () => {
+      await result.current.handleExportFullTome({
+        id: '456',
+        title: 'HTML Export Story',
+        genre: 'test',
+        mcName: 'test',
+        customPremise: 'test',
+        createdAt: '123',
+        updatedAt: '123',
+        currentChapterNumber: 2,
+        memory: {} as any,
+        arcs: [{
+          title: 'Arc 1',
+          isCompleted: false,
+          chapters: [{
+            number: 2,
+            title: 'Chapter 2',
+            premise: 'Premise',
+            status: 'read',
+            hasContent: true,
+            generatedContent: '', // Missing, should fetch
+          }],
+        }],
+      });
+    });
+
+    const href = mockAnchor.setAttribute.mock.calls.find(
+      ([name]) => name === 'href',
+    )?.[1] as string;
+
+    const exportedHtml = decodeURIComponent(href.split(',', 2)[1]);
+    expect(exportedHtml).toContain('Hydrated HTML prose.');
+    expect(exportedHtml).toContain('Gained +5 HTML');
+
+    contentSpy.mockRestore();
     createElementSpy.mockRestore();
     appendSpy.mockRestore();
   });

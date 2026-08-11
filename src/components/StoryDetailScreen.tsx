@@ -43,7 +43,7 @@ export const StoryDetailScreen: React.FC<{
   >;
   handleApplyCover: (imageUrl: string, promptUsed: string) => void;
   handleSelectCover: (assetId: string) => Promise<void>;
-  handleExportFullTome: (story: any) => void;
+  handleExportFullTome: (story: any) => Promise<void>;
   handleExportEPUB: (story: any) => void;
   handleExportSingleStory: (story: any) => void;
   handleDeleteStory: (id: string, e: React.MouseEvent) => void;

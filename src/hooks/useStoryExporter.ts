@@ -76,8 +76,37 @@ export const useStoryExporter = () => {
     }
   };
 
-  const handleExportFullTome = (story: Story) => {
-    let htmlContent = `
+  const handleExportFullTome = async (story: Story) => {
+    try {
+      // Create a local copy to avoid mutating the Zustand store state directly
+      const exportData = JSON.parse(JSON.stringify(story));
+
+      if (exportData.arcs) {
+        const fetchPromises: Promise<any>[] = [];
+        const chaptersToFetch: any[] = [];
+
+        for (const arc of exportData.arcs) {
+          for (const chapter of arc.chapters) {
+            if (chapter.hasContent) {
+              chaptersToFetch.push(chapter);
+              fetchPromises.push(storyStorage.getChapterContent(exportData.id, chapter.number));
+            }
+          }
+        }
+
+        const contents = await Promise.all(fetchPromises);
+
+        for (let i = 0; i < chaptersToFetch.length; i++) {
+          const chapter = chaptersToFetch[i];
+          const content = contents[i];
+          if (content) {
+            chapter.generatedContent ||= content.generatedContent;
+            chapter.statsChangeMessage ||= content.statsChangeMessage;
+          }
+        }
+      }
+
+      let htmlContent = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -109,36 +138,39 @@ export const useStoryExporter = () => {
   </style>
 </head>
 <body>
-  <h1>${story.title}</h1>
+  <h1>${exportData.title}</h1>
   <div class="author-note">Generated via SEIHouse Engine</div>
 `;
 
-    if (story.arcs) {
-      story.arcs.forEach(arc => {
-        htmlContent += `<h2>${arc.title}</h2>\n`;
-        arc.chapters.forEach(ch => {
-          if (ch.hasContent || ch.generatedContent) {
-            htmlContent += `<h3>Chapter ${ch.number}: ${ch.title}</h3>\n`;
-            
-            let text = ch.generatedContent || "";
-            text = cleanNovelProse(text).replace(/\\n/g, "</p><p>");
-            htmlContent += `<div class="chapter-content"><p>${text}</p></div>\n`;
-            if (ch.statsChangeMessage) {
-              htmlContent += `<div class="stats-msg">${ch.statsChangeMessage}</div>\n`;
-            }
-          }
-        });
-      });
-    }
+      if (exportData.arcs) {
+        exportData.arcs.forEach((arc: any) => {
+          htmlContent += `<h2>${arc.title}</h2>\n`;
+          arc.chapters.forEach((ch: any) => {
+            if (ch.hasContent || ch.generatedContent) {
+              htmlContent += `<h3>Chapter ${ch.number}: ${ch.title}</h3>\n`;
 
-    htmlContent += `</body></html>`;
-    const dataStr = "data:text/html;charset=utf-8," + encodeURIComponent(htmlContent);
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `TOME_${story.title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.html`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
+              let text = ch.generatedContent || "";
+              text = cleanNovelProse(text).replace(/\\n/g, "</p><p>");
+              htmlContent += `<div class="chapter-content"><p>${text}</p></div>\n`;
+              if (ch.statsChangeMessage) {
+                htmlContent += `<div class="stats-msg">${ch.statsChangeMessage}</div>\n`;
+              }
+            }
+          });
+        });
+      }
+
+      htmlContent += `</body></html>`;
+      const dataStr = "data:text/html;charset=utf-8," + encodeURIComponent(htmlContent);
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `TOME_${exportData.title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.html`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    } catch (err: any) {
+      store_setAppError("Failed to forge HTML Tome: " + err.message);
+    }
   };
 
   const handleExportEPUB = async (story: Story) => {
