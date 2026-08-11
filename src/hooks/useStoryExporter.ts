@@ -76,15 +76,20 @@ export const useStoryExporter = () => {
     }
   };
 
-  const handleExportFullTome = async (story: Story) => {
+  const handleExportFullTome = async (incomingStory: Story) => {
     try {
+      const story = JSON.parse(JSON.stringify(incomingStory)) as Story;
+
       if (story.arcs) {
         const fetchPromises: Promise<any>[] = [];
         const chaptersToFetch: any[] = [];
 
         for (const arc of story.arcs) {
           for (const chapter of arc.chapters) {
-            if (chapter.hasContent) {
+            if (
+              chapter.hasContent &&
+              (!chapter.generatedContent || !chapter.statsChangeMessage)
+            ) {
               chaptersToFetch.push(chapter);
               fetchPromises.push(storyStorage.getChapterContent(story.id, chapter.number));
             }
