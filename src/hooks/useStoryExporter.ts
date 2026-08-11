@@ -76,22 +76,20 @@ export const useStoryExporter = () => {
     }
   };
 
-  const handleExportFullTome = async (incomingStory: Story) => {
+  const handleExportFullTome = async (story: Story) => {
     try {
-      const story = JSON.parse(JSON.stringify(incomingStory)) as Story;
+      // Create a local copy to avoid mutating the Zustand store state directly
+      const exportData = JSON.parse(JSON.stringify(story));
 
-      if (story.arcs) {
+      if (exportData.arcs) {
         const fetchPromises: Promise<any>[] = [];
         const chaptersToFetch: any[] = [];
 
-        for (const arc of story.arcs) {
+        for (const arc of exportData.arcs) {
           for (const chapter of arc.chapters) {
-            if (
-              chapter.hasContent &&
-              (!chapter.generatedContent || !chapter.statsChangeMessage)
-            ) {
+            if (chapter.hasContent) {
               chaptersToFetch.push(chapter);
-              fetchPromises.push(storyStorage.getChapterContent(story.id, chapter.number));
+              fetchPromises.push(storyStorage.getChapterContent(exportData.id, chapter.number));
             }
           }
         }
@@ -140,14 +138,14 @@ export const useStoryExporter = () => {
   </style>
 </head>
 <body>
-  <h1>${story.title}</h1>
+  <h1>${exportData.title}</h1>
   <div class="author-note">Generated via SEIHouse Engine</div>
 `;
 
-      if (story.arcs) {
-        story.arcs.forEach(arc => {
+      if (exportData.arcs) {
+        exportData.arcs.forEach((arc: any) => {
           htmlContent += `<h2>${arc.title}</h2>\n`;
-          arc.chapters.forEach(ch => {
+          arc.chapters.forEach((ch: any) => {
             if (ch.hasContent || ch.generatedContent) {
               htmlContent += `<h3>Chapter ${ch.number}: ${ch.title}</h3>\n`;
 
@@ -166,7 +164,7 @@ export const useStoryExporter = () => {
       const dataStr = "data:text/html;charset=utf-8," + encodeURIComponent(htmlContent);
       const downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `TOME_${story.title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.html`);
+      downloadAnchor.setAttribute("download", `TOME_${exportData.title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.html`);
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
