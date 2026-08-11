@@ -4,12 +4,14 @@ interface ParticleSystemProps {
   count?: number;
   className?: string;
   color?: string;
+  particleStyle?: "default" | "sword_qi" | "lotus_blossom";
 }
 
 export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({ 
   count = 20, 
   className = '',
-  color = 'bg-cyan-100' 
+  color = 'bg-cyan-100',
+  particleStyle = 'default'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
@@ -41,6 +43,8 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       const yOffset = -Math.random() * 100 - 100; // go up by 100 to 200px
       const maxOpacity = Math.random() * 0.4 + 0.2;
       const xOffset = (Math.random() - 0.5) * 60; // sway left/right
+      const rotationSpeed = (Math.random() - 0.5) * 1.5; // radians per second
+      const rotationOffset = Math.random() * Math.PI * 2;
 
       return {
         id: i,
@@ -51,7 +55,9 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
         delay,
         yOffset,
         xOffset,
-        maxOpacity
+        maxOpacity,
+        rotationSpeed,
+        rotationOffset
       };
     });
   }, [count]);
@@ -78,11 +84,30 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     const center = canvasSize / 2;
 
     if (offCtx) {
+      offCtx.clearRect(0, 0, canvasSize, canvasSize);
       offCtx.beginPath();
-      offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+
+      if (particleStyle === 'sword_qi') {
+        // Draw sharp slanted needle/shard vertically
+        offCtx.moveTo(center, center - maxSize * 1.5);
+        offCtx.lineTo(center + maxSize / 3, center);
+        offCtx.lineTo(center, center + maxSize * 1.5);
+        offCtx.lineTo(center - maxSize / 3, center);
+        offCtx.closePath();
+      } else if (particleStyle === 'lotus_blossom') {
+        // Draw organic teardrop/petal shape centered on canvas
+        offCtx.moveTo(center, center - maxSize * 1.2);
+        offCtx.quadraticCurveTo(center + maxSize * 1.2, center, center, center + maxSize * 1.2);
+        offCtx.quadraticCurveTo(center - maxSize * 1.2, center, center, center - maxSize * 1.2);
+        offCtx.closePath();
+      } else {
+        // 'default' standard circle orb
+        offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+      }
+
       offCtx.fillStyle = resolvedColor;
       offCtx.shadowBlur = blur;
-      offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+      offCtx.shadowColor = resolvedColor;
       offCtx.fill();
       
       // Fill again without shadow for a more solid core
@@ -132,11 +157,25 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
         // Draw offscreen canvas at correct size and position
         const scale = p.size / maxSize;
         const drawSize = canvasSize * scale;
-        const drawX = currentX - drawSize / 2;
-        const drawY = currentY - drawSize / 2;
+
+        ctx.save();
+        ctx.translate(currentX, currentY);
+
+        let angle = 0;
+        if (particleStyle === 'sword_qi') {
+          angle = -Math.PI / 6; // Slanted sword qi shards
+        } else if (particleStyle === 'lotus_blossom') {
+          angle = (time / 1000) * p.rotationSpeed + p.rotationOffset; // Rotating lotus blossom petals
+        }
+
+        if (angle !== 0) {
+          ctx.rotate(angle);
+        }
 
         ctx.globalAlpha = Math.max(0, easedOpacity);
-        ctx.drawImage(offscreen, drawX, drawY, drawSize, drawSize);
+        // Draw the offscreen canvas centered on (0, 0)
+        ctx.drawImage(offscreen, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+        ctx.restore();
       });
 
       animationFrameId = requestAnimationFrame(render);
@@ -148,7 +187,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
     };
-  }, [particles, resolvedColor]);
+  }, [particles, resolvedColor, particleStyle]);
 
   return (
     <>

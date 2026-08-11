@@ -107,4 +107,22 @@ describe('ReaderPreferencesPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /Cinematic Shadow/i }));
     expect(handleUpdatePreference).toHaveBeenCalledWith('vignetteStyle', 'radial');
   });
+
+  it('allows customizing the particle style and triggers updates', async () => {
+    const handleUpdatePreference = vi.fn();
+    render(
+      <ReaderPreferencesPanel
+        currentPrefs={{ fontFamily: 'serif', fontSize: 'lg', lineHeight: 'relaxed', paragraphSpacing: 'normal', themeOverride: 'void', particleStyle: 'default' }}
+        handleUpdatePreference={handleUpdatePreference}
+        onResetTypography={vi.fn()}
+      />,
+    );
+
+    const particleStyleToggle = screen.getByRole('button', { name: /Particle Form/i });
+    expect(particleStyleToggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('button', { name: /Sword Qi Shards/i })).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: /Sword Qi Shards/i }));
+    expect(handleUpdatePreference).toHaveBeenCalledWith('particleStyle', 'sword_qi');
+  });
 });
