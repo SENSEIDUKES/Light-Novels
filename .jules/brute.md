@@ -1,1 +1,7 @@
-## 2025-02-12 - Missing offloaded chapter content in HTML export   **Learning:** Functions generating exports might silently skip offloaded chapter content if they assume `chapter.generatedContent` is always loaded in memory.   **Action:** Always hydrate data asynchronously from storage for exports when `hasContent` is true but the content string is missing.
+# Brute Learnings
+
+## 2025-02-12 - Missing offloaded chapter content in HTML export
+
+**Learning:** Functions generating exports might silently skip offloaded chapter content if they assume `chapter.generatedContent` is always loaded in memory.
+
+**Action:** Always hydrate data asynchronously from storage for exports when `hasContent` is true but the content string is missing.
