@@ -5,3 +5,7 @@
 ## 2024-08-09 - Support touch events for click-outside handlers
 **Learning:** Custom popovers and dropdown menus typically use a `mousedown` listener to detect clicks outside the element. However, relying solely on `mousedown` can cause issues on mobile devices where tap events aren't consistently translated to `mousedown` before the default touch behavior triggers.
 **Action:** Always include `touchstart` alongside `mousedown` (with corresponding cleanup in `useEffect`) when implementing click-outside dismissal handlers to ensure reliable interaction on mobile touch screens.
+
+## 2024-08-11 - Duplicate legacy Reader work
+**Learning:** The legacy Reader components (e.g. ImmersionSettings) are in maintenance mode and duplicate PRs attempting to fix dismissal handlers on them have been rejected, as replacement work lives in development.
+**Action:** Do not submit UX refinements (such as click-outside handlers) targeting legacy Reader components without checking for existing duplicate PRs or verifying if the module is under active maintenance.
