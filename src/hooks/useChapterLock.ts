@@ -3,6 +3,7 @@ import { selectIsGenerating } from '../store/useGenerationStore';
 import { awardQi } from '../lib/qi';
 import { storyApi } from '../services/api';
 import { generateId, generateUUID } from '../lib/id';
+import { storyStorage } from '../lib/storage';
 
 export const useChapterLock = () => {
   const store_stories = useAppStore(state => state.stories);
@@ -17,12 +18,20 @@ export const useChapterLock = () => {
     if (selectedArcIndex === -1) return [];
 
     const targetChapter = activeStory.arcs[selectedArcIndex].chapters.find(c => c.number === chapterNumber);
-    if (!targetChapter || (!targetChapter.generatedContent && (!targetChapter.blocks || targetChapter.blocks.length === 0))) return [];
+    if (!targetChapter) return [];
 
     let text = targetChapter.generatedContent || '';
     if (!text && targetChapter.blocks) {
       text = targetChapter.blocks.map(b => b.text).join('\n\n');
     }
+    if (!text && targetChapter.hasContent) {
+      const content = await storyStorage.getChapterContent(activeStory.id, chapterNumber);
+      if (content) {
+        text = content.generatedContent || (content.blocks ? content.blocks.map(b => b.text).join('\n\n') : '');
+      }
+    }
+
+    if (!text) return [];
 
     try {
       return await storyApi.checkConsistency(text, activeStory.memory, store_routingConfig.storyMaker);
@@ -56,7 +65,16 @@ export const useChapterLock = () => {
       .find((ch) => ch.number === chapterNumber);
     if (!targetChapter) return;
 
-    const contentAtHashStart = targetChapter.generatedContent || '';
+    let contentAtHashStart = targetChapter.generatedContent || '';
+    if (!contentAtHashStart && targetChapter.blocks) {
+      contentAtHashStart = targetChapter.blocks.map(b => b.text).join('\n\n');
+    }
+    if (!contentAtHashStart && targetChapter.hasContent) {
+      const content = await storyStorage.getChapterContent(activeStory.id, chapterNumber);
+      if (content) {
+        contentAtHashStart = content.generatedContent || (content.blocks ? content.blocks.map(b => b.text).join('\n\n') : '');
+      }
+    }
     const contentHash = await generateContentHash(contentAtHashStart);
     let sealedChapterForArtifacts: typeof targetChapter | null = null;
 
@@ -70,7 +88,20 @@ export const useChapterLock = () => {
         // was being calculated or while this mutation waited in the queue.
         if (selectIsGenerating(useAppStore.getState())) return {};
         if (chapter.isSealed) return {};
-        if ((chapter.generatedContent || '') !== contentAtHashStart) return {};
+
+        // In case of offloaded content, we need to compare against the
+        // resolved/hydrated content that was just hashed.
+        // A hydrated chapter in state might have an empty string `""` or `undefined` for `generatedContent`,
+        // meaning checking `if (currentContent)` is dangerous. Instead, calculate the current resolved string.
+        let currentContent = chapter.generatedContent || '';
+        if (!currentContent && chapter.blocks) {
+          currentContent = chapter.blocks.map(b => b.text).join('\n\n');
+        }
+
+        // Only if it's explicitly populated in memory, verify it matches what we hashed.
+        if ((chapter.generatedContent || chapter.blocks?.length) && currentContent !== contentAtHashStart) {
+            return {};
+        }
 
         const sealPatch = {
           isSealed: true,
