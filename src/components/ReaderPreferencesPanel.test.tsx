@@ -76,7 +76,7 @@ describe('ReaderPreferencesPanel', () => {
     const handleUpdatePreference = vi.fn();
     render(
       <ReaderPreferencesPanel
-        currentPrefs={{ fontFamily: 'serif', fontSize: 'lg', lineHeight: 'relaxed', paragraphSpacing: 'normal', themeOverride: 'void', dividerStyle: 'default' }}
+        currentPrefs={{ fontFamily: 'serif', fontSize: 'lg', lineHeight: 'relaxed', paragraphSpacing: 'normal', themeOverride: 'void', dividerStyle: 'default', chapterTitleStyle: 'default' }}
         handleUpdatePreference={handleUpdatePreference}
         onResetTypography={vi.fn()}
       />,
@@ -88,6 +88,9 @@ describe('ReaderPreferencesPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Celestial Crest/i }));
     expect(handleUpdatePreference).toHaveBeenCalledWith('dividerStyle', 'celestial');
+
+    fireEvent.click(screen.getByText('Celestial Gold'));
+    expect(handleUpdatePreference).toHaveBeenCalledWith('chapterTitleStyle', 'gold');
   });
 
   it('allows customizing the vignette style and triggers updates', async () => {

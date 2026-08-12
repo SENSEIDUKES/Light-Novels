@@ -177,6 +177,16 @@ export function ReaderViewport({
     }
   };
 
+  const getChapterTitleColorClass = (style?: string) => {
+    switch (style) {
+      case "gold": return "text-[#d4af37]";
+      case "crimson": return "text-[#8B0000]";
+      case "abyss": return "text-[#04ACFF]";
+      case "emerald": return "text-[#10B981]";
+      default: return "text-signal";
+    }
+  };
+
   const renderChapterDivider = () => {
     const divider = currentPrefs.dividerStyle || "default";
     if (divider === "default") {
@@ -495,7 +505,7 @@ export function ReaderViewport({
                 <span className={`font-sc font-semibold text-[10px] tracking-[0.25em] uppercase opacity-70 ${getThemeTextClass(currentPrefs.themeOverride || "void")}`}>
                   {activeStory.title} • Chapter {selectedChapter.number}
                 </span>
-                <h1 className="font-display font-medium text-2xl sm:text-3xl text-signal mt-2 max-w-2xl mx-auto leading-snug">
+                <h1 className={`font-display font-medium text-2xl sm:text-3xl mt-2 max-w-2xl mx-auto leading-snug ${getChapterTitleColorClass(currentPrefs.chapterTitleStyle)}`}>
                   {selectedChapter.title}
                 </h1>
 
