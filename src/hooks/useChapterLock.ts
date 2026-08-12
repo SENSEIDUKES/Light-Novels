@@ -10,6 +10,11 @@ export const useChapterLock = () => {
   const store_activeStoryId = useAppStore(state => state.activeStoryId);
   const store_routingConfig = useAppStore(state => state.routingConfig);
 
+  const getBlockText = (chapter: { blocks?: Array<{ text: string }> }) =>
+    chapter.blocks && chapter.blocks.length > 0
+      ? chapter.blocks.map((block) => block.text).join('\n\n')
+      : '';
+
   const handleCheckConsistency = async (chapterNumber: number): Promise<string[]> => {
     const activeStory = store_stories.find(s => s.id === store_activeStoryId);
     if (!activeStory) return [];
@@ -22,14 +27,18 @@ export const useChapterLock = () => {
 
     let text = targetChapter.generatedContent || '';
     if (!text && targetChapter.hasContent) {
-      const hydrated = await storyStorage.getChapterContent(activeStory.id, targetChapter.number);
-      if (hydrated) {
-        text = hydrated.generatedContent || '';
+      try {
+        const hydrated = await storyStorage.getChapterContent(activeStory.id, targetChapter.number);
+        if (hydrated) {
+          text = hydrated.generatedContent || '';
+        }
+      } catch (err) {
+        console.warn('Failed to hydrate chapter content for consistency check:', err);
       }
     }
 
-    if (!text && targetChapter.blocks && targetChapter.blocks.length > 0) {
-      text = targetChapter.blocks.map(b => b.text).join('\n\n');
+    if (!text) {
+      text = getBlockText(targetChapter);
     }
 
     if (!text) return [];
@@ -67,16 +76,31 @@ export const useChapterLock = () => {
     if (!targetChapter) return;
 
     let contentAtHashStart = targetChapter.generatedContent || '';
+    let contentSource: 'generated' | 'storage' | 'blocks' | 'none' = contentAtHashStart ? 'generated' : 'none';
+
     if (!contentAtHashStart && targetChapter.hasContent) {
-      const hydrated = await storyStorage.getChapterContent(activeStory.id, targetChapter.number);
-      if (hydrated) {
-        contentAtHashStart = hydrated.generatedContent || '';
+      try {
+        const hydrated = await storyStorage.getChapterContent(activeStory.id, targetChapter.number);
+        if (hydrated?.generatedContent) {
+          contentAtHashStart = hydrated.generatedContent;
+          contentSource = 'storage';
+        }
+      } catch (err) {
+        console.warn('Failed to hydrate chapter content before sealing:', err);
       }
     }
 
-    if (!contentAtHashStart && targetChapter.blocks && targetChapter.blocks.length > 0) {
-       contentAtHashStart = targetChapter.blocks.map(b => b.text).join('\n\n');
+    if (!contentAtHashStart) {
+      const blockText = getBlockText(targetChapter);
+      if (blockText) {
+        contentAtHashStart = blockText;
+        contentSource = 'blocks';
+      }
     }
+
+    // A chapter marked as having content must never be sealed with an empty hash
+    // simply because its offloaded body could not be read.
+    if (!contentAtHashStart) return;
 
     const contentHash = await generateContentHash(contentAtHashStart);
     let sealedChapterForArtifacts: typeof targetChapter | null = null;
@@ -91,13 +115,19 @@ export const useChapterLock = () => {
         // was being calculated or while this mutation waited in the queue.
         if (selectIsGenerating(useAppStore.getState())) return {};
         if (chapter.isSealed) return {};
-        const checkContent = chapter.generatedContent || (chapter.blocks ? chapter.blocks.map((b: any) => b.text).join('\n\n') : '');
-        // For offloaded chapters in state, chapter.generatedContent is empty, which wouldn't match contentAtHashStart.
-        // We only fail the lock check if chapter.generatedContent is present and differs,
-        // or if it's completely empty in state but the hash requires content.
-        if (checkContent && checkContent !== contentAtHashStart) return {};
-        // If it's missing from state but we had content to hash, we assume it's valid to lock since
-        // the state hasn't been updated with new content since we checked.
+
+        const currentText = chapter.generatedContent || getBlockText(chapter);
+        const isTrulyOffloaded = !currentText && chapter.hasContent;
+
+        // An offloaded chapter may legitimately have no prose in the Story
+        // scaffold, but only a successful storage hydration is enough to seal
+        // that path. Otherwise compare current in-memory content strictly,
+        // including the genuinely-cleared empty-string case.
+        if (isTrulyOffloaded) {
+          if (contentSource !== 'storage') return {};
+        } else if (currentText !== contentAtHashStart) {
+          return {};
+        }
 
         const sealPatch = {
           isSealed: true,
@@ -118,9 +148,17 @@ export const useChapterLock = () => {
 
     awardQi('chapter_sealed');
 
-    // Scan sealed chapter content for artifacts if it contains major milestones
+    // Scan sealed chapter content for artifacts if it contains major milestones.
+    // When the hash input itself came from blocks, do not append those blocks a
+    // second time or every artifact signal is duplicated.
     const sealedCh = sealedChapterForArtifacts;
-    const fullText = contentAtHashStart + ' ' + (Array.isArray(sealedCh.blocks) ? sealedCh.blocks.map((b: any) => b.text).join(' ') : '');
+    const sealedBlockText = Array.isArray(sealedCh.blocks)
+      ? sealedCh.blocks.map((b: any) => b.text).join(' ')
+      : '';
+    const fullText = contentSource === 'blocks'
+      ? contentAtHashStart
+      : [contentAtHashStart, sealedBlockText].filter(Boolean).join(' ');
+
     import('../lib/artifacts').then(({ scanChapterForArtifacts }) => {
       scanChapterForArtifacts(activeStory.id, activeStory.title, chapterNumber, fullText, sealedCh).catch((err) => {
         console.error('Failed to scan sealed chapter for artifacts:', err);
