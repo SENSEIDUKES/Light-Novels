@@ -987,7 +987,6 @@ export interface ReaderPreferences {
   playerStyle?: "vinyl" | "minimal" | "ethereal";
   particleIntensity?: "off" | "low" | "default" | "high";
   dividerStyle?: "default" | "celestial" | "sword_qi" | "lotus_path";
-  chapterTitleStyle?: "default" | "gold" | "crimson" | "abyss" | "emerald";
   vignetteStyle?: "off" | "radial" | "cosmic" | "scroll";
 }
 

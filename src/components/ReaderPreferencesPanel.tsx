@@ -49,14 +49,6 @@ const DIVIDER_STYLE_OPTIONS = [
   { value: 'lotus_path', label: 'Lotus Serenity' },
 ] as const;
 
-const CHAPTER_TITLE_STYLE_OPTIONS = [
-  { value: 'default', label: 'Default (Signal)' },
-  { value: 'gold', label: 'Celestial Gold' },
-  { value: 'crimson', label: 'Blood Crimson' },
-  { value: 'abyss', label: 'Abyssal Blue' },
-  { value: 'emerald', label: 'Jade Emerald' },
-] as const;
-
 const VIGNETTE_STYLE_OPTIONS = [
   { value: 'off', label: 'Pure Focus (Off)' },
   { value: 'radial', label: 'Cinematic Shadow' },
@@ -269,21 +261,6 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
                   <button key={option.value} type="button" onClick={() => handleUpdatePreference('dividerStyle', option.value)} className={choiceClass((currentPrefs.dividerStyle || 'default') === option.value)}>
                     <span>{option.label}</span>
                     {(currentPrefs.dividerStyle || 'default') === option.value ? <Check size={12} /> : null}
-                  </button>
-                ))}
-              </div>
-            </PreferenceGroup>
-
-            <PreferenceGroup
-              label="Chapter Title Style"
-              icon={<Type size={13} />}
-              summary={CHAPTER_TITLE_STYLE_OPTIONS.find(option => option.value === (currentPrefs.chapterTitleStyle || 'default'))?.label}
-            >
-              <div className="grid gap-1.5">
-                {CHAPTER_TITLE_STYLE_OPTIONS.map(option => (
-                  <button key={option.value} type="button" onClick={() => handleUpdatePreference('chapterTitleStyle', option.value)} className={choiceClass((currentPrefs.chapterTitleStyle || 'default') === option.value)}>
-                    <span>{option.label}</span>
-                    {(currentPrefs.chapterTitleStyle || 'default') === option.value ? <Check size={12} /> : null}
                   </button>
                 ))}
               </div>
