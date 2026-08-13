@@ -4,12 +4,14 @@ interface ParticleSystemProps {
   count?: number;
   className?: string;
   color?: string;
+  particleStyle?: "default" | "sword_qi" | "lotus_blossom";
 }
 
 export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({ 
   count = 20, 
   className = '',
-  color = 'bg-cyan-100' 
+  color = 'bg-cyan-100',
+  particleStyle = 'default'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
@@ -69,8 +71,11 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     // Create offscreen particle for performance
     const offscreen = document.createElement('canvas');
     const offCtx = offscreen.getContext('2d', { alpha: true });
-    const maxSize = 4;
-    const blur = 8;
+
+    // Lotus blossoms and Sword Qi need a slightly larger offscreen canvas
+    const isCustomShape = particleStyle !== 'default';
+    const maxSize = isCustomShape ? 12 : 4;
+    const blur = isCustomShape ? 4 : 8;
     const padding = blur * 2;
     const canvasSize = maxSize + padding * 2;
     offscreen.width = canvasSize;
@@ -78,8 +83,26 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     const center = canvasSize / 2;
 
     if (offCtx) {
-      offCtx.beginPath();
-      offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+      if (particleStyle === 'sword_qi') {
+        offCtx.beginPath();
+        // Slanted shard shape
+        offCtx.moveTo(center - maxSize / 2, center + maxSize / 4);
+        offCtx.lineTo(center + maxSize / 2, center - maxSize / 4);
+        offCtx.lineTo(center + maxSize / 4, center + maxSize / 2);
+        offCtx.lineTo(center - maxSize / 4, center + maxSize / 4);
+        offCtx.closePath();
+      } else if (particleStyle === 'lotus_blossom') {
+        offCtx.beginPath();
+        // Petal shape
+        offCtx.moveTo(center, center - maxSize / 2);
+        offCtx.quadraticCurveTo(center + maxSize / 2, center, center, center + maxSize / 2);
+        offCtx.quadraticCurveTo(center - maxSize / 2, center, center, center - maxSize / 2);
+        offCtx.closePath();
+      } else {
+        offCtx.beginPath();
+        offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+      }
+
       offCtx.fillStyle = resolvedColor;
       offCtx.shadowBlur = blur;
       offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
@@ -130,13 +153,36 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
         const currentY = (p.startY * height) + (p.yOffset * easedProgress);
 
         // Draw offscreen canvas at correct size and position
-        const scale = p.size / maxSize;
-        const drawSize = canvasSize * scale;
-        const drawX = currentX - drawSize / 2;
-        const drawY = currentY - drawSize / 2;
+        const isCustomShape = particleStyle !== 'default';
+        const baseMaxSize = isCustomShape ? 12 : 4;
+        const scale = p.size / baseMaxSize;
+
+        // Scale up custom shapes slightly to make them visible but keep logic simple
+        const displayScale = isCustomShape ? scale * 2.5 : scale;
+        const drawSize = canvasSize * displayScale;
 
         ctx.globalAlpha = Math.max(0, easedOpacity);
-        ctx.drawImage(offscreen, drawX, drawY, drawSize, drawSize);
+
+        if (isCustomShape) {
+          ctx.save();
+          ctx.translate(currentX, currentY);
+
+          if (particleStyle === 'lotus_blossom') {
+            // Lotus blossoms spin slowly
+            const rotation = (elapsed * 0.001) % (Math.PI * 2);
+            ctx.rotate(rotation + p.id); // Add id so they don't all spin in sync
+          } else if (particleStyle === 'sword_qi') {
+            // Sword Qi points in the direction of travel (mostly up)
+            ctx.rotate(-Math.PI / 6); // Slant them naturally
+          }
+
+          ctx.drawImage(offscreen, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+          ctx.restore();
+        } else {
+          const drawX = currentX - drawSize / 2;
+          const drawY = currentY - drawSize / 2;
+          ctx.drawImage(offscreen, drawX, drawY, drawSize, drawSize);
+        }
       });
 
       animationFrameId = requestAnimationFrame(render);
@@ -148,7 +194,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
     };
-  }, [particles, resolvedColor]);
+  }, [particles, resolvedColor, particleStyle]);
 
   return (
     <>
