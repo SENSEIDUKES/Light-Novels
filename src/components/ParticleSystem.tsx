@@ -4,12 +4,14 @@ interface ParticleSystemProps {
   count?: number;
   className?: string;
   color?: string;
+  particleStyle?: 'default' | 'sword_qi' | 'lotus_blossom';
 }
 
 export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({ 
   count = 20, 
   className = '',
-  color = 'bg-cyan-100' 
+  color = 'bg-cyan-100',
+  particleStyle = 'default'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
@@ -42,6 +44,10 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       const maxOpacity = Math.random() * 0.4 + 0.2;
       const xOffset = (Math.random() - 0.5) * 60; // sway left/right
 
+      // Dynamic rotation options for premium styles
+      const rotation = Math.random() * Math.PI * 2;
+      const rotationSpeed = (Math.random() - 0.5) * 0.03;
+
       return {
         id: i,
         size,
@@ -51,7 +57,9 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
         delay,
         yOffset,
         xOffset,
-        maxOpacity
+        maxOpacity,
+        rotation,
+        rotationSpeed
       };
     });
   }, [count]);
@@ -66,7 +74,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     let width = 0;
     let height = 0;
 
-    // Create offscreen particle for performance
+    // Create offscreen canvas for performance
     const offscreen = document.createElement('canvas');
     const offCtx = offscreen.getContext('2d', { alpha: true });
     const maxSize = 4;
@@ -78,16 +86,45 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     const center = canvasSize / 2;
 
     if (offCtx) {
-      offCtx.beginPath();
-      offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
       offCtx.fillStyle = resolvedColor;
-      offCtx.shadowBlur = blur;
       offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
-      offCtx.fill();
-      
-      // Fill again without shadow for a more solid core
-      offCtx.shadowBlur = 0;
-      offCtx.fill();
+
+      if (particleStyle === 'sword_qi') {
+        // Slanted sword qi shard: narrow, sharp dynamic diamond
+        offCtx.beginPath();
+        offCtx.moveTo(center, center - maxSize * 1.5); // top tip
+        offCtx.lineTo(center + maxSize * 0.4, center); // right
+        offCtx.lineTo(center, center + maxSize * 1.5); // bottom tip
+        offCtx.lineTo(center - maxSize * 0.4, center); // left
+        offCtx.closePath();
+        offCtx.shadowBlur = blur;
+        offCtx.fill();
+
+        // Fill core again for brightness
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      } else if (particleStyle === 'lotus_blossom') {
+        // Organic curved petal representing a lotus blossom petal
+        offCtx.beginPath();
+        offCtx.moveTo(center, center - maxSize * 1.2);
+        offCtx.quadraticCurveTo(center + maxSize * 0.8, center, center, center + maxSize * 1.2);
+        offCtx.quadraticCurveTo(center - maxSize * 0.8, center, center, center - maxSize * 1.2);
+        offCtx.closePath();
+        offCtx.shadowBlur = blur;
+        offCtx.fill();
+
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      } else {
+        // default circle
+        offCtx.beginPath();
+        offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+        offCtx.shadowBlur = blur;
+        offCtx.fill();
+
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      }
     }
 
     const resizeObserver = new ResizeObserver(entries => {
@@ -132,11 +169,22 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
         // Draw offscreen canvas at correct size and position
         const scale = p.size / maxSize;
         const drawSize = canvasSize * scale;
-        const drawX = currentX - drawSize / 2;
-        const drawY = currentY - drawSize / 2;
 
+        ctx.save();
         ctx.globalAlpha = Math.max(0, easedOpacity);
-        ctx.drawImage(offscreen, drawX, drawY, drawSize, drawSize);
+        ctx.translate(currentX, currentY);
+
+        // Apply custom rotation / slanting based on style
+        if (particleStyle === 'lotus_blossom') {
+          const currentRotation = p.rotation + (elapsed / 1000) * p.rotationSpeed;
+          ctx.rotate(currentRotation);
+        } else if (particleStyle === 'sword_qi') {
+          const currentRotation = p.rotation + (elapsed / 1000) * (p.rotationSpeed * 0.3);
+          ctx.rotate(currentRotation);
+        }
+
+        ctx.drawImage(offscreen, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+        ctx.restore();
       });
 
       animationFrameId = requestAnimationFrame(render);
@@ -148,7 +196,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
     };
-  }, [particles, resolvedColor]);
+  }, [particles, resolvedColor, particleStyle]);
 
   return (
     <>
