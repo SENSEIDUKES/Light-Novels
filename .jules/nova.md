@@ -5,3 +5,7 @@
 ## 2024-08-09 - Support touch events for click-outside handlers
 **Learning:** Custom popovers and dropdown menus typically use a `mousedown` listener to detect clicks outside the element. However, relying solely on `mousedown` can cause issues on mobile devices where tap events aren't consistently translated to `mousedown` before the default touch behavior triggers.
 **Action:** Always include `touchstart` alongside `mousedown` (with corresponding cleanup in `useEffect`) when implementing click-outside dismissal handlers to ensure reliable interaction on mobile touch screens.
+
+## 2024-11-20 - Enter key submission on destructive text inputs
+**Learning:** Custom non-form confirmation dialogs that require typing a word like "DELETE" do not naturally submit on "Enter" unless wrapped in a `<form>`. Users intuitively press Enter after typing the confirmation word.
+**Action:** Always add an `onKeyDown` listener to these standalone confirmation `<input>` fields to detect the "Enter" key and programmatically submit the action if the confirmation text matches.
