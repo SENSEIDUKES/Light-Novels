@@ -627,6 +627,7 @@ export default function ReaderCodex({
                   <button
                     type="button"
                     onClick={() => setDeleteInput('DELETE')}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }}
                     className="inline-flex shrink-0 items-center px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-sc font-bold border border-portal/30 bg-portal/10 text-portal hover:bg-portal hover:text-black rounded transition-all duration-300 cursor-pointer focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2"
                     title="Auto-fill delete text"
                     aria-label="Auto-fill delete text"
@@ -639,6 +640,17 @@ export default function ReaderCodex({
                   placeholder="DELETE"
                   value={deleteInput}
                   onChange={(e) => setDeleteInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && deleteInput === 'DELETE') {
+                      if (deletePrompt.type === 'faction') handleDeleteFaction(deletePrompt.id);
+                      if (deletePrompt.type === 'artifact') handleDeleteArtifact(deletePrompt.id);
+                      if (deletePrompt.type === 'location') handleDeleteLocation(deletePrompt.id);
+                      if (deletePrompt.type === 'relationship') handleDeleteCustomRelationship(deletePrompt.id);
+                      if (deletePrompt.type === 'fate') handleDeleteFateNode(deletePrompt.id);
+                      setDeletePrompt(null);
+                      setDeleteInput('');
+                    }
+                  }}
                   aria-label="Type DELETE to confirm"
                   className="w-full bg-void text-xs text-signal border border-neutral-700 focus:border-red-500 p-2 rounded focus:outline-none font-mono placeholder:text-neutral-700 focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2" id="a11y-control-vksku3q"
                 />
