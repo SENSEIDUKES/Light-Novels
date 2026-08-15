@@ -1,6 +1,7 @@
 import React, { useMemo, useEffect, useState, useRef } from 'react';
 
 interface ParticleSystemProps {
+  particleStyle?: "default" | "sword_qi" | "lotus_blossom";
   count?: number;
   className?: string;
   color?: string;
@@ -9,7 +10,8 @@ interface ParticleSystemProps {
 export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({ 
   count = 20, 
   className = '',
-  color = 'bg-cyan-100' 
+  color = 'bg-cyan-100',
+  particleStyle = 'default'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
@@ -33,7 +35,8 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
 
   const particles = useMemo(() => {
     return Array.from({ length: count }).map((_, i) => {
-      const size = Math.random() * 3 + 1; // 1 to 4px
+      const baseSize = Math.random() * 3 + 1;
+      const size = particleStyle === 'default' ? baseSize : baseSize * 2.5;
       const startY = Math.random();
       const startX = Math.random();
       const duration = (Math.random() * 15 + 10) * 1000; // 10 to 25s
@@ -41,6 +44,8 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       const yOffset = -Math.random() * 100 - 100; // go up by 100 to 200px
       const maxOpacity = Math.random() * 0.4 + 0.2;
       const xOffset = (Math.random() - 0.5) * 60; // sway left/right
+      const rotationSpeed = (Math.random() - 0.5) * 2; // radians per second
+      const startRotation = Math.random() * Math.PI * 2;
 
       return {
         id: i,
@@ -51,10 +56,12 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
         delay,
         yOffset,
         xOffset,
-        maxOpacity
+        maxOpacity,
+        rotationSpeed,
+        startRotation
       };
     });
-  }, [count]);
+  }, [count, particleStyle]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -69,7 +76,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     // Create offscreen particle for performance
     const offscreen = document.createElement('canvas');
     const offCtx = offscreen.getContext('2d', { alpha: true });
-    const maxSize = 4;
+    const maxSize = particleStyle === 'default' ? 4 : 12;
     const blur = 8;
     const padding = blur * 2;
     const canvasSize = maxSize + padding * 2;
@@ -79,7 +86,21 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
 
     if (offCtx) {
       offCtx.beginPath();
-      offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+
+      if (particleStyle === 'default') {
+        offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+      } else if (particleStyle === 'sword_qi') {
+        offCtx.moveTo(center - maxSize / 2, center - maxSize / 4);
+        offCtx.lineTo(center + maxSize / 2, center);
+        offCtx.lineTo(center - maxSize / 2, center + maxSize / 4);
+        offCtx.closePath();
+      } else if (particleStyle === 'lotus_blossom') {
+        offCtx.moveTo(center, center - maxSize / 2);
+        offCtx.quadraticCurveTo(center + maxSize / 2, center, center, center + maxSize / 2);
+        offCtx.quadraticCurveTo(center - maxSize / 2, center, center, center - maxSize / 2);
+        offCtx.closePath();
+      }
+
       offCtx.fillStyle = resolvedColor;
       offCtx.shadowBlur = blur;
       offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
@@ -132,11 +153,21 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
         // Draw offscreen canvas at correct size and position
         const scale = p.size / maxSize;
         const drawSize = canvasSize * scale;
-        const drawX = currentX - drawSize / 2;
-        const drawY = currentY - drawSize / 2;
 
         ctx.globalAlpha = Math.max(0, easedOpacity);
-        ctx.drawImage(offscreen, drawX, drawY, drawSize, drawSize);
+
+        if (particleStyle === 'default') {
+          const drawX = currentX - drawSize / 2;
+          const drawY = currentY - drawSize / 2;
+          ctx.drawImage(offscreen, drawX, drawY, drawSize, drawSize);
+        } else {
+          ctx.save();
+          ctx.translate(currentX, currentY);
+          const currentRotation = p.startRotation + (elapsed / 1000) * p.rotationSpeed;
+          ctx.rotate(currentRotation);
+          ctx.drawImage(offscreen, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+          ctx.restore();
+        }
       });
 
       animationFrameId = requestAnimationFrame(render);
@@ -148,7 +179,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
     };
-  }, [particles, resolvedColor]);
+  }, [particles, resolvedColor, particleStyle]);
 
   return (
     <>

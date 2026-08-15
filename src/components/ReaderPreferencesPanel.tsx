@@ -35,6 +35,12 @@ const PLAYER_STYLE_OPTIONS = [
   { value: 'ethereal', label: 'Ethereal Pulse' },
 ] as const;
 
+const PARTICLE_STYLE_OPTIONS = [
+  { value: 'default', label: 'Classic Orbs' },
+  { value: 'sword_qi', label: 'Sword Qi Shards' },
+  { value: 'lotus_blossom', label: 'Lotus Petals' },
+] as const;
+
 const PARTICLE_INTENSITY_OPTIONS = [
   { value: 'off', label: 'Off' },
   { value: 'low', label: 'Low' },
@@ -241,11 +247,21 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
               icon={<Sparkles size={13} />}
               summary={PARTICLE_INTENSITY_OPTIONS.find(option => option.value === (currentPrefs.particleIntensity || 'default'))?.label}
             >
-              <div className="grid gap-1.5">
+              <div className="grid gap-1.5 mb-4">
                 {PARTICLE_INTENSITY_OPTIONS.map(option => (
                   <button key={option.value} type="button" onClick={() => handleUpdatePreference('particleIntensity', option.value)} className={choiceClass((currentPrefs.particleIntensity || 'default') === option.value)}>
                     <span>{option.label}</span>
                     {(currentPrefs.particleIntensity || 'default') === option.value ? <Check size={12} /> : null}
+                  </button>
+                ))}
+              </div>
+
+              <div className="text-[10px] uppercase tracking-wider text-white/30 mb-2 font-medium px-1">Particle Style</div>
+              <div className="grid gap-1.5">
+                {PARTICLE_STYLE_OPTIONS.map(option => (
+                  <button key={option.value} type="button" onClick={() => handleUpdatePreference('particleStyle', option.value)} className={choiceClass((currentPrefs.particleStyle || 'default') === option.value)}>
+                    <span>{option.label}</span>
+                    {(currentPrefs.particleStyle || 'default') === option.value ? <Check size={12} /> : null}
                   </button>
                 ))}
               </div>

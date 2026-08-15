@@ -878,6 +878,7 @@ export default function ReaderChamber({
       {particleCount > 0 && (
         <ParticleSystem
           count={particleCount}
+          particleStyle={currentPrefs.particleStyle || "default"}
           className="opacity-20 pointer-events-none mix-blend-screen z-0 transition-colors duration-500"
           color={getParticleColor()}
         />
