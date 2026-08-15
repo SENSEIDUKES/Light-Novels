@@ -4,12 +4,14 @@ interface ParticleSystemProps {
   count?: number;
   className?: string;
   color?: string;
+  style?: 'default' | 'sword_qi' | 'lotus_blossom';
 }
 
 export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({ 
   count = 20, 
   className = '',
-  color = 'bg-cyan-100' 
+  color = 'bg-cyan-100',
+  style = 'default'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
@@ -69,7 +71,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     // Create offscreen particle for performance
     const offscreen = document.createElement('canvas');
     const offCtx = offscreen.getContext('2d', { alpha: true });
-    const maxSize = 4;
+    const maxSize = style === 'sword_qi' ? 12 : style === 'lotus_blossom' ? 10 : 4;
     const blur = 8;
     const padding = blur * 2;
     const canvasSize = maxSize + padding * 2;
@@ -78,12 +80,33 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     const center = canvasSize / 2;
 
     if (offCtx) {
-      offCtx.beginPath();
-      offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
       offCtx.fillStyle = resolvedColor;
       offCtx.shadowBlur = blur;
       offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
-      offCtx.fill();
+
+      if (style === 'sword_qi') {
+        // Draw sharp slanted energy blade shard
+        offCtx.beginPath();
+        offCtx.moveTo(center, center - maxSize / 2);
+        offCtx.lineTo(center + maxSize / 4, center);
+        offCtx.lineTo(center, center + maxSize / 2);
+        offCtx.lineTo(center - maxSize / 4, center);
+        offCtx.closePath();
+        offCtx.fill();
+      } else if (style === 'lotus_blossom') {
+        // Draw delicate lotus petal shape
+        offCtx.beginPath();
+        offCtx.moveTo(center, center + maxSize / 2);
+        offCtx.quadraticCurveTo(center + maxSize / 2, center, center, center - maxSize / 2);
+        offCtx.quadraticCurveTo(center - maxSize / 2, center, center, center + maxSize / 2);
+        offCtx.closePath();
+        offCtx.fill();
+      } else {
+        // Default floating glowing sphere
+        offCtx.beginPath();
+        offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+        offCtx.fill();
+      }
       
       // Fill again without shadow for a more solid core
       offCtx.shadowBlur = 0;
@@ -130,13 +153,25 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
         const currentY = (p.startY * height) + (p.yOffset * easedProgress);
 
         // Draw offscreen canvas at correct size and position
-        const scale = p.size / maxSize;
+        const scale = p.size / 4;
         const drawSize = canvasSize * scale;
-        const drawX = currentX - drawSize / 2;
-        const drawY = currentY - drawSize / 2;
 
         ctx.globalAlpha = Math.max(0, easedOpacity);
-        ctx.drawImage(offscreen, drawX, drawY, drawSize, drawSize);
+
+        if (style === 'sword_qi' || style === 'lotus_blossom') {
+          ctx.save();
+          ctx.translate(currentX, currentY);
+          const rotationAngle = style === 'sword_qi'
+            ? -Math.PI / 6 // slanted 30deg sword aura angle
+            : (p.id * 0.7) + (progress * Math.PI); // graceful rotating lotus petal drift
+          ctx.rotate(rotationAngle);
+          ctx.drawImage(offscreen, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+          ctx.restore();
+        } else {
+          const drawX = currentX - drawSize / 2;
+          const drawY = currentY - drawSize / 2;
+          ctx.drawImage(offscreen, drawX, drawY, drawSize, drawSize);
+        }
       });
 
       animationFrameId = requestAnimationFrame(render);
@@ -148,7 +183,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
     };
-  }, [particles, resolvedColor]);
+  }, [particles, resolvedColor, style]);
 
   return (
     <>

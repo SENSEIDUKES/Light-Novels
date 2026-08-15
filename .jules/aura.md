@@ -1,3 +1,7 @@
 ## 2024-07-23 - Conditional Style Customization for UI Elements
 **Learning:** Adding a styling preference requires passing it through several component layers (from global/context preferences down to the specific UI component). In this case, `playerStyle` had to be added to `ReaderPreferences`, passed from `ReaderChamber` via `PlaybackState` into `ReaderControls`, and finally applied conditionally inside `PlaybackControls`. The existing preference updating mechanism (`handleUpdatePreference`) smoothly handles adding new generic preference keys without requiring complex global state rework.
 **Action:** Next time I add a cosmetic choice, follow the pattern: 1) Add type property to preferences. 2) Add UI control calling `handleUpdatePreference(key, value)`. 3) Thread the property down via props if the target component is deeply nested. 4) Render conditionally using inline classes.
+
+## 2026-08-15 - Dynamic Canvas Particle Styles Performance
+**Learning:** Supporting dynamic particle formation shapes (such as rotating lotus petals or slanted sword qi energy shards) in HTML5 Canvas can be done efficiently at 60fps by pre-rendering base shapes onto an offscreen canvas and applying 2D context transforms (`ctx.translate`, `ctx.rotate`) in the render loop.
+**Action:** When offering visual particle style customizations, pre-render base shapes on an off-screen canvas to maintain high performance across mobile and desktop viewports.
