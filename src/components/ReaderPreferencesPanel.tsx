@@ -56,6 +56,13 @@ const VIGNETTE_STYLE_OPTIONS = [
   { value: 'scroll', label: 'Ancient Parchment' },
 ] as const;
 
+const CHAPTER_TITLE_STYLE_OPTIONS = [
+  { value: 'default', label: 'Classic Display' },
+  { value: 'gilded', label: 'Gilded Aura' },
+  { value: 'calligraphy', label: 'Classical Brush' },
+  { value: 'minimal', label: 'Modern Minimal' },
+] as const;
+
 type NumericTypographyPreference =
   | 'lineHeightScale'
   | 'paragraphSpacingScale'
@@ -220,6 +227,21 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
                   <button key={option.value} type="button" onClick={() => handleUpdatePreference('fontFamily', option.value)} className={choiceClass(currentPrefs.fontFamily === option.value)}>
                     <span>{option.label}</span>
                     {currentPrefs.fontFamily === option.value ? <Check size={12} /> : null}
+                  </button>
+                ))}
+              </div>
+            </PreferenceGroup>
+
+            <PreferenceGroup
+              label="Chapter Title Style"
+              icon={<Type size={13} />}
+              summary={CHAPTER_TITLE_STYLE_OPTIONS.find(option => option.value === (currentPrefs.chapterTitleStyle || 'default'))?.label}
+            >
+              <div className="grid gap-1.5">
+                {CHAPTER_TITLE_STYLE_OPTIONS.map(option => (
+                  <button key={option.value} type="button" onClick={() => handleUpdatePreference('chapterTitleStyle', option.value)} className={choiceClass((currentPrefs.chapterTitleStyle || 'default') === option.value)}>
+                    <span>{option.label}</span>
+                    {(currentPrefs.chapterTitleStyle || 'default') === option.value ? <Check size={12} /> : null}
                   </button>
                 ))}
               </div>

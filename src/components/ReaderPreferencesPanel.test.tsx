@@ -107,4 +107,22 @@ describe('ReaderPreferencesPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /Cinematic Shadow/i }));
     expect(handleUpdatePreference).toHaveBeenCalledWith('vignetteStyle', 'radial');
   });
+
+  it('allows customizing chapter title style and triggers updates', async () => {
+    const handleUpdatePreference = vi.fn();
+    render(
+      <ReaderPreferencesPanel
+        currentPrefs={{ fontFamily: 'serif', fontSize: 'lg', lineHeight: 'relaxed', paragraphSpacing: 'normal', themeOverride: 'void', chapterTitleStyle: 'default' }}
+        handleUpdatePreference={handleUpdatePreference}
+        onResetTypography={vi.fn()}
+      />,
+    );
+
+    const titleStyleToggle = screen.getByRole('button', { name: /Chapter Title Style/i });
+    expect(titleStyleToggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('button', { name: /Gilded Aura/i })).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: /Gilded Aura/i }));
+    expect(handleUpdatePreference).toHaveBeenCalledWith('chapterTitleStyle', 'gilded');
+  });
 });

@@ -988,6 +988,7 @@ export interface ReaderPreferences {
   particleIntensity?: "off" | "low" | "default" | "high";
   dividerStyle?: "default" | "celestial" | "sword_qi" | "lotus_path";
   vignetteStyle?: "off" | "radial" | "cosmic" | "scroll";
+  chapterTitleStyle?: "default" | "gilded" | "calligraphy" | "minimal";
 }
 
 export interface ReaderAccessibilitySettings {

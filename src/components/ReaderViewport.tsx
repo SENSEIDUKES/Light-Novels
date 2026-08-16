@@ -177,6 +177,19 @@ export function ReaderViewport({
     }
   };
 
+  const getChapterTitleClass = (style: string) => {
+    switch (style) {
+      case "gilded":
+        return "font-display font-bold text-2xl sm:text-3xl text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-200 mt-2 max-w-2xl mx-auto leading-snug drop-shadow-[0_0_12px_rgba(234,179,8,0.3)]";
+      case "calligraphy":
+        return "font-serif italic font-normal text-3xl sm:text-4xl text-neutral-100 tracking-wide mt-2 max-w-2xl mx-auto leading-snug";
+      case "minimal":
+        return "font-mono uppercase font-semibold text-xl sm:text-2xl text-neutral-300 tracking-widest mt-2 max-w-2xl mx-auto leading-snug";
+      default:
+        return "font-display font-medium text-2xl sm:text-3xl text-signal mt-2 max-w-2xl mx-auto leading-snug";
+    }
+  };
+
   const renderChapterDivider = () => {
     const divider = currentPrefs.dividerStyle || "default";
     if (divider === "default") {
@@ -495,7 +508,7 @@ export function ReaderViewport({
                 <span className={`font-sc font-semibold text-[10px] tracking-[0.25em] uppercase opacity-70 ${getThemeTextClass(currentPrefs.themeOverride || "void")}`}>
                   {activeStory.title} • Chapter {selectedChapter.number}
                 </span>
-                <h1 className="font-display font-medium text-2xl sm:text-3xl text-signal mt-2 max-w-2xl mx-auto leading-snug">
+                <h1 className={getChapterTitleClass(currentPrefs.chapterTitleStyle || "default")}>
                   {selectedChapter.title}
                 </h1>
 
