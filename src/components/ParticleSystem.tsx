@@ -4,12 +4,14 @@ interface ParticleSystemProps {
   count?: number;
   className?: string;
   color?: string;
+  particleStyle?: "default" | "sword_qi" | "lotus_blossom";
 }
 
 export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({ 
   count = 20, 
   className = '',
-  color = 'bg-cyan-100' 
+  color = 'bg-cyan-100',
+  particleStyle = 'default'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
@@ -69,7 +71,10 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     // Create offscreen particle for performance
     const offscreen = document.createElement('canvas');
     const offCtx = offscreen.getContext('2d', { alpha: true });
-    const maxSize = 4;
+
+    // For custom shapes, we might need a slightly larger offscreen canvas
+    const isCustomShape = particleStyle !== 'default';
+    const maxSize = isCustomShape ? 12 : 4;
     const blur = 8;
     const padding = blur * 2;
     const canvasSize = maxSize + padding * 2;
@@ -78,11 +83,30 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     const center = canvasSize / 2;
 
     if (offCtx) {
-      offCtx.beginPath();
-      offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
       offCtx.fillStyle = resolvedColor;
       offCtx.shadowBlur = blur;
       offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+
+      offCtx.beginPath();
+
+      if (particleStyle === 'sword_qi') {
+        // Draw a slanted shard
+        offCtx.moveTo(center - maxSize / 2, center);
+        offCtx.lineTo(center + maxSize / 4, center - maxSize / 4);
+        offCtx.lineTo(center + maxSize / 2, center);
+        offCtx.lineTo(center - maxSize / 4, center + maxSize / 4);
+        offCtx.closePath();
+      } else if (particleStyle === 'lotus_blossom') {
+        // Draw a petal shape
+        offCtx.moveTo(center, center - maxSize / 2);
+        offCtx.quadraticCurveTo(center + maxSize / 2, center - maxSize / 4, center, center + maxSize / 2);
+        offCtx.quadraticCurveTo(center - maxSize / 2, center - maxSize / 4, center, center - maxSize / 2);
+        offCtx.closePath();
+      } else {
+        // Default circle
+        offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+      }
+
       offCtx.fill();
       
       // Fill again without shadow for a more solid core
@@ -130,13 +154,30 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
         const currentY = (p.startY * height) + (p.yOffset * easedProgress);
 
         // Draw offscreen canvas at correct size and position
-        const scale = p.size / maxSize;
+        // When using custom shapes, size modifier applies
+        const baseSizeModifier = particleStyle === 'default' ? maxSize : 4;
+        const scale = p.size / baseSizeModifier;
         const drawSize = canvasSize * scale;
-        const drawX = currentX - drawSize / 2;
-        const drawY = currentY - drawSize / 2;
 
         ctx.globalAlpha = Math.max(0, easedOpacity);
-        ctx.drawImage(offscreen, drawX, drawY, drawSize, drawSize);
+
+        if (particleStyle !== 'default') {
+          ctx.save();
+          ctx.translate(currentX, currentY);
+          // Rotation based on progress for lotus, static slanted for sword_qi
+          if (particleStyle === 'lotus_blossom') {
+             ctx.rotate(progress * Math.PI * 4);
+          } else {
+             // sword_qi typically slants upward
+             ctx.rotate(-Math.PI / 4);
+          }
+          ctx.drawImage(offscreen, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+          ctx.restore();
+        } else {
+          const drawX = currentX - drawSize / 2;
+          const drawY = currentY - drawSize / 2;
+          ctx.drawImage(offscreen, drawX, drawY, drawSize, drawSize);
+        }
       });
 
       animationFrameId = requestAnimationFrame(render);
@@ -148,7 +189,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
     };
-  }, [particles, resolvedColor]);
+  }, [particles, resolvedColor, particleStyle]);
 
   return (
     <>
