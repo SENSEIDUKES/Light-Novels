@@ -759,6 +759,11 @@ export const ModalsAndToasts: React.FC = () => {
                   placeholder="DELETE"
                   value={deleteText}
                   onChange={(e) => setDeleteText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && deleteText === 'DELETE') {
+                      confirmDeleteStory();
+                    }
+                  }}
                   aria-label="Type DELETE to confirm"
                   className="w-full bg-void text-xs text-signal border border-neutral-700 focus:border-red-500 p-2 rounded focus:outline-none font-mono placeholder:text-neutral-700 focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2"
                 />
