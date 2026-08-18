@@ -639,6 +639,19 @@ export default function ReaderCodex({
                   placeholder="DELETE"
                   value={deleteInput}
                   onChange={(e) => setDeleteInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && deleteInput === 'DELETE') {
+                      e.preventDefault();
+                      if (deletePrompt.type === 'faction') handleDeleteFaction(deletePrompt.id);
+                      if (deletePrompt.type === 'artifact') handleDeleteArtifact(deletePrompt.id);
+                      if (deletePrompt.type === 'location') handleDeleteLocation(deletePrompt.id);
+                      if (deletePrompt.type === 'relationship') handleDeleteCustomRelationship(deletePrompt.id);
+                      if (deletePrompt.type === 'fate') handleDeleteFateNode(deletePrompt.id);
+
+                      setDeletePrompt(null);
+                      setDeleteInput('');
+                    }
+                  }}
                   aria-label="Type DELETE to confirm"
                   className="w-full bg-void text-xs text-signal border border-neutral-700 focus:border-red-500 p-2 rounded focus:outline-none font-mono placeholder:text-neutral-700 focus-visible:ring-2 focus-visible:ring-portal outline-none focus-visible:ring-offset-2" id="a11y-control-vksku3q"
                 />
