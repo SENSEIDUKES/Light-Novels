@@ -56,6 +56,12 @@ const VIGNETTE_STYLE_OPTIONS = [
   { value: 'scroll', label: 'Ancient Parchment' },
 ] as const;
 
+const SYSTEM_BLOCK_STYLE_OPTIONS = [
+  { value: 'default', label: 'Classic Hologram' },
+  { value: 'parchment', label: 'Ancient Scroll' },
+  { value: 'minimal', label: 'Clean Minimal' },
+] as const;
+
 type NumericTypographyPreference =
   | 'lineHeightScale'
   | 'paragraphSpacingScale'
@@ -261,6 +267,21 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
                   <button key={option.value} type="button" onClick={() => handleUpdatePreference('dividerStyle', option.value)} className={choiceClass((currentPrefs.dividerStyle || 'default') === option.value)}>
                     <span>{option.label}</span>
                     {(currentPrefs.dividerStyle || 'default') === option.value ? <Check size={12} /> : null}
+                  </button>
+                ))}
+              </div>
+            </PreferenceGroup>
+
+            <PreferenceGroup
+              label="System Notice Frame"
+              icon={<Sliders size={13} />}
+              summary={SYSTEM_BLOCK_STYLE_OPTIONS.find(option => option.value === (currentPrefs.systemBlockStyle || 'default'))?.label}
+            >
+              <div className="grid gap-1.5">
+                {SYSTEM_BLOCK_STYLE_OPTIONS.map(option => (
+                  <button key={option.value} type="button" onClick={() => handleUpdatePreference('systemBlockStyle', option.value)} className={choiceClass((currentPrefs.systemBlockStyle || 'default') === option.value)}>
+                    <span>{option.label}</span>
+                    {(currentPrefs.systemBlockStyle || 'default') === option.value ? <Check size={12} /> : null}
                   </button>
                 ))}
               </div>

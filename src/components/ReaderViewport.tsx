@@ -543,6 +543,7 @@ export function ReaderViewport({
                               id={`para-${index}`}
                               {...anchorAttributes(selectedChapter.number, index, undefined, cleanText)}
                               content={cleanText}
+                              systemBlockStyle={currentPrefs.systemBlockStyle}
                             />
                           );
                         }
@@ -718,6 +719,7 @@ export function ReaderViewport({
                               <SystemBlock
                                 content={cleanText}
                                 system={block.system}
+                                systemBlockStyle={currentPrefs.systemBlockStyle}
                                 data-cue-type="narrative.metadata.signature"
                                 data-cue-id={
                                   block.id ||
@@ -890,6 +892,7 @@ export function ReaderViewport({
                                 id={`para-${index}`}
                                 {...anchorAttributes(selectedChapter.number, index, undefined, cleanText)}
                                 content={cleanText}
+                                systemBlockStyle={currentPrefs.systemBlockStyle}
                                 data-cue-type="narrative.metadata.signature"
                                 data-cue-id={`system-line-${selectedChapter.number}-${index}`}
                                 className="narrative-trigger"

@@ -157,4 +157,33 @@ describe('SystemBlock', () => {
       expect(panelClass(container)).toContain('animate-menacing-amber');
     });
   });
+
+  describe('systemBlockStyle visual options', () => {
+    it('renders default hologram style classes', () => {
+      const { container } = render(
+        <SystemBlock system={{ kind: 'status', promptType: 'neutral', title: 'Notice' }} content="System text" systemBlockStyle="default" />
+      );
+      const cls = panelClass(container);
+      expect(cls).toContain('rounded-md');
+      expect(cls).toContain('font-mono');
+    });
+
+    it('renders ancient scroll parchment style classes', () => {
+      const { container } = render(
+        <SystemBlock system={{ kind: 'status', promptType: 'neutral', title: 'Ancient Decree' }} content="Scroll text" systemBlockStyle="parchment" />
+      );
+      const cls = panelClass(container);
+      expect(cls).toContain('font-serif');
+      expect(cls).toContain('bg-gradient-to-b');
+    });
+
+    it('renders clean minimal style classes', () => {
+      const { container } = render(
+        <SystemBlock system={{ kind: 'status', promptType: 'neutral', title: 'Minimal Alert' }} content="Clean text" systemBlockStyle="minimal" />
+      );
+      const cls = panelClass(container);
+      expect(cls).toContain('font-sans');
+      expect(cls).toContain('border-l-2');
+    });
+  });
 });

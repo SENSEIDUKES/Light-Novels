@@ -9,9 +9,10 @@ export { SYSTEM_COLORS_LEGEND } from '../lib/systemColors';
 interface SystemBlockProps extends React.HTMLAttributes<HTMLDivElement> {
   content: string;
   system?: SystemEvent;
+  systemBlockStyle?: "default" | "parchment" | "minimal";
 }
 
-export const SystemBlock = React.memo(function SystemBlock({ content, system, className, ...props }: SystemBlockProps) {
+export const SystemBlock = React.memo(function SystemBlock({ content, system, systemBlockStyle = "default", className, ...props }: SystemBlockProps) {
   const { onAnimationStart: _anim, onDrag: _drag, onDragStart: _dStart, onDragEnd: _dEnd, ...safeProps } = props;
 
   const isIronFate = (system?.title || '').toLowerCase().includes('iron fate') || 
@@ -54,13 +55,20 @@ export const SystemBlock = React.memo(function SystemBlock({ content, system, cl
       colorStyles += ' animate-menacing-amber';
     }
 
+    const styleClasses =
+      systemBlockStyle === 'parchment'
+        ? 'rounded-lg border-2 font-serif p-4 md:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.4)] bg-gradient-to-b from-[#120e08]/90 to-[#080604]/90'
+        : systemBlockStyle === 'minimal'
+          ? 'rounded-none border-l-2 border-r-0 border-t-0 border-b-0 font-sans p-3 md:p-3.5 bg-black/20'
+          : 'rounded-md border font-mono p-3 md:p-4';
+
     return (
       <motion.div 
         initial={{ opacity: 0, y: 10, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        whileHover={{ scale: 1.02 }}
+        whileHover={{ scale: 1.01 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className={`system-block holographic-panel cursor-pointer my-6 md:my-8 rounded-md border font-mono p-3 md:p-4 max-w-xl mx-auto transition-all duration-300 ${colorStyles} ${className || ''}`}
+        className={`system-block holographic-panel cursor-pointer my-6 md:my-8 max-w-xl mx-auto transition-all duration-300 ${styleClasses} ${colorStyles} ${className || ''}`}
         {...safeProps}
       >
         <div className="flex flex-col space-y-3">
@@ -114,8 +122,15 @@ export const SystemBlock = React.memo(function SystemBlock({ content, system, cl
     fallbackColorStyles += ' animate-menacing-amber';
   }
 
+  const fallbackStyleClasses =
+    systemBlockStyle === 'parchment'
+      ? 'rounded-lg border-2 font-serif p-5 bg-gradient-to-b from-[#120e08]/90 to-[#080604]/90 shadow-[0_4px_20px_rgba(0,0,0,0.4)]'
+      : systemBlockStyle === 'minimal'
+        ? 'rounded-none border-l-2 border-r-0 border-t-0 border-b-0 font-sans p-3 bg-black/20'
+        : 'rounded-lg border font-mono p-4 md:p-5 bg-black/50';
+
   return (
-    <div {...props} className={`my-6 md:my-8 p-4 md:p-5 bg-black/50 border font-mono text-[11px] md:text-sm rounded-lg text-center tracking-widest leading-relaxed transition-all duration-500 hover:brightness-125 hover:shadow-[0_0_25px_rgba(255,255,255,0.1)] ${fallbackColorStyles} ${className || ''}`}>
+    <div {...props} className={`my-6 md:my-8 text-[11px] md:text-sm text-center tracking-widest leading-relaxed transition-all duration-500 hover:brightness-125 hover:shadow-[0_0_25px_rgba(255,255,255,0.1)] ${fallbackStyleClasses} ${fallbackColorStyles} ${className || ''}`}>
       <div className="flex flex-col items-center justify-center mb-1.5 md:mb-2">
         {isDeathFlag && <Skull className="w-5 h-5 md:w-6 md:h-6 text-red-500 animate-pulse mb-1.5" />}
         {isIronFate && <AlertTriangle className="w-5 h-5 md:w-6 md:h-6 text-amber-500 animate-bounce mb-1.5" />}
