@@ -4,12 +4,14 @@ interface ParticleSystemProps {
   count?: number;
   className?: string;
   color?: string;
+  style?: 'default' | 'sword_qi' | 'lotus_blossom';
 }
 
 export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({ 
   count = 20, 
   className = '',
-  color = 'bg-cyan-100' 
+  color = 'bg-cyan-100',
+  style = 'default'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
@@ -79,7 +81,26 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
 
     if (offCtx) {
       offCtx.beginPath();
-      offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+      if (style === 'sword_qi') {
+        // Slanted sharp Sword Qi shard
+        const halfWidth = maxSize / 2.5;
+        offCtx.moveTo(center, center - maxSize);
+        offCtx.lineTo(center + halfWidth, center);
+        offCtx.lineTo(center, center + maxSize);
+        offCtx.lineTo(center - halfWidth, center);
+        offCtx.closePath();
+      } else if (style === 'lotus_blossom') {
+        // Organic lotus petal curve
+        const petalWidth = maxSize * 0.85;
+        offCtx.moveTo(center, center - maxSize);
+        offCtx.quadraticCurveTo(center + petalWidth, center - maxSize * 0.2, center, center + maxSize);
+        offCtx.quadraticCurveTo(center - petalWidth, center - maxSize * 0.2, center, center - maxSize);
+        offCtx.closePath();
+      } else {
+        // Default luminous circular mote
+        offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+      }
+
       offCtx.fillStyle = resolvedColor;
       offCtx.shadowBlur = blur;
       offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
@@ -148,7 +169,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
     };
-  }, [particles, resolvedColor]);
+  }, [particles, resolvedColor, style]);
 
   return (
     <>
