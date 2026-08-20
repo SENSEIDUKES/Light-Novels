@@ -4,12 +4,14 @@ interface ParticleSystemProps {
   count?: number;
   className?: string;
   color?: string;
+  style?: 'default' | 'sword_qi' | 'lotus_blossom';
 }
 
 export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({ 
   count = 20, 
   className = '',
-  color = 'bg-cyan-100' 
+  color = 'bg-cyan-100',
+  style = 'default'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
@@ -78,16 +80,42 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
     const center = canvasSize / 2;
 
     if (offCtx) {
-      offCtx.beginPath();
-      offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
       offCtx.fillStyle = resolvedColor;
       offCtx.shadowBlur = blur;
       offCtx.shadowColor = 'rgba(255, 255, 255, 0.8)';
-      offCtx.fill();
-      
-      // Fill again without shadow for a more solid core
-      offCtx.shadowBlur = 0;
-      offCtx.fill();
+
+      if (style === 'sword_qi') {
+        // Slender, sharp diagonal Qi blade shard
+        offCtx.beginPath();
+        offCtx.moveTo(center, center - maxSize * 2);
+        offCtx.lineTo(center + maxSize * 0.7, center);
+        offCtx.lineTo(center, center + maxSize * 2);
+        offCtx.lineTo(center - maxSize * 0.7, center);
+        offCtx.closePath();
+        offCtx.fill();
+
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      } else if (style === 'lotus_blossom') {
+        // Curved organic lotus petal shape
+        offCtx.beginPath();
+        offCtx.moveTo(center, center - maxSize * 1.8);
+        offCtx.quadraticCurveTo(center + maxSize * 1.5, center - maxSize * 0.5, center, center + maxSize * 1.8);
+        offCtx.quadraticCurveTo(center - maxSize * 1.5, center - maxSize * 0.5, center, center - maxSize * 1.8);
+        offCtx.closePath();
+        offCtx.fill();
+
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      } else {
+        // Default circular aura mote
+        offCtx.beginPath();
+        offCtx.arc(center, center, maxSize / 2, 0, Math.PI * 2);
+        offCtx.fill();
+
+        offCtx.shadowBlur = 0;
+        offCtx.fill();
+      }
     }
 
     const resizeObserver = new ResizeObserver(entries => {
@@ -148,7 +176,7 @@ export const ParticleSystem: React.FC<ParticleSystemProps> = React.memo(({
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
     };
-  }, [particles, resolvedColor]);
+  }, [particles, resolvedColor, style]);
 
   return (
     <>
