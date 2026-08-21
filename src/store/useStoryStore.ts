@@ -509,22 +509,48 @@ export const createStorySlice: StateCreator<AppState, [], [], StorySlice> = (set
     const { stories, setAppError } = get();
     try {
       const exportLibrary = [];
-      for (const story of stories) {
-        const exportData = JSON.parse(JSON.stringify(story));
+
+      const fetchFunctions: (() => Promise<{ storyId: string; chapterNumber: number; content: any }>)[] = [];
+      const storiesToExport = stories.map(s => JSON.parse(JSON.stringify(s)));
+
+      for (const exportData of storiesToExport) {
         if (exportData.arcs) {
           for (const arc of exportData.arcs) {
             for (const chapter of arc.chapters) {
               if (chapter.hasContent && (!chapter.generatedContent && (!chapter.blocks || chapter.blocks.length === 0))) {
-                 const content = await storyStorage.getChapterContent(story.id, chapter.number);
-                 if (content) {
-                   chapter.generatedContent = content.generatedContent;
-                   chapter.blocks = content.blocks;
-                   chapter.summary = content.summary;
-                   chapter.statsChangeMessage = content.statsChangeMessage;
-                   chapter.cuePayload = content.cuePayload;
-                   chapter.contextManifest = content.contextManifest;
-                 }
+                 fetchFunctions.push(
+                   () => storyStorage.getChapterContent(exportData.id, chapter.number)
+                     .then(content => ({ storyId: exportData.id, chapterNumber: chapter.number, content }))
+                 );
               }
+            }
+          }
+        }
+      }
+
+      // Batch fetches to avoid transaction limits and memory spikes on large libraries
+      const contents = [];
+      const BATCH_SIZE = 10;
+      for (let i = 0; i < fetchFunctions.length; i += BATCH_SIZE) {
+        const batch = fetchFunctions.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(batch.map(fn => fn()));
+        contents.push(...results);
+      }
+
+      for (const exportData of storiesToExport) {
+        if (exportData.arcs) {
+          for (const arc of exportData.arcs) {
+            for (const chapter of arc.chapters) {
+               const hydratedContent = contents.find(c => c.storyId === exportData.id && c.chapterNumber === chapter.number);
+               if (hydratedContent && hydratedContent.content) {
+                 const content = hydratedContent.content;
+                 chapter.generatedContent = content.generatedContent;
+                 chapter.blocks = content.blocks;
+                 chapter.summary = content.summary;
+                 chapter.statsChangeMessage = content.statsChangeMessage;
+                 chapter.cuePayload = content.cuePayload;
+                 chapter.contextManifest = content.contextManifest;
+               }
             }
           }
         }

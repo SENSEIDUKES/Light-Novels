@@ -1,9 +1,0 @@
-> **Historical plan — resolved.** This document describes the reader toggle race
-> fixed in the merged July 23, 2026 change. It is retained as investigation
-> history, not an active implementation plan.
-
-1. **Identify the bug**: In `src/hooks/useStoryEngine.ts`, `handleToggleRead` uses `store_stories` and `store_activeStoryId` from the hook's closure instead of `useAppStore.getState()`. When the toggle button is clicked rapidly, multiple invocations occur with the same stale state snapshot. This causes the chapter to repeatedly be marked from 'unread' to 'read', which repeatedly triggers `awardQi('chapter_finished')`, allowing infinite Qi gamification exploit and creating a race condition that could overwrite concurrent saves.
-2. **Impact**: Exploitable gamification system (infinite Qi), and data integrity stress (race conditions from stale closures overwriting state).
-3. **Fix**: In `src/hooks/useStoryEngine.ts`, modify `handleToggleRead` to read the freshest state synchronously using `const state = useAppStore.getState();` instead of relying on the closure variables from the top of the hook. This ensures that successive calls in the event loop will see the updated state immediately (since `store_saveStories` synchronously updates the local Zustand state before awaiting persistence).
-4. **Testing**: Write a test in `src/hooks/useStoryEngine.test.ts` to simulate rapid successive calls to `handleToggleRead` and verify that `awardQi` is only called once. Run `npm run test` and `npm run lint`.
-5. **Pre-commit**: Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.
