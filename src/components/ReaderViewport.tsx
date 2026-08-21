@@ -292,6 +292,63 @@ export function ReaderViewport({
     [codexTerms],
   );
 
+  const firstNarrativeIndex = React.useMemo(() => {
+    if (!selectedChapter.blocks) return -1;
+    return selectedChapter.blocks.findIndex(
+      (b) => (b.text || '').trim() && !b.system && !b.worldCard
+    );
+  }, [selectedChapter.blocks]);
+
+  const firstNarrativeContentIndex = React.useMemo(() => {
+    const source = activeTranslationContent || selectedChapter.generatedContent;
+    if (!source) return -1;
+    const paragraphs = source.split("\n\n");
+    return paragraphs.findIndex((p) => {
+      const clean = p.trim();
+      return clean && !(clean.startsWith("[") && clean.endsWith("]"));
+    });
+  }, [activeTranslationContent, selectedChapter.generatedContent]);
+
+  const renderParagraphWithDropCap = React.useCallback((
+    text: string,
+    paragraphIndex: number,
+    isFirstNarrative: boolean,
+  ) => {
+    const dropCapStyle = currentPrefs.dropCapStyle || 'default';
+    if (!isFirstNarrative || dropCapStyle === 'default' || !text) {
+      return renderHighlightedText(text, paragraphIndex);
+    }
+
+    const firstChar = text.charAt(0);
+    const restText = text.slice(1);
+    const theme = currentPrefs.themeOverride || 'void';
+    const accentColor = getThemeAccentColor(theme);
+
+    let dropCapClasses = '';
+    let dropCapStyleObj: React.CSSProperties = { color: accentColor };
+
+    if (dropCapStyle === 'classic') {
+      dropCapClasses = 'float-left text-3xl sm:text-4xl font-serif font-bold mr-2 mt-0.5 leading-none select-none';
+    } else if (dropCapStyle === 'celestial') {
+      dropCapClasses = 'float-left text-2xl sm:text-3xl font-mono font-bold mr-2.5 mt-0.5 px-2 py-0.5 rounded border bg-current/10 shadow-[0_0_12px_rgba(4,172,255,0.25)] leading-none select-none';
+      dropCapStyleObj = { color: accentColor, borderColor: `${accentColor}60` };
+    } else if (dropCapStyle === 'calligraphic') {
+      dropCapClasses = 'float-left text-3xl sm:text-4xl font-serif italic font-medium mr-2 mt-0.5 leading-none select-none drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]';
+    }
+
+    return (
+      <>
+        <span className="sr-only">{text}</span>
+        <span aria-hidden="true">
+          <span className={dropCapClasses} style={dropCapStyleObj} data-testid="drop-cap">
+            {firstChar}
+          </span>
+          {renderHighlightedText(restText, paragraphIndex)}
+        </span>
+      </>
+    );
+  }, [currentPrefs.dropCapStyle, currentPrefs.themeOverride, renderHighlightedText]);
+
   const bookmarkMap = React.useMemo(() => {
     const map = new Map<number, Bookmark>();
     if (!activeBookmarks) return map;
@@ -571,7 +628,7 @@ export function ReaderViewport({
                                 <div
                                   className={`reader-paragraph ${getFocusClass(index)}`}
                                 >
-                                  {renderHighlightedText(cleanText, index)}
+                                  {renderParagraphWithDropCap(cleanText, index, index === firstNarrativeContentIndex)}
                                 </div>
                               </div>
                             </div>
@@ -786,7 +843,7 @@ export function ReaderViewport({
                               />
                             ))}
                             <div className={`reader-paragraph relative ${getFocusClass(index)}`}>
-                              {renderHighlightedText(cleanText, index)}
+                              {renderParagraphWithDropCap(cleanText, index, index === firstNarrativeIndex)}
                               <button
                                  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                                   if (existingBookmark) {
@@ -965,7 +1022,7 @@ export function ReaderViewport({
                                   <div
                                     className="reader-paragraph"
                                   >
-                                    {renderHighlightedText(cleanText, index)}
+                                    {renderParagraphWithDropCap(cleanText, index, index === firstNarrativeContentIndex)}
                                   </div>
                                 </div>
                               </div>

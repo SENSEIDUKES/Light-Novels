@@ -56,6 +56,13 @@ const VIGNETTE_STYLE_OPTIONS = [
   { value: 'scroll', label: 'Ancient Parchment' },
 ] as const;
 
+const DROP_CAP_OPTIONS = [
+  { value: 'default', label: 'Standard Flow' },
+  { value: 'classic', label: 'Classic Drop Cap' },
+  { value: 'celestial', label: 'Illuminated Crest' },
+  { value: 'calligraphic', label: 'Gilded Script' },
+] as const;
+
 type NumericTypographyPreference =
   | 'lineHeightScale'
   | 'paragraphSpacingScale'
@@ -261,6 +268,21 @@ export const ReaderPreferencesPanel: React.FC<ReaderPreferencesPanelProps> = ({
                   <button key={option.value} type="button" onClick={() => handleUpdatePreference('dividerStyle', option.value)} className={choiceClass((currentPrefs.dividerStyle || 'default') === option.value)}>
                     <span>{option.label}</span>
                     {(currentPrefs.dividerStyle || 'default') === option.value ? <Check size={12} /> : null}
+                  </button>
+                ))}
+              </div>
+            </PreferenceGroup>
+
+            <PreferenceGroup
+              label="Opening Drop Cap"
+              icon={<Type size={13} />}
+              summary={DROP_CAP_OPTIONS.find(option => option.value === (currentPrefs.dropCapStyle || 'default'))?.label}
+            >
+              <div className="grid gap-1.5">
+                {DROP_CAP_OPTIONS.map(option => (
+                  <button key={option.value} type="button" onClick={() => handleUpdatePreference('dropCapStyle', option.value)} className={choiceClass((currentPrefs.dropCapStyle || 'default') === option.value)}>
+                    <span>{option.label}</span>
+                    {(currentPrefs.dropCapStyle || 'default') === option.value ? <Check size={12} /> : null}
                   </button>
                 ))}
               </div>

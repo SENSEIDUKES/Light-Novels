@@ -871,6 +871,7 @@ export function hydrateStoryWorld(graph: StoryGraph): StoryWorld | null {
       themeOverride: ownerReaderPreference.themeOverride,
       colorPaletteId: ownerReaderPreference.colorPaletteId,
       highlightStyle: ownerReaderPreference.highlightStyle,
+      dropCapStyle: (ownerReaderPreference as unknown as Record<string, unknown>).dropCapStyle as string | undefined,
     }) as unknown as StoryWorld['readerPreferences'] : undefined,
     bookmarks: ownerBookmarks.map(bookmark => ({
       id: bookmark.id,

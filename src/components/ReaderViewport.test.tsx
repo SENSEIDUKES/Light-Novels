@@ -348,4 +348,21 @@ describe('ReaderViewport', () => {
       name: `Manifest portrait for ${character.name}`,
     })).toBeNull();
   });
+
+  it('renders styled initial drop cap when dropCapStyle preference is enabled', () => {
+    render(<ReaderViewport {...makeProps({
+      selectedChapter: { ...baseChapter, generatedContent: 'In the ancient days, Qi flowed freely.' },
+      currentPrefs: {
+        fontSize: 'base',
+        fontFamily: 'serif',
+        lineHeight: 'normal',
+        paragraphSpacing: 'normal',
+        dropCapStyle: 'classic',
+      },
+    })} />);
+
+    const dropCap = screen.getByTestId('drop-cap');
+    expect(dropCap).toBeDefined();
+    expect(dropCap.textContent).toBe('I');
+  });
 });
