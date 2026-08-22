@@ -3,7 +3,7 @@ import { useAppStore } from './useAppStore';
 import { storyStorage } from '../lib/storage';
 
 describe('useStoryStore handleExportLibrary performance pattern', () => {
-  it('should use concurrent promises for chapter content fetches during library export', async () => {
+  it('should batch chapter hydration at 10 concurrent reads and export the hydrated content', async () => {
     const createElementSpy = vi.spyOn(document, 'createElement');
     const mockAnchor = {
       setAttribute: vi.fn(),
@@ -13,24 +13,24 @@ describe('useStoryStore handleExportLibrary performance pattern', () => {
     createElementSpy.mockReturnValue(mockAnchor as any);
     const appendSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => null as any);
 
-    // Track active promises to detect concurrency
+    // Track active promises to verify the batch boundary.
     let activeFetches = 0;
     let maxConcurrentFetches = 0;
 
-    const contentSpy = vi.spyOn(storyStorage, 'getChapterContent').mockImplementation(async () => {
+    const contentSpy = vi.spyOn(storyStorage, 'getChapterContent').mockImplementation(async (storyId, chapterNumber) => {
       activeFetches++;
       if (activeFetches > maxConcurrentFetches) {
         maxConcurrentFetches = activeFetches;
       }
 
-      // Artificial delay to allow other concurrent fetches to start if they are running in Promise.all
+      // Artificial delay lets all reads in a batch start before any resolve.
       await new Promise(r => setTimeout(r, 10));
 
       activeFetches--;
       return {
-        storyId: '123',
-        chapterNumber: 1,
-        generatedContent: 'Hydrated content',
+        storyId,
+        chapterNumber,
+        generatedContent: `Hydrated ${storyId}-${chapterNumber}`,
       } as any;
     });
 
@@ -41,22 +41,11 @@ describe('useStoryStore handleExportLibrary performance pattern', () => {
           title: 'Story 1',
           arcs: [
             {
-              chapters: [
-                { number: 1, hasContent: true, generatedContent: '' },
-                { number: 2, hasContent: true, generatedContent: '' },
-              ]
-            }
-          ]
-        },
-        {
-          id: 'story2',
-          title: 'Story 2',
-          arcs: [
-            {
-              chapters: [
-                { number: 1, hasContent: true, generatedContent: '' },
-                { number: 2, hasContent: true, generatedContent: '' },
-              ]
+              chapters: Array.from({ length: 11 }, (_, index) => ({
+                number: index + 1,
+                hasContent: true,
+                generatedContent: '',
+              }))
             }
           ]
         }
@@ -65,9 +54,17 @@ describe('useStoryStore handleExportLibrary performance pattern', () => {
 
     await useAppStore.getState().handleExportLibrary();
 
-    expect(contentSpy).toHaveBeenCalledTimes(4);
-    expect(maxConcurrentFetches).toBeGreaterThan(1);
-    expect(maxConcurrentFetches).toBeLessThanOrEqual(10);
+    expect(contentSpy).toHaveBeenCalledTimes(11);
+    expect(maxConcurrentFetches).toBe(10);
+
+    const hrefCall = mockAnchor.setAttribute.mock.calls.find(([name]) => name === 'href');
+    expect(hrefCall).toBeTruthy();
+    const dataUrl = hrefCall?.[1] as string;
+    const exported = JSON.parse(
+      decodeURIComponent(dataUrl.replace('data:text/json;charset=utf-8,', '')),
+    );
+    expect(exported[0].arcs[0].chapters[0].generatedContent).toBe('Hydrated story1-1');
+    expect(exported[0].arcs[0].chapters[10].generatedContent).toBe('Hydrated story1-11');
 
     contentSpy.mockRestore();
     createElementSpy.mockRestore();
