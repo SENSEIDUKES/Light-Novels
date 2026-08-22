@@ -138,7 +138,7 @@ describe('ClosedDoorCultivationModal', () => {
 
     // the three-phase sequence (dantian absorption + emblem flight) starts at once
     expect(onClaim).toHaveBeenCalledWith(12);
-    expect(document.querySelector('button[aria-label="12 Qi, absorbing…"]')).toBeDefined();
+    expect(document.querySelector('button[aria-label="12 Qi, absorbing…"]')).not.toBeNull();
     expect(document.querySelectorAll('.z-\\[110\\]').length).toBe(2);
     expect(onClose).not.toHaveBeenCalled();
 

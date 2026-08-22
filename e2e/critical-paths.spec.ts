@@ -50,7 +50,7 @@ test.describe('Critical Paths', () => {
     await expect(tiersBtn).toBeVisible();
     await tiersBtn.click();
 
-    // Verify Pricing Screen loaded
+    // Verify Guild Notice Board loaded
     await expect(page.getByRole('heading', { name: 'Guild Notice Board' })).toBeVisible();
   });
 });
