@@ -1,7 +1,7 @@
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ClosedDoorCultivationModal } from './ClosedDoorCultivationModal';
+import { ClosedDoorCultivationModal } from '@seihouse/sen/closed-door-cultivation';
 
 vi.mock('motion/react', () => {
   const strip = ({ children, initial: _i, animate: _a, exit: _e, transition: _t, ...props }: any) => (
@@ -19,6 +19,7 @@ vi.mock('motion/react', () => {
       span: ({ children, initial: _i, animate: _a, exit: _e, transition: _t, ...props }: any) => (
         <span {...props}>{children}</span>
       ),
+      rect: ({ initial: _i, animate: _a, transition: _t, ...props }: any) => <rect {...props} />,
     },
     AnimatePresence: ({ children }: any) => <>{children}</>,
     useReducedMotion: () => false,
@@ -131,13 +132,13 @@ describe('ClosedDoorCultivationModal', () => {
     renderModal({ onClaim, onClose });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Claim & Awaken' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Claim 12 Qi & Awaken' }));
       await Promise.resolve();
     });
 
     // the three-phase sequence (dantian absorption + emblem flight) starts at once
     expect(onClaim).toHaveBeenCalledWith(12);
-    expect(screen.getByRole('button', { name: 'Absorbing Qi...' })).toBeDefined();
+    expect(document.querySelector('button[aria-label="12 Qi, absorbing…"]')).not.toBeNull();
     expect(document.querySelectorAll('.z-\\[110\\]').length).toBe(2);
     expect(onClose).not.toHaveBeenCalled();
 
@@ -170,7 +171,7 @@ describe('ClosedDoorCultivationModal', () => {
     renderModal({ onClaim, onClose });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Claim & Awaken' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Claim 12 Qi & Awaken' }));
       await Promise.resolve();
     });
 
@@ -179,10 +180,10 @@ describe('ClosedDoorCultivationModal', () => {
     // the reward is still waiting: overlays cleared, dialog restored for a retry
     expect(document.querySelectorAll('.z-\\[110\\]').length).toBe(0);
     expect(screen.getByRole('dialog')).toBeDefined();
-    expect(screen.getByRole('button', { name: 'Claim & Awaken' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Claim 12 Qi & Awaken' })).toBeDefined();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Claim & Awaken' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Claim 12 Qi & Awaken' }));
       await Promise.resolve();
     });
     expect(onClaim).toHaveBeenCalledTimes(2);
@@ -199,16 +200,16 @@ describe('ClosedDoorCultivationModal', () => {
     expect(screen.getByRole('dialog')).toBeDefined();
 
     act(() => {
-      vi.advanceTimersByTime(7000);
+      vi.advanceTimersByTime(5000);
     });
 
     expect(screen.queryByRole('dialog')).toBeNull();
-    const waitingIcon = screen.getByRole('button', { name: 'Open closed-door cultivation reward' });
+    const waitingIcon = screen.getByRole('button', { name: 'Open closed-door cultivation reward of 12 Qi' });
     expect(waitingIcon).toBeDefined();
 
     fireEvent.click(waitingIcon);
     expect(screen.getByRole('dialog')).toBeDefined();
-    expect(screen.getByRole('button', { name: 'Claim & Awaken' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Claim 12 Qi & Awaken' })).toBeDefined();
   });
 
   it('resets the claim state when a new reward cycle begins', async () => {
@@ -219,7 +220,7 @@ describe('ClosedDoorCultivationModal', () => {
     );
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Claim & Awaken' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Claim 12 Qi & Awaken' }));
       await Promise.resolve();
     });
     await act(async () => {
@@ -237,6 +238,6 @@ describe('ClosedDoorCultivationModal', () => {
     );
     expect(screen.getByRole('dialog')).toBeDefined();
     expect(screen.getByText('+5 QI')).toBeDefined();
-    expect(screen.getByRole('button', { name: 'Claim & Awaken' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Claim 5 Qi & Awaken' })).toBeDefined();
   });
 });

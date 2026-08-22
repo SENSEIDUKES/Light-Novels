@@ -58,7 +58,7 @@ import { PricingScreen } from './components/PricingScreen';
 import UserProfile from './components/UserProfile';
 import { ChallengeScreen } from './components/ChallengeScreen';
 import { SectPage } from './components/SectPage';
-import { ClosedDoorCultivationModal } from './components/ClosedDoorCultivationModal';
+import { ClosedDoorCultivationModal } from '@seihouse/sen/closed-door-cultivation';
 import { useClosedDoorCultivation } from './hooks/useClosedDoorCultivation';
 import { RankUpCelebration } from './components/RankUpCelebration';
 
