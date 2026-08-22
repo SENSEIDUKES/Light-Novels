@@ -348,4 +348,32 @@ describe('ReaderViewport', () => {
       name: `Manifest portrait for ${character.name}`,
     })).toBeNull();
   });
+
+  it('renders styled drop cap on the first narrative paragraph when dropCapStyle is active', () => {
+    render(<ReaderViewport {...makeProps({
+      currentPrefs: {
+        fontSize: 'base',
+        fontFamily: 'serif',
+        lineHeight: 'normal',
+        paragraphSpacing: 'normal',
+        dropCapStyle: 'classic',
+      },
+      selectedChapter: {
+        ...baseChapter,
+        generatedContent: 'Once upon a time.\n\nThen things happened.',
+      },
+    })} />);
+
+    // Screen reader accessible span should hold full text
+    const srOnlySpan = screen.getByText('Once upon a time.');
+    expect(srOnlySpan.className).toContain('sr-only');
+
+    // Visual drop cap span should hold the initial letter 'O' with aria-hidden
+    const visualDropCap = screen.getByText('O');
+    expect(visualDropCap.className).toContain('float-left');
+    expect(visualDropCap.closest('[aria-hidden="true"]')).toBeTruthy();
+
+    // Second paragraph should be standard text without drop cap splitting
+    expect(screen.getByText('Then things happened.')).toBeDefined();
+  });
 });

@@ -157,6 +157,31 @@ export function ReaderViewport({
   const readingLanguage = activeTranslationContent ? preferredLang : 'en';
   const typography = getReaderTypography(currentPrefs);
 
+  const dropCapStyle = currentPrefs?.dropCapStyle || 'off';
+
+  const firstNarrativeBlockIndex = React.useMemo(() => {
+    if (!selectedChapter.blocks || selectedChapter.blocks.length === 0) return -1;
+    return selectedChapter.blocks.findIndex(b => {
+      const text = (b.text || '').trim();
+      if (!text) return false;
+      if (b.system || b.worldCard) return false;
+      const isSystemLine = text.startsWith('[') && text.endsWith(']');
+      return !isSystemLine;
+    });
+  }, [selectedChapter.blocks]);
+
+  const firstNarrativeParagraphIndex = React.useMemo(() => {
+    const source = activeTranslationContent || selectedChapter.generatedContent;
+    if (!source) return -1;
+    const paragraphs = source.split('\n\n');
+    return paragraphs.findIndex(p => {
+      const clean = p.trim();
+      if (!clean) return false;
+      const isSystemLine = clean.startsWith('[') && clean.endsWith(']');
+      return !isSystemLine;
+    });
+  }, [activeTranslationContent, selectedChapter.generatedContent]);
+
   const getThemeAccentColor = (theme: string) => {
     switch (theme) {
       case "crimson": return "#8B0000"; // Deep crimson
@@ -175,6 +200,35 @@ export function ReaderViewport({
       case "emerald": return "text-jade-accent";
       default: return "text-portal";
     }
+  };
+
+  const renderParagraphContent = (text: string, paragraphIndex: number, isFirstNarrative: boolean) => {
+    if (!isFirstNarrative || dropCapStyle === 'off' || !text) {
+      return renderHighlightedText(text, paragraphIndex);
+    }
+
+    const firstChar = text.charAt(0);
+    const restText = text.slice(1);
+    const themeClass = getThemeTextClass(currentPrefs.themeOverride || 'void');
+
+    let dropCapClasses = '';
+    if (dropCapStyle === 'classic') {
+      dropCapClasses = `float-left text-3xl sm:text-4xl leading-none font-bold mr-2 sm:mr-2.5 mt-0.5 ${themeClass} drop-shadow-sm select-none`;
+    } else if (dropCapStyle === 'seal') {
+      dropCapClasses = `float-left text-2xl sm:text-3xl leading-none font-bold font-sc mr-2.5 sm:mr-3 mt-0.5 px-2 py-1 border border-current bg-current/10 ${themeClass} rounded shadow-[0_0_10px_rgba(4,172,255,0.15)] select-none`;
+    } else if (dropCapStyle === 'illuminated') {
+      dropCapClasses = `float-left text-3xl sm:text-4xl leading-none font-extrabold font-display mr-2 sm:mr-2.5 mt-0.5 text-gold-accent drop-shadow-[0_0_12px_rgba(255,215,0,0.4)] motion-reduce:drop-shadow-none select-none`;
+    }
+
+    return (
+      <>
+        <span className="sr-only">{text}</span>
+        <span aria-hidden="true" className="block overflow-hidden">
+          <span className={dropCapClasses}>{firstChar}</span>
+          {renderHighlightedText(restText, paragraphIndex)}
+        </span>
+      </>
+    );
   };
 
   const renderChapterDivider = () => {
@@ -571,7 +625,7 @@ export function ReaderViewport({
                                 <div
                                   className={`reader-paragraph ${getFocusClass(index)}`}
                                 >
-                                  {renderHighlightedText(cleanText, index)}
+                                  {renderParagraphContent(cleanText, index, index === firstNarrativeParagraphIndex)}
                                 </div>
                               </div>
                             </div>
@@ -786,7 +840,7 @@ export function ReaderViewport({
                               />
                             ))}
                             <div className={`reader-paragraph relative ${getFocusClass(index)}`}>
-                              {renderHighlightedText(cleanText, index)}
+                              {renderParagraphContent(cleanText, index, index === firstNarrativeBlockIndex)}
                               <button
                                  tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } }} onClick={() => {
                                   if (existingBookmark) {
@@ -965,7 +1019,7 @@ export function ReaderViewport({
                                   <div
                                     className="reader-paragraph"
                                   >
-                                    {renderHighlightedText(cleanText, index)}
+                                    {renderParagraphContent(cleanText, index, index === firstNarrativeParagraphIndex)}
                                   </div>
                                 </div>
                               </div>

@@ -107,4 +107,22 @@ describe('ReaderPreferencesPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /Cinematic Shadow/i }));
     expect(handleUpdatePreference).toHaveBeenCalledWith('vignetteStyle', 'radial');
   });
+
+  it('allows customizing the drop cap style and triggers updates', async () => {
+    const handleUpdatePreference = vi.fn();
+    render(
+      <ReaderPreferencesPanel
+        currentPrefs={{ fontFamily: 'serif', fontSize: 'lg', lineHeight: 'relaxed', paragraphSpacing: 'normal', themeOverride: 'void', dropCapStyle: 'off' }}
+        handleUpdatePreference={handleUpdatePreference}
+        onResetTypography={vi.fn()}
+      />,
+    );
+
+    const dropCapToggle = screen.getByRole('button', { name: /Initial Drop Cap/i });
+    expect(dropCapToggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('button', { name: /Imperial Seal/i })).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: /Imperial Seal/i }));
+    expect(handleUpdatePreference).toHaveBeenCalledWith('dropCapStyle', 'seal');
+  });
 });

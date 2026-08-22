@@ -1,3 +1,7 @@
 ## 2024-07-23 - Conditional Style Customization for UI Elements
 **Learning:** Adding a styling preference requires passing it through several component layers (from global/context preferences down to the specific UI component). In this case, `playerStyle` had to be added to `ReaderPreferences`, passed from `ReaderChamber` via `PlaybackState` into `ReaderControls`, and finally applied conditionally inside `PlaybackControls`. The existing preference updating mechanism (`handleUpdatePreference`) smoothly handles adding new generic preference keys without requiring complex global state rework.
 **Action:** Next time I add a cosmetic choice, follow the pattern: 1) Add type property to preferences. 2) Add UI control calling `handleUpdatePreference(key, value)`. 3) Thread the property down via props if the target component is deeply nested. 4) Render conditionally using inline classes.
+
+## 2026-08-22 - Accessible Initial Drop Cap Rendering
+**Learning:** When styling initial drop caps or initial letters in reader prose, splitting text into a separate initial letter span breaks screen reader word pronunciation (e.g. "T... he" instead of "The"). To maintain complete accessibility, wrap the original un-split paragraph in a `.sr-only` span and wrap the visual drop cap layout in `aria-hidden="true"`.
+**Action:** Always pair visual drop cap initial letters with an `sr-only` full-text fallback and `aria-hidden="true"` on the styled visual drop cap.
