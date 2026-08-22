@@ -322,6 +322,33 @@ export default function ReaderChamber({
   // --- Theme & Reader Typography Customizer States ---
   const [showReaderPreferences, setShowReaderPreferences] = useState(false);
 
+  const preferencesPanelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (
+        showReaderPreferences &&
+        preferencesPanelRef.current &&
+        !preferencesPanelRef.current.contains(event.target as Node)
+      ) {
+        // Also ensure we aren't clicking the toggle button in the header
+        const target = event.target as Element;
+        if (!target.closest('[aria-label="Aetherial Styles"]')) {
+          setShowReaderPreferences(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [showReaderPreferences]);
+
+
   const defaultPrefs: ReaderPreferences = {
     fontSize: "lg",
     fontFamily: "serif",
@@ -964,6 +991,9 @@ export default function ReaderChamber({
       {/* Dynamic Collapsible Reader Preferences Panel */}
       <AnimatePresence>
         {showReaderPreferences && (
+          <motion.div ref={preferencesPanelRef}
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}>
           <ReaderPreferencesPanel
             currentPrefs={currentPrefs}
             handleUpdatePreference={handleUpdatePreference}
@@ -979,6 +1009,7 @@ export default function ReaderChamber({
               }
             }}
           />
+          </motion.div>
         )}
       </AnimatePresence>
 
