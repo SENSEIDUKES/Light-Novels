@@ -11,6 +11,14 @@ export default defineConfig({
     // on high-core local/CI hosts while keeping file-level parallelism.
     maxWorkers: 4,
     exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**', '**/.{idea,git,cache,output,temp}/**'],
+    server: {
+      deps: {
+        // SEN component entries import their packaged stylesheet as a side
+        // effect. Let Vite transform the package so jsdom never sees a raw
+        // CSS import through Node's external-module loader.
+        inline: ['@seihouse/sen'],
+      },
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

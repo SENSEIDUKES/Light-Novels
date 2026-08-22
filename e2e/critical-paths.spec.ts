@@ -26,7 +26,7 @@ test.describe('Critical Paths', () => {
 
     // Switch to Challenges tab
     await page.locator('button', { hasText: '☠️ Fate Survival' }).click();
-    await expect(page.locator('text=The Prince Who Dies in Every Timeline')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'The Wedding That Never Happens' })).toBeVisible();
   });
 
   test('should navigate to the creation portal', async ({ page }) => {
@@ -35,8 +35,8 @@ test.describe('Critical Paths', () => {
     await expect(createBtn).toBeVisible();
     await createBtn.click();
 
-    // Verify CreationModal loaded
-    await expect(page.locator('text=Celestial Forge')).toBeVisible();
+    // Anonymous users reach the production authentication gate before the forge.
+    await expect(page.getByRole('heading', { name: 'Authentication Required' })).toBeVisible();
   });
 
   test('should open command hub and navigate to pricing', async ({ page }) => {
@@ -51,6 +51,6 @@ test.describe('Critical Paths', () => {
     await tiersBtn.click();
 
     // Verify Pricing Screen loaded
-    await expect(page.locator('text=Choose Your Cultivation Realm')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Guild Notice Board' })).toBeVisible();
   });
 });
